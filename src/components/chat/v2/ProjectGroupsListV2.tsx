@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from '@/lib/utils/date';
 import { BellOff, Folder, Users } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import { cn } from '@/lib/utils';

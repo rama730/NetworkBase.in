@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from '@/lib/utils/date';
 import { Archive, Bell, BellOff, MessageSquare } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import { useSwipeAction } from '@/hooks/useSwipeAction';

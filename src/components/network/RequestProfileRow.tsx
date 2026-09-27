@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/lib/utils/date";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { profileHref } from "@/lib/routing/identifiers";
 

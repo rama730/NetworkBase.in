@@ -35,7 +35,7 @@ import {
     calculateTaskTimeHealth,
 } from "@/lib/projects/task-presentation";
 import { formatTaskId } from "@/lib/project-key";
-import { format, parseISO } from "date-fns";
+import { format, parseISO } from "@/lib/utils/date";
 import {
     DropdownMenu,
     DropdownMenuContent,

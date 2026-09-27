@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from '@/lib/utils/date';
 import { ArrowLeft, ArrowRight, Briefcase, Filter, SortAsc } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import { cn } from '@/lib/utils';

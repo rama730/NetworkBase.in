@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/lib/utils/date";
 import { CheckCircle2, FilePlus2, GitBranch, UserRoundPlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { readProjectRecentActivityAction } from "@/app/actions/project/recent-activity";

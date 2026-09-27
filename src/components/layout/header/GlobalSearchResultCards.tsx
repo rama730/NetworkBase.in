@@ -1,6 +1,6 @@
 "use client";
 
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "@/lib/utils/date";
 import {
     ArrowRight,
     Bell,

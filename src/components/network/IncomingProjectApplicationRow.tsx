@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Check, Loader2, X } from "lucide-react";
-import { formatDistanceToNowStrict } from "date-fns";
+import { formatDistanceToNowStrict } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { profileHref } from "@/lib/routing/identifiers";

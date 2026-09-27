@@ -30,7 +30,7 @@ import {
     extractApplicationBody,
     hashText,
 } from '@/lib/chat/application-events';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from '@/lib/utils/date';
 import { getStructuredMessageFromMetadata } from '@/lib/messages/structured';
 import { useAuth } from '@/hooks/useAuth';
 
