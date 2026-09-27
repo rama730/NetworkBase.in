@@ -153,5 +153,6 @@ test("Domain G: Project page route consolidates viewer identity context", () => 
 
   assert.doesNotMatch(pageContent, /getViewerAuthContext/);
   assert.match(pageContent, /getViewerIdentityContext/);
-  assert.match(pageContent, /const { viewerIdentity, result } = await readProjectRouteShell\(slug\);/);
+  assert.match(pageContent, /const { result } = await readProjectRouteShell\(slug\);/);
+  assert.match(pageContent, /const sprintPromise = selectedTab === "sprints"/);
 });

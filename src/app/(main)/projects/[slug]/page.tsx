@@ -105,8 +105,13 @@ async function ResolvedProjectDashboard({
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
     const selectedTab = _searchParams?.tab || "dashboard";
     const sprintId = _searchParams?.sprint ?? _searchParams?.sprintId;
-    const { viewerIdentity, result } = await readProjectRouteShell(slug);
+    const viewerIdentity = await getViewerIdentityContext();
     const { user } = viewerIdentity;
+    const sprintPromise = selectedTab === "sprints"
+        ? readProjectSprintDetailCached(slug, user?.id ?? null, 24, sprintId, _searchParams?.task ?? _searchParams?.taskId)
+        : null;
+    sprintPromise?.catch(() => null);
+    const { result } = await readProjectRouteShell(slug);
     const clientViewer = toClientViewer(viewerIdentity);
 
     if (!result.success) {
@@ -131,9 +136,7 @@ async function ResolvedProjectDashboard({
         isOwnerOrMember: capabilities.isOwner || capabilities.isMember,
         publicTabVisibility: project.publicTabVisibility,
     });
-    const sprintResult = selectedTab === "sprints" && canViewSprints
-        ? await readProjectSprintDetailCached(slug, user?.id ?? null, 24, sprintId, _searchParams?.task ?? _searchParams?.taskId)
-        : null;
+    const sprintResult = canViewSprints && sprintPromise ? await sprintPromise : null;
 
     const dataHardeningEnabled = isHardeningDomainEnabled('dataV1', user?.id ?? null);
     const filesHardeningEnabled = isHardeningDomainEnabled('filesV1', user?.id ?? null);
