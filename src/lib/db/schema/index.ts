@@ -2734,9 +2734,15 @@ export const projectNodes = pgTable(
     activeParentIdx: index("project_nodes_active_parent_idx")
       .on(t.projectId, t.parentId)
       .where(sql`${t.deletedAt} IS NULL`),
-    permDelRootIdx: index("idx_project_nodes_perm_del")
-      .on(t.projectId, sql`(${t.metadata}->>'permanentDeleteRoot')`)
-      .where(sql`${t.deletedAt} IS NOT NULL`),
+    activeFileIdx: index("project_nodes_active_file_idx")
+      .on(t.projectId, t.id)
+      .where(sql`${t.type} = 'file' AND ${t.deletedAt} IS NULL`),
+    activeFileS3KeyIdx: index("project_nodes_active_file_s3_key_idx")
+      .on(t.s3Key.op("text_pattern_ops"))
+      .where(sql`${t.type} = 'file' AND ${t.deletedAt} IS NULL`),
+    permanentDeleteRootIdx: index("project_nodes_permanent_delete_root_idx")
+      .on(t.updatedAt)
+      .where(sql`${t.deletedAt} IS NOT NULL AND (${t.metadata}->>'permanentDeleteRoot') = ${t.id}::text`),
   }),
 );
 
@@ -3022,6 +3028,10 @@ export const projectNodeEvents = pgTable(
       t.sequenceNumber,
       t.createdAt,
     ),
+    reconciliationKeyIdx: index("project_node_events_reconciliation_key_idx").on(
+      t.projectId,
+      sql`(${t.metadata}->>'reconciliationKey')`,
+    ),
   }),
 );
 
@@ -3050,7 +3060,7 @@ export const githubSyncRuns = pgTable("github_sync_runs", {
   leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-}, t => ({ projectIdx: index("github_sync_runs_project_idx").on(t.projectId, t.createdAt.desc()), queueIdx: index("github_sync_runs_queue_idx").on(t.status, t.updatedAt), activeIdx: uniqueIndex("github_sync_runs_active_idx").on(t.projectId).where(sql`${t.status} IN ('queued', 'running')`) }));
+}, t => ({ projectIdx: index("github_sync_runs_project_idx").on(t.projectId, t.createdAt.desc()), queueIdx: index("github_sync_runs_queue_idx").on(t.status, t.updatedAt), activeIdx: uniqueIndex("github_sync_runs_active_idx").on(t.projectId).where(sql`${t.status} IN ('queued', 'running')`), actorIdx: index("github_sync_runs_actor_idx").on(t.actorId) }));
 export const githubSyncFiles = pgTable("github_sync_files", {
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   repositoryId: bigint("repository_id", { mode: "number" }).notNull(),
