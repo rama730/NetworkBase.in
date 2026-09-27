@@ -13,7 +13,7 @@ import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { useChangePassword } from "@/hooks/useSettingsQueries";
 import { queryKeys } from "@/lib/query-keys";
 import { getPasswordPolicyResult, PASSWORD_MIN_LENGTH } from "@/lib/security/password-policy";
-import type { SecurityData } from "@/lib/types/settingsTypes";
+import type { SecurityData } from "@/types/settingsTypes";
 
 type SecurityStepUpMethod = "totp" | "recovery_code";
 

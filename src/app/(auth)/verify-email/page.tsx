@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 import { Mail, Loader2, RefreshCcw } from 'lucide-react'
 
-import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { LegalLinks } from '@/components/legal/LegalLinks'

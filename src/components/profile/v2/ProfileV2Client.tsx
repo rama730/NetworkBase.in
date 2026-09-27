@@ -9,7 +9,7 @@ import type { ProfileCollaborationSummary, ProfileInviteProjectOption } from '@/
 import { ProfileShell } from './ProfileShell'
 import { ProfileTabs } from './ProfileTabs'
 import { toast } from 'sonner';
-import { useAuth } from '@/lib/hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { invalidatePrivacyDependents } from '@/lib/privacy/client-invalidation';
 import type { ConnectionState } from './types';
 import { logger } from '@/lib/logger';

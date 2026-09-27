@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import type { User } from "@supabase/supabase-js";
 import { buildIntegrationsData } from "@/lib/settings/integrations";
-import type { GithubLinkedProject } from "@/lib/types/settingsTypes";
+import type { GithubLinkedProject } from "@/types/settingsTypes";
 
 function mockUser(overrides: Partial<User>): User {
   return {

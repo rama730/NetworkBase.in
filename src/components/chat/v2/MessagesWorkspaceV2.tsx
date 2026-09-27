@@ -29,7 +29,7 @@ import { useMessagingShortcuts } from '@/hooks/useMessagingShortcuts';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { usePresenceHealth } from '@/hooks/usePresenceHealth';
 import { useMessagesV2UiStore } from '@/stores/messagesV2UiStore';
-import { useUIStore } from '@/lib/stores/ui-store';
+import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
 import {
     patchInboxConversation,

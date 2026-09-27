@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { SecurityActivityEntry } from "@/lib/types/settingsTypes";
+import type { SecurityActivityEntry } from "@/types/settingsTypes";
 import { SecurityListRow } from "@/components/settings/ui/SecurityListRow";
 import { formatDateTime } from "@/lib/ui/date-formatting";
 

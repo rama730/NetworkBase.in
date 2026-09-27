@@ -31,7 +31,7 @@ import { ProfileAvatar } from "./ProfileAvatar";
 import { OnlineIndicator } from "@/components/ui/OnlineIndicator";
 
 
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import { ROUTES } from "@/constants/routes";
@@ -43,7 +43,7 @@ import {
 } from "./global-search";
 import { useMessagesV2UiStore } from "@/stores/messagesV2UiStore";
 import { useMessageAttention } from "@/components/providers/MessageAttentionProvider";
-import { useUIStore } from "@/lib/stores/ui-store";
+import { useUIStore } from "@/stores/ui-store";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import { getWorkspaceSummaryAction } from "@/app/actions/workspace";
 import { queryKeys } from "@/lib/query-keys";

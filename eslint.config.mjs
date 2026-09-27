@@ -20,7 +20,6 @@ const eslintConfig = defineConfig([
     // toolchains; they are not part of the Next product lint boundary.
     ".agents/**",
     "scratch/**",
-    "services/**",
   ]),
   {
     rules: {

@@ -28,7 +28,7 @@ import {
     repairOnboardingClaims,
 } from '@/app/actions/onboarding'
 import { createProfileImageUploadUrlAction, finalizeProfileImageUploadAction } from '@/app/actions/profile'
-import { useAuth } from '@/lib/hooks/use-auth'
+import { useAuth } from '@/hooks/use-auth'
 import { useOnboardingBootstrap } from '@/components/onboarding/OnboardingBootstrapProvider'
 import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client'
 import { validateUsername } from '@/lib/validations/username'

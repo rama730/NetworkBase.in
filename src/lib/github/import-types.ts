@@ -1,4 +1,4 @@
-import type { ExternalAccountHealth } from "@/lib/types/settingsTypes";
+import type { ExternalAccountHealth } from "@/types/settingsTypes";
 
 export type GithubImportAccessState = {
   linked: boolean;

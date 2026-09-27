@@ -44,7 +44,7 @@ import type {
 } from "@/lib/notifications/types";
 import { queryKeys } from "@/lib/query-keys";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useMessagesV2UiStore } from "@/stores/messagesV2UiStore";
 import { recordMessagesOpen } from "@/lib/messages/observability";
 

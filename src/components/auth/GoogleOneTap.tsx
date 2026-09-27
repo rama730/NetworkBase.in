@@ -3,7 +3,7 @@
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import { useSecurityRuntime } from "@/components/providers/SecurityRuntimeProvider";
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import {
   createGoogleOneTapNonce,
   getGoogleOneTapClientId,

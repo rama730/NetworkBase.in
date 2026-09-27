@@ -13,7 +13,7 @@ import { usePrivacySettings } from "@/hooks/useSettingsQueries";
 import { invalidatePrivacyDependents } from "@/lib/privacy/client-invalidation";
 import type { ConnectionPrivacySetting, MessagePrivacySetting, ProfileVisibilitySetting } from "@/lib/privacy/relationship-state";
 import { profileHref } from "@/lib/routing/identifiers";
-import type { PrivacyBlockedAccount } from "@/lib/types/settingsTypes";
+import type { PrivacyBlockedAccount } from "@/types/settingsTypes";
 import { formatCalendarDate, formatDateTime } from "@/lib/ui/date-formatting";
 import { cn } from "@/lib/utils";
 

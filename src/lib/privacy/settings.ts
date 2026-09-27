@@ -8,7 +8,7 @@ import type {
   ProfileVisibilitySetting,
 } from "@/lib/privacy/relationship-state";
 
-import type { PrivacyBlockedAccount, PrivacySettingsState } from "@/lib/types/settingsTypes";
+import type { PrivacyBlockedAccount, PrivacySettingsState } from "@/types/settingsTypes";
 
 type PrivacySettingsTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 

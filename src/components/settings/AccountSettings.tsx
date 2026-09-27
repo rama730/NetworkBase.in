@@ -12,7 +12,7 @@ import PendingDeletionBanner from "@/components/settings/PendingDeletionBanner";
 import { useAccountDeletionStatus } from "@/hooks/useSettingsQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { cacheManager } from "@/lib/utils/cache-manager";
 
 export default function AccountPage({ embedded = false }: { embedded?: boolean }) {

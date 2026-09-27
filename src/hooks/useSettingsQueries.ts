@@ -14,7 +14,7 @@ import type {
   NotificationPreferences,
   PrivacyData,
   SecurityData,
-} from "@/lib/types/settingsTypes";
+} from "@/types/settingsTypes";
 import { queryKeys } from "@/lib/query-keys";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,

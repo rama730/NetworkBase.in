@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { CurrentLocation } from "./navigation";
-import type { ExtensionSessionData } from "@/lib/types/settingsTypes";
+import type { ExtensionSessionData } from "@/types/settingsTypes";
 
 interface OpenInIdeButtonProps {
   projectId: string;

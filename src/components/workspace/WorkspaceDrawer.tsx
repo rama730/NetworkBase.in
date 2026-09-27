@@ -3,7 +3,7 @@
 import React from "react";
 import { Inbox, ListChecks, X } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { useUIStore } from "@/lib/stores/ui-store";
+import { useUIStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";

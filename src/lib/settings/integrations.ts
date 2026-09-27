@@ -9,7 +9,7 @@ import {
 } from "@/lib/auth/account-identity";
 import { isEmailVerified } from "@/lib/auth/email-verification";
 import { buildGithubAccountConnectionState } from "@/lib/github/connection-state";
-import type { AuthConnectionMethod, ExternalAccountHealth, GithubLinkedProject, GithubServiceConnection, IntegrationsData } from "@/lib/types/settingsTypes";
+import type { AuthConnectionMethod, ExternalAccountHealth, GithubLinkedProject, GithubServiceConnection, IntegrationsData } from "@/types/settingsTypes";
 
 type BuildIntegrationsDataInput = {
   user: User;

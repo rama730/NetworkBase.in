@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { readShellPart } from "@/lib/shell-batch";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
-import { useUIStore } from "@/lib/stores/ui-store";
+import { useUIStore } from "@/stores/ui-store";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 
 export default function WorkspaceIndicator() {

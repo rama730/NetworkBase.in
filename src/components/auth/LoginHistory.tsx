@@ -2,7 +2,7 @@
 
 import { MapPin } from "lucide-react";
 import { parseUserAgent } from "@/lib/utils/device";
-import type { LoginHistoryEntry } from "@/lib/types/settingsTypes";
+import type { LoginHistoryEntry } from "@/types/settingsTypes";
 import { SecurityListRow } from "@/components/settings/ui/SecurityListRow";
 import { formatDateTime } from "@/lib/ui/date-formatting";
 
