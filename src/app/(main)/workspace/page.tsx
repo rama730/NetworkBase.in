@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
 
-export const dynamic = 'force-dynamic';
 
 export function generateMetadata() {
     return buildRouteMetadata({
