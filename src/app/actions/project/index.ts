@@ -74,7 +74,7 @@ export {
     getProfileProjectsWithOpenRolesAction,
 } from './_all';
 
-export { readProjectDocAction, validateProjectDocAction, readProjectDocReferenceOptionsAction, readProjectDocSmartBlockPreviewsAction, readProjectDocSettingsAction, updateProjectDocSettingsAction, createProjectMarkdownAction, listProjectMarkdownsAction, readProjectMarkdownSearchAction, unlinkProjectDocAction } from './doc';
+export { readProjectDocAction, readProjectDocSmartBlockPreviewsAction, readProjectDocSettingsAction, updateProjectDocSettingsAction, listProjectMarkdownsAction, unlinkProjectDocAction } from './doc';
 
 export { createProjectUpdateAction, createProjectUpdateCommentAction, deleteProjectUpdateAction, deleteProjectUpdateCommentAction, editProjectUpdateAction, readProjectUpdateAction, readProjectUpdateCommentsAction, readProjectUpdateContextOptionsAction, readProjectUpdatesAction, resolveProjectUpdateMentionTargetAction, toggleProjectUpdateLikeAction, toggleProjectUpdatePinAction, readProjectUpdateDraftAction, saveProjectUpdateDraftAction, createProjectUpdateMediaUploadUrlAction, finalizeProjectUpdateMediaUploadAction, type ProjectUpdateCommentView, type ProjectUpdateMovementSummary, type ProjectUpdateView } from './updates';
 

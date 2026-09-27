@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition } from "react";
+import React, { useState, useRef, useTransition } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -10,7 +10,7 @@ import { ProjectRolesEditor } from "@/components/projects/settings/ProjectRolesE
 import { normalizeProjectRoleFormValues } from "@/lib/projects/project-roles-form";
 import {
     Layout, FileText, Layers, Users, X, Sparkles,
-    Check, Info, ChevronRight, CheckCircle
+    Check, Info, CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";

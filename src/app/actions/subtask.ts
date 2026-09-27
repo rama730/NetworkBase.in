@@ -164,38 +164,6 @@ export async function updateSubtaskAction(
 }
 
 /**
- * Reorder subtasks in a single batch query (Item 7)
- */
-export async function reorderSubtasksAction(
-    taskId: string,
-    orderedSubtaskIds: string[],
-    projectId: string,
-) {
-    try {
-        const supabase = await createClient();
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) return { success: false, error: "Unauthorized" };
-
-        await assertTaskWriteAccess(taskId, projectId, user.id);
-
-        if (orderedSubtaskIds.length === 0) return { success: true };
-
-        const valuesList = orderedSubtaskIds.map((id, index) => sql`(${id}::uuid, ${index}::int)`);
-        await db.execute(sql`
-            UPDATE ${taskSubtasks} AS s
-            SET position = v.pos, updated_at = now()
-            FROM (VALUES ${sql.join(valuesList, sql`, `)}) AS v(id, pos)
-            WHERE s.id = v.id AND s.task_id = ${taskId}
-        `);
-
-        return { success: true };
-    } catch (error: any) {
-        console.error("Unexpected error:", error);
-        return { success: false, error: error?.message || "Failed to reorder subtasks" };
-    }
-}
-
-/**
  * Delete a subtask
  */
 export async function deleteSubtaskAction(

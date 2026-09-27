@@ -23,15 +23,7 @@ import {
     Globe,
     UserCheck,
     Wrench,
-    Upload,
 } from "lucide-react";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { createProfileImageUploadUrlAction, finalizeProfileImageUploadAction } from "@/app/actions/profile";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

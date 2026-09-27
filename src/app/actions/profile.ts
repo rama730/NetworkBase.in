@@ -16,7 +16,6 @@ import {
 import {
     markProfileCollaborationSummaryStale,
 } from '@/lib/profile/collaboration'
-import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe'
 import { positiveIntegerOr } from '@/lib/utils/number'
 import { normalizeAndValidateFileSize, normalizeAndValidateMimeType } from '@/lib/upload/security'
 import { createUploadIntent, finalizeUploadIntent } from '@/lib/upload/upload-intents'
@@ -698,29 +697,6 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
         }
         console.error('Error updating profile:', error)
         return { success: false, error: 'Failed to update profile', errorCode: 'PROFILE_UPDATE_FAILED' }
-    }
-}
-
-export async function getProfileBasic(userId: string) {
-    if (!userId) return null;
-    try {
-        return await runInFlightDeduped(`profile:basic:${userId}`, async () => {
-            const [profile] = await db
-                .select({
-                    id: profiles.id,
-                    fullName: profiles.fullName,
-                    username: profiles.username,
-                    avatarUrl: profiles.avatarUrl,
-                })
-                .from(profiles)
-                .where(eq(profiles.id, userId))
-                .limit(1);
-
-            return profile || null;
-        });
-    } catch (error) {
-        console.error('Error fetching profile basic:', error);
-        return null;
     }
 }
 

@@ -58,12 +58,6 @@ export type ProjectDocRailReport = {
     optionCount: number;
 };
 
-export type ProjectDocQuickConsoleSummary = {
-    commands: ProjectDocQuickCommand[];
-    headings: ProjectDocHeading[];
-    report: ProjectDocRailReport;
-};
-
 const FENCED_CODE_BLOCK_REGEX = /```([a-zA-Z0-9_-]+)?[^\n]*\n([\s\S]*?)```/g;
 const INLINE_CODE_REGEX = /(^|[^`])`([^`\n]+)`(?!`)/g;
 const HEADING_REGEX = /^(#{1,4})\s+(.+?)\s*#*\s*$/;
@@ -690,19 +684,3 @@ export function buildProjectDocRailReport(input: {
     };
 }
 
-export function buildProjectDocQuickConsoleSummary(
-    content: string,
-    headings: ProjectDocHeading[],
-): ProjectDocQuickConsoleSummary {
-    const commands = extractProjectDocCommandShortcuts(content);
-    return {
-        commands,
-        headings,
-        report: buildProjectDocRailReport({
-            content,
-            commands,
-            headings,
-            references: [],
-        }),
-    };
-}

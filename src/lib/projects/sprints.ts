@@ -203,4 +203,3 @@ export function getSprintDurationSummary(startDate: string, endDate: string) {
 export type CreateSprintDraftInput = z.infer<typeof createSprintDraftSchema>;
 export type CreateSprintInput = z.infer<typeof createSprintSchema>;
 export type UpdateSprintInput = z.infer<typeof updateSprintSchema>;
-export type DeleteSprintInput = z.infer<typeof deleteSprintSchema>;

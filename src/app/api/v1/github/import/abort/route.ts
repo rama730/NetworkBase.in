@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
 import { importJobs, importJobFiles, uploadIntents } from '@/lib/db/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
 import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';

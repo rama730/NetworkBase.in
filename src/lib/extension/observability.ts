@@ -28,27 +28,3 @@ export function recordExtensionMetric(metric: string, payload: ExtensionMetricPa
   });
 }
 
-export async function withExtensionTiming<T>(
-  metric: string,
-  payload: Omit<ExtensionMetricPayload, "success" | "durationMs">,
-  fn: () => Promise<T>,
-) {
-  const startedAt = Date.now();
-  try {
-    const result = await fn();
-    recordExtensionMetric(metric, {
-      ...payload,
-      success: true,
-      durationMs: Date.now() - startedAt,
-    });
-    return result;
-  } catch (error) {
-    recordExtensionMetric(metric, {
-      ...payload,
-      success: false,
-      durationMs: Date.now() - startedAt,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  }
-}

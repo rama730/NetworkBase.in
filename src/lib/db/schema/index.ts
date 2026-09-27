@@ -52,7 +52,6 @@ type ProjectUpdateMediaItem = {
 };
 type ProjectNotificationPreferencesRecord = Record<string, unknown>;
 type ProjectMemberNotificationPreferencesRecord = Record<string, unknown>;
-type ProjectDocSettingsRecord = Record<string, unknown>;
 type ProjectDocHeadingRecord = {
   id: string;
   level: number;
@@ -131,12 +130,6 @@ export const statusProjectEnum = pgEnum("status_project", [
   "active",
   "completed",
   "archived",
-]);
-// The SQL enum keeps its historical name for migration compatibility; app code uses Docs terminology.
-export const statusDocAssetEnum = pgEnum("status_readme_asset", [
-  "draft",
-  "published",
-  "orphaned",
 ]);
 export const statusRoleAppEnum = pgEnum("status_role_app", [
   "pending",
@@ -1358,12 +1351,6 @@ export const projectMarkdowns = pgTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
 
-    draftContent: text("draft_content").default("").notNull(),
-    draftUpdatedBy: uuid("draft_updated_by").references(() => profiles.id, {
-      onDelete: "set null",
-    }),
-    draftUpdatedAt: timestamp("draft_updated_at", { withTimezone: true }),
-
     publishedVersionId: uuid("published_version_id"),
     linkedNodeId: uuid("linked_node_id").references(() => projectNodes.id, {
       onDelete: "set null",
@@ -1379,19 +1366,15 @@ export const projectMarkdowns = pgTable(
           | "public"
           | "members_only"
           | "leaders_only";
-        mediaUploads: boolean;
         externalImages: boolean;
         projectBlocks: boolean;
-        notifyOnPublish: boolean;
       }>()
       .default({
         version: 1,
         editPolicy: "leaders",
         visibilityOverride: "inherit_project",
-        mediaUploads: true,
         externalImages: false,
         projectBlocks: true,
-        notifyOnPublish: false,
       })
       .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -1406,44 +1389,11 @@ export const projectMarkdowns = pgTable(
       t.projectId,
       t.slug,
     ),
-    draftUpdatedIdx: index("project_markdowns_draft_updated_idx").on(
-      t.projectId,
-      t.draftUpdatedAt,
-    ),
-    draftUpdatedByIdx: index("project_markdowns_draft_updated_by_idx").on(
-      t.draftUpdatedBy,
-    ),
     publishedVersionIdx: index("project_markdowns_published_version_idx").on(
       t.publishedVersionId,
     ),
     linkedNodeIdx: index("project_markdowns_linked_node_idx").on(
       t.linkedNodeId,
-    ),
-  }),
-);
-
-export const projectMarkdownDraftContributors = pgTable(
-  "project_markdown_draft_contributors",
-  {
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    markdownId: uuid("markdown_id")
-      .notNull()
-      .references(() => projectMarkdowns.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    lastContributedAt: timestamp("last_contributed_at", {
-      withTimezone: true,
-    })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    pk: primaryKey({ columns: [t.markdownId, t.userId] }),
-    userIdIdx: index("project_markdown_draft_contributors_user_idx").on(
-      t.userId,
     ),
   }),
 );
@@ -1496,59 +1446,6 @@ export const projectMarkdownVersions = pgTable(
     ).on(t.projectId, t.deletedAt),
     createdByIdx: index("project_markdown_versions_created_by_idx").on(
       t.createdBy,
-    ),
-  }),
-);
-
-export const projectMarkdownAssets = pgTable(
-  "project_markdown_assets",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    markdownId: uuid("markdown_id")
-      .notNull()
-      .references(() => projectMarkdowns.id, { onDelete: "cascade" }),
-    versionId: uuid("version_id").references(() => projectMarkdownVersions.id, {
-      onDelete: "set null",
-    }),
-    bucket: text("bucket").notNull(),
-    storageKey: text("storage_key").notNull(),
-    mimeType: text("mime_type").notNull(),
-    sizeBytes: integer("size_bytes").notNull(),
-    width: integer("width"),
-    height: integer("height"),
-    altText: text("alt_text"),
-    status: statusDocAssetEnum("status").default("draft").notNull(),
-    createdBy: uuid("created_by").references(() => profiles.id, {
-      onDelete: "set null",
-    }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  },
-  (t) => ({
-    projectCreatedIdx: index("project_markdown_assets_project_created_idx").on(
-      t.projectId,
-      t.createdAt,
-    ),
-    bucketStorageUnique: uniqueIndex(
-      "project_markdown_assets_bucket_storage_unique",
-    ).on(t.bucket, t.storageKey),
-    statusIdx: index("project_markdown_assets_status_idx").on(
-      t.projectId,
-      t.status,
-    ),
-    versionIdIdx: index("project_markdown_assets_version_id_idx").on(
-      t.versionId,
-    ),
-    createdByIdx: index("project_markdown_assets_created_by_idx").on(
-      t.createdBy,
-    ),
-    markdownIdIdx: index("project_markdown_assets_markdown_idx").on(
-      t.markdownId,
     ),
   }),
 );
@@ -3264,7 +3161,6 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   profileContributionStages: many(profileProjectContributionStages),
   markdowns: many(projectMarkdowns),
   markdownVersions: many(projectMarkdownVersions),
-  markdownAssets: many(projectMarkdownAssets),
   conversation: one(conversations, {
     fields: [projects.conversationId],
     references: [conversations.id],
@@ -3389,11 +3285,6 @@ export const projectMarkdownsRelations = relations(
       references: [projects.id],
     }),
 
-    draftEditor: one(profiles, {
-      fields: [projectMarkdowns.draftUpdatedBy],
-      references: [profiles.id],
-    }),
-
     publishedVersion: one(projectMarkdownVersions, {
       fields: [projectMarkdowns.publishedVersionId],
       references: [projectMarkdownVersions.id],
@@ -3403,25 +3294,6 @@ export const projectMarkdownsRelations = relations(
       references: [projectNodes.id],
     }),
     versions: many(projectMarkdownVersions),
-    assets: many(projectMarkdownAssets),
-  }),
-);
-
-export const projectMarkdownDraftContributorsRelations = relations(
-  projectMarkdownDraftContributors,
-  ({ one }) => ({
-    project: one(projects, {
-      fields: [projectMarkdownDraftContributors.projectId],
-      references: [projects.id],
-    }),
-    markdown: one(projectMarkdowns, {
-      fields: [projectMarkdownDraftContributors.markdownId],
-      references: [projectMarkdowns.id],
-    }),
-    user: one(profiles, {
-      fields: [projectMarkdownDraftContributors.userId],
-      references: [profiles.id],
-    }),
   }),
 );
 
@@ -3438,29 +3310,6 @@ export const projectMarkdownVersionsRelations = relations(
     }),
     author: one(profiles, {
       fields: [projectMarkdownVersions.createdBy],
-      references: [profiles.id],
-    }),
-    assets: many(projectMarkdownAssets),
-  }),
-);
-
-export const projectMarkdownAssetsRelations = relations(
-  projectMarkdownAssets,
-  ({ one }) => ({
-    project: one(projects, {
-      fields: [projectMarkdownAssets.projectId],
-      references: [projects.id],
-    }),
-    markdown: one(projectMarkdowns, {
-      fields: [projectMarkdownAssets.markdownId],
-      references: [projectMarkdowns.id],
-    }),
-    version: one(projectMarkdownVersions, {
-      fields: [projectMarkdownAssets.versionId],
-      references: [projectMarkdownVersions.id],
-    }),
-    creator: one(profiles, {
-      fields: [projectMarkdownAssets.createdBy],
       references: [profiles.id],
     }),
   }),

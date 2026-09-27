@@ -10,7 +10,6 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { toIsoString } from "@/lib/utils/date";
@@ -23,7 +22,6 @@ import {
   taskComments,
   tasks,
 } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/project-access";
 import {
   createEmptyTaskDiscussionPage,
   type TaskDiscussionAuthor,
@@ -38,7 +36,6 @@ import { enqueueTaskCommentMentionNotifications } from "@/lib/notifications/task
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { getViewerProfileContext } from "@/lib/server/viewer-context";
 import { logger } from "@/lib/logger";
-import { requireProjectCapability } from "@/lib/projects/collaborator-lifecycle";
 import {
   TASK_COMMENT_MAX_MENTIONS,
   taskCommentContentSchema,

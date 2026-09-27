@@ -187,32 +187,3 @@ export function removeTaskFromProjectTaskCaches(
   }
 }
 
-export function findTaskInProjectTaskCaches(
-  queryClient: QueryClient,
-  projectId: string,
-  taskId: string,
-) {
-  for (const scope of ["all", "backlog", "sprint"] as const) {
-    const data = queryClient.getQueryData(
-      queryKeys.project.detail.tasks(projectId, scope),
-    );
-    if (Array.isArray(data)) {
-      const task = data
-        .map(normalizeTaskSurfaceRecord)
-        .find((entry) => entry.id === taskId);
-      if (task) return task;
-      continue;
-    }
-
-    if (isInfiniteTaskData(data)) {
-      for (const page of data.pages) {
-        const task = (page.tasks ?? [])
-          .map(normalizeTaskSurfaceRecord)
-          .find((entry) => entry.id === taskId);
-        if (task) return task;
-      }
-    }
-  }
-
-  return null;
-}

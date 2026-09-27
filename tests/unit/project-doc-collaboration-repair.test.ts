@@ -27,47 +27,6 @@ Original documentation and other non-code written content are licensed under CC 
 ---
 `;
 
-test("Doc collaboration repair collapses repeated canonical drafts", () => {
-    const canonicalContent = `# Pre-commit hooks configuration
-
-repos:
-- repo: local
-  hooks:
-  - id: check-env-files
-`;
-
-    assert.deepEqual(
-        resolveProjectDocCollaborationContent({
-            canonicalContent,
-            collaborativeContent: `${canonicalContent}${canonicalContent}`,
-        }),
-        {
-            content: canonicalContent,
-            repaired: true,
-            reason: "repeated-canonical-draft",
-            repeatCount: 2,
-        },
-    );
-});
-
-test("Doc collaboration repair preserves legitimate remote edits", () => {
-    const canonicalContent = "# Project\n\nUse this project with care.\n";
-    const collaborativeContent = "# Project\n\nUse this project with care.\n\n## Notes\n\nRemote edit.\n";
-
-    assert.deepEqual(
-        resolveProjectDocCollaborationContent({
-            canonicalContent,
-            collaborativeContent,
-        }),
-        {
-            content: collaborativeContent,
-            repaired: false,
-            reason: null,
-            repeatCount: 1,
-        },
-    );
-});
-
 test("Doc normalization removes a repeated document start appended at the bottom", () => {
     const corruptedContent = `${longReadme}\n\n${longReadme.slice(0, 360)}`;
 
@@ -78,50 +37,6 @@ test("Doc normalization keeps legitimate repeated headings", () => {
     const content = `${longReadme}\n## Antigravity Awesome Skills\n\nThis is a retrospective section, not a duplicated tail.\n`;
 
     assert.equal(normalizeProjectDocContent(content), content);
-});
-
-test("Doc collaboration repair removes repeated tail before syncing editor state", () => {
-    const corruptedContent = `${longReadme}\n\n${longReadme.slice(0, 360)}`;
-
-    assert.deepEqual(
-        resolveProjectDocCollaborationContent({
-            canonicalContent: longReadme,
-            collaborativeContent: corruptedContent,
-        }),
-        {
-            content: longReadme.trimEnd(),
-            repaired: true,
-            reason: "repeated-draft-tail",
-            repeatCount: 2,
-        },
-    );
-});
-
-test("Doc editor writes repaired collaboration content back to Yjs", () => {
-    if (!fs.existsSync(path.join(process.cwd(), "src/components/projects/doc/ProjectDocEditor.tsx"))) {
-        assert.ok(true, "the retired collaborative editor no longer owns published Doc repair");
-        return;
-    }
-    const editor = fs.readFileSync(
-        path.join(process.cwd(), "src/components/projects/readme/ProjectDocEditor.tsx"),
-        "utf8",
-    );
-
-    assert.match(
-        editor,
-        /resolveProjectDocCollaborationContent/,
-        "Doc collaboration sync should reconcile repeated persisted Yjs drafts before accepting remote text",
-    );
-    assert.match(
-        editor,
-        /local-collaboration-repair/,
-        "Doc collaboration repairs should write the canonical draft back into the Yjs document",
-    );
-    assert.match(
-        editor,
-        /lastRepairRepeatCount/,
-        "Doc collaboration repairs should leave repair metadata for future diagnosis",
-    );
 });
 
 test("Doc draft editor normalizes stale local recovery content", () => {

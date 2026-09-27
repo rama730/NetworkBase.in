@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import localFont from "next/font/local";
-import Script from "next/script";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { SecurityRuntimeProvider } from "@/components/providers/SecurityRuntimeProvider";
 import { ThemeProvider } from "@/components/providers/theme-provider";

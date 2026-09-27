@@ -13,68 +13,6 @@ export type ProjectDocGithubSource = {
 };
 
 export type ProjectDocImageKind = "badge" | "icon" | "logo" | "diagram" | "content";
-export type ProjectDocImageIntent = "logo" | "badge" | "screenshot" | "diagram" | "before_after" | "hero" | "inline";
-export type ProjectDocImageSourceKind = "managed" | "project-file" | "github-path" | "external-url" | "replacement";
-
-export type ProjectDocImageIntentOption = {
-    id: ProjectDocImageIntent;
-    label: string;
-    description: string;
-    defaultWidth: number | null;
-    align: "left" | "center";
-};
-
-export const PROJECT_DOC_IMAGE_INTENTS: ProjectDocImageIntentOption[] = [
-    {
-        id: "logo",
-        label: "Logo",
-        description: "Small centered identity image at the top of the Doc.",
-        defaultWidth: 120,
-        align: "center",
-    },
-    {
-        id: "badge",
-        label: "Badge",
-        description: "Compact status, license, version, or star badge.",
-        defaultWidth: null,
-        align: "left",
-    },
-    {
-        id: "screenshot",
-        label: "Screenshot",
-        description: "Product or application screenshot with readable width.",
-        defaultWidth: 960,
-        align: "center",
-    },
-    {
-        id: "diagram",
-        label: "Diagram",
-        description: "Architecture, workflow, chart, or report image.",
-        defaultWidth: 960,
-        align: "center",
-    },
-    {
-        id: "before_after",
-        label: "Before/after",
-        description: "Comparison image intended for table cells or paired examples.",
-        defaultWidth: 460,
-        align: "left",
-    },
-    {
-        id: "hero",
-        label: "Header",
-        description: "Wide opening visual that introduces the Doc.",
-        defaultWidth: 980,
-        align: "center",
-    },
-    {
-        id: "inline",
-        label: "Inline",
-        description: "Small supporting image inside a paragraph or step.",
-        defaultWidth: 320,
-        align: "left",
-    },
-];
 
 export type ProjectDocResolvedImage = {
     src: string | null;
@@ -106,70 +44,6 @@ const TRUSTED_PUBLIC_README_IMAGE_HOSTS = new Set([
 
 function normalizeBranch(value: unknown) {
     return typeof value === "string" && value.trim() ? value.trim() : "main";
-}
-
-export function getProjectDocImageIntentOption(intent: ProjectDocImageIntent | null | undefined) {
-    return PROJECT_DOC_IMAGE_INTENTS.find((option) => option.id === intent) ?? PROJECT_DOC_IMAGE_INTENTS[2]!;
-}
-
-function escapeHtmlAttribute(value: string) {
-    return value
-        .replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-}
-
-function normalizeImageMarkdownSource(value: string) {
-    return value.replace(CONTROL_CHARS_REGEX, "").trim();
-}
-
-function sanitizeInlineText(value: string) {
-    return value.replace(/\s+/g, " ").trim();
-}
-
-export function buildProjectDocImageMarkdown(input: {
-    src: string;
-    alt: string;
-    intent?: ProjectDocImageIntent | null;
-    width?: number | null;
-    height?: number | null;
-    caption?: string | null;
-    forceHtml?: boolean;
-}) {
-    const src = normalizeImageMarkdownSource(input.src);
-    if (!src) return "";
-    const alt = sanitizeInlineText(input.alt) || "Project image";
-    const caption = sanitizeInlineText(input.caption ?? "");
-    const intent = getProjectDocImageIntentOption(input.intent);
-    const width = typeof input.width === "number" && Number.isFinite(input.width) && input.width > 0
-        ? Math.round(input.width)
-        : intent.defaultWidth;
-    const height = typeof input.height === "number" && Number.isFinite(input.height) && input.height > 0
-        ? Math.round(input.height)
-        : null;
-    const shouldUseHtml = Boolean(input.forceHtml || width || height || caption || intent.align === "center");
-
-    if (!shouldUseHtml) {
-        const escapedAlt = alt.replace(/([\\\]])/g, "\\$1");
-        return `![${escapedAlt}](${src})`;
-    }
-
-    const attrs = [
-        `src="${escapeHtmlAttribute(src)}"`,
-        `alt="${escapeHtmlAttribute(alt)}"`,
-        width ? `width="${width}"` : null,
-        height ? `height="${height}"` : null,
-    ].filter(Boolean).join(" ");
-    const imageTag = `<img ${attrs} />`;
-    if (intent.align === "center") {
-        const captionLine = caption ? `\n  <br />\n  <sub>${escapeHtmlAttribute(caption)}</sub>` : "";
-        return `<p align="center">\n  ${imageTag}${captionLine}\n</p>`;
-    }
-    if (caption) {
-        return `${imageTag}\n\n<sub>${escapeHtmlAttribute(caption)}</sub>`;
-    }
-    return imageTag;
 }
 
 function readImportSource(project: ProjectDocMediaProject) {
@@ -282,10 +156,6 @@ function resolveGithubRepositoryImageUrl(url: URL, source: ProjectDocGithubSourc
 
 function isProjectStorageImage(value: string) {
     return value.startsWith("/api/v1/projects/") || value.startsWith("/_next/") || value.startsWith("/images/");
-}
-
-function isProjectPublic(project: ProjectDocMediaProject) {
-    return project.visibility === "public";
 }
 
 function isTrustedReadmeImageUrl(url: URL, project: ProjectDocMediaProject, source: ProjectDocGithubSource | null) {

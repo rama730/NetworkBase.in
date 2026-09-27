@@ -14,7 +14,6 @@ import {
     markNotificationUnread,
     muteNotificationScope,
     markConversationNotificationsRead,
-    pauseNotifications,
     readNotificationsPage,
     snoozeNotification,
     toNotificationItem,
@@ -381,32 +380,6 @@ export async function muteNotificationScopeAction(scope: NotificationMuteScope) 
             error: error?.message || String(error),
         });
         return { success: false as const, error: error?.message || "Failed to mute notification type", preferences: null };
-    }
-}
-
-export async function pauseNotificationsAction(pausedUntil: string | null) {
-    try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            return { success: false as const, error: "Unauthorized", preferences: null };
-        }
-
-        if (pausedUntil !== null) {
-            const until = new Date(pausedUntil);
-            if (Number.isNaN(until.getTime())) {
-                return { success: false as const, error: "Invalid date", preferences: null };
-            }
-        }
-
-        const preferences = await pauseNotifications(user.id, pausedUntil, db);
-        return { success: true as const, preferences };
-    } catch (error: any) {
-        logger.error("notifications.pause_failed", {
-            module: "notifications",
-            error: error?.message || String(error),
-        });
-        return { success: false as const, error: error?.message || "Failed to update notification pause", preferences: null };
     }
 }
 

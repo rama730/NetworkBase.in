@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { extensionRecoverySessions, projectNodes } from "@/lib/db/schema";
+import { extensionRecoverySessions, } from "@/lib/db/schema";
 import { batchRenewFileLeases } from "@/lib/files/file-lock-service";
 import { validateCsrf } from "@/lib/security/csrf";
 import { and, eq, sql } from "drizzle-orm";

@@ -125,24 +125,6 @@ function deriveUnreadCounts(data: InfiniteData<NotificationFeedPage> | undefined
     };
 }
 
-export function useNotificationUnreadCount() {
-    const { user, isAuthenticated } = useAuth();
-    const query = useQuery<UnreadCounts>({
-        queryKey: queryKeys.notifications.unreadCount(),
-        enabled: Boolean(isAuthenticated && user?.id),
-        queryFn: async () => {
-            const result = await readNotificationUnreadCountAction();
-            if (!result.success) {
-                throw new Error(result.error || "Failed to load notification count");
-            }
-            return { total: result.unreadCount, important: result.unreadImportantCount };
-        },
-        staleTime: 15_000,
-    });
-    const counts = query.data ?? ZERO_COUNTS;
-    return { unreadCount: counts.total, unreadImportantCount: counts.important };
-}
-
 export function useNotifications(limit: number = DEFAULT_LIMIT) {
     const queryClient = useQueryClient();
     const router = useRouter();

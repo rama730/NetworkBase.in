@@ -19,10 +19,8 @@ test("Empty state architectural contract: global CSS ground and typography defin
 });
 
 test("Empty state architectural contract: Workspace surfaces", () => {
-    const requestsTab = readFileSync(resolve(ROOT, "src/components/workspace/WorkspaceRequestsTab.tsx"), "utf-8");
     const tasksTab = readFileSync(resolve(ROOT, "src/components/workspace/WorkspaceTasksTab.tsx"), "utf-8");
 
-    assert.match(requestsTab, /className=["'][^"']*nb-empty-state nb-grid-ground/);
     assert.match(tasksTab, /className=["'][^"']*nb-empty-state nb-grid-ground/);
 });
 
@@ -77,9 +75,7 @@ test("Empty state architectural contract: Projects and Tasks surfaces", () => {
 test("Empty state architectural contract: Discover, People, and Skills surfaces", () => {
     const hubClient = readFileSync(resolve(ROOT, "src/components/hub/SimpleHubClient.tsx"), "utf-8");
     const skillPicker = readFileSync(resolve(ROOT, "src/components/skills/SkillPicker.tsx"), "utf-8");
-    const requestsTab = readFileSync(resolve(ROOT, "src/components/people/RequestsTab.tsx"), "utf-8");
 
     assert.match(hubClient, /className=["'][^"']*nb-empty-state nb-grid-ground/);
     assert.match(skillPicker, /className=["'][^"']*nb-empty-state nb-grid-ground/);
-    assert.match(requestsTab, /className=["'][^"']*nb-empty-state nb-grid-ground/);
 });

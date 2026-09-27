@@ -98,7 +98,6 @@ const MUTATIONS_SRC = readActionSource("mutations.ts");
 const CONTENT_SRC = readActionSource("content.ts");
 const VERSIONS_SRC = readActionSource("versions.ts");
 const LINKS_SRC = readActionSource("links.ts");
-const EVENTS_SRC = readActionSource("events.ts");
 const NODES_SRC = readActionSource("nodes.ts");
 const LOCK_SERVICE_SRC = readLibSource("file-lock-service.ts");
 const LOCK_ROUTE_SRC = readApiFileSource("[nodeId]/lock/route.ts");
@@ -280,8 +279,6 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     { fn: "unlinkNodeFromTask", src: () => LINKS_SRC },
     { fn: "updateTaskNodeLink", src: () => LINKS_SRC },
     { fn: "updateTaskNodeLinksOrder", src: () => LINKS_SRC },
-    // events.ts — event recording writes
-    { fn: "recordProjectNodeEvent", src: () => EVENTS_SRC },
   ];
 
   it("permanent deletion delegates to the authenticated, manage-files-only transaction", () => {

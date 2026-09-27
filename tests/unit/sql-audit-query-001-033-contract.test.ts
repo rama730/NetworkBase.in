@@ -20,23 +20,17 @@ test("QRY-001..006 hub pagination keeps filters, rejects cursors, and has no dea
 test("QRY-007..012 authorize before sensitive reads and keep file reads side-effect free", () => {
   const matchmaking = source("src/app/actions/matchmaking/resolver.ts");
   const content = source("src/app/actions/files/content.ts");
-  const search = source("src/app/actions/files/search.ts");
 
   assert.ok(matchmaking.indexOf("const access = await getProjectAccessById") < matchmaking.indexOf("db.query.profiles.findFirst"));
   assert.match(matchmaking, /!access\.isOwner && access\.memberRole !== 'admin'/);
   assert.match(content, /class FileContentUnavailableError/);
   assert.doesNotMatch(content.slice(content.indexOf("getProjectFileSignedUrl"), content.indexOf("getProjectFileSignedUrlBatch")), /\.upload\(|\.update\(projectNodes\)/);
-  assert.match(search, /searchProjectFileIndexAuthorized/);
-  assert.match(search, /innerJoin\([\s\S]*projectNodes/);
-  assert.match(search, /isNull\(projectNodes\.deletedAt\)/);
 });
 
 test("QRY-013..023 retire unsafe batch replacement and full-tree/task-slug scans", () => {
-  const search = source("src/app/actions/files/search.ts");
   const nodes = source("src/app/actions/files/nodes.ts");
   const urlSync = source("src/components/projects/v2/files-tab/hooks/useFilesTabUrlSync.ts");
 
-  assert.doesNotMatch(search, /previewProjectSearchReplace|applyProjectSearchReplace|rollbackProjectSearchReplace/);
   assert.doesNotMatch(nodes, /getProjectTreeFlat|TASK_WORKING_FILE_URL_PREFIX/);
   assert.match(nodes, /eq\(projectNodes\.path, `\/\$\{path\.join\("\/"\)\}`\)/);
   assert.match(nodes, /inArray\(projectNodes\.path, Array\.from\(ancestorPaths\)\)/);

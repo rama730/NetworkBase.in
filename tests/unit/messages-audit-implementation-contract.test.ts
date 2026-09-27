@@ -9,7 +9,6 @@ function readProjectFile(relativePath: string) {
 
 test("message receipt buffering is debounced, session-deduplicated, and never flushes during teardown", () => {
   const source = readProjectFile("src/hooks/useMessageReceiptBuffer.ts");
-  const deliveryAcks = readProjectFile("src/hooks/useDeliveryAcks.ts");
   const thread = readProjectFile("src/components/chat/v2/MessageThreadV2.tsx");
 
   assert.match(source, /ReturnType<typeof setTimeout>/);
@@ -21,7 +20,6 @@ test("message receipt buffering is debounced, session-deduplicated, and never fl
   assert.doesNotMatch(source, /setInterval/);
   assert.doesNotMatch(source, /flushedRef\.current\.clear\(\)/);
   assert.doesNotMatch(source, /void recordReceipts\(ids\)\.catch/);
-  assert.match(deliveryAcks, /const DELIVERY_FLUSH_INTERVAL_MS = 120/);
   assert.doesNotMatch(thread, /useMarkMessagesRead|markRead\(visible\)/);
 });
 

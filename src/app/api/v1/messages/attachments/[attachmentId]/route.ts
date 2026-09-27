@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { and, eq, isNull } from "drizzle-orm";
 import { createAdminClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
@@ -49,15 +48,6 @@ function sanitizeFilename(filename: string | null | undefined) {
   const raw = typeof filename === "string" ? filename.trim() : "";
   const fallback = "attachment";
   return (raw || fallback).replace(/[^A-Za-z0-9._() \-]/g, "_");
-}
-
-function canServeInline(mimeType: string) {
-  return (
-    mimeType.startsWith("image/")
-    || mimeType.startsWith("video/")
-    || mimeType === "application/pdf"
-    || mimeType === "text/plain"
-  );
 }
 
 export async function GET(

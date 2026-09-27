@@ -5,7 +5,6 @@ import {
     type SupabaseClient,
 } from '@supabase/supabase-js'
 import { logger } from '@/lib/logger'
-import { isPrivateRealtimeAuthorizationEnabled } from '@/lib/realtime/authorization'
 
 type DbRealtimeEventType = 'INSERT' | 'UPDATE' | 'DELETE'
 

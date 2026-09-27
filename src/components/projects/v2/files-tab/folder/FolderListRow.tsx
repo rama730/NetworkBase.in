@@ -9,7 +9,6 @@ import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { getTaskWorkingFilesDisplayName } from "@/lib/files/task-working-files";
 
-import { FileIcon } from "../../explorer/FileIcons";
 import { FileTypeChip } from "../FileTypeChip";
 import { TaskLinkPopover } from "../TaskLinkPopover";
 import { VersionPill } from "../VersionPill";

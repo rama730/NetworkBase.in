@@ -21,8 +21,6 @@ export const ONBOARDING_EVENT_TYPES = [
     'step_render_time',
 ] as const
 
-export type OnboardingEventType = typeof ONBOARDING_EVENT_TYPES[number]
-
 export const onboardingEventInputSchema = z.object({
     eventType: z.enum(ONBOARDING_EVENT_TYPES),
     step: z.number().int().min(1).max(ONBOARDING_TOTAL_STEPS).optional(),
@@ -41,6 +39,3 @@ export function sanitizeOnboardingTelemetryBatch(input: unknown): OnboardingEven
     })
 }
 
-export function normalizeOnboardingEventInput(input: OnboardingEventInput): OnboardingEventInput {
-    return onboardingEventInputSchema.parse(input)
-}

@@ -17,7 +17,6 @@ import {
   normalizeSprintOptions,
   normalizeAssignableMembers,
   normalizeTaskSurfaceRecord,
-  toLinkedSprintFiles,
   type TaskSurfaceRecord,
 } from "@/lib/projects/task-presentation";
 import type { ProjectNode } from "@/lib/db/schema";

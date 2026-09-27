@@ -5,11 +5,9 @@ import type {
   ExplorerMode,
   FilesViewMode,
   ExplorerSort,
-  FileState,
   WorkspacePane,
 } from "./types";
 import { defaultWorkspace, parentKey } from "./types";
-import { FILES_RUNTIME_BUDGETS, clampNumber } from "@/lib/files/runtime-budgets";
 import { set as idbSet } from "idb-keyval";
 import { deleteFileContent } from "./contentMap";
 
@@ -77,40 +75,6 @@ export function hasNodeCacheDifference(existing: ProjectNode, incoming: ProjectN
   );
 }
 
-export function evictLruIfNeeded(
-  fileStates: Record<string, FileState>,
-  maxEntries: number,
-  projectId?: string
-): Record<string, FileState> {
-  const entries = Object.entries(fileStates);
-  if (entries.length <= maxEntries) return fileStates;
-
-  const sorted = entries.sort(
-    (a, b) => (a[1].lastAccessedAt ?? 0) - (b[1].lastAccessedAt ?? 0)
-  );
-
-  const result: Record<string, FileState> = {};
-  const toKeep = sorted.filter(([, s]) => s.isDirty);
-  const nonDirty = sorted.filter(([, s]) => !s.isDirty);
-  const budget = Math.max(0, maxEntries - toKeep.length);
-  const kept = nonDirty.slice(Math.max(0, nonDirty.length - budget));
-  const keptIds = new Set([...toKeep, ...kept].map(([id]) => id));
-
-  if (projectId) {
-    for (const [id] of sorted) {
-      if (!keptIds.has(id)) {
-        deleteFileContent(projectId, id);
-        deleteFileContent(projectId, `${id}::saved`);
-      }
-    }
-  }
-
-  for (const [id, s] of [...toKeep, ...kept]) {
-    result[id] = s;
-  }
-  return result;
-}
-
 export function enforceNodesBudget(
   nodesById: Record<string, ProjectNode>,
   childrenByParentId: Record<string, string[]>,
@@ -170,21 +134,6 @@ export function reconcileLoadedFolders(
     }
   }
   return next;
-}
-
-export function estimateVisibleRowsBudget(ws: FilesWorkspaceState["byProjectId"][string] | undefined) {
-  if (!ws) return FILES_RUNTIME_BUDGETS.fileCacheFallbackEntries;
-  const selectedParentKey = parentKey(ws.selectedFolderId ?? null);
-  const selectedFolderCount = ws.childrenByParentId[selectedParentKey]?.length ?? 0;
-  const rootCount = ws.childrenByParentId[parentKey(null)]?.length ?? 0;
-  const openTabsCount =
-    (ws.panes.left.openTabIds?.length ?? 0) + (ws.panes.right.openTabIds?.length ?? 0);
-  const estimatedVisibleRows = Math.max(selectedFolderCount, rootCount, openTabsCount, 16);
-  return clampNumber(
-    estimatedVisibleRows * 2,
-    FILES_RUNTIME_BUDGETS.fileCacheMinEntries,
-    FILES_RUNTIME_BUDGETS.fileCacheMaxEntries
-  );
 }
 
 export interface ExplorerSlice {

@@ -3,16 +3,16 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-test("project detail header stays route-owned while Doc edit owns its workspace", () => {
+test("project detail header stays route-owned", () => {
     const source = fs.readFileSync(
         path.join(process.cwd(), "src/components/projects/dashboard/ProjectLayout.tsx"),
         "utf8",
     );
 
-    assert.match(
+    assert.doesNotMatch(
         source,
-        /const isContainedWorkspaceTab = isDocEditWorkspaceTab;/,
-        "Only Doc edit mode should use the contained full-height layout",
+        /isContainedWorkspaceTab|isDocEditWorkspaceTab/,
+        "The project layout has no contained Doc edit workspace",
     );
     assert.doesNotMatch(source, /isFilesTab \|\| isDocEditWorkspaceTab \|\| isSettingsTab/);
     assert.doesNotMatch(

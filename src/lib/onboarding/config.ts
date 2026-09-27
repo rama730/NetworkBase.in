@@ -1,7 +1,5 @@
 import type { OnboardingStepId } from '@/lib/onboarding/events'
 
-export const ONBOARDING_VARIANT = 'default' as const
-
 export const ONBOARDING_FEATURE_FLAGS = {
     enableStep2Sections: true,
     enableProfileStrengthChecklist: true,

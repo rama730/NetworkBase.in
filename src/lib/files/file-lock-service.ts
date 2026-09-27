@@ -8,7 +8,6 @@ import { recordNodeEvent } from "@/lib/files/internal-helpers";
 import { recordFilesMetric } from "@/lib/files/observability";
 
 export const FILE_LEASE_TTL_SECONDS = 120;
-export const FILE_LEASE_HEARTBEAT_MS = 35_000;
 
 export type FileLeaseClientKind = "web" | "vscode";
 

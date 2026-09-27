@@ -21,8 +21,6 @@ import {
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
 import { resolveSecurityStepUp } from "@/lib/security/step-up";
 
-type RecoveryCodeMode = "initial" | "regenerate";
-
 type RecoveryCodeBody = {
   mode?: string;
 };

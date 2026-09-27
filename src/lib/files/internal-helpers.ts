@@ -15,10 +15,6 @@ async function getProjectAccess(projectId: string, userId: string | null): Promi
     return access as ExistingProjectAccess;
 }
 
-export async function assertProjectAccess(projectId: string, userId: string) {
-    await assertProjectReadAccess(projectId, userId);
-}
-
 export async function assertProjectReadAccess(projectId: string, userId: string | null) {
     const access = await getProjectAccess(projectId, userId);
     if (!access.canRead) throw new Error("Forbidden");

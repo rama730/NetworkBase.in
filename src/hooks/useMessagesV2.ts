@@ -1,7 +1,7 @@
 'use client';
 
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useEffect, useState } from 'react';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useEffect, } from 'react';
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 
 const MAX_CACHED_THREADS = 30;
@@ -35,7 +35,6 @@ import {
     convertMessageToFollowUpActionV2,
     convertMessageToTaskActionV2,
     getMessageContext,
-    getMessagingStructuredCatalogV2,
     getProjectGroups,
     markConversationAsRead,
     searchMessages,
@@ -374,25 +373,6 @@ export function useMessageSearch(query: string) {
         },
         getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
         staleTime: 20_000,
-        refetchOnWindowFocus: false,
-    });
-}
-
-export function useMessagingStructuredCatalog(conversationId: string | null, targetUserId?: string | null, enabled: boolean = true) {
-    return useQuery({
-        queryKey: queryKeys.messages.v2.structuredCatalog(conversationId, targetUserId ?? null),
-        enabled: enabled && Boolean(conversationId || targetUserId),
-        queryFn: async () => {
-            const result = await getMessagingStructuredCatalogV2({
-                conversationId,
-                targetUserId: targetUserId ?? null,
-            });
-            if (!result.success || !result.catalog) {
-                throw new Error(result.error || 'Failed to fetch message commands');
-            }
-            return result.catalog;
-        },
-        staleTime: 30_000,
         refetchOnWindowFocus: false,
     });
 }

@@ -1,4 +1,3 @@
-export const RECOVERY_SESSION_HEARTBEAT_MS = 45_000;
 export const RECOVERY_SESSION_STALE_MS = 3 * 60_000;
 
 export type RecoveryIncidentReason = "unclean_shutdown" | "session_stale";

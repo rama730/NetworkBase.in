@@ -182,7 +182,6 @@ test("settings search resolves user intent to the canonical tabbed settings rout
 
 test("top-nav keeps one accessible, route-aligned implementation", () => {
   const topNav = source("src/components/layout/header/TopNav.tsx");
-  const navLink = source("src/components/layout/header/NavLink.tsx");
   const mobileMenu = source("src/components/layout/header/MobileMenu.tsx");
   const notifications = source("src/components/layout/header/NotificationPreview.tsx");
   const runtime = source("src/components/providers/MainRuntimeProviders.tsx");
@@ -218,7 +217,6 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(topNav, /createProject=1/);
   assert.match(topNav, /className="flex shrink-0 items-center gap-2"/);
   assert.match(topNav, /recentSearchOwnerId=\{user\?\.id\}/);
-  assert.match(navLink, /aria-current=\{isActive \? "page" : undefined\}/);
   assert.match(mobileMenu, /<Dialog open=\{props\.isOpen\}/);
   assert.match(mobileMenu, /p-4 md:hidden/);
   assert.match(notifications, /href=\{settingsTabHref\("notifications"\)\}/);

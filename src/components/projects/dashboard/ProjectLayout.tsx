@@ -28,7 +28,6 @@ interface ProjectLayoutProps {
     canManageSettings?: boolean;
     publicTabVisibility?: ProjectPublicTabVisibility | null;
     activeTab: string;
-    isDocEditing?: boolean;
     onTabChange: (tabId: string) => void;
     followersCount?: number;
     viewCount?: number;
@@ -77,7 +76,6 @@ export function formatProjectUpdatedLabel(value?: string | Date | null, now = ne
 
 export default function ProjectLayout({
     children, project, isOwner, activeTab, onTabChange,
-    isDocEditing = false,
     isOwnerOrMember,
     canManageSettings,
     publicTabVisibility,
@@ -101,18 +99,10 @@ export default function ProjectLayout({
     const isSettingsTab = activeTab === "settings";
     const isUpdatesTab = activeTab === "updates";
     const isTasksTab = activeTab === "tasks";
-    const isDocEditWorkspaceTab = activeTab === "readme" && isDocEditing;
-    const isContainedWorkspaceTab = isDocEditWorkspaceTab;
 
     // Normal project tabs, including Files, use the route scroll root so the
     // identity header moves naturally and the project tabs remain sticky.
-    // Doc edit mode is the only full-height contained workspace.
     useEffect(() => {
-        if (isDocEditWorkspaceTab) {
-            setIsScrolled(false);
-            return;
-        }
-
         const routeRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
         const scrollTarget: HTMLElement | Window = routeRoot ?? window;
         let rafId = 0;
@@ -135,7 +125,7 @@ export default function ProjectLayout({
             scrollTarget.removeEventListener("scroll", scheduleScrollState as EventListener);
             if (rafId) cancelAnimationFrame(rafId);
         };
-    }, [isDocEditWorkspaceTab]);
+    }, []);
 
     useEffect(() => {
         const identity = projectIdentityRef.current;
@@ -185,7 +175,7 @@ export default function ProjectLayout({
             observer?.disconnect();
             window.removeEventListener("resize", handleResize);
         };
-    }, [activeTab, isContainedWorkspaceTab]);
+    }, [activeTab]);
 
     const normalizedPublicTabs = useMemo(
         () => normalizeProjectPublicTabVisibility(publicTabVisibility ?? project.publicTabVisibility),
@@ -243,11 +233,9 @@ export default function ProjectLayout({
     return (
         <div className={cn(
             "bg-background",
-            isContainedWorkspaceTab ? "h-full min-h-0 overflow-hidden flex flex-col" : "min-h-full"
+            "min-h-full"
         )}
-            data-project-tool={isFilesTab || isContainedWorkspaceTab || isTasksTab || activeTab === "sprints" ? "true" : undefined}
-            data-project-layout-owned-workspace={isContainedWorkspaceTab ? "true" : undefined}
-            data-project-readme-edit-workspace={isDocEditWorkspaceTab ? "true" : undefined}
+            data-project-tool={isFilesTab || isTasksTab || activeTab === "sprints" ? "true" : undefined}
             data-project-identity-height={projectIdentityHeight}
             style={layoutStyle}
         >
@@ -407,11 +395,11 @@ export default function ProjectLayout({
             {/* Bottom Row: Navigation Tabs (sticky) */}
             <div ref={tabsRef} className={cn(
                 "z-30 shrink-0 border-b border-border bg-card transition-shadow duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
-                isContainedWorkspaceTab ? "relative" : "sticky",
+                "sticky",
                 isScrolled && "shadow-none"
             )}
-                data-project-sticky-tabs={!isContainedWorkspaceTab ? "true" : undefined}
-                style={isContainedWorkspaceTab ? undefined : { top: 0 }}
+                data-project-sticky-tabs="true"
+                style={{ top: 0 }}
             >
                 <div className="w-full">
                     <div ref={tabListRef} role="tablist" aria-label="Project sections" className="app-scroll app-scroll-x -mb-px flex items-center overflow-x-auto px-4 sm:px-6">
@@ -470,9 +458,7 @@ export default function ProjectLayout({
                 aria-labelledby={`project-tab-${activeTab}`}
                 aria-label="Project detail content"
                 className={cn(
-                    isContainedWorkspaceTab
-                        ? "flex-1 min-h-0 w-full overflow-hidden flex flex-col"
-                        : isFilesTab
+                    isFilesTab
                             ? "flex h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height))] min-h-[28rem] w-full flex-col overflow-hidden"
                             : isSettingsTab
                                 ? "w-full"
@@ -482,8 +468,8 @@ export default function ProjectLayout({
                                         ? "w-full p-4 sm:p-5"
                                         : "w-full p-4 sm:p-5"
                 )}
-                data-project-content-root={isContainedWorkspaceTab || isFilesTab ? "workspace" : "page"}
-                data-project-workspace-tab={isContainedWorkspaceTab || isFilesTab ? activeTab : undefined}
+                data-project-content-root={isFilesTab ? "workspace" : "page"}
+                data-project-workspace-tab={isFilesTab ? activeTab : undefined}
             >
                 {children}
             </section>

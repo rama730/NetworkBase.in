@@ -41,4 +41,3 @@ export type FilterView = 'all' | 'trending' | 'recommendations' | 'my_projects' 
 export type ProjectStatus = typeof PROJECT_STATUS[keyof typeof PROJECT_STATUS];
 export type ProjectType = typeof PROJECT_TYPE[keyof typeof PROJECT_TYPE];
 export type SortOption = typeof SORT_OPTIONS[keyof typeof SORT_OPTIONS];
-export type ViewMode = typeof VIEW_MODES[keyof typeof VIEW_MODES];

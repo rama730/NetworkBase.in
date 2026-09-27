@@ -16,7 +16,7 @@ import {
     projectInvitations,
     applicationEvents,
 } from '@/lib/db/schema';
-import { eq, and, sql, or, inArray, desc, lt, gt, exists, isNull, ne, notExists, asc } from 'drizzle-orm';
+import { eq, and, sql, or, inArray, desc, lt, exists, isNull, ne, notExists, asc } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';

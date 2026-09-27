@@ -218,12 +218,3 @@ export function extractFoldersFromWebkitInput(fileList: FileList | File[]): Extr
   };
 }
 
-/**
- * Convenience: the direct-child basenames of a dropped folder — what the
- * resolver expects for `candidateChildNames`. Falls back to empty.
- */
-export function topLevelChildNames(folder: DroppedFolder): string[] {
-  return folder.files
-    .filter((entry) => !entry.relativePath.includes("/"))
-    .map((entry) => entry.relativePath);
-}

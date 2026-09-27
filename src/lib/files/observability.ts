@@ -31,10 +31,6 @@ function shouldEmit() {
   return Math.random() <= SAMPLE_RATE;
 }
 
-export function createFilesCorrelationId(prefix: string) {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
 export function recordFilesMetric(metric: FilesMetric, payload: FilesMetricPayload) {
   if (!shouldEmit()) return;
   logger.metric(metric, {

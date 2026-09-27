@@ -115,16 +115,8 @@ function normalizeReferenceKind(value: string): ProjectDocReferenceKind | null {
     return kind === "unknown" ? null : kind;
 }
 
-export function escapeReadmeReferenceLabel(value: string) {
-    return value.replace(/\\/g, "\\\\").replace(/"/g, "&quot;").replace(/\s+/g, " ").trim();
-}
-
 export function unescapeReadmeReferenceLabel(value: string) {
     return value.replace(/&quot;/g, '"').replace(/\\\\/g, "\\").trim();
-}
-
-export function buildInlineReadmeReference(option: ProjectDocReferenceOption) {
-    return `{% ref.${option.kind} id="${option.id}" label="${escapeReadmeReferenceLabel(normalizeReadmeReferenceLabel(option.kind, option.title))}" %}`;
 }
 
 export function readmeReferenceHref(kind: ProjectDocReferenceKind, id: string) {

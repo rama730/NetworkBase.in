@@ -6,14 +6,6 @@ export const ONBOARDING_LOCAL_DRAFT_TTL_MS = 24 * 60 * 60 * 1000
 
 export type OnboardingStatus = 'not_started' | 'in_progress' | 'completed'
 
-export type OnboardingProgress = {
-    step: number
-    completedThrough: number
-    activeSection: OnboardingStep2SectionId
-    version: number
-    schemaVersion: number
-}
-
 export function clampOnboardingStep(value: unknown): number {
     if (typeof value !== 'number' || !Number.isFinite(value)) return 1
     return Math.min(ONBOARDING_TOTAL_STEPS, Math.max(1, Math.floor(value)))

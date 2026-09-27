@@ -1,8 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { projectNodes, fileVersions, profiles } from "@/lib/db/schema";
-import type { ProjectNode } from "@/lib/db/schema";
+import { projectNodes, } from "@/lib/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
@@ -17,9 +16,7 @@ import {
 } from "@/lib/files/internal-helpers";
 import {
     formatSqlLight,
-    FILES_ERROR_CODES,
     UUID_RE,
-    type FilesActionResult,
 } from "./_constants";
 
 class FileContentUnavailableError extends Error {
@@ -293,24 +290,6 @@ export async function updateProjectFileStats(projectId: string, nodeId: string, 
 
     // ponytail: client handles file content save directly via Zustand; skip route revalidation. ceiling: single-tab editor. upgrade: Realtime broadcast if multi-tab collaborative editor state sync required.
     return node;
-}
-
-export async function updateProjectFileStatsSafe(
-    projectId: string,
-    nodeId: string,
-    size: number
-): Promise<FilesActionResult<ProjectNode>> {
-    try {
-        const node = await updateProjectFileStats(projectId, nodeId, size);
-        if (!node) throw new Error("Node not found");
-        return { success: true, data: node };
-    } catch (error) {
-        return {
-            success: false,
-            code: FILES_ERROR_CODES.UNKNOWN_ERROR,
-            message: error instanceof Error ? error.message : "Failed to update file stats",
-        };
-    }
 }
 
 async function tryRecoverFromGitHub(projectId: string, nodePath: string | null): Promise<string | null> {

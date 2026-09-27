@@ -24,8 +24,6 @@ export const SqlGovernanceManifestSchema = z.object({
   breakGlassExceptions: z.array(SqlGovernanceExceptionSchema).default([]),
 });
 
-export type SqlChangeKind = (typeof SQL_CHANGE_KINDS)[number];
-export type SqlGovernanceException = z.infer<typeof SqlGovernanceExceptionSchema>;
 export type SqlGovernanceManifest = z.infer<typeof SqlGovernanceManifestSchema>;
 
 export function parseSqlGovernanceManifest(value: unknown): SqlGovernanceManifest {

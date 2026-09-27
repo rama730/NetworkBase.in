@@ -41,8 +41,6 @@ export const SECTOR_ICON_KEYS = [
     'writing',
 ] as const;
 
-export type SectorIconKey = (typeof SECTOR_ICON_KEYS)[number];
-
 export const DOMAIN_PRESENCE_ICON_KEYS = [
     ...SECTOR_ICON_KEYS,
     'heliyon',

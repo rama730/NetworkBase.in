@@ -13,12 +13,6 @@ export function normalizeSafePathSegment(segment: string, label = "path segment"
   return value;
 }
 
-export function sanitizePathSegment(segment: string, fallback = "file"): string {
-  const base = (segment ?? "").split(/[\\/]/).pop() ?? "";
-  const sanitized = base.replace(/[^A-Za-z0-9._-]/g, "_").replace(/^\.+/, "_");
-  return sanitized || fallback;
-}
-
 export function normalizeSafeRelativePath(input: string, label = "path"): string {
   const raw = (input ?? "").trim().replace(/\\/g, "/");
   if (!raw || raw.startsWith("/") || raw.includes("\0")) {

@@ -8,13 +8,6 @@ export type PreparedImageUpload = {
     optimized: boolean;
 };
 
-type PrepareImageOptions = {
-    maxBytes: number;
-    maxWidth: number;
-    maxHeight: number;
-    outputType?: "image/jpeg" | "image/webp";
-};
-
 type PrepareCoverImageOptions = {
     maxBytes: number;
     width: number;
@@ -66,58 +59,6 @@ function assertPositiveImageDimension(value: number, label: string) {
     if (!Number.isFinite(value) || value <= 0) {
         throw new Error(`${label} must be a positive image dimension.`);
     }
-}
-
-export async function prepareImageForUpload(
-    file: File,
-    options: PrepareImageOptions,
-): Promise<PreparedImageUpload> {
-    const inputType = file.type || "application/octet-stream";
-    if (file.size <= options.maxBytes && inputType !== "image/heic" && inputType !== "image/heif") {
-        return {
-            blob: file,
-            contentType: inputType,
-            originalSize: file.size,
-            optimizedSize: file.size,
-            optimized: false,
-        };
-    }
-
-    const image = await loadImage(file);
-    const outputType = options.outputType ?? "image/jpeg";
-    const baseScale = Math.min(
-        1,
-        options.maxWidth / Math.max(1, image.naturalWidth),
-        options.maxHeight / Math.max(1, image.naturalHeight),
-    );
-    const scaleSteps = [baseScale, baseScale * 0.85, baseScale * 0.7, baseScale * 0.55].filter((scale) => scale > 0);
-    const qualitySteps = [0.9, 0.82, 0.74, 0.66, 0.58];
-
-    for (const scale of scaleSteps) {
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-        const context = canvas.getContext("2d");
-        if (!context) {
-            throw new Error("Image optimization is not supported in this browser.");
-        }
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-        for (const quality of qualitySteps) {
-            const blob = await canvasToBlob(canvas, outputType, quality);
-            if (blob.size <= options.maxBytes) {
-                return {
-                    blob,
-                    contentType: outputType,
-                    originalSize: file.size,
-                    optimizedSize: blob.size,
-                    optimized: true,
-                };
-            }
-        }
-    }
-
-    throw new Error("Image is too large to upload. Please choose a smaller image.");
 }
 
 function clamp(value: number, min: number, max: number) {

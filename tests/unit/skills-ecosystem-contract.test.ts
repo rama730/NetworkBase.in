@@ -60,7 +60,6 @@ describe('skills ecosystem contract', () => {
         const surfaces = [
             'src/components/onboarding/steps/Step3Skills.tsx',
             'src/components/profile/edit/EditProfileTabs.tsx',
-            'src/components/profile/v2/sections/SkillsCard.tsx',
             'src/components/projects/EditProjectModal.tsx',
             'src/components/projects/create-wizard/phases/Phase2Information.tsx',
             'src/components/projects/settings/ProjectRolesEditor.tsx',

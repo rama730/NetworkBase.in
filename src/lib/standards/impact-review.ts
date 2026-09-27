@@ -56,9 +56,6 @@ export const ImpactReviewRecordSchema = z.object({
   paths: z.array(z.string().min(1)).min(1),
 });
 
-export type ImpactReviewRuntimePlane = (typeof IMPACT_REVIEW_RUNTIME_PLANES)[number];
-export type ImpactReviewCanonicalDomain = (typeof IMPACT_REVIEW_CANONICAL_DOMAINS)[number];
-export type ImpactReviewRiskLevel = (typeof IMPACT_REVIEW_RISK_LEVELS)[number];
 export type ImpactReviewRecord = z.infer<typeof ImpactReviewRecordSchema>;
 
 export function parseImpactReviewRecord(value: unknown): ImpactReviewRecord {

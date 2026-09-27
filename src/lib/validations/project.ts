@@ -24,8 +24,6 @@ export const creatorRoleSchema = z.object({
     time_commitment: z.number().min(0).max(168).optional(), // hours per week
 });
 
-export type CreatorRoleInput = z.infer<typeof creatorRoleSchema>;
-
 // External Links Schema
 const legacyExternalLinksSchema = z.object({
     discord: z.string().url().optional().or(z.literal('')),
@@ -77,8 +75,6 @@ export const projectDocCreationIntentSchema = z.object({
     publishOnCreate: z.boolean().default(false),
     includeRoles: z.boolean().default(true),
 });
-
-export type ProjectDocCreationIntentInput = z.infer<typeof projectDocCreationIntentSchema>;
 
 // Main Project Schema
 export const createProjectSchema = z.object({

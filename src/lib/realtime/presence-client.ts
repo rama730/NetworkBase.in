@@ -551,14 +551,3 @@ export function subscribePresenceHealth(listener: PresenceHealthListener) {
   };
 }
 
-export function getPresenceRoomCountForTests() {
-  return presenceEntries.size;
-}
-
-export function resetPresenceClientForTests() {
-  for (const roomKey of Array.from(presenceEntries.keys())) {
-    cleanupEntry(roomKey);
-  }
-  presenceHealthSnapshot = computePresenceHealthSnapshot();
-  presenceHealthListeners.clear();
-}

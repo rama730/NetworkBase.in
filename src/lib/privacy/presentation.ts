@@ -134,10 +134,3 @@ export function buildProjectOwnerPresentation(
   };
 }
 
-export function getPrivacyLockedShellLabel(relationship: PrivacyRelationshipState | null): string | null {
-  return buildPrivacyPresentation(relationship).relationshipBadgeText;
-}
-
-export function getPrivacyBlockedMessage(relationship: PrivacyRelationshipState | null): string {
-  return buildPrivacyPresentation(relationship).blockedBannerText || "You can no longer message this account";
-}

@@ -6,7 +6,6 @@ import { useDebounce } from "use-debounce";
 import {
     ChevronDown,
     ChevronUp,
-    FileText,
     Globe2,
     ImagePlus,
     Link2,
@@ -15,7 +14,6 @@ import {
     Paperclip,
     RefreshCw,
     Timer,
-    Trash2,
     Users,
     X,
 } from "lucide-react";

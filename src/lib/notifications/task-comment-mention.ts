@@ -1,20 +1,6 @@
 import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
 import { logger } from "@/lib/logger";
 
-export interface TaskCommentMentionNotificationPayload {
-    recipientUserId: string;
-    authorUserId: string;
-    authorDisplayName: string | null;
-    authorAvatarUrl?: string | null;
-    projectId: string;
-    projectSlug?: string | null;
-    taskId: string;
-    commentId: string;
-    parentCommentId: string | null;
-    preview: string;
-    createdAt: string;
-}
-
 export interface EnqueueTaskCommentMentionParams {
     recipientUserIds: Iterable<string>;
     authorUserId: string;

@@ -13,7 +13,7 @@ import {
     projects,
     roleApplications,
 } from '@/lib/db/schema';
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
     ConversationWithDetails,
     MessageWithSender,
@@ -578,14 +578,6 @@ async function buildConversationCapabilitiesBatch(
     }
 
     return byConversationId;
-}
-
-async function buildConversationCapability(
-    viewerId: string,
-    conversation: ConversationWithDetails,
-): Promise<ConversationCapabilityV2> {
-    const capabilities = await buildConversationCapabilitiesBatch(viewerId, [conversation]);
-    return capabilities.get(conversation.id) ?? getDefaultCapability(conversation.type);
 }
 
 async function getProjectGroupConversationsByIds(

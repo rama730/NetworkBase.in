@@ -264,10 +264,6 @@ export function formatSprintTimelineStamp(
   });
 }
 
-export function pluralizeSprintUnit(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
 export function buildSprintPermissionSet(input: {
   canRead: boolean;
   canWrite: boolean;

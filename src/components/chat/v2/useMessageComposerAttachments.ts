@@ -13,7 +13,6 @@ import {
 
 const MAX_ATTACHMENTS = 12;
 const UPLOAD_CONCURRENCY = 3;
-const COMPRESSION_CONCURRENCY = 2;
 
 interface PreparedAttachmentFile {
     file: File;
@@ -46,31 +45,6 @@ function releaseAttachmentPreview(attachment: Pick<PendingAttachment, 'preview'>
     if (attachment.preview) {
         URL.revokeObjectURL(attachment.preview);
     }
-}
-
-async function compressFilesWithLimit(files: File[], concurrency: number) {
-    const results = new Array<PreparedAttachmentFile>(files.length);
-    let nextIndex = 0;
-
-    async function worker() {
-        while (nextIndex < files.length) {
-            const index = nextIndex;
-            nextIndex += 1;
-            const file = await compressImage(files[index]!);
-            const tinyBase64 = await generateTinyThumbnail(file) || undefined;
-            results[index] = {
-                file,
-                dimensions: await readMediaDimensions(file),
-                tinyBase64,
-            };
-        }
-    }
-
-    await Promise.all(
-        Array.from({ length: Math.min(concurrency, files.length) }, () => worker()),
-    );
-
-    return results;
 }
 
 export function useMessageComposerAttachments({

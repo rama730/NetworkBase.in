@@ -9,7 +9,6 @@ import { useDebounce } from "use-debounce";
 import PersonCard from "@/components/people/PersonCard";
 import { PersonCardSkeleton } from "@/components/people/PersonCardSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Skeleton } from "@/components/ui/skeleton";
 import { getConnectionRequestSuccessMessage, useConnectionMutations, useSuggestedPeople } from "@/hooks/useConnections";
 
 interface PeopleClientProps {

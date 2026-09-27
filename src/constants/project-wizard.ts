@@ -15,7 +15,3 @@ export type WizardPhaseId = typeof WIZARD_PHASES[number]['id'];
 
 export const TOTAL_PHASES = WIZARD_PHASES.length;
 
-export const PHASE_LABELS = WIZARD_PHASES.reduce((acc, phase) => ({
-    ...acc,
-    [phase.id]: phase.label
-}), {} as Record<number, string>);

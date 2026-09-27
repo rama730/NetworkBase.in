@@ -1,30 +1,8 @@
 import { db } from '@/lib/db';
-import { connections, profiles } from '@/lib/db/schema';
-import { sql, inArray, eq, and, or } from 'drizzle-orm';
+import { connections, } from '@/lib/db/schema';
+import { sql, eq, and, or } from 'drizzle-orm';
 import { redis } from '@/lib/redis';
 import { revalidatePath } from 'next/cache';
-
-type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-export async function applyConnectionsCountIncrements(tx: DbTransaction, increments: Map<string, number>) {
-    if (increments.size === 0) return;
-    const entries = [...increments.entries()].filter(([, value]) => value !== 0);
-    if (entries.length === 0) return;
-
-    const ids = entries.map(([id]) => id);
-    const cases = sql.join(
-        entries.map(([id, value]) => sql`WHEN ${profiles.id} = ${id} THEN ${value}`),
-        sql` `,
-    );
-
-    await tx
-        .update(profiles)
-        .set({
-            connectionsCount: sql`GREATEST(0, ${profiles.connectionsCount} + CASE ${cases} ELSE 0 END)`,
-            updatedAt: new Date(),
-        })
-        .where(inArray(profiles.id, ids));
-}
 
 export async function revalidateConnectionsPaths() {
     revalidatePath('/network');

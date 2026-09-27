@@ -132,18 +132,6 @@ export function assertSafeHttpUrl(input: unknown, options?: SafeUrlOptions): str
   return (input as string).trim();
 }
 
-/**
- * Returns `null` for invalid URLs (useful when sanitising optional fields
- * without aborting the whole action). Otherwise returns the trimmed URL.
- */
-export function sanitizeOptionalHttpUrl(
-  input: unknown,
-  options?: SafeUrlOptions,
-): string | null {
-  if (input === null || input === undefined || input === "") return null;
-  return isSafeHttpUrl(input, options) ? (input as string).trim() : null;
-}
-
 // NOTE: the DNS-resolving SSRF check that used to live here (`resolvesToPublicHost`)
 // was removed because (a) it forced webpack to pull `node:dns` into client
 // bundles via the `@/lib/profile/normalization` → `ProfileV2Client` import

@@ -144,8 +144,6 @@ export async function createClient() {
     return client
 }
 
-export const createSupabaseServerClient = createClient
-
 export async function createAdminClient() {
     const env = resolveSupabaseServiceEnv('supabase.admin')
     return createServerClient(

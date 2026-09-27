@@ -6,7 +6,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { acceptConnectionRequest, cancelConnectionRequest, sendConnectionRequest } from '@/app/actions/connections';
 import type { MessageWithSender, UploadedAttachment } from '@/app/actions/messaging';
 import type { ConversationCapabilityV2 } from '@/app/actions/messaging/v2';
-import { canSendFromCapability } from '@/lib/chat/composer-workflow';
 import { formatDraftWithCodeSnippet } from '@/lib/messages/code-snippets';
 import { upsertThreadConversation } from '@/lib/messages/v2-cache';
 import { recordMessagesDraftLifecycle } from '@/lib/messages/observability';

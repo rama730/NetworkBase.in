@@ -137,12 +137,6 @@ export const getProjectAccessById = cache(
     }
 );
 
-export const getProjectAccessBySlug = cache(
-    async (slug: string, userId: string | null): Promise<ProjectAccess> => {
-        return getProjectAccess(eq(projects.slug, slug), userId);
-    }
-);
-
 export const getProjectAccessByIdentifier = cache(
     (identifier: string, userId: string | null): Promise<ProjectAccess> => {
         const value = identifier.trim();

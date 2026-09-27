@@ -121,16 +121,6 @@ export function issueSecurityStepUpCookie(
   };
 }
 
-export function clearSecurityStepUpCookie(response: NextResponse) {
-  response.cookies.set(SECURITY_STEP_UP_COOKIE_NAME, "", {
-    httpOnly: true,
-    sameSite: "strict",
-    secure: process.env.NODE_ENV === "production",
-    path: "/api/v1",
-    maxAge: 0,
-  });
-}
-
 export async function resolveSecurityStepUp(
   userId: string,
   allowedMethods?: SecurityStepUpMethod[],

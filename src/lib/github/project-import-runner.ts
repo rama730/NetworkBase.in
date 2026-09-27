@@ -1,6 +1,3 @@
-import fs from "fs/promises";
-import os from "os";
-import path from "path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -14,7 +11,6 @@ import {
   clearSealedGithubTokenFromImportSource,
   sanitizeGitErrorMessage,
 } from "@/lib/github/repo-security";
-import { withGitCredentialEnv } from "@/lib/github/git-auth";
 import {
   normalizeGithubBranch,
   normalizeGithubRepoUrl,
@@ -67,27 +63,6 @@ export function resolveGithubProjectImportQueueAgeMs(event: {
     }
   }
   return null;
-}
-
-async function readLatestCommitSha(tempDir: string): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync(
-      "git",
-      ["-C", tempDir, "rev-parse", "HEAD"],
-      {
-        timeout: 15_000,
-        env: {
-          ...process.env,
-          GIT_TERMINAL_PROMPT: "0",
-        },
-        maxBuffer: 512 * 1024,
-      },
-    );
-    const sha = String(stdout || "").trim();
-    return sha || null;
-  } catch {
-    return null;
-  }
 }
 
 export async function markGithubProjectImportFailed(input: {

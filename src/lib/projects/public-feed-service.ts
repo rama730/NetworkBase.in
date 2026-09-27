@@ -17,7 +17,6 @@ export const PUBLIC_PROJECTS_FEED_DEFAULT_LIMIT = 24
 export const PUBLIC_PROJECTS_FEED_MAX_LIMIT = 100
 export const PUBLIC_PROJECTS_FEED_FRESH_TTL_SECONDS = 60
 export const PUBLIC_PROJECTS_FEED_STALE_TTL_SECONDS = 300
-const PUBLIC_PROJECTS_FEED_CACHE_PREFIX = 'projects:public:v4:'
 
 type PublicProjectRow = {
     id: string

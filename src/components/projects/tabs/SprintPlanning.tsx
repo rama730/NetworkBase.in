@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Plus } from "lucide-react";
@@ -25,7 +25,6 @@ import {
   buildProjectSprintDetailHref,
   type SprintDetailPayload,
   type SprintListItem,
-  type SprintTaskTimelineEntity,
 } from "@/lib/projects/sprint-detail";
 
 import {
@@ -34,7 +33,6 @@ import {
   type SprintDeleteImpact,
   type SprintEditorMode,
 } from "@/lib/projects/sprints";
-import { cn } from "@/lib/utils";
 
 import CreateSprintModal from "@/components/projects/v2/sprints/CreateSprintModal";
 import { SprintLifecycleModals } from "@/components/projects/tabs/sprint/SprintLifecycleModals";
@@ -51,7 +49,6 @@ interface SprintPlanningProps {
 }
 
 export type Sprint = SprintListItem;
-export type SprintTask = SprintTaskTimelineEntity;
 
 type SprintEditorState = {
   mode: SprintEditorMode;

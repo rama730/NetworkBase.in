@@ -19,22 +19,3 @@ export const ONBOARDING_SOCIAL_KEYS = ['github', 'linkedin', 'x', 'portfolio'] a
 export type OnboardingSocialLinkKey = typeof ONBOARDING_SOCIAL_KEYS[number]
 export type OnboardingSocialLinks = Partial<Record<OnboardingSocialLinkKey, string>>
 
-export type OnboardingPayloadContract = {
-    username: string
-    fullName: string
-    avatarUrl?: string
-    headline?: string
-    bio?: string
-    location?: string
-    website?: string
-    skills: string[]
-    interests: string[]
-    openTo: string[]
-    messagePrivacy: OnboardingMessagePrivacy
-    socialLinks: OnboardingSocialLinks
-    experienceLevel?: OnboardingExperienceLevel
-    hoursPerWeek?: OnboardingHoursPerWeek
-    genderIdentity?: OnboardingGenderIdentity
-    pronouns?: string
-    visibility: OnboardingVisibility
-}

@@ -2,28 +2,22 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
-    profiles,
     projectGuidanceAppointments,
     projectInvitations,
-    projectMembers,
     projectNodeEvents,
     projectOpenRoles,
     projects,
-    roleApplications,
 } from "@/lib/db/schema";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { getGuidanceCapacityState } from "@/lib/projects/guidance-capacity";
 import {
     addProjectMemberInternal,
-    changeProjectMemberRoleInternal,
-    removeProjectMemberInternal,
     type ProjectCollaboratorExecutor,
 } from "@/lib/projects/collaborator-lifecycle";
 
 const INVITATION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 export type ProjectInvitationKind = "ordinary_role" | "guidance_appointment";
-export type ProjectInvitationStatus = "pending" | "accepted" | "declined" | "cancelled" | "expired";
 
 export type CreateProjectInvitationInput = {
     actorId: string;
@@ -62,16 +56,6 @@ async function lockProject(executor: InvitationExecutor, projectId: string) {
         FOR UPDATE
     `);
     return Array.from(rows)[0] ?? null;
-}
-
-async function readManagerRole(executor: InvitationExecutor, projectId: string, actorId: string, ownerId: string) {
-    if (actorId === ownerId) return "owner" as const;
-    const [membership] = await executor
-        .select({ role: projectMembers.role })
-        .from(projectMembers)
-        .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, actorId)))
-        .limit(1);
-    return membership?.role === "admin" ? "admin" as const : null;
 }
 
 async function activeGuidanceCount(executor: InvitationExecutor, guideUserId: string) {
@@ -364,85 +348,3 @@ export function projectInvitationDisplayRole(invitation: typeof projectInvitatio
         : invitation.roleTitle || "Collaborator";
 }
 
-export async function endProjectGuidanceAppointmentInternal(
-    executor: InvitationExecutor,
-    input: {
-        projectId: string;
-        actorId: string;
-        outcome: "restore_previous_role" | "keep_admin" | "keep_member" | "remove";
-        removalMode?: "preserve_history" | "unassign_active_tasks" | "reassign_active_tasks";
-        reassignToUserId?: string | null;
-        reason?: string | null;
-    },
-) {
-    const project = await lockProject(executor, input.projectId);
-    if (!project) throw new Error("Project not found");
-    const [appointment] = await executor
-        .select()
-        .from(projectGuidanceAppointments)
-        .where(and(
-            eq(projectGuidanceAppointments.projectId, input.projectId),
-            eq(projectGuidanceAppointments.status, "active"),
-        ))
-        .for("update")
-        .limit(1);
-    if (!appointment) throw new Error("There is no active guidance appointment");
-
-    const isLead = input.actorId === project.owner_id;
-    const isGuide = input.actorId === appointment.guideUserId;
-    if (!isLead && !isGuide) throw new Error("Only the project Lead or appointed person can end this appointment");
-    if (!isLead && input.outcome !== "keep_member") {
-        throw new Error("The project Lead chooses the membership outcome");
-    }
-
-    const now = new Date();
-    await executor.update(projectGuidanceAppointments)
-        .set({
-            status: "ended",
-            endedAt: now,
-            endedBy: input.actorId,
-            endReason: cleanOptionalText(input.reason, 500),
-            updatedAt: now,
-        })
-        .where(eq(projectGuidanceAppointments.id, appointment.id));
-
-    let lifecycle: Awaited<ReturnType<typeof changeProjectMemberRoleInternal>> | Awaited<ReturnType<typeof removeProjectMemberInternal>> | null = null;
-    if (input.outcome === "remove") {
-        lifecycle = await removeProjectMemberInternal(executor, {
-            projectId: input.projectId,
-            actorId: input.actorId,
-            targetUserId: appointment.guideUserId,
-            mode: input.removalMode ?? "preserve_history",
-            reassignToUserId: input.reassignToUserId ?? null,
-        });
-    } else {
-        const nextRole = input.outcome === "keep_admin"
-            ? "admin"
-            : input.outcome === "keep_member"
-                ? "member"
-                : appointment.previousMembershipRole === "admin" || appointment.previousMembershipRole === "member" || appointment.previousMembershipRole === "viewer"
-                    ? appointment.previousMembershipRole
-                    : "member";
-        lifecycle = await changeProjectMemberRoleInternal(executor, {
-            projectId: input.projectId,
-            actorId: input.actorId,
-            targetUserId: appointment.guideUserId,
-            nextRole,
-        });
-    }
-
-    await executor.insert(projectNodeEvents).values({
-        projectId: input.projectId,
-        actorId: input.actorId,
-        nodeId: null,
-        type: "project_guidance.ended",
-        metadata: {
-            appointmentId: appointment.id,
-            guideUserId: appointment.guideUserId,
-            label: appointment.label,
-            outcome: input.outcome,
-        },
-        createdAt: now,
-    });
-    return { appointment, lifecycle };
-}

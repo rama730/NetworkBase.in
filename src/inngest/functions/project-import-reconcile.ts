@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, inArray, isNull, lt, sql } from "drizzle-orm";
 
 import { inngest } from "../client";
 import { db } from "@/lib/db";

@@ -20,24 +20,6 @@
 
 const CHUNK_SIZE = 32 * 1024 * 1024; // 32 MiB — balances WebCrypto call overhead vs. memory.
 
-function assertSubtle(): SubtleCrypto {
-  if (typeof globalThis === "undefined" || !globalThis.crypto?.subtle) {
-    throw new Error(
-      "SubtleCrypto is unavailable. Ensure this module is only imported from a secure browser context.",
-    );
-  }
-  return globalThis.crypto.subtle;
-}
-
-function bufferToHex(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let hex = "";
-  for (const byte of bytes) {
-    hex += byte.toString(16).padStart(2, "0");
-  }
-  return hex;
-}
-
 /**
  * Compute lowercase-hex SHA-256 of the given Blob / File.
  *
@@ -123,18 +105,3 @@ export function computeContentHash(blob: Blob): Promise<ContentHashResult> {
   });
 }
 
-/**
- * Compare two hash results. Returns:
- *   - "equal":    both full hashes and bytes match.
- *   - "different": both are full hashes and differ.
- *   - "unknown":  at least one is a prefix hash — not strictly comparable.
- */
-export function compareContentHashes(
-  a: ContentHashResult | null | undefined,
-  b: ContentHashResult | null | undefined,
-): "equal" | "different" | "unknown" {
-  if (!a || !b) return "unknown";
-  if (a.kind !== "full" || b.kind !== "full") return "unknown";
-  if (a.bytes !== b.bytes) return "different";
-  return a.hashHex === b.hashHex ? "equal" : "different";
-}

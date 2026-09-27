@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
@@ -15,8 +15,6 @@ import { getApplicationStatusAction, acceptProposedRoleAction, declineProposedRo
 import { resolveMessageWorkflowActionV2 } from '@/app/actions/messaging';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { useProjectMembers } from '@/hooks/hub/useProjectMembers';
-import { filesFeatureFlags } from '@/lib/features/files';
-import { getProjectNodes } from '@/app/actions/files/nodes';
 import { queryKeys } from '@/lib/query-keys';
 import { logger } from '@/lib/logger';
 import { subscribeProjectStage } from '@/lib/realtime/subscriptions';
@@ -253,7 +251,6 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         [activeTab, invalidateProjectDetailSlices],
     );
 
-    const [isDocEditing, setIsReadmeEditing] = useState(false);
 
     // State management
     const [isFollowing, setIsFollowing] = useState(project.isFollowed || false);
@@ -671,10 +668,6 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         searchParams
     ]);
 
-    useEffect(() => {
-        if (activeTab !== 'readme') setIsReadmeEditing(false);
-    }, [activeTab]);
-
     const handleTabHover = useCallback(
         (tabId: string) => {
             // Warm only the surface the user is expressing intent to open.
@@ -1055,7 +1048,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     }
 
     return (
-        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab} isDocEditing={isDocEditing} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => setIsInviteModalOpen(true)} canInvite={canManageProjectSettings} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers}>
+        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => setIsInviteModalOpen(true)} canInvite={canManageProjectSettings} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers}>
             {activeTab === 'dashboard' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Dashboard">

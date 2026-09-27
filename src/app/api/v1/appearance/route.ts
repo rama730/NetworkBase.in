@@ -9,8 +9,6 @@ import {
 import { logger } from "@/lib/logger";
 import { validateCsrf } from "@/lib/security/csrf";
 import {
-    createAppearanceSnapshot,
-    DEFAULT_APPEARANCE_SNAPSHOT,
     parseAppearanceSnapshot,
     type AppearanceSnapshot,
 } from "@/lib/theme/appearance";
