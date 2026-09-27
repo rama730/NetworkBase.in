@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 const source = readFileSync("src/components/projects/v2/files-tab/TaskLinkPopover.tsx", "utf8");
 test("linked-task popover delegates collision handling and dismissal to installed Radix", () => {
-  assert.match(source, /from "radix-ui"/);
+  assert.match(source, /from "@radix-ui\/react-popover"/);
   assert.match(source, /<Popover.Portal>/);
   assert.match(source, /<Popover.Anchor asChild>/);
   assert.match(source, /collisionPadding=\{12\}/);

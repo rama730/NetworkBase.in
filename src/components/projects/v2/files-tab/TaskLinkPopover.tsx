@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Popover } from "radix-ui";
+import * as Popover from "@radix-ui/react-popover";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTaskTitlePresentation } from "@/lib/projects/task-presentation";

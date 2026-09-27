@@ -1,6 +1,5 @@
 "use client";
 
-import { Analytics } from "@vercel/analytics/react";
 import { BarChart3, ChevronLeft, LockKeyhole, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,7 +16,7 @@ import {
 
 const AUTH_ENTRY_PATHS = new Set(["/login", "/signup"]);
 
-export function CookieConsentRuntime({ analyticsAvailable }: { analyticsAvailable: boolean }) {
+export function CookieConsentRuntime() {
   const pathname = usePathname();
   const [decision, setDecision] = useState<CookieConsentDecision | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -70,7 +69,6 @@ export function CookieConsentRuntime({ analyticsAvailable }: { analyticsAvailabl
 
   return (
     <>
-      {analyticsAvailable && decision?.analytics ? <Analytics /> : null}
 
       {isReady && isOpen ? (
         <section
