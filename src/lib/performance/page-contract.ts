@@ -201,16 +201,6 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 320,
     allowForceDynamic: false,
   }),
-  "/onboarding-preview": buildUserShellContract("/onboarding-preview", "src/app/onboarding-preview/page.tsx", {
-    renderingMode: "dynamic",
-    cacheStrategy: "none",
-    cacheTtlSeconds: 0,
-    invalidationOwner: "none",
-    hydrationBoundary: "heavy",
-    bootstrapReadModel: "auth_snapshot",
-    maxInitialPayloadKb: 320,
-    allowForceDynamic: false,
-  }),
   "/discover": buildUserShellContract("/discover", "src/app/(main)/discover/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 45,
