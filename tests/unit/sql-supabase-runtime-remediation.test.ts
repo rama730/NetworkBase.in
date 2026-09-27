@@ -11,7 +11,8 @@ test("Supabase Auth and database clients keep one native owner", () => {
 
   assert.doesNotMatch(browserClient, /\block\s*:/, "browser Auth must use Supabase's native navigator lock");
   assert.doesNotMatch(database, /6544/, "read traffic must never invent an undocumented pooler port");
-  assert.match(database, /env\.READ_DATABASE_URL[\s\S]*\? resolvePoolerConnectionString\(env\.READ_DATABASE_URL\)[\s\S]*: resolvedConnectionString/);
+  assert.doesNotMatch(database, /READ_DATABASE_URL|readDb/, "one database client serves reads and writes");
+  assert.match(database, /fetch_types: false/);
 });
 
 test("application wrappers do not compete with native Realtime reconnect", () => {

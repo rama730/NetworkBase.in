@@ -1,6 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { and, desc, eq, gt } from "drizzle-orm";
-import { db, readDb } from "@/lib/db";
+import { db } from "@/lib/db";
 import { legalAcceptances } from "@/lib/db/schema";
 import { CURRENT_LEGAL_ACCEPTANCE } from "@/lib/legal/versions";
 import { getTrustedRequestIp } from "@/lib/security/request-ip";
@@ -99,40 +99,20 @@ export async function getLegalAcceptanceState(userId: string) {
     const latest = await withDbRetry(
       "legal.getLegalAcceptanceState",
       async () => {
-        try {
-          const [row] = await readDb
-            .select({
-              termsVersion: legalAcceptances.termsVersion,
-              eulaVersion: legalAcceptances.eulaVersion,
-              privacyNoticeVersion: legalAcceptances.privacyNoticeVersion,
-              context: legalAcceptances.context,
-              acceptedAt: legalAcceptances.acceptedAt,
-              retentionExpiresAt: legalAcceptances.retentionExpiresAt,
-            })
-            .from(legalAcceptances)
-            .where(eq(legalAcceptances.userId, userId))
-            .orderBy(desc(legalAcceptances.acceptedAt))
-            .limit(1);
-          return row;
-        } catch (readError) {
-          if (isTransientDbError(readError)) {
-            const [fallbackRow] = await db
-              .select({
-                termsVersion: legalAcceptances.termsVersion,
-                eulaVersion: legalAcceptances.eulaVersion,
-                privacyNoticeVersion: legalAcceptances.privacyNoticeVersion,
-                context: legalAcceptances.context,
-                acceptedAt: legalAcceptances.acceptedAt,
-                retentionExpiresAt: legalAcceptances.retentionExpiresAt,
-              })
-              .from(legalAcceptances)
-              .where(eq(legalAcceptances.userId, userId))
-              .orderBy(desc(legalAcceptances.acceptedAt))
-              .limit(1);
-            return fallbackRow;
-          }
-          throw readError;
-        }
+        const [row] = await db
+          .select({
+            termsVersion: legalAcceptances.termsVersion,
+            eulaVersion: legalAcceptances.eulaVersion,
+            privacyNoticeVersion: legalAcceptances.privacyNoticeVersion,
+            context: legalAcceptances.context,
+            acceptedAt: legalAcceptances.acceptedAt,
+            retentionExpiresAt: legalAcceptances.retentionExpiresAt,
+          })
+          .from(legalAcceptances)
+          .where(eq(legalAcceptances.userId, userId))
+          .orderBy(desc(legalAcceptances.acceptedAt))
+          .limit(1);
+        return row;
       },
       { module: "legal" },
     );
@@ -179,36 +159,18 @@ export async function hasCurrentLegalAcceptance(userId: string): Promise<boolean
     const row = await withDbRetry(
       "legal.hasCurrentLegalAcceptance",
       async () => {
-        try {
-          const [result] = await readDb
-            .select({ id: legalAcceptances.id })
-            .from(legalAcceptances)
-            .where(and(
-              eq(legalAcceptances.userId, userId),
-              eq(legalAcceptances.termsVersion, CURRENT_LEGAL_ACCEPTANCE.termsVersion),
-              eq(legalAcceptances.eulaVersion, CURRENT_LEGAL_ACCEPTANCE.eulaVersion),
-              eq(legalAcceptances.privacyNoticeVersion, CURRENT_LEGAL_ACCEPTANCE.privacyNoticeVersion),
-              gt(legalAcceptances.retentionExpiresAt, new Date()),
-            ))
-            .limit(1);
-          return result;
-        } catch (readError) {
-          if (isTransientDbError(readError)) {
-            const [fallbackResult] = await db
-              .select({ id: legalAcceptances.id })
-              .from(legalAcceptances)
-              .where(and(
-                eq(legalAcceptances.userId, userId),
-                eq(legalAcceptances.termsVersion, CURRENT_LEGAL_ACCEPTANCE.termsVersion),
-                eq(legalAcceptances.eulaVersion, CURRENT_LEGAL_ACCEPTANCE.eulaVersion),
-                eq(legalAcceptances.privacyNoticeVersion, CURRENT_LEGAL_ACCEPTANCE.privacyNoticeVersion),
-                gt(legalAcceptances.retentionExpiresAt, new Date()),
-              ))
-              .limit(1);
-            return fallbackResult;
-          }
-          throw readError;
-        }
+        const [result] = await db
+          .select({ id: legalAcceptances.id })
+          .from(legalAcceptances)
+          .where(and(
+            eq(legalAcceptances.userId, userId),
+            eq(legalAcceptances.termsVersion, CURRENT_LEGAL_ACCEPTANCE.termsVersion),
+            eq(legalAcceptances.eulaVersion, CURRENT_LEGAL_ACCEPTANCE.eulaVersion),
+            eq(legalAcceptances.privacyNoticeVersion, CURRENT_LEGAL_ACCEPTANCE.privacyNoticeVersion),
+            gt(legalAcceptances.retentionExpiresAt, new Date()),
+          ))
+          .limit(1);
+        return result;
       },
       { module: "legal" },
     );

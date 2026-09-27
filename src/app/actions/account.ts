@@ -1,6 +1,6 @@
 'use server';
 
-import { db, readDb } from "@/lib/db";
+import { db } from "@/lib/db";
 import {
     profiles,
     projects,
@@ -665,7 +665,7 @@ export async function exportAccountData(): Promise<{
 
         const userId = user.id;
 
-        const [profile] = await readDb
+        const [profile] = await db
             .select({
                 email: profiles.email,
                 username: profiles.username,
@@ -687,7 +687,7 @@ export async function exportAccountData(): Promise<{
             .where(eq(profiles.id, userId))
             .limit(1);
 
-        const contributionRows = await readDb
+        const contributionRows = await db
             .select({
                 id: profileProjectContributions.id,
                 projectId: profileProjectContributions.projectId,
@@ -761,7 +761,7 @@ export async function exportAccountData(): Promise<{
             skills: string[];
         }>()).values());
 
-        const userProjects = await readDb
+        const userProjects = await db
             .select({
                 id: projects.id,
                 title: projects.title,
@@ -778,7 +778,7 @@ export async function exportAccountData(): Promise<{
             .where(eq(projects.ownerId, userId))
             .limit(5_000);
 
-        const userConnections = await readDb
+        const userConnections = await db
             .select({
                 requesterId: connections.requesterId,
                 addresseeId: connections.addresseeId,
@@ -794,7 +794,7 @@ export async function exportAccountData(): Promise<{
             )
             .limit(5_000);
 
-        const userMessages = await readDb
+        const userMessages = await db
             .select({
                 id: messages.id,
                 conversationId: messages.conversationId,
@@ -814,7 +814,7 @@ export async function exportAccountData(): Promise<{
             .orderBy(desc(messages.createdAt))
             .limit(ACCOUNT_EXPORT_MESSAGE_LIMIT);
 
-        const messageCountResult = await readDb
+        const messageCountResult = await db
             .select({
                 count: sql<number>`count(distinct ${messages.id})::int`,
             })
@@ -828,7 +828,7 @@ export async function exportAccountData(): Promise<{
             );
         const userMessageCount = messageCountResult[0]?.count ?? 0;
 
-        const userCollections = await readDb
+        const userCollections = await db
             .select({
                 id: collections.id,
                 name: collections.name,
@@ -838,7 +838,7 @@ export async function exportAccountData(): Promise<{
             .where(eq(collections.ownerId, userId))
             .limit(1_000);
 
-        const userLegalAcceptances = await readDb
+        const userLegalAcceptances = await db
             .select({
                 termsVersion: legalAcceptances.termsVersion,
                 eulaVersion: legalAcceptances.eulaVersion,
@@ -933,7 +933,7 @@ export async function getAccountDeletionStatus(): Promise<{
             return { pending: false };
         }
 
-        const [activeDeletion] = await readDb
+        const [activeDeletion] = await db
             .select({
                 id: accountDeletions.id,
                 hardDeleteAt: accountDeletions.hardDeleteAt,
