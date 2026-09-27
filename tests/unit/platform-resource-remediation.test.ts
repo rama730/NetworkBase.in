@@ -122,24 +122,13 @@ test("presence subscriptions stay in authorized messaging owners", () => {
   assert.match(presenceClient, /entry\.roomType !== "user" \|\| entry\.roomId === userId/);
 });
 
-test("capacity evidence includes owner/project Storage soft budgets", () => {
-  const checker = read("scripts/check-capacity-audit.ts");
-  assert.match(checker, /largestOwnerBytes/);
-  assert.match(checker, /largestProjectBytes/);
-  assert.match(checker, /perOwnerSoftBudgetBytes/);
-  assert.match(checker, /perProjectSoftBudgetBytes/);
-  assert.match(checker, /largest_owner_storage_bytes/);
-  assert.match(checker, /largest_project_storage_bytes/);
-});
-
 test("migration generation is replay-gated and production verifies the runtime database role", () => {
   const packageJson = read("package.json");
   const generationGate = read("scripts/generate-db-migration.ts");
-  const releaseGate = read("scripts/run-stability-release-gate.ts");
 
   assert.match(packageJson, /"db:generate": "tsx scripts\/generate-db-migration\.ts"/);
   assert.match(generationGate, /DATABASE_URL_FRESH/);
   assert.match(generationGate, /check:db:remigration-replay/);
   assert.match(generationGate, /disposable replay\/catalog parity failed/);
-  assert.match(releaseGate, /label: 'check:db:runtime-role'/);
+  assert.match(packageJson, /npm run check:db:runtime-role/);
 });

@@ -25,8 +25,6 @@ function base64UrlDecode(input: string) {
 
 function getAuthCodeSecret() {
   const secret = process.env.EXTENSION_AUTH_CODE_SECRET
-    || process.env.AUTH_SECRET
-    || process.env.NEXTAUTH_SECRET
     || process.env.SUPABASE_JWT_SECRET
     || (process.env.NODE_ENV === "production" ? "" : "nb-extension-auth-code-local-development-secret");
 

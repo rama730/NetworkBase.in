@@ -8,7 +8,6 @@ import { Suspense } from "react";
 import "@/lib/env";
 import "./globals.css";
 import { buildThemePrehydrateScript } from "@/lib/theme/appearance";
-import { RoutePerformanceObserver } from "@/components/observability/RoutePerformanceObserver";
 import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
 
 const instrumentSans = localFont({
@@ -78,7 +77,6 @@ function ThemeProviders({
 }) {
   return (
     <ThemeProvider nonce={nonce}>
-      <RoutePerformanceObserver />
       {children}
       <CookieConsentRuntime />
     </ThemeProvider>

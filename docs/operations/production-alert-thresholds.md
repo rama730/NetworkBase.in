@@ -33,7 +33,7 @@ Every alert query must preserve these labels when the backend supports them:
 ## Triage Order
 
 1. Confirm the alert is not caused by a deploy or vendor incident already in progress.
-2. Open the related dashboard from `ops/stability/production-rollout.json`.
+2. Open the Railway service metrics and Supabase reports for the failing surface.
 3. Compare the failing metric with request IDs in structured logs.
 4. If auth, webhook, or API error gates fail for 5 consecutive minutes, freeze promotion.
 5. If user-facing errors are sustained, run the rollback steps in `docs/operations/credential-rotation-and-rollback.md`.

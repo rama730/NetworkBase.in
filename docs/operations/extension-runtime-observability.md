@@ -19,32 +19,15 @@ This runbook covers the VS Code-compatible NB Workspace extension flow:
 
 ## Required Dashboards
 
-Use `ops/stability/extension-dashboard.json` as the source of truth for panel names, grouping dimensions, and alert thresholds.
-
 Minimum panels:
 
 - Auth-code exchange success rate and p95 latency.
 - Extension workspace bootstrap p95 latency.
 - Signed download intent p95 latency.
-- Signed range probe p95 latency from `qa/load/extension-sync.k6.js`.
 - Large upload intent and finalize success rates.
 - Large upload finalize p95 latency.
 - Recovery intent/finalize success rate and p95 latency.
 - Webview error/warn log counts by action.
-
-## Load Probe
-
-Run against staging with a revocable extension token and a representative file path:
-
-```bash
-STABILITY_LOAD_SUITES=extension-sync \
-EXTENSION_TOKEN="nb_dev_..." \
-EXTENSION_PROJECT_ID="00000000-0000-0000-0000-000000000000" \
-EXTENSION_FILE_PATH="/README.md" \
-npm run run:load-suite -- --base-url=https://staging.example.com
-```
-
-The probe is intentionally read-oriented. It verifies bearer auth, workspace bootstrap, signed download intent creation, and signed byte-range reads without creating project versions.
 
 ## Triage
 

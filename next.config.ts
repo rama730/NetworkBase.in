@@ -155,11 +155,6 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   reactStrictMode: true,
-  serverExternalPackages: [
-    "@opentelemetry/sdk-node",
-    "@opentelemetry/resources",
-    "@opentelemetry/exporter-trace-otlp-grpc",
-  ],
   webpack(config, { dev, isServer }) {
     config.resolve = config.resolve ?? {};
     if (!isServer) {

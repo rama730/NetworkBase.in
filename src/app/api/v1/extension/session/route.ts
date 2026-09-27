@@ -20,7 +20,6 @@ function getBearerToken(request: Request) {
   return token.startsWith("nb_dev_") ? token : null;
 }
 
-// ponytail: in-memory short TTL cache to avoid hammering DB with 1M heartbeats
 const SESSION_CACHE_TTL_MS = 30_000;
 type CachedSession = { sessionId: string; active: boolean; cachedAt: number };
 const sessionStatusCache = new Map<string, CachedSession>();
