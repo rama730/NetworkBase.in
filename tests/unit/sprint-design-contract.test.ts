@@ -134,8 +134,8 @@ test("Sprints Tab Design Specification Conformance Contract (Sections 03, 04, 05
       "Load more button must adhere to Section 05 h-[34px] rounded-[5px] desktop height",
     );
     assert.match(
-      sprintTimeline,
-      /useReducedMotionPreference/,
+      fs.readFileSync(path.resolve(process.cwd(), "src/app/globals.css"), "utf-8"),
+      /html\[data-reduce-motion="true"\] \*/,
       "Task expansion motion must respect the user motion preference",
     );
     assert.match(
