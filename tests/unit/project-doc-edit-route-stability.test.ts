@@ -50,7 +50,7 @@ test("project docs isolate published document identity across URLs and cache", (
 
     assert.match(
         docTab,
-        /normalizeProjectDocSlug\(rawDocSlug\)/,
+        /normalizeProjectDocSlug\(paramDoc\)/,
         "DocTab should normalize the URL doc slug before it reaches queries or server actions",
     );
     assert.match(
@@ -60,7 +60,7 @@ test("project docs isolate published document identity across URLs and cache", (
     );
     assert.match(
         queryHook,
-        /normalizeProjectDocSlug\(docSlug\)/,
+        /docSlug \? normalizeProjectDocSlug\(docSlug\) : "default"/,
         "React Query document keys should use the canonical document slug",
     );
 });

@@ -82,14 +82,15 @@ test("Domain D: Scopes refreshProjectData invalidation to active tabs", () => {
   assert.match(clientContent, /sprints: targetTab === .sprints./);
 });
 
-test("Domain D: DocTab eliminates query waterfall when ?doc= search param is present", () => {
+test("Domain D: DocTab loads the document and its list in one request", () => {
   const docTabContent = readFileSync(
     resolve(ROOT, "src/components/projects/tabs/DocTab.tsx"),
     "utf-8"
   );
 
   assert.match(docTabContent, /const paramDoc = searchParams\?\.get\("doc"\);/);
-  assert.match(docTabContent, /if \(paramDoc\) return paramDoc;/);
+  assert.doesNotMatch(docTabContent, /useProjectMarkdowns/);
+  assert.match(docTabContent, /useProjectDoc\(projectId, paramDoc \? normalizeProjectDocSlug\(paramDoc\) : null\)/);
 });
 
 test("Domain D: useProjectMembers configures gcTime for memory cleanup", () => {

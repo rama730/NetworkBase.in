@@ -32,7 +32,7 @@ import { logger } from "@/lib/logger";
 import { useQueryClient } from "@tanstack/react-query";
 import { normalizeProjectDocSlug } from "@/lib/projects/doc";
 import {
-  PROJECT_DOC_QUERY_KEY,
+  PROJECT_DOCS_QUERY_KEY,
   PROJECT_MARKDOWNS_LIST_QUERY_KEY,
 } from "@/hooks/hub/useProjectDocData";
 
@@ -206,7 +206,7 @@ export function FileActionsBar({
         toast.success("File unlinked from Doc successfully");
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: PROJECT_MARKDOWNS_LIST_QUERY_KEY(projectId) }),
-          queryClient.invalidateQueries({ queryKey: PROJECT_DOC_QUERY_KEY(projectId, linkedDoc.slug) })
+          queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) })
         ]);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to unlink file";
@@ -230,8 +230,7 @@ export function FileActionsBar({
       toast.success("File linked to Doc successfully");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: PROJECT_MARKDOWNS_LIST_QUERY_KEY(projectId) }),
-        queryClient.invalidateQueries({ queryKey: PROJECT_DOC_QUERY_KEY(projectId, docSlug) }),
-        queryClient.invalidateQueries({ queryKey: PROJECT_DOC_QUERY_KEY(projectId, docSlug) })
+        queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) })
       ]);
       onNavigateToDoc?.(docSlug);
     } catch (err) {

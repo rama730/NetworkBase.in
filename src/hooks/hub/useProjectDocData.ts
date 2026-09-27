@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { queryKeys } from "@/lib/query-keys";
 import type {
@@ -11,18 +11,21 @@ import type {
 } from "@/lib/projects/doc-blocks";
 import { normalizeProjectDocSlug } from "@/lib/projects/doc";
 
-export const PROJECT_DOC_QUERY_KEY = (projectId: string, docSlug: string = "readme") =>
-    [...queryKeys.project.detail.readme(projectId), normalizeProjectDocSlug(docSlug)] as const;
+export const PROJECT_DOCS_QUERY_KEY = (projectId: string) => queryKeys.project.detail.readme(projectId);
+export const PROJECT_DOC_QUERY_KEY = (projectId: string, docSlug: string | null) =>
+    [...PROJECT_DOCS_QUERY_KEY(projectId), docSlug ? normalizeProjectDocSlug(docSlug) : "default"] as const;
 export const PROJECT_DOC_SMART_BLOCK_PREVIEWS_QUERY_KEY = (projectId: string, blockSignature: string) =>
     queryKeys.project.detail.readmeSmartBlockPreviews(projectId, blockSignature);
 
-export function useProjectDoc(projectId: string, docSlug: string = "readme") {
+export function useProjectDoc(projectId: string, docSlug: string | null) {
+    const queryClient = useQueryClient();
     return useQuery({
         queryKey: PROJECT_DOC_QUERY_KEY(projectId, docSlug),
         queryFn: async () => {
             const { readProjectDocAction } = await import("@/app/actions/project");
             const result = await readProjectDocAction(projectId, docSlug);
             if (!result.success) throw new Error(result.error);
+            queryClient.setQueryData(PROJECT_MARKDOWNS_LIST_QUERY_KEY(projectId), result.data.docs);
             return result.data;
         },
         staleTime: 1000 * 60 * 5,

@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
 import { BookOpenText } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 import { ProjectDocViewer } from "@/components/projects/doc/ProjectDocViewer";
 import { SkeletonDoc } from "@/components/projects/skeletons/SkeletonDoc";
-import { useProjectDoc, useProjectMarkdowns } from "@/hooks/hub/useProjectDocData";
+import { useProjectDoc } from "@/hooks/hub/useProjectDocData";
 import { normalizeProjectDocSlug } from "@/lib/projects/doc";
 import type { Project } from "@/types/hub";
 
@@ -19,20 +18,8 @@ export default function DocTab({
 }) {
     const searchParams = useSearchParams();
     const paramDoc = searchParams?.get("doc");
-    const markdownsQuery = useProjectMarkdowns(projectId, !paramDoc);
-    const markdowns = markdownsQuery.data || [];
-    const defaultDocSlug = useMemo(() => {
-        if (paramDoc) return paramDoc;
-        if (markdowns.length === 0) return "readme";
-        const hasReadme = markdowns.some((m) => m.slug === "readme");
-        if (hasReadme) return "readme";
-        return markdowns[0]?.slug || "readme";
-    }, [markdowns, paramDoc]);
-
-    const rawDocSlug = paramDoc || defaultDocSlug;
-    const docSlug = useMemo(() => normalizeProjectDocSlug(rawDocSlug), [rawDocSlug]);
-
-    const readmeQuery = useProjectDoc(projectId, docSlug);
+    const readmeQuery = useProjectDoc(projectId, paramDoc ? normalizeProjectDocSlug(paramDoc) : null);
+    const docSlug = readmeQuery.data?.docSlug ?? "readme";
 
     if (readmeQuery.isLoading) return <SkeletonDoc />;
 

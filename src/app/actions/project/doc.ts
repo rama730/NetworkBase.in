@@ -21,6 +21,7 @@ import { logger } from "@/lib/logger";
 import { toIsoString as toIso } from "@/lib/utils/date";
 import { isUuid } from "@/lib/validations/uuid";
 import { createClient, } from "@/lib/supabase/server";
+import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { recordNodeEvent } from "@/lib/files/internal-helpers";
 import {
     getOrBuildProjectDocPublishMetadata,
@@ -35,6 +36,7 @@ import {
     type ProjectDocQualityReport,
     type ProjectDocSettings,
     type ProjectDocVersion,
+    type ProjectDocListItem,
 } from "@/lib/projects/doc";
 import { normalizeProjectPublicTabVisibility } from "@/lib/projects/settings-policies";
 import type {
@@ -123,9 +125,7 @@ function toDocVersion(row: (typeof projectMarkdownVersions.$inferSelect & { crea
 }
 
 async function getOptionalUserId() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
+    return (await getViewerAuthContext()).userId;
 }
 
 async function requireUserId() {
@@ -134,36 +134,44 @@ async function requireUserId() {
     return userId;
 }
 
-async function getDocProjectContext(projectId: string, actorUserId: string | null, docSlug: string = "readme") {
-    docSlug = normalizeProjectDocSlug(docSlug);
-    const [project] = await db
-        .select({
-            id: projects.id,
-            slug: projects.slug,
-            title: projects.title,
-            ownerId: projects.ownerId,
-            visibility: projects.visibility,
-            publicTabVisibility: projects.publicTabVisibility,
-            deletedAt: projects.deletedAt,
-            importSource: projects.importSource,
-            githubRepoUrl: projects.githubRepoUrl,
-            githubDefaultBranch: projects.githubDefaultBranch,
-            key: projects.key,
-        })
-        .from(projects)
-        .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
-        .limit(1);
+async function loadDocProjectBase(projectId: string, actorUserId: string | null) {
+    const [[project], membership, docs] = await Promise.all([
+        db
+            .select({
+                id: projects.id,
+                slug: projects.slug,
+                title: projects.title,
+                ownerId: projects.ownerId,
+                visibility: projects.visibility,
+                publicTabVisibility: projects.publicTabVisibility,
+                deletedAt: projects.deletedAt,
+                importSource: projects.importSource,
+                githubRepoUrl: projects.githubRepoUrl,
+                githubDefaultBranch: projects.githubDefaultBranch,
+                key: projects.key,
+            })
+            .from(projects)
+            .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+            .limit(1),
+        actorUserId
+            ? db.query.projectMembers.findFirst({
+                where: and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, actorUserId)),
+                columns: { role: true },
+            })
+            : Promise.resolve(null),
+        db.query.projectMarkdowns.findMany({
+            where: eq(projectMarkdowns.projectId, projectId),
+        }),
+    ]);
     if (!project) throw new Error("Project not found");
+    return { project, membership: membership ?? null, docs };
+}
 
-    const membership = actorUserId
-        ? await db.query.projectMembers.findFirst({
-            where: and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, actorUserId)),
-            columns: { role: true },
-        })
-        : null;
-    const readme = await db.query.projectMarkdowns.findFirst({
-        where: and(eq(projectMarkdowns.projectId, projectId), eq(projectMarkdowns.slug, docSlug)),
-    });
+type DocProjectBase = Awaited<ReturnType<typeof loadDocProjectBase>>;
+
+function docContext(base: DocProjectBase, actorUserId: string | null, docSlug: string) {
+    const { project, membership } = base;
+    const readme = base.docs.find((doc) => doc.slug === docSlug);
     const settings = normalizeProjectDocSettings(readme?.settings);
     const hasPublishedReadme = Boolean(readme?.publishedVersionId) || Boolean(readme?.linkedNodeId);
     const permission = resolveProjectDocPermission({
@@ -176,7 +184,37 @@ async function getDocProjectContext(projectId: string, actorUserId: string | nul
         isActiveMember: Boolean(membership),
         hasPublishedReadme,
     });
-    return { project, membership, readme, settings, permission };
+    return { ...base, readme, settings, permission };
+}
+
+function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
+    const { project, membership } = base;
+    const isOwner = actorUserId === project.ownerId;
+    const results: ProjectDocListItem[] = [];
+    for (const doc of base.docs) {
+        const permission = resolveProjectDocPermission({
+            actorUserId,
+            projectVisibility: project.visibility,
+            publicTabVisibility: project.publicTabVisibility,
+            settings: normalizeProjectDocSettings(doc.settings),
+            membershipRole: isOwner ? "owner" : membership?.role,
+            isOwner,
+            isActiveMember: isOwner || Boolean(membership),
+            hasPublishedReadme: Boolean(doc.publishedVersionId),
+        });
+        if (permission.canReadPublished || permission.canEdit) {
+            results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId });
+        }
+    }
+    return results.sort((a, b) => {
+        if (a.slug === "readme") return -1;
+        if (b.slug === "readme") return 1;
+        return a.filename.localeCompare(b.filename, undefined, { sensitivity: "base", numeric: true });
+    });
+}
+
+async function getDocProjectContext(projectId: string, actorUserId: string | null, docSlug: string = "readme") {
+    return docContext(await loadDocProjectBase(projectId, actorUserId), actorUserId, normalizeProjectDocSlug(docSlug));
 }
 
 async function getOrCreateMarkdown(projectId: string, userId: string, docSlug: string = "readme", settings: ProjectDocSettings = DEFAULT_PROJECT_DOC_SETTINGS) {
@@ -464,14 +502,16 @@ function optionFromContributor(row: {
     };
 }
 
-export async function readProjectDocAction(projectId: string, docSlug: string = "readme"): Promise<
+export async function readProjectDocAction(projectId: string, requestedSlug: string | null = null): Promise<
     | { success: true; data: ProjectDocPublishedPayload }
     | { success: false; error: string }
 > {
     try {
-        docSlug = normalizeProjectDocSlug(docSlug);
         const actorUserId = await getOptionalUserId();
-        const context = await getDocProjectContext(projectId, actorUserId, docSlug);
+        const base = await loadDocProjectBase(projectId, actorUserId);
+        const docs = visibleDocs(base, actorUserId);
+        const docSlug = requestedSlug ? normalizeProjectDocSlug(requestedSlug) : docs[0]?.slug ?? "readme";
+        const context = docContext(base, actorUserId, docSlug);
         if (!context.permission.canReadPublished && !context.permission.canEdit) {
             return { success: false, error: context.permission.reason || "Document unavailable" };
         }
@@ -536,6 +576,8 @@ export async function readProjectDocAction(projectId: string, docSlug: string = 
             success: true,
             data: {
                 projectId,
+                docSlug,
+                docs,
                 canEdit: context.permission.canEdit,
                 permission: context.permission,
                 settings: context.settings,
@@ -943,73 +985,8 @@ export async function unlinkProjectDocAction(projectId: string, docSlug: string 
 export async function listProjectMarkdownsAction(projectId: string) {
     try {
         const actorUserId = await getOptionalUserId();
-        const [project] = await db
-            .select({
-                id: projects.id,
-                slug: projects.slug,
-                ownerId: projects.ownerId,
-                visibility: projects.visibility,
-                publicTabVisibility: projects.publicTabVisibility,
-            })
-            .from(projects)
-            .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
-            .limit(1);
-        if (!project) return { success: false as const, error: "Project not found" };
-
-        const membership = actorUserId
-            ? await db.query.projectMembers.findFirst({
-                where: and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, actorUserId)),
-                columns: { role: true },
-            })
-            : null;
-
-        const docs = await db
-            .select({
-                id: projectMarkdowns.id,
-                slug: projectMarkdowns.slug,
-                filename: projectMarkdowns.filename,
-                linkedNodeId: projectMarkdowns.linkedNodeId,
-                publishedVersionId: projectMarkdowns.publishedVersionId,
-                settings: projectMarkdowns.settings,
-            })
-            .from(projectMarkdowns)
-            .where(eq(projectMarkdowns.projectId, projectId));
-
-        const results: { id: string; slug: string; filename: string; linkedNodeId: string | null }[] = [];
-        const isOwner = actorUserId === project.ownerId;
-
-        for (const doc of docs) {
-            const settings = normalizeProjectDocSettings(doc.settings);
-            const hasPublishedReadme = Boolean(doc.publishedVersionId);
-            const permission = resolveProjectDocPermission({
-                actorUserId,
-                projectVisibility: project.visibility,
-                publicTabVisibility: project.publicTabVisibility,
-                settings,
-                membershipRole: isOwner ? "owner" : membership?.role,
-                isOwner,
-                isActiveMember: isOwner || Boolean(membership),
-                hasPublishedReadme,
-            });
-
-            if (permission.canReadPublished || permission.canEdit) {
-                results.push({
-                    id: doc.id,
-                    slug: doc.slug,
-                    filename: doc.filename,
-                    linkedNodeId: doc.linkedNodeId,
-                });
-            }
-        }
-
-        // Sort documents: 'readme' slug first, then alphabetically by filename
-        results.sort((a, b) => {
-            if (a.slug === "readme") return -1;
-            if (b.slug === "readme") return 1;
-            return a.filename.localeCompare(b.filename, undefined, { sensitivity: 'base', numeric: true });
-        });
-
-        return { success: true as const, markdowns: results };
+        const base = await loadDocProjectBase(projectId, actorUserId);
+        return { success: true as const, markdowns: visibleDocs(base, actorUserId) };
     } catch (error) {
         logger.error("project_readme.list_markdowns_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Failed to list documents." };
