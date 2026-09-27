@@ -5,6 +5,7 @@ import { ThemeProvider as NextThemesProvider, useTheme as useNextTheme } from 'n
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { isHardeningDomainEnabled } from '@/lib/features/hardening'
 import { logger } from '@/lib/logger'
+import { isProtectedAppRoute } from '@/lib/routing/route-class'
 import {
     APPEARANCE_STORAGE_KEYS,
     type AccentColor,
@@ -352,6 +353,7 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
         setSyncState('idle')
 
         const runRemoteBootstrap = () => {
+            if (!isProtectedAppRoute(window.location.pathname)) return
             void readAppearanceSettings().then((result) => {
                 if (cancelled) return
                 const nextUserId = result.userId ?? null
