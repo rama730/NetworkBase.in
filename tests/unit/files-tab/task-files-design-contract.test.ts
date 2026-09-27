@@ -252,16 +252,11 @@ test("Task Files Design Specification Conformance Contract", async (t) => {
     );
   });
 
-  await t.test("Feature 7: 1M-User performance with hover prefetch and keyboard navigation", () => {
-    assert.match(
-      taskFilesCollection,
-      /prefetchInfiniteQuery/,
-      "TaskFilesCollection must prefetch task file groups via React Query",
-    );
-    assert.match(
+  await t.test("Feature 7: keyboard navigation without hover server actions", () => {
+    assert.doesNotMatch(
       taskFilesCollection,
       /onMouseEnter=\{.*handlePrefetchTask/,
-      "TaskFilesCollection row must trigger hover prefetch onMouseEnter",
+      "TaskFilesCollection rows must not fire server actions on hover",
     );
     assert.match(
       taskFilesCollection,
