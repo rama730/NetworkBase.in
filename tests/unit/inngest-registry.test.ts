@@ -98,7 +98,7 @@ test("getRegisteredInngestFunctions throws in production when INNGEST_EXECUTION_
 
 test("Inngest API route honors the configured execution role", () => {
   const routeSource = readFileSync(
-    path.resolve(__dirname, "../../src/app/api/v1/inngest/route.ts"),
+    path.resolve(__dirname, "../../src/app/api/inngest/route.ts"),
     "utf8",
   );
 

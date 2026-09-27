@@ -87,7 +87,6 @@
     "test:release-gate": "npm run lint -- --no-error-on-unmatched-pattern \"src/**/*.ts\" \"src/**/*.tsx\" \"src/**/*.js\" \"src/**/*.jsx\" \"tests/**/*.ts\" \"tests/**/*.tsx\" \"tests/**/*.js\" \"tests/**/*.jsx\" \"scripts/**/*.ts\" \"scripts/**/*.tsx\" \"scripts/**/*.js\" \"scripts/**/*.jsx\" \"scripts/**/*.cjs\" \"scripts/**/*.mjs\" \"services/**/*.ts\" \"services/**/*.tsx\" \"services/**/*.js\" \"services/**/*.jsx\" \"*.js\" \"*.mjs\" \"*.cjs\" \"*.ts\" && npm run typecheck && npm run check:deps:audit && npm run check:deps:lockfile && npm run check:db:migration-journal && npm run check:db:migration-sources && npm run check:db:remigration-replay && npm run check:db:live-lineage && npm run check:security-env-contract && npm run check:rls-contract && npm run check:authz-contract && npm run check:csp-contract && npm run check:trusted-proxy-contract && npm run check:webhook-identity-contract && npm run check:realtime-origin-contract && npm run check:e2e-auth-bundle-contract && npm run check:security-evidence && npm run test:unit:coverage && npm run check:scroll-contract && npm run check:query-key-contract && npm run check:theme-contract && npm run check:page-contract && npm run check:force-dynamic-allowlist && npm run check:runtime-boundaries && npm run check:api-versioning-contract && npm run check:api-envelope-contract && npm run check:review-guardrails && npm run check:engineering-standards && npm run test:e2e:critical:prod && npm run check:build-rendering-contract && npm run check:e2e:perf && npm run check:route-baseline-regression && npm run check:hardening-rollout && npm run check:capacity-audit && npm run check:production-rollout && npm run check:1m-readiness"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.79",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.11",
     "@codemirror/lang-javascript": "^6.2.4",
@@ -122,7 +121,6 @@
     "@uiw/react-codemirror": "^4.25.4",
     "@upstash/redis": "^1.36.1",
     "@vercel/analytics": "^1.6.1",
-    "ai": "^6.0.191",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
