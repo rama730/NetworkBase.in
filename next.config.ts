@@ -19,6 +19,7 @@ const e2eAuthRouteImplAbsolutePath =
 const nextConfig: NextConfig = {
   // Keep verification builds isolated from an actively running local dev server.
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  output: "standalone",
   // ponytail: native HTTP 308 redirects preserve query params and offload route migration to edge.
   async redirects() {
     return [
