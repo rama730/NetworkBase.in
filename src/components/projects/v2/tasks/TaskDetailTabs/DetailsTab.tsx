@@ -17,7 +17,7 @@ import {
   X as XIcon,
   Zap,
 } from "lucide-react";
-import { addDays, format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
+import { addDays, format, formatDistanceToNow, isBefore, startOfDay } from "@/lib/utils/date";
 import ReactMarkdown from "react-markdown";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 

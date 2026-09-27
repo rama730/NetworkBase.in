@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent } from "react";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/lib/utils/date";
 import {
     LayoutDashboard, ListTodo, FolderOpen, BookOpenText,
     Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, Camera

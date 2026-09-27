@@ -14,7 +14,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
 import { TASK_WORKING_FILES_TITLE } from "@/lib/files/task-working-files";
 import { calculateTaskTimeHealth, getTaskTitlePresentation } from "@/lib/projects/task-presentation";
-import { format, isSameYear } from "date-fns";
+import { format, isSameYear } from "@/lib/utils/date";
 
 type Props = {
   projectSlug: string;

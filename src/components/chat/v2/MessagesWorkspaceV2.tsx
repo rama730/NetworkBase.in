@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from '@/lib/utils/date';
 import { useChatTypingState } from '@/hooks/useChatTypingState';
 import { useAuth } from '@/hooks/useAuth';
 import { useMessagesV2Realtime } from '@/hooks/useMessagesV2Realtime';

@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Camera } from "lucide-react";
 import Link from "next/link";
-import { isToday, isAfter, subDays } from "date-fns";
+import { isToday, isAfter, subDays } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
 import { formatLastActive } from "@/lib/ui/date-formatting";
 import type { Project } from "@/types/discover";

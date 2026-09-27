@@ -1,4 +1,4 @@
-import { isToday, isAfter, subDays } from "date-fns";
+import { isToday, isAfter, subDays } from "@/lib/utils/date";
 
 /**
  * Returns a human-readable "Active today" / "Active this week" label,

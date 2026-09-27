@@ -16,7 +16,7 @@ import { useConnectionMutations, useConnections, type NetworkConnectionItem } fr
 import { profileHref } from "@/lib/routing/identifiers";
 import { resolveClientSkill } from "@/lib/skills/client";
 import { formatLastActive } from "@/lib/ui/date-formatting";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/lib/utils/date";
 
 const GridList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
     <div {...props} ref={ref} className="grid grid-cols-1 gap-[14px] pb-8 sm:grid-cols-2" />

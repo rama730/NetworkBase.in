@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Loader2, Save } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 
 interface WizardFooterProps {

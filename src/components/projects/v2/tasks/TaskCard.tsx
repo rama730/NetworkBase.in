@@ -10,7 +10,7 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, parseISO } from "date-fns";
+import { format, parseISO } from "@/lib/utils/date";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SPRINT_STATUS_PRESENTATION } from "@/lib/projects/sprint-detail";
 import {
