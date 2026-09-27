@@ -5,7 +5,6 @@ import { normalizeAuthNextPath } from '@/lib/auth/redirects'
 import { getAuthHardeningPhase } from '@/lib/auth/hardening'
 import { classifyAuthLookupError, toAuthErrorMessage } from '@/lib/auth/session-lookup'
 import { resolveAuthSnapshot } from '@/lib/auth/snapshot'
-import { consumeRouteClassLoadShedding } from '@/lib/routing/load-shedding'
 import {
     classifyRoute,
     isAuthOnlyRoute,
@@ -176,30 +175,6 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         const url = request.nextUrl.clone()
         url.pathname = canonicalPublicUsernamePath
         return redirectWithRequestId(url, requestId, routeClass)
-    }
-
-    const loadShedding = await consumeRouteClassLoadShedding(routeClass)
-    if (!loadShedding.allowed) {
-        logger.warn('[middleware] route shed due to overload', {
-            requestId,
-            path: pathname,
-            routeClass,
-            resetAt: loadShedding.resetAt ?? null,
-            degraded: loadShedding.degraded ?? false,
-        })
-        return withRequestId(
-            NextResponse.json(
-                { error: 'Service temporarily overloaded', routeClass },
-                {
-                    status: 503,
-                    headers: {
-                        'Retry-After': '5',
-                    },
-                },
-            ),
-            requestId,
-            routeClass,
-        )
     }
 
     let supabaseEnv: { url: string; anonKey: string }
