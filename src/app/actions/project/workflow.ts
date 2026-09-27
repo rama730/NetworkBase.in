@@ -98,21 +98,11 @@ export async function updateProjectWorkflowColumnsAction(projectId: string, work
         if (existing.length !== parsedWorkflow.data.length || !parsedWorkflow.data.every((column) => existing.some((row) => row.id === column.id))) {
             return { success: false as const, error: "Workflow changed elsewhere. Reload and try again." };
         }
+        const rows = sql.join(parsedWorkflow.data.map((column, index) => sql`(${column.id}::uuid, ${100 + index}::int, ${column.title}::text, ${column.accentClassName}::text, ${column.emptyTitle}::text, ${column.emptyDescription}::text, ${column.position}::int)`), sql`, `);
+        const values = sql`(VALUES ${rows}) AS v(id, temporary_position, title, accent_class_name, empty_title, empty_description, position)`;
         await db.transaction(async (tx) => {
-            // Move through a temporary range so a swap never violates the unique project/position index.
-            for (const [index, column] of parsedWorkflow.data.entries()) {
-                await tx.update(projectWorkflowColumns).set({ position: 100 + index }).where(eq(projectWorkflowColumns.id, column.id));
-            }
-            for (const column of parsedWorkflow.data) {
-                await tx.update(projectWorkflowColumns).set({
-                    title: column.title,
-                    accentClassName: column.accentClassName,
-                    emptyTitle: column.emptyTitle,
-                    emptyDescription: column.emptyDescription,
-                    position: column.position,
-                    updatedAt: new Date(),
-                }).where(and(eq(projectWorkflowColumns.id, column.id), eq(projectWorkflowColumns.projectId, parsedProjectId.data)));
-            }
+            await tx.execute(sql`UPDATE project_workflow_columns c SET position = v.temporary_position FROM ${values} WHERE c.id = v.id AND c.project_id = ${parsedProjectId.data}::uuid`);
+            await tx.execute(sql`UPDATE project_workflow_columns c SET title = v.title, accent_class_name = v.accent_class_name, empty_title = v.empty_title, empty_description = v.empty_description, position = v.position, updated_at = now() FROM ${values} WHERE c.id = v.id AND c.project_id = ${parsedProjectId.data}::uuid`);
         });
         revalidatePath(`/projects/${projectId}`);
         return { success: true as const };

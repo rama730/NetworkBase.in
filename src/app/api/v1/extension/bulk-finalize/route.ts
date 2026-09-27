@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import {
   checksumSchema,
@@ -82,13 +82,20 @@ export async function POST(request: Request) {
       contentHash: string;
     }> = [];
 
-    for (const item of files) {
-      const intent = await db.query.uploadIntents.findFirst({
+    if (new Set(files.map((item) => item.uploadIntentId)).size !== files.length) {
+      return jsonError("Duplicate upload intent", 400, "BAD_REQUEST");
+    }
+    const intents = new Map(
+      (await db.query.uploadIntents.findMany({
         where: and(
-          eq(uploadIntents.id, item.uploadIntentId),
+          inArray(uploadIntents.id, files.map((item) => item.uploadIntentId)),
           eq(uploadIntents.userId, user.id),
         ),
-      });
+      })).map((intent) => [intent.id, intent]),
+    );
+
+    for (const item of files) {
+      const intent = intents.get(item.uploadIntentId);
 
       if (!intent) {
         return jsonError(`Upload intent not found for ${item.path}`, 404, "NOT_FOUND");
