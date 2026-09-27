@@ -124,7 +124,7 @@ export function GoogleOneTap({
       id="google-identity-services"
       src="https://accounts.google.com/gsi/client"
       nonce={cspNonce ?? undefined}
-      strategy="afterInteractive"
+      strategy="lazyOnload"
       onLoad={() => setScriptReady(true)}
       onReady={() => setScriptReady(true)}
     />
