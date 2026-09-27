@@ -1184,6 +1184,13 @@
       "when": 1790525399966,
       "tag": "0170_rls_security",
       "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1790525984261,
+      "tag": "0171_sql_naming",
+      "breakpoints": true
     }
   ]
 }

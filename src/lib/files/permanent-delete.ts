@@ -2,7 +2,7 @@ import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   fileVersions,
-  projectMarkdowns,
+  projectDocs,
   projectNodes,
   projects,
   taskNodeLinks,
@@ -100,8 +100,8 @@ export async function inspectPermanentDelete(
       .where(inArray(taskNodeLinks.nodeId, ids)),
     tx
       .select({ count: sql<number>`count(*)::int` })
-      .from(projectMarkdowns)
-      .where(inArray(projectMarkdowns.linkedNodeId, ids)),
+      .from(projectDocs)
+      .where(inArray(projectDocs.linkedNodeId, ids)),
   ]);
   return {
     nodes,

@@ -61,7 +61,7 @@ function fixture(
     projectNodes: table("nodes"),
     fileVersions: table("versions"),
     projects: table("projects"),
-    projectMarkdowns: table("docs"),
+    projectDocs: table("docs"),
     taskNodeLinks: table("links"),
   };
   const tx = {

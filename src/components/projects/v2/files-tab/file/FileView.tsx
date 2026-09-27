@@ -58,7 +58,7 @@ import {
 } from "lucide-react";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useProjectMarkdowns } from "@/hooks/hub/useProjectDocData";
+import { useProjectDocList } from "@/hooks/hub/useProjectDocData";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -211,7 +211,7 @@ export function FileView({
   const projectSlug = pathname?.split("/")[2] || "";
 
   // Query list of documents to see if this node is linked to any of them
-  const { data: markdowns = [] } = useProjectMarkdowns(projectId);
+  const { data: markdowns = [] } = useProjectDocList(projectId);
   const linkedDoc = React.useMemo(() => {
     return markdowns.find((doc: any) => doc.linkedNodeId === node.id);
   }, [markdowns, node.id]);

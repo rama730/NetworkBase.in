@@ -5,7 +5,7 @@ import { FileText, Loader2 } from "lucide-react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 import { normalizeProjectDocSlug } from "@/lib/projects/doc";
-import { useProjectMarkdowns } from "@/hooks/hub/useProjectDocData";
+import { useProjectDocList } from "@/hooks/hub/useProjectDocData";
 import { cn } from "@/lib/utils";
 
 export function ProjectDocRail({
@@ -19,7 +19,7 @@ export function ProjectDocRail({
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    const { data: markdowns = [], isLoading } = useProjectMarkdowns(projectId);
+    const { data: markdowns = [], isLoading } = useProjectDocList(projectId);
 
     const sortedMarkdowns = useMemo(() => {
         return [...markdowns].sort((a, b) => {
@@ -98,7 +98,7 @@ export function ProjectDocMobileBar({
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    const { data: markdowns = [], isLoading } = useProjectMarkdowns(projectId);
+    const { data: markdowns = [], isLoading } = useProjectDocList(projectId);
 
     const sortedMarkdowns = useMemo(() => {
         return [...markdowns].sort((a, b) => {

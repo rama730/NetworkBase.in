@@ -25,7 +25,7 @@ export function useProjectDoc(projectId: string, docSlug: string | null) {
             const { readProjectDocAction } = await import("@/app/actions/project");
             const result = await readProjectDocAction(projectId, docSlug);
             if (!result.success) throw new Error(result.error);
-            queryClient.setQueryData(PROJECT_MARKDOWNS_LIST_QUERY_KEY(projectId), result.data.docs);
+            queryClient.setQueryData(PROJECT_DOC_LIST_QUERY_KEY(projectId), result.data.docs);
             return result.data;
         },
         staleTime: 1000 * 60 * 5,
@@ -109,15 +109,15 @@ export function useProjectDocSmartBlockPreviews(projectId: string, blocks: Proje
     });
 }
 
-export const PROJECT_MARKDOWNS_LIST_QUERY_KEY = (projectId: string) =>
+export const PROJECT_DOC_LIST_QUERY_KEY = (projectId: string) =>
     ["project", projectId, "detail", "markdowns_list"] as const;
 
-export function useProjectMarkdowns(projectId: string, enabled = true) {
+export function useProjectDocList(projectId: string, enabled = true) {
     return useQuery({
-        queryKey: PROJECT_MARKDOWNS_LIST_QUERY_KEY(projectId),
+        queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId),
         queryFn: async () => {
-            const { listProjectMarkdownsAction } = await import("@/app/actions/project");
-            const result = await listProjectMarkdownsAction(projectId);
+            const { listProjectDocsAction } = await import("@/app/actions/project");
+            const result = await listProjectDocsAction(projectId);
             if (!result.success) throw new Error(result.error);
             return result.markdowns;
         },

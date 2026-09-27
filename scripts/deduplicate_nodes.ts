@@ -200,10 +200,10 @@ async function deduplicate() {
 
         await sql.begin(async (tx) => {
             const transaction = tx as unknown as typeof sql;
-            await transaction`DROP INDEX IF EXISTS project_nodes_active_parent_name_uidx`;
-            await transaction`DROP INDEX IF EXISTS project_nodes_active_project_path_uidx`;
-            await transaction`ALTER INDEX project_nodes_active_parent_name_uidx_replacement RENAME TO project_nodes_active_parent_name_uidx`;
-            await transaction`ALTER INDEX project_nodes_active_project_path_uidx_replacement RENAME TO project_nodes_active_project_path_uidx`;
+            await transaction`DROP INDEX IF EXISTS project_nodes_active_parent_name_unique`;
+            await transaction`DROP INDEX IF EXISTS project_nodes_active_project_path_unique`;
+            await transaction`ALTER INDEX project_nodes_active_parent_name_uidx_replacement RENAME TO project_nodes_active_parent_name_unique`;
+            await transaction`ALTER INDEX project_nodes_active_project_path_uidx_replacement RENAME TO project_nodes_active_project_path_unique`;
         });
 
         console.log("✅ Bulk deduplication and index building finished successfully.");

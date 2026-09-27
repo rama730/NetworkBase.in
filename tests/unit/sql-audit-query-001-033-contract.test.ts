@@ -85,7 +85,7 @@ test("QRY-032 migration uses deterministic objects and transactional metadata cl
 test("QRY-033 validates concurrent replacement indexes before an atomic name swap", () => {
   const dedupe = source("scripts/deduplicate_nodes.ts");
   const firstCreate = dedupe.indexOf("CREATE UNIQUE INDEX CONCURRENTLY");
-  const firstOldDrop = dedupe.indexOf("DROP INDEX IF EXISTS project_nodes_active_parent_name_uidx");
+  const firstOldDrop = dedupe.indexOf("DROP INDEX IF EXISTS project_nodes_active_parent_name_unique");
 
   assert.ok(firstCreate >= 0 && firstCreate < firstOldDrop);
   assert.match(dedupe, /i\.indisvalid/);
