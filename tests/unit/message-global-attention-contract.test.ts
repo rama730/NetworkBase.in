@@ -18,7 +18,7 @@ test("global message attention is sourced from conversation unread state, not th
     assert.doesNotMatch(header, /item\.href === ROUTES\.MESSAGES\)[\s\S]{0,180}notifications\.unreadCount/);
     assert.match(popup, /useMessageAttention/);
     assert.match(popup, /unreadCount} unread messages/);
-    assert.match(provider, /getUnreadCount/);
+    assert.match(provider, /readShellPart\("messageUnreadCount"\)/);
     assert.match(provider, /subscribeMessagingNotifications/);
     assert.match(provider, /useMemo\(\(\) => queryKeys\.messages\.v2\.unread\(\), \[\]\)/);
     assert.match(provider, /getConversationSummariesV2/);

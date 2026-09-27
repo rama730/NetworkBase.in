@@ -2,7 +2,7 @@
 
 import { ChevronRight, ListChecks } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { getWorkspaceSummaryAction } from "@/app/actions/workspace";
+import { readShellPart } from "@/lib/shell-batch";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -15,7 +15,7 @@ export default function WorkspaceIndicator() {
     const { pendingConnections } = useNetworkNotifications();
     const { data: summary } = useQuery({
         queryKey: queryKeys.workspace.summary(),
-        queryFn: getWorkspaceSummaryAction,
+        queryFn: () => readShellPart("workspaceSummary"),
         staleTime: 30_000,
         refetchOnWindowFocus: false,
     });

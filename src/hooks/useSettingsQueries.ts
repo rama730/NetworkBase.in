@@ -1,5 +1,6 @@
 "use client";
 
+import { readShellPart } from "@/lib/shell-batch";
 import {
   useQuery,
   useMutation,
@@ -20,7 +21,6 @@ import {
   normalizeNotificationPreferences,
 } from "@/lib/notifications/preferences";
 import {
-  readNotificationPreferencesAction,
   updateNotificationPreferencesAction,
 } from "@/app/actions/notifications";
 import { getAccountDeletionStatus } from "@/app/actions/account";
@@ -213,7 +213,7 @@ export function useNotificationPreferences({ enabled = true }: { enabled?: boole
     queryKey: queryKeys.settings.notifications(),
     enabled,
     queryFn: async (): Promise<NotificationPreferences> => {
-      const result = await readNotificationPreferencesAction();
+      const result = await readShellPart("notificationPreferences");
       if (!result.success) {
         console.warn(
           "[settings] notification preferences lookup failed",

@@ -3,7 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { readNetworkPendingCountsAction } from "@/app/actions/connections";
+import { readShellPart } from "@/lib/shell-batch";
 import { useAuthContext } from "@/components/providers/AuthProvider";
 import { queryKeys } from "@/lib/query-keys";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
@@ -67,7 +67,7 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
     queryKey: queryKeys.connections.pending(),
     enabled: Boolean(enabled && user?.id),
     queryFn: async () => {
-      const result = await readNetworkPendingCountsAction();
+      const result = await readShellPart("networkPendingCounts");
       if (!result.success) throw new Error(result.error || "Failed to load pending requests");
       return result;
     },

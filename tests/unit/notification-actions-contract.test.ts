@@ -100,7 +100,7 @@ test('message notification delivery does not own canonical chat unread state', (
     const provider = readProjectFile('src/components/providers/MessageAttentionProvider.tsx');
 
     assert.doesNotMatch(hook, /invalidateMessageAttentionQueries|upsertMessageAttention/);
-    assert.match(provider, /getUnreadCount/);
+    assert.match(provider, /readShellPart\("messageUnreadCount"\)/);
     assert.match(provider, /subscribeMessagingNotifications/);
 });
 
