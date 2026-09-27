@@ -70,7 +70,7 @@ function buildFailedImportSource(importSource: unknown, reason: string, nowIso: 
 
 export const projectImportStaleReconcile = inngest.createFunction(
   { id: "project-import-stale-reconcile", retries: 1 },
-  { cron: "*/15 * * * *" },
+  { cron: "0 * * * *" },
   async () => {
     const now = new Date();
     const staleBefore = new Date(now.getTime() - STALE_RECONCILE_AGE_MINUTES * 60_000);

@@ -6,11 +6,9 @@ import { eq, inArray, sql } from "drizzle-orm";
 
 export const flushProjectViews = inngest.createFunction(
     { id: "flush-project-views", name: "Flush Project Views from Redis" },
-    // ponytail: 15-minute cron prevents idle external polling churn while ensuring eventual consistency
     { cron: "*/15 * * * *" },
     async ({ step }) => {
         if (!redis) return { skipped: true, reason: "No Redis configured" };
-        const writeThroughEnabled = process.env.PROJECT_VIEWS_WRITE_THROUGH === "1";
 
         const bufferedViews = await step.run("get-redis-views", async () => {
             // Atomic RENAME to prevent race condition:
@@ -46,14 +44,6 @@ export const flushProjectViews = inngest.createFunction(
         }
 
         const { tempKey, views } = bufferedViews;
-
-        if (writeThroughEnabled) {
-            // Views are written directly to DB at request time. Drain legacy buffers but do not re-apply.
-            await step.run("cleanup-temp-key", async () => {
-                await redis!.del(tempKey);
-            });
-            return { processed: 0, skippedApply: true, drainedProjects: Object.keys(views).length };
-        }
 
         const updates = await step.run("update-database", async () => {
             // Note: If scale is extreme, we could optimize this with `INSERT ... ON CONFLICT`
