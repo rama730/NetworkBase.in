@@ -36,9 +36,6 @@ const THEME_PREHYDRATE_SCRIPT = buildThemePrehydrateScript();
 const APP_METADATA_BASE = new URL(
   resolveAuthBaseUrl({ requireConfiguredBaseInProduction: false }),
 );
-const SHOULD_RENDER_VERCEL_ANALYTICS =
-  process.env.NODE_ENV === "production"
-  && ["1", "true", "yes", "on"].includes((process.env.VERCEL || "").trim().toLowerCase());
 
 export const metadata: Metadata = {
   metadataBase: APP_METADATA_BASE,
@@ -83,7 +80,7 @@ function ThemeProviders({
     <ThemeProvider nonce={nonce}>
       <RoutePerformanceObserver />
       {children}
-      <CookieConsentRuntime analyticsAvailable={SHOULD_RENDER_VERCEL_ANALYTICS} />
+      <CookieConsentRuntime />
     </ThemeProvider>
   );
 }

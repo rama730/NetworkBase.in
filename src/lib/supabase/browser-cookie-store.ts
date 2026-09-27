@@ -1,4 +1,4 @@
-import type { SerializeOptions } from "cookie";
+import type { CookieOptions } from "@supabase/ssr";
 
 const STORAGE_PREFIX = "supabase-browser-cookie:";
 const LEGACY_AUTH_COOKIE_MARKERS = ["auth-token", "sb-access-token", "sb-refresh-token"];
@@ -90,7 +90,7 @@ function readBrowserCookies() {
 function writeBrowserCookie(
   name: string,
   value: string | null,
-  options?: Partial<SerializeOptions>,
+  options?: CookieOptions,
 ) {
   if (typeof document === "undefined") return;
 
@@ -151,7 +151,7 @@ export const browserSessionCookieStore = {
     cookiesToSet: Array<{
       name: string;
       value: string;
-      options?: Partial<SerializeOptions>;
+      options?: CookieOptions;
     }>,
   ) {
     for (const cookie of cookiesToSet) {

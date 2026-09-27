@@ -21,14 +21,14 @@ test("Google and GitHub OAuth return through versioned legal acceptance", () => 
   assert.ok(callback.indexOf("if (isLegalAcceptance && !hasCurrentAcceptance)") < callback.indexOf("destinationPath = `${onboardingUrl.pathname}"));
 });
 
-test("cookie consent is available on authentication routes and gates optional analytics", () => {
+test("cookie consent is available on authentication routes without a third-party analytics script", () => {
   const layout = readFileSync(resolve(process.cwd(), "src/app/layout.tsx"), "utf8");
   const runtime = readFileSync(resolve(process.cwd(), "src/components/privacy/CookieConsentRuntime.tsx"), "utf8");
   const legalLinks = readFileSync(resolve(process.cwd(), "src/components/legal/LegalLinks.tsx"), "utf8");
 
-  assert.match(layout, /CookieConsentRuntime analyticsAvailable=/);
+  assert.match(layout, /<CookieConsentRuntime \/>/);
   assert.match(runtime, /new Set\(\["\/login", "\/signup"\]\)/);
-  assert.match(runtime, /decision\?\.analytics \? <Analytics \/>/);
+  assert.doesNotMatch(runtime, /@vercel\/analytics|<Analytics/);
   assert.match(runtime, /Reject optional/);
   assert.match(runtime, /Accept all/);
   assert.match(runtime, /Customize cookie settings/);
