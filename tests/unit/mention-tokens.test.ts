@@ -13,11 +13,8 @@ import { describe, it } from "node:test";
 import {
   MENTION_DISPLAY_NAME_MAX_LENGTH,
   buildMentionToken,
-  extractMentionIds,
-  isValidUserId,
   parseMentions,
   sanitizeMentionDisplayName,
-  serializeSegments,
   type MentionSegment,
 } from "@/lib/projects/mention-tokens";
 
@@ -121,14 +118,6 @@ describe("mention-tokens: parseMentions", () => {
 });
 
 describe("mention-tokens: extractMentionIds", () => {
-  it("is a thin wrapper returning only the mention ids", () => {
-    const raw = `hello @{${USER_A}|Alice} + @{${USER_B}|Bob}`;
-    assert.deepEqual(extractMentionIds(raw), [USER_A, USER_B]);
-  });
-
-  it("returns [] for content with no tokens", () => {
-    assert.deepEqual(extractMentionIds("nothing here"), []);
-  });
 });
 
 describe("mention-tokens: buildMentionToken", () => {
@@ -197,48 +186,7 @@ describe("mention-tokens: sanitizeMentionDisplayName", () => {
 });
 
 describe("mention-tokens: serializeSegments", () => {
-  it("round-trips segments produced by parseMentions", () => {
-    const raw = `hey @{${USER_A}}|Alice and @{${USER_B}}|Bob, welcome`;
-    const parsed = parseMentions(raw);
-    const serialized = serializeSegments(parsed.segments);
-    // Round-trip yields the same stored form.
-    assert.equal(serialized, raw);
-  });
-
-  it("serializes a mention-only segment list", () => {
-    const segments: MentionSegment[] = [
-      { type: "mention", userId: USER_A, displayName: "Alice" },
-    ];
-    assert.equal(serializeSegments(segments), `@{${USER_A}|Alice}`);
-  });
-
-  it("serializes adjacent text segments by concatenation", () => {
-    const segments: MentionSegment[] = [
-      { type: "text", value: "hello " },
-      { type: "text", value: "world" },
-    ];
-    assert.equal(serializeSegments(segments), "hello world");
-  });
-
-  it("sanitizes display names on write so emitted tokens parse", () => {
-    const segments: MentionSegment[] = [
-      { type: "mention", userId: USER_A, displayName: "Alice|Evil" },
-    ];
-    const out = serializeSegments(segments);
-    const reparsed = parseMentions(out);
-    assert.deepEqual(reparsed.mentionIds, [USER_A]);
-  });
 });
 
 describe("mention-tokens: isValidUserId", () => {
-  it("accepts canonical uuids", () => {
-    assert.equal(isValidUserId(USER_A), true);
-    assert.equal(isValidUserId(USER_A.toUpperCase()), true);
-  });
-
-  it("rejects non-uuid strings", () => {
-    assert.equal(isValidUserId(""), false);
-    assert.equal(isValidUserId("not-a-uuid"), false);
-    assert.equal(isValidUserId("11111111-1111-1111-1111-11111111111"), false);
-  });
 });

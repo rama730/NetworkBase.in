@@ -20,7 +20,6 @@ import {
 import { logger } from "@/lib/logger";
 import { toIsoString as toIso } from "@/lib/utils/date";
 import { isUuid } from "@/lib/validations/uuid";
-import { createClient, } from "@/lib/supabase/server";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
 import { recordNodeEvent } from "@/lib/files/internal-helpers";
 import {

@@ -21,10 +21,10 @@ test("file reads never fabricate or persist empty recovery content", () => {
 test("signed URL actions remain read-only", () => {
   const content = source("src/app/actions/files/content.ts");
   const signedUrlStart = content.indexOf("export async function getProjectFileSignedUrl");
-  const formatStart = content.indexOf("export async function formatProjectFileContent");
-  const signedUrlOwners = content.slice(signedUrlStart, formatStart);
+  const nextExport = content.indexOf("export async function", signedUrlStart + 1);
+  const signedUrlOwners = content.slice(signedUrlStart, nextExport < 0 ? undefined : nextExport);
 
-  assert.ok(signedUrlStart > 0 && formatStart > signedUrlStart);
+  assert.ok(signedUrlStart > 0);
   assert.doesNotMatch(signedUrlOwners, /\.upload\(|db\.update\(/);
   assert.match(signedUrlOwners, /throw new FileContentUnavailableError\(\)/);
 });

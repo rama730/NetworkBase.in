@@ -180,31 +180,6 @@ export interface UseFilesTabUrlSyncOptions {
   suspendWrites?: boolean;
 }
 
-export function shouldPreserveTaskFileDeepLink(
-  search: string,
-  location:
-    | {
-        type: "file";
-        id: string;
-        node: { taskId?: string | null; path?: string | null };
-      }
-    | { type: "folder" | "root"; id?: string }
-    | null,
-): boolean {
-  // ponytail: hidden path identifies legacy working files when taskId is absent. ceiling: single-project working files. upgrade: schema backfill if legacy files require explicit taskId indexing.
-  if (
-    location?.type !== "file" ||
-    (!location.node.taskId &&
-      !isInternalTaskWorkingFilesNode({ name: "", path: location.node.path }))
-  ) {
-    return false;
-  }
-  const params = new URLSearchParams(
-    search.startsWith("?") ? search.slice(1) : search,
-  );
-  return params.get("fileId") === location.id;
-}
-
 export function useFilesTabUrlSync(
   projectId: string,
   options: UseFilesTabUrlSyncOptions = {},

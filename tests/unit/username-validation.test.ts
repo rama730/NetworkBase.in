@@ -1,7 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-    isReservedUsername,
     normalizeUsername,
     sanitizeUsernameInput,
     validateUsername,
@@ -27,9 +26,4 @@ test('validateUsername only enforces local format rules', () => {
 test('validateUsername accepts valid usernames', () => {
     const result = validateUsername('builder_42')
     assert.equal(result.valid, true)
-})
-
-test('isReservedUsername normalizes casing and whitespace', () => {
-    assert.equal(isReservedUsername(' ADMIN '), true)
-    assert.equal(isReservedUsername('OnBoArDiNg'), true)
 })

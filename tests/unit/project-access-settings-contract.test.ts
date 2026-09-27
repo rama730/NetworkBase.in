@@ -48,15 +48,6 @@ test("project access tab eliminates duplicate headers, extra cards, and renders 
 test("project access tab components adhere to NetworkBase drafting-table design tokens and switch controls", () => {
   const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
-  // Access Matrix tokens
-  const matrixDef = settingsTab.split("function AccessMatrix({")[1]?.split("function AccessImpactGrid({")[0] ?? "";
-  assert.ok(matrixDef.length > 0, "AccessMatrix definition must exist");
-  assert.match(matrixDef, /overflow-hidden rounded-lg border border-border bg-card/, "AccessMatrix uses border-border and bg-card");
-  assert.match(matrixDef, /bg-muted\/40 text-xs font-semibold uppercase tracking-\[0.14em\] text-muted-foreground/, "AccessMatrix header uses drafting tokens");
-  assert.match(matrixDef, /bg-primary\/5 font-medium text-foreground/, "Active column highlighted with bg-primary/5 text-foreground");
-  assert.doesNotMatch(matrixDef, /blue-/, "AccessMatrix must not contain raw blue classes");
-  assert.doesNotMatch(matrixDef, /zinc-/, "AccessMatrix must not contain raw zinc classes");
-
   // Public tab visibility editor tokens
   const editorDef = settingsTab.split("function PublicTabVisibilityEditor({")[1]?.split("function FileWorkspaceMembers({")[0] ?? "";
   assert.ok(editorDef.length > 0, "PublicTabVisibilityEditor definition must exist");
@@ -64,16 +55,4 @@ test("project access tab components adhere to NetworkBase drafting-table design 
   assert.match(editorDef, /<SettingsSwitch/, "PublicTabVisibilityEditor must use SettingsSwitch component");
   assert.doesNotMatch(editorDef, /blue-/, "PublicTabVisibilityEditor must not contain raw blue classes");
   assert.doesNotMatch(editorDef, /zinc-/, "PublicTabVisibilityEditor must not contain raw zinc classes");
-
-  // TogglePill uses SettingsSwitch
-  const toggleDef = settingsTab.split("function TogglePill({")[1]?.split("function PublicTabVisibilityEditor({")[0] ?? "";
-  assert.ok(toggleDef.length > 0, "TogglePill definition must exist");
-  assert.match(toggleDef, /<SettingsSwitch/, "TogglePill must wrap SettingsSwitch");
-
-  // Access Impact Grid tokens
-  const impactGridDef = settingsTab.split("function AccessImpactGrid({")[1]?.split("const PUBLIC_TAB_ORDER")[0] ?? "";
-  assert.ok(impactGridDef.length > 0, "AccessImpactGrid definition must exist");
-  assert.match(impactGridDef, /rounded-lg border border-border bg-card p-4 shadow-\[0_1px_2px_rgba\(0,0,0,0.03\)\]/, "Impact grid uses border-border bg-card");
-  assert.doesNotMatch(impactGridDef, /blue-/, "AccessImpactGrid must not contain raw blue classes");
-  assert.doesNotMatch(impactGridDef, /zinc-/, "AccessImpactGrid must not contain raw zinc classes");
 });

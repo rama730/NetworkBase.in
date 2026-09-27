@@ -307,10 +307,6 @@ export function buildSprintHealthSummary(input: {
   };
 }
 
-export function buildProjectSprintTabHref(projectSlug: string) {
-  return `/projects/${encodeURIComponent(projectSlug)}?tab=sprints`;
-}
-
 export function buildProjectSprintDetailHref(projectSlug: string, sprintId: string, input?: {
   sprintCode?: string;
 }) {

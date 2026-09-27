@@ -80,8 +80,3 @@ export function isCanonicalProjectFileKey(key: string): boolean {
   return parsed?.format === "canonical";
 }
 
-export function toCanonicalProjectFileKey(key: string): string | null {
-  const parsed = parseProjectFileKey(key);
-  if (!parsed) return null;
-  return buildProjectFileKey(parsed.projectId, parsed.relativePath);
-}

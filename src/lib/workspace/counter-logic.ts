@@ -27,26 +27,6 @@ export function isOpenWorkspaceTaskStatus(status: string | null | undefined) {
     return status !== 'done'
 }
 
-export function isWorkspaceTaskOverdue(
-    dueDate: Date | null,
-    status: string | null | undefined,
-    now: Date,
-) {
-    return !!dueDate && isOpenWorkspaceTaskStatus(status) && dueDate < now
-}
-
-export function isWorkspaceTaskDueToday(
-    dueDate: Date | null,
-    status: string | null | undefined,
-    now: Date,
-    todayEnd: Date,
-) {
-    return !!dueDate
-        && isOpenWorkspaceTaskStatus(status)
-        && dueDate >= now
-        && dueDate <= todayEnd
-}
-
 export function buildWorkspaceTaskCounterFilters(
     deletedAtExpression: SQL,
     statusExpression: SQL,

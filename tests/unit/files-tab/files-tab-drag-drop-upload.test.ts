@@ -223,10 +223,6 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
   it("10 Ponytail Enhancements: Client-side OS junk stripping, optimistic modal teardown & deterministic task linking", () => {
     const source = readFileSync(folderListViewPath, "utf-8");
 
-    // Strip OS junk files (.DS_Store, Thumbs.db, desktop.ini, ._*)
-    assert.match(source, /stripOsJunkFiles/);
-    assert.match(source, /const OS_JUNK_NAMES = new Set\(\["\.ds_store", "thumbs\.db", "desktop\.ini"\]\);/);
-
     // Optimistic teardown: pendingUploadFiles reset immediately before background upload
     assert.match(source, /setPendingUploadFiles\(null\);[\s\S]*?uploadFilesDirectly\(filesToUpload, target\)/);
 

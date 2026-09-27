@@ -3,12 +3,10 @@ import test from 'node:test';
 import {
     mergeSocialLinkCollections,
     findSensitiveLinkParameters,
-    isStaleSocialLinkStatus,
     normalizeSocialLinks,
     resolveSocialPresence,
     SOCIAL_PRESENCE,
     validateSocialLinkCollection,
-    validateSocialLinkRecord,
 } from '@/lib/profile/normalization';
 import {
     areProjectSocialLinksEqual,
@@ -231,13 +229,6 @@ test('an unknown public domain still receives the safe globe fallback', () => {
     assert.equal(link?.iconKey, 'globe');
 });
 
-test('only a missing or gone destination is retained as a stale social link', () => {
-    assert.equal(isStaleSocialLinkStatus(404), true);
-    assert.equal(isStaleSocialLinkStatus(410), true);
-    assert.equal(isStaleSocialLinkStatus(429), false);
-    assert.equal(isStaleSocialLinkStatus(503), false);
-});
-
 test('falls back to a readable host for custom websites without exposing a raw URL', () => {
     const link = resolveSocialPresence('portfolio', 'https://studio.example.dev/work');
     assert.equal(link?.platformLabel, 'Portfolio');
@@ -256,17 +247,6 @@ test('normalization excludes malformed and private social destinations', () => {
 
     assert.equal(links.length, 1);
     assert.equal(links[0]?.accountLabel, 'rama730');
-});
-
-test('link writes reject unsafe schemes and canonicalize a mismatched platform', () => {
-    assert.equal(validateSocialLinkRecord({ website: 'javascript:alert(1)' }).success, false);
-    const valid = validateSocialLinkRecord({ linkedin: 'github.com/network-for-builders' });
-    assert.deepEqual(valid, { success: true, links: { github: 'https://github.com/network-for-builders' } });
-});
-
-test('a URL-only social draft detects the service before it is saved', () => {
-    const valid = validateSocialLinkRecord({ website: 'linkedin.com/in/ramanayudu-ch' });
-    assert.deepEqual(valid, { success: true, links: { linkedin: 'https://linkedin.com/in/ramanayudu-ch' } });
 });
 
 test('YouTube links retain the exact video destination', () => {

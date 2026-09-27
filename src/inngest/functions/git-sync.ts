@@ -1,5 +1,5 @@
 import { inngest } from "../client";
-import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { githubSyncRuns, projectNodeLocks } from "@/lib/db/schema";
 import { runReviewedGitHubSync } from "@/lib/github/sync-runner";

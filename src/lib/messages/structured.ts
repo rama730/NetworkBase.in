@@ -596,34 +596,6 @@ export function withPrivateFollowUpMetadata(
     return nextMetadata;
 }
 
-export function getPrivateFollowUpFromMetadata(metadata: unknown): PrivateFollowUpSnapshot | null {
-    if (!metadata || typeof metadata !== 'object') {
-        return null;
-    }
-
-    const raw = (metadata as Record<string, unknown>).privateFollowUp;
-    if (!raw || typeof raw !== 'object') {
-        return null;
-    }
-
-    const value = raw as Partial<PrivateFollowUpSnapshot>;
-    if (
-        typeof value.workflowItemId !== 'string'
-        || value.workflowItemId.trim().length === 0
-        || !isMessageWorkflowItemStatus(value.status)
-    ) {
-        return null;
-    }
-
-    return {
-        workflowItemId: value.workflowItemId.trim(),
-        status: value.status,
-        note: typeof value.note === 'string' ? clampText(value.note, 160) : null,
-        dueAt: typeof value.dueAt === 'string' && value.dueAt.trim() ? value.dueAt.trim() : null,
-        preview: typeof value.preview === 'string' ? clampText(value.preview, 160) : null,
-    };
-}
-
 export function getStructuredMessageFromMetadata(metadata: unknown): StructuredMessagePayload | null {
     if (!metadata || typeof metadata !== 'object') {
         return null;

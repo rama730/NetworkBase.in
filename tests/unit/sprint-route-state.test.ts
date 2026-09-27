@@ -3,7 +3,6 @@ import { describe, it } from "node:test";
 
 import {
   buildProjectSprintDetailHref,
-  buildProjectSprintTabHref,
 } from "@/lib/projects/sprint-detail";
 
 describe("sprint canonical routes", () => {
@@ -18,13 +17,6 @@ describe("sprint canonical routes", () => {
     assert.equal(
       buildProjectSprintDetailHref("network-for-builders", "sprint-uuid"),
       "/projects/network-for-builders?tab=sprints&sprintId=sprint-uuid",
-    );
-  });
-
-  it("encodes project slugs safely", () => {
-    assert.equal(
-      buildProjectSprintTabHref("network/builders & co"),
-      "/projects/network%2Fbuilders%20%26%20co?tab=sprints",
     );
   });
 });

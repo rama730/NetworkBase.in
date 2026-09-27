@@ -303,7 +303,6 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(connectionsAction, /accepted_connection\.status = 'accepted'/);
   assert.match(connectionsAction, /blocked_connection\.status = 'blocked'/);
   assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items, privacyProfiles\)/);
-  assert.match(connectionsAction, /resolvePrivacyRelationshipsFromProfiles/);
   assert.doesNotMatch(personCard, /onDismiss/);
   assert.match(personCard, /shared connections/);
   assert.match(personCard, /min-h-\[158px\]/);

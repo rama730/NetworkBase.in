@@ -54,10 +54,6 @@ function evictLruEntries() {
   }
 }
 
-export function __clearBuildVisibleRowsCacheForTests() {
-  rowModelCache.clear();
-}
-
 export function buildVisibleRows(params: BuildVisibleRowsParams): VisibleRow[] {
   const {
     projectId,

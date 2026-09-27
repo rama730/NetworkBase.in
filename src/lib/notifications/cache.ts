@@ -135,20 +135,3 @@ export function markNotificationsSeenInInfiniteData(
     );
 }
 
-export function markAllNotificationsReadInInfiniteData(
-    data: InfiniteData<NotificationFeedPage> | undefined,
-    readAt: string,
-) {
-    if (!data) return data;
-    const items = data.pages
-        .flatMap((page) => page.items)
-        .map((item) => {
-            if (item.readAt && item.seenAt) return item;
-            return {
-                ...item,
-                readAt: item.readAt ?? readAt,
-                seenAt: item.seenAt ?? readAt,
-            };
-        });
-    return rebuildInfiniteData(data, items, 0, 0);
-}

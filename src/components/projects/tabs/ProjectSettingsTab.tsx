@@ -18,7 +18,6 @@ import {
     Check,
     ChevronDown,
     Crown,
-    Download,
     Eye,
     FileText,
     Folder,
@@ -28,7 +27,6 @@ import {
     Loader2,
     Lock,
     Newspaper,
-    Pencil,
     RefreshCw,
     Search,
     Scale,
@@ -135,7 +133,6 @@ import {
     buildProjectRolePolicy,
     buildProjectSettingsPreflight,
     areProjectPublicTabVisibilitiesEqual,
-    DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY,
     getProjectMemberDisplayName,
     getProjectMemberRoleLabel,
     normalizeProjectPublicTabVisibility,
@@ -3888,89 +3885,6 @@ export default function ProjectSettingsTab({
     );
 }
 
-function SectionHeader({
-    title,
-    description,
-    dirty,
-    saving,
-    onCancel,
-    onSave,
-}: {
-    title: string;
-    description: string;
-    dirty: boolean;
-    saving: boolean;
-    onCancel: () => void;
-    onSave: () => void;
-}) {
-    return (
-        <div className="rounded-lg border border-border bg-card p-6 shadow-none">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <p className="nb-micro">Settings</p>
-                    <h3 className="nb-section-title mt-2 text-foreground">{title}</h3>
-                    <p className="nb-compact mt-2 max-w-[64ch] text-muted-foreground">{description}</p>
-                </div>
-                {dirty ? (
-                    <div className="flex shrink-0 items-center gap-2 rounded-md border border-[var(--nb-border-amber,#F6E7C2)] bg-[var(--nb-soft-amber,#FBF4E2)] p-2 dark:border-amber-900/60 dark:bg-amber-950/20">
-                        <span className="px-2 font-mono text-xs font-semibold uppercase tracking-wider text-[var(--nb-text-amber,#9A6B00)] dark:text-amber-300">Unsaved</span>
-                        <Button variant="outline" size="sm" onClick={onCancel} disabled={saving} className="rounded-md">
-                            Cancel
-                        </Button>
-                        <Button size="sm" onClick={onSave} disabled={saving} className="rounded-md">
-                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                        </Button>
-                    </div>
-                ) : null}
-            </div>
-        </div>
-    );
-}
-
-function SummaryCard({
-    title,
-    description,
-    icon: Icon,
-    meta,
-    tone = "default",
-}: {
-    title: string;
-    description: string;
-    icon: React.ComponentType<{ className?: string }>;
-    meta: Array<[string, string]>;
-    tone?: "default" | "danger";
-}) {
-    return (
-        <section className={cn(
-            "min-w-0 rounded-lg border p-5 shadow-none",
-            tone === "danger"
-                ? "border-destructive/30 bg-destructive/5 text-destructive"
-                : "border-border bg-card",
-        )}>
-            <div className="flex items-start gap-4">
-                <div className={cn(
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg",
-                    tone === "danger" ? "bg-destructive/10 text-destructive" : "bg-muted text-foreground",
-                )}>
-                    <Icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                    <h4 className="nb-ui-label text-base font-semibold text-foreground">{title}</h4>
-                    <p className="nb-compact mt-1 text-sm text-muted-foreground leading-relaxed">{description}</p>
-                    <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                        {meta.map(([label, value]) => (
-                            <div key={label} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
-                                <p className="nb-micro text-muted-foreground">{label}</p>
-                                <p className="mt-1 truncate text-sm font-semibold capitalize text-foreground">{value}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </section>
-    );
-}
-
 function SettingsCard({
     title,
     description,
@@ -4471,47 +4385,6 @@ function CollaboratorCard({
     );
 }
 
-function ProjectNotificationPresetButton({
-    preset,
-    label,
-    detail,
-    activePreset,
-    onSelect,
-}: {
-    preset: ProjectNotificationPreset;
-    label: string;
-    detail: string;
-    activePreset: ProjectNotificationPreset;
-    onSelect: (preset: ProjectNotificationPreset) => void;
-}) {
-    const active = activePreset === preset;
-    return (
-        <button
-            type="button"
-            aria-pressed={active}
-            onClick={() => onSelect(preset)}
-            className={cn(
-                "group relative flex flex-col justify-between rounded-lg border p-4 text-left transition-colors",
-                active
-                    ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/20"
-                    : "border-border bg-card text-foreground hover:border-foreground/20 hover:bg-muted/30",
-            )}
-        >
-            <div>
-                <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-foreground">{label}</span>
-                    {active ? (
-                        <span className="inline-flex h-5 items-center rounded-[3px] border border-primary/20 bg-primary/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-primary">
-                            Active
-                        </span>
-                    ) : null}
-                </div>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{detail}</p>
-            </div>
-        </button>
-    );
-}
-
 const NOTIFICATION_GROUP_ICONS = {
     membership_access: Users,
     roles_applications: UserCog,
@@ -4873,136 +4746,7 @@ function MemberNotificationRuleRow({
     );
 }
 
-function AdvancedDisclosure({
-    title,
-    open,
-    onToggle,
-    children,
-}: {
-    title: string;
-    open: boolean;
-    onToggle: () => void;
-    children: React.ReactNode;
-}) {
-    return (
-        <section className="rounded-lg border border-border bg-card p-4 shadow-none">
-            <button
-                type="button"
-                onClick={onToggle}
-                className="flex w-full items-center justify-between gap-4 text-left"
-            >
-                <div>
-                    <p className="nb-ui-label text-sm font-semibold text-foreground">{title}</p>
-                    <p className="nb-compact mt-1 text-xs text-muted-foreground">Progressive details for owners who need the full impact.</p>
-                </div>
-                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition", open && "rotate-180")} />
-            </button>
-            {open ? <div className="mt-4">{children}</div> : null}
-        </section>
-    );
-}
-
-
-function AccessMatrix({
-    rows,
-    activeVisibility,
-}: {
-    rows: Array<{ viewer: string; publicAccess: string; privateAccess: string }>;
-    activeVisibility: ProjectSettingsVisibility;
-}) {
-    return (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-            <div className="grid grid-cols-[1fr_1fr] border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:grid-cols-[180px_1fr_1fr]">
-                <div className="hidden px-4 py-3 sm:block">Viewer</div>
-                <div className={cn("px-4 py-3 flex items-center gap-1.5", activeVisibility === "public" ? "font-semibold text-foreground" : "text-muted-foreground")}>
-                    Public
-                    {activeVisibility === "public" ? (
-                        <span className="inline-flex h-5 items-center rounded-[3px] border border-primary/20 bg-primary/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-primary">Active</span>
-                    ) : null}
-                </div>
-                <div className={cn("px-4 py-3 flex items-center gap-1.5", activeVisibility === "private" ? "font-semibold text-foreground" : "text-muted-foreground")}>
-                    Private
-                    {activeVisibility === "private" ? (
-                        <span className="inline-flex h-5 items-center rounded-[3px] border border-primary/20 bg-primary/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-primary">Active</span>
-                    ) : null}
-                </div>
-            </div>
-            <div className="divide-y divide-border">
-                {rows.map((row) => (
-                    <div key={row.viewer} className="grid gap-0 text-sm sm:grid-cols-[180px_1fr_1fr]">
-                        <div className="border-b border-border bg-muted/20 px-4 py-3 font-semibold text-foreground dark:text-foreground sm:border-b-0">
-                            {row.viewer}
-                        </div>
-                        <div className={cn("px-4 py-3 text-muted-foreground transition-colors", activeVisibility === "public" && "bg-primary/5 font-medium text-foreground")}>
-                            {row.publicAccess}
-                        </div>
-                        <div className={cn("px-4 py-3 text-muted-foreground transition-colors", activeVisibility === "private" && "bg-primary/5 font-medium text-foreground")}>
-                            {row.privateAccess}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function AccessImpactGrid({
-    items,
-    isLoading,
-}: {
-    items: Array<{ label: string; value: number; detail: string }>;
-    isLoading: boolean;
-}) {
-    if (isLoading) {
-        return (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {Array.from({ length: 5 }).map((_, index) => (
-                    <div key={index} aria-hidden="true" className="nb-skeleton h-24 rounded-lg border border-border" />
-                ))}
-            </div>
-        );
-    }
-
-    return (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {items.map((item) => (
-                <div key={item.label} className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
-                    <p className="text-2xl font-semibold tracking-tight text-foreground">{item.value}</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">{item.label}</p>
-                    <p className="mt-1.5 nb-compact text-muted-foreground leading-relaxed">{item.detail}</p>
-                </div>
-            ))}
-        </div>
-    );
-}
-
 const PUBLIC_TAB_ORDER: ProjectPublicTabId[] = ["dashboard", "readme", "updates", "sprints", "tasks", "files"];
-
-function TogglePill({
-    checked,
-    disabled,
-    onChange,
-    label,
-}: {
-    checked: boolean;
-    disabled?: boolean;
-    onChange: (checked: boolean) => void;
-    label: string;
-}) {
-    return (
-        <div className="flex shrink-0 items-center gap-3">
-            <span className="nb-meta text-muted-foreground select-none w-6 text-right">
-                {checked ? "On" : "Off"}
-            </span>
-            <SettingsSwitch
-                checked={checked}
-                disabled={disabled}
-                aria-label={label}
-                onCheckedChange={onChange}
-            />
-        </div>
-    );
-}
 
 function PublicTabVisibilityEditor({
     value,

@@ -222,11 +222,6 @@ export type ProjectLinkMetadataRecord = Record<string, ProjectLinkMetadata>;
 
 export type SocialLinkStorage = Record<string, string> | SocialLinkItem[];
 
-/** A renamed/deleted public handle is the only failure we retain for recovery. */
-export function isStaleSocialLinkStatus(status: number): boolean {
-    return status === 404 || status === 410;
-}
-
 const SOCIAL_LINK_LIMIT = 20;
 const SOCIAL_LINK_ID_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
 
@@ -424,40 +419,6 @@ export function normalizeSocialLinkRecord(links: Record<string, string> | undefi
         if (url) out[platform] = url;
     }
     return out;
-}
-
-/**
- * The write-path companion to `normalizeSocialLinkRecord`.
- * Empty fields are removals; a non-empty unsafe or unsupported value blocks
- * the link update instead of silently dropping a value the user entered.
- */
-export function validateSocialLinkRecord(links: unknown):
-    | { success: true; links: Record<string, string> }
-    | { success: false; error: string } {
-    if (links === null || links === undefined) return { success: true, links: {} };
-    if (typeof links !== 'object' || Array.isArray(links)) {
-        return { success: false, error: 'Links must be a list of public web addresses.' };
-    }
-
-    const normalized: Record<string, string> = {};
-    const seen = new Set<string>();
-    for (const [rawPlatform, rawValue] of Object.entries(links as Record<string, unknown>).slice(0, 20)) {
-        const platform = rawPlatform.trim().toLowerCase();
-        const value = typeof rawValue === 'string' ? rawValue.trim() : '';
-        if (!value) continue;
-        if (!SOCIAL_LINK_PLATFORM_SET.has(platform)) {
-            return { success: false, error: 'This link type is not supported. Choose a listed service or Website.' };
-        }
-        const url = normalizeOptionalProfileUrl(value);
-        if (!url) return { success: false, error: 'This link cannot be used because its destination is not safe.' };
-        const resolved = resolveSocialPresence(platform, url);
-        if (!resolved) return { success: false, error: 'This link cannot be used because its destination is not safe.' };
-        if (seen.has(resolved.canonicalKey)) continue;
-        seen.add(resolved.canonicalKey);
-        // The URL decides its known service, preventing mismatched picker values.
-        normalized[resolved.platform] = resolved.url;
-    }
-    return { success: true, links: normalized };
 }
 
 // ── Form State (used by EditProfileModal) ───────────────────────────

@@ -68,7 +68,6 @@ test("Architectural enhancements: native single tooltip, default cursor, zero-pr
 
     // 1. Performance / 1M scale: Module-level cached Intl formatter & O(1) state resolver
     assert.match(avatarSource, /const projectDateFormatter = new Intl\.DateTimeFormat/);
-    assert.match(avatarSource, /export function getProjectPresenceState/);
 
     // 2. Native single tooltip on dot (no duplicate floating tooltip at top, no question mark cursor)
     assert.doesNotMatch(avatarSource, /TooltipProvider/);
@@ -97,9 +96,6 @@ test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel s
     assert.match(avatarSource, /Active just now/);
     assert.match(avatarSource, /Active \$\{diffMinutes\}m ago/);
     assert.match(avatarSource, /Active \$\{diffHours\}h ago/);
-
-    // Idea 2: Zero-cost instant state update via local BroadcastChannel and custom events
-    assert.match(avatarSource, /export function broadcastProjectActivity/);
     assert.match(avatarSource, /nb-project-activity-v1/);
     assert.match(avatarSource, /window\.addEventListener\("nb-project-activity"/);
 
@@ -169,7 +165,6 @@ test("Animated GIF avatar architecture: bypass canvas rasterization, preserve fr
 
     // 1. image-prep-client must bypass 2D canvas for GIFs so animation frames are never flattened
     assert.match(prepSource, /prepareProjectImageForUpload[\s\S]*?file\.type === "image\/gif"[\s\S]*?contentType:\s*"image\/gif"/);
-    assert.match(prepSource, /prepareCoverImageForUpload[\s\S]*?file\.type === "image\/gif"[\s\S]*?contentType:\s*"image\/gif"/);
 
     // 2. ProjectSettingsTab must preserve GIF type and avoid forcing outputType: "image/jpeg"
     assert.match(settingsSource, /const isGif = coverDraft\.file\.type === "image\/gif"/);

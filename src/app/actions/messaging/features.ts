@@ -5,14 +5,13 @@ import {
     messageReactions,
     messageReports,
     messageDeliveryReceipts,
-    messageReadReceipts,
     messageHiddenForUsers,
     conversationParticipants,
     messages,
     profiles,
 } from '@/lib/db/schema';
 import { getAuthUser } from '@/lib/supabase/auth-user';
-import { eq, and, inArray, lt, sql } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import {
     buildReactionSummaryByMessage,
@@ -383,29 +382,3 @@ export async function recordDeliveryReceipts(
     }
 }
 
-/**
- * Prunes delivery and read receipts older than retentionDays (default: 60 days).
- * Prevents unbounded row growth in receipt tables under 1M-scale messaging.
- */
-export async function pruneOldMessageReceipts(
-    retentionDays = 60,
-): Promise<{ success: boolean; error?: string }> {
-    try {
-        const user = await getAuthUser();
-        if (!user) {
-            return { success: false, error: 'Unauthorized' };
-        }
-
-        const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
-
-        await Promise.all([
-            db.delete(messageDeliveryReceipts).where(lt(messageDeliveryReceipts.deliveredAt, cutoff)),
-            db.delete(messageReadReceipts).where(lt(messageReadReceipts.readAt, cutoff)),
-        ]);
-
-        return { success: true };
-    } catch (error) {
-        console.error('Error pruning old message receipts:', error);
-        return { success: false, error: 'Failed to prune receipts' };
-    }
-}

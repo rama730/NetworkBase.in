@@ -29,7 +29,6 @@ test("project detail defers and deduplicates optional work", () => {
   const actions = source("src/app/actions/project/_all.ts");
 
   assert.match(dashboard, /const guidance = \(project as \{ guidance\?: unknown \}\)\.guidance \?\? null/);
-  assert.doesNotMatch(dashboard, /getProjectGuidanceDisplayAction/);
   assert.match(actions, /const \[ownerRows, followersResult, membersResult, rolesResult, readmeRows, guidanceRows\] =/);
   assert.match(actions, /guidance: shell\.guidance \?\? null/);
   assert.match(dashboard, /sessionStorage\.getItem\(sessionKey\)/);

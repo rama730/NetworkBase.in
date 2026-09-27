@@ -28,7 +28,7 @@ import {
   Trash2,
   Upload,
   X,
-  MoreHorizontal, Download, Copy, Info, History, ListTodo, ArrowDownWideNarrow, BookOpenText, FileUp, Link2, Tag,
+  MoreHorizontal, Download, Info, History, ListTodo, ArrowDownWideNarrow, BookOpenText, FileUp, Link2, Tag,
 } from "lucide-react";
 
 import {
@@ -1343,16 +1343,3 @@ export function FolderListView({
 
 export default FolderListView;
 
-// ─── Internal helpers ────────────────────────────────────────────────
-
-const OS_JUNK_NAMES = new Set([".ds_store", "thumbs.db", "desktop.ini"]);
-
-function stripOsJunkFiles(files: File[]): File[] {
-  return files.filter((f) => {
-    const lower = f.name.toLowerCase();
-    if (OS_JUNK_NAMES.has(lower)) return false;
-    if (lower.startsWith("._")) return false;
-    if (lower === "__macosx") return false;
-    return true;
-  });
-}

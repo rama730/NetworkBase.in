@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
     deriveMessageAttention,
-    extractMessageBurstConversationId,
     getEffectiveMessageAttentionUnreadCount,
     mergeMessageAttention,
 } from '@/lib/messages/attention';
@@ -74,15 +73,4 @@ test('mergeMessageAttention preserves the first new message while refreshing the
     assert.equal(merged.latestNewMessageId, 'message-2');
     assert.equal(merged.source, 'notification');
     assert.equal(merged.clearing, false);
-});
-
-test('extractMessageBurstConversationId only resolves message burst notifications', () => {
-    assert.equal(extractMessageBurstConversationId({
-        kind: 'message_burst',
-        entityRefs: { conversationId: 'conversation-1' },
-    }), 'conversation-1');
-    assert.equal(extractMessageBurstConversationId({
-        kind: 'task_assigned',
-        entityRefs: { conversationId: 'conversation-1' },
-    }), null);
 });
