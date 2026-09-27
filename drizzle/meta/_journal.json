@@ -1191,6 +1191,13 @@
       "when": 1790525984261,
       "tag": "0171_sql_naming",
       "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1790526578916,
+      "tag": "0173_node_events_single_table",
+      "breakpoints": true
     }
   ]
 }

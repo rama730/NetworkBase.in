@@ -29,7 +29,6 @@ function getWorkerOnlyFunctions() {
   const { messageDataIntegrityAudit } = loadModule("./functions/message-data-integrity-audit");
   const { reconcileSprintSchedule } = loadModule("./functions/sprint-schedule");
   const { cleanupSupersededProfileImage } = loadModule("./functions/profile-image-cleanup");
-  const { databasePartitionMaintenance } = loadModule("./functions/database-partition-maintenance");
   const { dataLifecycleRetention } = loadModule("./functions/data-lifecycle-retention");
 
   return [
@@ -63,7 +62,6 @@ function getWorkerOnlyFunctions() {
     messageDataIntegrityAudit,
     reconcileSprintSchedule,
     cleanupSupersededProfileImage,
-    databasePartitionMaintenance,
     dataLifecycleRetention,
   ] as const;
 }

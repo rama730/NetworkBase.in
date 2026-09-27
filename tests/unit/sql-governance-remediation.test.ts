@@ -60,12 +60,12 @@ test("hard-delete retries Auth finalization and removes retained identity", () =
   assert.doesNotMatch(accountAction, /randomBytes\(32\).*confirmationToken/);
 });
 
-test("one worker owns monthly partition maintenance", () => {
+test("project node events are one plain table", () => {
   const registry = source("src/inngest/registry.ts");
-  const maintenance = source("src/inngest/functions/database-partition-maintenance.ts");
+  const migration = source("drizzle/0173_node_events_single_table.sql");
 
-  assert.equal(fs.existsSync(path.join(process.cwd(), "scripts/setup-partitioning.sql")), false);
-  assert.match(registry, /databasePartitionMaintenance/);
-  assert.match(maintenance, /cron: "15 4 1 \* \*"/);
-  assert.match(maintenance, /SELECT public\.create_future_partitions\(\)/);
+  assert.equal(fs.existsSync(path.join(process.cwd(), "src/inngest/functions/database-partition-maintenance.ts")), false);
+  assert.doesNotMatch(registry, /databasePartitionMaintenance/);
+  assert.match(migration, /DROP FUNCTION IF EXISTS public\.create_future_partitions\(\)/);
+  assert.doesNotMatch(migration, /PARTITION BY/);
 });
