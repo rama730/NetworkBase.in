@@ -1,5 +1,6 @@
 "use client";
 
+import { readShellPart } from "@/lib/shell-batch";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -18,7 +19,6 @@ import {
     markNotificationUnreadAction,
     markNotificationsSeenAction,
     muteNotificationScopeAction,
-    readNotificationUnreadCountAction,
     readNotificationsAction,
     snoozeNotificationAction,
 } from "@/app/actions/notifications";
@@ -187,7 +187,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         queryKey: unreadCountQueryKey,
         enabled: Boolean(isAuthenticated && user?.id),
         queryFn: async () => {
-            const result = await readNotificationUnreadCountAction();
+            const result = await readShellPart("notificationUnreadCount");
             if (!result.success) {
                 throw new Error(result.error || "Failed to load notification count");
             }

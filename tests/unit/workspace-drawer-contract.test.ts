@@ -146,7 +146,7 @@ it("keeps actionable workspace state visible without task-tab scaffolding", () =
   const tasks = read("src/components/workspace/WorkspaceTasksTab.tsx");
   const drawer = read("src/components/workspace/WorkspaceDrawer.tsx");
 
-  assert.match(indicator, /getWorkspaceSummaryAction/);
+  assert.match(indicator, /readShellPart\("workspaceSummary"\)/);
   assert.match(indicator, /useNetworkNotifications/);
   assert.match(indicator, /summary\.taskCount \+ summary\.requestCount \+ pendingConnections/);
   assert.match(indicator, /className="nb-nav-count"/);

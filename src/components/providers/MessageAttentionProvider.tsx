@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getUnreadCount } from "@/app/actions/messaging";
+import { readShellPart } from "@/lib/shell-batch";
 import { getConversationSummariesV2 } from "@/app/actions/messaging/v2";
 import { useAuth } from "@/hooks/useAuth";
 import type { InboxConversationV2 } from "@/hooks/useMessagesV2";
@@ -53,7 +53,7 @@ export function MessageAttentionProvider({ children }: { children: React.ReactNo
         queryKey: unreadQueryKey,
         enabled,
         queryFn: async () => {
-            const result = await getUnreadCount();
+            const result = await readShellPart("messageUnreadCount");
             if (!result.success || typeof result.count !== "number") {
                 throw new Error(result.error || "Failed to load unread message count");
             }

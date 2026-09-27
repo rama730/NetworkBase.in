@@ -11,7 +11,7 @@ test("people notification counts use one authenticated action and query key", ()
   const provider = source("src/components/providers/NetworkNotificationsProvider.tsx");
   const actions = source("src/app/actions/connections.ts");
 
-  assert.match(provider, /readNetworkPendingCountsAction/);
+  assert.match(provider, /readShellPart\("networkPendingCounts"\)/);
   assert.match(provider, /queryKeys\.connections\.pending\(\)/);
   assert.doesNotMatch(provider, /createSupabaseBrowserClient|\.from\("connections"\)/);
   assert.match(actions, /export async function readNetworkPendingCountsAction/);
