@@ -4,7 +4,6 @@ import React, { useState, useRef, useTransition } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { motion, AnimatePresence } from "framer-motion";
 import { LifecycleEditor } from "@/components/projects/LifecycleEditor";
 import { ProjectRolesEditor } from "@/components/projects/settings/ProjectRolesEditor";
 import { normalizeProjectRoleFormValues } from "@/lib/projects/project-roles-form";
@@ -16,7 +15,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { updateProject } from "@/app/actions/project";
-import { useReducedMotionPreference } from "@/components/providers/theme-provider";
 import { SkillPicker } from "@/components/skills/SkillPicker";
 import { ProjectLinkEditorFields, type ProjectLinkEditorHandle } from "@/components/projects/dashboard/ProjectSocialLinksCard";
 import { socialLinkItemsFromStorage } from "@/lib/profile/normalization";
@@ -114,7 +112,6 @@ function StatusSelector({ value, onChange }: { value: string; onChange: (val: st
 // --- Main Component ---
 
 export default function EditProjectModal({ project, isOpen, onClose, onSaved }: EditProjectModalProps) {
-    const reduceMotion = useReducedMotionPreference();
     const [activeTab, setActiveTab] = useState("essentials");
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
@@ -205,24 +202,16 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
     };
 
     return (
-        <AnimatePresence initial={!reduceMotion}>
+        <>
             {isOpen && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={reduceMotion ? { duration: 0 } : undefined}
-                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-none"
+                <div
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-none animate-in fade-in"
                 >
                     {/* Backdrop Click */}
                     <div className="absolute inset-0" onClick={onClose} />
 
-                    <motion.div
-                        initial={reduceMotion ? { opacity: 0 } : { scale: 0.95, opacity: 0 }}
-                        animate={reduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
-                        exit={reduceMotion ? { opacity: 0 } : { scale: 0.95, opacity: 0 }}
-                        transition={reduceMotion ? { duration: 0 } : undefined}
-                        className="relative z-10 w-full max-w-5xl h-[85vh] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl flex flex-col overflow-hidden"
+                    <div
+                        className="animate-in fade-in zoom-in-95 relative z-10 w-full max-w-5xl h-[85vh] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl flex flex-col overflow-hidden"
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
@@ -472,9 +461,9 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                 {isPending ? "Saving..." : "Save Changes"}
                             </button>
                         </div>
-                    </motion.div>
-                </motion.div>
+                    </div>
+                </div>
             )}
-        </AnimatePresence>
+        </>
     );
 }

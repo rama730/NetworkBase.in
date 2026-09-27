@@ -4,7 +4,6 @@ import Logo from '@/components/layout/header/Logo'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-import { motion } from 'framer-motion'
 
 interface OnboardingSidebarProps {
   currentStep: number
@@ -68,12 +67,9 @@ export function OnboardingSidebar({
                       aria-hidden="true"
                     />
                     {/* Blue animated progress line segment */}
-                    <motion.div
-                      className="absolute left-[11px] top-3 z-0 w-px origin-top bg-primary"
-                      style={{ bottom: '-12px' }}
-                      initial={{ scaleY: 0 }}
-                      animate={{ scaleY: isCompleted ? 1 : 0 }}
-                      transition={{ duration: 0.18, ease: [0.2, 0.8, 0.3, 1] }}
+                    <div
+                      className="absolute left-[11px] top-3 z-0 w-px origin-top bg-primary transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0.3,1)]"
+                      style={{ bottom: '-12px', transform: `scaleY(${isCompleted ? 1 : 0})` }}
                       aria-hidden="true"
                     />
                   </>

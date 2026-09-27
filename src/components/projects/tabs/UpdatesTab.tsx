@@ -11,7 +11,6 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 import { Virtuoso } from "react-virtuoso";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   CornerDownRight,
@@ -1673,11 +1672,7 @@ function UpdateCard({
   });
 
   return (
-    <motion.article
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
+    <article
       id={`project-update-${update.id}`}
       role="button"
       tabIndex={isEditing ? -1 : 0}
@@ -1695,7 +1690,7 @@ function UpdateCard({
         }
       }}
       className={cn(
-        "group border-b border-border/80 px-1 py-3 transition-colors",
+        "group border-b border-border/80 px-1 py-3 transition-colors animate-in fade-in slide-in-from-bottom-2",
         !isEditing && "cursor-pointer hover:bg-muted/30 focus-visible:outline-none",
         highlighted && "bg-muted/40",
       )}
@@ -1906,7 +1901,7 @@ function UpdateCard({
           await deleteMutation.mutateAsync();
         }}
       />
-    </motion.article>
+    </article>
   );
 }
 
@@ -2464,7 +2459,7 @@ export default function UpdatesTab({
     />
   ) : (
     <div>
-      <AnimatePresence initial={false}>
+      <>
         {visibleUpdates.map((update) => (
           <MemoizedUpdateCard
             key={update.id}
@@ -2478,7 +2473,7 @@ export default function UpdatesTab({
             highlighted={initialUpdateId === update.id}
           />
         ))}
-      </AnimatePresence>
+      </>
     </div>
   );
 

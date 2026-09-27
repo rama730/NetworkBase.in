@@ -4,7 +4,6 @@ import { useState, useMemo, memo, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouteWarmPrefetch } from '@/hooks/useRouteWarmPrefetch';
-import { motion } from 'framer-motion';
 import { Search, Sparkles, CheckSquare, X } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import { useQueryClient } from '@tanstack/react-query';
@@ -24,7 +23,6 @@ import DiscoverHeader from '@/components/discover/DiscoverHeader';
 import { DiscoverErrorBoundary } from '@/components/discover/DiscoverErrorBoundary';
 import { DiscoverPeopleRail } from '@/components/discover/DiscoverPeopleRail';
 import { AppScrollArea } from '@/components/ui/AppScrollArea';
-import { useReducedMotionPreference } from '@/components/providers/theme-provider';
 // Constants & Types
 import {
     FILTER_VIEWS,
@@ -107,7 +105,6 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
     const { user } = useAuth();
     const prefetch = useRouteWarmPrefetch();
     const searchParams = useSearchParams();
-    const reduceMotion = useReducedMotionPreference();
     const handledCreateProjectRequestRef = useRef<string | null>(null);
 
     // --- State ---
@@ -510,11 +507,8 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
                                     ))}
                                 </div>
                             ) : visibleProjects.length === 0 ? (
-                                <motion.div
-                                    initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
-                                    animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
-                                    transition={reduceMotion ? { duration: 0 } : undefined}
-                                    className="nb-empty-state nb-grid-ground py-16"
+                                <div
+                                    className="nb-empty-state nb-grid-ground py-16 animate-in fade-in zoom-in-95"
                                 >
                                     <div className="w-12 h-12 mx-auto mb-4 rounded-[8px] border border-border bg-card flex items-center justify-center text-muted-foreground shadow-2xs">
                                         <Search className="w-6 h-6 text-muted-foreground" />
@@ -536,7 +530,7 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
                                             Start New Project
                                         </button>
                                     </div>
-                                </motion.div>
+                                </div>
                             ) : (
                                 <div className="flex-1 w-full min-h-0">
                                     {scrollContainer && (
