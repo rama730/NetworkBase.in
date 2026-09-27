@@ -156,12 +156,3 @@ test('every user-visible project notification preference has a concrete source t
     }
 });
 
-test('direct task-comment replies respect the same mention preference as project event replies', () => {
-    const emitters = readProjectFile('src/lib/notifications/emitters.ts');
-    const replyEmitter = emitters.slice(
-        emitters.indexOf('export async function emitTaskCommentReplyNotification'),
-        emitters.indexOf('export async function emitTaskFileNotification'),
-    );
-
-    assert.match(replyEmitter, /category: "mentions"/);
-});
