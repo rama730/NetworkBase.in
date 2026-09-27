@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Flag, Link2, ListTodo } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 
 import {
   SPRINT_TASK_STATUS_PRESENTATION,
@@ -16,7 +15,6 @@ import { cn } from "@/lib/utils";
 import { TASK_WORKING_FILES_TITLE } from "@/lib/files/task-working-files";
 import { calculateTaskTimeHealth, getTaskTitlePresentation } from "@/lib/projects/task-presentation";
 import { format, isSameYear } from "date-fns";
-import { useReducedMotionPreference } from "@/components/providers/theme-provider";
 
 type Props = {
   projectSlug: string;
@@ -42,7 +40,6 @@ export function SprintTimelineContent({
   onLoadMore,
 }: Props) {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
-  const reduceMotion = useReducedMotionPreference();
 
   const toggleTask = (taskId: string) => {
     setExpandedTaskId((prev) => (prev === taskId ? null : taskId));
@@ -260,31 +257,19 @@ export function SprintTimelineContent({
                   aria-label={`${isExpanded ? "Collapse" : "Expand"} ${task.title}`}
                   className="nb-touch-target inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-muted hover:text-foreground active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 >
-                  <motion.div
-                    initial={false}
-                    animate={{ rotate: isExpanded ? 180 : 0 }}
-                    transition={reduceMotion ? { duration: 0 } : { duration: 0.18 }}
-                  >
+                  <div className={isExpanded ? "rotate-180 transition-transform duration-150" : "transition-transform duration-150"}>
                     <ChevronDown className="h-4 w-4" />
-                  </motion.div>
+                  </div>
                 </button>
               </div>
             </div>
 
-            <AnimatePresence initial={false}>
+            <>
               {isExpanded && (
-                <motion.div
+                <div
                   key="content"
                   id={`sprint-task-${task.id}`}
-                  initial="collapsed"
-                  animate="open"
-                  exit="collapsed"
-                  variants={{
-                    open: { opacity: 1, height: "auto" },
-                    collapsed: { opacity: 0, height: 0 }
-                  }}
-                  transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: "easeOut" }}
-                  className="overflow-hidden"
+                  className="overflow-hidden animate-in fade-in duration-150"
                 >
                   <div className="px-4 pb-4 pl-[3.75rem] text-sm text-muted-foreground">
                     {task.description ? (
@@ -361,9 +346,9 @@ export function SprintTimelineContent({
                       </Link>
                     </div>
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
+            </>
           </li>
           );
         })}

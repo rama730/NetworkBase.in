@@ -1,6 +1,5 @@
 'use client'
 
-import { MotionConfig } from 'framer-motion'
 import { ThemeProvider as NextThemesProvider, useTheme as useNextTheme } from 'next-themes'
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { logger } from '@/lib/logger'
@@ -457,9 +456,7 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
     return (
         <ThemeContext.Provider value={themeValue}>
             <AppearanceContext.Provider value={appearanceValue}>
-                <MotionConfig reducedMotion={effectiveReduceMotion ? 'always' : 'never'}>
-                    {children}
-                </MotionConfig>
+                {children}
             </AppearanceContext.Provider>
         </ThemeContext.Provider>
     )

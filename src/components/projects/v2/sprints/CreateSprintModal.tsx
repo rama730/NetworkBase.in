@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { motion } from "framer-motion";
 import { AlertTriangle, CalendarDays, Trash2, X } from "lucide-react";
 import { z } from "zod";
 
@@ -244,24 +243,16 @@ export default function SprintEditorModal({
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.15, ease: "easeOut" }}
-        className="fixed inset-0 bg-black/60"
+      <div
+        className="fixed inset-0 bg-black/60 animate-in fade-in duration-150"
         onClick={pendingAction ? undefined : onClose}
       />
 
-      <motion.div
-        initial={{ scale: 0.98, opacity: 0, y: 4 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.98, opacity: 0, y: 4 }}
-        transition={{ duration: 0.15, ease: "easeOut" }}
+      <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="sprint-editor-title"
-        className="relative z-10 flex max-h-[88vh] w-full sm:max-w-[640px] flex-col overflow-hidden rounded-[8px] border border-border bg-card shadow-2xl dark:border-white/10"
+        className="animate-in fade-in zoom-in-[0.98] slide-in-from-bottom-1 duration-150 relative z-10 flex max-h-[88vh] w-full sm:max-w-[640px] flex-col overflow-hidden rounded-[8px] border border-border bg-card shadow-2xl dark:border-white/10"
       >
         {/* Modal Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
@@ -502,7 +493,7 @@ export default function SprintEditorModal({
             </button>
           </div>
         </form>
-      </motion.div>
+      </div>
     </div>
   );
 }
