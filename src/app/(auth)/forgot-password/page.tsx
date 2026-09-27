@@ -58,10 +58,10 @@ export default function ForgotPasswordPage() {
     }
 
     return (
-        <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
+        <main className="min-h-dvh w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
             {/* Left Panel: Clean Interactive Password Recovery Form */}
-            <div className="flex flex-col justify-center items-center py-8 sm:py-12 px-6 sm:px-10 lg:px-12 xl:p-16 w-full min-h-screen">
-                <div className="w-full max-w-md my-auto sm:mt-2 transition-all duration-500 ease-out">
+            <div className="flex flex-col justify-center items-center py-8 sm:py-12 px-6 sm:px-10 lg:px-12 xl:p-16 w-full min-h-dvh">
+                <div className="w-full max-w-md my-auto sm:mt-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[340ms] ease-out">
                     {/* Title Header */}
                     <div className="space-y-1.5 mb-8">
                         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
                     </div>
 
                     {sent ? (
-                        <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-sm text-emerald-800 dark:text-emerald-200 flex items-start gap-3 animate-in fade-in-50 duration-300">
+                        <div className="p-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-sm text-emerald-800 dark:text-emerald-200 flex items-start gap-3 animate-in fade-in-50 duration-[260ms]">
                             <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                             <div className="space-y-1">
                                 <p className="font-medium">Reset link sent</p>
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
                             {error && (
                                 <div
                                     role="alert"
-                                    className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-200"
+                                    className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-[180ms]"
                                 >
                                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                                     <span>{error}</span>
@@ -132,7 +132,7 @@ export default function ForgotPasswordPage() {
 
                             <Button
                                 type="submit"
-                                className="w-full h-11 font-medium shadow-sm transition-all duration-300"
+                                className="w-full h-11 font-medium shadow-none transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms]"
                                 disabled={isSubmitting}
                             >
                                 {isSubmitting ? (

@@ -100,7 +100,7 @@ export function MultiAttachmentPicker({
             type="button"
             onClick={handleCancel}
             data-testid="multi-attachment-picker-cancel"
-            className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-[5px] border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
             Cancel
           </button>
@@ -108,7 +108,7 @@ export function MultiAttachmentPicker({
             type="button"
             onClick={handleConfirm}
             data-testid="multi-attachment-picker-confirm"
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="rounded-[5px] bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
           >
             Confirm{pendingSelection.length > 0 ? ` (${pendingSelection.length})` : ""}
           </button>

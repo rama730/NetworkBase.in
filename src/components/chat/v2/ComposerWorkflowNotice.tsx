@@ -35,7 +35,7 @@ export function ComposerWorkflowNotice({
 }: ComposerWorkflowNoticeProps) {
     return (
         <div className={cn(
-            'mb-3 rounded-2xl border',
+            'mb-3 rounded-lg border',
             toneStyles[workflowNotice.tone] || toneStyles.default,
             isPopup ? 'px-3 py-2.5' : 'px-3.5 py-3',
         )}>

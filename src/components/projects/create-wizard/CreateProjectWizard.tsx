@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
-import { X, AlertCircle, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 import { TOTAL_PHASES } from '@/constants/project-wizard';
@@ -13,14 +14,18 @@ import { useCreateProjectWizard } from './useCreateProjectWizard';
 // Shared Components
 import WizardHeader from './WizardHeader';
 import WizardFooter from './WizardFooter';
+import { Button } from '@/components/ui/button';
+import LeaveProjectSetupDialog from './LeaveProjectSetupDialog';
+import type { CreateProjectGithubOAuthResume } from './github-oauth-resume';
 
 // Dynamic Phase Imports with Consistent Loading States
 const PhaseLoadingPlaceholder = () => (
-    <div className="min-h-[300px] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-zinc-400">Loading...</span>
+    <div className="min-w-0 w-full space-y-5" aria-label="Loading phase" role="status">
+        <div aria-hidden="true" className="nb-skeleton h-5 w-48 rounded-sm" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((item) => <div key={item} aria-hidden="true" className="nb-skeleton h-32 rounded-lg border border-border" />)}
         </div>
+        <div aria-hidden="true" className="nb-skeleton h-56 rounded-lg border border-border" />
     </div>
 );
 
@@ -31,53 +36,87 @@ const Phase4Settings = dynamic(() => import('./phases/Phase4Settings'), { loadin
 const Phase5Review = dynamic(() => import('./phases/Phase5Review'), { loading: PhaseLoadingPlaceholder, ssr: false });
 
 interface Props {
+    presentation?: 'modal' | 'page';
     onClose: () => void;
     onSuccess?: (projectId: string) => void;
     draftId?: string;
     initialSource?: 'scratch' | 'github' | 'upload' | null;
     onSourceChange?: (source: 'scratch' | 'github' | 'upload' | null) => void;
+    githubOAuthResume?: CreateProjectGithubOAuthResume | null;
+    onGithubOAuthResumeRestored?: (resumeId: string) => void;
 }
 
-export default function CreateProjectWizard({ onClose, onSuccess, draftId, initialSource = null, onSourceChange }: Props) {
+export default function CreateProjectWizard({ presentation = 'modal', onClose, onSuccess, draftId, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored }: Props) {
     const {
-        phase, methods, wizardContext, isSubmitting, isSavingDraft,
+        phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
+        phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
         uploadFiles, setUploadFiles, uploadProgress,
         githubPreview, githubFolderEntries, loadGithubFolder, startGithubRootPreview,
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
         handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt,
         onSubmit, draftInfo, restoreDraft, deleteDraft
-    } = useCreateProjectWizard({ onClose, onSuccess, draftId });
+    } = useCreateProjectWizard({
+        onClose,
+        onSuccess,
+        draftId,
+        initialValues: githubOAuthResume?.values,
+        initialPhase: 1,
+    });
 
     const { handleSubmit } = methods;
+    const scrollBodyRef = useRef<HTMLDivElement>(null);
+    const restoredGithubOAuthResumeRef = useRef<string | null>(null);
+    const [isResumingGithubOAuth] = useState(Boolean(githubOAuthResume));
+    const handleReviewReady = useCallback(() => setIsReviewReady(true), [setIsReviewReady]);
+    const sourceType = methods.watch('import_source.type');
+    const sourceRepoUrl = methods.watch('import_source.repoUrl');
+    const sourceMetadata = methods.watch('import_source.metadata') as Record<string, unknown> | undefined;
+
+    useEffect(() => {
+        if (!githubOAuthResume || restoredGithubOAuthResumeRef.current === githubOAuthResume.id) return;
+        restoredGithubOAuthResumeRef.current = githubOAuthResume.id;
+        onGithubOAuthResumeRestored?.(githubOAuthResume.id);
+    }, [githubOAuthResume, onGithubOAuthResumeRestored]);
 
     const phase1NextLabel = (() => {
         if (phase !== 1) return undefined;
-        const t = methods.getValues('import_source.type');
+        const t = sourceType;
         if (t !== 'github') return undefined;
-        const url = (methods.getValues('import_source.repoUrl') || '').trim();
+        const url = (sourceRepoUrl || '').trim();
         if (!url) return 'Continue';
         return 'Continue';
     })();
 
     const phase1NextDisabled = (() => {
         if (phase !== 1) return false;
-        const t = methods.getValues('import_source.type');
+        const t = sourceType;
         if (!t) {
             return true;
         }
         if (t === 'github') {
-            const url = (methods.getValues('import_source.repoUrl') || '').trim();
+            const url = (sourceRepoUrl || '').trim();
             if (!url) return true;
-            const metadata = (methods.getValues('import_source.metadata') || {}) as Record<string, unknown>;
-            return metadata.githubPreflightStatus !== 'ok';
+            return sourceMetadata?.githubPreflightStatus !== 'ok';
         }
 
         if (t === 'upload') {
-            return !uploadFiles || uploadFiles.length === 0;
+            return !uploadFiles || uploadFiles.length === 0 || sourceMetadata?.uploadValidationStatus !== 'ok';
         }
 
         return false;
     })();
+
+    const phase1NextDisabledReason = phase !== 1 || !phase1NextDisabled
+        ? undefined
+        : sourceType === 'github'
+            ? sourceRepoUrl?.trim()
+                ? 'Load a valid repository preview to continue.'
+                : 'Choose or paste a repository to continue.'
+            : sourceType === 'upload'
+                ? uploadFiles?.length
+                    ? String(sourceMetadata?.uploadValidationError || 'Resolve blocked files to continue.')
+                    : 'Choose a folder to continue.'
+                : 'Choose a starting point to continue.';
 
     // OPTIMIZATION: Prefetch next phase component to eliminate loading delay
     useEffect(() => {
@@ -85,6 +124,11 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
         else if (phase === 2) import('./phases/Phase3TeamRoles');
         else if (phase === 3) import('./phases/Phase4Settings');
         else if (phase === 4) import('./phases/Phase5Review');
+    }, [phase]);
+
+    useEffect(() => {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        scrollBodyRef.current?.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     }, [phase]);
 
     useEffect(() => {
@@ -129,48 +173,35 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [handleCloseAttempt, setShowExitConfirm, showExitConfirm]);
 
-    return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true">
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
-
+    const content = (
             <div
-                className="relative w-full max-w-5xl bg-white dark:bg-zinc-900 rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
+                className={`relative flex min-h-0 w-full flex-col overflow-hidden bg-card ${presentation === 'page' ? 'h-[calc(100dvh-var(--ui-topnav-height)-48px)]' : 'h-full max-h-full'}`}
                 onClick={(e) => e.stopPropagation()}
             >
                     <FormProvider {...methods}>
                         {/* Header */}
-                        <div className="relative flex-shrink-0 border-b border-zinc-100 dark:border-zinc-800">
-                            <button
-                                type="button"
-                                onClick={handleCloseAttempt}
-                                aria-label="Close"
-                                className="absolute right-4 top-4 z-10 p-1.5 text-zinc-400 hover:text-zinc-500 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 rounded-full transition-colors"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                            <WizardHeader currentPhase={phase} />
-                        </div>
+                        <WizardHeader currentPhase={phase} onClose={handleCloseAttempt} />
 
                         {/* Content */}
-                        <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
+                        <div ref={scrollBodyRef} className="app-scroll app-scroll-y app-scroll-gutter min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-6">
                             {uploadProgress?.isUploading && (
-                                <div className="mb-4 rounded-xl border border-primary/15 dark:border-primary/20 bg-primary/5 dark:bg-primary/10 p-4">
+                                <div className="mb-4 rounded-lg border border-border bg-secondary/45 p-4" role="status" aria-live="polite">
                                     <div className="flex items-center justify-between gap-4">
                                         <div className="min-w-0">
-                                            <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                            <div className="nb-card-title text-foreground">
                                                 Importing files…
                                             </div>
-                                            <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                                            <div className="nb-meta truncate text-muted-foreground">
                                                 {uploadProgress.currentFile || 'Preparing uploads'}
                                             </div>
                                         </div>
-                                        <div className="text-sm font-bold text-primary shrink-0 tabular-nums">
+                                        <div className="text-sm font-semibold text-primary shrink-0 tabular-nums">
                                             {uploadProgress.percent}%
                                         </div>
                                     </div>
-                                    <div className="mt-3 h-2 rounded-full bg-primary/10 dark:bg-primary/10 overflow-hidden">
+                                    <div className="mt-3 h-1.5 overflow-hidden rounded-sm bg-muted">
                                         <div
-                                            className="h-full bg-primary transition-all duration-200"
+                                            className="h-full bg-primary transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms]"
                                             style={{ width: `${uploadProgress.percent}%` }}
                                         />
                                     </div>
@@ -191,55 +222,54 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                                             <Phase1SourceSelection
                                                 uploadFiles={uploadFiles}
                                                 setUploadFiles={setUploadFiles}
-                                                uploadProgress={uploadProgress}
                                                 githubPreview={githubPreview}
                                                 githubFolderEntries={githubFolderEntries}
                                                 loadGithubFolder={loadGithubFolder}
                                                 startGithubRootPreview={startGithubRootPreview}
-                                                initialSource={initialSource}
+                                                initialSource={isResumingGithubOAuth ? 'github' : initialSource}
                                                 onSourceChange={onSourceChange}
+                                                isResumingGithubOAuth={isResumingGithubOAuth}
                                             />
                                         )}
-                                        {phase === 2 && <Phase2Information />}
-                                        {phase === 3 && <Phase3TeamRoles wizardContext={wizardContext} />}
-                                        {phase === 4 && <Phase4Settings />}
-                                        {phase === 5 && <Phase5Review wizardContext={wizardContext} goToPhase={goToPhase} />}
+                                        {phase === 2 && <Phase2Information showValidationSummary={phase2ValidationAttempted} />}
+                                        {phase === 3 && <Phase3TeamRoles wizardContext={wizardContext} showValidationSummary={phase3ValidationAttempted} />}
+                                        {phase === 4 && <Phase4Settings showValidationSummary={phase4ValidationAttempted} linkComposerPending={phase4LinkComposerPending} onLinkComposerPending={setPhase4LinkComposerPending} onEditRoles={() => goToPhase(3)} />}
+                                        {phase === 5 && <Phase5Review goToPhase={goToPhase} onReady={handleReviewReady} />}
                                 </div>
                             </form>
                         </div>
 
                         {/* Draft Recovery Banner */}
                         {draftInfo?.exists && (
-                            <div className="flex-shrink-0 px-6 py-4 bg-indigo-50/50 dark:bg-indigo-900/20 border-t border-indigo-100 dark:border-indigo-800/30">
+                            <div className="flex-shrink-0 border-t border-border bg-secondary/45 px-5 py-4 sm:px-6">
                                 <div className="flex items-center justify-between gap-4">
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0">
-                                            <Save className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                        <div className="flex size-9 flex-shrink-0 items-center justify-center rounded-md border border-border bg-card">
+                                            <Save className="size-4 text-muted-foreground" />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-100 truncate">
-                                                Resume Previous Draft?
+                                            <p className="nb-card-title truncate text-foreground">
+                                                Continue your saved draft?
                                             </p>
-                                            <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80">
-                                                You were on Phase {draftInfo.phase} {draftInfo.savedAt ? `(${draftInfo.savedAt.toLocaleDateString()})` : ''}
+                                            <p className="nb-meta text-muted-foreground">
+                                                Last open at phase {draftInfo.phase}{draftInfo.savedAt ? ` · ${draftInfo.savedAt.toLocaleDateString()}` : ''}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        <button
+                                        <Button
                                             type="button"
+                                            variant="ghost"
                                             onClick={deleteDraft}
-                                            className="px-4 py-2 text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border border-transparent hover:border-red-100 dark:hover:border-red-800/50"
                                         >
                                             Delete draft
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
                                             type="button"
                                             onClick={restoreDraft}
-                                            className="px-5 py-2 text-xs font-bold app-accent-solid hover:bg-primary/90 rounded-lg transition-all shadow-md hover:shadow-lg active:scale-95"
                                         >
                                             Continue with the draft
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -257,53 +287,47 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                                 isSavingDraft={isSavingDraft}
                                 saveStatus={saveStatus}
                                 lastSaved={lastSaved}
+                                isPhaseTransitioning={isPhaseTransitioning}
+                                isReviewReady={isReviewReady}
                                 nextLabel={phase1NextLabel}
                                 nextDisabled={phase1NextDisabled}
+                                nextDisabledReason={phase1NextDisabledReason}
                             />
                         </div>
                     </FormProvider>
 
-                    {/* Exit Confirmation Dialog */}
-                    {showExitConfirm && (
-                        <div className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                            <div
-                                className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-xl shadow-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 p-6"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                    <div className="flex flex-col items-center text-center">
-                                        <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
-                                            <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-                                        </div>
-                                        <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-                                            Unsaved Changes
-                                        </h3>
-                                        <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">
-                                            You have unsaved changes. Are you sure you want to leave? Your progress will be lost.
-                                        </p>
-                                        <div className="flex gap-3 w-full">
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowExitConfirm(false)}
-                                                className="flex-1 px-4 py-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-                                            >
-                                                Stay
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setShowExitConfirm(false);
-                                                    onClose();
-                                                }}
-                                                className="flex-1 px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors"
-                                            >
-                                                Leave
-                                            </button>
-                                        </div>
-                                    </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
-            </div>
+    );
+    const exitConfirmation = (
+        <LeaveProjectSetupDialog
+            open={showExitConfirm}
+            onOpenChange={setShowExitConfirm}
+            onLeave={onClose}
+        />
+    );
+
+    if (presentation === 'page') {
+        return (
+            <>
+                <section className="mx-auto max-w-[1000px] p-4 sm:p-6">{content}</section>
+                {exitConfirmation}
+            </>
+        );
+    }
+
+    return (
+        <>
+            <Dialog open onOpenChange={open => { if (!open) handleCloseAttempt(); }}>
+                <DialogContent
+                    showCloseButton={false}
+                    className="inset-0 left-0 top-0 flex h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-[calc(100dvh-48px)] sm:max-h-[calc(100dvh-48px)] sm:w-[calc(100vw-48px)] sm:max-w-[1000px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:border"
+                    onEscapeKeyDown={event => { event.preventDefault(); if (showExitConfirm) setShowExitConfirm(false); else handleCloseAttempt(); }}
+                >
+                    <DialogTitle className="sr-only">Create project</DialogTitle>
+                    {content}
+                </DialogContent>
+            </Dialog>
+            {exitConfirmation}
+        </>
     );
 }

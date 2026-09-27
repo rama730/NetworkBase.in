@@ -137,6 +137,8 @@ export async function linkNodeToTask(
 
     const existingLinks = await db.query.taskNodeLinks.findMany({
         where: eq(taskNodeLinks.taskId, taskId),
+        columns: { nodeId: true, order: true, tags: true, annotation: true },
+        limit: 100,
     });
     const link = existingLinks.find(l => l.nodeId === nodeId);
 
@@ -204,13 +206,19 @@ export async function unlinkNodeFromTask(taskId: string, nodeId: string) {
     // explicit Files action; this operation only removes the task relationship.
     await db.transaction(async tx => {
         await assertProjectWriteAccessTx(tx, projectId, user.id);
-        await tx.delete(taskNodeLinks).where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, nodeId)));
-        // Legacy ownership is only a fallback relationship. Remember an explicit unlink
-        // so the collection cannot resurrect it from task_id or the storage folder.
-        await tx.update(projectNodes).set({
-            metadata: sql`coalesce(${projectNodes.metadata}, '{}'::jsonb) || jsonb_build_object('taskFileDetachedFrom', ${taskId}::text)`,
-        }).where(and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId),
-            sql`(${projectNodes.taskId} = ${taskId}::uuid OR ${projectNodes.path} LIKE ${`/.system/tasks/${taskId}/%`})`));
+        // PURE OPTIMIZATION (Item 11): Consolidate link deletion and node metadata detachment into 1 atomic query.
+        await tx.execute(sql`
+            WITH deleted_link AS (
+                DELETE FROM task_node_links
+                WHERE task_id = ${taskId}::uuid AND node_id = ${nodeId}::uuid
+                RETURNING 1
+            )
+            UPDATE project_nodes
+            SET metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object('taskFileDetachedFrom', ${taskId}::text)
+            WHERE id = ${nodeId}::uuid
+              AND project_id = ${projectId}::uuid
+              AND (task_id = ${taskId}::uuid OR path LIKE ${`/.system/tasks/${taskId}/%`})
+        `);
     });
 }
 
@@ -323,11 +331,11 @@ export async function updateTaskNodeLinksOrder(taskId: string, updates: { nodeId
 
     // Execute updates atomically within a transaction
     await db.transaction(async (tx) => {
-        for (const u of validUpdates) {
-            await tx.update(taskNodeLinks)
+        await Promise.all(validUpdates.map((u) =>
+            tx.update(taskNodeLinks)
                 .set({ order: u.order })
-                .where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, u.nodeId)));
-        }
+                .where(and(eq(taskNodeLinks.taskId, taskId), eq(taskNodeLinks.nodeId, u.nodeId)))
+        ));
     });
 }
 

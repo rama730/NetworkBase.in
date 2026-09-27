@@ -88,15 +88,19 @@ export async function GET(request: Request) {
       success: true,
       status: 200,
     });
-    return jsonSuccess({
-      sessions,
-      pagination: {
-        limit,
-        offset,
-        hasMore: page.hasMore,
-        nextOffset: page.nextOffset,
+    return jsonSuccess(
+      {
+        sessions,
+        pagination: {
+          limit,
+          offset,
+          hasMore: page.hasMore,
+          nextOffset: page.nextOffset,
+        },
       },
-    });
+      undefined,
+      { headers: { "Cache-Control": "private, no-cache, stale-while-revalidate=10" } },
+    );
   } catch (error) {
     logger.error("[api/v1/sessions] failed", { module: 'api', error: error instanceof Error ? error.message : String(error) });
     logApiRoute(request, {

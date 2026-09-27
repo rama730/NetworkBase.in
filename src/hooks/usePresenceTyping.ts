@@ -116,7 +116,12 @@ export function usePresenceTyping({
             type: 'typing',
             userId: currentUserId ?? undefined,
             isTyping: state?.isTyping ?? false,
-            profile: profileSnapshot,
+            // ponytail: omit redundant avatarUrl; receiving client enriches avatar from its thread cache. ceiling: text-only broadcast payload. upgrade: send avatarUrl if external client lacks local thread cache.
+            profile: {
+                username: profileSnapshot.username,
+                fullName: profileSnapshot.fullName,
+                avatarUrl: null,
+            },
             context: state?.context ?? null,
         });
     }, [currentUserId]);

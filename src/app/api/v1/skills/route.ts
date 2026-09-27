@@ -42,10 +42,24 @@ export async function GET(request: Request) {
         .update(JSON.stringify([SKILL_CATALOG_VERSION, category, kindValue, tierValue, query]))
         .digest('base64url')
         .slice(0, 24)
+    const etagHeader = `"skills-${etag}"`
+    const cacheControl = query
+        ? 'public, max-age=60, stale-while-revalidate=300'
+        : 'public, max-age=3600, stale-while-revalidate=86400'
+
+    if (request.headers.get('if-none-match') === etagHeader) {
+        return new Response(null, {
+            status: 304,
+            headers: {
+                'Cache-Control': cacheControl,
+                ETag: etagHeader,
+            },
+        })
+    }
 
     return jsonSuccess(
         { skills, catalogVersion: SKILL_CATALOG_VERSION },
         undefined,
-        { headers: { 'Cache-Control': query ? 'public, max-age=60, stale-while-revalidate=300' : 'public, max-age=3600, stale-while-revalidate=86400', ETag: `"skills-${etag}"` } },
+        { headers: { 'Cache-Control': cacheControl, ETag: etagHeader } },
     )
 }

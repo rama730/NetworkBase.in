@@ -52,7 +52,6 @@ export async function generateMetadata({
     const tabTitleMap: Record<string, string> = {
         updates: "Project Feed",
         sprints: "Sprints",
-        analytics: "Project Analytics",
         settings: "Settings",
         privacy: "Settings",
         readme: "Docs",
@@ -172,7 +171,7 @@ export default function ProjectDetailPage({
     return (
         <div
             data-scroll-root="route"
-            className="h-full min-h-0 app-scroll app-scroll-y app-scroll-gutter overscroll-y-contain bg-zinc-50 dark:bg-zinc-950"
+            className="h-full min-h-0 app-scroll app-scroll-y app-scroll-gutter overscroll-y-contain bg-background"
         >
             <Suspense fallback={<ProjectDetailLoading />}>
                 <ResolvedProjectDashboard params={params} searchParams={searchParams} />

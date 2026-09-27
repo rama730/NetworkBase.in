@@ -1,9 +1,9 @@
 "use client";
 
 import ProjectOverviewCard from "@/components/projects/dashboard/ProjectOverviewCard";
-import TeamCard from "@/components/projects/dashboard/TeamCard";
 import OpenRolesCard from "@/components/projects/dashboard/OpenRolesCard";
-import { TabErrorBoundary } from "@/components/projects/TabErrorBoundary";
+import JourneyTimeline from "@/components/projects/dashboard/JourneyTimeline";
+import { RecentActivityCard } from "@/components/projects/dashboard/RecentActivityCard";
 
 import { type ApplicationStatusResult } from "@/app/actions/applications";
 
@@ -11,17 +11,13 @@ interface DashboardTabProps {
     project: any;
     isCreator: boolean;
     isCollaborator: boolean;
-    canManageTeam?: boolean;
-    members: any[];
     rolesWithFilled: any[];
     onEdit: () => void;
     onAdvanceStage: () => void;
     onRedoStage?: () => void;
     onApplyToRole: (role: any) => void;
-    onManageTeam: () => void;
     lifecycleStages: any[];
     currentStageIndex: number;
-    loadingMembers?: boolean;
     applicationStatus?: ApplicationStatusResult;
     onAcceptInvitation?: () => void;
     onDeclineInvitation?: () => void;
@@ -32,46 +28,39 @@ export function DashboardTab({
     project,
     isCreator,
     isCollaborator,
-    canManageTeam,
-    members,
     rolesWithFilled,
     onEdit,
     onAdvanceStage,
     onRedoStage,
     onApplyToRole,
-    onManageTeam,
     lifecycleStages,
     currentStageIndex,
-    loadingMembers,
     applicationStatus = { status: 'none' },
     onAcceptInvitation,
     onDeclineInvitation,
     invitationLoading,
 }: DashboardTabProps) {
+    const stages = lifecycleStages.map((stage: any) => stage?.name ?? stage).filter(Boolean);
+
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-7 space-y-6">
-                <ProjectOverviewCard
-                    project={project}
-                    isCreator={isCreator}
-                    lifecycleStages={lifecycleStages}
-                    currentStageIndex={currentStageIndex}
-                    onAdvanceStage={onAdvanceStage}
-                    onRedoStage={onRedoStage}
-                />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <div className="min-w-0 space-y-6 lg:col-span-8">
+                <ProjectOverviewCard project={project} />
             </div>
 
-            <div className="lg:col-span-5 space-y-6">
-                <TabErrorBoundary tabName="Team">
-                    <TeamCard
-                        project={project}
-                        members={members}
-                        loadingMembers={loadingMembers}
+            <div className="min-w-0 space-y-4 lg:col-span-4">
+                {stages.length > 0 ? (
+                    <JourneyTimeline
+                        stages={stages}
+                        currentStageIndex={currentStageIndex}
                         isCreator={isCreator}
-                        canInvite={canManageTeam}
-                        onInvite={onManageTeam}
+                        onAdvanceStage={onAdvanceStage}
+                        onRedoStage={onRedoStage}
+                        stageCompletionDates={project?.stageCompletionDates}
+                        layout="rail"
                     />
-                </TabErrorBoundary>
+                ) : null}
+                <RecentActivityCard projectId={project.id} />
                 <OpenRolesCard
                     roles={rolesWithFilled}
                     isCreator={isCreator}

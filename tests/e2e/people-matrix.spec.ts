@@ -5,7 +5,7 @@ import { attachPageMonitoring } from "./_helpers/monitoring";
 test.describe("People matrix @critical", () => {
   test.skip(!hasE2ECredentials, "E2E_USER_EMAIL and E2E_USER_PASSWORD are required.");
 
-  test("discover/network/requests tabs and sidebar cards render", async ({ browser }) => {
+  test("suggested/invitations/connections tabs and person cards render", async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
     const monitor = attachPageMonitoring(page);
@@ -13,15 +13,18 @@ test.describe("People matrix @critical", () => {
     await login(page);
     await page.goto("/people?tab=discover");
 
-    await expect(page.getByRole("tab", { name: "Discover" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Network" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Requests" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Network" })).toBeVisible();
+    await expect(page.getByText("People you've worked with, and people worth working with.")).toBeVisible();
+    await expect(page.getByLabel("Search your network")).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Suggested/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Invitations/ })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Connections/ })).toBeVisible();
 
-    await page.getByRole("tab", { name: "Network" }).click();
-    await expect(page.getByLabel("Search connections")).toBeVisible({ timeout: 15000 });
+    await page.getByRole("tab", { name: /Connections/ }).click();
+    await expect(page.getByRole("tabpanel")).toBeVisible({ timeout: 15000 });
 
-    await page.getByRole("tab", { name: "Requests" }).click();
-    await expect(page.getByText(/Incoming Requests|Sent Requests|Project Applications|No pending requests/i).first()).toBeVisible({ timeout: 15000 });
+    await page.getByRole("tab", { name: /Invitations/ }).click();
+    await expect(page.getByText(/Invited you|Project invitation|No pending invitations/i).first()).toBeVisible({ timeout: 15000 });
 
     await monitor.assertNoViolations();
     monitor.detach();

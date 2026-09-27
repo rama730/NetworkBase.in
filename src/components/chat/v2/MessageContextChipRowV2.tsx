@@ -52,7 +52,7 @@ export function MessageContextChipRowV2({
                     )}
                 >
                     <span className={cn(
-                        'rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide',
+                        'rounded-full px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
                         tone === 'inverted'
                             ? 'bg-white/10 text-white/70'
                             : 'bg-primary/10 text-primary',
@@ -62,7 +62,7 @@ export function MessageContextChipRowV2({
                     <span className="min-w-0 truncate font-medium">{chip.label}</span>
                     {chip.subtitle ? (
                         <span className={cn(
-                            'min-w-0 truncate text-[10px]',
+                            'min-w-0 truncate text-[11px]',
                             tone === 'inverted' ? 'text-white/60' : 'text-zinc-500 dark:text-zinc-400',
                         )}>
                             {chip.subtitle}

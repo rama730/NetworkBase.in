@@ -3,12 +3,12 @@ import { hasE2ECredentials, login } from "./_helpers/auth";
 import { attachPageMonitoring } from "./_helpers/monitoring";
 import { openRoute } from "./_helpers/navigation";
 
-const ROUTES: Array<{ path: string; ready: string; checkHubHeader?: boolean; checkProfileTabs?: boolean }> = [
+const ROUTES: Array<{ path: string; ready: string; checkHubHeader?: boolean; checkProfileHeader?: boolean }> = [
   { path: "/hub", ready: "[data-testid='hub-feed-scroll']", checkHubHeader: true },
   { path: "/workspace", ready: "[data-testid='workspace-drawer']", checkHubHeader: true },
   { path: "/messages", ready: "[data-scroll-root='route']" },
   { path: "/people", ready: "[data-scroll-root='route']" },
-  { path: "/profile", ready: "[data-scroll-root='route']", checkProfileTabs: true },
+  { path: "/profile", ready: "[data-scroll-root='route']", checkProfileHeader: true },
   { path: "/settings?tab=security", ready: "[data-scroll-root='route']" },
 ];
 
@@ -65,22 +65,28 @@ test.describe("Scroll contract @critical", () => {
         await page.waitForTimeout(100);
         const afterTop = await header.evaluate((node) => node.getBoundingClientRect().top);
 
-        expect(Math.abs(beforeTop - afterTop), "Hub header should remain visually anchored during feed scroll").toBeLessThanOrEqual(2);
+        expect(afterTop, "Hub header should scroll out with the Discovery feed").toBeLessThan(beforeTop - 50);
       }
 
-      if (route.checkProfileTabs) {
+      if (route.checkProfileHeader) {
+        const header = page.locator("[data-testid='profile-summary-header']").first();
         const tabs = page.locator("[data-testid='profile-tabs-shell']").first();
-        const routeRoot = page.locator("[data-scroll-root='route']").first();
+        await expect(header).toBeVisible();
         await expect(tabs).toBeVisible();
 
+        const [headerBeforeTop, tabsBeforeTop] = await Promise.all([
+          header.evaluate((node) => node.getBoundingClientRect().top),
+          tabs.evaluate((node) => node.getBoundingClientRect().top),
+        ]);
         await page.evaluate(scrollVisibleRouteRoot, 1000);
         await page.waitForTimeout(100);
 
-        const [tabsTop, routeTop] = await Promise.all([
+        const [headerAfterTop, tabsAfterTop] = await Promise.all([
+          header.evaluate((node) => node.getBoundingClientRect().top),
           tabs.evaluate((node) => node.getBoundingClientRect().top),
-          routeRoot.evaluate((node) => node.getBoundingClientRect().top),
         ]);
-        expect(Math.abs(tabsTop - routeTop - 12), "Profile tabs should pin like the Hub header").toBeLessThanOrEqual(2);
+        expect(headerAfterTop, "Profile summary should scroll with the route").toBeLessThan(headerBeforeTop - 50);
+        expect(tabsAfterTop, "Profile tabs should not create a sticky scroll region").toBeLessThan(tabsBeforeTop - 50);
       }
     }
 

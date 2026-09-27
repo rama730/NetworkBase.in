@@ -25,21 +25,24 @@ export async function upsertProjectFileIndex(projectId: string, nodeId: string, 
     const MAX_CHARS = 200_000;
     const safe = (content || "").slice(0, MAX_CHARS);
 
-    // ensure node exists and belongs to project
-    const node = await db.query.projectNodes.findFirst({
-        where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
-        columns: { id: true, type: true }
-    });
-    if (!node) throw new Error("File not found");
-    if (node.type !== 'file') throw new Error("Not a file");
+    const result = (await db.execute(sql`
+        INSERT INTO project_file_index (node_id, project_id, content, updated_at)
+        SELECT id, project_id, ${safe}, NOW()
+        FROM project_nodes
+        WHERE id = ${nodeId}::uuid AND project_id = ${projectId}::uuid AND type = 'file' AND deleted_at IS NULL
+        ON CONFLICT (node_id) DO UPDATE
+        SET content = EXCLUDED.content, updated_at = NOW()
+        RETURNING node_id
+    `)) as unknown as Array<{ node_id: string }>;
 
-    await db
-        .insert(projectFileIndex)
-        .values({ nodeId, projectId, content: safe, updatedAt: new Date() })
-        .onConflictDoUpdate({
-            target: projectFileIndex.nodeId,
-            set: { content: safe, updatedAt: new Date() },
+    if (!result[0]) {
+        const node = await db.query.projectNodes.findFirst({
+            where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
+            columns: { id: true, type: true }
         });
+        if (!node) throw new Error("File not found");
+        if (node.type !== 'file') throw new Error("Not a file");
+    }
 }
 
 async function searchProjectFileIndexAuthorized(projectId: string, query: string, limit: number = 50) {

@@ -282,17 +282,17 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         {hasVerifiedFactor ? (
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 nb-meta font-medium text-foreground">
             <ShieldCheck className="h-3.5 w-3.5" />
             Enabled
           </div>
         ) : (
-          <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 nb-meta font-medium text-muted-foreground">
             <Shield className="h-3.5 w-3.5" />
             Not set up
           </div>
         )}
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="nb-compact text-muted-foreground">
           Add a 6-digit code from an authenticator app for extra protection.
         </p>
       </div>
@@ -301,17 +301,17 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
         <div className="space-y-2">
             <div
               key={primaryVerifiedFactor.id}
-              className="flex items-center justify-between rounded-xl border border-zinc-200 p-3 dark:border-zinc-800"
+              className="flex min-h-16 items-center justify-between rounded-md border border-border bg-background p-3"
             >
               <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-zinc-100 p-2 dark:bg-zinc-800">
-                  <KeyRound className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
+                <div className="rounded-md bg-muted p-2">
+                  <KeyRound className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <div className="nb-ui-label text-foreground">
                     Authenticator app
                   </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="nb-meta text-muted-foreground">
                     Added {primaryVerifiedFactor.created_at ? new Date(primaryVerifiedFactor.created_at).toLocaleDateString() : "recently"}
                   </div>
                 </div>
@@ -322,36 +322,36 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
                 aria-label="Remove authenticator app"
                 onClick={() => setUnenrollId(primaryVerifiedFactor.id)}
               >
-                <Trash2 className="h-4 w-4 text-red-500" />
+                <Trash2 className="h-4 w-4 text-destructive" strokeWidth={1.75} />
               </Button>
             </div>
         </div>
       ) : (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="nb-compact text-muted-foreground">
           No authenticator app is set up yet.
         </p>
       )}
 
       {pendingFactors.length > 0 ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+        <div className="rounded-md border border-border bg-muted px-4 py-3 nb-compact text-foreground">
           A previous authenticator setup was not completed. Starting again will replace the unfinished setup.
         </div>
       ) : null}
 
       {hasVerifiedFactor ? (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-950/40">
+        <div className="rounded-md border border-border bg-muted/50 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              <div className="nb-ui-label text-foreground">
                 Recovery codes
               </div>
-              <div className="text-sm text-zinc-500 dark:text-zinc-400">
+              <div className="nb-compact text-muted-foreground">
                 {recoveryCodes?.configured
                   ? `${recoveryCodes.remainingCount} code${recoveryCodes.remainingCount === 1 ? "" : "s"} remaining`
                   : "Generate one-time recovery codes in case you lose access to your authenticator app."}
               </div>
               {recoveryCodes?.generatedAt ? (
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="nb-meta text-muted-foreground">
                   Last generated {new Date(recoveryCodes.generatedAt).toLocaleString()}
                 </div>
               ) : null}
@@ -376,7 +376,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-400">
+        <div className="rounded-md border border-border bg-muted/50 p-4 nb-compact text-muted-foreground">
           Recovery codes become available after you finish authenticator setup.
         </div>
       )}
@@ -401,11 +401,11 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
           </DialogHeader>
 
           {!pendingFactor ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">When setup is confirmed, you will receive 10 one-time recovery codes to store safely.</p>
+            <p className="nb-compact text-muted-foreground">When setup is confirmed, you will receive 10 one-time recovery codes to store safely.</p>
           ) : (
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-[200px_minmax(0,1fr)]">
-                <div className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950/60">
+                <div className="rounded-md border border-border bg-background p-3">
                   {pendingFactor.qrCodeDataUrl ? (
                     <Image
                       src={pendingFactor.qrCodeDataUrl}
@@ -416,17 +416,17 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
                       className="mx-auto h-40 w-40"
                     />
                   ) : (
-                    <div className="flex h-40 w-40 items-center justify-center rounded-lg border border-dashed border-zinc-300 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                    <div className="flex h-40 w-40 items-center justify-center rounded-md border border-dashed border-border text-center nb-meta text-muted-foreground">
                       QR code unavailable on this device. Use the manual setup key instead.
                     </div>
                   )}
                 </div>
                 <div className="space-y-3">
-                  <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-3 dark:border-zinc-800 dark:bg-zinc-950/40">
-                    <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
+                  <div className="rounded-md border border-border bg-muted/50 p-3">
+                    <div className="nb-meta font-medium uppercase tracking-[0.16em] text-muted-foreground">
                       Manual setup key
                     </div>
-                    <div className="mt-2 break-all font-mono text-sm text-zinc-900 dark:text-zinc-100">
+                    <div className="mt-2 break-all font-mono text-[13px] text-foreground">
                       {pendingFactor.secret}
                     </div>
                     <Button
@@ -454,7 +454,7 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
                       placeholder="Enter the current code"
                       disabled={verifying}
                     />
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <p className="nb-meta text-muted-foreground">
                       Use the current 6-digit code from your authenticator app. Codes refresh every 30 seconds.
                     </p>
                   </div>
@@ -514,9 +514,9 @@ export function MfaSetup({ initialFactors, recoveryCodes }: MfaSetupProps) {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="grid gap-2 rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 font-mono text-sm dark:border-zinc-800 dark:bg-zinc-950/40 sm:grid-cols-2">
+            <div className="grid gap-2 rounded-md border border-border bg-muted/50 p-4 font-mono text-[13px] sm:grid-cols-2">
               {(revealedRecoveryCodes?.codes ?? []).map((code) => (
-                <div key={code} className="rounded-lg bg-white px-3 py-2 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
+                <div key={code} className="rounded-md border border-border bg-background px-3 py-2 text-foreground">
                   {code}
                 </div>
               ))}

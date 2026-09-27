@@ -1,0 +1,9 @@
+# Railway deployment and healthcheck configuration
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

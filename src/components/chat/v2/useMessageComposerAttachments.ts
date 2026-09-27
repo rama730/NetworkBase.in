@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { cancelAttachmentUpload, uploadAttachment, type UploadedAttachment } from '@/app/actions/messaging';
+import { cancelAttachmentUpload, uploadAttachment } from '@/app/actions/messaging';
+import type { UploadedAttachment } from '@/app/actions/messaging';
+import { useDirectAttachmentUpload } from '@/hooks/useDirectAttachmentUpload';
 import { compressImage, generateTinyThumbnail } from '@/lib/messages/image-compression';
 import { readMediaDimensions, type MediaDimensions } from '@/lib/messages/media-metadata';
 import {
@@ -75,6 +77,7 @@ export function useMessageComposerAttachments({
     conversationId,
     onAddFiles,
 }: UseMessageComposerAttachmentsParams) {
+    const { uploadDirect } = useDirectAttachmentUpload();
     const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
     const attachmentsRef = useRef<PendingAttachment[]>([]);
     const activeUploadIdsRef = useRef<Set<string>>(new Set());
@@ -259,46 +262,39 @@ export function useMessageComposerAttachments({
             .slice(0, available)
             .forEach((attachment) => {
                 activeUploadIdsRef.current.add(attachment.id);
-                const formData = new FormData();
-                formData.append('file', attachment.file);
-                formData.append('clientUploadId', attachment.id);
-                formData.append('conversationId', conversationId);
-                if (attachment.width && attachment.height) {
-                    formData.append('width', String(attachment.width));
-                    formData.append('height', String(attachment.height));
-                }
-                if (attachment.tinyBase64) {
-                    formData.append('tinyBase64', attachment.tinyBase64);
-                }
 
                 setAttachments((prev) =>
                     prev.map((item) =>
-                        item.id === attachment.id ? { ...item, status: 'uploading', progress: 50, error: undefined } : item,
+                        item.id === attachment.id ? { ...item, status: 'uploading', progress: 20, error: undefined } : item,
                     ),
                 );
 
-                // ponytail: the authenticated server action already accepts FormData.
-                // Keeping binary uploads on that native path avoids a second multipart parser.
-                void uploadAttachment(formData)
-                    .then((result) => {
+                // Zero-RAM Direct-to-Storage Presigned Pipeline
+                uploadDirect({
+                    file: attachment.file,
+                    conversationId,
+                    clientUploadId: attachment.id,
+                    width: attachment.width,
+                    height: attachment.height,
+                    tinyBase64: attachment.tinyBase64,
+                    onProgress: (progress) => {
+                        setAttachments((prev) =>
+                            prev.map((item) =>
+                                item.id === attachment.id ? { ...item, progress } : item,
+                            ),
+                        );
+                    },
+                })
+                    .then((uploadedAttachment) => {
                         setAttachments((prev) =>
                             prev.map((item) => {
                                 if (item.id !== attachment.id) return item;
-                                if (!result.success || !result.attachment) {
-                                    return {
-                                        ...item,
-                                        status: 'failed',
-                                        progress: 0,
-                                        attempts: item.attempts + 1,
-                                        error: result.error || 'Upload failed',
-                                    };
-                                }
                                 return {
                                     ...item,
                                     status: 'uploaded',
                                     progress: 100,
                                     uploaded: {
-                                        ...result.attachment,
+                                        ...uploadedAttachment,
                                         localUrl: item.preview,
                                     },
                                     error: undefined,
@@ -306,21 +302,63 @@ export function useMessageComposerAttachments({
                             }),
                         );
                     })
-                    .catch(() => {
-                        setAttachments((prev) =>
-                            prev.map((item) =>
-                                item.id === attachment.id
-                                    ? { ...item, status: 'failed', progress: 0, attempts: item.attempts + 1, error: 'Upload failed' }
-                                    : item,
-                            ),
-                        );
+                    .catch((_directErr) => {
+                        // Resilient Fallback to Server Action if direct upload fails
+                        const formData = new FormData();
+                        formData.append('file', attachment.file);
+                        formData.append('clientUploadId', attachment.id);
+                        formData.append('conversationId', conversationId);
+                        if (attachment.width && attachment.height) {
+                            formData.append('width', String(attachment.width));
+                            formData.append('height', String(attachment.height));
+                        }
+                        if (attachment.tinyBase64) {
+                            formData.append('tinyBase64', attachment.tinyBase64);
+                        }
+
+                        void uploadAttachment(formData)
+                            .then((result) => {
+                                setAttachments((prev) =>
+                                    prev.map((item) => {
+                                        if (item.id !== attachment.id) return item;
+                                        if (!result.success || !result.attachment) {
+                                            return {
+                                                ...item,
+                                                status: 'failed',
+                                                progress: 0,
+                                                attempts: item.attempts + 1,
+                                                error: result.error || 'Upload failed',
+                                            };
+                                        }
+                                        return {
+                                            ...item,
+                                            status: 'uploaded',
+                                            progress: 100,
+                                            uploaded: {
+                                                ...result.attachment,
+                                                localUrl: item.preview,
+                                            },
+                                            error: undefined,
+                                        };
+                                    }),
+                                );
+                            })
+                            .catch(() => {
+                                setAttachments((prev) =>
+                                    prev.map((item) =>
+                                        item.id === attachment.id
+                                            ? { ...item, status: 'failed', progress: 0, attempts: item.attempts + 1, error: 'Upload failed' }
+                                            : item,
+                                    ),
+                                );
+                            });
                     })
                     .finally(() => {
                         activeUploadIdsRef.current.delete(attachment.id);
                         startQueuedUploadsRef.current();
                     });
             });
-    }, [conversationId]);
+    }, [conversationId, uploadDirect]);
 
     useEffect(() => {
         startQueuedUploadsRef.current = startQueuedUploads;

@@ -85,7 +85,9 @@ async function enqueueProjectFileVersionNotification(input: Parameters<typeof en
 export async function listFileVersions(
   projectId: string,
   nodeId: string,
+  limit: number = 50,
 ): Promise<(FileVersion & { uploadedByName?: string | null; uploadedByUsername?: string | null })[]> {
+  const effectiveLimit = Math.max(1, Math.min(Math.trunc(limit), LIST_VERSIONS_MAX));
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const actorId = user?.id ?? null;
@@ -120,7 +122,7 @@ export async function listFileVersions(
     .leftJoin(profiles, eq(fileVersions.uploadedBy, profiles.id))
     .where(eq(fileVersions.nodeId, nodeId))
     .orderBy(desc(fileVersions.version))
-    .limit(LIST_VERSIONS_MAX);
+    .limit(effectiveLimit);
   return rows;
 }
 
@@ -263,7 +265,7 @@ export async function applyUploadedFileRevision(input: {
   });
 
   if (input.mode === "new_revision") {
-    // ponytail: decouple version notifications via after() to keep upload response under 50ms
+    // ponytail: decouple version notifications via after() to keep upload response under 50ms. ceiling: background task execution. upgrade: Inngest queue if notification delivery volume spikes.
     const actorSnapshot = actorNotificationSnapshot(user);
     after(async () => {
       try {
@@ -324,7 +326,7 @@ export async function applyUploadedFileRevision(input: {
     });
   }
 
-  // ponytail: client handles revision updates via Zustand upsertNodes; skip route revalidation
+  // ponytail: client handles revision updates via Zustand upsertNodes; skip route revalidation. ceiling: single-tab explorer view. upgrade: Realtime broadcast if multi-tab explorer sync is required.
   return { node: result.node, version: result.version };
 }
 
@@ -395,7 +397,7 @@ export async function restoreFileVersion(
     });
   }
 
-  // ponytail: client handles version restore via query invalidation; skip route revalidation
+  // ponytail: client handles version restore via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation bus if cross-device state sync required.
   return result;
 }
 
@@ -465,7 +467,15 @@ export async function deleteFileVersionAction(
       if (!node || node.deletedAt) throw new Error("File not found");
       const versions = await tx.query.fileVersions.findMany({
         where: eq(fileVersions.nodeId, nodeId),
+        columns: {
+          id: true,
+          version: true,
+          s3Key: true,
+          size: true,
+          mimeType: true,
+        },
         orderBy: desc(fileVersions.version),
+        limit: 100,
       });
       if (versions.length <= 1) throw new Error("Cannot delete the only remaining version of this file.");
       const target = versions.find((version) => version.version === versionNumber);
@@ -509,6 +519,6 @@ export async function deleteFileVersionAction(
     newActiveVersion: mutation.nextActiveVersion,
   });
 
-  // ponytail: client handles version deletion via query invalidation; skip route revalidation
+  // ponytail: client handles version deletion via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation bus if cross-device state sync required.
   return { success: true, nextActiveVersion: mutation.nextActiveVersion, node: mutation.updatedNode };
 }

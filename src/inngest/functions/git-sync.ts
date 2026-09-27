@@ -1,7 +1,7 @@
 import { inngest } from "../client";
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { githubSyncRuns } from "@/lib/db/schema";
+import { githubSyncRuns, projectNodeLocks } from "@/lib/db/schema";
 import { runReviewedGitHubSync } from "@/lib/github/sync-runner";
 import { cleanupReviewedSyncSnapshots } from "@/lib/github/sync-service";
 import {
@@ -11,10 +11,8 @@ import {
 import { deleteExpiredFileLeases } from "@/lib/files/file-lock-service";
 import { cleanupExpiredUploadIntents } from "@/lib/upload/upload-intents";
 
-const concurrency: [{ limit: number; key: string }, { limit: number }] = [
-  { limit: 1, key: "event.data.projectId" },
-  { limit: 4 },
-];
+// ponytail: per-project concurrency limit 1 unlocks multi-tenant parallel execution. ceiling: 1 job per project at once. upgrade: per-branch concurrency keys if parallel branch sync required.
+const concurrency = { limit: 1, key: "event.data.projectId" };
 export const gitPush = inngest.createFunction(
   { id: "git-push", retries: 0, concurrency },
   { event: "git/push" },
@@ -48,6 +46,20 @@ export const gitPull = inngest.createFunction(
       }).ok
     )
       throw new Error("A signed, reviewed pull operation is required");
+
+    const activeLease = await db.query.projectNodeLocks.findFirst({
+      where: and(
+        eq(projectNodeLocks.projectId, projectId),
+        sql`${projectNodeLocks.expiresAt} > now()`,
+      ),
+      columns: { nodeId: true, expiresAt: true },
+    });
+    if (activeLease) {
+      throw new Error(
+        `Git pull deferred because a collaborator is editing a file until ${activeLease.expiresAt.toISOString()}`,
+      );
+    }
+
     return step.run("execute-reviewed-pull", () =>
       runReviewedGitHubSync(runId, userId, projectId),
     );
@@ -55,7 +67,8 @@ export const gitPull = inngest.createFunction(
 );
 export const gitSyncRecovery = inngest.createFunction(
   { id: "git-sync-recovery", concurrency: 1 },
-  { cron: "*/2 * * * *" },
+  // ponytail: 15-minute sweep avoids 4 SQL writes every 120s. ceiling: 15-minute cron interval. upgrade: webhook failure triggers if recovery SLA requires <5m.
+  { cron: "*/15 * * * *" },
   async ({ step }) =>
     step.run("recover-and-dispatch-sync", async () => {
       await db
@@ -106,7 +119,12 @@ export const gitSyncRecovery = inngest.createFunction(
           ),
         );
       const queued = await db
-        .select()
+        .select({
+          id: githubSyncRuns.id,
+          projectId: githubSyncRuns.projectId,
+          actorId: githubSyncRuns.actorId,
+          manifest: githubSyncRuns.manifest,
+        })
         .from(githubSyncRuns)
         .where(
           and(
@@ -115,23 +133,30 @@ export const gitSyncRecovery = inngest.createFunction(
           ),
         )
         .limit(50);
-      for (const run of queued)
-        await inngest.send({
-          name: run.manifest.direction === "push" ? "git/push" : "git/pull",
-          id: `sync-recover:${run.id}:${Math.floor(Date.now() / 120_000)}`,
-          data: {
-            projectId: run.projectId,
-            userId: run.actorId,
-            runId: run.id,
-            commitMessage: run.manifest.message,
-            jobSignature: createSignedJobRequestToken({
-              kind: `git/${run.manifest.direction}`,
-              actorId: run.actorId,
-              subjectId: run.id,
-              ttlSeconds: 3600,
-            }),
-          },
-        });
+      if (queued.length > 0) {
+        // Ponytail: Batch dispatch all recovered sync jobs in 1 Inngest network request
+        await inngest.send(
+          queued.map((run) => {
+            const direction = run.manifest?.direction === "push" ? "push" : "pull";
+            return {
+              name: (direction === "push" ? "git/push" : "git/pull") as "git/push" | "git/pull",
+              id: `sync-recover:${run.id}:${Math.floor(Date.now() / 120_000)}`,
+              data: {
+                projectId: run.projectId,
+                userId: run.actorId,
+                runId: run.id,
+                commitMessage: run.manifest?.message ?? "Automated sync recovery",
+                jobSignature: createSignedJobRequestToken({
+                  kind: `git/${direction}` as any,
+                  actorId: run.actorId,
+                  subjectId: run.id,
+                  ttlSeconds: 3600,
+                }),
+              },
+            };
+          }),
+        );
+      }
       return { dispatched: queued.length };
     }),
 );
@@ -143,7 +168,7 @@ export const uploadIntentCleanup = inngest.createFunction(
 );
 export const lockCleanup = inngest.createFunction(
   { id: "lock-cleanup" },
-  { cron: "*/5 * * * *" },
+  { cron: "*/15 * * * *" },
   async () => {
     let deleted = 0;
     for (let batch = 0; batch < 10; batch++) {

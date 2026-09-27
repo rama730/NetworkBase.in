@@ -2,16 +2,18 @@
 
 import { useState, useEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent } from "react";
 import Link from "next/link";
+import { formatDistanceToNow } from "date-fns";
 import {
     LayoutDashboard, ListTodo, FolderOpen, BookOpenText,
-    Settings, Share2, ChevronLeft, UserPlus, UserCheck, IterationCcw, BarChart3, Loader2, Newspaper
+    Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/types/hub";
-import { profileHref } from "@/lib/routing/identifiers";
-import { useRouteWarmPrefetch } from "@/hooks/useRouteWarmPrefetch";
 import ProjectStatsBar from "@/components/projects/ProjectStatsBar";
+import ProjectAvatar, { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
+import { ProjectPresenceDot } from "@/components/projects/ProjectAvatar";
 import { ProjectLinkCluster } from "@/components/projects/dashboard/ProjectSocialLinksCard";
+import ProjectTeamAvatars, { type ProjectHeaderMember } from "@/components/projects/dashboard/ProjectTeamAvatars";
 import {
     isProjectTabVisibleToViewer,
     normalizeProjectPublicTabVisibility,
@@ -40,7 +42,11 @@ interface ProjectLayoutProps {
     onFollow?: () => void;
     followLoading?: boolean;
     onShare?: () => void;
+    onInvite?: () => void;
+    canInvite?: boolean;
     onTabHover?: (tabId: string) => void;
+    members?: ProjectHeaderMember[];
+    loadingMembers?: boolean;
 }
 
 const TABS = [
@@ -50,16 +56,24 @@ const TABS = [
     { id: "sprints", label: "Sprints", icon: IterationCcw },
     { id: "tasks", label: "Tasks", icon: ListTodo },
     { id: "files", label: "Files", icon: FolderOpen },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "settings", label: "Settings", icon: Settings, ownerOnly: true },
 ];
 
-const FILES_WORKSPACE_SCROLL_EVENT = "project:files-workspace-scroll";
+const RECENT_PROJECT_UPDATE_MS = 7 * 24 * 60 * 60 * 1000;
 
-type FilesWorkspaceScrollDetail = {
-    projectId: string;
-    scrollTop: number;
-};
+export function formatProjectUpdatedLabel(value?: string | Date | null, now = new Date()) {
+    if (!value) return null;
+    const updatedAt = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(updatedAt.getTime())) return null;
+    if (Math.abs(now.getTime() - updatedAt.getTime()) < RECENT_PROJECT_UPDATE_MS) {
+        return `Updated ${formatDistanceToNow(updatedAt, { addSuffix: true })}`;
+    }
+    return `Updated ${new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    }).format(updatedAt)}`;
+}
 
 export default function ProjectLayout({
     children, project, isOwner, activeTab, onTabChange,
@@ -71,55 +85,29 @@ export default function ProjectLayout({
     viewCount,
     filesSyncBadge,
 
-    isFollowing, onFollow, followLoading, onShare,
+    isFollowing, onFollow, followLoading, onShare, onInvite, canInvite = false,
     onTabHover,
+    members,
+    loadingMembers,
 }: ProjectLayoutProps) {
-    const prefetch = useRouteWarmPrefetch();
     const [isScrolled, setIsScrolled] = useState(false);
     const [projectTabsHeight, setProjectTabsHeight] = useState(0);
+    const [projectIdentityHeight, setProjectIdentityHeight] = useState(320);
     const tabsRef = useRef<HTMLDivElement>(null);
+    const tabListRef = useRef<HTMLDivElement>(null);
+    const projectIdentityRef = useRef<HTMLDivElement>(null);
 
     const isFilesTab = activeTab === "files";
     const isSettingsTab = activeTab === "settings";
     const isUpdatesTab = activeTab === "updates";
     const isTasksTab = activeTab === "tasks";
     const isDocEditWorkspaceTab = activeTab === "readme" && isDocEditing;
-    const isContainedWorkspaceTab = isFilesTab || isDocEditWorkspaceTab;
+    const isContainedWorkspaceTab = isDocEditWorkspaceTab;
 
-    // Detect the active tab's scroll surface for sticky header state. Files
-    // owns independent sidebar and content scrollers, so FilesTabRoot emits a
-    // single event from either pane rather than making the workspace itself
-    // page-scrollable.
+    // Normal project tabs, including Files, use the route scroll root so the
+    // identity header moves naturally and the project tabs remain sticky.
+    // Doc edit mode is the only full-height contained workspace.
     useEffect(() => {
-        if (isFilesTab) {
-            let rafId = 0;
-            let latestScrollTop = 0;
-
-            const scheduleScrollState = () => {
-                if (rafId) return;
-
-                rafId = requestAnimationFrame(() => {
-                    const shouldBeScrolled = latestScrollTop > 10;
-                    setIsScrolled((prev) => (prev === shouldBeScrolled ? prev : shouldBeScrolled));
-                    rafId = 0;
-                });
-            };
-            const handleFilesWorkspaceScroll = (event: Event) => {
-                const detail = (event as CustomEvent<FilesWorkspaceScrollDetail>).detail;
-                if (!detail || detail.projectId !== project.id) return;
-                latestScrollTop = detail.scrollTop;
-                scheduleScrollState();
-            };
-
-            window.addEventListener(FILES_WORKSPACE_SCROLL_EVENT, handleFilesWorkspaceScroll);
-            setIsScrolled(false);
-
-            return () => {
-                window.removeEventListener(FILES_WORKSPACE_SCROLL_EVENT, handleFilesWorkspaceScroll);
-                if (rafId) cancelAnimationFrame(rafId);
-            };
-        }
-
         if (isDocEditWorkspaceTab) {
             setIsScrolled(false);
             return;
@@ -147,7 +135,31 @@ export default function ProjectLayout({
             scrollTarget.removeEventListener("scroll", scheduleScrollState as EventListener);
             if (rafId) cancelAnimationFrame(rafId);
         };
-    }, [isDocEditWorkspaceTab, isFilesTab, project.id]);
+    }, [isDocEditWorkspaceTab]);
+
+    useEffect(() => {
+        const identity = projectIdentityRef.current;
+        if (!identity) return;
+
+        const updateIdentityHeight = () => {
+            const nextHeight = Math.ceil(identity.offsetHeight);
+            if (nextHeight > 0) {
+                setProjectIdentityHeight((current) => (current === nextHeight ? current : nextHeight));
+            }
+        };
+
+        updateIdentityHeight();
+        const observer = typeof ResizeObserver !== "undefined"
+            ? new ResizeObserver(updateIdentityHeight)
+            : null;
+        observer?.observe(identity);
+        window.addEventListener("resize", updateIdentityHeight, { passive: true });
+
+        return () => {
+            observer?.disconnect();
+            window.removeEventListener("resize", updateIdentityHeight);
+        };
+    }, [project.id]);
 
     useEffect(() => {
         const updateProjectLayoutMetrics = (entries?: ResizeObserverEntry[]) => {
@@ -192,6 +204,22 @@ export default function ProjectLayout({
         }),
         [canManageSettings, canSeeMemberTabs, isOwner, normalizedPublicTabs],
     );
+    useEffect(() => {
+        const tabList = tabListRef.current;
+        const activeTabButton = tabsRef.current?.querySelector<HTMLButtonElement>(
+            `[data-testid="project-tab-${activeTab}"]`,
+        );
+        if (!tabList || !activeTabButton || tabList.scrollWidth <= tabList.clientWidth) return;
+
+        const tabLeft = activeTabButton.offsetLeft;
+        const tabRight = tabLeft + activeTabButton.offsetWidth;
+        const viewportLeft = tabList.scrollLeft;
+        const viewportRight = viewportLeft + tabList.clientWidth;
+        if (tabLeft >= viewportLeft && tabRight <= viewportRight) return;
+
+        const centeredLeft = tabLeft - (tabList.clientWidth - activeTabButton.offsetWidth) / 2;
+        tabList.scrollTo({ left: Math.max(0, centeredLeft), behavior: "smooth" });
+    }, [activeTab, visibleTabs]);
     const handleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
         let nextIndex: number | null = null;
         if (event.key === "ArrowRight") nextIndex = (index + 1) % visibleTabs.length;
@@ -207,140 +235,169 @@ export default function ProjectLayout({
             tabsRef.current?.querySelector<HTMLButtonElement>(`[data-testid="project-tab-${nextTab.id}"]`)?.focus();
         });
     };
-    const owner = (project as any)?.owner;
-    const guidance = (project as any)?.guidance as {
-        label?: string | null;
-        fullName?: string | null;
-        username?: string | null;
-        guideUserId?: string | null;
-    } | null;
-    const ownerName = owner?.displayName || owner?.fullName || owner?.username || "Creator";
-    const ownerHref = owner?.canOpenProfile ? profileHref({ id: owner?.id, username: owner?.username }) : null;
-    const guidanceName = guidance?.fullName || guidance?.username || "";
-    const guidanceHref = guidance?.guideUserId
-        ? profileHref({ id: guidance.guideUserId, username: guidance.username })
-        : null;
+    const projectUpdatedLabel = formatProjectUpdatedLabel(project.updatedAt);
     const layoutStyle = useMemo(() => ({
         "--project-tabs-height": `${projectTabsHeight}px`,
     } as CSSProperties), [projectTabsHeight]);
 
     return (
         <div className={cn(
-            "bg-zinc-50 dark:bg-zinc-950",
-            isContainedWorkspaceTab ? "h-full min-h-0 overflow-hidden flex flex-col" : "min-h-screen"
+            "bg-background",
+            isContainedWorkspaceTab ? "h-full min-h-0 overflow-hidden flex flex-col" : "min-h-full"
         )}
+            data-project-tool={isFilesTab || isContainedWorkspaceTab || isTasksTab || activeTab === "sprints" ? "true" : undefined}
             data-project-layout-owned-workspace={isContainedWorkspaceTab ? "true" : undefined}
             data-project-readme-edit-workspace={isDocEditWorkspaceTab ? "true" : undefined}
+            data-project-identity-height={projectIdentityHeight}
             style={layoutStyle}
         >
             {/* Top Row: Context & Actions (NOT sticky; scrolls away) */}
-            <div className={cn(
-                "bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md shrink-0 overflow-hidden transition-[height,opacity,transform] duration-200 ease-in-out",
-                isContainedWorkspaceTab && isScrolled
-                    ? "h-0 -translate-y-2 opacity-0 pointer-events-none"
-                    : "h-14 translate-y-0 opacity-100",
-            )}>
-                <div className="max-w-7xl mx-auto w-full">
-                    <div className="flex items-center justify-between px-4 h-14">
+            <div className="shrink-0 bg-card">
+                <div className="w-full">
+                    <div ref={projectIdentityRef} className="nb-project-identity flex flex-wrap items-start justify-between gap-4 px-4 pb-4 pt-5 sm:px-6">
                         {/* Left: Project Identity */}
-                        <div className="flex items-center gap-4 min-w-0">
-                            <Link
-                                href="/hub"
-                                className="group flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:text-zinc-50 dark:hover:text-zinc-100 transition-colors text-sm font-medium pr-4 border-r border-zinc-200 dark:border-zinc-800"
-                            >
-                                <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-                                Hub
-                            </Link>
+                        {(() => {
+                            const hasProjectAvatar = Boolean(getProjectAvatarUrl(project));
+                            const canManageProjectLinks = canManageSettings ?? isOwner;
+                            const hasProjectLinks = Boolean(
+                                canManageProjectLinks ||
+                                project.githubRepoUrl ||
+                                (project as any).github_repo_url ||
+                                project.importSource ||
+                                (project as any).import_source ||
+                                project.githubSyncConnection ||
+                                (project as any).github_sync_connection ||
+                                (Array.isArray(project.externalLinks) && project.externalLinks.length > 0) ||
+                                (Array.isArray((project as any).external_links) && (project as any).external_links.length > 0)
+                            );
 
-                            <div className="flex items-center gap-3 min-w-0">
-                                <h1 className="min-w-0 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                                    {project?.title}
-                                </h1>
-                                <ProjectLinkCluster
-                                    projectId={project.id}
-                                    links={project.externalLinks ?? (project as any).external_links}
-                                    githubRepoUrl={project.githubRepoUrl ?? (project as any).github_repo_url}
-                                    importSource={project.importSource ?? (project as any).import_source}
-                                    githubSyncConnection={project.githubSyncConnection ?? (project as any).github_sync_connection}
-                                    health={project.externalLinkMetadata ?? (project as any).external_link_metadata}
-                                    projectType={project.category}
-                                    canManage={canManageSettings ?? isOwner}
-                                />
-                                {guidanceName ? (
-                                    <div className="hidden md:flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 min-w-0">
-                                        <span className="shrink-0">{guidance?.label === "Guide" ? "Guided by" : `${guidance?.label || "Guide"}:`}</span>
-                                        {guidanceHref ? (
-                                            <Link href={guidanceHref} onMouseEnter={() => prefetch(guidanceHref)} onFocus={() => prefetch(guidanceHref)} className="font-medium text-primary hover:underline truncate max-w-[180px]" title={guidanceName}>
-                                                {guidanceName}
-                                            </Link>
-                                        ) : <span className="truncate max-w-[180px] font-medium text-zinc-700 dark:text-zinc-300">{guidanceName}</span>}
-                                    </div>
-                                ) : null}
-                                {/* Created by */}
-                                <div className="hidden md:flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 min-w-0">
-                                    <span className="shrink-0">Created by</span>
-                                    {ownerHref ? (
-                                        <Link
-                                            href={ownerHref}
-                                            onMouseEnter={() => prefetch(ownerHref)}
-                                            onFocus={() => prefetch(ownerHref)}
-                                            className="font-medium text-primary hover:underline truncate max-w-[180px]"
-                                            title={ownerName}
-                                        >
-                                            {ownerName}
-                                        </Link>
-                                    ) : (
-                                        <span
-                                            className="truncate max-w-[180px] font-medium text-zinc-700 dark:text-zinc-300"
-                                            title={owner?.displayName || "Private creator"}
-                                        >
-                                            {owner?.displayName || "Private creator"}
-                                        </span>
+                            const projectIdentityMetadata = (
+                                <div className="flex min-h-[34px] flex-wrap items-center gap-x-2 gap-y-1.5">
+                                    <ProjectTeamAvatars project={project} members={members} loading={loadingMembers} />
+                                    {hasProjectLinks && (
+                                        <>
+                                            <div className="mx-0.5 h-4 w-px bg-border shrink-0" aria-hidden="true" />
+                                            <ProjectLinkCluster
+                                                projectId={project.id}
+                                                links={project.externalLinks ?? (project as any).external_links}
+                                                githubRepoUrl={project.githubRepoUrl ?? (project as any).github_repo_url}
+                                                importSource={project.importSource ?? (project as any).import_source}
+                                                githubSyncConnection={project.githubSyncConnection ?? (project as any).github_sync_connection}
+                                                health={project.externalLinkMetadata ?? (project as any).external_link_metadata}
+                                                projectType={project.category}
+                                                canManage={canManageProjectLinks}
+                                            />
+                                        </>
                                     )}
                                 </div>
-                            </div>
-                        </div>
+                            );
+
+                            return getProjectAvatarUrl(project) ? (
+                                <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
+                                    <div className="flex items-start gap-4 sm:gap-5">
+                                        <ProjectAvatar
+                                            project={project}
+                                            size="detail"
+                                            isOwner={canManageSettings ?? isOwner}
+                                            slugOrId={project.slug || project.id}
+                                        />
+                                        <div className="min-w-0 pt-0.5 sm:pt-1">
+                                            <h1 className="nb-page-title min-w-0 break-words text-foreground">
+                                                {project?.title}
+                                            </h1>
+                                            {project.shortDescription && (
+                                                <p className="nb-body mt-1 max-w-[64ch] text-muted-foreground">
+                                                    {project.shortDescription}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {projectIdentityMetadata}
+                                </div>
+                            ) : (
+                                <div className="flex min-w-0 flex-1 flex-col items-start gap-3">
+                                    <div className="flex min-w-0 flex-wrap items-center gap-3">
+                                        <h1 className="nb-page-title min-w-0 break-words text-foreground">
+                                            {project?.title}
+                                        </h1>
+                                        <ProjectPresenceDot
+                                            lastActiveAt={project.updatedAt}
+                                            standalone
+                                            projectId={project.id || project.slug}
+                                        />
+                                        {(canManageSettings ?? isOwner) && (project?.slug || project?.id) && (
+                                            <Link
+                                                href={`/projects/${project.slug || project.id}?tab=settings#project-settings-general`}
+                                                className="group/add-avatar inline-flex items-center gap-1.5 rounded-full border border-dashed border-border/80 px-2.5 py-0.5 text-xs text-muted-foreground transition-[color,border-color,background-color] duration-150 hover:border-foreground/40 hover:bg-muted/40 hover:text-foreground"
+                                                title="Add project avatar"
+                                                aria-label="Add project avatar"
+                                            >
+                                                <Camera className="size-3 text-muted-foreground group-hover/add-avatar:text-foreground" aria-hidden="true" />
+                                                <span className="hidden sm:inline">Add avatar</span>
+                                            </Link>
+                                        )}
+                                    </div>
+                                    {project.shortDescription && <p className="nb-body max-w-[64ch] text-muted-foreground">{project.shortDescription}</p>}
+                                    {projectIdentityMetadata}
+                                </div>
+                            );
+                        })()}
 
                         {/* Right: Actions */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1">
                             <ProjectStatsBar
                                 viewCount={viewCount ?? (project as any)?.viewCount ?? 0}
                                 followersCount={followersCount ?? (project as any)?.followersCount ?? 0}
                             />
+
+                            {canInvite && onInvite ? (
+                                <button
+                                    type="button"
+                                    onClick={onInvite}
+                                    className="nb-touch-target nb-ui-label inline-flex h-[var(--ui-control-height)] items-center gap-1.5 rounded-md border border-border bg-card px-3 text-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label="Invite a project member"
+                                    title="Invite a project member"
+                                >
+                                    <UserPlus className="size-4" aria-hidden="true" />
+                                    <span>Invite</span>
+                                </button>
+                            ) : null}
                             
                             {/* Follow */}
                             <button
                                 type="button"
                                 onClick={onFollow}
                                 className={cn(
-                                    "p-2 rounded-md transition-all flex items-center gap-1.5 text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed",
+                                    "nb-touch-target nb-ui-label flex h-[var(--ui-control-height)] items-center gap-1.5 rounded-md px-3 transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] disabled:cursor-not-allowed disabled:opacity-60",
                                     isFollowing
                                         ? "text-primary bg-primary/10"
-                                        : "text-zinc-500 hover:text-primary hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                                        : "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
                                 )}
-                                title={isFollowing ? "Unfollow Project" : "Follow Project"}
+                                title={isFollowing ? "Unfollow project" : "Follow project"}
+                                aria-label={isFollowing ? "Unfollow project" : "Follow project"}
                                 data-testid="project-follow-toggle"
                                 disabled={followLoading}
                                 aria-busy={followLoading}
                             >
                                 {followLoading ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                                 ) : (
-                                    isFollowing ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />
+                                    isFollowing ? <UserCheck className="size-4" aria-hidden="true" /> : <UserPlus className="size-4" aria-hidden="true" />
                                 )}
                                 <span className="hidden sm:inline-block">{isFollowing ? "Following" : "Follow"}</span>
                             </button>
 
-                            <div className="w-px h-4 bg-zinc-200 dark:border-zinc-800 mx-1" />
+                            <div className="mx-1 h-4 w-px bg-border" />
 
                             {/* Share */}
                             <button
                                 type="button"
                                 onClick={onShare}
-                                className="p-2 text-zinc-400 hover:text-zinc-900 dark:text-zinc-50 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 rounded-md transition-colors"
-                                title="Share Project"
+                                className="nb-icon-button h-[var(--ui-control-height)] w-[var(--ui-control-height)] rounded-[5px] border border-border bg-card text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                title="Share project"
+                                aria-label="Share project"
                             >
-                                <Share2 className="w-4 h-4" />
+                                <Share2 className="size-4" aria-hidden="true" />
                             </button>
                         </div>
                     </div>
@@ -349,15 +406,15 @@ export default function ProjectLayout({
 
             {/* Bottom Row: Navigation Tabs (sticky) */}
             <div ref={tabsRef} className={cn(
-                "z-30 bg-white dark:bg-zinc-950 border-b border-zinc-200 dark:border-zinc-800 transition-shadow duration-300 ease-in-out shrink-0",
+                "z-30 shrink-0 border-b border-border bg-card transition-shadow duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
                 isContainedWorkspaceTab ? "relative" : "sticky",
-                isScrolled && "shadow-sm"
+                isScrolled && "shadow-none"
             )}
                 data-project-sticky-tabs={!isContainedWorkspaceTab ? "true" : undefined}
                 style={isContainedWorkspaceTab ? undefined : { top: 0 }}
             >
-                <div className="max-w-7xl mx-auto">
-                    <div role="tablist" aria-label="Project sections" className="flex items-center px-4 overflow-x-auto app-scroll app-scroll-x -mb-px">
+                <div className="w-full">
+                    <div ref={tabListRef} role="tablist" aria-label="Project sections" className="app-scroll app-scroll-x -mb-px flex items-center overflow-x-auto px-4 sm:px-6">
                         {visibleTabs.map((tab, index) => {
                             const isActive = activeTab === tab.id;
                             return (
@@ -376,23 +433,23 @@ export default function ProjectLayout({
                                     onMouseEnter={() => onTabHover?.(tab.id)}
                                     onFocus={() => onTabHover?.(tab.id)}
                                     className={cn(
-                                        "relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all whitespace-nowrap",
+                                        "nb-tab nb-ui-label relative flex h-[var(--ui-control-height)] items-center gap-2 whitespace-nowrap px-3 transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
                                         isActive
                                             ? "text-primary"
-                                            : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                                            : "text-muted-foreground hover:text-foreground"
                                     )}
                                 >
-                                    <tab.icon className={cn("w-4 h-4", isActive ? "text-primary" : "text-zinc-400")} />
+                                    <tab.icon aria-hidden="true" className={cn("size-4", isActive ? "text-primary" : "text-muted-foreground/70")} />
                                     {tab.label}
                                     {tab.id === "files" && filesSyncBadge && filesSyncBadge.status !== "idle" && filesSyncBadge.status !== "completed" && (
                                         <span
                                             data-testid="files-tab-sync-badge"
-                                            title={filesSyncBadge.tooltip || `GitHub Sync: ${filesSyncBadge.status}`}
+                                            title={filesSyncBadge.tooltip || `GitHub sync: ${filesSyncBadge.status}`}
                                             className={cn(
-                                                "ml-1 inline-flex items-center justify-center text-[10px] font-bold rounded-full transition-all",
-                                                filesSyncBadge.status === "syncing" && "size-2 bg-blue-500 animate-pulse",
-                                                filesSyncBadge.status === "incoming" && "min-w-4 h-4 px-1 bg-amber-500 text-white leading-none",
-                                                filesSyncBadge.status === "failed" && "size-2 bg-red-500",
+                                                "ml-1 inline-flex items-center justify-center text-[10px] font-mono font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]",
+                                                filesSyncBadge.status === "syncing" && "size-2 rounded-full bg-[var(--status-info)] animate-none",
+                                                filesSyncBadge.status === "incoming" && "min-w-4 h-4 px-1 rounded-[3px] bg-amber-500 text-white leading-none",
+                                                filesSyncBadge.status === "failed" && "size-2 rounded-full bg-red-500",
                                             )}
                                         >
                                             {filesSyncBadge.status === "incoming" && filesSyncBadge.count ? filesSyncBadge.count : null}
@@ -415,14 +472,18 @@ export default function ProjectLayout({
                 className={cn(
                     isContainedWorkspaceTab
                         ? "flex-1 min-h-0 w-full overflow-hidden flex flex-col"
-                        : isSettingsTab
-                            ? "w-full"
-                            : isUpdatesTab || isTasksTab
-                                ? "w-full p-4 sm:p-6 lg:p-8"
-                                : "max-w-7xl mx-auto p-4 sm:p-6 lg:p-8"
+                        : isFilesTab
+                            ? "flex h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height))] min-h-[28rem] w-full flex-col overflow-hidden"
+                            : isSettingsTab
+                                ? "w-full"
+                                : isUpdatesTab
+                                    ? "w-full p-4 sm:py-5 sm:pl-5 sm:pr-6"
+                                    : isTasksTab
+                                        ? "w-full p-4 sm:p-5"
+                                        : "w-full p-4 sm:p-5"
                 )}
-                data-project-content-root={isContainedWorkspaceTab ? "workspace" : "page"}
-                data-project-workspace-tab={isContainedWorkspaceTab ? activeTab : undefined}
+                data-project-content-root={isContainedWorkspaceTab || isFilesTab ? "workspace" : "page"}
+                data-project-workspace-tab={isContainedWorkspaceTab || isFilesTab ? activeTab : undefined}
             >
                 {children}
             </section>

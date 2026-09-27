@@ -27,7 +27,8 @@ type MutableTaskField =
   | "description"
   | "priority"
   | "sprintId"
-  | "dueDate";
+  | "dueDate"
+  | "storyPoints";
 
 type SnapshotBundle = {
   taskSlices: Array<[readonly unknown[], unknown]>;
@@ -153,6 +154,9 @@ export function useTaskSurfaceMutations(params: {
           : null;
       } else if (field === "dueDate") {
         nextTask.dueDate = typeof value === "string" && value ? value : null;
+      } else if (field === "storyPoints") {
+        nextTask.storyPoints =
+          typeof value === "number" && !Number.isNaN(value) ? value : null;
       }
 
       nextTask.updatedAt = new Date().toISOString();

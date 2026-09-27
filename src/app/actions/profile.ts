@@ -26,6 +26,7 @@ import { UsernamePersistenceError, getUsernameAvailability, mapUsernamePersisten
 import { syncProfileSkills } from '@/lib/skills/service'
 import { socialLinkItemsFromStorage, validateSocialLinkCollection } from '@/lib/profile/normalization'
 import { enqueueSupersededProfileImages } from '@/lib/profile/image-cleanup'
+import { inngest } from '@/inngest/client'
 
 export type UpdateProfileInput = ProfileUpdateInput
 export type ProfileUpdateErrorCode =
@@ -645,7 +646,8 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
             patch.skills !== undefined ||
             patch.openTo !== undefined ||
             patch.experienceLevel !== undefined ||
-            patch.hoursPerWeek !== undefined
+            patch.hoursPerWeek !== undefined ||
+            patch.visibility !== undefined
         ) {
             await markProfileCollaborationSummaryStale(user.id).catch((staleError) => {
                 logger.warn('profile.collaboration_summary_stale_failed', {
@@ -654,7 +656,18 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
                     error: staleError instanceof Error ? staleError.message : String(staleError),
                 })
             })
+            void inngest.send({
+                name: 'workspace/connections.refresh_suggestions_for_candidate',
+                data: { candidateUserId: user.id },
+            }).catch((syncError) => {
+                logger.warn('profile.suggestion_sync_enqueue_failed', {
+                    module: 'profile',
+                    userId: user.id,
+                    error: syncError instanceof Error ? syncError.message : String(syncError),
+                })
+            })
         }
+        revalidatePath('/my-profile')
         revalidatePath('/profile')
         if (current.username) revalidatePath(`/u/${current.username}`)
         if (patch.username) revalidatePath(`/u/${patch.username}`)

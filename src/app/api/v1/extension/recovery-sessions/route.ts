@@ -36,13 +36,13 @@ const sessionSchema = z.discriminatedUnion("action", [
 export async function POST(request: Request) {
   const csrfError = validateCsrf(request);
   if (csrfError) return csrfError;
-  const limited = await enforceRouteLimit(request, "api:v1:extension:recovery-sessions:write", 180, 60);
-  if (limited) return limited;
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user || !auth.extensionSessionId) {
     return auth.response ?? jsonError("An active extension session is required", 401, "UNAUTHORIZED");
   }
   const user = auth.user;
+  const limited = await enforceRouteLimit(request, "api:v1:extension:recovery-sessions:write", 180, 60, "default", user.id);
+  if (limited) return limited;
   const parsed = sessionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("Invalid recovery session request", 400, "BAD_REQUEST");
 

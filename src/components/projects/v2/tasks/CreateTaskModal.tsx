@@ -2,7 +2,7 @@
 
 import React from "react";
 import {
-  Calendar,
+  CheckSquare,
   ChevronDown,
   Paperclip,
   Trash2,
@@ -37,6 +37,11 @@ import {
   getTaskPriorityPresentation,
   getTaskStatusPresentation,
 } from "@/lib/projects/task-workflow";
+import {
+  addDaysToSprintDateInput,
+  formatSprintDateInput,
+  parseSprintDateInput,
+} from "@/lib/projects/sprints";
 
 interface CreateTaskModalProps {
   isOpen: boolean;
@@ -52,13 +57,83 @@ interface CreateTaskModalProps {
   projectName?: string;
 }
 
+function SectionDivider({
+  title,
+  children,
+}: {
+  title: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-border pb-1.5">
+      <span className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
+        {title}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  required = false,
+  error,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor={htmlFor}
+        className="block text-[13px] font-medium text-foreground"
+      >
+        {label}
+        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
+      </label>
+      {children}
+      {error ? (
+        <p className="text-xs font-mono text-destructive">{error}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function inputClassName(hasError: boolean) {
   return cn(
-    "w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition   dark:bg-zinc-900 dark:text-zinc-100",
-    hasError
-      ? "border-rose-300 focus:border-rose-400 dark:border-rose-800 dark:focus:border-rose-700"
-      : "border-zinc-200 focus:border-blue-500 dark:border-zinc-700 dark:focus:border-blue-500",
+    "h-[34px] w-full rounded-[5px] border bg-card px-3 text-[13px] text-foreground outline-none transition placeholder:text-muted-foreground/60",
+    "border-border focus:border-primary focus:ring-1 focus:ring-primary/20",
+    hasError && "border-destructive focus:border-destructive focus:ring-destructive/20",
   );
+}
+
+function getTodayDateString(): string {
+  return formatSprintDateInput(new Date());
+}
+
+function addDaysToDateString(dateStr: string, days: number): string {
+  try {
+    return addDaysToSprintDateInput(dateStr, days);
+  } catch {
+    return formatSprintDateInput(new Date());
+  }
+}
+
+function getDaysDifferenceFromToday(dateStr: string): number | null {
+  if (!dateStr || !dateStr.trim()) return null;
+  try {
+    const parsedTarget = parseSprintDateInput(dateStr);
+    const today = parseSprintDateInput(getTodayDateString());
+    const diffTime = parsedTarget.getTime() - today.getTime();
+    return Math.round(diffTime / (1000 * 60 * 60 * 24));
+  } catch {
+    return null;
+  }
 }
 
 export default function CreateTaskModal({
@@ -80,39 +155,65 @@ export default function CreateTaskModal({
   );
 
   const [subtasks, setSubtasks] = React.useState<TaskEditorSubtaskDraft[]>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = React.useState("");
   const [attachments, setAttachments] = React.useState<ProjectNode[]>([]);
-  const [createAnother, setCreateAnother] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [isFilePickerOpen, setIsFilePickerOpen] = React.useState(false);
+  const [storyPoints, setStoryPoints] = React.useState<string>("");
+  const [dueDate, setDueDate] = React.useState<string>(() =>
+    addDaysToDateString(getTodayDateString(), 7),
+  );
 
   React.useEffect(() => {
     if (!isOpen) return;
     setSubtasks([]);
+    setNewSubtaskTitle("");
     setAttachments([]);
     setSubmitError(null);
+    setFieldErrors({});
     setIsSubmitting(false);
     setIsFilePickerOpen(false);
+    setStoryPoints("");
+    setDueDate(addDaysToDateString(getTodayDateString(), 7));
   }, [isOpen]);
 
-  const handleAddSubtask = React.useCallback((value: string) => {
-    const trimmed = value.trim();
+  const handleQuickSetDueDate = React.useCallback((days: number) => {
+    const nextDate = addDaysToDateString(getTodayDateString(), days);
+    setDueDate(nextDate);
+    setFieldErrors((prev) => {
+      if (!prev.dueDate) return prev;
+      const { dueDate: _, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
+  const selectedDays = React.useMemo(
+    () => getDaysDifferenceFromToday(dueDate),
+    [dueDate],
+  );
+
+  const handleAddSubtask = React.useCallback(() => {
+    const trimmed = newSubtaskTitle.trim();
     if (!trimmed) return;
     setSubtasks((current) => [
       ...current,
       { id: crypto.randomUUID(), title: trimmed },
     ]);
-  }, []);
+    setNewSubtaskTitle("");
+  }, [newSubtaskTitle]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitError(null);
+    setFieldErrors({});
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
 
     try {
       const draft: TaskEditorDraft = {
-        title: formData.get("title") as string,
+        title: (formData.get("title") as string) || "",
         sprintId: (formData.get("sprintId") as string) || null,
         assigneeId: (formData.get("assigneeId") as string) || null,
         priority:
@@ -120,11 +221,20 @@ export default function CreateTaskModal({
           "medium",
         status: (formData.get("status") as TaskEditorDraft["status"]) || "todo",
         description: (formData.get("description") as string) || "",
-        dueDate: (formData.get("dueDate") as string) || null,
+        dueDate: dueDate.trim() || null,
+        storyPoints: storyPoints.trim() ? Number.parseInt(storyPoints, 10) : null,
       };
 
       const parsed = taskEditorDraftSchema.safeParse(draft);
       if (!parsed.success) {
+        const errors: Record<string, string> = {};
+        for (const issue of parsed.error.issues) {
+          const path = issue.path[0];
+          if (typeof path === "string" && !errors[path]) {
+            errors[path] = issue.message;
+          }
+        }
+        setFieldErrors(errors);
         setSubmitError(
           parsed.error.issues[0]?.message || "Task details are invalid",
         );
@@ -141,13 +251,7 @@ export default function CreateTaskModal({
         return;
       }
 
-      if (!createAnother) {
-        onClose();
-      } else {
-        e.currentTarget.reset();
-        setSubtasks([]);
-        setAttachments([]);
-      }
+      onClose();
     } finally {
       setIsSubmitting(false);
     }
@@ -158,63 +262,102 @@ export default function CreateTaskModal({
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent
           showCloseButton={false}
-          overlayClassName="z-[200] bg-black/60 backdrop-blur-sm"
-          className="z-[201] flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden rounded-2xl border-zinc-200 p-0 dark:border-zinc-700"
+          overlayClassName="z-[200] bg-black/60 backdrop-blur-none"
+          className="z-[201] flex max-h-[88vh] w-full sm:max-w-[640px] flex-col gap-0 overflow-hidden rounded-[12px] border border-[#DBD5C8] bg-card p-0 shadow-2xl dark:border-white/10"
         >
           <form
             onSubmit={handleSubmit}
             className="flex min-h-0 w-full flex-col"
           >
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-              <DialogHeader className="space-y-1 text-left">
-                <DialogTitle className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                  Create Task
+            {/* Modal Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
+              <DialogHeader className="space-y-0.5 text-left">
+                <DialogTitle className="text-base font-semibold text-foreground">
+                  Create task
                 </DialogTitle>
-                <DialogDescription className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Capture the task details without extra noise.
+                <DialogDescription className="sr-only">
+                  Create a new task
                 </DialogDescription>
               </DialogHeader>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close create task dialog"
-                className="rounded-full p-2 text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                className="size-7 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                <X className="h-5 w-5" />
+                <X className="size-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              <div className="space-y-6">
-                {submitError ? (
-                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200">
-                    {submitError}
-                  </div>
-                ) : null}
+            {/* Scrollable Modal Body */}
+            <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+              {submitError ? (
+                <div
+                  role="alert"
+                  className="rounded-[5px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-mono text-destructive"
+                >
+                  {submitError}
+                </div>
+              ) : null}
 
-                <div className="space-y-2">
+              {/* Section 1: Basics */}
+              <div className="space-y-3.5">
+                <SectionDivider title="Basics" />
+
+                <Field
+                  label="Task Title"
+                  htmlFor="task-title"
+                  required
+                  error={fieldErrors.title}
+                >
                   <input
+                    id="task-title"
                     name="title"
                     required
                     defaultValue=""
-                    placeholder="Task title"
-                    className="w-full bg-transparent text-2xl font-semibold text-zinc-900 outline-none placeholder:text-zinc-300 dark:text-zinc-100 dark:placeholder:text-zinc-600"
+                    placeholder="e.g., Conduct end-to-end testing on core flows"
+                    className={inputClassName(!!fieldErrors.title)}
                     autoFocus
                   />
-                </div>
+                </Field>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Sprint
-                    </label>
+                <Field
+                  label="Description"
+                  htmlFor="task-description"
+                  error={fieldErrors.description}
+                >
+                  <textarea
+                    id="task-description"
+                    name="description"
+                    defaultValue=""
+                    placeholder="Add context, acceptance criteria, or implementation notes..."
+                    rows={3}
+                    className={cn(
+                      inputClassName(!!fieldErrors.description),
+                      "min-h-[72px] resize-none py-2",
+                    )}
+                  />
+                </Field>
+              </div>
+
+              {/* Section 2: Planning & Assignment */}
+              <div className="space-y-3.5">
+                <SectionDivider title="Planning & Assignment" />
+
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  <Field
+                    label="Sprint"
+                    htmlFor="task-sprint"
+                    error={fieldErrors.sprintId}
+                  >
                     <div className="relative">
                       <select
+                        id="task-sprint"
                         name="sprintId"
                         defaultValue=""
                         className={cn(
-                          inputClassName(false),
-                          "appearance-none pl-10 pr-10",
+                          inputClassName(!!fieldErrors.sprintId),
+                          "appearance-none pl-9 pr-9 cursor-pointer",
                         )}
                       >
                         <option value="">Backlog (no sprint)</option>
@@ -232,22 +375,24 @@ export default function CreateTaskModal({
                           );
                         })}
                       </select>
-                      <Zap className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-indigo-500" />
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                      <Zap className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     </div>
-                  </div>
+                  </Field>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Assignee
-                    </label>
+                  <Field
+                    label="Assignee"
+                    htmlFor="task-assignee"
+                    error={fieldErrors.assigneeId}
+                  >
                     <div className="relative">
                       <select
+                        id="task-assignee"
                         name="assigneeId"
                         defaultValue=""
                         className={cn(
-                          inputClassName(false),
-                          "appearance-none pl-10 pr-10",
+                          inputClassName(!!fieldErrors.assigneeId),
+                          "appearance-none pl-9 pr-9 cursor-pointer",
                         )}
                       >
                         <option value="">Unassigned</option>
@@ -257,187 +402,319 @@ export default function CreateTaskModal({
                           </option>
                         ))}
                       </select>
-                      <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                      <User className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     </div>
-                  </div>
-                </div>
+                  </Field>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="relative">
-                    <select
-                      name="status"
-                      defaultValue="todo"
-                      className="appearance-none rounded-full border border-zinc-200 bg-zinc-100 py-1.5 pl-3 pr-8 text-xs font-medium text-zinc-700 outline-none transition hover:bg-zinc-200   dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                    >
-                      {TASK_WORKFLOW_STATUSES.map((status) => (
-                        <option key={status} value={status}>
-                          {getTaskStatusPresentation(status).label}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-zinc-400" />
-                  </div>
-
-                  <div className="relative">
-                    <select
-                      name="priority"
-                      defaultValue="medium"
-                      className="appearance-none rounded-full border border-zinc-200 bg-zinc-100 py-1.5 pl-3 pr-8 text-xs font-medium text-zinc-700 outline-none transition hover:bg-zinc-200   dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                    >
-                      {TASK_PRIORITY_VALUES.map((priority) => (
-                        <option key={priority} value={priority}>
-                          {getTaskPriorityPresentation(priority).label}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-zinc-400" />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsFilePickerOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-zinc-300 bg-transparent py-1.5 px-3 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  <Field
+                    label="Status"
+                    htmlFor="task-status"
+                    error={fieldErrors.status}
                   >
-                    <Paperclip className="h-3 w-3" />
-                    Add task references
-                  </button>
-                </div>
-
-                {attachments.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {attachments.map((attachment) => (
-                      <div
-                        key={attachment.id}
-                        className="flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300"
+                    <div className="relative">
+                      <select
+                        id="task-status"
+                        name="status"
+                        defaultValue="todo"
+                        className={cn(
+                          inputClassName(!!fieldErrors.status),
+                          "appearance-none pl-3 pr-9 cursor-pointer font-medium",
+                        )}
                       >
-                        <Paperclip className="h-3.5 w-3.5 text-zinc-400" />
-                        <span className="max-w-[180px] truncate">
-                          {attachment.name}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${attachment.name}`}
-                          onClick={() =>
-                            setAttachments((current) =>
-                              current.filter(
-                                (item) => item.id !== attachment.id,
-                              ),
-                            )
-                          }
-                          className="text-zinc-400 transition-colors hover:text-rose-500"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
+                        {TASK_WORKFLOW_STATUSES.map((status) => (
+                          <option key={status} value={status}>
+                            {getTaskStatusPresentation(status).label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                  </Field>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    defaultValue=""
-                    placeholder="Add a short description..."
-                    rows={4}
-                    className={cn(
-                      "w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition dark:bg-zinc-900 dark:text-zinc-100",
-                      "border-zinc-200 focus:border-zinc-300 dark:border-zinc-700 dark:focus:border-zinc-600",
-                      "resize-none px-4 py-3 focus:ring-0",
-                    )}
-                  />
+                  <Field
+                    label="Priority"
+                    htmlFor="task-priority"
+                    error={fieldErrors.priority}
+                  >
+                    <div className="relative">
+                      <select
+                        id="task-priority"
+                        name="priority"
+                        defaultValue="medium"
+                        className={cn(
+                          inputClassName(!!fieldErrors.priority),
+                          "appearance-none pl-3 pr-9 cursor-pointer font-medium",
+                        )}
+                      >
+                        {TASK_PRIORITY_VALUES.map((priority) => (
+                          <option key={priority} value={priority}>
+                            {getTaskPriorityPresentation(priority).label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                  </Field>
                 </div>
+              </div>
 
+              {/* Section 3: Schedule & Estimate */}
+              <div className="space-y-3.5">
+                <SectionDivider title="Schedule & Estimate" />
+
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  <Field
+                    label="Due Date"
+                    htmlFor="task-due-date"
+                    error={fieldErrors.dueDate}
+                  >
+                    <div className="space-y-1.5">
+                      <input
+                        id="task-due-date"
+                        type="date"
+                        name="dueDate"
+                        value={dueDate}
+                        onChange={(e) => {
+                          setDueDate(e.target.value);
+                          setFieldErrors((prev) => {
+                            if (!prev.dueDate) return prev;
+                            const { dueDate: _, ...rest } = prev;
+                            return rest;
+                          });
+                        }}
+                        className={cn(
+                          "h-[34px]",
+                          inputClassName(!!fieldErrors.dueDate),
+                          "font-mono",
+                        )}
+                      />
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
+                          Quick set:
+                        </span>
+                        {[
+                          { label: "1 week", days: 7 },
+                          { label: "2 weeks", days: 14 },
+                          { label: "4 weeks", days: 28 },
+                        ].map((preset) => {
+                          const isActive = selectedDays === preset.days;
+                          return (
+                            <button
+                              key={preset.days}
+                              type="button"
+                              onClick={() => handleQuickSetDueDate(preset.days)}
+                              className={cn(
+                                "inline-flex h-6 items-center rounded-[3px] shrink-0 whitespace-nowrap border px-1.5 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors",
+                                isActive
+                                  ? "border-primary bg-primary/10 text-primary font-semibold"
+                                  : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground font-medium",
+                              )}
+                            >
+                              {preset.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </Field>
+
+                  <Field
+                    label="Story Points"
+                    htmlFor="task-story-points"
+                    error={fieldErrors.storyPoints}
+                  >
+                    <div className="space-y-1.5">
+                      <input
+                        id="task-story-points"
+                        name="storyPoints"
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={storyPoints}
+                        onChange={(e) => setStoryPoints(e.target.value)}
+                        placeholder="e.g., 3, 5, 8"
+                        className={cn(
+                          "h-[34px]",
+                          inputClassName(!!fieldErrors.storyPoints),
+                          "font-mono",
+                        )}
+                      />
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
+                          Presets:
+                        </span>
+                        {[1, 2, 3, 5, 8, 13].map((points) => (
+                          <button
+                            key={points}
+                            type="button"
+                            onClick={() =>
+                              setStoryPoints(
+                                storyPoints === String(points)
+                                  ? ""
+                                  : String(points),
+                              )
+                            }
+                            className={cn(
+                              "inline-flex h-6 w-6 items-center justify-center rounded-[3px] shrink-0 whitespace-nowrap border font-mono text-[10px] font-semibold transition-colors",
+                              storyPoints === String(points)
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
+                            )}
+                          >
+                            {points}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </Field>
+                </div>
+              </div>
+
+              {/* Section 4: Subtasks & References */}
+              <div className="space-y-3.5">
+                <SectionDivider title="Subtasks & References">
+                  <div className="flex items-center gap-2">
+                    {subtasks.length > 0 && (
+                      <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/40 px-1 font-mono text-[10px] font-semibold text-muted-foreground">
+                        {subtasks.length} {subtasks.length === 1 ? "subtask" : "subtasks"}
+                      </span>
+                    )}
+                    {attachments.length > 0 && (
+                      <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/40 px-1 font-mono text-[10px] font-semibold text-muted-foreground">
+                        {attachments.length} {attachments.length === 1 ? "file" : "files"}
+                      </span>
+                    )}
+                  </div>
+                </SectionDivider>
+
+                {/* Subtasks Block */}
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  <label className="block text-[13px] font-medium text-foreground">
                     Subtasks
                   </label>
-                  <div className="space-y-2">
-                    {subtasks.map((subtask) => (
-                      <div
-                        key={subtask.id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/60"
-                      >
-                        <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                          {subtask.title}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={`Remove subtask ${subtask.title}`}
-                          onClick={() =>
-                            setSubtasks((current) =>
-                              current.filter((item) => item.id !== subtask.id),
-                            )
-                          }
-                          className="text-zinc-400 transition-colors hover:text-rose-500"
+
+                  {subtasks.length > 0 && (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {subtasks.map((subtask) => (
+                        <div
+                          key={subtask.id}
+                          className="flex items-center justify-between gap-2 rounded-[5px] border border-border bg-muted/20 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/40"
                         >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <CheckSquare className="size-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate">{subtask.title}</span>
+                          </div>
+                          <button
+                            type="button"
+                            aria-label={`Remove subtask ${subtask.title}`}
+                            onClick={() =>
+                              setSubtasks((current) =>
+                                current.filter((item) => item.id !== subtask.id),
+                              )
+                            }
+                            className="text-muted-foreground transition-colors hover:text-destructive shrink-0"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
                     <input
-                      placeholder="Add subtask... (Enter to add)"
+                      value={newSubtaskTitle}
+                      onChange={(e) => setNewSubtaskTitle(e.target.value)}
                       onKeyDown={(event) => {
                         if (event.key !== "Enter") return;
                         event.preventDefault();
-                        handleAddSubtask(event.currentTarget.value);
-                        event.currentTarget.value = "";
+                        handleAddSubtask();
                       }}
-                      className={cn(
-                        "w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition dark:bg-zinc-900 dark:text-zinc-100",
-                        "border-zinc-200 focus:border-zinc-300 dark:border-zinc-700 dark:focus:border-zinc-600",
-                      )}
+                      placeholder="Add a subtask..."
+                      className={cn(inputClassName(false), "flex-1")}
                     />
+                    <button
+                      type="button"
+                      onClick={handleAddSubtask}
+                      disabled={!newSubtaskTitle.trim()}
+                      className="h-[34px] rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50 shrink-0"
+                    >
+                      + Add
+                    </button>
                   </div>
                 </div>
 
+                {/* Task References / Attachments Block */}
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    Due Date
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      name="dueDate"
-                      defaultValue=""
-                      className={cn(inputClassName(false), "pl-10")}
-                    />
-                    <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[13px] font-medium text-foreground">
+                      Task References
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsFilePickerOpen(true)}
+                      className="inline-flex h-7 items-center gap-1.5 rounded-[5px] border border-dashed border-border bg-card px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                    >
+                      <Paperclip className="size-3" />
+                      Attach files
+                    </button>
                   </div>
+
+                  {attachments.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {attachments.map((attachment) => (
+                        <div
+                          key={attachment.id}
+                          className="flex items-center gap-2 rounded-[5px] border border-border bg-muted/40 px-2.5 py-1 text-xs text-foreground font-mono"
+                        >
+                          <Paperclip className="size-3 text-muted-foreground shrink-0" />
+                          <span className="max-w-[180px] truncate">
+                            {attachment.name}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${attachment.name}`}
+                            onClick={() =>
+                              setAttachments((current) =>
+                                current.filter(
+                                  (item) => item.id !== attachment.id,
+                                ),
+                              )
+                            }
+                            className="text-muted-foreground transition-colors hover:text-destructive"
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      No files or design assets attached yet.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-zinc-200 bg-zinc-50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900/50">
-              <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                <input
-                  type="checkbox"
-                  checked={createAnother}
-                  onChange={(event) => setCreateAnother(event.target.checked)}
-                  className="rounded border-zinc-300 text-blue-600 "
-                />
-                Create another
-              </label>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSubmitting ? "Creating..." : "Create Task"}
-                </button>
-              </div>
+            {/* Modal Footer */}
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[#DBD5C8] bg-[#F3F0EA] px-6 py-3.5 dark:border-white/10 dark:bg-white/5">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="h-[34px] rounded-[5px] border border-border bg-card px-4 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="h-[34px] rounded-[5px] bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? "Creating..." : "Create Task"}
+              </button>
             </div>
           </form>
         </DialogContent>

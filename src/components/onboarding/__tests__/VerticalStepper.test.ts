@@ -58,7 +58,7 @@ describe('VerticalStepper visual contract', () => {
 
   it('uses a fixed marker column and marker-center connector geometry', () => {
     assert.match(source, /grid-cols-\[24px_minmax\(0,1fr\)\]/)
-    assert.match(source, /left-\[11px\]\s+top-3\s+-bottom-3\s+w-\[2px\]/)
+    assert.match(source, /left-\[11px\]\s+top-3\s+bottom-\[-12px\]\s+z-0\s+w-px/)
   })
 
   it('fills connector segments only from committed progress', () => {

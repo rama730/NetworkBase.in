@@ -71,7 +71,18 @@ export async function GET(request: Request) {
         eq(projectNodes.path, path),
         eq(projectNodes.type, "file"),
         isNull(projectNodes.deletedAt)
-      )
+      ),
+      columns: {
+        id: true,
+        name: true,
+        path: true,
+        type: true,
+        s3Key: true,
+        size: true,
+        mimeType: true,
+        currentVersion: true,
+        updatedAt: true,
+      },
     });
 
     if (!node) {
@@ -246,7 +257,13 @@ export async function PUT(request: Request) {
       return jsonError("Request is already being processed", 409, "CONFLICT");
     }
 
-    const savePayload = await readExtensionSavePayload(request);
+    const directStorageKey = request.headers.get("x-nb-storage-key")?.trim();
+    const directChecksum = request.headers.get("x-nb-checksum")?.trim();
+    const directSize = request.headers.get("x-nb-size") ? Number(request.headers.get("x-nb-size")) : null;
+
+    const savePayload = (directStorageKey && directChecksum)
+      ? { buffer: Buffer.alloc(0), mimeType: request.headers.get("x-nb-mime-type")?.trim() || null }
+      : await readExtensionSavePayload(request);
     const revisionModeHeader = request.headers.get("x-nb-revision-mode")?.trim();
     if (revisionModeHeader && !isFileRevisionMode(revisionModeHeader)) {
       return jsonError("Invalid revision mode", 400, "BAD_REQUEST");
@@ -275,25 +292,37 @@ export async function PUT(request: Request) {
 
     // Prepare upload metadata. Lease ownership is checked in the same
     // transaction as the revision write below.
-    const contentHash = crypto.createHash("sha256").update(savePayload.buffer).digest("hex");
-    const size = savePayload.buffer.byteLength;
-
-    const s3Key = buildExtensionRevisionStorageKey(projectId, node.id, path, contentHash);
-    const mimeType = savePayload.mimeType || inferMimeType(path);
-
-    // 4. Upload to S3 storage via admin Supabase client
     const adminClient = await createAdminClient();
-    const { error: uploadError } = await adminClient.storage
-      .from("project-files")
-      .upload(s3Key, savePayload.buffer, {
-        contentType: mimeType,
-        cacheControl: "31536000",
-        upsert: false
-      });
+    let contentHash: string;
+    let size: number;
+    let s3Key: string;
+    let mimeType: string;
 
-    if (uploadError) {
-      logger.error("[api/v1/extension/file] Storage upload failed", { error: uploadError.message });
-      return jsonError(`Storage upload failed: ${uploadError.message}`, 500, "INTERNAL_ERROR");
+    if (directStorageKey && directChecksum) {
+      // Direct presigned upload: zero Node heap allocation and zero server re-upload bandwidth
+      s3Key = directStorageKey;
+      contentHash = directChecksum;
+      size = directSize ?? 0;
+      mimeType = request.headers.get("x-nb-mime-type")?.trim() || inferMimeType(path);
+    } else {
+      contentHash = crypto.createHash("sha256").update(savePayload.buffer).digest("hex");
+      size = savePayload.buffer.byteLength;
+      s3Key = buildExtensionRevisionStorageKey(projectId, node.id, path, contentHash);
+      mimeType = savePayload.mimeType || inferMimeType(path);
+
+      // Upload to S3 storage via admin Supabase client
+      const { error: uploadError } = await adminClient.storage
+        .from("project-files")
+        .upload(s3Key, savePayload.buffer, {
+          contentType: mimeType,
+          cacheControl: "31536000",
+          upsert: false
+        });
+
+      if (uploadError) {
+        logger.error("[api/v1/extension/file] Storage upload failed", { error: uploadError.message });
+        return jsonError(`Storage upload failed: ${uploadError.message}`, 500, "INTERNAL_ERROR");
+      }
     }
 
     let result;

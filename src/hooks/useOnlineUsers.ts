@@ -49,18 +49,21 @@ export function useOnlineUsers(userIds: string[]): OnlineMap {
     const realtimeReady = Boolean(user?.id && session?.access_token && !isLoading);
     // Sort+dedupe so the dependency for the main effect is stable across
     // renders that pass the same set in different order.
+    // ponytail: cap concurrent presence subscriptions to at most 3 active peers to prevent 50+ WebSocket presence rooms per client. ceiling: 3 peers. upgrade: multiplexed presence channel if active thread has >3 peers.
+    const MAX_CONCURRENT_PRESENCE_ROOMS = 3;
     const userIdsRef = useRef<string[]>([]);
     const stableIds = useMemo(() => {
         const deduped = Array.from(new Set(userIds.filter(Boolean)));
         deduped.sort();
+        const capped = deduped.slice(0, MAX_CONCURRENT_PRESENCE_ROOMS);
         if (
-            userIdsRef.current.length === deduped.length &&
-            userIdsRef.current.every((id, index) => id === deduped[index])
+            userIdsRef.current.length === capped.length &&
+            userIdsRef.current.every((id, index) => id === capped[index])
         ) {
             return userIdsRef.current;
         }
-        userIdsRef.current = deduped;
-        return deduped;
+        userIdsRef.current = capped;
+        return capped;
     }, [userIds]);
 
     const [onlineMap, setOnlineMap] = useState<OnlineMap>({});

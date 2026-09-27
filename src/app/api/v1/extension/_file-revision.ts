@@ -15,19 +15,19 @@ export const checksumSchema = z.string().regex(/^[a-f0-9]{64}$/i);
 type ProjectNode = typeof projectNodes.$inferSelect;
 
 export async function resolveWritableExtensionFile(projectId: string, path: string, userId: string) {
-  const access = await getProjectAccessById(projectId, userId);
+  const [access, node] = await Promise.all([
+    getProjectAccessById(projectId, userId),
+    db.query.projectNodes.findFirst({
+      where: and(
+        eq(projectNodes.projectId, projectId),
+        eq(projectNodes.path, path),
+        eq(projectNodes.type, "file"),
+        isNull(projectNodes.deletedAt),
+      ),
+    }),
+  ]);
   if (!access.project) return { response: jsonError("Project not found", 404, "NOT_FOUND"), node: null };
   if (!access.canWrite) return { response: jsonError("Forbidden", 403, "FORBIDDEN"), node: null };
-
-  const node = await db.query.projectNodes.findFirst({
-    where: and(
-      eq(projectNodes.projectId, projectId),
-      eq(projectNodes.path, path),
-      eq(projectNodes.type, "file"),
-      isNull(projectNodes.deletedAt),
-    ),
-  });
-
   if (!node) return { response: jsonError("File node not found", 404, "NOT_FOUND"), node: null };
   return { response: null, node };
 }

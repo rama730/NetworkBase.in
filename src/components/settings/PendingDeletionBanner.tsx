@@ -39,7 +39,7 @@ export default function PendingDeletionBanner({ hardDeleteAt, onCancelled }: Pro
     };
 
     return (
-        <div className="rounded-xl border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-900/20 p-4">
+        <div className="rounded-lg border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-900/20 p-4">
             <div className="flex items-start gap-3">
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/40 shrink-0 mt-0.5">
                     <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />

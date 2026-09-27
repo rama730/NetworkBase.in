@@ -15,6 +15,8 @@ import { getProjectAccessById } from "@/lib/data/project-access";
 import { validateCsrf } from "@/lib/security/csrf";
 import {
   acquireFileLease,
+  batchRenewFileLeases,
+  releaseAllSessionLeases,
   releaseFileLease,
   renewFileLease,
 } from "@/lib/files/file-lock-service";
@@ -37,6 +39,23 @@ const ownedSchema = baseSchema.extend({
   action: z.enum(["renew", "release"]),
   ttlMs: leaseTtlMsSchema.optional(),
 }).merge(leaseCredentialsSchema.omit({ sessionId: true }));
+
+const batchRenewSchema = z.object({
+  action: z.literal("batch-renew"),
+  clientSessionId: z.string().uuid(),
+  ttlMs: leaseTtlMsSchema.optional(),
+  leases: z.array(z.object({
+    nodeId: z.string().uuid(),
+    projectId: z.string().uuid(),
+    leaseId: z.string().uuid(),
+    fencingToken: z.number(),
+  })).min(1).max(500),
+});
+
+const releaseAllSchema = z.object({
+  action: z.literal("release-all"),
+  clientSessionId: z.string().uuid(),
+});
 
 async function resolveEditableNode(projectId: string, path: string, userId: string) {
   const access = await getProjectAccessById(projectId, userId);
@@ -63,6 +82,29 @@ export async function POST(request: Request) {
     if (auth.response) return auth.response;
     const body = await request.json().catch(() => null);
     const action = body && typeof body.action === "string" ? body.action : "acquire";
+
+    if (action === "batch-renew") {
+      const parsed = batchRenewSchema.safeParse(body);
+      if (!parsed.success) return jsonError("Invalid batch renew request", 400, "BAD_REQUEST");
+      const renewedLeases = await batchRenewFileLeases({
+        userId: auth.user.id,
+        sessionId: parsed.data.clientSessionId,
+        leases: parsed.data.leases,
+        ttlSeconds: ttlMsToSeconds(parsed.data.ttlMs),
+      });
+      return jsonSuccess({ leases: renewedLeases });
+    }
+
+    if (action === "release-all") {
+      const parsed = releaseAllSchema.safeParse(body);
+      if (!parsed.success) return jsonError("Invalid release-all request", 400, "BAD_REQUEST");
+      const count = await releaseAllSessionLeases({
+        userId: auth.user.id,
+        sessionId: parsed.data.clientSessionId,
+      });
+      return jsonSuccess({ releasedCount: count });
+    }
+
     const parsed = action === "acquire" ? acquireSchema.safeParse(body) : ownedSchema.safeParse(body);
     if (!parsed.success) return jsonError("Invalid file lease request", 400, "BAD_REQUEST");
     const resolved = await resolveEditableNode(parsed.data.projectId, parsed.data.path, auth.user.id);

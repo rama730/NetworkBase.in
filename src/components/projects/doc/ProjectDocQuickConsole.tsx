@@ -147,10 +147,10 @@ function ReadmeRailTabButton({
             aria-controls={`readme-rail-${instanceId}-panel-${id}`}
             onClick={() => onToggle(id)}
             className={cn(
-                "relative inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-[background-color,border-color,color,box-shadow] focus-visible:outline-none  ",
+                "relative inline-flex h-[32px] min-w-0 items-center justify-center gap-1.5 rounded-[5px] border px-2.5 text-[12px] font-medium transition-colors focus-visible:outline-none",
                 active
-                    ? "border-blue-300 bg-blue-50 text-blue-700 shadow-sm dark:border-blue-500/60 dark:bg-blue-500/10 dark:text-blue-300"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-blue-200 hover:text-blue-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:border-blue-500/50 dark:hover:text-blue-300",
+                    ? "border-primary bg-primary/10 text-primary font-semibold shadow-xs"
+                    : "border-border bg-muted/40 text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-muted/70",
             )}
         >
             {renderReadmeRailTabIcon(id)}
@@ -158,8 +158,8 @@ function ReadmeRailTabButton({
             {typeof count === "number" ? (
                 <span
                     className={cn(
-                        "rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none",
-                        active ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200" : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+                        "h-4 min-w-4 px-1 rounded-[3px] font-mono text-[10px] font-semibold uppercase tracking-wider inline-flex items-center justify-center",
+                        active ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground",
                     )}
                 >
                     {count}
@@ -195,9 +195,9 @@ const ReferenceRow = memo(function ReferenceRow({
                 : "Private or missing project link";
     const content = (
         <>
-            <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">{label}</span>
+            <span className="truncate text-[13px] font-semibold text-foreground">{label}</span>
             {action.previewLoading ? (
-                <span className="mt-1 h-3 w-28 max-w-full animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-800">
+                <span aria-hidden="true" className="nb-skeleton mt-1 h-3 w-28 max-w-full rounded-[3px]">
                     <span className="sr-only">Loading project link</span>
                 </span>
             ) : detail || stateLabel ? (
@@ -205,7 +205,7 @@ const ReferenceRow = memo(function ReferenceRow({
                     data-readme-preview-state={action.previewError ? "error" : stateLabel ? "unavailable" : "ready"}
                     className={cn(
                         "truncate text-xs",
-                        action.previewError ? "text-amber-600 dark:text-amber-300" : "text-zinc-500 dark:text-zinc-500",
+                        action.previewError ? "text-destructive" : "text-muted-foreground",
                     )}
                 >
                     {detail || stateLabel}
@@ -217,29 +217,29 @@ const ReferenceRow = memo(function ReferenceRow({
     return (
         <div
             className={cn(
-                "group flex min-w-0 items-center gap-1 rounded-xl transition-[background-color,box-shadow]",
-                active && "bg-blue-50 dark:bg-blue-500/10",
-                highlighted && "shadow-[0_0_0_3px_rgba(59,130,246,0.18)]",
+                "group flex min-w-0 items-center gap-1 rounded-[5px] transition-[background-color,box-shadow]",
+                active && "bg-primary/10",
+                highlighted && "ring-2 ring-primary/20",
             )}
         >
             <button
                 type="button"
                 onClick={() => onExecuteAction(action)}
-                className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-zinc-100 focus-visible:outline-none   dark:hover:bg-zinc-900"
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-[5px] px-2 py-1.5 text-left transition hover:bg-muted focus-visible:outline-none"
                 aria-current={active ? "location" : undefined}
                 title={`Show ${label}`}
             >
-                <Link2 className={cn("h-3.5 w-3.5 shrink-0", active ? "text-blue-600 dark:text-blue-300" : "text-zinc-500")} />
+                <Link2 className={cn("size-3.5 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
                 <span className="flex min-w-0 flex-col">{content}</span>
             </button>
             {action.openHref ? (
                 <a
                     href={action.openHref}
-                    className="mr-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white hover:text-blue-600 focus-visible:outline-none   dark:hover:bg-zinc-950 dark:hover:text-blue-300"
+                    className="mr-1 inline-flex size-7 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition hover:bg-card hover:text-foreground focus-visible:outline-none"
                     aria-label={`Open ${label}`}
                     title={`Open ${label}`}
                 >
-                    <ExternalLink className="h-3.5 w-3.5" />
+                    <ExternalLink className="size-3.5" />
                 </a>
             ) : null}
         </div>
@@ -266,36 +266,36 @@ const CommandShortcutRow = memo(function CommandShortcutRow({
     return (
         <div
             className={cn(
-                "group flex min-w-0 items-stretch gap-1 rounded-xl border border-zinc-200/70 bg-zinc-50/60 p-1.5 transition-[background-color,border-color,box-shadow] hover:border-blue-300 dark:border-zinc-800 dark:bg-zinc-950/50 dark:hover:border-blue-500/60",
-                active && "border-blue-300 bg-blue-50/80 shadow-sm dark:border-blue-500/60 dark:bg-blue-500/10",
-                highlighted && "shadow-[0_0_0_3px_rgba(59,130,246,0.22)]",
+                "group flex min-w-0 items-stretch gap-1 rounded-[5px] border border-border bg-card p-1.5 transition-colors hover:border-foreground/20",
+                active && "border-primary bg-primary/10 shadow-xs",
+                highlighted && "ring-2 ring-primary/20",
             )}
         >
             <button
                 type="button"
                 onClick={copyCommand}
                 aria-current={active ? "location" : undefined}
-                className="min-w-0 flex-1 rounded-lg px-1.5 py-1 text-left outline-none transition  "
+                className="min-w-0 flex-1 rounded-[3px] px-1.5 py-1 text-left outline-none transition"
                 title={`Copy and show ${command.label}`}
             >
                 <span className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
                     <span
                         className={cn(
-                            "min-w-0 break-words text-xs font-semibold text-zinc-700 transition [overflow-wrap:anywhere] dark:text-zinc-300",
-                            active && "text-blue-700 dark:text-blue-300",
+                            "min-w-0 break-words text-xs font-semibold text-foreground transition [overflow-wrap:anywhere]",
+                            active && "text-primary",
                         )}
                     >
                         {command.label}
                     </span>
                     {command.detail ? (
-                        <span className="max-w-full rounded-full bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                        <span className="max-w-full rounded-[3px] border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                             {command.detail}
                         </span>
                     ) : null}
                     {command.platforms.map((platform) => (
                         <span
                             key={platform}
-                            className="max-w-full rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400"
+                            className="max-w-full rounded-[3px] border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
                         >
                             {platform}
                         </span>
@@ -303,17 +303,17 @@ const CommandShortcutRow = memo(function CommandShortcutRow({
                     {command.ecosystemTags.map((tag) => (
                         <span
                             key={tag}
-                            className="max-w-full rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300"
+                            className="max-w-full rounded-[3px] border border-primary/20 bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-primary"
                         >
                             {tag}
                         </span>
                     ))}
                     <span
                         className={cn(
-                            "max-w-full rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                            command.confidence === "high" && "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-                            command.confidence === "medium" && "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
-                            command.confidence === "low" && "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
+                            "max-w-full rounded-[3px] border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider font-semibold",
+                            command.confidence === "high" && "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+                            command.confidence === "medium" && "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-400",
+                            command.confidence === "low" && "border-border bg-muted text-muted-foreground",
                         )}
                     >
                         {command.confidenceLabel}
@@ -321,10 +321,10 @@ const CommandShortcutRow = memo(function CommandShortcutRow({
                     {command.riskLabel ? (
                         <span
                             className={cn(
-                                "max-w-full rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                                "max-w-full rounded-[3px] border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider font-semibold",
                                 command.riskLevel === "danger"
-                                    ? "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300"
-                                    : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+                                    ? "border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-400"
+                                    : "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400",
                             )}
                         >
                             {command.riskLabel}
@@ -333,7 +333,7 @@ const CommandShortcutRow = memo(function CommandShortcutRow({
                 </span>
                 <code
                     aria-current={active ? "location" : undefined}
-                    className="block min-w-0 whitespace-pre-wrap break-words rounded-lg bg-white px-2 py-1.5 font-mono text-[11px] leading-5 text-zinc-700 [overflow-wrap:anywhere] dark:bg-black/30 dark:text-zinc-300"
+                    className="block min-w-0 whitespace-pre-wrap break-words rounded-[3px] bg-muted/40 px-2 py-1.5 font-mono text-[11px] leading-5 text-foreground [overflow-wrap:anywhere]"
                 >
                     {command.command}
                 </code>
@@ -342,13 +342,13 @@ const CommandShortcutRow = memo(function CommandShortcutRow({
                 type="button"
                 onClick={copyCommand}
                 className={cn(
-                    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition hover:text-blue-600 focus-visible:outline-none   dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-blue-300",
-                    active && "border-blue-200 text-blue-600 dark:border-blue-500/50 dark:text-blue-300",
+                    "inline-flex size-7 shrink-0 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition hover:text-foreground hover:bg-muted focus-visible:outline-none",
+                    active && "border-primary text-primary",
                 )}
                 aria-label={`Copy ${command.label}`}
                 title={copied ? "Copied" : "Copy command"}
             >
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
                 <span className="sr-only" aria-live="polite">{copied ? "Copied" : "Copy command"}</span>
             </button>
         </div>
@@ -384,11 +384,11 @@ const HeadingRow = memo(function HeadingRow({
             }}
             aria-current={active ? "location" : undefined}
             className={cn(
-                "block truncate rounded-lg px-2 py-1 text-sm text-zinc-500 outline-none transition-[background-color,box-shadow,color] hover:bg-zinc-100 hover:text-blue-600   dark:hover:bg-zinc-900 dark:hover:text-blue-300",
+                "block truncate rounded-[5px] px-2 py-1 text-[13px] text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground",
                 heading.level > 2 && "pl-4 text-xs",
                 heading.level > 3 && "pl-6",
-                active && "bg-blue-50 font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300",
-                highlighted && "shadow-[0_0_0_3px_rgba(59,130,246,0.18)]",
+                active && "bg-primary/10 font-semibold text-primary",
+                highlighted && "ring-2 ring-primary/20",
             )}
         >
             {heading.text}
@@ -431,8 +431,8 @@ function DocumentSwitcher({
     return (
         <div className={cn("grid gap-2 shrink-0 w-full mb-3", sortedMarkdowns.length > 4 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2")}>
             {isLoading ? (
-                <div className="flex h-9 items-center justify-center px-3 text-zinc-400 text-xs gap-1.5 shrink-0">
-                    <Loader2 className="h-3 w-3 animate-spin" />
+                <div className="flex h-[34px] items-center justify-center px-3 text-muted-foreground text-xs gap-1.5 shrink-0">
+                    <Loader2 className="size-3.5 animate-spin text-primary" />
                     Loading...
                 </div>
             ) : (
@@ -442,13 +442,13 @@ function DocumentSwitcher({
                         type="button"
                         onClick={() => handleSelect(doc.slug)}
                         className={cn(
-                            "inline-flex h-9 items-center justify-center rounded-lg border px-2.5 text-xs font-semibold transition-colors truncate shrink-0 select-none",
+                            "inline-flex h-[34px] items-center justify-center rounded-[5px] border px-3 text-[13px] font-medium transition-colors truncate shrink-0 select-none",
                             doc.slug === activeSlug
-                                ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/60 dark:bg-blue-500/10 dark:text-blue-300"
-                                : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:border-zinc-300 hover:text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:border-zinc-700"
+                                ? "border-primary bg-primary/10 text-primary font-semibold shadow-xs"
+                                : "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-muted/40",
                         )}
                     >
-                        <FileText className="h-3.5 w-3.5 shrink-0 mr-1.5 text-zinc-500" />
+                        <FileText className="size-3.5 shrink-0 mr-1.5 text-muted-foreground" />
                         <span className="truncate">{doc.filename}</span>
                     </button>
                 ))
@@ -496,45 +496,49 @@ function SearchPanel({ projectId, onSelectMatch }: { projectId: string; onSelect
     return (
         <div className="space-y-4">
             <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+                <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                 <input
                     type="text"
                     placeholder="Search docs..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-9 pr-8 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:bg-white focus:outline-none dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:bg-zinc-900 transition-colors"
+                    className="h-[34px] w-full rounded-[5px] border border-border bg-card pl-9 pr-8 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-foreground/30 focus:outline-none transition-colors"
                 />
                 {query && (
                     <button
                         type="button"
                         onClick={() => setQuery("")}
-                        className="absolute right-2.5 top-2.5 p-0.5 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
+                        className="absolute right-2 top-2 p-0.5 rounded-[3px] hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                     >
-                        <X className="h-3 w-3" />
+                        <X className="size-3" />
                     </button>
                 )}
             </div>
 
             <div className="space-y-4 max-h-[24rem] overflow-y-auto pr-1 app-scroll app-scroll-y">
                 {searching ? (
-                    <div className="flex items-center justify-center py-8 text-zinc-400 text-sm gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                    <div className="flex items-center justify-center py-8 text-muted-foreground text-[13px] gap-2">
+                        <Loader2 className="size-4 animate-spin text-primary" />
                         Searching documents...
                     </div>
                 ) : query && results.length === 0 ? (
-                    <div className="text-center py-8 text-zinc-400 text-sm">
-                        No matches found for &quot;{query}&quot;
+                    <div className="nb-empty-state nb-grid-ground my-2 py-6 text-center" role="status">
+                        <div className="nb-empty-state-icon-box mb-2">
+                            <Search className="nb-empty-state-icon" />
+                        </div>
+                        <h4 className="nb-empty-state-title">No matches found</h4>
+                        <p className="nb-empty-state-desc">No matches found for &quot;{query}&quot;</p>
                     </div>
                 ) : !query ? (
-                    <div className="text-center py-8 text-zinc-400 text-xs">
+                    <div className="text-center py-8 text-muted-foreground text-xs">
                         Type a search query to search across all documents.
                     </div>
                 ) : (
                     results.map((docResult) => (
                         <div key={docResult.slug} className="space-y-1.5">
                             <div className="flex items-center gap-1.5 px-1">
-                                <FileText className="h-3.5 w-3.5 text-zinc-400" />
-                                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{docResult.filename}</span>
+                                <FileText className="size-3.5 text-muted-foreground" />
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{docResult.filename}</span>
                             </div>
                             <div className="space-y-1">
                                 {docResult.matches.map((match: any) => (
@@ -542,13 +546,13 @@ function SearchPanel({ projectId, onSelectMatch }: { projectId: string; onSelect
                                         key={match.line}
                                         type="button"
                                         onClick={() => onSelectMatch(docResult.slug, match.line)}
-                                        className="flex w-full flex-col gap-0.5 rounded-lg border border-zinc-100 bg-zinc-50/50 p-2 text-left hover:border-blue-200 hover:bg-blue-50/30 dark:border-zinc-800/60 dark:bg-zinc-900/30 dark:hover:border-blue-500/50 dark:hover:bg-blue-950/20 transition-all group"
+                                        className="flex w-full flex-col gap-0.5 rounded-[5px] border border-border bg-card p-2.5 text-left hover:border-foreground/20 hover:bg-muted/40 transition-colors group"
                                     >
-                                        <div className="flex items-center justify-between text-[10px] text-zinc-400 dark:text-zinc-500">
+                                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                                             <span>Line {match.line}</span>
-                                            <span className="opacity-0 group-hover:opacity-100 text-blue-600 dark:text-blue-400 font-semibold transition-opacity">Jump to line &rarr;</span>
+                                            <span className="opacity-0 group-hover:opacity-100 text-primary font-semibold transition-opacity">Jump to line &rarr;</span>
                                         </div>
-                                        <p className="line-clamp-2 font-mono text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+                                        <p className="line-clamp-2 font-mono text-[11px] leading-relaxed text-foreground">
                                             {match.text}
                                         </p>
                                     </button>
@@ -790,7 +794,7 @@ export function ProjectDocQuickConsole({
             {groups.map(([group, groupCommands]) => (
                 <div key={group} className="space-y-1.5">
                     {groups.length > 1 ? (
-                        <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                        <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                             {groupCommands[0]?.groupLabel}
                         </p>
                     ) : null}
@@ -850,25 +854,25 @@ export function ProjectDocQuickConsole({
         <div className="space-y-5">
             {briefFactItems.length || cleanExcerpt || briefStartAction?.command ? (
                 <section>
-                    <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-blue-500">
-                        <FileText className="h-3.5 w-3.5" />
+                    <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                        <FileText className="size-3.5" />
                         Doc Brief
                     </div>
                     {briefFactItems.length ? (
                         <dl className="grid gap-2.5">
                             {briefFactItems.map((item, index) => (
-                                <div key={`${item.label}:${index}`} className="min-w-0 rounded-lg border border-zinc-200 bg-zinc-50/60 px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950/50">
-                                    <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">{item.label}</dt>
-                                    <dd className="break-words text-xs leading-5 text-zinc-600 [overflow-wrap:anywhere] dark:text-zinc-400">{item.value}</dd>
+                                <div key={`${item.label}:${index}`} className="min-w-0 rounded-[5px] border border-border bg-card p-2.5">
+                                    <dt className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{item.label}</dt>
+                                    <dd className="break-words text-xs leading-5 text-foreground [overflow-wrap:anywhere] mt-0.5">{item.value}</dd>
                                 </div>
                             ))}
                         </dl>
                     ) : cleanExcerpt ? (
-                        <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-400">{cleanExcerpt}</p>
+                        <p className="nb-compact text-sm text-foreground leading-relaxed">{cleanExcerpt}</p>
                     ) : null}
                     {briefStartAction?.command ? (
                         <div className={cn("space-y-1.5", (briefFactItems.length || cleanExcerpt) && "mt-3")}>
-                            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                            <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                                 Start here
                             </p>
                             <CommandShortcutRow
@@ -886,19 +890,19 @@ export function ProjectDocQuickConsole({
 
             {cleanSummary || reportSignals.length || report?.summaryItems.length || report?.warnings.length || report?.limitations.length ? (
                 <section>
-                    <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-blue-500">
-                        <ClipboardList className="h-3.5 w-3.5" />
+                    <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                        <ClipboardList className="size-3.5" />
                         Doc Report
                     </div>
                     {cleanSummary && !briefItems.some((item) => item.value === cleanSummary) ? (
-                        <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-400">{cleanSummary}</p>
+                        <p className="nb-compact text-sm text-foreground leading-relaxed">{cleanSummary}</p>
                     ) : null}
                     {report?.summaryItems.length ? (
                         <dl className="mt-3 grid gap-2">
                             {report.summaryItems.map((item) => (
                                 <div key={`${item.label}:${item.value}`} className="min-w-0">
-                                    <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">{item.label}</dt>
-                                    <dd className="break-words text-xs leading-5 text-zinc-600 [overflow-wrap:anywhere] dark:text-zinc-400">{item.value}</dd>
+                                    <dt className="nb-ui-label text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{item.label}</dt>
+                                    <dd className="break-words text-xs leading-5 text-foreground [overflow-wrap:anywhere] mt-0.5">{item.value}</dd>
                                 </div>
                             ))}
                         </dl>
@@ -906,7 +910,7 @@ export function ProjectDocQuickConsole({
                     {report?.warnings.length ? (
                         <div className="mt-3 space-y-1">
                             {report.warnings.map((warning, index) => (
-                                <p key={`${warning}-${index}`} className="rounded-lg bg-amber-50 px-2 py-1 text-xs leading-5 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                                <p key={`${warning}-${index}`} className="rounded-[5px] border border-amber-500/20 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-700 dark:text-amber-400">
                                     {warning}
                                 </p>
                             ))}
@@ -915,7 +919,7 @@ export function ProjectDocQuickConsole({
                     {report?.limitations.length ? (
                         <div className="mt-3 space-y-1">
                             {report.limitations.map((limitation, index) => (
-                                <p key={`${limitation}-${index}`} className="rounded-lg bg-zinc-100 px-2 py-1 text-xs leading-5 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+                                <p key={`${limitation}-${index}`} className="rounded-[5px] border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
                                     {limitation}
                                 </p>
                             ))}
@@ -926,7 +930,7 @@ export function ProjectDocQuickConsole({
                             {report.platforms.map((platform) => (
                                 <span
                                     key={platform}
-                                    className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
+                                    className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground"
                                 >
                                     {platform}
                                 </span>
@@ -938,7 +942,7 @@ export function ProjectDocQuickConsole({
                             {reportSignals.map((signal) => (
                                 <span
                                     key={signal}
-                                    className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                                    className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground"
                                 >
                                     {signal}
                                 </span>
@@ -952,8 +956,8 @@ export function ProjectDocQuickConsole({
 
     const renderLinksPanel = () => (
         <section>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-blue-500">
-                <Link2 className="h-3.5 w-3.5" />
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                <Link2 className="size-3.5" />
                 Project Links
             </div>
             <div className="space-y-1">
@@ -986,8 +990,8 @@ export function ProjectDocQuickConsole({
 
     const renderOutlinePanel = () => (
         <section>
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-blue-500">
-                <Hash className="h-3.5 w-3.5" />
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                <Hash className="size-3.5" />
                 On This Document
             </div>
             <nav className="space-y-1" aria-label="Document sections">
@@ -1046,8 +1050,8 @@ export function ProjectDocQuickConsole({
                 count: primaryCommands.length,
                 content: () => (
                     <section>
-                        <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-blue-500">
-                            <SquareTerminal className="h-3.5 w-3.5" />
+                        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                            <SquareTerminal className="size-3.5" />
                             Quick Commands
                         </div>
                         {renderCommandList(primaryCommands, commandGroups)}
@@ -1078,8 +1082,8 @@ export function ProjectDocQuickConsole({
                 count: configCommands.length,
                 content: () => (
                     <section>
-                        <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-blue-500">
-                            <ClipboardList className="h-3.5 w-3.5" />
+                        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                            <ClipboardList className="size-3.5" />
                             Config
                         </div>
                         {renderCommandList(configCommands, configCommandGroups)}
@@ -1094,8 +1098,8 @@ export function ProjectDocQuickConsole({
                 count: optionCommands.length,
                 content: () => (
                     <section>
-                        <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-blue-500">
-                            <ClipboardList className="h-3.5 w-3.5" />
+                        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                            <ClipboardList className="size-3.5" />
                             Options
                         </div>
                         {renderCommandList(optionCommands, optionCommandGroups)}
@@ -1109,8 +1113,8 @@ export function ProjectDocQuickConsole({
             count: null,
             content: () => (
                 <section>
-                    <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.28em] text-blue-500">
-                        <Search className="h-3.5 w-3.5" />
+                    <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                        <Search className="size-3.5" />
                         Search Documents
                     </div>
                     <SearchPanel projectId={projectId} onSelectMatch={handleSelectMatch} />
@@ -1129,8 +1133,8 @@ export function ProjectDocQuickConsole({
             aria-label="Document tools"
             className={cn(
                 variant === "compact"
-                    ? "sticky top-20 z-20 flex max-h-[min(70dvh,calc(100dvh-var(--ui-topnav-height)-6rem))] min-h-0 flex-col space-y-3 rounded-md border border-zinc-200 bg-white/95 p-3 shadow-lg backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95"
-                    : "flex h-[calc(100dvh-var(--ui-topnav-height)-4.5rem)] max-h-[calc(100dvh-var(--ui-topnav-height)-4.5rem)] min-h-0 flex-col space-y-3 border-l border-zinc-200 pl-6 dark:border-zinc-800",
+                    ? "sticky top-20 z-20 flex max-h-[min(70dvh,calc(100dvh-var(--ui-topnav-height)-6rem))] min-h-0 flex-col space-y-3 rounded-[8px] border border-border bg-card p-3 shadow-lg backdrop-blur-none"
+                    : "flex h-[calc(100dvh-var(--ui-topnav-height)-4.5rem)] max-h-[calc(100dvh-var(--ui-topnav-height)-4.5rem)] min-h-0 flex-col space-y-3 border-l border-border pl-6",
                 className,
             )}
             data-readme-highlight-token={highlightedTargetToken ?? undefined}
@@ -1171,7 +1175,7 @@ export function ProjectDocQuickConsole({
                         animate={variant === "compact" ? { height: "auto", opacity: 1 } : { opacity: 1 }}
                         exit={variant === "compact" ? { height: 0, opacity: 0 } : { opacity: 0 }}
                         transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-                        className="min-h-0 flex-1 overflow-hidden border-t border-zinc-200 dark:border-zinc-800"
+                        className="min-h-0 flex-1 overflow-hidden border-t border-border"
                         data-readme-compact-panel={variant === "compact" ? "true" : undefined}
                     >
                         <div

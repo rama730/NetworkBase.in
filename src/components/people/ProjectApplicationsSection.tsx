@@ -11,6 +11,7 @@ import { getPeopleApplications } from "@/app/actions/people-applications";
 import { resolveMessageWorkflowActionV2 } from "@/app/actions/messaging";
 import ApplicationReviewModal from "@/components/people/ApplicationReviewModal";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   IncomingProjectApplicationRow,
@@ -56,7 +57,7 @@ const APPLICATIONS_QUERY_KEY = ["people", "project-applications"] as const;
 
 function ProjectAvatar({ app }: { app: MyApplication }) {
   return app.projectCover
-    ? <Image src={app.projectCover} alt="" width={40} height={40} className="h-10 w-10 rounded-lg object-cover" />
+    ? <Image src={app.projectCover} alt="" width={40} height={40} unoptimized className="h-10 w-10 rounded-lg object-cover" />
     : <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800"><Briefcase className="h-4 w-4 text-zinc-500" /></span>;
 }
 
@@ -92,7 +93,7 @@ function ApplicationRow(props: ApplicationRowProps) {
     };
   })();
 
-  return <div className="flex items-start gap-3 rounded-2xl border border-zinc-200/60 bg-white/80 p-4 backdrop-blur-xl dark:border-white/5 dark:bg-zinc-900/80">
+  return <div className="flex items-start gap-3 rounded-lg border border-zinc-200/60 bg-card p-4 backdrop-blur-none dark:border-white/5 dark:bg-card">
     {view.avatar}
     <div className="min-w-0 flex-1 pt-0.5">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -183,13 +184,22 @@ export default function ProjectApplicationsSection({ initialUser, initialApplica
   };
 
   if (!initialUser) return null;
-  if (isLoading) return <div className="h-40 animate-pulse rounded-2xl bg-zinc-100 dark:bg-zinc-900" />;
-  if (!data.my.length && !data.incoming.length) return <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-zinc-500"><FolderOpen className="mx-auto mb-3 h-8 w-8" />No project applications</div>;
+  if (isLoading) return <div role="status" aria-label="Loading project applications" className="nb-skeleton h-40 rounded-lg border border-border" />;
+  if (!data.my.length && !data.incoming.length) {
+    return (
+      <EmptyState
+        icon={FolderOpen}
+        title="No project applications"
+        description="Applications you submit or receive from collaborators will appear here."
+        compact
+      />
+    );
+  }
 
   return <div className="space-y-6">
     {data.incoming.length ? <section><h3 className="mb-3 text-sm font-semibold">Pending Review <span className="text-zinc-400">{data.incoming.length}</span></h3><div className="space-y-3">{data.incoming.map((app) => <ApplicationRow key={app.id} kind="incoming" app={app} busy={processingId === app.id} onAccept={() => openReview(app, "accept")} onReject={() => openReview(app, "reject")} />)}</div></section> : null}
     {data.my.length ? <section><h3 className="mb-3 text-sm font-semibold">My Applications <span className="text-zinc-400">{data.my.length}</span></h3><div className="space-y-3">{data.my.map((app) => <ApplicationRow key={app.id} kind="mine" app={app} busy={processingId === app.id} onEdit={() => setEdit({ open: true, applicationId: app.id, projectId: app.projectId, draft: app.message || "" })} onCancelInvite={() => void cancelInvite(app.id)} />)}</div></section> : null}
     <ApplicationReviewModal isOpen={review.open} onClose={() => setReview((current) => ({ ...current, open: false }))} onConfirm={confirmReview} mode={review.mode} applicantName={review.applicantName} roleTitle={review.roleTitle} />
-    <Dialog open={edit.open} onOpenChange={(open) => { if (!open && !savingEdit) setEdit({ open: false, applicationId: null, projectId: null, draft: "" }); }}><DialogContent><DialogHeader><DialogTitle>Edit Application</DialogTitle><DialogDescription>Update the message mirrored to your application chat.</DialogDescription></DialogHeader><textarea value={edit.draft} onChange={(event) => setEdit((current) => ({ ...current, draft: event.target.value.slice(0, 2000) }))} rows={8} className="w-full rounded-xl border bg-background px-3 py-2 text-sm" disabled={savingEdit} /><DialogFooter><Button variant="outline" onClick={() => setEdit({ open: false, applicationId: null, projectId: null, draft: "" })} disabled={savingEdit}>Cancel</Button><Button onClick={() => void saveEdit()} disabled={savingEdit || !edit.draft.trim()}>{savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Save Changes</Button></DialogFooter></DialogContent></Dialog>
+    <Dialog open={edit.open} onOpenChange={(open) => { if (!open && !savingEdit) setEdit({ open: false, applicationId: null, projectId: null, draft: "" }); }}><DialogContent><DialogHeader><DialogTitle>Edit Application</DialogTitle><DialogDescription>Update the message mirrored to your application chat.</DialogDescription></DialogHeader><textarea value={edit.draft} onChange={(event) => setEdit((current) => ({ ...current, draft: event.target.value.slice(0, 2000) }))} rows={8} className="w-full rounded-lg border bg-background px-3 py-2 text-sm" disabled={savingEdit} /><DialogFooter><Button variant="outline" onClick={() => setEdit({ open: false, applicationId: null, projectId: null, draft: "" })} disabled={savingEdit}>Cancel</Button><Button onClick={() => void saveEdit()} disabled={savingEdit || !edit.draft.trim()}>{savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Save Changes</Button></DialogFooter></DialogContent></Dialog>
   </div>;
 }

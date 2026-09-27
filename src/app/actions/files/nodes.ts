@@ -213,8 +213,7 @@ export async function getProjectNodes(
     const itemTypeCondition = options?.itemType
         ? eq(projectNodes.type, options.itemType)
         : undefined;
-    // ponytail: an exact parent id already scopes directory reads. Allow the
-    // managed task subtree there, while flat search/root reads stay public.
+    // ponytail: exact parentId scopes directory reads, allowing managed task subtrees while root reads stay public. ceiling: directory parentId scoping. upgrade: granular ACL evaluation per node if custom per-node ACLs introduced.
     const scopeCondition = !canReadProjectTaskFiles(readAccess)
         ? sql`${projectNodes.taskId} IS NULL AND ${projectNodes.path} NOT LIKE '/.system%'`
         : options?.taskId
@@ -366,42 +365,50 @@ export async function getProjectBatchNodes(projectId: string, parentIds: (string
     return await runInFlightDeduped(`files:batch-nodes:${projectId}:${parentKey}:${actorId ?? "anon"}`, async () => {
         await assertProjectFileReadAccess(projectId, actorId);
 
-        // Fetch per parent to avoid starvation from a single global LIMIT when many folders are expanded.
-        const fetchByParent = async (parentId: string | null) => {
-            return await db.query.projectNodes.findMany({
-                where: and(
-                    eq(projectNodes.projectId, projectId),
-                    isNull(projectNodes.deletedAt),
-                    sql`${projectNodes.taskId} IS NULL AND ${projectNodes.path} NOT LIKE '/.system%'`,
-                    parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId)
-                ),
-                orderBy: (nodes, { asc }) => [asc(nodes.type), asc(nodes.name), asc(nodes.id)],
-                limit: MAX_BATCH_FETCH_PER_PARENT,
-            });
-        };
+        const hasNullParent = cleanParents.some((p) => p === null);
+        const nonNullParents = cleanParents.filter((p): p is string => typeof p === "string");
 
-        const out: ProjectNode[] = [];
-        for (let i = 0; i < cleanParents.length; i += BATCH_PARENT_QUERY_CONCURRENCY) {
-            const chunk = cleanParents.slice(i, i + BATCH_PARENT_QUERY_CONCURRENCY);
-            const rowsByParent = await Promise.all(chunk.map((parentId) => fetchByParent(parentId)));
-            for (const rows of rowsByParent) {
-                for (const row of rows) {
-                    out.push(row);
-                    if (out.length >= MAX_BATCH_FETCH_TOTAL) {
-                        logger.metric("files.batch_fetch.cap_hit", {
-                            module: "files",
-                            projectId,
-                            requestedParents: cleanParents.length,
-                            fetchedRows: out.length,
-                            cap: MAX_BATCH_FETCH_TOTAL,
-                        });
-                        const enriched = await enrichNodesWithLatestVersionAttribution(out);
-                        const fileIds = enriched.filter((node) => node.type === "file").map((node) => node.id);
-                        const taskLinkCounts = fileIds.length ? await getTaskLinkCounts(projectId, fileIds) : {};
-                        return { nodes: enriched, taskLinkCounts };
-                    }
-                }
-            }
+        const rawRows = (await db.execute(sql`
+            WITH ranked_nodes AS (
+                SELECT 
+                    pn.*,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY COALESCE(pn.parent_id, '00000000-0000-0000-0000-000000000000'::uuid) 
+                        ORDER BY pn.type ASC, pn.name ASC, pn.id ASC
+                    ) AS rn
+                FROM project_nodes pn
+                WHERE pn.project_id = ${projectId}::uuid
+                  AND pn.deleted_at IS NULL
+                  AND pn.task_id IS NULL
+                  AND pn.path NOT LIKE '/.system%'
+                  AND (
+                      ${hasNullParent ? sql`pn.parent_id IS NULL` : sql`false`}
+                      ${hasNullParent && nonNullParents.length > 0 ? sql`OR` : sql``}
+                      ${nonNullParents.length > 0 ? sql`pn.parent_id = ANY(${nonNullParents}::uuid[])` : sql``}
+                  )
+            )
+            SELECT 
+                id, project_id AS "projectId", parent_id AS "parentId",
+                type, name, path, s3_key AS "s3Key", size, mime_type AS "mimeType",
+                task_id AS "taskId", current_version AS "currentVersion",
+                created_by AS "createdBy", created_at AS "createdAt",
+                updated_at AS "updatedAt", deleted_at AS "deletedAt",
+                sync_status AS "syncStatus", metadata
+            FROM ranked_nodes 
+            WHERE rn <= ${MAX_BATCH_FETCH_PER_PARENT}
+            ORDER BY type ASC, name ASC, id ASC
+            LIMIT ${MAX_BATCH_FETCH_TOTAL}
+        `)) as unknown as ProjectNode[];
+
+        const out = Array.from(rawRows);
+        if (out.length >= MAX_BATCH_FETCH_TOTAL) {
+            logger.metric("files.batch_fetch.cap_hit", {
+                module: "files",
+                projectId,
+                requestedParents: cleanParents.length,
+                fetchedRows: out.length,
+                cap: MAX_BATCH_FETCH_TOTAL,
+            });
         }
 
         const enriched = await enrichNodesWithLatestVersionAttribution(out);
@@ -427,8 +434,9 @@ export async function getNodesByIds(projectId: string, nodeIds: string[]) {
                 eq(projectNodes.projectId, projectId),
                 isNull(projectNodes.deletedAt),
                 canReadProjectTaskFiles(access) ? sql`true` : sql`${projectNodes.taskId} IS NULL AND ${projectNodes.path} NOT LIKE '/.system%'`,
-                inArray(projectNodes.id, unique),
+                inArray(projectNodes.id, unique.slice(0, 200)),
             ),
+            limit: 200,
         });
         return await enrichNodesWithLatestVersionAttribution(nodes);
     });
@@ -535,8 +543,7 @@ export async function getTaskWorkingFilesCollection(
                     ? await getTaskLinkCounts(projectId, fileIds)
                     : {};
 
-                // ponytail: hydrate the collection and every task folder in
-                // one store commit so task navigation has no lazy-load gap.
+                // ponytail: hydrate collection and task folders in one store commit to eliminate lazy-load gap. ceiling: single-project task files collection. upgrade: cursor-based pagination if task files exceed 500.
                 const folderPayloads = [
                     {
                         parentId: collection.id,

@@ -5,6 +5,7 @@ import { FileTreeRow } from "./FileTreeRow";
 import { Button } from "@/components/ui/button";
 import {
     ChevronDown,
+    FolderPlus,
     Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -73,18 +74,23 @@ export function FileTreeItem({
 }) {
     if (row.kind === "empty") {
       return (
-        <div className="p-8 text-center text-zinc-500 text-sm">
-          <div className="font-semibold text-zinc-900 dark:text-zinc-100">{context.projectName || "Project"}</div>
-          <div className="mt-1">No files yet. Create a folder or a file to start.</div>
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <Button size="sm" onClick={() => context.openCreate("folder")} disabled={!context.canEdit}>
-              <Plus className="w-4 h-4 mr-2" />
-              New folder
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => context.openCreate("file")} disabled={!context.canEdit}>
-              <Plus className="w-4 h-4 mr-2" />
-              New file
-            </Button>
+        <div className="p-4">
+          <div className="nb-empty-state nb-grid-ground p-6 text-center" role="status">
+            <div className="nb-empty-state-icon-box mb-3">
+              <FolderPlus className="nb-empty-state-icon" />
+            </div>
+            <div className="nb-card-title text-foreground">{context.projectName || "Project"}</div>
+            <div className="nb-compact mt-1 text-muted-foreground">No files yet. Create a folder or a file to start.</div>
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <Button size="sm" onClick={() => context.openCreate("folder")} disabled={!context.canEdit}>
+                <Plus className="w-4 h-4 mr-2" />
+                New folder
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => context.openCreate("file")} disabled={!context.canEdit}>
+                <Plus className="w-4 h-4 mr-2" />
+                New file
+              </Button>
+            </div>
           </div>
         </div>
       );
@@ -96,7 +102,7 @@ export function FileTreeItem({
         key={i}
         className={cn(
           "w-4 h-full flex-shrink-0 border-l transition-colors",
-          active ? "border-zinc-200 dark:border-zinc-800" : "border-transparent"
+          active ? "border-[#DBD5C8] dark:border-white/10" : "border-transparent"
         )}
       />
     ));
@@ -104,12 +110,12 @@ export function FileTreeItem({
     // Loading Row
     if (row.kind === "loading") {
       return (
-        <div className="flex items-center h-[22px] [@media(pointer:coarse)]:h-11 pointer-events-none opacity-60">
+        <div className="flex items-center h-8 [@media(pointer:coarse)]:h-11 pointer-events-none opacity-60">
           {guides}
           <div className="w-4 h-full" />
           <div className="flex items-center gap-2 ml-1 mt-0.5 w-full max-w-[140px]">
-             <div className="w-3.5 h-3.5 rounded-[3px] bg-zinc-200 dark:bg-zinc-700 animate-pulse shrink-0" />
-             <div className="h-2.5 bg-zinc-200 dark:bg-zinc-700 rounded-[2px] animate-pulse w-full" />
+             <div aria-hidden="true" className="nb-skeleton h-3.5 w-3.5 shrink-0 rounded-[3px]" />
+             <div aria-hidden="true" className="nb-skeleton h-2.5 w-full rounded-[2px]" />
           </div>
         </div>
       );
@@ -118,7 +124,7 @@ export function FileTreeItem({
     if (row.kind === "load-more") {
         return (
         <div 
-            className="flex items-center h-[22px] [@media(pointer:coarse)]:h-11 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer text-blue-500 hover:text-blue-600"
+            className="flex items-center h-8 [@media(pointer:coarse)]:h-11 hover:bg-[#F3F0EA] dark:hover:bg-white/5 cursor-pointer text-[#D14E24] hover:text-[#B23F1C]"
             onClick={(e) => {
                 e.stopPropagation();
                 const pid = row.parentId === "root" ? null : row.parentId;
@@ -127,8 +133,8 @@ export function FileTreeItem({
         >
             {guides}
             <div className="w-4 h-full" />
-            <div className="ml-2 flex items-center gap-1 text-xs font-medium">
-            <ChevronDown className="w-3 h-3 opacity-50" />
+            <div className="ml-2 flex items-center gap-1 text-xs font-mono font-medium">
+            <ChevronDown className="w-3 h-3 opacity-70" />
                 Load more...
             </div>
         </div>
@@ -139,7 +145,7 @@ export function FileTreeItem({
     const node = context.nodesById[row.nodeId];
     // ponytail: a virtualized row must always have measurable height. A node
     // can disappear between the row calculation and the next context update.
-    if (!node) return <div aria-hidden="true" className="h-[22px] [@media(pointer:coarse)]:h-11" />;
+    if (!node) return <div aria-hidden="true" className="h-8 [@media(pointer:coarse)]:h-11" />;
 
     const expanded = !!context.expandedFolderIds[node.id];
     // Multi-select check + Single select check
@@ -196,7 +202,7 @@ export function FileTreeItem({
                 <div className="flex items-center gap-1">
                   {isFolder && folderSize !== undefined && folderSize > 0 ? (
                     <span
-                      className="text-[9px] px-1 rounded-sm bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 flex-shrink-0 font-mono tabular-nums"
+                      className="text-[11px] px-1 rounded-[3px] bg-[#F3F0EA] border border-[#DBD5C8] text-[#4C5A61] dark:bg-muted dark:text-muted-foreground dark:border-border flex-shrink-0 font-mono tabular-nums"
                       title={`${folderSize.toLocaleString()} bytes total`}
                     >
                       {folderSize < 1024 ? `${folderSize} B` : folderSize < 1048576 ? `${(folderSize / 1024).toFixed(0)}K` : `${(folderSize / 1048576).toFixed(1)}M`}
@@ -204,7 +210,7 @@ export function FileTreeItem({
                   ) : null}
                   {lock ? (
                     <span
-                      className="text-[9px] px-1 rounded-sm bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 flex-shrink-0 font-mono"
+                      className="text-[11px] px-1 rounded-[3px] border border-[#F6E7C2] bg-[#FBF4E2] text-[#9A6B00] dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60 flex-shrink-0 font-mono"
                       title={`Being edited ${lock.clientKind === "vscode" ? "in VS Code " : ""}by ${lock.lockedByName?.trim() || "a collaborator"}`}
                     >
                       {lock.clientKind === "vscode" ? "VS Code" : "editing"}

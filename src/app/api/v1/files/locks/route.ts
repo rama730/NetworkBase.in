@@ -15,7 +15,11 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     await assertProjectFileReadAccess(projectId.data, user?.id ?? null);
-    return jsonSuccess({ locks: await getProjectFileLeases(projectId.data) });
+    return jsonSuccess(
+      { locks: await getProjectFileLeases(projectId.data) },
+      undefined,
+      { headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=30" } },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load file leases";
     if (/unauthorized/i.test(message)) return jsonError(message, 401, "UNAUTHORIZED");

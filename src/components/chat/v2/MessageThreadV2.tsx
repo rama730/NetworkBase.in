@@ -110,6 +110,25 @@ export function MessageThreadV2({
         return () => { mountedRef.current = false; clearTimeout(timer); };
     }, []);
 
+    // Sync visualViewport height dynamically on mobile devices
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.visualViewport) return;
+
+        const handleResize = () => {
+            if (rootRef.current && window.visualViewport) {
+                rootRef.current.style.maxHeight = `${window.visualViewport.height}px`;
+            }
+        };
+
+        window.visualViewport.addEventListener('resize', handleResize);
+        window.visualViewport.addEventListener('scroll', handleResize);
+
+        return () => {
+            window.visualViewport?.removeEventListener('resize', handleResize);
+            window.visualViewport?.removeEventListener('scroll', handleResize);
+        };
+    }, []);
+
     // Delivery acknowledgements fire once per incoming unread message. Read
     // state is owned by the visible-message watermark below.
     const { user } = useAuth();
@@ -142,7 +161,8 @@ export function MessageThreadV2({
     const { enqueueReceipts: ackDelivery } = useMessageReceiptBuffer({
         viewerId,
         conversationId,
-        flushIntervalMs: 120,
+        // ponytail: 1-second batching consolidates delivery receipt writes during active scrolling. ceiling: 1000ms flushIntervalMs. upgrade: immediate write if delivery indicator SLA is reduced to sub-second.
+        flushIntervalMs: 1000,
         recordReceipts: recordDeliveryReceipts,
     });
     const ackedMessageIdsRef = useRef<Set<string>>(new Set());
@@ -379,7 +399,7 @@ export function MessageThreadV2({
             pendingFocusMessageIdRef.current = null;
             isFocusNavigationRef.current = true;
             setHasFocusTopInset(true);
-            // ponytail: Virtuoso scrollToIndex uses the local data index; firstItemIndex is render bookkeeping only.
+            // ponytail: Virtuoso scrollToIndex uses the local data index; firstItemIndex is render bookkeeping only. ceiling: local messageDataIndexById map. upgrade: absolute offset calculation if virtual list uses dynamic non-uniform prepend.
             setFocusedMessage({ id: messageId });
             return true;
         }
@@ -581,7 +601,7 @@ export function MessageThreadV2({
                 <>
                     {contextJumpState ? (
                         <div className={isPopup ? 'px-3 pt-2' : 'px-3 pt-2'}>
-                            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-primary/15 bg-primary/5 px-3 py-2 text-xs text-primary">
+                            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-xs text-primary">
                                 <span className="font-semibold uppercase tracking-wide">Viewing original message</span>
                                 <span className="text-primary/80">
                                     {contextJumpState.hasOlderContext && contextJumpState.hasNewerContext
@@ -740,7 +760,7 @@ export function MessageThreadV2({
 
 function ThreadUnreadDivider({ count }: { count: number }) {
     return (
-        <Marker className="flex items-center gap-2 text-[10px] tracking-wider text-red-500 my-2">
+        <Marker className="flex items-center gap-2 text-[11px] tracking-wider text-red-500 my-2">
             <div className="h-px flex-1 bg-red-200 dark:bg-red-900/40" />
             <span className="px-2 py-0.5 rounded bg-red-50 dark:bg-red-950/40 border border-red-200/40 dark:border-red-900/60 font-semibold">
                 {count} Unread Message{count === 1 ? '' : 's'}
@@ -752,7 +772,7 @@ function ThreadUnreadDivider({ count }: { count: number }) {
 
 function ThreadDateGroupHeader({ label }: { label: string }) {
     return (
-        <Marker className="flex items-center gap-2 text-[10px] tracking-wider text-muted-foreground my-2">
+        <Marker className="flex items-center gap-2 text-[11px] tracking-wider text-muted-foreground my-2">
             <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
             <span className="px-2 py-0.5 rounded bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/40 dark:border-zinc-800/60 font-semibold">{label}</span>
             <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
@@ -765,7 +785,7 @@ function ThreadBottomSentinel({
 }: {
     typingVisible: boolean;
 }) {
-    const baseHeight = 76;
+    const baseHeight = 16;
     const height = typingVisible ? baseHeight + 28 : baseHeight;
     return (
         <div
@@ -780,7 +800,7 @@ function OlderMessagesLoader({ visible }: { visible: boolean }) {
     return (
         <div className="flex justify-center px-4 pb-3 pt-12" role="status" aria-live="polite">
             <div className={cn(
-                "inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur-md transition-opacity duration-200",
+                "inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-none backdrop-blur-none transition-opacity duration-[180ms]",
                 "opacity-100"
             )}>
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

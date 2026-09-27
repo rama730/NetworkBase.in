@@ -159,6 +159,21 @@ export async function prepareCoverImageForUpload(
     file: File,
     options: PrepareCoverImageOptions,
 ): Promise<PreparedImageUpload> {
+    // ponytail: preserve animated GIF frames by bypassing 2D canvas rasterization
+    const isGif = file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif");
+    if (isGif) {
+        if (file.size > options.maxBytes) {
+            throw new Error(`GIF image must be under ${Math.round(options.maxBytes / (1024 * 1024))}MB.`);
+        }
+        return {
+            blob: file.type === "image/gif" ? file : new Blob([file], { type: "image/gif" }),
+            contentType: "image/gif",
+            originalSize: file.size,
+            optimizedSize: file.size,
+            optimized: false,
+        };
+    }
+
     const image = await loadImage(file);
     const outputType = options.outputType ?? "image/jpeg";
     assertPositiveImageDimension(options.width, "Target width");
@@ -235,6 +250,21 @@ export async function prepareProjectImageForUpload(
     file: File,
     options: PrepareProjectImageOptions,
 ): Promise<PreparedImageUpload> {
+    // ponytail: preserve animated GIF frames by bypassing 2D canvas rasterization
+    const isGif = file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif");
+    if (isGif) {
+        if (file.size > options.maxBytes) {
+            throw new Error(`GIF avatar must be under ${Math.round(options.maxBytes / (1024 * 1024))}MB.`);
+        }
+        return {
+            blob: file.type === "image/gif" ? file : new Blob([file], { type: "image/gif" }),
+            contentType: "image/gif",
+            originalSize: file.size,
+            optimizedSize: file.size,
+            optimized: false,
+        };
+    }
+
     const image = await loadImage(file);
     const outputType = options.outputType ?? "image/jpeg";
     const sizeSteps = [1, 0.85, 0.7, 0.55].map((scale) => Math.max(1, Math.round(options.size * scale)));

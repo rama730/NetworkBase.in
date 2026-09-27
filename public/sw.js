@@ -22,7 +22,7 @@ self.addEventListener("push", (event) => {
     ? payload.title
     : "New notification";
   const body = typeof payload.body === "string" ? payload.body.slice(0, 240) : "";
-  const icon = typeof payload.icon === "string" && payload.icon.length > 0 ? payload.icon : "/favicon.ico";
+  const icon = typeof payload.icon === "string" && payload.icon.length > 0 ? payload.icon : "/icon-ink-192.png";
   const tag = typeof payload.tag === "string" && payload.tag.length > 0 ? payload.tag : "notification";
   const href = typeof payload.href === "string" ? payload.href : null;
 
@@ -31,7 +31,7 @@ self.addEventListener("push", (event) => {
       body,
       icon,
       tag,
-      badge: "/favicon.ico",
+      badge: "/icon-ink-64.png",
       data: { href, id: payload.id || null },
       requireInteraction: false,
     }),

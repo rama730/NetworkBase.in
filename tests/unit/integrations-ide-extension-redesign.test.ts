@@ -4,21 +4,21 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 describe("IDE & Editor Extensions Redesign Contract", () => {
-  it("IntegrationsSettings renames the section to IDE & Editor Extensions with universal messaging", () => {
+  it("uses the shared settings structure with universal editor messaging", () => {
     const filePath = path.resolve(process.cwd(), "src/components/settings/IntegrationsSettings.tsx");
     const content = fs.readFileSync(filePath, "utf-8");
 
-    // Title should be renamed to IDE & Editor Extensions
-    assert.ok(content.includes('title="IDE & Editor Extensions"'), "Must rename section to 'IDE & Editor Extensions'");
+    assert.ok(content.includes('title="Editor connections"'), "Must use the concise settings section title");
 
     // Universal copy without mentioning specific IDEs in the general card description
     assert.ok(
-      content.includes('description="Manage authorized sessions and manual authentication tokens for all supported editors."'),
+      content.includes('description="Manage authorized editor sessions and fallback sign-in tokens."'),
       "Must state universal editor description",
     );
 
-    // Banner card with 'E' icon was removed per user requirement
-    assert.ok(!content.includes("ExtensionAppCard"), "Must remove ExtensionAppCard banner");
+    assert.ok(content.includes("ExtensionAppCard"), "Must identify the NetworkBase editor extension");
+    assert.ok(content.includes("SettingsRow"), "Must use shared settings rows");
+    assert.ok(!/(?:bg|text|border)-(?:zinc|amber|emerald|blue|red)-/.test(content), "Must use semantic design tokens");
 
     // Must NOT mention specific IDEs
     assert.ok(
@@ -55,10 +55,10 @@ describe("IDE & Editor Extensions Redesign Contract", () => {
     assert.ok(content.includes("activeSessions"), "Must compute activeSessions");
     assert.ok(content.includes("pendingSessions"), "Must compute pendingSessions");
 
-    // Active Sessions header displays count
+    // The compact session summary displays both counts.
     assert.ok(
-      content.includes("Active Sessions ({activeSessions.length})"),
-      "Active Sessions header must reflect activeSessions.length",
+      content.includes("{activeSessions.length} active · {pendingSessions.length} pending"),
+      "Session summary must distinguish active and pending sessions",
     );
 
     // Removed sections per user requirements

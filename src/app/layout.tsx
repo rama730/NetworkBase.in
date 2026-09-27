@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { SecurityRuntimeProvider } from "@/components/providers/SecurityRuntimeProvider";
@@ -15,14 +15,23 @@ import { buildThemePrehydrateScript } from "@/lib/theme/appearance";
 import { RoutePerformanceObserver } from "@/components/observability/RoutePerformanceObserver";
 import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const instrumentSans = localFont({
+  src: "./fonts/InstrumentSans.ttf",
+  variable: "--font-instrument-sans",
+  weight: "400 700",
+  display: "swap",
 });
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const jetbrainsMono = localFont({
+  src: "./fonts/JetBrainsMono.ttf",
+  variable: "--font-jetbrains-mono",
+  weight: "100 800",
+  display: "swap",
+});
+const instrumentSerif = localFont({
+  src: "./fonts/InstrumentSerif.ttf",
+  variable: "--font-instrument-serif",
+  weight: "400",
+  display: "swap",
 });
 
 const THEME_PREHYDRATE_SCRIPT = buildThemePrehydrateScript();
@@ -37,6 +46,15 @@ export const metadata: Metadata = {
   metadataBase: APP_METADATA_BASE,
   applicationName: "NetworkBase",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-ink-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-ink-180.png", sizes: "180x180", type: "image/png" }],
+    other: [{ rel: "mask-icon", url: "/icon-mono.svg", color: "#D14E24" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -47,10 +65,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: import("next").Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
-  ],
+  // The installed application and browser chrome use the brand's fixed Ink
+  // field. Page surfaces still respond independently to the chosen theme.
+  themeColor: "#141A1E",
   colorScheme: "light dark",
   width: "device-width",
   initialScale: 1,
@@ -75,7 +92,7 @@ async function I18nAndThemeProviders({
           <TooltipProvider>
             <RoutePerformanceObserver />
             {children}
-            <Toaster position="top-right" />
+            <Toaster />
             <CookieConsentRuntime analyticsAvailable={SHOULD_RENDER_VERCEL_ANALYTICS} />
           </TooltipProvider>
         </QueryProvider>
@@ -97,7 +114,7 @@ export default async function RootLayout({
   return (
     <html lang="en" data-scroll-behavior="smooth" data-csp-nonce={nonce} suppressHydrationWarning>
       <head>
-        <meta content="#ffffff" data-app-theme-color="true" name="theme-color" />
+        <meta content="#141A1E" data-app-theme-color="true" name="theme-color" />
         <script
           id="theme-prehydrate"
           nonce={nonce}
@@ -105,7 +122,7 @@ export default async function RootLayout({
           suppressHydrationWarning
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body className={`${instrumentSans.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <SecurityRuntimeProvider nonce={nonce ?? null}>
           <Suspense fallback={<div className="min-h-screen w-full bg-zinc-50 dark:bg-zinc-950" />}>
             <I18nAndThemeProviders nonce={nonce ?? undefined}>

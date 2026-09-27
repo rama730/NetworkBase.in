@@ -14,7 +14,17 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const DEBOUNCE_SECONDS = 300; // 5 minutes
+const MAX_LOCAL_HEARTBEATS = 2_000;
 const localHeartbeatDebounce = new Map<string, number>();
+let lastPruneAt = 0;
+
+function pruneExpiredDebounceEntries(now: number) {
+    if (now - lastPruneAt < 10_000) return;
+    lastPruneAt = now;
+    for (const [entryKey, expiresAt] of localHeartbeatDebounce.entries()) {
+        if (expiresAt <= now) localHeartbeatDebounce.delete(entryKey);
+    }
+}
 
 function shouldUseRedisPresenceHeartbeat() {
     return process.env.NODE_ENV === 'production';
@@ -25,9 +35,12 @@ function isLocallyDebounced(key: string) {
     const existing = localHeartbeatDebounce.get(key);
     if (existing && existing > now) return true;
 
-    if (localHeartbeatDebounce.size > 5_000) {
-        for (const [entryKey, expiresAt] of localHeartbeatDebounce.entries()) {
-            if (expiresAt <= now) localHeartbeatDebounce.delete(entryKey);
+    if (localHeartbeatDebounce.size > MAX_LOCAL_HEARTBEATS) {
+        pruneExpiredDebounceEntries(now);
+        while (localHeartbeatDebounce.size > MAX_LOCAL_HEARTBEATS) {
+            const oldest = localHeartbeatDebounce.keys().next().value;
+            if (!oldest) break;
+            localHeartbeatDebounce.delete(oldest);
         }
     }
 
@@ -35,12 +48,16 @@ function isLocallyDebounced(key: string) {
 }
 
 function markLocallyDebounced(key: string) {
+    if (localHeartbeatDebounce.size >= MAX_LOCAL_HEARTBEATS) {
+        const oldest = localHeartbeatDebounce.keys().next().value;
+        if (oldest) localHeartbeatDebounce.delete(oldest);
+    }
     localHeartbeatDebounce.set(key, Date.now() + DEBOUNCE_SECONDS * 1000);
 }
 
 export async function POST(request: NextRequest) {
     try {
-        const csrfError = await validateCsrf(request);
+        const csrfError = validateCsrf(request);
         if (csrfError) return csrfError;
         const rlResponse = await enforceRouteLimit(request, 'api:v1:presence:heartbeat', 30, 60);
         if (rlResponse) return rlResponse;
@@ -57,6 +74,10 @@ export async function POST(request: NextRequest) {
         // Debounce: only update DB if last update was more than 5 minutes ago
         const debounceKey = `presence:heartbeat:${auth.userId}:${sessionId}`;
 
+        if (isLocallyDebounced(debounceKey)) {
+            return jsonSuccess({ updated: false });
+        }
+
         const redis = shouldUseRedisPresenceHeartbeat() ? getRedisClient() : null;
         if (shouldUseRedisPresenceHeartbeat()) {
             if (!redis) {
@@ -64,10 +85,9 @@ export async function POST(request: NextRequest) {
             }
             const already = await redis.get(debounceKey);
             if (already) {
+                markLocallyDebounced(debounceKey);
                 return jsonSuccess({ updated: false });
             }
-        } else if (isLocallyDebounced(debounceKey)) {
-            return jsonSuccess({ updated: false });
         }
 
         try {
@@ -95,6 +115,7 @@ export async function POST(request: NextRequest) {
             throw error;
         }
 
+        markLocallyDebounced(debounceKey);
         if (redis) {
             await redis.set(debounceKey, '1', { ex: DEBOUNCE_SECONDS }).catch((error) => {
                 logger.warn("presence.heartbeat_debounce_commit_failed", {
@@ -104,8 +125,6 @@ export async function POST(request: NextRequest) {
                     error: error instanceof Error ? error.message : String(error),
                 });
             });
-        } else {
-            markLocallyDebounced(debounceKey);
         }
 
         return jsonSuccess({ updated: true });

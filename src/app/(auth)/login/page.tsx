@@ -1,5 +1,7 @@
 'use client'
 
+import Logo from "@/components/layout/header/Logo";
+
 import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -85,7 +87,7 @@ function LoginPageInner() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
-    const [showEmailFields, setShowEmailFields] = useState(false)
+    const [showEmailFields, setShowEmailFields] = useState(true)
     const [isSignInLoading, setIsSignInLoading] = useState(false)
     const [oauthProviderLoading, setOauthProviderLoading] = useState<'google' | 'github' | null>(null)
     const [signInError, setSignInError] = useState<string | null>(null)
@@ -359,18 +361,19 @@ function LoginPageInner() {
     }
 
     return (
-        <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
+        <main className="min-h-dvh w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
             <GoogleOneTap nextPath={redirectPath} onError={setSignInError} />
             {/* Left Panel: Clean Interactive Authentication View */}
-            <div className="flex flex-col justify-center items-center py-8 sm:py-12 px-6 sm:px-10 lg:px-12 xl:p-16 w-full min-h-screen">
-                <div className="w-full max-w-md my-auto sm:mt-2 transition-all duration-300 ease-out">
+            <div className="flex flex-col justify-center items-center py-8 sm:py-12 px-6 sm:px-10 lg:px-12 xl:p-16 w-full min-h-dvh">
+                <div className="w-full max-w-md my-auto sm:mt-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms] ease-out">
 
+                    <div className="mb-10"><Logo /></div>
                     {/* 1. Anchored Title Header (Smooth in-place text update) */}
                     <div className="space-y-1.5 mb-6">
-                        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight transition-opacity duration-200">
+                        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight transition-opacity duration-[180ms]">
                             {isSignUp ? 'Create an account' : 'Welcome back'}
                         </h1>
-                        <p className="text-sm text-muted-foreground transition-opacity duration-200">
+                        <p className="text-sm text-muted-foreground transition-opacity duration-[180ms]">
                             {isSignUp
                                 ? 'Join NetworkBase and build with your network'
                                 : 'Sign in to your NetworkBase account'}
@@ -444,7 +447,7 @@ function LoginPageInner() {
                         {/* Slide 1: Sign In View (Natural flow when active; password field glides left on sign-up) */}
                         <div
                             inert={isSignUp ? true : undefined}
-                            className={`w-full transition-all duration-400 ease-in-out ${
+                            className={`w-full transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[340ms] ease-in-out ${
                                 isSignUp
                                     ? 'absolute top-0 left-0 -translate-x-full opacity-0 pointer-events-none'
                                     : 'relative translate-x-0 opacity-100'
@@ -454,7 +457,7 @@ function LoginPageInner() {
                                 {displaySignInError && (
                                     <div
                                         role="alert"
-                                        className="mb-5 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-200"
+                                        className="mb-5 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-[180ms]"
                                     >
                                         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                                         <span>{displaySignInError}</span>
@@ -463,7 +466,8 @@ function LoginPageInner() {
 
                                 {/* Smooth Progressive Expansion: Mail and Password expand, pushing button in lockstep */}
                                 <div
-                                    className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
+                                    inert={!isEmailSectionOpen ? true : undefined}
+                                    className={`grid transition-[grid-template-rows,opacity,margin] duration-[260ms] ease-out ${
                                         isEmailSectionOpen
                                             ? 'grid-rows-[1fr] opacity-100 mb-6'
                                             : 'grid-rows-[0fr] opacity-0 mb-0 pointer-events-none'
@@ -526,7 +530,6 @@ function LoginPageInner() {
                                                 />
                                                 <button
                                                     type="button"
-                                                    tabIndex={-1}
                                                     onClick={() => setShowPassword(!showPassword)}
                                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
                                                     aria-label={showPassword ? 'Hide password' : 'Show password'}
@@ -567,7 +570,7 @@ function LoginPageInner() {
                                 {/* Sign In Button: Perfectly aligned, glides down with fields in lockstep */}
                                 <Button
                                     type="submit"
-                                    className="w-full h-11 font-medium shadow-sm transition-transform duration-200 active:scale-[0.99]"
+                                    className="w-full h-11 font-medium shadow-none transition-transform duration-[180ms] active:scale-[0.99]"
                                     disabled={isSignInBusy}
                                 >
                                     {isSignInLoading ? (
@@ -585,7 +588,7 @@ function LoginPageInner() {
                         {/* Slide 2: Sign Up View (Slides smoothly in from the right when Sign Up is clicked) */}
                         <div
                             inert={!isSignUp ? true : undefined}
-                            className={`w-full transition-all duration-400 ease-in-out ${
+                            className={`w-full transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[340ms] ease-in-out ${
                                 isSignUp
                                     ? 'relative translate-x-0 opacity-100'
                                     : 'absolute top-0 left-0 translate-x-full opacity-0 pointer-events-none'
@@ -615,7 +618,7 @@ function LoginPageInner() {
                                 {signUpError && (
                                     <div
                                         role="alert"
-                                        className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-200"
+                                        className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-[180ms]"
                                     >
                                         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                                         <span>{signUpError}</span>
@@ -623,7 +626,7 @@ function LoginPageInner() {
                                 )}
 
                                 {signUpSuccess && (
-                                    <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-200">
+                                    <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-[180ms]">
                                         <Check className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
                                         <span>{signUpSuccess}</span>
                                     </div>
@@ -675,7 +678,7 @@ function LoginPageInner() {
                                     />
                                     {/* Disposable Email Warning */}
                                     {isSignUpDisposable && (
-                                        <div className="flex items-center gap-1.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in-50 duration-200">
+                                        <div className="flex items-center gap-1.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in-50 duration-[180ms]">
                                             <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                                             <span>Please use a permanent email address (disposable emails are not permitted).</span>
                                         </div>
@@ -721,7 +724,7 @@ function LoginPageInner() {
 
                                     {/* Password Strength Indicator */}
                                     {signUpPassword && (
-                                        <div className="space-y-2 pt-2 animate-in fade-in-50 duration-200">
+                                        <div className="space-y-2 pt-2 animate-in fade-in-50 duration-[180ms]">
                                             <div className="flex gap-1">
                                                 {[1, 2, 3, 4].map((level) => (
                                                     <div
@@ -821,7 +824,7 @@ function LoginPageInner() {
                                         </button>
                                     </div>
                                     {signUpConfirmPassword && (
-                                        <div className="flex items-center gap-1.5 text-xs pt-0.5 animate-in fade-in-50 duration-200">
+                                        <div className="flex items-center gap-1.5 text-xs pt-0.5 animate-in fade-in-50 duration-[180ms]">
                                             {signUpPassword === signUpConfirmPassword ? (
                                                 <>
                                                     <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
@@ -850,7 +853,7 @@ function LoginPageInner() {
                                         />
                                     </div>
                                 ) : (
-                                    <div className="flex items-center justify-between p-3 rounded-xl border border-border/80 bg-muted/20 my-2 transition-colors">
+                                    <div className="flex items-center justify-between p-3 rounded-lg border border-border/80 bg-muted/20 my-2 transition-colors">
                                         <label className="flex items-center gap-2.5 cursor-pointer select-none">
                                             <input
                                                 type="checkbox"
@@ -914,7 +917,7 @@ function LoginPageInner() {
 
                                 <Button
                                     type="submit"
-                                    className="w-full h-11 font-medium shadow-sm transition-all duration-300"
+                                    className="w-full h-11 font-medium shadow-none transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms]"
                                     disabled={
                                         isSignUpLoading ||
                                         !signUpPasswordPolicy.ok ||
@@ -935,7 +938,7 @@ function LoginPageInner() {
                     </div>
 
                     {/* 5. Anchored Footer: Seamlessly glides down in lockstep with the fields */}
-                    <div className="mt-7 pt-5 border-t border-border/40 text-center space-y-3.5 transition-all duration-300 ease-out">
+                    <div className="mt-7 pt-5 border-t border-border/40 text-center space-y-3.5 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms] ease-out">
                         <p className="text-sm text-muted-foreground">
                             {isSignUp ? (
                                 <>
@@ -975,18 +978,18 @@ function LoginPageInner() {
 
 function LoginPageFallback() {
     return (
-        <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
-            <div className="flex flex-col justify-center items-center p-6 sm:p-10 lg:p-12 xl:p-16 w-full min-h-screen">
+        <main className="min-h-dvh w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
+            <div className="flex flex-col justify-center items-center p-6 sm:p-10 lg:p-12 xl:p-16 w-full min-h-dvh">
                 <div className="w-full max-w-md -mt-6 sm:-mt-10 space-y-4">
-                    <div className="h-8 w-48 bg-muted rounded-md animate-pulse" />
-                    <div className="h-4 w-64 bg-muted/60 rounded-md animate-pulse" />
+                    <div aria-hidden="true" className="nb-skeleton h-8 w-48 rounded-md" />
+                    <div aria-hidden="true" className="nb-skeleton h-4 w-64 rounded-md" />
                     <div className="grid grid-cols-2 gap-3 pt-4">
-                        <div className="h-11 bg-muted/40 rounded-md animate-pulse" />
-                        <div className="h-11 bg-muted/40 rounded-md animate-pulse" />
+                        <div aria-hidden="true" className="nb-skeleton h-11 rounded-md" />
+                        <div aria-hidden="true" className="nb-skeleton h-11 rounded-md" />
                     </div>
-                    <div className="h-11 bg-muted/40 rounded-md animate-pulse mt-4" />
-                    <div className="h-11 bg-muted/40 rounded-md animate-pulse" />
-                    <div className="h-11 bg-muted/60 rounded-md animate-pulse" />
+                    <div aria-hidden="true" className="nb-skeleton mt-4 h-11 rounded-md" />
+                    <div aria-hidden="true" className="nb-skeleton h-11 rounded-md" />
+                    <div aria-hidden="true" className="nb-skeleton h-11 rounded-md" />
                 </div>
             </div>
             <AuthAmbientCanvas />

@@ -1,179 +1,321 @@
-/*
- * Onboarding Design Tokens
- *
- * Spacing, typography, border-radius, and shadow tokens for the onboarding flow.
- * All color values reference existing CSS custom properties — no hardcoded colors.
- */
+/* Onboarding visual contract. The wizard uses the shared semantic theme. */
 
 :root {
-  /* ─── Spacing Scale ─── */
   --onb-space-xs: 4px;
   --onb-space-sm: 8px;
   --onb-space-md: 16px;
   --onb-space-lg: 24px;
   --onb-space-xl: 32px;
   --onb-space-2xl: 48px;
-
-  /* ─── Typography Scale ─── */
-  --onb-font-size-step-title: 1.5rem; /* 24px */
+  --onb-font-size-step-title: 1.875rem;
   --onb-font-weight-step-title: 600;
-  --onb-line-height-step-title: 1.3;
-
-  --onb-font-size-subtitle: 0.875rem; /* 14px */
+  --onb-line-height-step-title: 1.28;
+  --onb-font-size-subtitle: .8125rem;
   --onb-font-weight-subtitle: 400;
   --onb-line-height-subtitle: 1.5;
-
-  --onb-font-size-section-heading: 1rem; /* 16px */
-  --onb-font-weight-section-heading: 500;
-  --onb-line-height-section-heading: 1.4;
-
-  --onb-font-size-field-label: 0.875rem; /* 14px */
+  --onb-font-size-section-heading: 1.25rem;
+  --onb-font-weight-section-heading: 600;
+  --onb-line-height-section-heading: 1.28;
+  --onb-font-size-field-label: .8125rem;
   --onb-font-weight-field-label: 500;
-  --onb-line-height-field-label: 1.4;
-
-  --onb-font-size-field-hint: 0.75rem; /* 12px */
-  --onb-font-weight-field-hint: 400;
-  --onb-line-height-field-hint: 1.5;
-
-  --onb-font-size-chip: 0.8125rem; /* 13px */
-  --onb-font-weight-chip: 450;
-  --onb-line-height-chip: 1;
-
-  --onb-font-size-button: 0.875rem; /* 14px */
-  --onb-font-weight-button: 500;
-  --onb-line-height-button: 1;
-
-  /* ─── Border Radius ─── */
-  --onb-radius-card: var(--radius-xl); /* 14px — content card */
-  --onb-radius-input: var(--radius-md); /* 8px — input fields */
-  --onb-radius-chip: 9999px; /* full round — chips/tags */
-  --onb-radius-avatar: 9999px; /* circle — avatar */
-  --onb-radius-pill: var(--radius-lg); /* 10px — section nav pills */
-  --onb-radius-radio-card: var(--radius-lg); /* 10px — radio cards */
-
-  /* ─── Shadows ─── */
-  --onb-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
-  --onb-shadow-hover-radio: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --onb-line-height-field-label: 1.2;
+  --onb-radius-card: 8px;
+  --onb-radius-input: 5px;
+  --onb-radius-chip: 999px;
+  --onb-radius-avatar: 8px;
+  --onb-radius-radio-card: 8px;
+  --onb-shadow-soft: 0 1px 2px rgba(0, 0, 0, .05);
+  --onb-shadow-overlay: 0 12px 32px rgba(0, 0, 0, .12);
+  /* Component layer: onboarding controls inherit the semantic theme. */
+  --onb-control-bg: var(--card);
+  --onb-control-border: var(--border);
+  --onb-control-border-hover: color-mix(in srgb, var(--primary) 45%, var(--border));
+  --onb-control-selected-bg: color-mix(in srgb, var(--primary) 5%, var(--card));
+  --onb-control-focus: var(--ring);
+  --onb-feedback-error-bg: color-mix(in srgb, var(--destructive) 7%, var(--card));
+  --onb-feedback-error-border: color-mix(in srgb, var(--destructive) 35%, var(--border));
 }
 
-/* ─── Input Field Interaction States ─── */
-/*
- * .onb-input — Unified input styling for all onboarding form inputs.
- * Provides consistent default, focus, error, and disabled states.
- *
- * Default: 1px border (border token), background fill
- * Focus: 2px ring offset using ring token
- * Error: 1.5px destructive border, destructive/5 background
- * Disabled: border at 50% opacity, muted background
- *
- * Validates: Requirements 17.1, 17.2, 17.3, 17.4
- */
+.onb-page { background: var(--background); color: var(--foreground); }
+.onb-progress-rail { background: var(--card); }
+
+.onb-wordmark-kicker,
+.onb-step-kicker,
+.onb-section-kicker {
+  color: var(--muted-foreground);
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .09em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.onb-step-kicker { color: var(--primary); margin-bottom: 8px; }
+
+.onb-field { display: flex; flex-direction: column; gap: 6px; }
+
+.onb-field-label {
+  color: var(--foreground);
+  font-size: var(--onb-font-size-field-label);
+  font-weight: var(--onb-font-weight-field-label);
+  line-height: var(--onb-line-height-field-label);
+}
+
+.onb-field-hint,
+.onb-field-status { color: var(--muted-foreground); font-size: 13px; line-height: 1.5; }
+.onb-field-error { color: var(--destructive); font-size: 13px; line-height: 1.5; }
+.onb-required { color: var(--primary); }
 
 .onb-input {
-  /* Default state (Req 17.1): 1px border, background fill */
   border-width: 1px;
-  border-color: hsl(var(--border));
-  background-color: hsl(var(--background));
+  border-color: var(--input);
+  background-color: var(--card);
   border-radius: var(--onb-radius-input);
   outline: none;
-  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+  transition: border-color 130ms cubic-bezier(.2,.8,.3,1), background-color 130ms cubic-bezier(.2,.8,.3,1), box-shadow 130ms cubic-bezier(.2,.8,.3,1);
 }
 
-/* Focus state (Req 17.2): 2px ring offset using ring token */
+.onb-textarea,
+.onb-select-trigger {
+  border-width: 1px;
+  border-color: var(--input);
+  background-color: var(--card);
+  border-radius: var(--onb-radius-input);
+  outline: none;
+  transition: border-color 130ms cubic-bezier(.2,.8,.3,1), background-color 130ms cubic-bezier(.2,.8,.3,1), box-shadow 130ms cubic-bezier(.2,.8,.3,1);
+}
+
 .onb-input:focus-visible {
-  border-color: hsl(var(--ring));
-  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  outline: none;
 }
 
-/* Error state (Req 17.3): 1.5px destructive border, destructive/5 background */
+.onb-textarea:focus-visible,
+.onb-select-trigger:focus-visible,
+.onb-focusable:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  outline: none;
+}
+
 .onb-input[aria-invalid="true"],
 .onb-input.onb-input--error {
   border-width: 1.5px;
-  border-color: hsl(var(--destructive));
-  background-color: hsl(var(--destructive) / 0.05);
+  border-color: var(--destructive);
+  background-color: color-mix(in srgb, var(--destructive) 5%, var(--card));
 }
 
-/* Disabled state (Req 17.4): border at 50% opacity, muted background */
+.onb-textarea[aria-invalid="true"] {
+  border-width: 1.5px;
+  border-color: var(--destructive);
+  background-color: color-mix(in srgb, var(--destructive) 5%, var(--card));
+}
+
 .onb-input:disabled {
-  border-color: hsl(var(--border) / 0.5);
-  background-color: hsl(var(--muted));
-  pointer-events: none;
+  border-color: color-mix(in srgb, var(--border) 50%, transparent);
+  background-color: var(--muted);
   cursor: not-allowed;
-  opacity: 1; /* Don't dim the whole element — only border opacity changes */
+  opacity: 1;
+  pointer-events: none;
 }
 
-/* ─── Onboarding Stepper Animations ─── */
-
-/* Pulse animation for current step ring (2s infinite, opacity 0.2 → 0.4) */
-@keyframes pulse-step {
-  0%, 100% {
-    opacity: 0.2;
-  }
-  50% {
-    opacity: 0.4;
-  }
+.onb-textarea:disabled {
+  border-color: color-mix(in srgb, var(--border) 50%, transparent);
+  background-color: var(--muted);
+  cursor: not-allowed;
+  opacity: 1;
+  pointer-events: none;
 }
 
-.animate-pulse-step {
-  animation: pulse-step 2s ease-in-out infinite;
+.onb-textarea { min-height: 112px; padding: 10px 12px; resize: vertical; }
+.onb-skill-picker input[role="combobox"] {
+  border-color: var(--input);
+  border-radius: var(--onb-radius-input);
+  box-shadow: none;
+}
+.onb-skill-picker input[role="combobox"]:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+}
+.onb-skill-picker [aria-label="Selected skills"] > span {
+  border-color: var(--foreground);
+  background-color: var(--foreground);
+  color: var(--background);
+}
+.onb-skill-picker [aria-label="Selected skills"] button {
+  color: var(--background);
+}
+.onb-skill-picker [aria-label="Selected skills"] button:hover {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.onb-tab-list { border-bottom: 1px solid var(--border); }
+.onb-tab { border-bottom: 2px solid transparent; color: var(--muted-foreground); }
+.onb-tab[data-active="true"] { border-bottom-color: var(--primary); color: var(--foreground); }
+
+/* Step 4: privacy choices are purpose-built rather than generic form cards. */
+.onb-privacy-step { display: flex; flex-direction: column; }
+.onb-privacy-section { margin-top: var(--onb-space-xl); }
+.onb-privacy-section--separated {
+  border-top: 1px solid var(--border);
+  margin-top: var(--onb-space-xl);
+  padding-top: var(--onb-space-xl);
+}
+.onb-privacy-section-title {
+  color: var(--foreground);
+  font-size: var(--onb-font-size-section-heading);
+  font-weight: var(--onb-font-weight-section-heading);
+  letter-spacing: -.01em;
+  line-height: var(--onb-line-height-section-heading);
+  margin: var(--onb-space-sm) 0 0;
+}
+.onb-privacy-section-description {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: var(--onb-space-sm) 0 0;
+  max-width: 54ch;
+}
+.onb-privacy-choice-list {
+  display: grid;
+  gap: var(--onb-space-sm);
+  margin-top: var(--onb-space-md);
+}
+.onb-privacy-choice-option { position: relative; }
+.onb-privacy-choice-input {
+  height: 1px;
+  opacity: 0;
+  position: absolute;
+  width: 1px;
+}
+.onb-privacy-choice {
+  align-items: center;
+  background: var(--onb-control-bg);
+  border: 1px solid var(--onb-control-border);
+  border-radius: var(--onb-radius-radio-card);
+  color: var(--foreground);
+  display: flex;
+  gap: var(--onb-space-md);
+  justify-content: space-between;
+  cursor: pointer;
+  min-height: 64px;
+  padding: 12px 16px;
+  text-align: left;
+  transition: background-color 130ms cubic-bezier(.2,.8,.3,1), border-color 130ms cubic-bezier(.2,.8,.3,1), box-shadow 130ms cubic-bezier(.2,.8,.3,1), transform 80ms cubic-bezier(.2,.8,.3,1);
+}
+.onb-privacy-choice:hover { border-color: var(--onb-control-border-hover); }
+.onb-privacy-choice:active { transform: translateY(1px); }
+.onb-privacy-choice-input:checked + .onb-privacy-choice {
+  background: var(--onb-control-selected-bg);
+  border: 2px solid var(--primary);
+  padding: 11px 15px;
+}
+.onb-privacy-choice-input:focus-visible + .onb-privacy-choice {
+  border-color: var(--onb-control-focus);
+  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--onb-control-focus);
+}
+.onb-privacy-choice-copy { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.onb-privacy-choice-label { color: var(--foreground); font-size: 14px; font-weight: 600; line-height: 1.25; }
+.onb-privacy-choice-description { color: var(--muted-foreground); font-size: 13px; line-height: 1.4; }
+.onb-privacy-choice-indicator {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: flex;
+  flex: 0 0 auto;
+  height: 16px;
+  justify-content: center;
+  width: 16px;
+}
+.onb-privacy-choice-indicator > span { display: none; }
+.onb-privacy-choice-input:checked + .onb-privacy-choice .onb-privacy-choice-indicator { background: var(--primary); border-color: var(--primary); }
+.onb-privacy-choice-input:checked + .onb-privacy-choice .onb-privacy-choice-indicator > span { background: var(--primary-foreground); border-radius: 999px; display: block; height: 8px; width: 8px; }
+.onb-privacy-context {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: var(--onb-space-sm) 0 0;
+}
+.onb-privacy-disclosure {
+  border-left: 2px solid var(--primary);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: var(--onb-space-sm) 0 0;
+  padding-left: var(--onb-space-sm);
+}
+.onb-privacy-review {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--onb-radius-card);
+  display: grid;
+  gap: var(--onb-space-lg);
+  margin-top: var(--onb-space-xl);
+  padding: var(--onb-space-lg);
+}
+.onb-privacy-review-title {
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.28;
+  margin: var(--onb-space-sm) 0 0;
+}
+.onb-privacy-review-description { color: var(--muted-foreground); font-size: 13px; line-height: 1.5; margin: var(--onb-space-sm) 0 0; max-width: 54ch; }
+.onb-privacy-review-list { display: grid; gap: var(--onb-space-sm); margin: 0; }
+.onb-privacy-review-item {
+  align-items: baseline;
+  border-top: 1px solid var(--border);
+  display: flex;
+  font-size: 13px;
+  gap: var(--onb-space-md);
+  justify-content: space-between;
+  padding-top: var(--onb-space-sm);
+}
+.onb-privacy-review-item dt { color: var(--muted-foreground); }
+.onb-privacy-review-item dd { align-items: end; color: var(--foreground); display: flex; flex-direction: column; font-weight: 500; gap: 4px; margin: 0; text-align: right; }
+.onb-review-edit { background: none; border: 0; color: var(--primary); cursor: pointer; font-size: 12px; font-weight: 500; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+.onb-privacy-error { margin-top: var(--onb-space-md); }
+
+.onb-alert-error {
+  border: 1px solid var(--onb-feedback-error-border);
+  border-radius: var(--onb-radius-card);
+  background: var(--onb-feedback-error-bg);
+  color: var(--destructive);
+  padding: 12px;
 }
 
-/* Completed step circle fill animation (scale 0 → 1, 200ms ease) */
-@keyframes stepper-fill {
-  0% {
-    transform: scale(0);
-  }
-  100% {
-    transform: scale(1);
-  }
+.onb-action-primary {
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--onb-radius-input);
+  color: var(--primary-foreground);
+  transition: background-color 130ms cubic-bezier(.2,.8,.3,1), border-color 130ms cubic-bezier(.2,.8,.3,1), color 130ms cubic-bezier(.2,.8,.3,1), box-shadow 130ms cubic-bezier(.2,.8,.3,1), transform 80ms cubic-bezier(.2,.8,.3,1);
 }
 
-.animate-stepper-fill {
-  animation: stepper-fill 200ms ease forwards;
-  will-change: transform;
-}
+.onb-action-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+.onb-action-primary:active:not(:disabled) { background: var(--primary-active); border-color: var(--primary-active); transform: translateY(1px); }
+.onb-action-primary:focus-visible { box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring); }
+.onb-action-primary:disabled { cursor: not-allowed; opacity: .45; }
+.onb-footer-status { color: var(--muted-foreground); font-size: 12px; line-height: 1.35; margin: 0; max-width: 32ch; text-align: right; }
 
-/* Checkmark scale-in with spring-like overshoot (150ms) */
-@keyframes stepper-check {
-  0% {
-    transform: scale(0);
-  }
-  70% {
-    transform: scale(1.2);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
+.animate-pulse-step,
+.animate-stepper-fill,
+.animate-stepper-check,
+.animate-stepper-line-fill { animation: none; transform: none; }
 
-.animate-stepper-check {
-  animation: stepper-check 150ms ease forwards;
-  will-change: transform;
-}
-
-/* Line segment fill animation (scaleY 0 → 1, 300ms ease) */
-@keyframes stepper-line-fill {
-  0% {
-    transform: scaleY(0);
-  }
-  100% {
-    transform: scaleY(1);
-  }
-}
-
-.animate-stepper-line-fill {
-  animation: stepper-line-fill 300ms ease forwards;
-  transform-origin: top;
-  will-change: transform;
-}
-
-/* ─── Reduced Motion ─── */
 @media (prefers-reduced-motion: reduce) {
-  .animate-pulse-step,
-  .animate-stepper-fill,
-  .animate-stepper-check,
-  .animate-stepper-line-fill {
-    animation: none;
-    transform: none;
-  }
+  .onb-input,
+  .onb-textarea,
+  .onb-select-trigger,
+  .onb-action-primary { transition-duration: 0ms; }
+}
+
+@media (min-width: 768px) {
+  .onb-privacy-review-list { column-gap: var(--onb-space-xl); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .onb-footer-status { max-width: none; text-align: left; }
 }

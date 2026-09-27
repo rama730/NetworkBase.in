@@ -11,6 +11,8 @@ interface StepFooterProps {
   isLoading: boolean
   loadingLabel?: string
   nextLabel?: string
+  disabledReason?: string
+  saveStatus?: string
   onBack: () => void
   onNext: () => void
   onSubmit: () => void
@@ -23,6 +25,8 @@ export function StepFooter({
   isLoading,
   loadingLabel = "Saving...",
   nextLabel = "Continue",
+  disabledReason,
+  saveStatus,
   onBack,
   onNext,
   onSubmit,
@@ -33,7 +37,7 @@ export function StepFooter({
   return (
     <div
       className={cn(
-        "flex items-center justify-between border-t border-border pt-6",
+        "mt-8 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t border-border pt-6 pb-[max(0px,env(safe-area-inset-bottom))]",
         // Below 360px: stack buttons vertically at full width
         "max-[359px]:flex-col max-[359px]:gap-3"
       )}
@@ -57,34 +61,38 @@ export function StepFooter({
         </Button>
       )}
 
-      {/* Continue / Complete setup button */}
-      <button
-        type="button"
-        disabled={!canProceed || isLoading}
-        onClick={isFinalStep ? onSubmit : onNext}
-        className={cn(
-          "inline-flex items-center justify-center",
-          "h-[var(--ui-control-height)] min-h-[44px] min-w-[120px] px-5",
-          "rounded-md text-[14px] font-medium text-white",
-          "transition-colors",
-          "outline-none   ",
-          isFinalStep ? "app-accent-gradient" : "bg-primary hover:bg-primary/95 active:bg-primary/90",
-          (!canProceed || isLoading) && "opacity-50 pointer-events-none",
-          // Below 360px: full width, ordered first
-          "max-[359px]:w-full max-[359px]:order-1"
-        )}
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {loadingLabel}
-          </>
-        ) : isFinalStep ? (
-          "Complete setup"
-        ) : (
-          nextLabel
-        )}
-      </button>
+      <div className="ml-auto flex min-w-0 flex-col items-end gap-1 max-[359px]:order-1 max-[359px]:w-full max-[359px]:items-stretch">
+        <button
+          type="button"
+          disabled={!canProceed || isLoading}
+          aria-describedby={disabledReason || saveStatus ? 'onboarding-footer-status' : undefined}
+          onClick={isFinalStep ? onSubmit : onNext}
+          className={cn(
+            "inline-flex items-center justify-center",
+            "h-[var(--ui-control-height)] min-h-[44px] min-w-[120px] px-5",
+            "onb-action-primary text-[13px] font-medium",
+            "outline-none",
+            (!canProceed || isLoading) && "opacity-50 pointer-events-none",
+            "max-[359px]:w-full"
+          )}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              {loadingLabel}
+            </>
+          ) : isFinalStep ? (
+            "Finish profile"
+          ) : (
+            nextLabel
+          )}
+        </button>
+        {(disabledReason || saveStatus) ? (
+          <p id="onboarding-footer-status" className="onb-footer-status" role="status" aria-live="polite">
+            {isLoading ? loadingLabel : disabledReason || saveStatus}
+          </p>
+        ) : null}
+      </div>
     </div>
   )
 }

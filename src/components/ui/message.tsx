@@ -74,7 +74,7 @@ export const MessageFooter = React.forwardRef<HTMLDivElement, React.HTMLAttribut
         return (
             <div
                 ref={ref}
-                className={cn('flex items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500 font-medium px-1 mt-0', className)}
+                className={cn('flex items-center gap-1 text-[11px] text-zinc-400 dark:text-zinc-500 font-medium px-1 mt-0', className)}
                 {...props}
             >
                 {children}

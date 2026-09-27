@@ -29,6 +29,7 @@ import { useMessagingShortcuts } from '@/hooks/useMessagingShortcuts';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { usePresenceHealth } from '@/hooks/usePresenceHealth';
 import { useMessagesV2UiStore } from '@/stores/messagesV2UiStore';
+import { useUIStore } from '@/lib/stores/ui-store';
 import { cn } from '@/lib/utils';
 import {
     patchInboxConversation,
@@ -59,16 +60,17 @@ import { NewMessageModalV2 } from './NewMessageModalV2';
 import { findLatestApplicationEvent } from '@/lib/chat/application-events';
 import { formatMessagePreview } from '@/lib/messages/preview';
 import { ThreadSkeletonV2 } from './MessagesSurfaceSkeletons';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { MessageWithSender } from '@/app/actions/messaging';
 
 const ApplicationsListV2 = dynamic(
     () => import('./ApplicationsListV2').then((module) => module.ApplicationsListV2),
-    { loading: () => <div className="h-full animate-pulse bg-muted/20" aria-label="Loading applications" /> },
+    { loading: () => <Skeleton className="h-full w-full" aria-label="Loading applications" /> },
 );
 
 const ProjectGroupsListV2 = dynamic(
     () => import('./ProjectGroupsListV2').then((module) => module.ProjectGroupsListV2),
-    { loading: () => <div className="h-full animate-pulse bg-muted/20" aria-label="Loading project groups" /> },
+    { loading: () => <Skeleton className="h-full w-full" aria-label="Loading project groups" /> },
 );
 
 interface MessagesWorkspaceV2Props {
@@ -151,6 +153,8 @@ export function MessagesWorkspaceV2({
     initialSearchQuery = '',
 }: MessagesWorkspaceV2Props) {
     const compact = mode === 'popup';
+    const applicationSidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
+    const useEqualPagePanes = mode === 'page' && applicationSidebarCollapsed;
     const router = useRouter();
     const queryClient = useQueryClient();
     const { user } = useAuth();
@@ -1018,9 +1022,14 @@ export function MessagesWorkspaceV2({
             <div className="flex min-h-0 flex-1 overflow-hidden">
                 {showSidebar ? (
                     <aside
+                        data-messages-pane="conversation-list"
                         className={cn(
                             'flex min-h-0 flex-col border-r border-border/60 bg-card',
-                            compact ? 'w-full' : 'shrink-0 flex-1 min-w-[320px] max-w-[45%]',
+                            compact
+                                ? 'w-full'
+                                : useEqualPagePanes
+                                    ? 'w-full shrink-0 md:w-1/2 md:flex-[0_0_50%]'
+                                    : 'w-full shrink-0 md:w-[var(--msg-rail-width)]',
                             mode === 'page' && selectedConversationId ? 'hidden md:flex' : '',
                         )}
                         style={compact ? undefined : {}}
@@ -1033,7 +1042,7 @@ export function MessagesWorkspaceV2({
                                         <button
                                             type="button"
                                             data-testid="messages-tab-trigger"
-                                            className="flex items-center gap-1.5 text-base font-semibold text-foreground hover:opacity-80 transition-opacity"
+                                            className="nb-card-title flex items-center gap-2 text-foreground transition-opacity hover:opacity-80"
                                         >
                                             {activeTab === 'chats' ? 'Chats' : activeTab === 'applications' ? 'Applications' : 'Project Groups'}
                                             <ChevronDown className="h-4 w-4 opacity-60" />
@@ -1052,33 +1061,33 @@ export function MessagesWorkspaceV2({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             ) : (
-                                <h2 className="text-base font-semibold text-foreground">Messages</h2>
+                                <h2 className="nb-card-title text-foreground">Messages</h2>
                             )}
                             <div className="flex items-center gap-1.5">
                                 <button
                                     type="button"
                                     onClick={() => setMessageSearchVisibility(true)}
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                    className="nb-icon-button text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                     aria-label="Search messages"
                                     title="Search messages (⌘K)"
                                 >
-                                    <Search className="h-4 w-4" strokeWidth={2.2} />
+                                    <Search className="h-4 w-4" strokeWidth={1.75} />
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setNewMessageOpen(true)}
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                    className="nb-icon-button text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                     aria-label="New message"
                                     title="New message"
                                 >
-                                    <PenSquare className="h-4 w-4" strokeWidth={2.2} />
+                                    <PenSquare className="h-4 w-4" strokeWidth={1.75} />
                                 </button>
                                 {compact && (
                                     <>
                                         <button
                                             type="button"
                                             onClick={() => useMessagesV2UiStore.getState().setPopupState('minimized')}
-                                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors animate-fade-in"
+                                            className="nb-icon-button animate-fade-in text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                             aria-label="Minimize messages"
                                             title="Minimize"
                                         >
@@ -1089,7 +1098,7 @@ export function MessagesWorkspaceV2({
                                             onClick={() => {
                                                 useMessagesV2UiStore.getState().setPopupState('closed');
                                             }}
-                                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                            className="nb-icon-button text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                             aria-label="Close messages"
                                             title="Close"
                                         >
@@ -1186,8 +1195,12 @@ export function MessagesWorkspaceV2({
                 ) : null}
 
                 <section
+                    data-messages-pane="thread"
                     className={cn(
-                        'relative min-h-0 min-w-0 flex-[2] w-full max-w-4xl overflow-hidden bg-white dark:bg-zinc-950',
+                        'relative min-h-0 min-w-0 w-full overflow-hidden bg-white dark:bg-zinc-950',
+                        useEqualPagePanes
+                            ? 'md:w-1/2 md:max-w-none md:flex-[0_0_50%]'
+                            : 'max-w-4xl flex-[2]',
                         compact && !selectedConversationId ? 'hidden' : 'flex',
                         mode === 'page' && !selectedConversationId ? 'hidden md:flex' : '',
                     )}
@@ -1214,7 +1227,7 @@ export function MessagesWorkspaceV2({
                         <div className="relative flex flex-col min-h-0 min-w-0 flex-1 overflow-hidden bg-white dark:bg-zinc-950">
                             <DropZoneOverlay visible={isDragOver} />
                             {showLatestThreadRefresh ? (
-                                <div className="pointer-events-none absolute right-4 top-16 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/80 text-muted-foreground shadow-sm backdrop-blur">
+                                <div className="pointer-events-none absolute right-4 top-16 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-background/80 text-muted-foreground shadow-none backdrop-blur-none">
                                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                                 </div>
                             ) : null}
@@ -1327,8 +1340,8 @@ export function MessagesWorkspaceV2({
                                     }}
                                 />
 
-                                <div className="absolute inset-x-0 bottom-0 z-10 shrink-0 bg-gradient-to-t from-white via-white/80 to-transparent pb-4 pt-10 px-0 dark:from-black dark:via-black/80 dark:to-transparent pointer-events-none">
-                                    <div className="pointer-events-auto px-4 md:px-0">
+                                <div className="relative z-10 shrink-0 border-t border-border bg-card pointer-events-none">
+                                    <div className="pointer-events-auto min-w-0">
                                         <MessageComposerV2
                                             conversationId={selectedConversationId!}
                                             targetUserId={otherParticipant?.id}
@@ -1349,14 +1362,14 @@ export function MessagesWorkspaceV2({
                                 </div>
                         </div>
                     ) : selectedConversationId && thread.isError ? (
-                        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center" role="alert">
-                            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/10">
-                                <WifiOff className="h-8 w-8 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                        <div className="nb-empty-state m-auto" role="alert">
+                            <div className="mb-4 flex size-10 items-center justify-center rounded-md bg-[var(--status-warning-soft)]">
+                                <WifiOff className="size-6 text-[var(--status-warning)]" aria-hidden="true" />
                             </div>
-                            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                            <h2 className="nb-card-title text-foreground">
                                 {threadErrorPresentation.title}
                             </h2>
-                            <p className="mt-2 max-w-md text-sm text-zinc-500 dark:text-zinc-400">
+                            <p className="nb-compact mt-2 max-w-md text-muted-foreground">
                                 {threadErrorPresentation.description}
                             </p>
                             <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -1383,7 +1396,7 @@ export function MessagesWorkspaceV2({
                                                 });
                                             });
                                         }}
-                                        className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+                                        className="inline-flex h-[var(--ui-control-height)] items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
                                     >
                                         Retry
                                     </button>
@@ -1391,7 +1404,7 @@ export function MessagesWorkspaceV2({
                                 <button
                                     type="button"
                                     onClick={handleCloseConversation}
-                                    className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                                    className="inline-flex h-[var(--ui-control-height)] items-center rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-muted"
                                 >
                                     Back to messages
                                 </button>
@@ -1400,16 +1413,16 @@ export function MessagesWorkspaceV2({
                     ) : showPageInitialSkeleton ? (
                         <ThreadSkeletonV2 surface={mode} />
                     ) : (
-                        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-                            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                                <MessageSquare className="h-8 w-8 text-primary" />
+                        <div className="nb-empty-state m-auto">
+                            <div className="mb-4 flex size-10 items-center justify-center rounded-md bg-primary/10">
+                                <MessageSquare className="size-6 text-primary" />
                             </div>
-                            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Select a conversation</h2>
-                            <p className="mt-2 max-w-md text-sm text-zinc-500 dark:text-zinc-400">
+                            <h2 className="nb-card-title text-foreground">Select a conversation</h2>
+                            <p className="nb-compact mt-2 max-w-md text-muted-foreground">
                                 Open a chat, application thread, or project group to continue.
                             </p>
                             {targetUserId && !ensureConversationPending ? (
-                                <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950">
+                                <div className="nb-compact mt-4 rounded-lg border border-border bg-card p-4 text-muted-foreground">
                                     We couldn&apos;t open this conversation yet. Try refreshing the page.
                                 </div>
                             ) : null}
@@ -1473,7 +1486,7 @@ export function MessagesWorkspaceV2({
                                     placeholder="Search message text or attachment filenames…"
                                     className="h-10 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                                 />
-                                <kbd className="hidden rounded border border-border/60 bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline-block">Esc</kbd>
+                                <kbd className="hidden rounded border border-border/60 bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground sm:inline-block">Esc</kbd>
                             </div>
                             <div className="flex flex-wrap gap-1 pb-1 pl-6" aria-label="Message search filters">
                                 {['from:\"name\"', 'has:image', 'has:file', 'is:pinned', 'in:project'].map((filter) => (
@@ -1481,7 +1494,7 @@ export function MessagesWorkspaceV2({
                                         key={filter}
                                         type="button"
                                         onClick={() => setGlobalSearch((current) => `${current.trim()} ${filter}`.trim())}
-                                        className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                                        className="rounded-full border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
                                     >
                                         {filter}
                                     </button>
@@ -1545,14 +1558,14 @@ export function MessagesWorkspaceV2({
                                         onMouseMove={() => setActiveSearchIndex(index)}
                                         onClick={() => openSearchResult(result)}
                                         className={cn(
-                                            'flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-muted',
+                                            'flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-muted',
                                             activeSearchIndex === index ? 'bg-muted' : '',
                                         )}
                                     >
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center justify-between gap-2">
                                                 <span className="truncate text-sm font-medium text-foreground">{result.displayTitle}</span>
-                                                <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                                <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
                                                     {result.contextLabel}
                                                 </span>
                                             </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { ArrowLeft, BookOpen, Check, ChevronDown, CircleHelp, Code2, FileText, FolderUp, Github, Loader2, RefreshCcw, Sparkles } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, Loader2, RefreshCcw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
@@ -21,9 +21,15 @@ import {
 import type { GithubImportRepoItem } from '@/lib/github/import-types';
 import { areSealedImportTokensEqual, getSealedImportTokenFingerprint } from '@/lib/github/import-token-state';
 import { SkillList } from '@/components/skills/SkillList';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Phase1SourceMethodGroup, type ProjectSourceType } from '@/components/projects/create-wizard/phase1/Phase1SourceMethodGroup';
+import { buildUploadManifest, type UploadManifest } from '@/components/projects/create-wizard/phase1/upload-manifest';
+import { UploadManifestPreview } from '@/components/projects/create-wizard/phase1/UploadManifestPreview';
+import { GithubImportDetails } from '@/components/projects/create-wizard/phase1/GithubImportDetails';
+import { clearGithubOAuthResume, getCreateProjectReturnPath, saveGithubOAuthResume } from '@/components/projects/create-wizard/github-oauth-resume';
 
-
-type SourceType = 'scratch' | 'github' | 'upload';
+type SourceType = ProjectSourceType;
 
 type GithubPreviewEntry = {
     name: string;
@@ -38,35 +44,12 @@ type ImportSourceMetadata = Record<string, unknown> & {
     githubPreflightStatus?: 'idle' | 'ok' | 'error';
     githubPreflightError?: string | null;
     githubPreflightWarnings?: string[];
+    githubDescription?: string | null;
+    githubUpdatedAt?: string | null;
+    githubSizeKb?: number | null;
     importAuth?: unknown;
     fileCount?: number;
 };
-
-const sourceCards: Array<{
-    type: SourceType;
-    title: string;
-    description: string;
-    icon: typeof Code2;
-}> = [
-    {
-        type: 'scratch',
-        title: 'Start from Scratch',
-        description: 'Create a blank canvas. Best for new ideas and fresh starts.',
-        icon: Code2,
-    },
-    {
-        type: 'github',
-        title: 'Import from GitHub',
-        description: 'Import an existing repository and review it before project creation.',
-        icon: Github,
-    },
-    {
-        type: 'upload',
-        title: 'Upload Folder',
-        description: 'Use a local project folder and inspect the files before creating the project.',
-        icon: FolderUp,
-    },
-];
 
 function isGithubAccessRefreshError(message: string | null | undefined) {
     const normalized = (message || '').toLowerCase();
@@ -80,62 +63,22 @@ function isGithubAccessRefreshError(message: string | null | undefined) {
     );
 }
 
-const GITHUB_OAUTH_PENDING_STORAGE_KEY = 'create-project:github-oauth-pending';
-const GITHUB_OAUTH_PENDING_MAX_AGE_MS = 2 * 60 * 1000;
 const GITHUB_OAUTH_RETRY_DELAYS_MS = [250, 500, 1000, 1500];
-
-function markGithubOAuthPending() {
-    if (typeof window === 'undefined') return;
-    try {
-        window.sessionStorage.setItem(GITHUB_OAUTH_PENDING_STORAGE_KEY, String(Date.now()));
-    } catch {
-        // Ignore sessionStorage failures in private browsing or locked-down contexts.
-    }
-}
-
-function clearGithubOAuthPending() {
-    if (typeof window === 'undefined') return;
-    try {
-        window.sessionStorage.removeItem(GITHUB_OAUTH_PENDING_STORAGE_KEY);
-    } catch {
-        // Ignore sessionStorage failures in private browsing or locked-down contexts.
-    }
-}
-
-function hasRecentGithubOAuthPending() {
-    if (typeof window === 'undefined') return false;
-    try {
-        const raw = window.sessionStorage.getItem(GITHUB_OAUTH_PENDING_STORAGE_KEY)?.trim();
-        if (!raw) return false;
-        const startedAt = Number(raw);
-        if (!Number.isFinite(startedAt)) {
-            clearGithubOAuthPending();
-            return false;
-        }
-        const isFresh = Date.now() - startedAt <= GITHUB_OAUTH_PENDING_MAX_AGE_MS;
-        if (!isFresh) {
-            clearGithubOAuthPending();
-        }
-        return isFresh;
-    } catch {
-        return false;
-    }
-}
+const TREE_INDENT_CLASSES = ['pl-2', 'pl-5', 'pl-8', 'pl-11', 'pl-14', 'pl-16'];
 
 export default function Phase1SourceSelection({
     uploadFiles,
     setUploadFiles,
-    uploadProgress,
     githubPreview,
     githubFolderEntries,
     loadGithubFolder,
     startGithubRootPreview,
     initialSource = null,
     onSourceChange,
+    isResumingGithubOAuth = false,
 }: {
     uploadFiles: FileList | null;
     setUploadFiles: (files: FileList | null) => void;
-    uploadProgress: { percent: number; currentFile: string; isUploading: boolean } | null;
     githubPreview: {
         status: 'idle' | 'loading' | 'ready' | 'error';
         repoUrl: string;
@@ -145,23 +88,25 @@ export default function Phase1SourceSelection({
     };
     githubFolderEntries: Record<string, GithubPreviewEntry[]>;
     loadGithubFolder: (folderPath: string) => Promise<void>;
-    startGithubRootPreview: (repoUrl: string) => Promise<void>;
+    startGithubRootPreview: (repoUrl: string, branch?: string | null) => Promise<void>;
     initialSource?: SourceType | null;
     onSourceChange?: (source: SourceType | null) => void;
+    isResumingGithubOAuth?: boolean;
 }) {
     const { getValues, setValue, watch } = useFormContext<CreateProjectInput>();
     const importSourceType = watch('import_source.type') as SourceType | undefined;
     const repoUrl = watch('import_source.repoUrl');
     const branch = watch('import_source.branch');
-    const readmeMode = watch('readme.mode');
 
     const supabase = useMemo(() => createClient(), []);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const latestBranchRequestKeyRef = useRef('');
     const latestPreflightRequestKeyRef = useRef('');
-    const readmeAutoSignatureRef = useRef<string | null>(null);
+    const latestRepoAnalysisKeyRef = useRef('');
+    const uploadAnalysisControllerRef = useRef<AbortController | null>(null);
+    const uploadAnalysisSequenceRef = useRef(0);
 
-    const [activeSourceView, setActiveSourceView] = useState<SourceType | null>(() => {
+    const [activeSourceView, setActiveSourceView] = useState<SourceType>(() => {
         if (initialSource) {
             return initialSource;
         }
@@ -173,16 +118,24 @@ export default function Phase1SourceSelection({
         if (currentImportSource?.type === 'upload' && ((currentImportSource.s3Key || '').trim() || metadata.fileCount)) {
             return 'upload';
         }
-        return null;
+        return currentImportSource?.type ?? 'scratch';
     });
-    const [suppressImportSourceRehydration, setSuppressImportSourceRehydration] = useState(false);
-
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analysisResult, setAnalysisResult] = useState<{
+    const [isAnalyzingGithub, setIsAnalyzingGithub] = useState(false);
+    const [githubAnalysisResult, setGithubAnalysisResult] = useState<{
         title: string;
         description: string;
         technologies: string[];
     } | null>(null);
+    const [isAnalyzingUpload, setIsAnalyzingUpload] = useState(false);
+    const [uploadAnalysisResult, setUploadAnalysisResult] = useState<{
+        title: string;
+        description: string;
+        technologies: string[];
+    } | null>(null);
+    const [uploadAnalysisError, setUploadAnalysisError] = useState<string | null>(null);
+    const [uploadManifest, setUploadManifest] = useState<UploadManifest | null>(() =>
+        uploadFiles?.length ? buildUploadManifest(uploadFiles) : null
+    );
 
     const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => new Set());
     const [loadingFolders, setLoadingFolders] = useState<Set<string>>(() => new Set());
@@ -206,7 +159,7 @@ export default function Phase1SourceSelection({
     const [branchOptions, setBranchOptions] = useState<string[]>([]);
     const [isLoadingBranches, setIsLoadingBranches] = useState(false);
     const [isDragOverUpload, setIsDragOverUpload] = useState(false);
-    const [isConnectingGithub, setIsConnectingGithub] = useState(false);
+    const [isConnectingGithub, setIsConnectingGithub] = useState(isResumingGithubOAuth);
     const [repoRefreshRequired, setRepoRefreshRequired] = useState(false);
     const [preflightState, setPreflightState] = useState<{
         status: 'idle' | 'loading' | 'ok' | 'error';
@@ -220,7 +173,7 @@ export default function Phase1SourceSelection({
         authSource: null,
     });
 
-    const selectedSource = activeSourceView ?? importSourceType ?? null;
+    const selectedSource: SourceType = activeSourceView ?? importSourceType ?? 'scratch';
 
     useEffect(() => {
         onSourceChange?.(activeSourceView);
@@ -292,36 +245,15 @@ export default function Phase1SourceSelection({
             },
             { shouldDirty: false, shouldValidate: true }
         );
-        setSuppressImportSourceRehydration(false);
         setActiveSourceView(initialSource);
+        if (initialSource === 'github') setShowManualGithubEntry(true);
     }, [getValues, initialSource, setValue]);
 
     useEffect(() => {
-        if (suppressImportSourceRehydration) return;
-        if (activeSourceView !== null) return;
-
-        const currentImportSource = getValues('import_source');
-        const metadata = (currentImportSource?.metadata || {}) as ImportSourceMetadata;
-        if (currentImportSource?.type === 'github' && (currentImportSource.repoUrl || metadata.importAuth)) {
-            setActiveSourceView('github');
-            return;
+        if (importSourceType && importSourceType !== activeSourceView) {
+            setActiveSourceView(importSourceType);
         }
-        if (currentImportSource?.type === 'upload' && (uploadFiles?.length || metadata.fileCount)) {
-            setActiveSourceView('upload');
-            return;
-        }
-
-        if (
-            currentImportSource?.type === 'scratch' &&
-            !currentImportSource.repoUrl &&
-            !currentImportSource.branch &&
-            !currentImportSource.s3Key &&
-            !metadata.fileCount &&
-            !metadata.importAuth
-        ) {
-            setValue('import_source', { type: 'scratch' }, { shouldDirty: false });
-        }
-    }, [activeSourceView, getValues, setValue, suppressImportSourceRehydration, uploadFiles]);
+    }, [activeSourceView, importSourceType]);
 
     useEffect(() => {
         if (activeSourceView !== 'github') {
@@ -346,7 +278,7 @@ export default function Phase1SourceSelection({
             try {
                 const result = await fetchGithubImportAccessState();
                 if (cancelled) return;
-                const oauthPending = hasRecentGithubOAuthPending();
+                const oauthPending = isResumingGithubOAuth;
                 const shouldRetryPendingOAuth =
                     oauthPending
                     && attempt < GITHUB_OAUTH_RETRY_DELAYS_MS.length
@@ -361,7 +293,7 @@ export default function Phase1SourceSelection({
                     setGhUsername(null);
                     setRepoRefreshRequired(false);
                     setGithubAccountUnavailable(false);
-                    clearGithubOAuthPending();
+                    setIsConnectingGithub(false);
                     return;
                 }
                 setHasGithubIdentity(result.linked);
@@ -369,15 +301,13 @@ export default function Phase1SourceSelection({
                 setRepoRefreshRequired(result.refreshRequired);
                 setGhUsername(result.username);
                 setGithubAccountUnavailable(result.accountHealth.state === 'unavailable');
-                if (result.repoAccess || !oauthPending) {
-                    clearGithubOAuthPending();
-                }
+                setIsConnectingGithub(false);
                 if (result.sealedImportToken && !areSealedImportTokensEqual(result.sealedImportToken, sealedImportToken)) {
                     mergeImportSourceMetadata({ importAuth: result.sealedImportToken }, false);
                 }
             } catch (error) {
                 if (cancelled) return;
-                if (hasRecentGithubOAuthPending() && attempt < GITHUB_OAUTH_RETRY_DELAYS_MS.length) {
+                if (isResumingGithubOAuth && attempt < GITHUB_OAUTH_RETRY_DELAYS_MS.length) {
                     willRetry = scheduleRetry(attempt + 1);
                     if (willRetry) return;
                 }
@@ -387,7 +317,7 @@ export default function Phase1SourceSelection({
                 setGhUsername(null);
                 setRepoRefreshRequired(false);
                 setGithubAccountUnavailable(false);
-                clearGithubOAuthPending();
+                setIsConnectingGithub(false);
             } finally {
                 if (!cancelled && !willRetry) {
                     setIsLoadingAuth(false);
@@ -401,13 +331,18 @@ export default function Phase1SourceSelection({
         return () => {
             cancelled = true;
         };
-    }, [activeSourceView, mergeImportSourceMetadata, sealedImportTokenFingerprint]);
+    }, [activeSourceView, isResumingGithubOAuth, mergeImportSourceMetadata, sealedImportTokenFingerprint]);
 
     const handleConnectGithub = async () => {
+        let resumeId: string | undefined;
         try {
             setIsConnectingGithub(true);
-            markGithubOAuthPending();
             const returnUrl = new URL(window.location.href);
+            const resume = saveGithubOAuthResume(getValues(), getCreateProjectReturnPath(returnUrl));
+            if (!resume) {
+                throw new Error('Your project setup could not be saved before connecting GitHub. Please allow session storage and try again.');
+            }
+            resumeId = resume.id;
             returnUrl.searchParams.set('createProject', '1');
             returnUrl.searchParams.set('createProjectSource', 'github');
             const currentPath = `${returnUrl.pathname}${returnUrl.search}${returnUrl.hash}`;
@@ -438,7 +373,7 @@ export default function Phase1SourceSelection({
             continueBrowserOAuthRedirect(result);
         } catch (error: any) {
             setIsConnectingGithub(false);
-            clearGithubOAuthPending();
+            clearGithubOAuthResume(resumeId);
             toast.error(`Failed to connect GitHub: ${error?.message || 'Unknown error'}`);
         }
     };
@@ -455,9 +390,10 @@ export default function Phase1SourceSelection({
             },
             { shouldValidate: true, shouldDirty: true }
         );
-        setSuppressImportSourceRehydration(false);
         setActiveSourceView(type);
-        if (type !== 'github') {
+        if (type === 'github') {
+            setShowManualGithubEntry(true);
+        } else {
             setRepoPickerOpen(false);
         }
     };
@@ -534,39 +470,49 @@ export default function Phase1SourceSelection({
     const runRepoAnalysis = useCallback(async (nextRepoUrl: string, installationId?: number | null) => {
         const normalizedUrl = normalizeGitHubRepoUrl(nextRepoUrl || '');
         if (!normalizedUrl) {
-            setAnalysisResult(null);
+            setGithubAnalysisResult(null);
             return;
         }
 
-        setIsAnalyzing(true);
+        latestRepoAnalysisKeyRef.current = normalizedUrl;
+        setIsAnalyzingGithub(true);
         try {
             const response = await fetchGithubImportAnalysis({
                 repoUrl: normalizedUrl,
                 installationId: installationId ?? importSourceMetadata.githubInstallationId ?? null,
             });
+            if (latestRepoAnalysisKeyRef.current !== normalizedUrl) return;
             const result = response.result;
             if (!result) {
-                setAnalysisResult(null);
+                setGithubAnalysisResult(null);
                 return;
             }
-            setAnalysisResult(result);
-            if (result.title) setValue('title', result.title, { shouldDirty: true });
-            if (result.description) setValue('description', result.description, { shouldDirty: true });
-            if (result.technologies.length > 0) {
+            setGithubAnalysisResult(result);
+            if (result.title && !getValues('title')?.trim()) {
+                setValue('title', result.title, { shouldDirty: true });
+            }
+            if (result.description && !getValues('description')?.trim()) {
+                setValue('description', result.description, { shouldDirty: true });
+            }
+            if (result.technologies.length > 0 && (getValues('technologies_used')?.length ?? 0) === 0) {
                 setValue('technologies_used', result.technologies, { shouldDirty: true });
             }
         } catch (error: any) {
-            if (error?.name !== 'AbortError') {
+            if (error?.name !== 'AbortError' && latestRepoAnalysisKeyRef.current === normalizedUrl) {
                 console.error('Failed to analyze repository', error);
             }
         } finally {
-            setIsAnalyzing(false);
+            if (latestRepoAnalysisKeyRef.current === normalizedUrl) {
+                setIsAnalyzingGithub(false);
+            }
         }
-    }, [importSourceMetadata.githubInstallationId, normalizeGitHubRepoUrl, setValue]);
+    }, [getValues, importSourceMetadata.githubInstallationId, normalizeGitHubRepoUrl, setValue]);
 
     const runPreflightChecks = useCallback(async (nextRepoUrl?: string, nextBranch?: string | null) => {
         const normalizedUrl = normalizeGitHubRepoUrl(nextRepoUrl || repoUrl || '');
-        latestPreflightRequestKeyRef.current = normalizedUrl;
+        const requestedBranch = nextBranch ?? branch ?? null;
+        const requestKey = `${normalizedUrl}#${requestedBranch || ''}`;
+        latestPreflightRequestKeyRef.current = requestKey;
 
         if (!normalizedUrl) {
             setPreflightState({
@@ -588,10 +534,10 @@ export default function Phase1SourceSelection({
             const installationId = importSourceMetadata.githubInstallationId ?? null;
             const result = await fetchGithubImportPreflight({
                 repoUrl: normalizedUrl,
-                branch: nextBranch ?? branch ?? null,
+                branch: requestedBranch,
                 installationId,
             });
-            if (latestPreflightRequestKeyRef.current !== normalizedUrl) return false;
+            if (latestPreflightRequestKeyRef.current !== requestKey) return false;
             const [repoOwner = null, repoName = null] = result.repo.fullName.split('/');
 
             setValue('import_source.repoUrl', result.normalizedRepoUrl, { shouldDirty: true });
@@ -604,6 +550,7 @@ export default function Phase1SourceSelection({
                 githubOwner: repoOwner,
                 githubName: repoName,
                 githubVisibility: result.repo.visibility,
+                githubSizeKb: result.repo.sizeKb,
                 githubInstallationId: result.auth.installationId,
                 githubPreflightStatus: 'ok',
                 githubPreflightWarnings: result.warnings,
@@ -620,7 +567,7 @@ export default function Phase1SourceSelection({
             await runRepoAnalysis(result.normalizedRepoUrl, result.auth.installationId);
             return true;
         } catch (error: any) {
-            if (latestPreflightRequestKeyRef.current !== normalizedUrl) return false;
+            if (latestPreflightRequestKeyRef.current !== requestKey) return false;
             const message = error?.message || 'Preflight failed.';
             setPreflightState({ status: 'error', warnings: [], error: message, authSource: null });
             mergeImportSourceMetadata({
@@ -656,10 +603,25 @@ export default function Phase1SourceSelection({
 
         setShowManualGithubEntry(true);
         setIsEditingResolvedRepo(false);
-        await startGithubRootPreview(normalizedUrl);
-    }, [branch, normalizeGitHubRepoUrl, repoUrl, runPreflightChecks, startGithubRootPreview]);
+        const resolvedPreviewBranch = getValues('import_source.branch') || nextBranch || branch || null;
+        await startGithubRootPreview(normalizedUrl, resolvedPreviewBranch);
+    }, [branch, getValues, normalizeGitHubRepoUrl, repoUrl, runPreflightChecks, startGithubRootPreview]);
+
+    const githubResumePreviewStartedRef = useRef(false);
+    useEffect(() => {
+        if (
+            !isResumingGithubOAuth
+            || githubResumePreviewStartedRef.current
+            || !hasGithubRepoAccess
+            || !repoUrl
+        ) return;
+
+        githubResumePreviewStartedRef.current = true;
+        void loadGithubPreview(repoUrl, branch || null);
+    }, [branch, hasGithubRepoAccess, isResumingGithubOAuth, loadGithubPreview, repoUrl]);
 
     const handlePickRepository = useCallback(async (item: GithubImportRepoItem) => {
+        latestRepoAnalysisKeyRef.current = item.htmlUrl;
         setGithubEntryMode('browse');
         setValue('import_source.repoUrl', item.htmlUrl, { shouldDirty: true });
         if (item.defaultBranch) {
@@ -670,6 +632,9 @@ export default function Phase1SourceSelection({
             githubOwner: item.owner,
             githubName: item.name,
             githubVisibility: item.visibility,
+            githubDescription: item.description,
+            githubUpdatedAt: item.updatedAt,
+            githubSizeKb: null,
             githubInstallationId: null,
             githubPreflightStatus: 'idle',
             githubPreflightError: null,
@@ -688,10 +653,10 @@ export default function Phase1SourceSelection({
     }, [activeSourceView, hasGithubRepoAccess, loadRepositories, repoPickerOpen, repoQuery]);
 
     useEffect(() => {
-        if (activeSourceView !== 'github' || !repoUrl) {
+        if (activeSourceView === 'github' && !repoUrl) {
             setBranchOptions([]);
             setPreflightState({ status: 'idle', warnings: [], error: null, authSource: null });
-            setAnalysisResult(null);
+            setGithubAnalysisResult(null);
             return;
         }
     }, [activeSourceView, repoUrl]);
@@ -710,9 +675,24 @@ export default function Phase1SourceSelection({
         fileInputRef.current?.click();
     };
 
+    const handleGithubTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        const nextMode = githubEntryMode === 'paste' ? 'browse' : 'paste';
+        setGithubEntryMode(nextMode);
+        setIsEditingResolvedRepo(true);
+        if (nextMode === 'browse') setRepoPickerOpen(true);
+        document.getElementById(`github-entry-tab-${nextMode}`)?.focus();
+    };
+
     const processUploadFiles = useCallback(async (files: FileList | null) => {
         if (!files || files.length === 0) return;
 
+        uploadAnalysisControllerRef.current?.abort();
+        const analysisSequence = uploadAnalysisSequenceRef.current + 1;
+        uploadAnalysisSequenceRef.current = analysisSequence;
+        const manifest = buildUploadManifest(files);
+        setUploadManifest(manifest);
         setUploadFiles(files);
         const currentMetadata = ((getValues('import_source.metadata') || {}) as ImportSourceMetadata);
         setValue(
@@ -722,34 +702,60 @@ export default function Phase1SourceSelection({
                 type: 'upload',
                 metadata: {
                     ...currentMetadata,
-                    fileCount: files.length,
-                    folderName: files[0]?.webkitRelativePath?.split('/')[0] || 'Uploaded Files',
+                    fileCount: manifest.totalFiles,
+                    totalBytes: manifest.totalBytes,
+                    folderName: manifest.folderName,
+                    uploadValidationStatus: manifest.isValid ? 'ok' : 'error',
+                    uploadValidationError: manifest.isValid
+                        ? null
+                        : `${manifest.blockedCount} ${manifest.blockedCount === 1 ? 'file needs' : 'files need'} attention.`,
                 },
             },
             { shouldDirty: true, shouldValidate: true }
         );
 
-        setIsAnalyzing(true);
+        setUploadAnalysisResult(null);
+        setUploadAnalysisError(null);
+        if (!manifest.isValid) {
+            setIsAnalyzingUpload(false);
+            return;
+        }
+
+        setIsAnalyzingUpload(true);
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        (window as any)._folderAnalysisController = controller;
+        uploadAnalysisControllerRef.current = controller;
 
         try {
             const { analyzeUploadedFolder } = await import('@/lib/upload/analyze-folder');
             const analysis = await analyzeUploadedFolder(files, controller?.signal);
+            if (analysisSequence !== uploadAnalysisSequenceRef.current || controller?.signal.aborted) return;
             if (analysis.title || (analysis.technologies && analysis.technologies.length > 0)) {
-                setAnalysisResult(analysis);
-                if (analysis.title) setValue('title', analysis.title, { shouldDirty: true });
-                if (analysis.description) setValue('description', analysis.description, { shouldDirty: true });
-                if (analysis.technologies.length > 0) {
+                setUploadAnalysisResult(analysis);
+                if (analysis.title && !getValues('title')?.trim()) {
+                    setValue('title', analysis.title, { shouldDirty: true });
+                }
+                if (analysis.description && !getValues('description')?.trim()) {
+                    setValue('description', analysis.description, { shouldDirty: true });
+                }
+                if (analysis.technologies.length > 0 && (getValues('technologies_used')?.length ?? 0) === 0) {
                     setValue('technologies_used', analysis.technologies, { shouldDirty: true });
                 }
             }
-        } catch (error) {
-            console.error('Folder analysis failed:', error);
+        } catch (error: any) {
+            if (error?.name !== 'AbortError' && analysisSequence === uploadAnalysisSequenceRef.current) {
+                console.error('Folder analysis failed:', error);
+                setUploadAnalysisError('We could not detect this project’s stack. The folder is still ready to use.');
+            }
         } finally {
-            setIsAnalyzing(false);
+            if (analysisSequence === uploadAnalysisSequenceRef.current) {
+                setIsAnalyzingUpload(false);
+            }
         }
     }, [getValues, setUploadFiles, setValue]);
+
+    useEffect(() => () => {
+        uploadAnalysisControllerRef.current?.abort();
+    }, []);
 
     const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
         await processUploadFiles(event.target.files);
@@ -793,13 +799,6 @@ export default function Phase1SourceSelection({
         },
         { files: 0, folders: 0, ignored: 0, tooLarge: 0 }
     );
-
-
-
-    useEffect(() => {
-        // Disabled: Project Doc creation is skipped during project creation wizard.
-    }, []);
-
     const toggleFolder = useCallback(async (folderPath: string, isDisabled: boolean) => {
         if (isDisabled) return;
 
@@ -827,14 +826,14 @@ export default function Phase1SourceSelection({
     const renderTree = useCallback((entries: GithubPreviewEntry[], depth: number) => {
         if (!entries || entries.length === 0) {
             return (
-                <div className="py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="nb-compact py-2 text-muted-foreground">
                     No files found at this level.
                 </div>
             );
         }
 
         return (
-            <div className="space-y-1">
+            <div className="space-y-1" role={depth === 0 ? 'tree' : 'group'} aria-label={depth === 0 ? 'Repository files' : undefined}>
                 {entries.map((entry) => {
                     const isFolder = entry.type === 'dir';
                     const disabled = entry.excludedReason === 'ignored' || entry.excludedReason === 'tooLarge';
@@ -843,12 +842,18 @@ export default function Phase1SourceSelection({
                     const children = isFolder ? githubFolderEntries[entry.path] : undefined;
 
                     return (
-                        <div key={entry.path}>
+                        <div
+                            key={entry.path}
+                            role="treeitem"
+                            aria-level={depth + 1}
+                            aria-selected={false}
+                            aria-expanded={isFolder && !disabled ? isExpanded : undefined}
+                            aria-disabled={disabled || undefined}
+                        >
                             <div
-                                className={`flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-xs ${
-                                    disabled ? 'opacity-60' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/40'
+                                className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 pr-2 text-xs ${TREE_INDENT_CLASSES[Math.min(depth, TREE_INDENT_CLASSES.length - 1)]} ${
+                                    disabled ? 'opacity-60' : 'hover:bg-muted'
                                 }`}
-                                style={{ paddingLeft: 8 + depth * 12 }}
                             >
                                 {isFolder ? (
                                     <button
@@ -856,19 +861,20 @@ export default function Phase1SourceSelection({
                                         onClick={() => toggleFolder(entry.path, disabled)}
                                         className="flex w-full min-w-0 items-center gap-2 text-left"
                                         disabled={disabled}
+                                        aria-expanded={isExpanded}
                                     >
-                                        <span className="w-3 text-zinc-400">{isLoading ? '…' : isExpanded ? '▾' : '▸'}</span>
-                                        <span className="min-w-0 truncate font-medium text-zinc-800 dark:text-zinc-100">
-                                            <span aria-hidden="true">📁 </span>
+                                        {isLoading ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : isExpanded ? <ChevronDown className="size-3.5 text-muted-foreground" /> : <ChevronRight className="size-3.5 text-muted-foreground" />}
+                                        <Folder className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                        <span className="min-w-0 truncate font-medium text-foreground">
                                             <span className="sr-only">Folder: </span>
                                             {entry.name}
                                         </span>
                                     </button>
                                 ) : (
                                     <div className="flex w-full min-w-0 items-center gap-2">
-                                        <span className="w-3" />
-                                        <span className="min-w-0 truncate text-zinc-700 dark:text-zinc-200">
-                                            <span aria-hidden="true">📄 </span>
+                                        <span className="w-3.5" />
+                                        <File className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                        <span className="min-w-0 truncate text-foreground">
                                             <span className="sr-only">File: </span>
                                             {entry.name}
                                         </span>
@@ -876,12 +882,12 @@ export default function Phase1SourceSelection({
                                 )}
 
                                 {entry.excludedReason === 'ignored' && (
-                                    <span className="ml-auto shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[10px] text-zinc-600 dark:text-zinc-300">
+                                    <span className="nb-status ml-auto shrink-0" data-status="archived">
                                         Ignored
                                     </span>
                                 )}
                                 {entry.excludedReason === 'tooLarge' && (
-                                    <span className="ml-auto shrink-0 rounded-full bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">
+                                    <span className="nb-status ml-auto shrink-0" data-status="draft">
                                         Too large
                                     </span>
                                 )}
@@ -890,7 +896,7 @@ export default function Phase1SourceSelection({
                             {isFolder && isExpanded && !disabled && (
                                 <div className="mt-1">
                                     {isLoading ? (
-                                        <div className="py-2 text-xs text-zinc-500 dark:text-zinc-400" style={{ paddingLeft: 20 + depth * 12 }}>
+                                        <div className={`py-2 text-xs text-muted-foreground ${TREE_INDENT_CLASSES[Math.min(depth + 1, TREE_INDENT_CLASSES.length - 1)]}`} role="status">
                                             Loading…
                                         </div>
                                     ) : (
@@ -905,105 +911,31 @@ export default function Phase1SourceSelection({
         );
     }, [expandedFolders, githubFolderEntries, loadingFolders, toggleFolder]);
 
-    const renderSourceCards = () => (
-        <div className="mx-auto max-w-5xl space-y-8" data-testid="create-project-phase1-source-grid">
-            <div className="space-y-2 text-center">
-                <h3 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                    How would you like to start?
-                </h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    Pick one starting point. The detailed workflow opens after you choose it.
-                </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                {sourceCards.map((card) => {
-                    const Icon = card.icon;
-                    return (
-                        <button
-                            key={card.type}
-                            type="button"
-                            onClick={() => handleSelectSource(card.type)}
-                            data-testid={`create-project-source-card-${card.type}`}
-                            className="group rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 text-left transition-all hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-lg"
-                        >
-                            <div className="flex flex-col items-center text-center">
-                                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                                    <Icon className="h-8 w-8" />
-                                </div>
-                                <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                                    {card.title}
-                                </div>
-                                <p className="mt-3 text-sm leading-7 text-zinc-500 dark:text-zinc-400">
-                                    {card.description}
-                                </p>
-                            </div>
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-    );
-
-    const renderBackToStart = () => (
-        <button
-            type="button"
-            onClick={() => {
-                setRepoPickerOpen(false);
-                setSuppressImportSourceRehydration(true);
-                setActiveSourceView(null);
-            }}
-            data-testid="create-project-back-to-source-grid"
-            className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-        >
-            <ArrowLeft className="h-4 w-4" />
-            Back to start options
-        </button>
-    );
-
-    const renderReadmeSetupCard = () => {
-        return null;
-    };
-
     const renderScratchView = () => (
-        <div className="mx-auto max-w-5xl space-y-6" data-testid="create-project-source-view-scratch">
-            {renderBackToStart()}
-            <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8">
-                <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                        <Code2 className="h-7 w-7" />
-                    </div>
-                    <div>
-                        <h3 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                            Start from Scratch
-                        </h3>
-                        <p className="mt-2 text-sm leading-7 text-zinc-500 dark:text-zinc-400">
-                            No import is required here. Continue when you want to configure the project manually in the next steps.
-                        </p>
-                    </div>
+        <section
+            className="border-t border-border pt-6"
+            data-testid="create-project-source-view-scratch"
+            aria-labelledby="scratch-source-heading"
+        >
+            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(13rem,0.42fr)] md:items-start">
+                <div>
+                    <p className="nb-label text-primary">Manual setup</p>
+                    <h3 id="scratch-source-heading" className="nb-section-title mt-2 text-foreground">
+                        Set up the project in the next steps
+                    </h3>
+                    <p className="nb-body mt-2 max-w-[62ch] text-muted-foreground">
+                        Start with an empty project, then add its details, team, settings, and review it before publishing.
+                    </p>
                 </div>
-
-                <div className="mt-8 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 p-5">
-                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
-                            No import overhead
-                        </div>
-                        <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">
-                            You move directly into project type, core details, team setup, settings, and review.
-                        </p>
-                    </div>
-                    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 p-5">
-                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
-                            Best fit
-                        </div>
-                        <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">
-                            Use this when the codebase does not exist yet or when you want a clean project shell before importing files later.
-                        </p>
-                    </div>
-                </div>
+                <dl className="border-l border-border pl-5">
+                    <dt className="nb-label">Project source</dt>
+                    <dd className="nb-card-title mt-2 text-foreground">Empty project</dd>
+                    <dd className="nb-compact mt-1 text-muted-foreground">
+                        No repository or folder attached.
+                    </dd>
+                </dl>
             </div>
-            {renderReadmeSetupCard()}
-        </div>
+        </section>
     );
 
     const renderGithubView = () => {
@@ -1024,92 +956,94 @@ export default function Phase1SourceSelection({
                 : null;
         const resolvedBranch = branch || githubPreview.branch || null;
         const hasResolvedGithubRepo = preflightState.status === 'ok' && Boolean(normalizedRepoUrl);
-        const showResolvedSummary = hasResolvedGithubRepo && !isEditingResolvedRepo;
+        const hasLoadedGithubRepo =
+            hasResolvedGithubRepo
+            && githubPreview.status === 'ready'
+            && normalizeGitHubRepoUrl(githubPreview.repoUrl) === normalizedRepoUrl;
+        const availableBranches = Array.from(new Set(
+            [...branchOptions, resolvedBranch].filter((candidate): candidate is string => Boolean(candidate))
+        ));
         const showDisconnectedCompactState =
             !isLoadingAuth
             && !hasGithubIdentity
-            && !showManualGithubEntry
-            && !showResolvedSummary;
+            && !showManualGithubEntry;
         const shouldShowConnectGithubCta =
             !isLoadingAuth
             && !hasGithubIdentity
             && !hasGithubRepoAccess;
-        const showMethodTabs = hasGithubRepoAccess && !showResolvedSummary;
-        const showBrowsePanel = !showResolvedSummary && hasGithubRepoAccess && githubEntryMode === 'browse';
-        const showPastePanel =
-            !showResolvedSummary
-            && (
-                githubEntryMode === 'paste'
-                || !hasGithubRepoAccess
-                || showManualGithubEntry
-            );
-        const showBranchEditor = isEditingResolvedRepo && hasResolvedGithubRepo;
+        const showMethodTabs = hasGithubRepoAccess;
+        const showBrowsePanel = hasGithubRepoAccess && githubEntryMode === 'browse' && (!hasResolvedGithubRepo || isEditingResolvedRepo);
+        const showPastePanel = githubEntryMode === 'paste' || !hasGithubRepoAccess;
+        const showBranchEditor = isEditingResolvedRepo && hasResolvedGithubRepo && !hasLoadedGithubRepo;
         const showGithubDetails =
-            showResolvedSummary
-            || isAnalyzing
+            preflightState.status === 'loading'
+            || preflightState.status === 'error'
+            || isAnalyzingGithub
             || githubPreview.status !== 'idle'
-            || Boolean(analysisResult);
+            || Boolean(githubAnalysisResult);
 
         return (
-            <div className="mx-auto max-w-5xl space-y-6" data-testid="create-project-source-view-github">
-                {renderBackToStart()}
-
-                <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8">
-                    <div className="flex flex-col gap-3">
+            <div className="space-y-8" data-testid="create-project-source-view-github">
+                <section className="space-y-6" aria-labelledby="github-import-heading">
                         <div className="flex items-start gap-4">
-                            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                                <Github className="h-7 w-7" />
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-secondary text-foreground">
+                                <Github className="size-5" />
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <h3 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                                    <h3 id="github-import-heading" className="nb-section-title text-foreground">
                                         Import from GitHub
                                     </h3>
                                     {isLoadingAuth ? (
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                                        <span className="nb-status" data-status="archived">
                                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                             Checking access
                                         </span>
                                     ) : githubAccountUnavailable && hasGithubIdentity ? (
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                                        <span className="nb-status" data-status="draft">
                                             <CircleHelp className="h-3.5 w-3.5" />
                                             Account unavailable
                                         </span>
                                     ) : repoRefreshRequired && hasGithubIdentity ? (
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                                        <span className="nb-status" data-status="draft">
                                             <CircleHelp className="h-3.5 w-3.5" />
                                             Resume{ghUsername ? ` as @${ghUsername}` : ''}
                                         </span>
                                     ) : hasGithubIdentity ? (
-                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                        <span className="nb-status" data-status="completed">
                                             <Check className="h-3.5 w-3.5" />
                                             Connected{ghUsername ? ` as @${ghUsername}` : ''}
                                         </span>
                                     ) : (
-                                        <span className="inline-flex items-center rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                                        <span className="nb-status" data-status="archived">
                                             GitHub not connected
                                         </span>
                                     )}
                                 </div>
-                                <p className="mt-2 text-sm leading-7 text-zinc-500 dark:text-zinc-400">
-                                    Connect GitHub to browse repositories, or paste a repository link manually. The interface only expands when there is real repo information to show.
+                                <p className="nb-body mt-2 max-w-[68ch] text-muted-foreground">
+                                    Browse a connected repository or paste its GitHub URL. Review the branch and included files before continuing.
                                 </p>
+                                {isResumingGithubOAuth && (isLoadingAuth || isConnectingGithub) ? (
+                                    <p className="nb-compact mt-3 flex items-center gap-2 text-muted-foreground" role="status">
+                                        <Loader2 className="size-3.5 animate-spin" />
+                                        GitHub is connected. Restoring your repository import…
+                                    </p>
+                                ) : null}
                             </div>
                         </div>
 
                         {showDisconnectedCompactState ? (
-                            <div className="mt-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 p-6">
+                            <div className="border-y border-border py-5">
                                 <div className="max-w-2xl space-y-4">
-                                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                                    <p className="nb-compact text-muted-foreground">
                                         Connect GitHub if you want a repository picker. If not, you can still paste a repository link and continue with a manual import flow.
                                     </p>
                                     <div className="flex flex-wrap items-center gap-3">
-                                        <button
+                                        <Button
                                             type="button"
                                             onClick={handleConnectGithub}
                                             data-testid="create-project-connect-github"
                                             disabled={isConnectingGithub}
-                                            className="rounded-full app-accent-solid px-4 py-2 text-sm font-semibold"
                                         >
                                             {isConnectingGithub ? (
                                                 <span className="inline-flex items-center gap-2">
@@ -1117,69 +1051,86 @@ export default function Phase1SourceSelection({
                                                     Redirecting to GitHub
                                                 </span>
                                             ) : 'Connect GitHub'}
-                                        </button>
-                                        <button
+                                        </Button>
+                                        <Button
                                             type="button"
+                                            variant="ghost"
                                             onClick={() => {
                                                 setShowManualGithubEntry(true);
                                                 setGithubEntryMode('paste');
                                                 setIsEditingResolvedRepo(true);
                                             }}
-                                            className="text-sm font-medium text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-300"
                                         >
                                             Paste link manually
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="mt-6 space-y-5">
+                            <div className="space-y-6">
                                 {showMethodTabs && (
-                                    <div className="inline-flex rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 p-1">
+                                    <div className="flex border-b border-border" role="tablist" aria-label="GitHub repository entry method">
                                         <button
                                             type="button"
-                                            onClick={() => setGithubEntryMode('paste')}
-                                            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                                            onClick={() => {
+                                                setGithubEntryMode('paste');
+                                                setIsEditingResolvedRepo(true);
+                                            }}
+                                            onKeyDown={handleGithubTabKeyDown}
+                                            id="github-entry-tab-paste"
+                                            role="tab"
+                                            aria-selected={githubEntryMode === 'paste'}
+                                            tabIndex={githubEntryMode === 'paste' ? 0 : -1}
+                                            aria-controls="github-entry-panel-paste"
+                                            className={`relative -mb-px px-1 pb-3 pt-1 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                                                 githubEntryMode === 'paste'
-                                                    ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
-                                                    : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                                                    ? 'border-b-2 border-primary text-foreground'
+                                                    : 'text-muted-foreground hover:text-foreground'
                                             }`}
                                         >
                                             Paste link
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => setGithubEntryMode('browse')}
-                                            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
+                                            onClick={() => {
+                                                setGithubEntryMode('browse');
+                                                setIsEditingResolvedRepo(true);
+                                                setRepoPickerOpen(true);
+                                            }}
+                                            onKeyDown={handleGithubTabKeyDown}
+                                            id="github-entry-tab-browse"
+                                            role="tab"
+                                            aria-selected={githubEntryMode === 'browse'}
+                                            tabIndex={githubEntryMode === 'browse' ? 0 : -1}
+                                            aria-controls="github-entry-panel-browse"
+                                            className={`relative -mb-px ml-6 px-1 pb-3 pt-1 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                                                 githubEntryMode === 'browse'
-                                                    ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
-                                                    : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
+                                                    ? 'border-b-2 border-primary text-foreground'
+                                                    : 'text-muted-foreground hover:text-foreground'
                                             }`}
                                         >
-                                            Browse repos
+                                            Browse repositories
                                         </button>
                                     </div>
                                 )}
 
-                                {repoRefreshRequired && hasGithubIdentity && !showResolvedSummary && (
-                                    <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-900/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+                                {repoRefreshRequired && hasGithubIdentity && !hasResolvedGithubRepo && (
+                                    <div className="border-y border-[var(--status-warning)]/25 bg-[var(--status-warning-soft)] px-4 py-3 text-[var(--status-warning)]" role="status">
                                         <div className="flex flex-wrap items-center justify-between gap-3">
                                             <span>{githubAccountUnavailable
                                                 ? "The linked GitHub account may have been renamed, suspended, or deleted. Replace it in Settings before browsing private repositories."
                                                 : "GitHub access needs a quick refresh before repository browsing can resume."}</span>
                                             {githubAccountUnavailable ? (
-                                                <a
-                                                    href="/settings?tab=integrations"
-                                                    className="inline-flex items-center gap-2 rounded-full border border-amber-300 dark:border-amber-700 px-3 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-200"
-                                                >
-                                                    Review connection
-                                                </a>
+                                                <Button asChild type="button" variant="outline" size="sm">
+                                                    <a href="/settings?tab=integrations">Review connection</a>
+                                                </Button>
                                             ) : (
-                                                <button
+                                                <Button
                                                     type="button"
+                                                    variant="outline"
+                                                    size="sm"
                                                     onClick={handleConnectGithub}
                                                     disabled={isConnectingGithub}
-                                                    className="inline-flex items-center gap-2 rounded-full border border-amber-300 dark:border-amber-700 px-3 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-200"
                                                 >
                                                     {isConnectingGithub ? (
                                                     <>
@@ -1192,210 +1143,147 @@ export default function Phase1SourceSelection({
                                                         Refresh access
                                                     </>
                                                     )}
-                                                </button>
+                                                </Button>
                                             )}
                                         </div>
                                     </div>
                                 )}
 
-                                {showResolvedSummary && (
-                                    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 p-5">
-                                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                                            <div className="min-w-0">
-                                                <div className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                                                    {repoDisplayName}
-                                                </div>
-                                                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                                    {repoVisibility && (
-                                                        <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 font-medium text-zinc-700 dark:text-zinc-200">
-                                                            {repoVisibility}
-                                                        </span>
-                                                    )}
-                                                    {resolvedBranch && (
-                                                        <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 font-medium text-zinc-700 dark:text-zinc-200">
-                                                            Branch: {resolvedBranch}
-                                                        </span>
-                                                    )}
-                                                    {preflightState.authSource && (
-                                                        <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 font-medium text-zinc-700 dark:text-zinc-200">
-                                                            Auth: {preflightState.authSource}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setIsEditingResolvedRepo(true);
-                                                    setShowManualGithubEntry(true);
-                                                    setGithubEntryMode(hasGithubRepoAccess ? 'browse' : 'paste');
-                                                }}
-                                                className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-2 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                                            >
-                                                Change
-                                            </button>
-                                        </div>
-                                        {preflightState.warnings.length > 0 && (
-                                            <div className="mt-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-900/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-                                                {preflightState.warnings.join(' ')}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
                                 {showBrowsePanel && (
-                                    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 p-5">
-                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <section id="github-entry-panel-browse" role="tabpanel" aria-labelledby="github-entry-tab-browse" className="border-t border-border pt-5">
+                                        <div className="flex flex-wrap items-end justify-between gap-3">
                                             <div>
-                                                <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                                                    Browse repositories
-                                                </div>
-                                                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                                                    Pick a repository directly from your connected GitHub account.
-                                                </p>
+                                                <h3 className="nb-card-title text-foreground">Browse repositories</h3>
+                                                <p className="nb-compact mt-1 text-muted-foreground">Pick a repository directly from your connected GitHub account.</p>
                                             </div>
-                                            <button
-                                                type="button"
-                                                disabled={!hasGithubRepoAccess}
-                                                onClick={() => setRepoPickerOpen((prev) => !prev)}
-                                                data-testid="create-project-github-repo-picker-trigger"
-                                                className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
-                                            >
-                                                {selectedRepoName || 'Choose repository'}
-                                                <ChevronDown className="h-4 w-4" />
-                                            </button>
+                                            <Button type="button" variant="ghost" size="sm" onClick={() => void loadRepositories(true, null)} disabled={isLoadingRepos}>
+                                                <RefreshCcw className="size-4" />
+                                                Refresh repositories
+                                            </Button>
                                         </div>
 
-                                        {repoPickerOpen && hasGithubRepoAccess && (
-                                            <div className="mt-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/70 p-4">
-                                                <input
-                                                    type="text"
-                                                    value={repoQuery}
-                                                    onChange={(e) => setRepoQuery(e.target.value)}
-                                                    placeholder="Search your repositories"
-                                                    data-testid="create-project-github-repo-search"
-                                                    className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm"
-                                                />
-                                                {repoLoadError && (
-                                                    <div className="mt-3 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/70 dark:bg-red-900/10 px-3 py-3 text-sm text-red-700 dark:text-red-300">
-                                                        {repoLoadError}
-                                                    </div>
-                                                )}
-                                                <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
-                                                    {repoItems.length === 0 && !isLoadingRepos && !repoLoadError && (
-                                                        <div className="px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">
-                                                            {repoLoadedOnce
-                                                                ? (repoQuery
-                                                                    ? 'No repositories matched this search.'
-                                                                    : 'No connected repositories were returned for this account.')
-                                                                : 'Open the picker to load repositories from your connected GitHub account.'}
-                                                        </div>
-                                                    )}
-                                                    {repoItems.map((item) => {
-                                                        const isSelected = normalizeGitHubRepoUrl(repoUrl || '') === item.htmlUrl;
-                                                        return (
-                                                            <button
-                                                                key={`${item.id}-${item.fullName}`}
-                                                                type="button"
-                                                                onClick={() => void handlePickRepository(item)}
-                                                                className={`w-full border-b border-zinc-100 dark:border-zinc-800 px-3 py-3 text-left last:border-b-0 ${
-                                                                    isSelected
-                                                                        ? 'bg-primary/5 dark:bg-primary/10'
-                                                                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
-                                                                }`}
-                                                            >
-                                                                <div className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                                                    {item.fullName}
-                                                                </div>
-                                                                <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                                                    {item.visibility}
-                                                                    {item.defaultBranch ? ` · ${item.defaultBranch}` : ''}
-                                                                </div>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                    {isLoadingRepos && (
-                                                        <div className="flex items-center gap-2 px-3 py-3 text-sm text-zinc-500 dark:text-zinc-400">
-                                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                                            Loading repositories...
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="mt-3 flex gap-3">
-                                                    {repoCursor && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => void loadRepositories(false, repoCursor)}
-                                                            disabled={isLoadingRepos}
-                                                            className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-2 text-sm font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
-                                                        >
-                                                            Load more repositories
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => void loadRepositories(true, null)}
-                                                        disabled={isLoadingRepos}
-                                                        className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-2 text-sm font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
-                                                    >
-                                                        Refresh
-                                                    </button>
-                                                </div>
+                                        <div className="mt-4 flex gap-3">
+                                            <label htmlFor="create-project-github-repo-search" className="sr-only">Search repositories</label>
+                                            <Input
+                                                id="create-project-github-repo-search"
+                                                type="text"
+                                                value={repoQuery}
+                                                onChange={(e) => setRepoQuery(e.target.value)}
+                                                placeholder="Search your repositories"
+                                                data-testid="create-project-github-repo-search"
+                                            />
+                                        </div>
+
+                                        {repoLoadError ? (
+                                            <div className="mt-4 border-y border-[var(--status-danger)]/25 bg-[var(--status-danger-soft)] px-4 py-3 text-[var(--status-danger)]" role="alert">
+                                                <p className="nb-compact">{repoLoadError}</p>
                                             </div>
-                                        )}
-                                    </div>
+                                        ) : null}
+
+                                        {repoPickerOpen && hasGithubRepoAccess ? (
+                                            <div className="mt-4 border-y border-border" role="listbox" aria-label="GitHub repositories">
+                                                {repoItems.length === 0 && !isLoadingRepos ? (
+                                                    <div className="nb-compact px-3 py-5 text-muted-foreground">
+                                                        {repoLoadedOnce
+                                                            ? (repoQuery ? 'No repositories matched this search.' : 'No connected repositories were returned for this account.')
+                                                            : 'Loading connected repositories…'}
+                                                    </div>
+                                                ) : null}
+                                                {repoItems.map((item) => {
+                                                    const isSelected = normalizeGitHubRepoUrl(repoUrl || '') === item.htmlUrl;
+                                                    return (
+                                                        <button
+                                                            key={`${item.id}-${item.fullName}`}
+                                                            type="button"
+                                                            role="option"
+                                                            aria-selected={isSelected}
+                                                            onClick={() => void handlePickRepository(item)}
+                                                            className={`flex min-h-14 w-full items-center justify-between gap-4 border-b border-border px-3 py-3 text-left last:border-b-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ${isSelected ? 'bg-secondary' : 'hover:bg-muted/60'}`}
+                                                        >
+                                                            <span className="min-w-0">
+                                                                <span className="nb-compact block truncate font-medium text-foreground">{item.fullName}</span>
+                                                                <span className="nb-meta mt-1 block text-muted-foreground">{item.visibility}{item.defaultBranch ? ` · ${item.defaultBranch}` : ''}</span>
+                                                            </span>
+                                                            {isSelected ? <Check className="size-4 shrink-0 text-primary" aria-label="Selected" /> : null}
+                                                        </button>
+                                                    );
+                                                })}
+                                                {isLoadingRepos ? (
+                                                    <div className="space-y-3 px-3 py-4" role="status" aria-label="Loading repositories">
+                                                        {[0, 1, 2].map((row) => <div key={row} className="space-y-2" aria-hidden="true"><div className="nb-skeleton h-3 w-2/3 rounded-sm" /><div className="nb-skeleton h-2.5 w-1/3 rounded-sm" /></div>)}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        ) : null}
+
+                                        {repoCursor ? (
+                                            <Button type="button" variant="ghost" size="sm" className="mt-3" onClick={() => void loadRepositories(false, repoCursor)} disabled={isLoadingRepos}>
+                                                Load more repositories
+                                            </Button>
+                                        ) : null}
+                                    </section>
                                 )}
 
                                 {showPastePanel && (
-                                    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 p-5">
+                                    <section id="github-entry-panel-paste" role="tabpanel" aria-labelledby="github-entry-tab-paste" className="border-t border-border pt-5">
                                         <div>
-                                            <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                                            <div className="nb-card-title text-foreground">
                                                 Paste a repository link
                                             </div>
-                                            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                                                Use <span className="font-medium text-zinc-800 dark:text-zinc-200">owner/repo</span> or a full GitHub repository URL.
+                                            <p className="nb-compact mt-1 text-muted-foreground">
+                                                Use <span className="font-medium text-foreground">owner/repo</span> or a full GitHub repository URL.
                                             </p>
                                         </div>
 
-                                        <div className="mt-4 relative">
+                                        <label htmlFor="create-project-github-url" className="nb-meta mt-4 block text-foreground">Repository</label>
+                                        <div className="mt-2 relative">
                                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                                 <Github className="h-4 w-4 text-zinc-400" />
                                             </div>
-                                            <input
+                                            <Input
+                                                id="create-project-github-url"
                                                 type="text"
-                                                autoFocus={activeSourceView === 'github'}
                                                 value={repoUrl || ''}
                                                 data-testid="create-project-github-manual-url"
-                                                className="block w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 pl-9 pr-3 py-3 text-sm"
+                                                className="pl-9"
                                                 placeholder="owner/repo or https://github.com/owner/repo"
+                                                aria-describedby="create-project-github-url-help create-project-github-url-format-error create-project-github-url-error"
+                                                aria-invalid={Boolean(manualUrlLooksIncomplete || preflightState.status === 'error')}
                                                 onChange={(e) => {
                                                     const normalized = normalizeGitHubRepoUrl(e.target.value);
+                                                    latestRepoAnalysisKeyRef.current = normalized;
                                                     setValue('import_source.repoUrl', normalized, { shouldDirty: true });
                                                     mergeImportSourceMetadata({
                                                         githubPreflightStatus: 'idle',
                                                         githubPreflightError: null,
                                                         githubPreflightWarnings: [],
+                                                        githubDescription: null,
+                                                        githubUpdatedAt: null,
+                                                        githubSizeKb: null,
                                                     });
                                                     setPreflightState({ status: 'idle', warnings: [], error: null, authSource: null });
+                                                    setGithubAnalysisResult(null);
                                                     setShowManualGithubEntry(true);
                                                     setIsEditingResolvedRepo(true);
                                                     setGithubEntryMode('paste');
                                                 }}
                                             />
                                         </div>
+                                        <p id="create-project-github-url-help" className="nb-compact mt-2 text-muted-foreground">Use owner/repository or the full HTTPS repository URL.</p>
                                         {manualUrlLooksIncomplete && (
-                                            <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                                            <div id="create-project-github-url-format-error" role="alert" className="nb-compact mt-2 text-[var(--status-warning)]">
                                                 Enter both owner and repository name. A GitHub username alone is not enough for import.
                                             </div>
                                         )}
 
                                         {showBranchEditor && (
                                             <div className="mt-4 space-y-2">
-                                                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                                <label htmlFor="create-project-github-branch" className="block text-sm font-medium text-foreground">
                                                     Branch
                                                 </label>
                                                 {branchOptions.length > 0 ? (
                                                     <select
+                                                        id="create-project-github-branch"
                                                         value={branch || ''}
                                                         data-testid="create-project-github-branch-select"
                                                         onChange={(e) => {
@@ -1406,7 +1294,7 @@ export default function Phase1SourceSelection({
                                                             });
                                                             setPreflightState({ status: 'idle', warnings: [], error: null, authSource: null });
                                                         }}
-                                                        className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-3 text-sm dark:bg-zinc-800 dark:text-white"
+                                                        className="h-[var(--ui-control-height)] w-full rounded-md border border-input bg-card px-[var(--ui-control-px)] text-[15px] text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
                                                     >
                                                         {branchOptions.map((option) => (
                                                             <option key={option} value={option}>
@@ -1415,7 +1303,8 @@ export default function Phase1SourceSelection({
                                                         ))}
                                                     </select>
                                                 ) : (
-                                                    <input
+                                                    <Input
+                                                        id="create-project-github-branch"
                                                         type="text"
                                                         value={branch || ''}
                                                         data-testid="create-project-github-branch-input"
@@ -1428,44 +1317,40 @@ export default function Phase1SourceSelection({
                                                             setPreflightState({ status: 'idle', warnings: [], error: null, authSource: null });
                                                         }}
                                                         placeholder="main"
-                                                        className="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 px-3 py-3 text-sm dark:bg-zinc-800 dark:text-white"
                                                     />
                                                 )}
                                                 {isLoadingBranches && (
-                                                    <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                                    <div className="nb-meta flex items-center gap-2 text-muted-foreground" role="status">
                                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                                        Loading branches...
+                                                        Loading branches…
                                                     </div>
                                                 )}
                                             </div>
                                         )}
 
                                         <div className="mt-5 flex flex-wrap items-center gap-3">
-                                            <button
-                                                type="button"
-                                                disabled={!repoUrl || preflightState.status === 'loading' || githubPreview.status === 'loading'}
-                                                onClick={() => void loadGithubPreview(repoUrl, branch || null)}
-                                                data-testid="create-project-github-preview"
-                                                className="flex items-center justify-center gap-2 rounded-xl app-accent-solid px-4 py-3 text-sm font-semibold disabled:opacity-50"
-                                            >
-                                                {preflightState.status === 'loading' || githubPreview.status === 'loading' ? (
-                                                    <>
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                        Loading repository preview...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        Load repository preview
-                                                        <Sparkles className="h-4 w-4" />
-                                                    </>
-                                                )}
-                                            </button>
-                                            {shouldShowConnectGithubCta && (
-                                                <button
+                                            {!hasLoadedGithubRepo ? (
+                                                <Button
                                                     type="button"
+                                                    disabled={!repoUrl || preflightState.status === 'loading' || githubPreview.status === 'loading'}
+                                                    onClick={() => void loadGithubPreview(repoUrl, branch || null)}
+                                                    data-testid="create-project-github-preview"
+                                                    aria-busy={preflightState.status === 'loading' || githubPreview.status === 'loading'}
+                                                >
+                                                    {preflightState.status === 'loading' || githubPreview.status === 'loading' ? (
+                                                        <>
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            Loading repository…
+                                                        </>
+                                                    ) : 'Load repository'}
+                                                </Button>
+                                            ) : null}
+                                            {shouldShowConnectGithubCta && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
                                                     onClick={handleConnectGithub}
                                                     disabled={isConnectingGithub}
-                                                    className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-3 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800"
                                                 >
                                                     {isConnectingGithub ? (
                                                         <span className="inline-flex items-center gap-2">
@@ -1473,134 +1358,89 @@ export default function Phase1SourceSelection({
                                                             Redirecting to GitHub
                                                         </span>
                                                     ) : 'Connect GitHub instead'}
-                                                </button>
+                                                </Button>
                                             )}
                                         </div>
 
                                         {preflightState.status === 'error' && preflightState.error && (
-                                            <div className="mt-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/70 dark:bg-red-900/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+                                            <div id="create-project-github-url-error" role="alert" className="mt-4 border-y border-[var(--status-danger)]/25 bg-[var(--status-danger-soft)] px-4 py-3 text-[var(--status-danger)]">
                                                 {preflightState.error}
                                             </div>
                                         )}
-                                    </div>
+                                    </section>
                                 )}
 
                                 {showGithubDetails && (
-                                    <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-                                        {(isAnalyzing || analysisResult) && (
-                                            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-                                                <div className="flex items-center gap-2">
-                                                    <Sparkles className="h-4 w-4 text-amber-500" />
-                                                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                                                        Detected stack
-                                                    </span>
-                                                </div>
-
-                                                {isAnalyzing ? (
-                                                    <div className="mt-4 flex items-center gap-2 text-sm text-primary">
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                        Analyzing repository...
-                                                    </div>
-                                                ) : analysisResult && analysisResult.technologies.length > 0 ? (
-                                                    <SkillList skills={analysisResult.technologies} size="sm" className="mt-4" />
-                                                ) : (
-                                                    <div className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
-                                                        No stack details detected yet for this repository.
-                                                    </div>
-                                                )}
+                                    <GithubImportDetails
+                                        status={preflightState.status === 'loading' || isAnalyzingGithub ? 'loading' : preflightState.status === 'error' ? 'error' : githubPreview.status}
+                                        repositoryName={repoDisplayName}
+                                        visibility={repoVisibility}
+                                        branch={resolvedBranch}
+                                        description={githubAnalysisResult?.description || (typeof importSourceMetadata.githubDescription === 'string' ? importSourceMetadata.githubDescription : null)}
+                                        technologies={githubAnalysisResult?.technologies || []}
+                                        counts={loadedCounts}
+                                        sizeKb={typeof importSourceMetadata.githubSizeKb === 'number' ? importSourceMetadata.githubSizeKb : null}
+                                        updatedAt={typeof importSourceMetadata.githubUpdatedAt === 'string' ? importSourceMetadata.githubUpdatedAt : null}
+                                        authSource={preflightState.authSource}
+                                        warnings={preflightState.warnings}
+                                        errorMessage={preflightState.error || githubPreview.errorMessage}
+                                        branchControl={hasLoadedGithubRepo ? (
+                                            <div className="flex h-[var(--ui-control-height-sm)] items-center gap-1.5 rounded-md border border-input bg-card pl-2 pr-1 text-foreground focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
+                                                <GitBranch className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                                <label htmlFor="create-project-github-resolved-branch" className="sr-only">Repository branch</label>
+                                                <select
+                                                    id="create-project-github-resolved-branch"
+                                                    value={resolvedBranch || ''}
+                                                    onChange={(event) => {
+                                                        const nextBranch = event.target.value;
+                                                        setValue('import_source.branch', nextBranch, { shouldDirty: true });
+                                                        void loadGithubPreview(normalizedRepoUrl, nextBranch);
+                                                    }}
+                                                    disabled={isLoadingBranches || preflightState.status === 'loading' || githubPreview.status === 'loading'}
+                                                    aria-busy={preflightState.status === 'loading' || githubPreview.status === 'loading'}
+                                                    className="h-full min-w-0 max-w-40 bg-transparent pr-5 text-[13px] font-medium text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                    {availableBranches.map((option) => <option key={option} value={option}>{option}</option>)}
+                                                </select>
                                             </div>
-                                        )}
-
-                                        {(githubPreview.status !== 'idle' || showResolvedSummary) && (
-                                            <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div>
-                                                        <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                                                            Repository files
-                                                        </div>
-                                                        <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                                            Preview uses the same import rules that will apply during project creation.
-                                                        </div>
-                                                    </div>
-                                                    {resolvedBranch && (
-                                                        <span className="shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-200">
-                                                            {resolvedBranch}
-                                                        </span>
-                                                    )}
-                                                </div>
-
-                                                {githubPreview.status === 'loading' && (
-                                                    <div className="mt-4 flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                        Loading repository preview...
-                                                    </div>
-                                                )}
-
-                                                {githubPreview.status === 'error' && (
-                                                    <div className="mt-4 space-y-3">
-                                                        <div className="text-sm text-red-600 dark:text-red-400">
-                                                            Preview failed: {githubPreview.errorMessage || 'Repository not found.'}
-                                                        </div>
-                                                        {repoRefreshRequired && hasGithubIdentity && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={handleConnectGithub}
-                                                                disabled={isConnectingGithub}
-                                                                className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-2 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                                                            >
-                                                                {isConnectingGithub ? (
-                                                                    <span className="inline-flex items-center gap-2">
-                                                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                                                        Refreshing GitHub access
-                                                                    </span>
-                                                                ) : (
-                                                                    'Refresh GitHub access'
-                                                                )}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {githubPreview.status === 'ready' && (
-                                                    <div className="mt-4 space-y-3">
-                                                        <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                                                            Loaded: {loadedCounts.folders} folders, {loadedCounts.files} files
-                                                            {loadedCounts.ignored > 0 ? ` · ${loadedCounts.ignored} ignored` : ''}
-                                                            {loadedCounts.tooLarge > 0 ? ` · ${loadedCounts.tooLarge} too large` : ''}
-                                                        </div>
-                                                        <div className="max-h-80 overflow-auto overflow-x-hidden rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-900/40 p-3">
-                                                            {renderTree(rootEntries, 0)}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
+                                        ) : undefined}
+                                        fileTree={githubPreview.status === 'ready' ? renderTree(rootEntries, 0) : null}
+                                    />
                                 )}
+                                {githubPreview.status === 'ready' && githubEntryMode === 'browse' && !isEditingResolvedRepo ? (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setGithubEntryMode('browse');
+                                            setIsEditingResolvedRepo(true);
+                                            setRepoPickerOpen(true);
+                                        }}
+                                    >
+                                        Browse another repository
+                                    </Button>
+                                ) : null}
                             </div>
                         )}
-                    </div>
-                </div>
-                {renderReadmeSetupCard()}
+                </section>
             </div>
         );
     };
 
     const renderUploadView = () => (
-        <div className="mx-auto max-w-5xl space-y-6" data-testid="create-project-source-view-upload">
-            {renderBackToStart()}
-
-            <div className="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8">
+        <div className="space-y-6" data-testid="create-project-source-view-upload">
+            <section className="space-y-6" aria-labelledby="upload-source-heading">
                 <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                        <FolderUp className="h-7 w-7" />
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-secondary text-primary">
+                        <FolderUp className="size-5" />
                     </div>
                     <div>
-                        <h3 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                            Upload Folder
+                        <h3 id="upload-source-heading" className="nb-section-title text-foreground">
+                            Upload a folder
                         </h3>
-                        <p className="mt-2 text-sm leading-7 text-zinc-500 dark:text-zinc-400">
-                            Choose a local project folder and review the detected structure before continuing.
+                        <p className="nb-body mt-2 max-w-[68ch] text-muted-foreground">
+                            Choose a local project folder, check its contents, and review the detected stack before continuing.
                         </p>
                     </div>
                 </div>
@@ -1615,138 +1455,106 @@ export default function Phase1SourceSelection({
                     onChange={handleFileSelect}
                 />
 
-                <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+                <div className="mt-6 space-y-5">
                     <div
                         data-testid="create-project-upload-dropzone"
                         onDragOver={handleUploadDragOver}
                         onDragEnter={handleUploadDragOver}
                         onDragLeave={handleUploadDragLeave}
                         onDrop={(event) => void handleUploadDrop(event)}
-                        className={`rounded-2xl border p-6 transition-colors ${
+                        className={`rounded-lg border border-dashed p-8 transition-colors ${
                             isDragOverUpload
-                                ? 'border-primary bg-primary/5 dark:border-primary/60 dark:bg-primary/10'
-                                : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-input bg-secondary/45'
                         }`}
                     >
-                        {uploadProgress?.isUploading ? (
+                        {uploadFiles && uploadFiles.length > 0 ? (
                             <div className="space-y-4 text-center">
-                                <div className="flex items-center justify-center">
-                                    <Loader2 className="h-7 w-7 animate-spin text-primary" />
+                                <div className="mx-auto flex size-10 items-center justify-center rounded-md border border-border bg-card text-[var(--status-success)]">
+                                    <Check className="size-5" />
                                 </div>
-                                <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-                                    Uploading... {uploadProgress.percent}%
-                                </div>
-                                <div className="h-2 overflow-hidden rounded-full bg-primary/10">
-                                    <div
-                                        className="h-full bg-primary transition-all duration-300"
-                                        style={{ width: `${uploadProgress.percent}%` }}
-                                    />
-                                </div>
-                                <div className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                                    {uploadProgress.currentFile}
-                                </div>
-                            </div>
-                        ) : uploadFiles && uploadFiles.length > 0 ? (
-                            <div className="space-y-4 text-center">
-                                <div className="flex items-center justify-center">
-                                    <Check className="h-7 w-7 text-green-500" />
-                                </div>
-                                <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                                <div className="nb-card-title text-foreground">
                                     {uploadFiles.length} files selected
                                 </div>
-                                <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                                    {analysisResult?.title ? `Detected project: ${analysisResult.title}` : 'The selected folder is attached to this import flow.'}
+                                <div className="nb-compact text-muted-foreground">
+                                    {uploadAnalysisResult?.title ? `Detected project: ${uploadAnalysisResult.title}` : 'The selected folder will remain attached through every phase.'}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={handleBrowseClick}
-                                    className="rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-2 text-sm font-semibold hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                                >
+                                <Button type="button" variant="outline" onClick={handleBrowseClick}>
                                     Change folder
-                                </button>
+                                </Button>
                             </div>
                         ) : (
                             <div className="space-y-4 text-center">
-                                <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                                <div className="nb-card-title text-foreground">
                                     {isDragOverUpload ? 'Drop folder to attach it' : 'Select a project folder'}
                                 </div>
-                                <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                                    Drag and drop a folder here, or browse directly from your machine.
+                                <div className="nb-compact text-muted-foreground">
+                                    Drag and drop a folder here, or browse from your device. Files can be up to 10 MB each.
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={handleBrowseClick}
-                                    data-testid="create-project-upload-browse"
-                                    className="rounded-xl app-accent-solid px-4 py-2 text-sm font-semibold"
-                                >
+                                <Button type="button" onClick={handleBrowseClick} data-testid="create-project-upload-browse">
                                     Browse folder
-                                </button>
+                                </Button>
                             </div>
                         )}
                     </div>
 
-                    <div className="space-y-5">
-                        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-                            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
-                                Upload notes
-                            </div>
-                            <div className="mt-4 space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
-                                <p>Folder imports stay attached while you move through the wizard.</p>
-                                <p>Once files are selected, Continue becomes available.</p>
-                                <p>The import analysis pre-fills project details when the uploaded files contain enough structure.</p>
-                            </div>
-                        </div>
+                    {uploadManifest ? <UploadManifestPreview manifest={uploadManifest} /> : null}
 
-                        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+                    {(isAnalyzingUpload || uploadAnalysisResult || uploadAnalysisError) ? (
+                        <section className="border-t border-border pt-5" aria-labelledby="upload-analysis-heading">
                             <div className="flex items-center gap-2">
-                                <Sparkles className="h-4 w-4 text-amber-500" />
-                                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                                    Upload preview
-                                </span>
+                                <h4 id="upload-analysis-heading" className="nb-card-title text-foreground">
+                                    Detected project
+                                </h4>
                             </div>
-                            {isAnalyzing ? (
-                                <div className="mt-4 flex items-center gap-2 text-sm text-primary">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Inspecting uploaded files...
+                            {isAnalyzingUpload ? (
+                                <div className="nb-compact mt-4 flex items-center gap-2 text-primary" role="status">
+                                    <Loader2 className="size-4 animate-spin" />
+                                    Inspecting uploaded files…
                                 </div>
-                            ) : analysisResult ? (
+                            ) : uploadAnalysisResult ? (
                                 <div className="mt-4 space-y-3">
-                                    {analysisResult.title && (
-                                        <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                            {analysisResult.title}
+                                    {uploadAnalysisResult.title && (
+                                        <div className="nb-card-title text-foreground">
+                                            {uploadAnalysisResult.title}
                                         </div>
                                     )}
-                                    {analysisResult.description && (
-                                        <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                                            {analysisResult.description}
+                                    {uploadAnalysisResult.description && (
+                                        <div className="nb-compact text-muted-foreground">
+                                            {uploadAnalysisResult.description}
                                         </div>
                                     )}
-                                    {analysisResult.technologies.length > 0 && (
-                                        <SkillList skills={analysisResult.technologies} size="sm" />
+                                    {uploadAnalysisResult.technologies.length > 0 && (
+                                        <SkillList skills={uploadAnalysisResult.technologies} size="sm" />
                                     )}
                                 </div>
                             ) : (
-                                <div className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
-                                    Choose a folder to inspect the stack and prefill project details when possible.
+                                <div className="nb-compact mt-4 text-muted-foreground" role="status">
+                                    {uploadAnalysisError}
                                 </div>
                             )}
-                        </div>
-                    </div>
+                        </section>
+                    ) : null}
                 </div>
-            </div>
-            {renderReadmeSetupCard()}
+            </section>
         </div>
     );
 
-    if (activeSourceView === 'scratch') {
-        return renderScratchView();
-    }
-    if (activeSourceView === 'github') {
-        return renderGithubView();
-    }
-    if (activeSourceView === 'upload') {
-        return renderUploadView();
-    }
+    const sourcePanel = activeSourceView === 'github'
+        ? renderGithubView()
+        : activeSourceView === 'upload'
+            ? renderUploadView()
+            : renderScratchView();
 
-    return renderSourceCards();
+    return (
+        <div className="min-w-0 w-full space-y-8 pb-6">
+            <Phase1SourceMethodGroup value={selectedSource} onChange={handleSelectSource} />
+            <section
+                id={`create-project-source-panel-${activeSourceView}`}
+                aria-label={`${activeSourceView} project source settings`}
+            >
+                {sourcePanel}
+            </section>
+        </div>
+    );
 }

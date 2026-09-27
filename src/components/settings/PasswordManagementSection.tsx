@@ -18,6 +18,7 @@ import type { SecurityData } from "@/lib/types/settingsTypes";
 type SecurityStepUpMethod = "totp" | "recovery_code";
 
 type PasswordManagementSectionProps = {
+  embedded?: boolean;
   hasPassword: boolean;
   lastChangedAt?: string;
   availableStepUpMethods: SecurityStepUpMethod[];
@@ -25,6 +26,7 @@ type PasswordManagementSectionProps = {
 };
 
 export default function PasswordManagementSection({
+  embedded = false,
   hasPassword,
   lastChangedAt,
   availableStepUpMethods,
@@ -94,39 +96,28 @@ export default function PasswordManagementSection({
     await submitPasswordChange();
   };
 
-  return (
-    <SettingsSectionCard
-      title="Password"
-      description={description}
-      testId="security-password-section"
-    >
-      <div className="space-y-4">
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-950/40">
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
-            Status
+  const content = (
+    <>
+      <div className="space-y-4" data-testid="security-password-section">
+        <div className="flex min-h-16 flex-col justify-center gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h4 className="nb-ui-label text-foreground">Password</h4>
+            <p className="nb-compact mt-1 text-muted-foreground">{statusLabel}. {helperCopy}</p>
+            {formattedLastChanged ? <p className="nb-meta mt-1 text-muted-foreground">Last changed {formattedLastChanged}</p> : null}
           </div>
-          <div className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            {statusLabel}
-          </div>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            {helperCopy}
-          </p>
-          {formattedLastChanged ? (
-            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-              Last changed {formattedLastChanged}
-            </p>
-          ) : null}
-        </div>
 
         {!isEditing ? (
-          <Button onClick={() => setIsEditing(true)}>
+          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
             {title}
           </Button>
-        ) : (
+        ) : null}
+        </div>
+
+        {isEditing ? (
           <form onSubmit={(event) => void handlePasswordSubmit(event)} className="space-y-4">
             {hasPassword ? (
               <div className="space-y-2">
-                <label htmlFor="current-password" className="text-sm font-medium leading-none">Current password</label>
+                <label htmlFor="current-password" className="nb-ui-label text-foreground">Current password</label>
                 <Input
                   id="current-password"
                   type="password"
@@ -140,7 +131,7 @@ export default function PasswordManagementSection({
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label htmlFor="new-password" className="text-sm font-medium leading-none">New password</label>
+                <label htmlFor="new-password" className="nb-ui-label text-foreground">New password</label>
                 <Input
                   id="new-password"
                   type="password"
@@ -153,7 +144,7 @@ export default function PasswordManagementSection({
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="confirm-password" className="text-sm font-medium leading-none">Confirm new password</label>
+                <label htmlFor="confirm-password" className="nb-ui-label text-foreground">Confirm new password</label>
                 <Input
                   id="confirm-password"
                   type="password"
@@ -163,12 +154,12 @@ export default function PasswordManagementSection({
                   disabled={isChangingPassword}
                 />
                 {confirmPassword && newPassword !== confirmPassword ? (
-                  <p className="text-xs text-red-500">Passwords do not match.</p>
+                  <p className="nb-compact text-destructive">Passwords do not match.</p>
                 ) : null}
               </div>
             </div>
 
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="nb-meta text-muted-foreground">
               Recovery is handled from the sign-in flow if you ever lose access.
             </p>
 
@@ -196,7 +187,7 @@ export default function PasswordManagementSection({
               </Button>
             </div>
           </form>
-        )}
+        ) : null}
       </div>
 
       <SecurityStepUpDialog
@@ -210,6 +201,14 @@ export default function PasswordManagementSection({
           await submitPasswordChange();
         }}
       />
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <SettingsSectionCard title="Password" description={description}>
+      {content}
     </SettingsSectionCard>
   );
 }

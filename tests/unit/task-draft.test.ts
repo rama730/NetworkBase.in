@@ -19,6 +19,7 @@ describe("task editor draft", () => {
       priority: "medium",
       assigneeId: null,
       dueDate: null,
+      storyPoints: null,
     });
   });
 
@@ -71,6 +72,7 @@ describe("task editor draft", () => {
         priority: "high",
         assigneeId: projectId,
         dueDate: "2026-04-17",
+        storyPoints: null,
       },
     );
   });
@@ -86,6 +88,7 @@ describe("task editor draft", () => {
         priority: "high",
         assigneeId: null,
         dueDate: null,
+        storyPoints: 5,
       },
       subtasks: [{ id: "subtask-1", title: "Verify cache patches" }],
       attachments: [{ id: "node-1" } as any],
@@ -100,10 +103,18 @@ describe("task editor draft", () => {
       priority: "high",
       assigneeId: null,
       dueDate: null,
+      storyPoints: 5,
       attachmentNodeIds: ["node-1"],
       subtasks: [{ title: "Verify cache patches", completed: false }],
     });
     assert.equal("type" in payload, false);
     assert.equal("tags" in payload, false);
+  });
+
+  it("parses and validates story points from string and number", () => {
+    assert.equal(taskEditorDraftSchema.parse({ title: "Task A", storyPoints: "8" }).storyPoints, 8);
+    assert.equal(taskEditorDraftSchema.parse({ title: "Task B", storyPoints: 13 }).storyPoints, 13);
+    assert.equal(taskEditorDraftSchema.parse({ title: "Task C", storyPoints: "" }).storyPoints, null);
+    assert.equal(taskEditorDraftSchema.parse({ title: "Task D", storyPoints: null }).storyPoints, null);
   });
 });

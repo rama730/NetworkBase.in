@@ -89,10 +89,10 @@ describe("GitHub Card Redesign & Integrations Settings Contract", () => {
     assert.ok(content.includes("Cloned repository"), "Must render 'Cloned repository' badge");
     assert.ok(content.includes("GitHub sync"), "Must render 'GitHub sync' badge");
 
-    // Must have spacing container between commit attribution card and projects card
+    // Must preserve spacing before the commit-attribution controls.
     assert.ok(
-      content.includes('<div className="space-y-4">\n        <GitHubCommitAttributionSettings />'),
-      "Must have space-y-4 container between commit attribution and projects card",
+      content.includes('<div className="pt-5"><GitHubCommitAttributionSettings /></div>'),
+      "Must separate commit attribution from the project list",
     );
   });
 

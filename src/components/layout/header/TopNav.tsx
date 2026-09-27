@@ -1,31 +1,42 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useState, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Menu } from "lucide-react";
+import { LogOut, Menu, Plus, UserRound } from "lucide-react";
 import Logo from "./Logo";
-import NavLink from "./NavLink";
+import { toast } from "sonner";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+
 import ThemeToggle from "./ThemeToggle";
 // Dynamic Imports for heavy interactive components
 import dynamic from "next/dynamic";
 const MobileMenu = dynamic(() => import("./MobileMenu"), { ssr: false });
 const CommandPalette = dynamic(() => import("./CommandPalette"), { ssr: false });
 const NotificationPreview = dynamic(() => import("./NotificationPreview"), { ssr: false });
+const CreateProjectWizard = dynamic(() => import("@/components/projects/create-wizard/CreateProjectWizard"), { ssr: false });
 
 import GlobalSearch from "./GlobalSearch";
-import WorkspaceIndicator from "./WorkspaceIndicator";
+
 import { ConnectionStatusIndicator } from "./ConnectionStatusIndicator";
 import { ProfileAvatar } from "./ProfileAvatar";
-import { useScrollShadow } from "@/hooks/useScrollShadow";
+import { OnlineIndicator } from "@/components/ui/OnlineIndicator";
+
 
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePeopleNotifications } from "@/hooks/usePeopleNotifications";
 import { ROUTES } from "@/constants/routes";
 import { resolveTopNavAuthUiState } from "./topnav-auth-state";
-import { MAIN_NAV_ITEMS, isMainNavRouteActive } from "./nav-items";
+
 import {
     resolveGlobalSearchContext,
     type GlobalSearchContext,
@@ -36,9 +47,17 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import { getWorkspaceSummaryAction } from "@/app/actions/workspace";
 import { queryKeys } from "@/lib/query-keys";
+import {
+    clearGithubOAuthResume,
+    getCreateProjectReturnPath,
+    parseCreateProjectSource,
+    readGithubOAuthResume,
+    type CreateProjectGithubOAuthResume,
+} from "@/components/projects/create-wizard/github-oauth-resume";
 
 export default function TopNav() {
     const pathname = usePathname();
+    const router = useRouter();
     const { user, isAuthenticated: isSignedIn, isLoading: authLoading, profile, signOut } = useAuth();
 
     const notifications = useNotifications();
@@ -53,9 +72,27 @@ export default function TopNav() {
     }, []);
 
     const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [showCreateProject, setShowCreateProject] = useState(false);
+    const [createProjectInitialSource, setCreateProjectInitialSource] = useState<'scratch' | 'github' | 'upload' | null>(null);
+    const [githubOAuthResume, setGithubOAuthResume] = useState<CreateProjectGithubOAuthResume | null>(null);
     const [showCommandPalette, setShowCommandPalette] = useState(false);
     const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
     const [commandPaletteContext, setCommandPaletteContext] = useState<GlobalSearchContext | undefined>();
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+    const [isSigningOut, setIsSigningOut] = useState(false);
+
+    const handleSignOut = async () => {
+        if (isSigningOut) return;
+        setIsSigningOut(true);
+        try {
+            await signOut();
+            toast.info("Signed out successfully");
+        } finally {
+            setIsSigningOut(false);
+        }
+    };
+
     const setMessageSearchOpen = useMessagesV2UiStore((state) => state.setMessageSearchOpen);
     const openWorkspace = useUIStore((state) => state.openWorkspace);
     const workspaceSummary = useQuery({
@@ -68,6 +105,26 @@ export default function TopNav() {
     const workspaceActionCount = workspaceSummary.data?.success
         ? workspaceSummary.data.taskCount + workspaceSummary.data.requestCount + peopleNotifications.pendingConnections
         : peopleNotifications.pendingConnections;
+    const isProjectDetailRoute = pathname.startsWith('/projects/');
+
+    useEffect(() => {
+        // The Hub owns its own query-driven wizard. Every other page restores the
+        // wizard here so a GitHub callback returns to the place it was launched (createProject=1).
+        if (pathname === '/hub' || typeof window === 'undefined') return;
+        const currentSearchParams = new URLSearchParams(window.location.search);
+        if (currentSearchParams.get('createProject') !== '1') return;
+
+        const returnPath = getCreateProjectReturnPath(window.location);
+        const resume = readGithubOAuthResume(returnPath);
+        setCreateProjectInitialSource(
+            parseCreateProjectSource(currentSearchParams.get('createProjectSource'))
+            ?? resume?.values.import_source?.type
+            ?? null,
+        );
+        setGithubOAuthResume(resume);
+        setShowCreateProject(true);
+        window.history.replaceState(window.history.state, '', returnPath);
+    }, [pathname]);
 
     const closeGlobalSearch = useCallback(() => {
         setShowCommandPalette(false);
@@ -87,7 +144,7 @@ export default function TopNav() {
         setShowCommandPalette(true);
     }, [closeGlobalSearch, pathname, setMessageSearchOpen]);
 
-    const hasScrolled = useScrollShadow();
+
 
     const authUiState = resolveTopNavAuthUiState({
         isAuthenticated: isSignedIn,
@@ -127,58 +184,18 @@ export default function TopNav() {
 
     return (
         <header
-            className={`sticky top-0 z-40 w-full border-b border-zinc-200/50 dark:border-zinc-800/50 bg-white dark:bg-zinc-900 dark:!bg-zinc-950 transition-all duration-300 ease-in-out ${hasScrolled ? "shadow-sm dark:shadow-zinc-900/20" : ""
-                }`}
+            className="nb-topbar shrink-0 border-b border-border bg-card"
         >
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 flex items-center justify-between gap-4 h-[var(--ui-topnav-height)] transition-all duration-300">
-                <div className="flex items-center gap-4">
-                    <div className="transition-transform duration-300">
+            <div className="px-4 sm:px-5 flex min-w-0 items-center justify-between gap-3 h-[var(--ui-topnav-height)]">
+                <div className="flex shrink-0 items-center gap-4">
+                    <div className="md:hidden">
                         <Logo href={authUiState === "signed-in" ? ROUTES.HUB : ROUTES.HOME} />
                     </div>
-
-                    {authUiState === "signed-in" && (
-                        <>
-                            <div className="hidden md:block h-6 w-px bg-gradient-to-b from-transparent via-zinc-200 dark:via-zinc-800 to-transparent" />
-                            <WorkspaceIndicator />
-                        </>
-                    )}
                 </div>
 
-                <div className="hidden min-w-0 flex-1 items-center justify-end gap-4 md:flex">
-                    <nav
-                        className="flex shrink-0 items-center gap-1"
-                        aria-label="Main navigation"
-                    >
-                        {MAIN_NAV_ITEMS.map((item) => {
-                            const isActive = isMainNavRouteActive(pathname, item.href);
-
-                            let alertState = false;
-                            let alertCount: number | undefined;
-
-                            if (item.href === ROUTES.PEOPLE) {
-                                alertState = peopleNotifications.totalPending > 0 && !isActive;
-                            } else if (item.href === ROUTES.MESSAGES) {
-                                alertState = messageAttention.hasUnreadMessages;
-                                alertCount = messageAttention.unreadCount;
-                            }
-
-                            return (
-                                <NavLink
-                                    key={item.href}
-                                    href={item.href}
-                                    icon={item.icon}
-                                    label={item.label}
-                                    isActive={isActive}
-                                    alertState={alertState}
-                                    alertCount={alertCount}
-                                    connectionHealth={item.href === ROUTES.PEOPLE ? connectionHealth : undefined}
-                                />
-                            );
-                        })}
-                    </nav>
-
+                <div className="hidden min-w-0 flex-1 items-center md:flex">
                     {authUiState === "signed-in" && (
-                        <Suspense fallback={<div className="h-10 w-60 shrink-0 rounded-xl bg-zinc-100 dark:bg-zinc-800" />}>
+                        <Suspense fallback={<div className="h-[var(--ui-control-height)] w-60 shrink-0 rounded-md bg-muted" />}>
                             <GlobalSearch
                                 condensed={false}
                                 onOpenCommandPalette={openGlobalSearch}
@@ -187,7 +204,23 @@ export default function TopNav() {
                     )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
+                    {authUiState === "signed-in" && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCreateProjectInitialSource(null);
+                                setGithubOAuthResume(null);
+                                setShowCreateProject(true);
+                            }}
+                            className={`nb-ui-label hidden h-[var(--ui-control-height)] items-center gap-2 rounded-md border px-4 transition-[background-color,border-color,color,transform] duration-150 ease-in-out active:translate-y-px sm:inline-flex ${isProjectDetailRoute
+                                ? 'border-border bg-card text-foreground hover:border-input hover:bg-muted'
+                                : 'border-primary bg-primary text-primary-foreground hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:border-[var(--primary-active)] active:bg-[var(--primary-active)]'}`}
+                        >
+                            <Plus className="size-4" aria-hidden="true" />
+                            New project
+                        </button>
+                    )}
                     {authUiState === "signed-in" && <ConnectionStatusIndicator />}
                     {authUiState === "signed-in" && (
                         <NotificationPreview
@@ -206,6 +239,7 @@ export default function TopNav() {
                             onItemsViewed={notifications.stageViewedNotifications}
                             onMarkUnread={notifications.markUnread}
                             onDismiss={notifications.dismiss}
+                            onClearAll={notifications.dismissAll}
                             onMuteScope={notifications.muteScope}
                             onSnooze={notifications.snooze}
                             onLoadMore={notifications.loadMore}
@@ -215,28 +249,70 @@ export default function TopNav() {
                     <ThemeToggle />
 
                     {authUiState === "loading" ? (
-                        <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse" />
-                            <div className="hidden sm:block h-4 w-20 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
+                        <div className="ml-1 border-l border-border pl-3">
+                            <div className="size-[34px] rounded-md bg-muted" />
                         </div>
                     ) : (
-                        <div className="relative">
+                        <div className="relative ml-1 border-l border-border pl-3">
                             {authUiState === "signed-in" ? (
-                                <Link
-                                    href={ROUTES.PROFILE}
-                                    prefetch={false}
-                                    className="flex items-center gap-2 rounded-lg px-2 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 transition-colors group focus:outline-none app-density-nav-item"
-                                    aria-label="Go to profile"
-                                >
-                                    <ProfileAvatar profile={profile} size={32} priority />
-                                    <span className="hidden sm:inline text-sm font-medium truncate max-w-[120px] text-zinc-700 dark:text-zinc-200">
-                                        {profile?.username || "User"}
-                                    </span>
-                                </Link>
+                                <DropdownMenu open={isProfileMenuOpen} onOpenChange={setIsProfileMenuOpen}>
+                                    <DropdownMenuTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="group inline-flex size-10 items-center justify-center rounded-[5px] transition-colors hover:bg-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                                            aria-label="User menu"
+                                            data-testid="topnav-profile-menu-trigger"
+                                        >
+                                            <span className="relative inline-flex">
+                                                <ProfileAvatar profile={profile} size={32} priority />
+                                                <OnlineIndicator online size="sm" />
+                                            </span>
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                        align="end"
+                                        sideOffset={8}
+                                        className="w-56 overflow-hidden rounded-[8px] border border-border bg-popover p-1 text-popover-foreground shadow-lg duration-[180ms] data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100"
+                                    >
+                                        <div className="px-2.5 py-2">
+                                            <p className="truncate text-xs font-semibold text-foreground">
+                                                {profile?.fullName || profile?.username || "Account"}
+                                            </p>
+                                            {profile?.username ? (
+                                                <p className="truncate font-mono text-[11px] text-muted-foreground">
+                                                    @{profile.username}
+                                                </p>
+                                            ) : user?.email ? (
+                                                <p className="truncate font-mono text-[11px] text-muted-foreground">
+                                                    {user.email}
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                        <DropdownMenuSeparator className="-mx-1 my-1 bg-border" />
+                                        <DropdownMenuItem asChild>
+                                            <Link
+                                                href={ROUTES.MY_PROFILE}
+                                                prefetch={false}
+                                                className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground"
+                                            >
+                                                <UserRound className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                                <span>My Profile</span>
+                                            </Link>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            variant="destructive"
+                                            onSelect={() => setShowSignOutConfirm(true)}
+                                            className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors"
+                                        >
+                                            <LogOut className="size-4 shrink-0" aria-hidden="true" />
+                                            <span>Sign Out</span>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             ) : (
                                 <Link
                                     href={ROUTES.LOGIN}
-                                    className="rounded-lg border border-zinc-200 dark:border-zinc-800 px-4 py-1.5 text-sm font-medium hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-900 transition-colors focus:outline-none    dark:"
+                                    className="nb-ui-label inline-flex h-[var(--ui-control-height)] items-center rounded-md border border-border bg-card px-4 transition-colors duration-[130ms] hover:bg-muted focus:outline-none"
                                 >
                                     Sign in
                                 </Link>
@@ -247,12 +323,12 @@ export default function TopNav() {
                     {authUiState === "signed-in" && (
                         <button
                             onClick={() => setShowMobileMenu(true)}
-                            className="md:hidden p-2 rounded-lg hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800 transition-colors focus:outline-none    dark:"
+                            className="nb-mobile-menu-trigger inline-flex size-10 items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none md:hidden"
                             aria-label="Open mobile menu"
                             aria-expanded={showMobileMenu}
                             aria-controls="mobile-menu"
                         >
-                            <Menu className="w-5 h-5" />
+                            <Menu className="size-4" aria-hidden="true" />
                         </button>
                     )}
                 </div>
@@ -293,6 +369,36 @@ export default function TopNav() {
                         recentSearchOwnerId={user?.id}
                     />
                 )}
+                {showCreateProject && (
+                    <CreateProjectWizard
+                        onClose={() => {
+                            setShowCreateProject(false);
+                            setCreateProjectInitialSource(null);
+                            setGithubOAuthResume(null);
+                        }}
+                        onSuccess={(projectId) => {
+                            setShowCreateProject(false);
+                            setGithubOAuthResume(null);
+                            router.push(`/projects/${projectId}`);
+                        }}
+                        initialSource={createProjectInitialSource}
+                        githubOAuthResume={githubOAuthResume}
+                        onGithubOAuthResumeRestored={(resumeId) => {
+                            clearGithubOAuthResume(resumeId);
+                            setGithubOAuthResume(null);
+                        }}
+                    />
+                )}
+                <ConfirmDialog
+                    open={showSignOutConfirm}
+                    onOpenChange={setShowSignOutConfirm}
+                    title="Sign out of your account?"
+                    description="You will be signed out on this device. Unsaved offline changes or drafts may be lost."
+                    confirmLabel="Sign out"
+                    variant="destructive"
+                    loading={isSigningOut}
+                    onConfirm={handleSignOut}
+                />
             </div>
         </header>
     );

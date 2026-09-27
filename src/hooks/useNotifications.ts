@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 
 import {
+    dismissAllNotificationsAction,
     dismissNotificationAction,
     markNotificationReadAction,
     markNotificationUnreadAction,
@@ -210,8 +211,8 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             }
             return { total: result.unreadCount, important: result.unreadImportantCount };
         },
-        staleTime: 15_000,
-        refetchOnWindowFocus: true,
+        staleTime: 60_000,
+        refetchOnWindowFocus: false,
         refetchOnReconnect: true,
     });
 
@@ -231,8 +232,8 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             return result.page satisfies NotificationFeedPage;
         },
         getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-        staleTime: 15_000,
-        refetchOnWindowFocus: true,
+        staleTime: 60_000,
+        refetchOnWindowFocus: false,
         refetchOnReconnect: true,
     });
 
@@ -585,6 +586,42 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         },
     });
 
+    const dismissAllMutation = useMutation({
+        mutationFn: async () => {
+            const result = await dismissAllNotificationsAction();
+            if (!result.success) throw new Error(result.error || "Failed to clear notifications");
+            return result;
+        },
+        onMutate: async () => {
+            await queryClient.cancelQueries({ queryKey: notificationsQueryKey });
+            const previous = queryClient.getQueryData<InfiniteData<NotificationFeedPage>>(notificationsQueryKey);
+            queryClient.setQueryData<InfiniteData<NotificationFeedPage>>(notificationsQueryKey, (existing) => {
+                if (!existing) return existing;
+                return {
+                    ...existing,
+                    pages: existing.pages.map((page) => ({
+                        ...page,
+                        items: [],
+                        unreadCount: 0,
+                        unreadImportantCount: 0,
+                    })),
+                };
+            });
+            queryClient.setQueryData(unreadCountQueryKey, { total: 0, important: 0 });
+            return { previous };
+        },
+        onError: (error, _variables, context) => {
+            if (context?.previous) queryClient.setQueryData(notificationsQueryKey, context.previous);
+            void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
+            toast.error(error instanceof Error ? error.message : "Failed to clear notifications");
+        },
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+            void queryClient.invalidateQueries({ queryKey: unreadCountQueryKey });
+            toast.success("All notifications cleared");
+        },
+    });
+
     const muteMutation = useMutation({
         mutationFn: async (scope: NotificationMuteScope) => {
             const result = await muteNotificationScopeAction(scope);
@@ -671,6 +708,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
     const closeTray = useCallback(() => setTrayOpen(false), [setTrayOpen]);
     const markUnread = useCallback((notificationId: string) => markUnreadMutation.mutateAsync(notificationId), [markUnreadMutation]);
     const dismiss = useCallback((notificationId: string) => dismissMutation.mutateAsync(notificationId), [dismissMutation]);
+    const dismissAll = useCallback(() => dismissAllMutation.mutateAsync(), [dismissAllMutation]);
     const muteScope = useCallback((scope: NotificationMuteScope) => muteMutation.mutateAsync(scope), [muteMutation]);
     const muteItemType = useCallback((item: NotificationItem) => muteMutation.mutateAsync(getNarrowestNotificationMuteScope(item)), [muteMutation]);
     const snooze = useCallback((notificationId: string, snoozedUntil: string) =>
@@ -697,6 +735,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         stageViewedNotifications,
         markUnread,
         dismiss,
+        dismissAll,
         muteScope,
         muteItemType,
         snooze,
@@ -721,6 +760,7 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
         stageViewedNotifications,
         markUnread,
         dismiss,
+        dismissAll,
         muteScope,
         muteItemType,
         snooze,

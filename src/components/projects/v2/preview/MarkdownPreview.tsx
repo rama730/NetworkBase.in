@@ -46,7 +46,7 @@ function safeMarkdownUrlTransform(url: string, key: string): string {
 }
 
 const markdownComponents = {
-  h1: ({ ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h1 className="text-2xl font-bold mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-2" {...props} />,
+  h1: ({ ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h1 className="text-2xl font-semibold mb-4 border-b border-zinc-200 dark:border-zinc-800 pb-2" {...props} />,
   h2: ({ ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h2 className="text-xl font-semibold mt-6 mb-3" {...props} />,
   h3: ({ ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h3 className="text-lg font-medium mt-4 mb-2" {...props} />,
   p: ({ ...props }: React.HTMLAttributes<HTMLParagraphElement>) => <p className="mb-4 leading-relaxed" {...props} />,

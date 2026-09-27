@@ -59,11 +59,51 @@ const DOC_MIMES = new Set([
   "application/vnd.ms-powerpoint",
 ]);
 
+const EXTENSIONLESS_TEXT_FILES = new Set([
+  "license",
+  "licence",
+  "copying",
+  "patents",
+  "unlicense",
+  "readme",
+  "contributing",
+  "code_of_conduct",
+  "authors",
+  "contributors",
+  "changelog",
+  "history",
+  "notice",
+  "todo",
+  "makefile",
+  "dockerfile",
+  "procfile",
+  "gemfile",
+  "vagrantfile",
+  ".gitignore",
+  ".gitattributes",
+  ".gitmodules",
+  ".env",
+  ".env.local",
+  ".env.production",
+  ".env.development",
+  "hub",
+]);
+
 export function isTextLike(node: Pick<ProjectNode, "type" | "name" | "mimeType">): boolean {
   if (node.type !== "file") return false;
   const mime = (node.mimeType || "").toLowerCase();
   if (mime.startsWith("text/")) return true;
   if (mime === "application/json" || mime === "application/xml") return true;
+
+  const cleanName = (node.name || "").toLowerCase().trim();
+  if (
+    EXTENSIONLESS_TEXT_FILES.has(cleanName) ||
+    cleanName.startsWith(".env") ||
+    /^licen[sc]e(\.|$)/i.test(cleanName) ||
+    /^readme(\.|$)/i.test(cleanName)
+  ) {
+    return true;
+  }
 
   const ext = extOf(node.name);
   if (!ext) return false;

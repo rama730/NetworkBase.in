@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { getJourneyStageWindow, getStageCompletionTooltip, JOURNEY_VISIBLE_STAGE_COUNT } from "../../src/components/projects/dashboard/JourneyTimeline";
+import { getJourneyCenteredScrollLeft, getJourneyStageWindow, getStageCompletionTooltip, JOURNEY_VISIBLE_STAGE_COUNT } from "../../src/components/projects/dashboard/JourneyTimeline";
 
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -16,7 +16,9 @@ test("project dashboard keeps journey connectors, statements, and skills stable"
   assert.match(journey, /left-1\/2 right-0/);
   assert.match(journey, /scrollContainerRef/);
   assert.match(journey, /app-scroll-x app-scroll-hidden/);
-  assert.match(journey, /data-stage-index="\$\{stageWindow\.start\}"/);
+  assert.match(journey, /data-stage-index="\$\{safeCurrentStageIndex\}"/);
+  assert.match(journey, /getJourneyCenteredScrollLeft/);
+  assert.match(journey, /ResizeObserver\(alignCurrentStage\)/);
   assert.match(journey, /stages\.map/);
   assert.match(journey, /index <= safeCurrentStageIndex/);
   assert.match(journey, /index < safeCurrentStageIndex/);
@@ -35,11 +37,72 @@ test("project dashboard keeps journey connectors, statements, and skills stable"
   assert.match(overview, /Skills & Tech/);
 });
 
+test("project detail keeps identity and team in the header while the dashboard starts with project substance", () => {
+  const layout = source("src/components/projects/dashboard/ProjectLayout.tsx");
+  const avatars = source("src/components/projects/dashboard/ProjectTeamAvatars.tsx");
+  const client = source("src/components/projects/dashboard/ProjectDashboardClient.tsx");
+  const links = source("src/components/projects/dashboard/ProjectSocialLinksCard.tsx");
+  const stats = source("src/components/projects/ProjectStatsBar.tsx");
+  const tooltip = source("src/components/ui/tooltip.tsx");
+  const dashboard = source("src/components/projects/tabs/DashboardTab.tsx");
+  const overview = source("src/components/projects/dashboard/ProjectOverviewCard.tsx");
+  const railJourney = source("src/components/projects/dashboard/JourneyTimeline.tsx").split('if (layout === "rail")')[1]?.split("\n    return (")[0] ?? "";
+
+  assert.doesNotMatch(layout, /ChevronLeft/);
+  assert.doesNotMatch(layout, />\s*Discover\s*</);
+  assert.match(layout, /<ProjectTeamAvatars/);
+  assert.match(layout, /projectUpdatedLabel/);
+  assert.match(layout, /onInvite/);
+  assert.doesNotMatch(layout, /activeTabButton\?\.scrollIntoView/, "Project tab selection must not move the route vertically");
+  assert.match(layout, /tabList\.scrollTo\(\{ left: Math\.max\(0, centeredLeft\), behavior: "smooth" \}\)/);
+  assert.match(layout, /nb-page-title/);
+  assert.match(layout, /nb-touch-target/);
+  assert.match(client, /onInvite=\{\(\) => setIsInviteModalOpen\(true\)\}/);
+  assert.match(client, /canInvite=\{canManageProjectSettings\}/);
+  assert.match(stats, /followersCount/);
+  assert.match(stats, /font-mono tabular-nums/);
+  assert.match(links, /h-\[var\(--ui-control-height\)\]/);
+  assert.match(tooltip, /rounded-sm/);
+  assert.match(tooltip, /px-\[7px\] py-1/);
+  assert.doesNotMatch(tooltip, /TooltipPrimitive\.Arrow/);
+  assert.doesNotMatch(tooltip, /zoom-in-95/);
+
+  assert.match(avatars, /TooltipContent/);
+  assert.match(avatars, /avatar\.name/);
+  assert.match(avatars, /avatar\.role/);
+  assert.match(avatars, /profileHref/);
+  assert.match(avatars, /size-\[34px\]/);
+  assert.doesNotMatch(avatars, /hover:-translate-y/);
+
+  assert.doesNotMatch(dashboard, /TeamCard/);
+  assert.match(dashboard, /layout="rail"/);
+  assert.match(dashboard, /xl:grid-cols-\[minmax\(0,1fr\)_clamp\(360px,30%,420px\)\]/);
+  assert.match(railJourney, /app-scroll app-scroll-x app-scroll-hidden overflow-x-auto/);
+  assert.match(railJourney, /gridTemplateColumns/);
+  assert.match(railJourney, /left-0 right-1\/2/);
+  assert.match(railJourney, /left-1\/2 right-0/);
+  assert.doesNotMatch(railJourney, /<ol/);
+
+  assert.doesNotMatch(overview, /JourneyTimeline/);
+  assert.doesNotMatch(overview, /project\?\.title/);
+  assert.doesNotMatch(overview, /project\?\.shortDescription/);
+  assert.match(overview, /Vision & Description/);
+  assert.match(overview, /The Problem/);
+  assert.match(overview, /The Solution/);
+});
+
 test("project journey windows around the current stage", () => {
   assert.equal(JOURNEY_VISIBLE_STAGE_COUNT, 5);
   assert.deepEqual(getJourneyStageWindow(7, 5), { start: 2, end: 7, currentStageIndex: 5 });
   assert.deepEqual(getJourneyStageWindow(7, 0), { start: 0, end: 5, currentStageIndex: 0 });
   assert.deepEqual(getJourneyStageWindow(7, 99), { start: 2, end: 7, currentStageIndex: 6 });
+});
+
+test("project journey centers the current pointer and clamps at both ends", () => {
+  assert.equal(getJourneyCenteredScrollLeft({ itemOffsetLeft: 0, itemWidth: 112, containerWidth: 336, scrollWidth: 784 }), 0);
+  assert.equal(getJourneyCenteredScrollLeft({ itemOffsetLeft: 448, itemWidth: 112, containerWidth: 336, scrollWidth: 784 }), 336);
+  assert.equal(getJourneyCenteredScrollLeft({ itemOffsetLeft: 672, itemWidth: 112, containerWidth: 336, scrollWidth: 784 }), 448);
+  assert.equal(getJourneyCenteredScrollLeft({ itemOffsetLeft: 0, itemWidth: 112, containerWidth: 560, scrollWidth: 560 }), 0);
 });
 
 test("completed journey stages always have an honest hover label", () => {
@@ -85,7 +148,7 @@ test("integrations settings shows extension app identity before sessions", () =>
   const integrations = source("src/components/settings/IntegrationsSettings.tsx");
 
   assert.match(integrations, /function ExtensionAppCard/);
-  assert.match(integrations, /\/icon-192\.png/);
+  assert.match(integrations, /\/icon-(?:ink-)?192\.png/);
   assert.match(integrations, /NetworkBase editor extension/);
   assert.match(integrations, /\/ide-icons\/vscode\.png/);
   assert.match(integrations, /\/ide-icons\/cursor\.png/);

@@ -202,7 +202,7 @@ export function V3AttachmentPicker({
               type="button"
               aria-current={!recent ? "page" : undefined}
               onClick={root}
-              className="min-h-10 rounded px-3 text-left text-sm hover:bg-zinc-100 focus-visible:ring-2 dark:hover:bg-zinc-800"
+              className="min-h-10 rounded-[5px] px-3 text-left text-sm hover:bg-muted focus-visible:ring-2"
             >
               Project files
             </button>
@@ -214,7 +214,7 @@ export function V3AttachmentPicker({
                 setSearchInput("");
                 setQuery("");
               }}
-              className="min-h-10 rounded px-3 text-left text-sm hover:bg-zinc-100 focus-visible:ring-2 dark:hover:bg-zinc-800"
+              className="min-h-10 rounded-[5px] px-3 text-left text-sm hover:bg-muted focus-visible:ring-2"
             >
               Recent files
             </button>
@@ -237,7 +237,7 @@ export function V3AttachmentPicker({
               <label className="ml-auto flex min-w-0 flex-1 items-center gap-2 rounded border px-2 sm:max-w-sm">
                 <Search
                   aria-hidden="true"
-                  className="size-4 shrink-0 text-zinc-500"
+                  className="size-4 shrink-0 text-muted-foreground"
                 />
                 <input
                   autoFocus
@@ -268,7 +268,7 @@ export function V3AttachmentPicker({
                 </p>
               )}
               {result.isPending || query !== searchInput.trim() ? (
-                <p role="status" className="p-4 text-sm text-zinc-500">
+                <p role="status" className="p-4 text-sm text-muted-foreground">
                   Loading files…
                 </p>
               ) : (
@@ -284,7 +284,7 @@ export function V3AttachmentPicker({
                       }
                       data-testid={`v3-attachment-picker-result-${node.id}`}
                       onClick={() => select(node)}
-                      className="flex min-h-12 w-full items-center gap-3 border-b border-zinc-100 px-4 py-2 text-left hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-inset dark:border-zinc-800 dark:hover:bg-zinc-900"
+                      className="flex min-h-12 w-full items-center gap-3 border-b border-border px-4 py-2 text-left hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset"
                     >
                       <FileIcon
                         name={node.name}
@@ -296,7 +296,7 @@ export function V3AttachmentPicker({
                           {node.name}
                         </span>
                         {query && (
-                          <span className="block truncate text-xs text-zinc-500">
+                          <span className="block truncate text-xs text-muted-foreground">
                             {node.path.startsWith("/.system/")
                               ? "Task files"
                               : node.path}
@@ -304,12 +304,12 @@ export function V3AttachmentPicker({
                         )}
                       </span>
                       {selectedNodes.some((item) => item.id === node.id) && (
-                        <span className="text-xs text-blue-600">Selected</span>
+                        <span className="text-xs text-[#2563C9]">Selected</span>
                       )}
                     </button>
                   ))}
                   {!nodes.length && !result.isError && (
-                    <p className="p-4 text-sm text-zinc-500">
+                    <p className="p-4 text-sm text-muted-foreground">
                       {query.length === 1
                         ? "Type at least two characters to search."
                         : query
@@ -341,14 +341,14 @@ export function V3AttachmentPicker({
           data-testid="v3-attachment-picker-tray"
         >
           {!selectedNodes.length ? (
-            <p className="text-xs text-zinc-500">No files selected</p>
+            <p className="text-xs text-muted-foreground">No files selected</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {selectedNodes.map((node) => (
                 <span
                   key={node.id}
                   data-testid={`v3-attachment-picker-chip-${node.id}`}
-                  className="inline-flex min-h-9 max-w-full items-center gap-1 rounded-md bg-blue-50 pl-2 text-xs text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+                  className="inline-flex min-h-9 max-w-full items-center gap-1 rounded-[5px] bg-[#EEF4FD] pl-2 text-xs text-[#2563C9] dark:bg-[#2563C9]/15 dark:text-[#EEF4FD]"
                 >
                   <span className="max-w-40 truncate">{node.name}</span>
                   <button

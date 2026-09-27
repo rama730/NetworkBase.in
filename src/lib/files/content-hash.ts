@@ -67,28 +67,59 @@ export type ContentHashResult =
   | { kind: "full"; hashHex: string; bytes: number }
   | { kind: "prefix"; hashHex: string; bytes: number; prefixBytes: number };
 
+// ponytail: 2-worker concurrency pool caps browser memory to <=64 MiB during bulk file hashing. ceiling: 2 workers, FIFO queue. upgrade: Dedicated SharedWorker if cross-tab deduplication required.
+const MAX_CONCURRENT_WORKERS = 2;
+let activeWorkerCount = 0;
+const workerTaskQueue: Array<{
+  blob: Blob;
+  resolve: (res: ContentHashResult) => void;
+  reject: (err: any) => void;
+}> = [];
+
+function pumpWorkerQueue() {
+  if (activeWorkerCount >= MAX_CONCURRENT_WORKERS || workerTaskQueue.length === 0) {
+    return;
+  }
+  const task = workerTaskQueue.shift();
+  if (!task) return;
+
+  activeWorkerCount++;
+  try {
+    const worker = new Worker(new URL("./content-hash.worker.ts", import.meta.url));
+    const finish = () => {
+      worker.terminate();
+      activeWorkerCount--;
+      pumpWorkerQueue();
+    };
+
+    worker.onmessage = (e: MessageEvent<{ result?: ContentHashResult; error?: string }>) => {
+      if (e.data.error) {
+        task.reject(new Error(e.data.error));
+      } else if (e.data.result) {
+        task.resolve(e.data.result);
+      } else {
+        task.reject(new Error("Unexpected worker response"));
+      }
+      finish();
+    };
+
+    worker.onerror = (err) => {
+      task.reject(err);
+      finish();
+    };
+
+    worker.postMessage({ blob: task.blob });
+  } catch (err) {
+    activeWorkerCount--;
+    task.reject(err);
+    pumpWorkerQueue();
+  }
+}
+
 export function computeContentHash(blob: Blob): Promise<ContentHashResult> {
   return new Promise((resolve, reject) => {
-    try {
-      const worker = new Worker(new URL("./content-hash.worker.ts", import.meta.url));
-      worker.onmessage = (e: MessageEvent<{ result?: ContentHashResult; error?: string }>) => {
-        if (e.data.error) {
-          reject(new Error(e.data.error));
-        } else if (e.data.result) {
-          resolve(e.data.result);
-        } else {
-          reject(new Error("Unexpected worker response"));
-        }
-        worker.terminate();
-      };
-      worker.onerror = (err) => {
-        reject(err);
-        worker.terminate();
-      };
-      worker.postMessage({ blob });
-    } catch (err) {
-      reject(err);
-    }
+    workerTaskQueue.push({ blob, resolve, reject });
+    pumpWorkerQueue();
   });
 }
 

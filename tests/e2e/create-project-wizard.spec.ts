@@ -4,7 +4,7 @@ import { hasE2ECredentials, login } from "./_helpers/auth";
 test.describe("Create project wizard", () => {
   test.skip(!hasE2ECredentials, "E2E_USER_EMAIL and E2E_USER_PASSWORD are required.");
 
-  test("phase 1 source cards open dedicated source views", async ({ browser }) => {
+  test("phase 1 source selector stays visible while switching dedicated views", async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -20,6 +20,7 @@ test.describe("Create project wizard", () => {
 
     await page.getByTestId("create-project-source-card-github").click();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
+    await expect(page.getByTestId("create-project-phase1-source-grid")).toBeVisible();
     await expect(page.getByTestId("create-project-github-manual-url")).toBeVisible();
     await expect(page.getByTestId("create-project-connect-github")).toBeVisible();
     await page.getByTestId("create-project-github-manual-url").fill("networkbase/tools");
@@ -28,19 +29,14 @@ test.describe("Create project wizard", () => {
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
 
-    await page.getByTestId("create-project-back-to-source-grid").click();
-    await expect(page.getByTestId("create-project-phase1-source-grid")).toBeVisible();
-    await expect(page.getByTestId("create-project-source-view-github")).toHaveCount(0);
-
     await page.getByTestId("create-project-source-card-upload").click();
     await expect(page.getByTestId("create-project-source-view-upload")).toBeVisible();
     await expect(page.getByTestId("create-project-upload-dropzone")).toBeVisible();
-
-    await page.getByTestId("create-project-back-to-source-grid").click();
-    await expect(page.getByTestId("create-project-phase1-source-grid")).toBeVisible();
+    await expect(page.getByTestId("create-project-source-view-github")).toHaveCount(0);
 
     await page.getByTestId("create-project-source-card-scratch").click();
     await expect(page.getByTestId("create-project-source-view-scratch")).toBeVisible();
+    await expect(page.getByTestId("create-project-phase1-source-grid")).toBeVisible();
 
     await context.close();
   });

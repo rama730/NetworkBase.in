@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Users } from 'lucide-react';
 import { getAcceptedConnections } from '@/app/actions/connections';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -137,24 +137,24 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-            <DialogContent className="max-w-md p-0 overflow-hidden gap-0">
-                <DialogHeader className="border-b border-zinc-200 dark:border-zinc-800 px-4 py-4">
+            <DialogContent className="max-w-md p-0 overflow-hidden gap-0 border border-border bg-card">
+                <DialogHeader className="border-b border-border px-4 py-4">
                     <DialogTitle>{`${ownerDisplayName}'s Connections`}</DialogTitle>
                     <DialogDescription className="sr-only">
                         Browse accepted connections and open a public profile for each person.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
+                <div className="p-4 border-b border-border">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <input
                             type="text"
                             aria-label="Search connections"
                             placeholder="Search connections..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-transparent focus:border-blue-500/40   text-sm outline-none"
+                            className="nb-body w-full rounded-[3px] border border-border bg-background py-2 pl-9 pr-4 text-foreground outline-none focus:border-primary/50"
                         />
                     </div>
                 </div>
@@ -162,11 +162,21 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
                 <div className="max-h-[60vh] overflow-y-auto p-2">
                     {loading ? (
                         <div className="flex justify-center py-8">
-                            <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
+                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                         </div>
                     ) : connections.length === 0 ? (
-                        <div className="text-center py-8 text-zinc-500 text-sm">
-                            {searchQuery ? 'No matching connections.' : 'No connections found.'}
+                        <div className="p-2">
+                            <div className="nb-empty-state nb-grid-ground py-8 text-center" role="status">
+                                <div className="nb-empty-state-icon-box">
+                                    <Users className="nb-empty-state-icon" />
+                                </div>
+                                <h4 className="nb-empty-state-title">
+                                    {searchQuery ? 'No matching connections' : 'No connections yet'}
+                                </h4>
+                                <p className="nb-empty-state-desc">
+                                    {searchQuery ? 'Try searching for a different name or username.' : 'Connected people will appear here.'}
+                                </p>
+                            </div>
                         </div>
                     ) : (
                         <div className="space-y-1">
@@ -182,27 +192,27 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
                                         onClick={onClose}
                                         onMouseEnter={() => prefetch(profileHref(user))}
                                         onFocus={() => prefetch(profileHref(user))}
-                                        className="flex items-center gap-3 p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 rounded-xl transition-colors group"
+                                        className="flex items-center gap-3 p-2 hover:bg-muted rounded-[3px] transition-colors group"
                                     >
                                         {user.avatarUrl ? (
                                             <Image
                                                 src={user.avatarUrl}
                                                 alt={displayName}
-                                                width={40}
-                                                height={40}
-                                                className="rounded-full object-cover w-10 h-10 border border-zinc-100 dark:border-zinc-800"
+                                                width={34}
+                                                height={34}
+                                                className="rounded-[3px] object-cover w-[34px] h-[34px] border border-border"
                                             />
                                         ) : (
-                                            <div className="w-10 h-10 rounded-full app-accent-gradient flex items-center justify-center text-white text-xs font-bold">
+                                            <div className="w-[34px] h-[34px] rounded-[3px] bg-secondary border border-border flex items-center justify-center text-foreground text-xs font-semibold">
                                                 {displayName[0]?.toUpperCase()}
                                             </div>
                                         )}
                                         <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                                            <div className="font-medium text-foreground truncate">
                                                 {displayName}
                                             </div>
                                             {user.headline && (
-                                                <div className="text-xs text-zinc-500 truncate">{user.headline}</div>
+                                                <div className="nb-compact truncate text-muted-foreground">{user.headline}</div>
                                             )}
                                         </div>
                                     </Link>
@@ -214,7 +224,7 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
                                         type="button"
                                         onClick={loadMore}
                                         disabled={loadingMore}
-                                        className="w-full px-3 py-2 rounded-lg text-sm border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50"
+                                        className="nb-ui-label w-full rounded-[3px] border border-border bg-card px-3 py-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
                                     >
                                         {loadingMore ? 'Loading...' : 'Load more'}
                                     </button>

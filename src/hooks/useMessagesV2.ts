@@ -167,14 +167,13 @@ export function useInbox(
             if (active && cachedPage) {
                 const currentData = queryClient.getQueryState(queryKey);
                 if (!currentData?.data) {
-                    // ponytail: IndexedDB is an instant visual fallback, not an
-                    // authoritative fresh inbox.
                     queryClient.setQueryData(
                         queryKey,
                         {
                             pages: [cachedPage],
                             pageParams: [undefined],
                         },
+                        { updatedAt: 0 },
                     );
                 }
             }
@@ -245,12 +244,13 @@ export function useConversationThread(conversationId: string | null, limit: numb
                         {
                             pages: [{
                                 ...cachedPage,
-                                // ponytail: inbox previews are summaries, never thread messages.
+                                // ponytail: inbox previews are summaries, never thread messages. ceiling: cached page messages. upgrade: fetch full thread if message body hydration is requested.
                                 messages: cachedPage.messages,
                                 conversation: inboxSnapshot ?? cachedPage.conversation,
                             }],
                             pageParams: [undefined],
                         },
+                        { updatedAt: 0 },
                     );
                 }
             }

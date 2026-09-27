@@ -1,6 +1,5 @@
 import { eq, isNull } from "drizzle-orm";
 import { projectNodes } from "@/lib/db/schema";
-import { format as sqlFormat } from "sql-formatter";
 import { FILES_RUNTIME_BUDGETS } from "@/lib/files/runtime-budgets";
 
 export const MAX_NODE_NAME_LENGTH = 255;
@@ -94,9 +93,11 @@ export function firstSnippet(content: string, needle: string, radius = 80) {
     return content.slice(start, end).replace(/\s+/g, " ");
 }
 
-export function formatSqlLight(content: string) {
+export async function formatSqlLight(content: string) {
     const normalized = (content || "").replace(/\r\n/g, "\n");
     try {
+        // ponytail: dynamic import keeps sql-formatter out of default server action bundle. ceiling: on-demand SQL formatting. upgrade: static import if SQL formatting becomes standard in all file paths.
+        const { format: sqlFormat } = await import("sql-formatter");
         const formatted = sqlFormat(normalized, {
             language: "postgresql",
             keywordCase: "upper",

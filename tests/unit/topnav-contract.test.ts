@@ -70,7 +70,7 @@ test("global-search preserves unrelated filters and only resets task pagination"
       context: "people",
       query: "TypeScript",
     }),
-    "/people?tab=discover&q=TypeScript",
+    "/people?tab=suggested&q=TypeScript",
   );
   assert.equal(
     buildGlobalSearchHref({
@@ -97,7 +97,7 @@ test("global-search preserves unrelated filters and only resets task pagination"
       context: "default",
       query: "design systems",
     }),
-    "/hub?q=design+systems",
+    "/discover?q=design+systems",
   );
 });
 
@@ -204,17 +204,23 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   const personCard = source("src/components/people/PersonCard.tsx");
   const resultCards = source("src/components/layout/header/GlobalSearchResultCards.tsx");
   const hubData = source("src/lib/data/hub.ts");
+  const globals = source("src/app/globals.css");
 
   assert.match(topNav, /e\.key\.toLowerCase\(\) === "k"/);
   assert.match(topNav, /setMessageSearchOpen\(true\)/);
   assert.match(topNav, /\[data-messages-surface\]/);
   assert.doesNotMatch(topNav, /OPEN_MESSAGES_SEARCH_EVENT|open-messages-local-search/);
-  assert.match(topNav, /MAIN_NAV_ITEMS/);
-  assert.match(topNav, /hidden min-w-0 flex-1 items-center justify-end gap-4 md:flex/);
-  assert.match(topNav, /className="flex shrink-0 items-center gap-1"/);
+  assert.match(source("src/components/layout/AppSidebar.tsx"), /MAIN_NAV_ITEMS/);
+  assert.match(topNav, /hidden min-w-0 flex-1 items-center md:flex/);
+  assert.match(topNav, /<div className="md:hidden">\s*<Logo/);
+  assert.match(topNav, /className="nb-mobile-menu-trigger[^\"]*md:hidden"\s+aria-label="Open mobile menu"/);
+  assert.match(globals, /@media \(min-width:768px\) \{[\s\S]*?\.nb-mobile-menu-trigger \{ display:none; \}/);
+  assert.match(topNav, /createProject=1/);
+  assert.match(topNav, /className="flex shrink-0 items-center gap-2"/);
   assert.match(topNav, /recentSearchOwnerId=\{user\?\.id\}/);
   assert.match(navLink, /aria-current=\{isActive \? "page" : undefined\}/);
   assert.match(mobileMenu, /<Dialog open=\{props\.isOpen\}/);
+  assert.match(mobileMenu, /p-4 md:hidden/);
   assert.match(notifications, /href=\{settingsTabHref\("notifications"\)\}/);
   assert.match(notifications, /onItemsViewed/);
   assert.match(notifications, /data-\[state=open\]/);
@@ -257,7 +263,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.doesNotMatch(commandPalette, /<DialogHeader|ContextIcon|ChevronLeft/);
   assert.match(commandPalette, /press Enter to run the full search/);
   assert.doesNotMatch(commandPalette, /↑↓.*Navigate|Search all “|Enter a search term/);
-  assert.match(globalSearch, /h-10 w-60/);
+  assert.match(globalSearch, /h-\[var\(--ui-control-height\)\] w-60 lg:w-80/);
   assert.doesNotMatch(globalSearch, /hover:w-/);
   assert.match(globalSearchContract, /searchParams\.get\("tech"\)/);
   assert.match(globalSearchContract, /params\.delete\("tech"\)/);
@@ -275,7 +281,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(resultCards, /TaskSearchResultCard/);
   assert.match(resultCards, /SettingsSearchResultCard/);
   assert.match(resultCards, /SkillIconRail/);
-  assert.match(resultCards, /border-zinc-300 bg-zinc-50 shadow-sm/);
+  assert.match(resultCards, /border-zinc-300 bg-zinc-50 shadow-none/);
   assert.doesNotMatch(resultCards, /border-primary\/25 bg-primary/);
   assert.doesNotMatch(resultCards, /FolderKanban/);
   assert.doesNotMatch(resultCards, /taskCode\.split/);
@@ -300,7 +306,18 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(connectionsAction, /blocked_connection\.status = 'blocked'/);
   assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items, privacyProfiles\)/);
   assert.match(connectionsAction, /resolvePrivacyRelationshipsFromProfiles/);
-  assert.match(personCard, /onDismiss && status === "none"/);
+  assert.doesNotMatch(personCard, /onDismiss/);
+  assert.match(personCard, /shared connections/);
+  assert.match(personCard, /min-h-\[158px\]/);
+  assert.match(personCard, /title=\{displayName\}>\{displayName\}<\/h3>/);
+  assert.match(personCard, /title=\{profile\.location\}/);
+  assert.match(personCard, /<span className="min-w-0 truncate">\{profile\.location\}<\/span>/);
+  assert.doesNotMatch(personCard, /profile\.location \? <span className="nb-meta shrink-0/);
+  assert.match(personCard, /<SkillIcon skill=\{skill\} size=\{14\}/);
+  assert.match(networkPeople, /<SkillIcon skill=\{skill\} size=\{14\}/);
+  assert.match(networkPeople, /<DropdownMenuItem asChild>/);
+  assert.doesNotMatch(networkPeople, /className="nb-icon-button size-9/);
+  assert.doesNotMatch(networkPeople, /<h3 className="truncate/);
   assert.match(searchPreviews, /query\.trim\(\)\.length <= 3 \? 450 : 250/);
   assert.match(searchPreviews, /debouncedQuery\.length >= 2/);
   assert.match(searchPreviews, /previewContext === "hub" \? 60_000/);

@@ -266,8 +266,7 @@ export async function searchMessageRecipientsV2(input: {
               )
               ${searchPattern ? sql`
                   AND (
-                      lower(coalesce(${profiles.fullName}, '')) LIKE ${searchPattern} ESCAPE '\\'
-                      OR lower(coalesce(${profiles.username}, '')) LIKE ${searchPattern} ESCAPE '\\'
+                      (coalesce(${profiles.fullName}, '') || ' ' || coalesce(${profiles.username}, '')) ILIKE ${searchPattern}
                       OR lower(coalesce(${profiles.headline}, '')) LIKE ${searchPattern} ESCAPE '\\'
                   )
               ` : sql``}
@@ -291,7 +290,7 @@ export async function searchMessageRecipientsV2(input: {
                 username: row.username,
                 fullName: row.full_name,
                 avatarUrl: row.avatar_url,
-                headline: row.headline,
+                headline: row.headline ? row.headline.slice(0, 140) : null,
                 eligibility: row.eligibility,
             })),
             hasMore,
@@ -961,7 +960,21 @@ export async function getConversationThreadPageV2(
                 : { success: false, error: 'Conversation not found', code: 'NOT_FOUND' };
         }
 
-        const [conversation] = await hydrateConversationSummariesV2(user.id, [conversationSummary]);
+        const [[conversation], [messageResult, pinnedResult]] = await Promise.all([
+            hydrateConversationSummariesV2(user.id, [conversationSummary]),
+            runWithMessageThreadReadScope({
+                viewerId: user.id,
+                conversationId,
+                conversationType: conversationSummary.type,
+                otherParticipantId: conversationSummary.type === 'dm'
+                    ? conversationSummary.participants[0]?.id ?? null
+                    : null,
+            }, () => Promise.all([
+                getMessages(conversationId, cursor, limit),
+                getPinnedMessages(conversationId, 3),
+            ]))
+        ]);
+
         if (!conversation || conversation.capability.blocked) {
             return {
                 success: false,
@@ -969,18 +982,6 @@ export async function getConversationThreadPageV2(
                 code: 'FORBIDDEN',
             };
         }
-
-        const [messageResult, pinnedResult] = await runWithMessageThreadReadScope({
-            viewerId: user.id,
-            conversationId,
-            conversationType: conversationSummary.type,
-            otherParticipantId: conversationSummary.type === 'dm'
-                ? conversationSummary.participants[0]?.id ?? null
-                : null,
-        }, () => Promise.all([
-            getMessages(conversationId, cursor, limit),
-            getPinnedMessages(conversationId, 3),
-        ]));
 
         if (!messageResult.success) {
             return {

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { saveProfileContributionsAction } from "@/app/actions/profile-contributions";
@@ -65,11 +65,39 @@ function withoutLegacyContributionPayload(formState: any, expectedUpdatedAt: str
     return payload as Record<string, unknown>;
 }
 
-function profilePayloadChanged(payload: Record<string, unknown>, base: Record<string, unknown>) {
-    return Object.entries(payload).some(([key, value]) => {
-        if (key === "expectedUpdatedAt") return false;
-        return JSON.stringify(value ?? null) !== JSON.stringify(base[key] ?? null);
-    });
+function formFieldsChanged(current: Record<string, unknown> | null, base: Record<string, unknown> | null) {
+    if (!current || !base) return false;
+    const trackedKeys = [
+        "fullName",
+        "username",
+        "headline",
+        "bio",
+        "location",
+        "website",
+        "avatarUrl",
+        "bannerUrl",
+        "experienceLevel",
+        "hoursPerWeek",
+    ];
+    for (const key of trackedKeys) {
+        const curVal = (current[key] ?? "").toString().trim();
+        const baseVal = (base[key] ?? "").toString().trim();
+        if (curVal !== baseVal) return true;
+    }
+
+    const arrayKeys = ["skills", "openTo", "openToCustomRoles", "preferredCategories", "education"];
+    for (const key of arrayKeys) {
+        const curArr = Array.isArray(current[key]) ? current[key] : [];
+        const baseArr = Array.isArray(base[key]) ? base[key] : [];
+        if (curArr.length !== baseArr.length) return true;
+        for (let i = 0; i < curArr.length; i++) {
+            if (JSON.stringify(curArr[i]) !== JSON.stringify(baseArr[i])) return true;
+        }
+    }
+
+    if (JSON.stringify(current.socialLinks ?? {}) !== JSON.stringify(base.socialLinks ?? {})) return true;
+
+    return false;
 }
 
 export function EditProfileModal({
@@ -101,21 +129,14 @@ export function EditProfileModal({
     const baseProfileRef = useRef<any>(withContributionEntries(profile, contributions));
     const originalUsernameRef = useRef<string>(toFormState(profile).username || "");
 
-    // A navigation prompt must reflect the current draft, not the fact that a
-    // field was edited at some point. This keeps type-then-revert flows clean
-    // while retaining the contribution editor's semantic comparison rules.
     const hasChanges = useMemo(() => {
-        if (!formState) return false;
+        if (!formState || !baseProfileRef.current) return false;
         const base = baseProfileRef.current as Record<string, unknown>;
-        const profilePayload = withoutLegacyContributionPayload(
-            formState,
-            lastKnownUpdatedAtRef.current,
-        );
         const contributionChanges = buildContributionMutations(
             (base.contributionBase ?? []) as ContributionEditorEntry[],
             (formState.experience ?? []) as ContributionEditorEntry[],
         );
-        return profilePayloadChanged(profilePayload, base) || contributionChanges.length > 0;
+        return formFieldsChanged(formState, base) || contributionChanges.length > 0;
     }, [formState]);
 
     const completion = useMemo(() => calculateProfileCompletion({
@@ -250,7 +271,7 @@ export function EditProfileModal({
             originalEntries,
             currentEntries,
         );
-        const shouldSaveProfile = profilePayloadChanged(profilePayload, base);
+        const shouldSaveProfile = formFieldsChanged(formState, base);
         const rollbackPatch: Record<string, unknown> = {};
         let profileSaved = false;
 
@@ -386,49 +407,67 @@ export function EditProfileModal({
     };
 
     const handleOpenChange = (openValue: boolean) => {
-        if (!openValue && hasChanges && !showDiscardConfirm) {
-            setPendingSection(null);
-            setShowDiscardConfirm(true);
-            return;
+        if (!openValue) {
+            if (hasChanges && !showDiscardConfirm) {
+                setShowDiscardConfirm(true);
+                return;
+            }
+            setShowDiscardConfirm(false);
+            onOpenChange(false);
         }
-        if (!openValue) setShowDiscardConfirm(false);
-        onOpenChange(openValue);
     };
 
     const handleSectionChange = (section: EditProfileSection) => {
-        if (hasChanges && !showDiscardConfirm) {
-            setPendingSection(section);
-            setShowDiscardConfirm(true);
-            return;
-        }
         setActiveSection(section);
     };
 
-    const handleDiscard = () => {
-        setFormState(baseProfileRef.current);
-        setContributionErrors({});
-        draftTouchedRef.current = false;
-        setShowDiscardConfirm(false);
-        if (pendingSection) {
-            setActiveSection(pendingSection);
-            setPendingSection(null);
+    const handleCancel = (e?: React.MouseEvent) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        if (hasChanges) {
+            setShowDiscardConfirm(true);
         } else {
             onOpenChange(false);
         }
     };
 
+    const handleResetChanges = (e?: React.MouseEvent) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        setFormState(baseProfileRef.current);
+        setContributionErrors({});
+        draftTouchedRef.current = false;
+        setShowDiscardConfirm(false);
+        setSaveState("idle");
+        setSaveErrorMessage(null);
+    };
+
+    const handleDiscard = (e?: React.MouseEvent) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        setFormState(baseProfileRef.current);
+        setContributionErrors({});
+        draftTouchedRef.current = false;
+        setShowDiscardConfirm(false);
+        setPendingSection(null);
+        onOpenChange(false);
+    };
+
+    const handleSave = (e?: React.MouseEvent) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        void persistChanges(true);
+    };
+
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="flex h-[700px] max-h-[90vh] flex-col gap-0 overflow-hidden rounded-2xl border-zinc-200 bg-zinc-50 p-0 sm:max-w-4xl dark:border-zinc-800 dark:bg-zinc-950">
-                <DialogHeader className="z-10 border-b border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <DialogContent className="flex h-[720px] max-h-[90vh] flex-col gap-0 overflow-hidden rounded-lg border-border bg-card p-0 sm:max-w-[960px]">
+                <DialogHeader className="z-10 border-b border-border bg-card px-6 py-4">
                     <DialogTitle className="flex items-center justify-between">
-                        <span>Edit Profile</span>
-                        <span className="text-xs font-normal text-zinc-500">{completion.score}% complete</span>
+                        <span className="nb-section-title text-foreground">Edit Profile</span>
+                        <span className="nb-meta font-normal text-muted-foreground">{completion.score}% complete</span>
                     </DialogTitle>
-                    <DialogDescription className="sr-only">Edit your profile and project contribution visibility.</DialogDescription>
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-                        <div className="h-full bg-indigo-600 transition-all" style={{ width: `${completion.score}%` }} />
-                    </div>
+                    <DialogDescription className="sr-only">Edit your profile details, project contributions, skills, and preferences.</DialogDescription>
                 </DialogHeader>
 
                 <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => { event.preventDefault(); void persistChanges(true); }} aria-label="Edit profile form">
@@ -456,24 +495,80 @@ export function EditProfileModal({
                         />
                     </div>
 
-                    <DialogFooter className="z-10 border-t border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+                    <DialogFooter className="z-10 border-t border-border bg-card px-6 py-4">
                         {showDiscardConfirm ? (
-                            <>
-                                <p className="mr-auto flex items-center text-sm font-medium text-zinc-900 dark:text-zinc-100">Discard unsaved changes?</p>
-                                <Button type="button" variant="ghost" onClick={() => { setShowDiscardConfirm(false); setPendingSection(null); }}>Keep Editing</Button>
-                                <Button type="button" variant="destructive" onClick={handleDiscard}>Discard</Button>
-                            </>
-                        ) : (
-                            <>
-                                <p aria-live="polite" className={`mr-auto text-xs ${saveErrorMessage ? "text-red-500" : "text-zinc-500"}`}>
-                                    {saveErrorMessage || (saveState === "saving" ? "Saving profile and contribution changes…" : "")}
+                            <div className="flex w-full items-center justify-between gap-3">
+                                <p className="nb-ui-label flex items-center gap-1.5 text-foreground">
+                                    <AlertTriangle className="size-4 text-amber-500 shrink-0" />
+                                    Discard unsaved changes?
                                 </p>
-                                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={saveState === "saving"}>Cancel</Button>
-                                <Button type="submit" disabled={saveState === "saving" || !hasChanges}>
-                                    {saveState === "saving" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                    Save Changes
-                                </Button>
-                            </>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={() => setShowDiscardConfirm(false)}
+                                    >
+                                        Keep Editing
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        onClick={handleDiscard}
+                                    >
+                                        Discard
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-center gap-2">
+                                    {saveErrorMessage ? (
+                                        <p role="alert" className="nb-meta text-destructive">
+                                            {saveErrorMessage}
+                                        </p>
+                                    ) : saveState === "saving" ? (
+                                        <p aria-live="polite" className="nb-meta text-muted-foreground flex items-center gap-1.5">
+                                            <Loader2 className="size-3.5 animate-spin text-primary" />
+                                            Saving profile and contribution changes…
+                                        </p>
+                                    ) : hasChanges ? (
+                                        <p aria-live="polite" className="nb-meta text-muted-foreground flex items-center gap-1.5">
+                                            <span className="size-1.5 rounded-full bg-amber-500" />
+                                            Unsaved changes
+                                        </p>
+                                    ) : null}
+                                </div>
+
+                                <div className="flex items-center justify-end gap-2">
+                                    {hasChanges ? (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={handleResetChanges}
+                                            disabled={saveState === "saving"}
+                                            title="Revert all fields to original values"
+                                        >
+                                            Reset
+                                        </Button>
+                                    ) : null}
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={handleCancel}
+                                        disabled={saveState === "saving"}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        onClick={handleSave}
+                                        disabled={saveState === "saving" || !hasChanges}
+                                    >
+                                        {saveState === "saving" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                        Save Changes
+                                    </Button>
+                                </div>
+                            </div>
                         )}
                     </DialogFooter>
                 </form>

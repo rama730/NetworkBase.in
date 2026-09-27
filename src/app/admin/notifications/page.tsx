@@ -144,7 +144,7 @@ async function ResolvedAdminNotifications() {
                 <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
                     Throughput & success rate
                 </h2>
-                <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+                <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
                     <table className="w-full text-sm">
                         <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-900">
                             <tr>
@@ -198,7 +198,7 @@ async function ResolvedAdminNotifications() {
                 <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">
                     Top failure / drop reasons (7d)
                 </h2>
-                <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+                <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
                     <table className="w-full text-sm">
                         <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-900">
                             <tr>
@@ -231,27 +231,27 @@ async function ResolvedAdminNotifications() {
                     Retention backlog
                 </h2>
                 <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-                    <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+                    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
                         <dt className="text-xs uppercase tracking-wide text-zinc-500">Total notifications</dt>
                         <dd className="mt-1 text-2xl font-semibold">{retention.total.toLocaleString()}</dd>
                     </div>
-                    <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+                    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
                         <dt className="text-xs uppercase tracking-wide text-zinc-500">Dismissed &gt; 30d (pending purge)</dt>
                         <dd className={`mt-1 text-2xl font-semibold ${retention.dismissedBacklog > 10000 ? "text-red-600 dark:text-red-400" : ""}`}>
                             {retention.dismissedBacklog.toLocaleString()}
                         </dd>
                     </div>
-                    <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+                    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
                         <dt className="text-xs uppercase tracking-wide text-zinc-500">Read &gt; 90d (pending purge)</dt>
                         <dd className={`mt-1 text-2xl font-semibold ${retention.readBacklog > 10000 ? "text-red-600 dark:text-red-400" : ""}`}>
                             {retention.readBacklog.toLocaleString()}
                         </dd>
                     </div>
-                    <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+                    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
                         <dt className="text-xs uppercase tracking-wide text-zinc-500">Push subscriptions</dt>
                         <dd className="mt-1 text-2xl font-semibold">{retention.pushSubs.toLocaleString()}</dd>
                     </div>
-                    <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+                    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
                         <dt className="text-xs uppercase tracking-wide text-zinc-500">Stale subs (pending prune)</dt>
                         <dd className={`mt-1 text-2xl font-semibold ${retention.stalePushSubs > 500 ? "text-amber-600 dark:text-amber-400" : ""}`}>
                             {retention.stalePushSubs.toLocaleString()}
@@ -275,7 +275,7 @@ export default async function AdminNotificationsPage() {
     }
 
     return (
-        <Suspense fallback={<div className="mx-auto max-w-5xl space-y-8 px-6 py-10 animate-pulse text-zinc-500">Loading admin notifications...</div>}>
+        <Suspense fallback={<div role="status" aria-live="polite" aria-label="Loading admin notifications" className="mx-auto max-w-5xl space-y-4 px-6 py-10"><span className="sr-only">Loading admin notifications…</span><div aria-hidden="true" className="nb-skeleton h-8 w-56 rounded" /><div aria-hidden="true" className="nb-skeleton h-64 rounded-lg border border-border" /></div>}>
             <ResolvedAdminNotifications />
         </Suspense>
     );

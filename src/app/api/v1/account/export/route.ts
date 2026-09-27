@@ -72,7 +72,7 @@ export async function GET(request: Request) {
         });
 
         // Return as downloadable JSON
-        return new Response(JSON.stringify(result.data, null, 2), {
+        return new Response(JSON.stringify(result.data), {
             status: 200,
             headers: {
                 'Content-Type': 'application/json',

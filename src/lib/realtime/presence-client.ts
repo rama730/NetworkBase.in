@@ -309,7 +309,7 @@ function setupChannel(roomType: PresenceRoomType, roomId: string, connectionId: 
   const supabase = createClient();
   return supabase
     .channel(getRoomTopic(roomType, roomId), {
-      config: { private: true, presence: { key: connectionId } },
+      config: { presence: { key: connectionId }, private: true },
     })
     .on("presence", { event: "sync" }, () => {
       const entry = presenceEntries.get(getRoomKey(roomType, roomId));

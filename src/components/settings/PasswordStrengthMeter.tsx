@@ -66,7 +66,7 @@ export function PasswordStrengthMeter({
                 {[1, 2, 3, 4].map((level) => (
                     <div
                         key={level}
-                        className={`h-1.5 flex-1 rounded-full transition-colors duration-200 ${level <= strength.score
+                        className={`h-1.5 flex-1 rounded-full transition-colors duration-[180ms] ${level <= strength.score
                             ? strength.bgColor
                             : "bg-zinc-200 dark:bg-zinc-700"
                             }`}

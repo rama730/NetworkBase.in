@@ -8,7 +8,9 @@ export type CacheEnvelope<T> = {
     expiresAt: number | null
 }
 
-let redisClient: Redis | null | undefined
+declare global {
+    var __redisClient: Redis | null | undefined
+}
 
 function hasRedisEnv() {
     return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
@@ -25,22 +27,33 @@ function createRedisClient() {
     })
 }
 
-export function getRedisClient() {
-    if (redisClient) return redisClient
-    if (redisClient === null && !hasRedisEnv()) return redisClient
+export function getRedisClient(): Redis | null {
+    if (globalThis.__redisClient !== undefined && globalThis.__redisClient !== null) {
+        return globalThis.__redisClient
+    }
+    if (!hasRedisEnv()) {
+        return null
+    }
 
     try {
-        redisClient = createRedisClient()
+        globalThis.__redisClient = createRedisClient()
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         logger.warn('redis.initialization.failed', { module: 'redis', error: message })
-        redisClient = null
+        globalThis.__redisClient = null
     }
 
-    return redisClient
+    return globalThis.__redisClient ?? null
 }
 
-export const redis = getRedisClient()
+export const redis: Redis | null = new Proxy({} as Redis, {
+    get(_target, prop, receiver) {
+        const client = getRedisClient()
+        if (!client) return undefined
+        const value = Reflect.get(client, prop, receiver)
+        return typeof value === 'function' ? value.bind(client) : value
+    },
+}) as Redis
 
 function isFiniteNumberOrNull(value: unknown) {
     return value === null || (typeof value === 'number' && Number.isFinite(value))

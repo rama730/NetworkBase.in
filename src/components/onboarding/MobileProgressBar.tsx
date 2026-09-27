@@ -18,9 +18,9 @@ export function MobileProgressBar({
   return (
     <div
       className={cn(
-        'sticky top-0 z-50 flex h-12 items-center justify-between px-4',
-        'bg-muted dark:bg-card border-b border-border',
-        'md:hidden'
+        'sticky top-0 z-50 flex h-14 items-center justify-between px-4',
+        'bg-card border-b border-border',
+        'lg:hidden'
       )}
       role="progressbar"
       aria-label="Onboarding progress"
@@ -29,7 +29,8 @@ export function MobileProgressBar({
       aria-valuenow={completedThrough}
     >
       {/* Current step label */}
-      <span className="text-[13px] font-medium text-foreground">
+      <span className="min-w-0 truncate text-[13px] font-medium text-foreground">
+        <span className="mr-2 font-mono text-[11px] uppercase tracking-[.09em] text-primary">Setup</span>
         {stepLabels[currentStep - 1] ?? ''}
       </span>
 
@@ -60,7 +61,7 @@ export function MobileProgressBar({
                 )}
                 {isCurrent && !showAcknowledgedCheck && (
                   <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-primary bg-primary/10">
-                    <span className="text-[10px] font-semibold text-primary tabular-nums">{step}</span>
+                    <span className="text-[11px] font-semibold text-primary tabular-nums">{step}</span>
                   </div>
                 )}
                 {isPending && (
@@ -72,8 +73,8 @@ export function MobileProgressBar({
         })}
       </div>
 
-      <span className="text-[13px] font-medium text-muted-foreground tabular-nums">
-        Step {currentStep} of {totalSteps}
+      <span className="ml-3 shrink-0 font-mono text-[11px] tracking-[.04em] text-muted-foreground tabular-nums">
+        {currentStep}/{totalSteps}
       </span>
     </div>
   )

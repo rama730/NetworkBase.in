@@ -94,7 +94,7 @@ describe("StepTransition — Property 8: Reduced Motion Compliance (Task 5.2)", 
     it("for any direction and phase, always returns a valid translateX string", () => {
       // **Validates: Requirements 13.4**
       // The getTranslateX helper must always produce a valid CSS transform.
-      // Valid forms: translateX(0), translateX(-12px), translateX(12px)
+      // Valid forms: translateX(0), translateX(-4px), translateX(4px)
       fc.assert(
         fc.property(transitionScenarioArb, ({ direction, phase }) => {
           const result = getTranslateX(direction, phase);
@@ -125,7 +125,7 @@ describe("StepTransition — Property 8: Reduced Motion Compliance (Task 5.2)", 
       );
     });
 
-    it("forward direction: exit slides left (-12px), enter slides from right (+12px)", () => {
+    it("forward direction: exit slides left (-4px), enter slides from right (+4px)", () => {
       // **Validates: Requirements 13.4**
       // Forward navigation uses directional slide. When reduced motion is
       // active, these transforms are never applied (instant swap).
@@ -134,30 +134,30 @@ describe("StepTransition — Property 8: Reduced Motion Compliance (Task 5.2)", 
 
       assert.strictEqual(
         exitResult,
-        "translateX(-12px)",
-        "Forward exit must slide left (-12px)",
+        "translateX(-4px)",
+        "Forward exit must slide left (-4px)",
       );
       assert.strictEqual(
         enterResult,
-        "translateX(12px)",
-        "Forward enter must slide from right (+12px)",
+        "translateX(4px)",
+        "Forward enter must slide from right (+4px)",
       );
     });
 
-    it("backward direction: exit slides right (+12px), enter slides from left (-12px)", () => {
+    it("backward direction: exit slides right (+4px), enter slides from left (-4px)", () => {
       // **Validates: Requirements 13.4**
       const exitResult = getTranslateX("backward", "exit");
       const enterResult = getTranslateX("backward", "enter");
 
       assert.strictEqual(
         exitResult,
-        "translateX(12px)",
-        "Backward exit must slide right (+12px)",
+        "translateX(4px)",
+        "Backward exit must slide right (+4px)",
       );
       assert.strictEqual(
         enterResult,
-        "translateX(-12px)",
-        "Backward enter must slide from left (-12px)",
+        "translateX(-4px)",
+        "Backward enter must slide from left (-4px)",
       );
     });
 

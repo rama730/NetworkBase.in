@@ -63,8 +63,8 @@ export function LinkedTasksPanel({
     <div
       data-testid="linked-tasks-panel"
       className={cn(
-        "flex h-full min-w-0 w-full flex-col bg-white",
-        "dark:border-zinc-800 dark:bg-zinc-950",
+        "flex h-full min-w-0 w-full flex-col bg-card",
+        "border-border",
       )}
     >
       <FileInspectorPanelHeader
@@ -77,7 +77,7 @@ export function LinkedTasksPanel({
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-zinc-500">
+          <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Loading…
           </div>
@@ -86,11 +86,11 @@ export function LinkedTasksPanel({
             {error} <button type="button" className="min-h-10 px-2 underline" onClick={() => void refresh()}>Retry</button>
           </div>
         ) : tasks.length === 0 ? (
-          <div className="px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="px-3 py-6 text-center text-xs text-muted-foreground">
             No tasks linked to this file.
           </div>
         ) : (
-          <ul role="list" className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          <ul role="list" className="divide-y divide-border">
             {tasks.map((task) => (
               <LinkedTaskRow
                 key={task.taskId}
@@ -189,7 +189,7 @@ function LinkedTaskRow({
         onClick={() => onOpenTask(task.taskId)}
         className={cn(
           "w-full text-left px-3 py-2.5 transition-colors",
-          "hover:bg-zinc-50 dark:hover:bg-zinc-900",
+          "hover:bg-muted/50",
         )}
         data-testid={`linked-task-row-open-${task.taskId}`}
       >
@@ -198,20 +198,20 @@ function LinkedTaskRow({
           <div className="min-w-0 flex-1">
             <div
               className={cn(
-                "truncate text-sm font-medium text-zinc-900 dark:text-zinc-100",
+                "truncate text-sm font-medium text-foreground",
                 titlePresentation.className,
               )}
               aria-label={titlePresentation.ariaLabel}
             >
               {task.title}
             </div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               <span className="capitalize">
                 {task.status.replace(/_/g, " ")}
               </span>
               {task.assigneeName && (
                 <>
-                  <span className="text-zinc-300 dark:text-zinc-600">•</span>
+                  <span className="text-muted-foreground/40">•</span>
                   <span className="truncate">{task.assigneeName}</span>
                 </>
               )}
@@ -236,9 +236,8 @@ function LinkedTaskRow({
               aria-label="Edit annotation"
               data-testid={`linked-task-annotation-input-${task.taskId}`}
               className={cn(
-                "h-6 flex-1 rounded border border-zinc-200 bg-zinc-50 px-1.5 text-xs outline-none",
-                "focus:border-indigo-400  ",
-                "dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100",
+                "h-6 flex-1 rounded-[4px] border border-border bg-muted/40 px-1.5 text-xs text-foreground outline-none",
+                "focus:border-[#D14E24]",
               )}
               disabled={isSaving}
             />
@@ -248,7 +247,7 @@ function LinkedTaskRow({
               disabled={isSaving}
               aria-label="Save annotation"
               data-testid={`linked-task-annotation-save-${task.taskId}`}
-              className="rounded p-0.5 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950"
+              className="rounded-[4px] p-0.5 text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950"
             >
               {isSaving ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -262,7 +261,7 @@ function LinkedTaskRow({
               disabled={isSaving}
               aria-label="Cancel editing"
               data-testid={`linked-task-annotation-cancel-${task.taskId}`}
-              className="min-h-10 min-w-10 rounded p-0.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="min-h-10 min-w-10 rounded-[4px] p-0.5 text-muted-foreground hover:bg-muted"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -271,7 +270,7 @@ function LinkedTaskRow({
           /* Display annotation (read-only for Role_Viewer, editable for others) */
           <div className="flex items-center gap-1">
             <span
-              className="flex-1 truncate text-xs italic text-zinc-500 dark:text-zinc-400"
+              className="flex-1 truncate text-xs italic text-muted-foreground"
               data-testid={`linked-task-annotation-${task.taskId}`}
             >
               {task.annotation}
@@ -285,7 +284,7 @@ function LinkedTaskRow({
                 }}
                 aria-label="Edit annotation"
                 data-testid={`linked-task-annotation-edit-${task.taskId}`}
-                className="min-h-10 min-w-10 rounded p-0.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="min-h-10 min-w-10 rounded-[4px] p-0.5 text-muted-foreground hover:bg-muted"
               >
                 <Pencil className="h-3 w-3" />
               </button>
@@ -300,7 +299,7 @@ function LinkedTaskRow({
               setIsEditing(true);
             }}
             data-testid={`linked-task-annotation-add-${task.taskId}`}
-            className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             + Add annotation
           </button>
@@ -318,18 +317,18 @@ function StatusDot({ status }: { status: string }): React.JSX.Element {
       case "done":
         return "bg-emerald-500";
       case "in_progress":
-        return "bg-blue-500";
+        return "bg-[#2563C9]";
       case "blocked":
         return "bg-red-500";
       default:
-        return "bg-zinc-400";
+        return "bg-muted-foreground/60";
     }
   }, [status]);
 
   return (
     <span
       className={cn(
-        "mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full",
+        "mt-1.5 inline-block h-2 w-2 shrink-0 rounded-[2px]",
         colorClass,
       )}
       aria-hidden="true"

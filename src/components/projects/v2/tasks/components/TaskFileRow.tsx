@@ -183,10 +183,10 @@ export function TaskFileRow({
       data-node-type={node.type}
       onContextMenu={onContextMenu}
       className={cn(
-        "group relative flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all duration-200 shadow-sm",
-        "bg-white border-zinc-200 hover:border-indigo-300 hover:shadow-md dark:bg-zinc-900/50 dark:border-zinc-800/80 dark:hover:border-indigo-500/50 dark:hover:bg-zinc-900",
+        "group relative flex items-center gap-3 rounded-[5px] border px-3 py-2.5 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms] shadow-2xs",
+        "bg-card border-border hover:border-foreground/30",
         isHighlighted &&
-          "border-indigo-400 ring-2 ring-indigo-200 dark:border-indigo-500 dark:ring-indigo-900/60",
+          "border-primary ring-2 ring-primary/20",
       )}
     >
       {/* Name and icon */}
@@ -204,7 +204,7 @@ export function TaskFileRow({
         className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer"
       >
         {isFolder && (
-          <span className="flex h-5 w-4 flex-shrink-0 items-center justify-center text-zinc-400">
+          <span className="flex h-5 w-4 flex-shrink-0 items-center justify-center text-muted-foreground">
             {isExpanded ? (
               <ChevronDown className="h-3.5 w-3.5" />
             ) : (
@@ -212,87 +212,102 @@ export function TaskFileRow({
             )}
           </span>
         )}
-        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-zinc-500">
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[3px] text-muted-foreground">
           {isFolder ? (
-            <FolderIcon className="h-5 w-5 text-zinc-400" fill="currentColor" />
+            <FolderIcon className="h-5 w-5 text-muted-foreground" fill="currentColor" />
           ) : (
             <FileIcon name={node.name} mimeType={node.mimeType} isFolder={false} className="h-5 w-5" />
           )}
         </span>
 
-        <span className="min-w-0 flex-1 flex items-center gap-3">
-          <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-            {node.name}
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+          {/* First row: File name, role badge, version badge, custom label */}
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            <span className="text-[13px] font-medium text-foreground break-all sm:break-normal truncate max-w-[280px] sm:max-w-none">
+              {node.name}
+            </span>
             <span
               className={cn(
-                "rounded border px-1.5 py-0.5 text-[9px] font-bold",
-                fileRole === "reference" && "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300",
-                fileRole === "working" && "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-900/50 dark:bg-indigo-950/30 dark:text-indigo-300",
-                fileRole === "deliverable" && "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300",
+                "inline-flex h-5 items-center rounded-[3px] border px-1.5 font-mono text-[11px] font-semibold tracking-[0.09em] uppercase shrink-0",
+                fileRole === "reference" &&
+                  "border-[#DBD5C8] bg-[#F3F0EA] text-[#374349] dark:border-border dark:bg-muted dark:text-muted-foreground",
+                fileRole === "working" &&
+                  "border-[#DBD5C8] bg-white text-[#141A1E] dark:border-border dark:bg-card dark:text-foreground",
+                fileRole === "deliverable" &&
+                  "border-[#D8E8DF] bg-[#EDF5F0] text-[#245A41] dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
               )}
             >
               {rolePresentation[fileRole]}
             </span>
-          </span>
-          {!isDeliverable &&
-            (isEditingLabel ? (
-              <span
-                className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 pl-1.5 pr-1 py-0.5 dark:border-indigo-500/30 dark:bg-indigo-500/10"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <input
-                  ref={inputRef}
-                  data-testid="task-file-row-label-editor"
-                  type="text"
-                  value={editLabelValue}
-                  onChange={(e) => setEditLabelValue(e.target.value)}
-                  onBlur={commitLabelEdit}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Label..."
-                  className="w-24 bg-transparent text-[10px] font-medium text-indigo-700 outline-none placeholder:text-indigo-300 dark:text-indigo-300 dark:placeholder:text-indigo-700"
-                />
+            {version > 1 && (
+              <span className="inline-flex shrink-0 items-center rounded-[3px] border border-[#D14E24]/30 bg-[#FCF0EA] px-1.5 py-0.5 font-mono text-[11px] font-semibold text-[#D14E24] dark:border-[#D14E24]/50 dark:bg-[#D14E24]/20 dark:text-[#FCF0EA]">
+                v{version}
+              </span>
+            )}
+            {!isDeliverable &&
+              (isEditingLabel ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded-[4px] border border-primary/30 bg-primary/10 pl-1.5 pr-1 py-0.5 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    ref={inputRef}
+                    data-testid="task-file-row-label-editor"
+                    type="text"
+                    value={editLabelValue}
+                    onChange={(e) => setEditLabelValue(e.target.value)}
+                    onBlur={commitLabelEdit}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Label..."
+                    className="w-24 bg-transparent text-[11px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Clear label for ${node.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditLabelValue("");
+                      setIsEditingLabel(false);
+                      onLabelChange?.(node, null);
+                    }}
+                    className="rounded-[2px] p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ) : currentLabel ? (
                 <button
                   type="button"
-                  aria-label={`Clear label for ${node.name}`}
+                  aria-label={`Edit label for ${node.name}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setEditLabelValue("");
-                    setIsEditingLabel(false);
-                    onLabelChange?.(node, null);
+                    if (canEdit) setIsEditingLabel(true);
                   }}
-                  className="rounded hover:bg-indigo-200/50 text-indigo-400 hover:text-indigo-700 dark:text-indigo-500 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-300"
+                  className={cn(
+                    "inline-flex shrink-0 items-center rounded-[3px] border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground",
+                    canEdit &&
+                      "cursor-text hover:bg-muted hover:text-foreground transition-colors",
+                  )}
                 >
-                  <X className="h-3 w-3" />
+                  {currentLabel}
                 </button>
-              </span>
-            ) : currentLabel ? (
-              <button
-                type="button"
-                aria-label={`Edit label for ${node.name}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (canEdit) setIsEditingLabel(true);
-                }}
-                className={cn(
-                  "inline-flex flex-shrink-0 items-center rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
-                  canEdit &&
-                    "cursor-text hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors",
-                )}
-              >
-                {currentLabel}
-              </button>
-            ) : null)}
-          {version > 1 && (
-            <span className="inline-flex flex-shrink-0 items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
-              v{version}
+              ) : null)}
+          </div>
+
+          {/* Second row: Secondary metadata (size, attribution, timestamp) */}
+          <div className="flex items-center gap-1.5 min-w-0 text-xs text-muted-foreground">
+            <span
+              title={formatFileTimestamp(
+                node.versionUpdatedAt || node.updatedAt,
+              )}
+              className="truncate font-mono text-[11px] text-muted-foreground"
+            >
+              {isFolder
+                ? "Folder"
+                : `${formatBytes(node.size) || "Size not recorded"} · Updated by ${getTaskFileAttributionLabel(node)} · ${formatRelative(node.versionUpdatedAt || node.updatedAt)}`}
             </span>
-          )}
-          <span title={formatFileTimestamp(node.versionUpdatedAt || node.updatedAt)} className="truncate text-xs text-zinc-400 dark:text-zinc-500">
-            {isFolder
-              ? "Folder"
-              : `${formatBytes(node.size) || "Size not recorded"} · Updated by ${getTaskFileAttributionLabel(node)} · ${formatRelative(node.versionUpdatedAt || node.updatedAt)}`}
-          </span>
-        </span>
+          </div>
+        </div>
       </div>
 
       {/* Hover actions */}
@@ -303,7 +318,7 @@ export function TaskFileRow({
               type="button"
               data-testid="task-file-row-overflow"
               aria-label={`Options for ${node.name}`}
-              className="flex size-11 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+              className="flex size-8 items-center justify-center rounded-[4px] text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>
@@ -313,7 +328,7 @@ export function TaskFileRow({
             className="z-[300] w-56 [&_[role=menuitem]]:min-h-10"
             data-testid="task-file-row-overflow-menu"
           >
-            <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-zinc-500">
+            <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               {node.name}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />

@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Search, X, ChevronRight, ChevronDown } from "lucide-react";
 
 import {
   buildProjectSprintDetailHref,
+  formatSprintDateRange,
   SPRINT_STATUS_PRESENTATION,
   computeSprintStatus,
   type SprintListItem,
@@ -35,11 +36,36 @@ export function SprintLeftRail({
   canCreate,
   onCreate,
 }: SprintLeftRailProps) {
-  // ponytail: group once instead of mapping over groups and filtering all sprints each time
+  const [searchQuery, setSearchQuery] = useState("");
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
+    cancelled: true,
+    archived: true,
+  });
+
+  const toggleGroup = (status: string) => {
+    setCollapsedGroups((prev) => ({
+      ...prev,
+      [status]: !prev[status],
+    }));
+  };
+
+  // Filter sprints in-memory for instant 1M-user search performance
+  const filteredSprints = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return sprints;
+    return sprints.filter(
+      (sprint) =>
+        sprint.name.toLowerCase().includes(query) ||
+        sprint.code.toLowerCase().includes(query) ||
+        (sprint.goal && sprint.goal.toLowerCase().includes(query)),
+    );
+  }, [sprints, searchQuery]);
+
+  // Group and sort sprints
   const sprintsByStatus = useMemo(() => {
     const grouped = new Map<string, SprintListItem[]>();
     for (const group of SPRINT_GROUPS) grouped.set(group.status, []);
-    for (const sprint of sprints) {
+    for (const sprint of filteredSprints) {
       const computedStatus = computeSprintStatus(sprint);
       if (grouped.has(computedStatus)) {
         grouped.get(computedStatus)!.push(sprint);
@@ -102,82 +128,170 @@ export function SprintLeftRail({
         );
     }
     return grouped;
-  }, [sprints]);
+  }, [filteredSprints]);
+
+  const hasAnyResults = filteredSprints.length > 0;
+  const isFiltering = searchQuery.trim().length > 0;
 
   return (
-    <aside className="w-full min-h-0 overflow-y-auto pr-2 app-scroll app-scroll-y app-scroll-gutter lg:sticky lg:top-[calc(var(--project-tabs-height,0px)+1rem)] lg:max-h-[calc(100dvh-var(--project-tabs-height,0px)-2rem)]">
-      <div className="space-y-6">
-        {canCreate ? (
-          <button
-            type="button"
-            onClick={onCreate}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-zinc-700 dark:hover:text-zinc-100"
-          >
-            <Plus className="h-4 w-4" />
-            New Sprint
-          </button>
-        ) : null}
+    <aside className="w-full min-h-0 overflow-y-auto pr-2 lg:border-r lg:border-border lg:pr-5 app-scroll app-scroll-y app-scroll-gutter lg:sticky lg:top-[calc(var(--project-tabs-height,0px)+1rem)] lg:max-h-[calc(100dvh-var(--project-tabs-height,0px)-2rem)]">
+      <div className="space-y-4">
+        {/* Rail Header */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between px-1">
+            <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+              Sprints
+            </span>
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] font-semibold text-muted-foreground">
+              {sprints.length}
+            </span>
+          </div>
 
-        <nav className="space-y-6 pb-10">
+          {canCreate ? (
+            <button
+              type="button"
+              onClick={onCreate}
+              className="nb-touch-target nb-ui-label inline-flex h-[34px] w-full items-center justify-center gap-2 rounded-[5px] border border-primary bg-primary px-3 text-primary-foreground transition-[background-color,border-color,transform] duration-150 hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:translate-y-px active:border-[var(--primary-active)] active:bg-[var(--primary-active)]"
+            >
+              <Plus aria-hidden="true" className="h-3.5 w-3.5" />
+              New Sprint
+            </button>
+          ) : null}
+
+          {/* Quick Search Filter for 1M-user scalability */}
+          {sprints.length > 3 ? (
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter sprints..."
+                className="nb-touch-target h-[30px] w-full rounded-[5px] border border-border bg-background pl-8 pr-7 text-xs text-foreground placeholder:text-muted-foreground transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear filter"
+                  className="nb-touch-target absolute right-0 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <X className="size-3" />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Sprint Groups List */}
+        <nav className="space-y-5 pb-10" aria-label="Sprints navigation">
+          {!hasAnyResults && isFiltering ? (
+            <div className="nb-empty-state nb-grid-ground p-4 text-center space-y-1.5" role="status">
+              <p className="nb-compact text-muted-foreground">
+                No sprints matching &ldquo;{searchQuery}&rdquo;
+              </p>
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="font-mono text-[11px] uppercase tracking-[0.09em] text-primary hover:underline"
+              >
+                Clear filter
+              </button>
+            </div>
+          ) : null}
+
           {SPRINT_GROUPS.map((group) => {
             const groupedSprints = sprintsByStatus.get(group.status) || [];
             if (groupedSprints.length === 0) return null;
 
+            const isCollapsed = !isFiltering && Boolean(collapsedGroups[group.status]);
+            const groupContentId = `sprint-group-${group.status}`;
+
             return (
               <section key={group.status} className="space-y-1">
-                <p className="flex items-center justify-between px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                  <span>{group.label}</span>
+                {/* Collapsible Group Header */}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.status)}
+                  aria-expanded={!isCollapsed}
+                  aria-controls={groupContentId}
+                  className="nb-touch-target flex w-full items-center justify-between rounded-[3px] px-1 py-1 text-left font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground transition-colors hover:text-foreground group/header"
+                >
+                  <span className="flex items-center gap-1.5">
+                    {isCollapsed ? (
+                      <ChevronRight className="size-3 text-muted-foreground group-hover/header:text-foreground transition-transform" />
+                    ) : (
+                      <ChevronDown className="size-3 text-muted-foreground group-hover/header:text-foreground transition-transform" />
+                    )}
+                    <span>{group.label}</span>
+                  </span>
                   <span
                     aria-label={`${groupedSprints.length} ${group.label.toLowerCase()} sprints`}
+                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] font-semibold text-muted-foreground"
                   >
                     {groupedSprints.length}
                   </span>
-                </p>
-                {groupedSprints.map((sprint) => {
-                  const isSelected = selectedSprintId === sprint.id;
-                  const computedStatus = computeSprintStatus(sprint);
-                  return (
-                    <Link
-                      key={sprint.id}
-                      href={buildProjectSprintDetailHref(
-                        projectSlug,
-                        sprint.id,
-                        { sprintCode: sprint.code },
-                      )}
-                      prefetch={false}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-2 py-2 transition-colors",
-                        isSelected
-                          ? "bg-zinc-100 text-zinc-950 dark:bg-zinc-800/80 dark:text-white"
-                          : "text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900/50",
-                      )}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          "h-2 w-2 shrink-0 rounded-full",
-                          SPRINT_STATUS_PRESENTATION[computedStatus]
-                            .dotClassName,
-                        )}
-                      />
-                      <div className="min-w-0 flex-1 flex flex-col">
-                        <div className="flex justify-between items-start gap-2">
-                          <span className="truncate text-sm font-medium leading-tight">
-                            {sprint.name}
-                          </span>
-                          <span className="text-[10px] shrink-0 text-zinc-400 font-semibold tracking-wider">
-                            {sprint.code}
-                          </span>
-                        </div>
-                        {sprint.goal ? (
-                          <span className="truncate text-[11px] text-zinc-500 mt-0.5">
-                            {sprint.goal}
-                          </span>
-                        ) : null}
-                      </div>
-                    </Link>
-                  );
-                })}
+                </button>
+
+                {/* Sprints in Group */}
+                {!isCollapsed ? (
+                  <div id={groupContentId} className="space-y-1 pt-0.5">
+                    {groupedSprints.map((sprint) => {
+                      const isSelected = selectedSprintId === sprint.id;
+                      const computedStatus = computeSprintStatus(sprint);
+                      const dateRange = formatSprintDateRange(sprint.startDate, sprint.endDate);
+
+                      return (
+                        <Link
+                          key={sprint.id}
+                          href={buildProjectSprintDetailHref(
+                            projectSlug,
+                            sprint.id,
+                            { sprintCode: sprint.code },
+                          )}
+                          prefetch={false}
+                          aria-current={isSelected ? "page" : undefined}
+                          className={cn(
+                            "group relative flex flex-col gap-1 rounded-[5px] border px-2.5 py-2 text-left transition-colors select-none",
+                            isSelected
+                              ? "border-border bg-muted font-medium text-foreground shadow-none"
+                              : "border-transparent text-muted-foreground hover:border-border/60 hover:bg-muted/40 hover:text-foreground",
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                aria-hidden="true"
+                                className={cn(
+                                  "size-1.5 shrink-0 rounded-[1px]",
+                                  SPRINT_STATUS_PRESENTATION[computedStatus].dotClassName,
+                                )}
+                              />
+                              <span className="truncate text-sm font-medium leading-tight text-foreground">
+                                {sprint.name}
+                              </span>
+                            </div>
+                            <span className="shrink-0 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
+                              {sprint.code}
+                            </span>
+                          </div>
+
+                          {dateRange ? (
+                            <span className="truncate pl-3.5 font-mono text-[10px] text-muted-foreground">
+                              {dateRange}
+                            </span>
+                          ) : null}
+
+                          {sprint.goal ? (
+                            <span className="truncate pl-3.5 text-[11px] text-muted-foreground">
+                              {sprint.goal}
+                            </span>
+                          ) : null}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </section>
             );
           })}

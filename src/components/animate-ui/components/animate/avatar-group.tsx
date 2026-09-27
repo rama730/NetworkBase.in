@@ -73,7 +73,7 @@ export function AvatarGroup({ children, className }: AvatarGroupProps) {
                                 align="center"
                                 sideOffset={10}
                                 avoidCollisions={false}
-                                className="!animate-none bg-black text-white border-0 rounded-lg px-3 py-2 text-xs text-center motion-reduce:transition-none opacity-0 data-[state=delayed-open]:opacity-100 data-[state=instant-open]:opacity-100 data-[state=closed]:opacity-0 transition-opacity duration-75"
+                                className="!animate-none bg-black text-white border-0 rounded-lg px-3 py-2 text-xs text-center motion-reduce:transition-none opacity-0 data-[state=delayed-open]:opacity-100 data-[state=instant-open]:opacity-100 data-[state=closed]:opacity-0 transition-opacity duration-[80ms]"
                             >
                                 {tooltipNode.props.children}
                             </TooltipPrimitive.Content>

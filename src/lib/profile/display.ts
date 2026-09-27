@@ -73,7 +73,7 @@ export function buildOwnerProfileTitle(input: ProfileMetadataInput): string {
     if (username) {
         return `@${username} | NetworkBase`;
     }
-    return "Your Profile | NetworkBase";
+    return "My Profile | NetworkBase";
 }
 
 export function buildPublicProfileTitle(input: ProfileMetadataInput): string {
@@ -96,7 +96,9 @@ export function initialsForName(...values: Array<string | null | undefined>): st
         const trimmed = trimDisplayText(value);
         if (!trimmed) continue;
         const parts = trimmed.split(/\s+/).slice(0, 2);
-        const initials = parts.map((part) => part.charAt(0).toUpperCase()).join("");
+        const initials = parts.length === 1
+            ? parts[0]!.slice(0, 2).toUpperCase()
+            : parts.map((part) => part.charAt(0).toUpperCase()).join("");
         if (initials) return initials;
     }
     return "U";

@@ -8,9 +8,9 @@ export function taskFileEntriesSql(projectId: string, taskIds: string[], deliver
       SELECT a.*, row_number() OVER (PARTITION BY a.task_id ORDER BY a.node_id) AS position
       FROM attachments a
       WHERE a.task_id IN (${sql.join(taskIds.map(id => sql`${id}::uuid`), sql`, `)})
-        AND ${deliverables ? sql`a.role = 'deliverable'` : sql`a.role IN ('working', 'reference')`}
+        AND ${deliverables ? sql`a.role = 'deliverable'` : sql`a.role IN ('deliverable', 'working', 'reference')`}
         ${role ? sql`AND a.role = ${role}` : sql``}
-        ${query ? sql`AND EXISTS (SELECT 1 FROM project_nodes n WHERE n.id = a.node_id AND strpos(lower(n.name), lower(${query.slice(0, 200)})) > 0)` : sql``}
+        ${query ? sql`AND EXISTS (SELECT 1 FROM project_nodes n WHERE n.id = a.node_id AND (strpos(lower(n.name), lower(${query.slice(0, 200)})) > 0 OR strpos(lower(coalesce(a.annotation, '')), lower(${query.slice(0, 200)})) > 0))` : sql``}
         ${after ? sql`AND a.node_id > ${after}::uuid` : sql``}
     ) SELECT * FROM ranked WHERE position <= 51 ORDER BY task_id, node_id
   `;
@@ -44,13 +44,13 @@ export function taskFileRoleSql(input: { tags: SQL; annotation: SQL; name: SQL; 
 /** Collection is a read model over links/legacy ownership, not another folder tree. */
 export function taskFileAssociationsSql(projectId: string) {
   return sql`WITH attachments AS (
-    SELECT l.task_id, n.id AS node_id, l.tags,
+    SELECT l.task_id, n.id AS node_id, l.tags, l.annotation,
       ${taskFileRoleSql({ tags: sql`l.tags`, annotation: sql`l.annotation`, name: sql`n.name`, canonicalNodeId: sql`n.canonical_node_id` })} AS role
     FROM task_node_links l
     JOIN project_nodes n ON n.id = l.node_id AND n.project_id = ${projectId} AND n.deleted_at IS NULL
     JOIN tasks t ON t.id = l.task_id AND t.project_id = ${projectId} AND t.deleted_at IS NULL
     UNION ALL
-    SELECT t.id, n.id, '[]'::jsonb AS tags,
+    SELECT t.id, n.id, '[]'::jsonb AS tags, NULL::text AS annotation,
       ${taskFileRoleSql({ tags: sql`'[]'::jsonb`, annotation: sql`NULL::text`, name: sql`n.name`, canonicalNodeId: sql`n.canonical_node_id` })} AS role
     FROM tasks t
     JOIN project_nodes n ON n.project_id = t.project_id AND n.deleted_at IS NULL

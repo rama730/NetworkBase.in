@@ -259,7 +259,8 @@ export function buildThemePrehydrateScript(): string {
     if (reduceMotion || prefersReducedMotion) root.setAttribute("data-reduce-motion", "true");
     else root.removeAttribute("data-reduce-motion");
 
-    const desired = isDark ? "#0a0a0a" : "#ffffff";
+    // Browser chrome is a fixed brand field, independent of the page theme.
+    const desired = "#141A1E";
     let meta = document.querySelector('meta[data-app-theme-color="true"]');
     if (!meta) {
       meta = document.createElement("meta");

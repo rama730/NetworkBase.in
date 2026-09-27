@@ -36,8 +36,9 @@ export function SavedFilesCollection({ projectId }: { projectId: string }) {
       const position = new Map(ids.map((id, index) => [id, index]));
       return nodes.sort((a, b) => position.get(a.id)! - position.get(b.id)!);
     },
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 60_000,
+    // ponytail: back off idle polling to 5m to eliminate client-side egress churn. ceiling: 5m polling interval. upgrade: WebSocket Realtime push invalidation for remote lists.
+    refetchInterval: 300_000,
     refetchIntervalInBackground: false,
   });
   const nodes =

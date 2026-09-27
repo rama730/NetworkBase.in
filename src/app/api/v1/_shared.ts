@@ -65,9 +65,10 @@ export async function enforceRouteLimit(
   limit: number,
   windowSeconds: number,
   route: "default" | "publicRead" | "health" | "ready" = "default",
+  identityKey?: string,
 ) {
-  const ip = getRequestIp(request);
-  const rl = await consumeRateLimitForRoute(route, `${key}:${ip}`, limit, windowSeconds);
+  const identifier = identityKey || getRequestIp(request);
+  const rl = await consumeRateLimitForRoute(route, `${key}:${identifier}`, limit, windowSeconds);
   if (!rl.allowed) {
     return jsonError("Rate limit exceeded", 429, "RATE_LIMITED");
   }

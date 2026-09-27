@@ -3,10 +3,8 @@
 import { useId, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { Users, FolderKanban, Link2, Sparkles, MessageSquare, Pencil } from 'lucide-react'
-import type { ProfileStats } from './types'
+import { FolderKanban, Link2, Sparkles, MessageSquare, Pencil } from 'lucide-react'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
-import { countLabel } from '@/lib/profile/display'
 import { normalizeSocialLinks as normalizeSocialLinksShared } from '@/lib/profile/normalization'
 import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon'
 
@@ -28,68 +26,28 @@ function RailCard({
         <section
             aria-labelledby={headingId}
             id={id}
-            className={cn('rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm', className)}
+            className={cn('rounded-lg border border-border bg-card text-card-foreground shadow-none', className)}
         >
-            <div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
-                {icon ? <span className="text-zinc-500 dark:text-zinc-400">{icon}</span> : null}
-                <h2 id={headingId} className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{title}</h2>
+            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+                {icon ? <span className="text-muted-foreground [&_svg]:size-[18px]">{icon}</span> : null}
+                <h2 id={headingId} className="nb-card-title text-foreground">{title}</h2>
             </div>
             <div className="px-5 py-4">{children}</div>
         </section>
     )
 }
 
-function Stat({
-    label,
-    value,
-    href,
-    onClick,
-}: {
-    label: string
-    value: number
-    href?: string
-    onClick?: () => void
-}) {
-    const ariaLabel = countLabel(value, label.replace(/s$/, ''), label)
-    const inner = (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 px-4 py-3">
-            <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{value}</div>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">{label}</div>
-        </div>
-    )
-    return href ? (
-        <Link href={href} aria-label={ariaLabel} className="block hover:opacity-90">
-            {inner}
-        </Link>
-    ) : onClick ? (
-        <button
-            type="button"
-            onClick={onClick}
-            aria-label={ariaLabel}
-            className="block w-full text-left hover:opacity-90 transition-opacity"
-        >
-            {inner}
-        </button>
-    ) : (
-        <div role="group" aria-label={ariaLabel}>
-            {inner}
-        </div>
-    )
-}
-
 export function ProfileRightRail({
     profile,
-    stats,
     isOwner,
+    canMessage = false,
     socialLinks,
-    onConnectionsClick,
     onEditSection,
 }: {
     profile: any
-    stats: ProfileStats
     isOwner: boolean
+    canMessage?: boolean
     socialLinks: any
-    onConnectionsClick: () => void
     onEditSection?: (section: "general" | "experience" | "skills" | "social") => void
 }) {
     const vm = normalizeProfile(profile)
@@ -108,13 +66,6 @@ export function ProfileRightRail({
 
     return (
         <>
-            <RailCard title="Stats" icon={<Users className="w-4 h-4" />}>
-                <div className="grid grid-cols-2 gap-3">
-                    <Stat label="Connections" value={stats.connectionsCount || 0} onClick={onConnectionsClick} />
-                    <Stat label="Projects" value={stats.projectsCount || 0} href="/projects" />
-                </div>
-            </RailCard>
-
             <RailCard title="Links" icon={<Link2 className="w-4 h-4" />}>
                 {links.length ? (
                     <div className={cn("grid gap-2", links.length > 4 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2")}>
@@ -125,16 +76,16 @@ export function ProfileRightRail({
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     aria-label={`Open ${l.platformLabel}: ${l.accountLabel}`}
-                                    className="flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-3 dark:border-zinc-800 dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700"
+                                    className="flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-[3px] border border-border bg-card px-3 text-foreground hover:bg-muted transition-colors"
                                 >
-                                    <span className="flex shrink-0 items-center gap-2 whitespace-nowrap text-zinc-700 dark:text-zinc-200">
-                                        <span className="shrink-0 text-zinc-400">{l.iconKey ? <SocialPresenceIcon iconKey={l.iconKey} /> : <Link2 className="h-4 w-4" aria-hidden="true" />}</span>
-                                        <span className="truncate text-sm font-medium">{l.platformLabel}</span>
+                                    <span className="flex shrink-0 items-center gap-2 whitespace-nowrap text-foreground">
+                                        <span className="shrink-0 text-muted-foreground">{l.iconKey ? <SocialPresenceIcon iconKey={l.iconKey} /> : <Link2 className="h-4 w-4" aria-hidden="true" />}</span>
+                                        <span className="nb-ui-label truncate">{l.platformLabel}</span>
                                     </span>
-                                    <span title={l.customLabel || l.accountLabel} className="min-w-0 truncate whitespace-nowrap text-right text-xs text-zinc-500 dark:text-zinc-400">{l.customLabel || l.accountLabel}</span>
+                                    <span title={l.customLabel || l.accountLabel} className="nb-meta min-w-0 truncate whitespace-nowrap text-right">{l.customLabel || l.accountLabel}</span>
                                 </a>
                                 {isOwner && l.id && linkHealth[l.id]?.health === 'unavailable' && onEditSection ? (
-                                    <button type="button" onClick={() => onEditSection('social')} className="rounded-lg border border-amber-300 px-2 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40">Update</button>
+                                    <button type="button" onClick={() => onEditSection('social')} className="nb-ui-label rounded-[3px] border border-amber-300 px-2 py-1.5 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40">Update</button>
                                 ) : null}
                             </div>
                         ))}
@@ -142,7 +93,7 @@ export function ProfileRightRail({
                             <button
                                 type="button"
                                 onClick={() => setShowAllLinks((value) => !value)}
-                                className="col-span-full justify-self-start rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                                className="nb-ui-label col-span-full justify-self-start rounded-[3px] border border-border bg-card px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                 aria-expanded={showAllLinks}
                             >
                                 {showAllLinks ? 'Show less' : `+${links.length - 4} more`}
@@ -150,12 +101,12 @@ export function ProfileRightRail({
                         ) : null}
                     </div>
                 ) : (
-                    <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                    <div className="nb-body text-muted-foreground">
                         {isOwner && onEditSection ? (
                             <button
                                 type="button"
                                 onClick={() => onEditSection('social')}
-                                className="font-medium text-indigo-600 hover:text-indigo-500"
+                                className="nb-ui-label text-primary hover:text-primary/80 transition-colors"
                             >
                                 Add your first link
                             </button>
@@ -170,8 +121,8 @@ export function ProfileRightRail({
                 <RailCard title="Profile Completeness" icon={<Sparkles className="w-4 h-4" />}>
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-zinc-600 dark:text-zinc-300">Completion</span>
-                            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                            <span className="nb-compact text-muted-foreground">Completion</span>
+                            <span className="nb-meta font-semibold text-foreground">
                                 {completionScore}%
                             </span>
                         </div>
@@ -181,21 +132,21 @@ export function ProfileRightRail({
                             aria-valuemin={0}
                             aria-valuemax={100}
                             aria-label={`Profile completeness: ${completionScore}%`}
-                            className="h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"
+                            className="h-2 rounded-[3px] bg-muted overflow-hidden"
                         >
                             <div
-                                className="h-full bg-indigo-600 dark:bg-indigo-400 transition-all"
+                                className="h-full bg-primary transition-[color,background-color,border-color,box-shadow,opacity,transform]"
                                 style={{ width: `${Math.max(0, Math.min(100, completionScore))}%` }}
                             />
                         </div>
                         {missingItems.length > 0 ? (
-                            <ul className="space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+                            <ul className="nb-compact space-y-1 text-muted-foreground">
                                 {missingItems.slice(0, 3).map((item) => (
                                     <li key={item}>• {item}</li>
                                 ))}
                             </ul>
                         ) : completionScore >= 100 ? (
-                            <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                            <p className="nb-compact text-[var(--status-success)]">
                                 Profile is complete. Great work.
                             </p>
                         ) : null}
@@ -204,35 +155,37 @@ export function ProfileRightRail({
             ) : null}
 
             <RailCard title="Shortcuts" icon={<FolderKanban className="w-4 h-4" />}>
-                <div className="grid grid-cols-2 gap-2">
+                <div className={cn('grid gap-2', isOwner || canMessage ? 'grid-cols-2' : 'grid-cols-1')}>
                     {isOwner ? (
                         <>
                             <Link
                                 href="/profile"
-                                className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-2"
+                                className="nb-ui-label rounded-[3px] border border-border bg-card px-3 py-2 text-foreground hover:bg-muted transition-colors flex items-center gap-2"
                             >
-                                <Pencil className="w-4 h-4 text-zinc-400" />
+                                <Pencil className="w-4 h-4 text-muted-foreground" />
                                 Edit profile
                             </Link>
                             <Link
                                 href="/projects"
-                                className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                                className="nb-ui-label rounded-[3px] border border-border bg-card px-3 py-2 text-foreground hover:bg-muted transition-colors"
                             >
                                 My projects
                             </Link>
                         </>
                     ) : (
                         <>
-                            <Link
-                                href={vm?.id ? `/messages?userId=${vm.id}` : '/messages'}
-                                className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-2"
-                            >
-                                <MessageSquare className="w-4 h-4 text-zinc-400" />
-                                Message
-                            </Link>
+                            {canMessage ? (
+                                <Link
+                                    href={vm?.id ? `/messages?userId=${vm.id}` : '/messages'}
+                                    className="nb-ui-label rounded-[3px] border border-border bg-card px-3 py-2 text-foreground hover:bg-muted transition-colors flex items-center gap-2"
+                                >
+                                    <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                                    Message
+                                </Link>
+                            ) : null}
                             <Link
                                 href="/projects"
-                                className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                                className="nb-ui-label rounded-[3px] border border-border bg-card px-3 py-2 text-foreground hover:bg-muted transition-colors"
                             >
                                 Browse projects
                             </Link>

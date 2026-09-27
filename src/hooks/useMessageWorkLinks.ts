@@ -29,8 +29,7 @@ export function useMessageWorkLinks(conversationId: string | null | undefined, m
 
     const query = useQuery({
         queryKey,
-        // ponytail: linked work is supplementary context, not part of first
-        // paint. Ask for the newest visible rows after the thread settles.
+        // ponytail: linked work is supplementary context, not part of first paint. ceiling: deferred query with 30s stale time. upgrade: immediate thread hydration if preloaded by server component.
         enabled: isDeferredQueryReady && Boolean(conversationId) && normalizedMessageIds.length > 0,
         staleTime: 30_000,
         refetchOnWindowFocus: false,

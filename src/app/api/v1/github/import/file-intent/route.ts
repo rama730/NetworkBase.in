@@ -48,24 +48,24 @@ export async function POST(request: NextRequest) {
 
         const { jobId, path, size, mimeType, checksum } = parsed.data;
 
-        // Fetch job to check access
-        const job = await db.query.importJobs.findFirst({
-            where: and(eq(importJobs.id, jobId), eq(importJobs.status, 'importing')),
-        });
+        // Fetch job and file state in parallel
+        const [job, jobFile] = await Promise.all([
+            db.query.importJobs.findFirst({
+                where: and(eq(importJobs.id, jobId), eq(importJobs.status, 'importing')),
+            }),
+            db.query.importJobFiles.findFirst({
+                where: and(
+                    eq(importJobFiles.jobId, jobId),
+                    eq(importJobFiles.path, path)
+                ),
+            }),
+        ]);
 
         if (!job) {
             return jsonError('Import job not active or not found', 404, 'NOT_FOUND');
         }
 
         await assertProjectWriteAccess(job.projectId, user.id);
-
-        // Fetch the file state from import_job_files
-        const jobFile = await db.query.importJobFiles.findFirst({
-            where: and(
-                eq(importJobFiles.jobId, jobId),
-                eq(importJobFiles.path, path)
-            ),
-        });
 
         if (!jobFile) {
             return jsonError('File path not registered in job manifest', 404, 'NOT_FOUND');

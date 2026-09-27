@@ -71,8 +71,8 @@ export function PeopleNotificationsProvider({ children, enabled = true }: { chil
       if (!result.success) throw new Error(result.error || "Failed to load pending requests");
       return result;
     },
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
     retry: 1,
   });
 

@@ -347,6 +347,26 @@ export function buildProjectDocPublishMetadata(content: string) {
     };
 }
 
+const DOC_METADATA_CACHE = new Map<string, ReturnType<typeof buildProjectDocPublishMetadata>>();
+const MAX_DOC_METADATA_CACHE_ENTRIES = 200;
+
+export function getOrBuildProjectDocPublishMetadata(content: string) {
+    const hash = hashProjectDocContent(content);
+    const cached = DOC_METADATA_CACHE.get(hash);
+    if (cached) {
+        DOC_METADATA_CACHE.delete(hash);
+        DOC_METADATA_CACHE.set(hash, cached);
+        return cached;
+    }
+    const metadata = buildProjectDocPublishMetadata(content);
+    if (DOC_METADATA_CACHE.size >= MAX_DOC_METADATA_CACHE_ENTRIES) {
+        const oldest = DOC_METADATA_CACHE.keys().next().value;
+        if (oldest) DOC_METADATA_CACHE.delete(oldest);
+    }
+    DOC_METADATA_CACHE.set(hash, metadata);
+    return metadata;
+}
+
 export function resolveProjectDocPermission(input: {
     actorUserId?: string | null;
     projectVisibility?: unknown;

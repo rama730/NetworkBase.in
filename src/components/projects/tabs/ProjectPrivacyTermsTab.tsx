@@ -28,9 +28,9 @@ const legalLinks = [
 
 function Card({ icon: Icon, title, children }: { icon: typeof Eye; title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
+    <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-none dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
       <div className="flex items-center gap-3">
-        <span className="rounded-2xl bg-indigo-50 p-2.5 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300">
+        <span className="rounded-lg bg-indigo-50 p-2.5 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300">
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
         <h2 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">{title}</h2>
@@ -52,7 +52,7 @@ export default function ProjectPrivacyTermsTab({ project, isOwner, isOwnerOrMemb
 
   return (
     <div className={embedded ? "w-full space-y-5" : "mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:py-10"}>
-      <header className="rounded-[2rem] border border-zinc-200 bg-gradient-to-br from-white to-indigo-50/60 p-6 dark:border-zinc-800 dark:from-zinc-900 dark:to-indigo-950/20 sm:p-8">
+      <header className="rounded-lg border border-zinc-200 bg-card p-6 dark:border-zinc-800  sm:p-8">
         <div className="flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-300">
           <ShieldCheck className="h-5 w-5" aria-hidden="true" /> Project notice
         </div>
@@ -101,7 +101,7 @@ export default function ProjectPrivacyTermsTab({ project, isOwner, isOwnerOrMemb
         </Card>
       </div>
 
-      <section className="mt-6 rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">Applicable documents</h2>
         <div className="mt-4 flex flex-wrap gap-2">
           {legalLinks.map(([label, href]) => (

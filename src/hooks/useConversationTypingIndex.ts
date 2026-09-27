@@ -15,6 +15,7 @@ import type { TypingUser } from './useTypingChannel';
 // Wave 3 Step 12: keep in sync with useTypingChannel TTL — covers composer
 // idle timer (1800 ms) + throttle floor (500 ms) + network margin.
 const TYPING_VISIBLE_TTL_MS = 5_500;
+const MAX_TRACKED_CONVERSATION_CHANNELS = 5;
 
 export function useConversationTypingIndex(
     conversationIds: ReadonlyArray<string | null | undefined>,
@@ -31,7 +32,7 @@ export function useConversationTypingIndex(
     const timersRef = useRef(new Map<string, Map<string, ReturnType<typeof setTimeout>>>());
     const conversationIdsRef = useRef<string[]>([]);
     const trackedConversationIds = useMemo(() => {
-        const uniqueIds = normalizeTrackedConversationIds(conversationIds);
+        const uniqueIds = normalizeTrackedConversationIds(conversationIds).slice(0, MAX_TRACKED_CONVERSATION_CHANNELS);
         if (
             conversationIdsRef.current.length === uniqueIds.length &&
             conversationIdsRef.current.every((id, index) => id === uniqueIds[index])

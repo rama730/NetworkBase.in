@@ -14,6 +14,17 @@ interface UrlFilters {
     hideOpened: boolean;
 }
 
+function parseDiscoveryView(value: string | null): FilterView {
+    if (
+        value === FILTER_VIEWS.TRENDING ||
+        value === FILTER_VIEWS.RECOMMENDATIONS ||
+        value === FILTER_VIEWS.FOLLOWING
+    ) {
+        return value;
+    }
+    return FILTER_VIEWS.ALL;
+}
+
 export function useHubUrlFilters() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -21,7 +32,7 @@ export function useHubUrlFilters() {
 
     const urlFilters: UrlFilters = useMemo(() => ({
         q: searchParams.get('q') || '',
-        view: (searchParams.get('view') as FilterView) || FILTER_VIEWS.ALL,
+        view: parseDiscoveryView(searchParams.get('view')),
         status: (searchParams.get('status') as ProjectStatus) || PROJECT_STATUS.ALL,
         type: (searchParams.get('type') as ProjectType) || PROJECT_TYPE.ALL,
         sort: (searchParams.get('sort') as SortOption) || SORT_OPTIONS.NEWEST,

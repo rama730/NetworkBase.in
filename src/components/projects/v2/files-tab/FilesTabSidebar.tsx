@@ -12,6 +12,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, PanelLeftClose } from "lucide-react";
 import {
   useFilesWorkspaceView,
@@ -19,6 +20,7 @@ import {
 } from "./FilesWorkspaceViews";
 
 import type { ProjectNode } from "@/lib/db/schema";
+import { cn } from "@/lib/utils";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
 import {
@@ -28,10 +30,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  BookOpenText,
   FilePlus2,
+  FileUp,
   FolderOpen,
   FolderPlus,
   FolderInput,
+  History,
+  Info,
+  ListTodo,
   Pencil,
   Star,
   StarOff,
@@ -534,6 +541,45 @@ export function FilesTabSidebar({
     onContextMenu: handleContextMenu,
   });
 
+  const queryClient = useQueryClient();
+  const cachedTaskQueries = queryClient.getQueriesData<{
+    pages?: Array<{ groups?: Array<{ id: string }> }>;
+    groups?: Array<{ id: string }>;
+  }>({
+    queryKey: ["files-task-collections", projectId],
+  });
+
+  const authoritativeTaskCount = useMemo(() => {
+    for (const [, queryData] of cachedTaskQueries) {
+      if (!queryData) continue;
+      if (Array.isArray(queryData.pages) && queryData.pages[0]?.groups) {
+        const unique = new Set(
+          queryData.pages.flatMap((p) => p.groups ?? []).map((g) => g.id),
+        );
+        if (unique.size > 0) return unique.size;
+      }
+      if (Array.isArray(queryData.groups) && queryData.groups.length > 0) {
+        return queryData.groups.length;
+      }
+    }
+    return undefined;
+  }, [cachedTaskQueries]);
+
+  const collectionCounts = useMemo(() => {
+    const activeNodes = Object.values(nodesById).filter(Boolean);
+    const fileCount = activeNodes.filter((n) => n.type === "file" && !n.deletedAt).length;
+    const favCount = Object.values(favorites).filter(Boolean).length;
+    const recCount = recents.length;
+    const taskLinkSum = Object.values(taskLinkCounts).reduce((acc, c) => acc + (c || 0), 0);
+    const taskCount = authoritativeTaskCount ?? (taskLinkSum > 0 ? taskLinkSum : undefined);
+    return {
+      project: fileCount > 0 ? fileCount : undefined,
+      starred: favCount > 0 ? favCount : undefined,
+      recent: recCount > 0 ? recCount : undefined,
+      tasks: taskCount && taskCount > 0 ? taskCount : undefined,
+    } as Record<string, number | undefined>;
+  }, [nodesById, favorites, recents, taskLinkCounts, authoritativeTaskCount]);
+
   // ── Render ────────────────────────────────────────────────────────
   const collapsedToggleLabel = sidebarCollapsed
     ? "Show sidebar"
@@ -571,20 +617,20 @@ export function FilesTabSidebar({
         data-collapsed="false"
         aria-label="File sidebar"
         style={{ width: FILES_TAB_SIDEBAR_WIDTH_PX }}
-        className="shrink-0 flex flex-col h-full border-r border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:max-w-[85vw] max-md:shadow-xl md:resize-x md:overflow-auto md:min-w-52 md:max-w-[40vw]"
+        className="shrink-0 flex flex-col h-full border-r border-[#DBD5C8] dark:border-white/10 bg-card dark:bg-background max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-30 max-md:max-w-[85vw] max-md:shadow-xl md:resize-x md:overflow-auto md:min-w-52 md:max-w-[40vw]"
       >
-        <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-zinc-200 px-3 dark:border-white/10">
+        <div className="flex min-h-12 shrink-0 items-center gap-2 border-b border-[#DBD5C8] px-3 dark:border-white/10">
           {workspaceView?.sidebarMode === "tree" ? (
             <button
               type="button"
               onClick={workspaceView.showCollections}
-              className="flex min-h-10 flex-1 items-center gap-2 rounded text-sm focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="flex min-h-9 flex-1 items-center gap-2 rounded-[5px] text-xs font-medium text-[#374349] dark:text-muted-foreground hover:text-[#141A1E] dark:hover:text-foreground focus-visible:ring-2 focus-visible:ring-[#D14E24]"
             >
               <ArrowLeft aria-hidden="true" className="size-4" />
               Back to Files
             </button>
           ) : (
-            <span className="flex-1 text-sm font-semibold">Files</span>
+            <span className="flex-1 text-xs font-semibold text-[#141A1E] dark:text-foreground">Files</span>
           )}
           <button
             type="button"
@@ -592,7 +638,7 @@ export function FilesTabSidebar({
             aria-label={collapsedToggleLabel}
             title={collapsedToggleLabel}
             data-testid="files-tab-sidebar-collapse"
-            className="flex size-10 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-zinc-800"
+            className="flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:bg-[#F3F0EA] hover:text-[#141A1E] focus-visible:ring-2 focus-visible:ring-[#D14E24] dark:hover:bg-muted dark:hover:text-foreground"
           >
             <PanelLeftClose aria-hidden="true" className="size-4" />
           </button>
@@ -600,35 +646,56 @@ export function FilesTabSidebar({
         {workspaceView?.sidebarMode === "collections" ? (
           <nav
             aria-label="File collections"
-            className="flex-1 space-y-1 overflow-y-auto p-3"
+            className="flex-1 space-y-1 overflow-y-auto p-2"
           >
             {fileCollectionViews
               .filter(
                 (item) =>
+                  item.id !== "deliverables" &&
                   (canEdit || item.id !== "trash") &&
                   (workspaceView.canReadTasks ||
-                    !["tasks", "deliverables"].includes(item.id)) &&
+                     !["tasks", "deliverables"].includes(item.id)) &&
                   (item.id !== "github" || workspaceView.canOpenGitHub),
               )
-              .map(({ id, label, Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  aria-current={workspaceView.view === id ? "page" : undefined}
-                  onClick={() => {
-                    workspaceView.selectView(id);
-                    if (
-                      id !== "project" &&
-                      window.matchMedia("(max-width: 767px)").matches
-                    )
-                      toggleSidebar(projectId);
-                  }}
-                  className={`flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm focus-visible:ring-2 focus-visible:ring-blue-500 ${workspaceView.view === id ? "bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"}`}
-                >
-                  <Icon aria-hidden="true" className="size-4 shrink-0" />
-                  {label}
-                </button>
-              ))}
+              .map(({ id, label, Icon }) => {
+                const isActive = workspaceView.view === id;
+                const count = collectionCounts[id];
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-current={isActive ? "page" : undefined}
+                    onClick={() => {
+                      workspaceView.selectView(id);
+                      if (
+                        id !== "project" &&
+                        window.matchMedia("(max-width: 767px)").matches
+                      )
+                        toggleSidebar(projectId);
+                    }}
+                    className={cn(
+                      "flex min-h-8 w-full items-center gap-2.5 rounded-[5px] px-2.5 text-left text-xs transition-colors",
+                      isActive
+                        ? "bg-[#F3F0EA] font-semibold text-[#141A1E] dark:bg-white/10 dark:text-foreground"
+                        : "text-[#374349] font-medium hover:bg-[#F3F0EA]/70 hover:text-[#141A1E] dark:text-muted-foreground dark:hover:bg-white/5 dark:hover:text-foreground",
+                    )}
+                  >
+                    <Icon
+                      aria-hidden="true"
+                      className={cn(
+                        "size-4 shrink-0",
+                        isActive ? "text-[#D14E24]" : "text-[#6B7880] dark:text-muted-foreground",
+                      )}
+                    />
+                    <span className="truncate">{label}</span>
+                    {count !== undefined && (
+                      <span className="ml-auto font-mono text-[11px] text-[#6B7880] dark:text-muted-foreground tabular-nums">
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
           </nav>
         ) : (
           <>
@@ -717,6 +784,105 @@ export function FilesTabSidebar({
                     </>
                   )}
                 </DropdownMenuItem>
+                {contextMenuState.node.type === "file" && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (contextMenuState.node) {
+                          contextValue.openNode(contextMenuState.node);
+                          workspaceView?.setInspector("details");
+                        }
+                      }}
+                    >
+                      <Info className="w-4 h-4 mr-2" />
+                      Details
+                    </DropdownMenuItem>
+                    {canEdit && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (contextMenuState.node)
+                            contextValue.openNode(contextMenuState.node);
+                        }}
+                      >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                    )}
+                    {canEdit && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (contextMenuState.node) {
+                            contextValue.openNode(contextMenuState.node);
+                            workspaceView?.setInspector("version_history");
+                          }
+                        }}
+                      >
+                        <FileUp className="w-4 h-4 mr-2" />
+                        Upload revision…
+                      </DropdownMenuItem>
+                    )}
+                    {canEdit && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (contextMenuState.node) {
+                            contextValue.openNode(contextMenuState.node);
+                            workspaceView?.setInspector("linked_tasks");
+                          }
+                        }}
+                      >
+                        <ListTodo className="w-4 h-4 mr-2" />
+                        Attach to task…
+                      </DropdownMenuItem>
+                    )}
+                    {canEdit && (/\.(md|mdx|markdown|txt)$/i.test(contextMenuState.node.name) || /^readme(\.|$)/i.test(contextMenuState.node.name)) && (
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          if (!contextMenuState.node) return;
+                          try {
+                            const { normalizeProjectDocSlug } = await import("@/lib/projects/doc");
+                            const { linkProjectDocAction } = await import("@/app/actions/project/doc");
+                            const docSlug = normalizeProjectDocSlug(contextMenuState.node.name, "doc");
+                            const res = await linkProjectDocAction(projectId, contextMenuState.node.id, docSlug);
+                            if (res?.error) {
+                              toast.error(res.error);
+                            } else {
+                              toast.success("File linked to Doc successfully");
+                            }
+                          } catch {
+                            toast.error("Failed to link file to Doc");
+                          }
+                        }}
+                      >
+                        <BookOpenText className="w-4 h-4 mr-2" />
+                        Use as Doc
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (contextMenuState.node) {
+                          contextValue.openNode(contextMenuState.node);
+                          workspaceView?.setInspector("version_history");
+                        }
+                      }}
+                    >
+                      <History className="w-4 h-4 mr-2" />
+                      Version history
+                    </DropdownMenuItem>
+                    {workspaceView && (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (contextMenuState.node) {
+                            contextValue.openNode(contextMenuState.node);
+                            workspaceView?.setInspector("linked_tasks");
+                          }
+                        }}
+                      >
+                        <ListTodo className="w-4 h-4 mr-2" />
+                        Linked tasks
+                      </DropdownMenuItem>
+                    )}
+                  </>
+                )}
                 {canEdit && contextMenuState.node.type === "folder" && (
                   <>
                     <DropdownMenuItem

@@ -22,12 +22,12 @@ export function Card({ title, icon, children, className, action, onAdd, addLabel
         <section
             aria-labelledby={headingId}
             id={id}
-            className={cn('rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm', className)}
+            className={cn('rounded-lg border border-border bg-card text-card-foreground shadow-none', className)}
         >
-            <div className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800 flex items-center justify-between">
+            <div className="border-b border-border px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    {icon ? <span className="text-zinc-500 dark:text-zinc-400">{icon}</span> : null}
-                    <h2 id={headingId} className={cn("font-semibold text-zinc-900 dark:text-zinc-100", density === 'compact' ? 'text-sm' : 'text-lg')}>{title}</h2>
+                    {icon ? <span className="text-muted-foreground [&_svg]:size-[18px]">{icon}</span> : null}
+                    <h2 id={headingId} className="nb-card-title text-foreground">{title}</h2>
                 </div>
                 <div className="flex items-center gap-2">
                     {action}
@@ -36,9 +36,9 @@ export function Card({ title, icon, children, className, action, onAdd, addLabel
                             type="button"
                             onClick={onAdd}
                             aria-label={addLabel || `Add ${title.toLowerCase()}`}
-                            className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+                            className="nb-icon-button text-muted-foreground transition-colors"
                         >
-                            <Plus className="w-5 h-5" aria-hidden="true" />
+                            <Plus className="size-4" aria-hidden="true" />
                         </button>
                     )}
                 </div>

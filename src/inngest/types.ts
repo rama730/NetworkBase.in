@@ -81,6 +81,12 @@ type ProfileImageCleanupEvent = {
     };
 };
 
+type ConnectionsRefreshSuggestionCandidateEvent = {
+    data: {
+        candidateUserId: string;
+    };
+};
+
 export const schemas = new EventSchemas().fromRecord<{
     "project/import": ProjectImportEvent;
     "project/import.hydrate": ProjectImportEvent;
@@ -89,6 +95,7 @@ export const schemas = new EventSchemas().fromRecord<{
     "account/cleanup": AccountCleanupEvent;
     "workspace/counters.refresh": WorkspaceCountersRefreshEvent;
     "workspace/connections.sync_suggestions": ConnectionsSyncSuggestionsEvent;
+    "workspace/connections.refresh_suggestions_for_candidate": ConnectionsRefreshSuggestionCandidateEvent;
     "notification/fanout": NotificationFanoutInngestEvent;
     "project/updates.cleanup": ProjectUpdateCleanupEvent;
     "storage/profile-image.cleanup": ProfileImageCleanupEvent;

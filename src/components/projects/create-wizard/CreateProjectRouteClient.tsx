@@ -25,12 +25,14 @@ export function CreateProjectRouteClient({
     }, [router])
 
     const handleSuccess = useCallback((projectId: string) => {
-        router.push('/hub')
+        // ponytail: creator goes straight to their new project. ceiling: valid project ID or slug. upgrade: None needed.
+        router.push(`/projects/${projectId}`)
     }, [router])
 
     return (
-        <div className="h-full min-h-0 bg-zinc-50 dark:bg-zinc-950">
+        <div className="h-full min-h-0 bg-background">
             <CreateProjectWizard
+                presentation="page"
                 onClose={handleClose}
                 onSuccess={handleSuccess}
                 initialSource={initialSource}

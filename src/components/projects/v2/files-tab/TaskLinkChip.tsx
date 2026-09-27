@@ -58,11 +58,10 @@ export function TaskLinkChip({
       onClick={handleClick}
       aria-label={`${count} linked ${count === 1 ? "task" : "tasks"}`}
       className={cn(
-        "inline-flex h-[18px] items-center gap-0.5 rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
-        "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
-        "dark:bg-sky-500/15 dark:text-sky-200 dark:ring-sky-500/30",
-        "cursor-pointer transition-colors hover:bg-sky-100 dark:hover:bg-sky-500/25",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+        "inline-flex h-[18px] items-center gap-1 rounded-[3px] border border-[#DBD5C8] bg-[#F3F0EA] px-1.5 font-mono text-[11px] font-semibold tabular-nums text-[#4C5A61]",
+        "dark:border-white/10 dark:bg-white/10 dark:text-white/80",
+        "cursor-pointer transition-colors hover:border-[#D14E24] hover:bg-[#FCF0EA] hover:text-[#D14E24]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D14E24]",
         className,
       )}
     >

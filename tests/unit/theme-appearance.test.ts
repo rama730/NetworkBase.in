@@ -158,15 +158,15 @@ test("accent palette metadata exposes dual-color palette ids", () => {
 });
 
 test("accent palette metadata exposes solid action color and selected tint", () => {
-  assert.equal(ACCENT_PALETTES.default.solid, "#5b3df5");
-  assert.equal(ACCENT_PALETTES.default.selectedTint, "#dfe9ff");
+  assert.equal(ACCENT_PALETTES.default.solid, "#C24720");
+  assert.equal(ACCENT_PALETTES.default.selectedTint, "#F3F0EA");
 });
 
-test("getAccentSwatchBackground renders a solid swatch with a lighter selected-surface cue", () => {
+test("getAccentSwatchBackground renders the selected solid action swatch", () => {
   const background = getAccentSwatchBackground("default");
-  assert.match(background, /radial-gradient\(circle at 72% 28%,/);
-  assert.match(background, /#dfe9ff/);
-  assert.match(background, /#5b3df5/);
+  assert.equal(background, ACCENT_PALETTES.default.solid);
+  assert.doesNotMatch(background, /gradient/);
+  assert.match(background, /#C24720/);
 });
 
 test("readAppearanceSettings dedupes concurrent bootstrap fetches", async () => {

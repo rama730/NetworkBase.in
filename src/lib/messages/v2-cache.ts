@@ -85,7 +85,7 @@ function mergeReactionPreview(
     next: InboxConversationV2['reactionPreview'],
 ) {
     if (!current || !next) return next ?? null;
-    // ponytail: summary requests can finish out of order; reaction time is its version.
+    // ponytail: summary requests can finish out of order; reaction time is its version. ceiling: latest timestamp comparison. upgrade: Lamport vector clocks if multi-master cross-region reaction conflicts occur.
     return toEpochMs(next.createdAt) >= toEpochMs(current.createdAt) ? next : current;
 }
 

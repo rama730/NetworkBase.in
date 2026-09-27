@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { SkillIcon } from "@/components/skills";
 import { AppScrollArea } from "@/components/ui/AppScrollArea";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { isGlobalSearchPreview, useGlobalSearchPreviews, type GlobalSearchPreview } from "@/hooks/useGlobalSearchPreviews";
 import { getConnectionRequestSuccessMessage, useConnectionMutations } from "@/hooks/useConnections";
 import { resolveClientSkill } from "@/lib/skills/client";
@@ -59,15 +60,16 @@ function resultDomId(result: GlobalSearchPreview | SettingsSearchItem, settings 
 
 function SearchSkeletons() {
     return (
-        <div className="space-y-2 p-3" aria-label="Loading search previews">
+        <div className="space-y-2 p-3" role="status" aria-label="Loading search previews">
+            <span className="sr-only">Loading search previews…</span>
             {[0, 1, 2].map((item) => (
-                <div key={item} className="flex items-start gap-3 rounded-xl border border-zinc-200/60 px-3 py-3 dark:border-zinc-800/70">
-                    <span className="h-10 w-10 shrink-0 animate-pulse rounded-xl bg-zinc-100 motion-reduce:animate-none dark:bg-zinc-800" />
-                    <span className="min-w-0 flex-1 space-y-2">
-                        <span className="block h-3 w-1/3 animate-pulse rounded bg-zinc-100 motion-reduce:animate-none dark:bg-zinc-800" />
-                        <span className="block h-2.5 w-3/4 animate-pulse rounded bg-zinc-100 motion-reduce:animate-none dark:bg-zinc-800" />
-                        <span className="block h-2.5 w-1/2 animate-pulse rounded bg-zinc-100 motion-reduce:animate-none dark:bg-zinc-800" />
-                    </span>
+                <div key={item} className="flex items-start gap-3 rounded-[8px] border border-border/60 bg-card p-3" aria-hidden="true">
+                    <Skeleton className="size-10 shrink-0 rounded-[5px]" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                        <Skeleton className="h-3 w-1/3 rounded-[3px]" />
+                        <Skeleton className="h-2.5 w-3/4 rounded-[3px]" />
+                        <Skeleton className="h-2.5 w-1/2 rounded-[3px]" />
+                    </div>
                 </div>
             ))}
         </div>
@@ -92,7 +94,7 @@ function RecentSearchList({
     if (!items.length) return null;
     return (
         <section aria-labelledby="global-search-recents-heading">
-            <p id="global-search-recents-heading" className="text-sm font-medium text-zinc-700 dark:text-zinc-200">Recent searches</p>
+            <p id="global-search-recents-heading" className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Recent searches</p>
             <div className="mt-2 space-y-1">
                 {items.map((recent) => {
                     if (recent.kind === "preview" && isGlobalSearchPreview(recent.preview)) {
@@ -104,23 +106,23 @@ function RecentSearchList({
                     }
                     if (recent.kind !== "query") return null;
                     return (
-                        <div key={recent.key} className="group relative flex min-h-10 items-center rounded-lg text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-within:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-50 dark:focus-within:bg-zinc-900">
+                        <div key={recent.key} className="group relative flex min-h-10 items-center rounded-[8px] text-foreground transition-colors hover:bg-muted focus-within:bg-muted">
                             <button
                                 type="button"
                                 onClick={() => onSelectQuery(recent.query)}
-                                className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 pr-12 text-left text-sm outline-none"
+                                className="flex min-h-10 min-w-0 flex-1 items-center gap-2.5 rounded-[8px] px-3 pr-12 text-left text-sm outline-none"
                                 aria-label={`Use recent search ${recent.label}`}
                             >
-                                <History className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />
+                                <History className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                                 <span className="truncate">{recent.label}</span>
                             </button>
                             <button
                                 type="button"
                                 onClick={() => onRemove(recent.key)}
-                                className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-zinc-400 opacity-100 transition-[color,background-color,opacity] hover:bg-zinc-200 hover:text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none dark:hover:bg-zinc-800 dark:hover:text-zinc-100 sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
+                                className="absolute right-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-[5px] text-muted-foreground opacity-100 transition-[color,background-color,opacity] hover:bg-muted-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
                                 aria-label={`Remove ${recent.label} from recent searches`}
                             >
-                                <X className="h-4 w-4" aria-hidden />
+                                <X className="size-3.5" aria-hidden />
                             </button>
                         </div>
                     );
@@ -301,31 +303,33 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     };
 
     const resultLabel = projectResults.length
-        ? `${projectResults.length} project${projectResults.length === 1 ? "" : "s"}`
+        ? `Projects · ${projectResults.length}`
         : profileResults.length
-            ? `${profileResults.length} builder${profileResults.length === 1 ? "" : "s"}`
+            ? `Builders · ${profileResults.length}`
             : taskResults.length
-                ? `${taskResults.length} task${taskResults.length === 1 ? "" : "s"}`
+                ? `Tasks · ${taskResults.length}`
                 : linkResults.length
-                    ? `${linkResults.length} project link${linkResults.length === 1 ? "" : "s"}`
-                : settingsResults.length
-                    ? `${settingsResults.length} setting${settingsResults.length === 1 ? "" : "s"}`
-                    : "Results";
+                    ? `Project Links · ${linkResults.length}`
+                    : settingsResults.length
+                        ? `Settings · ${settingsResults.length}`
+                        : "Results";
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
             <DialogContent
                 showCloseButton={false}
+                data-command-palette-dialog=""
                 overlayClassName="bg-black/45 backdrop-blur-[2px]"
-                className="left-0 top-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-2xl duration-150 motion-reduce:duration-0 sm:left-1/2 sm:top-[10%] sm:h-auto sm:max-h-[76dvh] sm:w-[min(760px,calc(100vw-2rem))] sm:max-w-[760px] sm:-translate-x-1/2 sm:translate-y-0 sm:rounded-2xl sm:border sm:border-zinc-200/80 dark:sm:border-zinc-800"
+                className="left-0 top-0 flex h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-2xl duration-[130ms] motion-reduce:duration-0 focus:outline-none focus-visible:outline-none focus-visible:ring-0 sm:left-1/2 sm:top-[12%] sm:h-auto sm:max-h-[76dvh] sm:w-[min(640px,calc(100vw-2rem))] sm:max-w-[640px] sm:-translate-x-1/2 sm:translate-y-0 sm:rounded-[12px] sm:border sm:border-border sm:bg-card"
                 aria-describedby="topnav-search-description"
+                style={{ outline: "none" }}
             >
                 <DialogTitle className="sr-only">{presentation.label}</DialogTitle>
                 <DialogDescription id="topnav-search-description" className="sr-only">{routeContext.description}</DialogDescription>
 
-                <form onSubmit={handleSubmit} className="flex min-h-0 min-w-0 flex-1 flex-col bg-white dark:bg-zinc-950">
-                    <div className="flex h-16 shrink-0 items-center gap-3 border-b border-zinc-200/80 px-4 dark:border-zinc-800 sm:px-5">
-                        <Search className="h-5 w-5 shrink-0 text-zinc-400" aria-hidden />
+                <form onSubmit={handleSubmit} className="flex min-h-0 min-w-0 flex-1 flex-col bg-card">
+                    <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4 sm:px-5">
+                        <Search className="size-[18px] shrink-0 text-muted-foreground" aria-hidden />
                         <input
                             autoFocus
                             type="search"
@@ -347,7 +351,8 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                 }
                             }}
                             placeholder={palettePlaceholder}
-                            className="h-full min-w-0 flex-1 bg-transparent text-base font-medium text-zinc-950 outline-none placeholder:font-normal placeholder:text-zinc-400 dark:text-zinc-50 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                            className="nb-command-input h-full min-w-0 flex-1 border-0 bg-transparent text-[15px] font-medium text-foreground outline-none ring-0 shadow-none focus:border-0 focus:outline-none focus:ring-0 focus:shadow-none focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 placeholder:font-normal placeholder:text-muted-foreground/60 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                            style={{ outline: "none", boxShadow: "none" }}
                             aria-label={palettePlaceholder}
                             role="combobox"
                             aria-expanded={isOpen}
@@ -358,13 +363,15 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                         />
                         {normalizedQuery ? (
                             <>
-                                <button type="button" onClick={() => setQuery("")} className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-900 dark:hover:text-zinc-200 sm:h-8 sm:w-8" aria-label="Clear search"><X className="h-4 w-4" aria-hidden /></button>
-                                <span data-testid="global-search-enter-hint" aria-hidden className="inline-flex shrink-0 items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[10px] font-medium text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                                <button type="button" onClick={() => setQuery("")} className="inline-flex size-7 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Clear search">
+                                    <X className="size-4" aria-hidden />
+                                </button>
+                                <span data-testid="global-search-enter-hint" aria-hidden className="inline-flex shrink-0 items-center gap-1 rounded-[3px] border border-border bg-muted/60 px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground">
                                     <span className="hidden sm:inline">Enter</span><kbd>↵</kbd>
                                 </span>
                             </>
                         ) : (
-                            <button type="button" onClick={onClose} className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-2 text-[10px] font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100" aria-label="Close search">
+                            <button type="button" onClick={onClose} className="inline-flex h-7 shrink-0 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-2 text-[11px] font-mono font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Close search">
                                 <kbd>Esc</kbd>
                             </button>
                         )}
@@ -380,13 +387,22 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
 
                     {searchContext === "settings" ? (
                         <div className="flex min-h-0 flex-1 flex-col sm:max-h-[480px]">
-                            {!normalizedQuery && recentSearches.length ? <div className="shrink-0 border-b border-zinc-200/80 px-5 py-4 dark:border-zinc-800"><RecentSearchList items={recentSearches} onSelectQuery={setQuery} onOpenPreview={openPreviewResult} onConnect={connectProfile} connectingUserId={sendRequest.isPending ? sendRequest.variables?.userId : undefined} onRemove={removeRecentSearch} /></div> : null}
+                            {!normalizedQuery && recentSearches.length ? (
+                                <div className="shrink-0 border-b border-border px-5 py-4">
+                                    <RecentSearchList items={recentSearches} onSelectQuery={setQuery} onOpenPreview={openPreviewResult} onConnect={connectProfile} connectingUserId={sendRequest.isPending ? sendRequest.variables?.userId : undefined} onRemove={removeRecentSearch} />
+                                </div>
+                            ) : null}
                             <AppScrollArea id="settings-search-results" axis="y" role="listbox" aria-label="Settings search results" className="min-h-0 flex-1 p-2">
-                                <div className="flex items-center justify-between px-3 pb-1 pt-2 text-[11px] font-semibold text-zinc-400"><span>Settings</span><span>{settingsResults.length}</span></div>
+                                <div className="flex items-center justify-between px-3 pb-1.5 pt-2">
+                                    <span className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Settings · {settingsResults.length}</span>
+                                </div>
                                 {settingsResults.length ? settingsResults.map((result, index) => (
                                     <SettingsSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openSettingsResult} />
                                 )) : (
-                                    <div className="px-5 py-12 text-center"><p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">No setting matches “{normalizedQuery}”.</p><p className="mt-1 text-xs text-zinc-500">Try theme, privacy, notifications, or editor.</p></div>
+                                    <div className="px-5 py-12 text-center">
+                                        <p className="text-sm font-medium text-foreground">No setting matches “{normalizedQuery}”.</p>
+                                        <p className="mt-1 text-xs text-muted-foreground">Try theme, privacy, notifications, or editor.</p>
+                                    </div>
                                 )}
                             </AppScrollArea>
                         </div>
@@ -399,37 +415,58 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                     ) : (
                                         /* ponytail: hide Search by options when recent searches are present */
                                         <div>
-                                            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">Search by</p>
-                                            <div className="mt-3 flex flex-wrap gap-2">{presentation.hints.map((hint) => <span key={hint} className="rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">{hint}</span>)}</div>
-                                            <p className="mt-4 text-xs text-zinc-400">Start typing to preview matching {searchContext === "people" ? "builders" : searchContext === "project" ? "tasks" : "projects"}.</p>
+                                            <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Search by</p>
+                                            <div className="mt-2.5 flex flex-wrap gap-1.5">
+                                                {presentation.hints.map((hint) => (
+                                                    <span key={hint} className="rounded-[3px] border border-border bg-muted/50 px-2.5 py-1 font-mono text-xs text-muted-foreground">
+                                                        {hint}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                            <p className="mt-4 nb-meta text-xs text-muted-foreground/80">Start typing to preview matching {searchContext === "people" ? "builders" : searchContext === "project" ? "tasks" : "projects"}.</p>
                                         </div>
                                     )}
                                 </div>
                             ) : normalizedQuery.length < 2 ? (
-                                <div className="px-5 py-5 text-xs text-zinc-500">Type one more character to preview results.</div>
+                                <div className="px-5 py-5 nb-meta text-xs text-muted-foreground">Type one more character to preview results.</div>
                             ) : previews.isDebouncing || previews.isFetching && previewResults.length === 0 ? (
                                 <SearchSkeletons />
                             ) : previews.isError ? (
                                 <div className="flex flex-col items-center px-5 py-12 text-center">
-                                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-300"><RotateCcw className="h-4 w-4" aria-hidden /></span>
-                                    <p className="mt-3 text-sm font-medium text-zinc-800 dark:text-zinc-100">{isRateLimited ? "Search is temporarily paused" : "Preview unavailable"}</p>
-                                    <p className="mt-1 max-w-sm text-xs leading-5 text-zinc-500">{isRateLimited ? "Please wait a moment before trying again." : "Retry the preview or press Enter to run the full search without losing your query."}</p>
-                                    {!isRateLimited ? <button type="button" onClick={() => void previews.refetch()} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"><RotateCcw className="h-3.5 w-3.5" aria-hidden />Retry preview</button> : null}
+                                    <span className="flex size-10 items-center justify-center rounded-[5px] bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                        <RotateCcw className="size-4" aria-hidden />
+                                    </span>
+                                    <p className="mt-3 text-sm font-medium text-foreground">{isRateLimited ? "Search is temporarily paused" : "Preview unavailable"}</p>
+                                    <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">{isRateLimited ? "Please wait a moment before trying again." : "Retry the preview or press Enter to run the full search without losing your query."}</p>
+                                    {!isRateLimited ? (
+                                        <button type="button" onClick={() => void previews.refetch()} className="mt-3 inline-flex items-center gap-2 rounded-[5px] border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted">
+                                            <RotateCcw className="size-3.5" aria-hidden />
+                                            Retry preview
+                                        </button>
+                                    ) : null}
                                 </div>
                             ) : previewResults.length === 0 ? (
-                                <div className="px-5 py-12 text-center"><p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">No {searchContext === "people" ? "builders" : searchContext === "project" ? "project work or links" : "projects"} match “{normalizedQuery}”.</p><p className="mt-1 text-xs text-zinc-500">Try a {presentation.hints.map((hint) => hint.toLowerCase()).join(", ")}.</p></div>
+                                <div className="px-5 py-12 text-center">
+                                    <p className="text-sm font-medium text-foreground">No {searchContext === "people" ? "builders" : searchContext === "project" ? "project work or links" : "projects"} match “{normalizedQuery}”.</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">Try a {presentation.hints.map((hint) => hint.toLowerCase()).join(", ")}.</p>
+                                </div>
                             ) : (
                                 <div className="p-2">
-                                    <div className="flex items-center justify-between px-3 pb-1 pt-2 text-[11px] font-semibold text-zinc-400"><span>{resultLabel}</span>{previews.isFetching ? <span>Refreshing…</span> : null}</div>
+                                    <div className="flex items-center justify-between px-3 pb-1.5 pt-2">
+                                        <span className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">{resultLabel}</span>
+                                        {previews.isFetching ? <span className="nb-meta text-[11px] text-muted-foreground/70">Refreshing…</span> : null}
+                                    </div>
                                     {projectResults.map(({ result, index }) => <ProjectSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
                                     {profileResults.map(({ result, index }) => <ProfileSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} onConnect={connectProfile} isConnecting={sendRequest.isPending && sendRequest.variables?.userId === result.userId} />)}
                                     {taskResults.map(({ result, index }) => <TaskSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
                                     {linkResults.map(({ result, index }) => <LinkSearchResultCard key={result.id} result={result} index={index} activeIndex={activeIndex} onActivate={setActiveIndex} onOpen={openPreviewResult} />)}
                                     {skillResults.length ? (
-                                        <div className="mt-2 border-t border-zinc-200/80 pt-3 dark:border-zinc-800">
-                                            <div className="flex items-center justify-between px-3 pb-2 text-[11px] font-semibold text-zinc-400"><span>Skills in these projects</span><span>Scroll to explore</span></div>
-                                            <div className="relative before:pointer-events-none before:absolute before:right-0 before:top-0 before:z-10 before:h-full before:w-8 before:bg-gradient-to-l before:from-white before:to-transparent dark:before:from-zinc-950">
-                                                <AppScrollArea axis="x" variant="hidden" stableGutter={false} className="flex w-full min-w-0 flex-nowrap gap-2 px-3 pb-2 pr-8" data-testid="related-skills-scroll">
+                                        <div className="mt-2 border-t border-border pt-3">
+                                            <div className="flex items-center justify-between px-3 pb-2">
+                                                <span className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Skills in these projects</span>
+                                            </div>
+                                            <div className="relative before:pointer-events-none before:absolute before:left-0 before:top-0 before:z-10 before:h-full before:w-6 before:bg-gradient-to-r before:from-card before:to-transparent after:pointer-events-none after:absolute after:right-0 after:top-0 after:z-10 after:h-full after:w-8 after:bg-gradient-to-l after:from-card after:to-transparent">
+                                                <AppScrollArea axis="x" variant="hidden" stableGutter={false} className="flex w-full min-w-0 flex-nowrap gap-1.5 px-3 pb-2" data-testid="related-skills-scroll">
                                                     {skillResults.map(({ result, index }) => (
                                                         <button
                                                             id={resultDomId(result)}
@@ -441,9 +478,9 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                                             onMouseEnter={() => setActiveIndex(index)}
                                                             onFocus={() => setActiveIndex(index)}
                                                             onClick={() => openPreviewResult(result)}
-                                                            className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors sm:min-h-9 ${index === activeIndex ? "border-primary/40 bg-primary/10 text-primary" : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"}`}
+                                                            className={`inline-flex h-[28px] shrink-0 items-center gap-1.5 rounded-[3px] border px-2.5 text-xs font-mono transition-colors ${index === activeIndex ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                                                         >
-                                                            <SkillIcon skill={resolveClientSkill(result.title)} size={15} />{result.title}
+                                                            <SkillIcon skill={resolveClientSkill(result.title)} size={14} />{result.title}
                                                         </button>
                                                     ))}
                                                 </AppScrollArea>

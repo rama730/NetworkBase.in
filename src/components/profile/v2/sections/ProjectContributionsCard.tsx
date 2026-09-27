@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Briefcase, EyeOff, Github, Globe, Pencil } from 'lucide-react'
+import { Briefcase, EyeOff, FolderGit2, Github, Globe, Pencil, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { Card } from './Card'
 import type { ProfileCollaborationContribution, ProfileCollaborationRoleStage } from '@/lib/profile/collaboration'
@@ -73,7 +73,7 @@ export function ProjectContributionsCard({
                     type="button"
                     onClick={onAdd}
                     aria-label="Edit project contributions"
-                    className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    className="rounded-[3px] p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                     <Pencil className="h-4 w-4" />
                 </button>
@@ -81,7 +81,7 @@ export function ProjectContributionsCard({
         >
             <div className="px-5 py-2">
                 {visibleContributions.length > 0 ? (
-                    <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                    <div className="divide-y divide-border">
                         {visibleContributions.map((contribution) => {
                             const linkedProject = contribution.projectId
                                 ? projects.find((project) => project.id === contribution.projectId)
@@ -99,12 +99,12 @@ export function ProjectContributionsCard({
 
                             return (
                                 <article key={contribution.id} className="py-5">
-                                    {!!contribution.fileContributionCount && <p className="mb-2 text-xs text-zinc-500">Contributed to {contribution.fileContributionCount} project files</p>}
+                                    {!!contribution.fileContributionCount && <p className="nb-meta mb-2">Contributed to {contribution.fileContributionCount} project files</p>}
                                     <div className="min-w-0">
                                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                             <div className="min-w-0">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <h4 className="truncate text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">
+                                                    <h4 className="nb-body truncate font-semibold text-foreground">
                                                         {projectUrl ? (
                                                             <Link
                                                                 href={projectUrl}
@@ -112,7 +112,7 @@ export function ProjectContributionsCard({
                                                                 rel="noreferrer"
                                                                 onMouseEnter={() => onProjectIntent?.(projectUrl)}
                                                                 onFocus={() => onProjectIntent?.(projectUrl)}
-                                                                className="hover:text-indigo-600 hover:underline dark:hover:text-indigo-400"
+                                                                className="hover:text-primary hover:underline"
                                                             >
                                                                 {projectTitle}
                                                             </Link>
@@ -120,19 +120,19 @@ export function ProjectContributionsCard({
                                                         {contribution.title ? ` | ${contribution.title}` : ''}
                                                     </h4>
                                                     {isOwner && isPrivate ? (
-                                                        <span className="inline-flex items-center gap-1 text-xs font-medium text-zinc-500" title="Only you can see this contribution">
+                                                        <span className="nb-micro inline-flex items-center gap-1" title="Only you can see this contribution">
                                                             <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> Private
                                                         </span>
                                                     ) : null}
                                                 </div>
                                             </div>
                                             {joinedDate ? (
-                                                <span className="shrink-0 text-xs font-medium text-zinc-500">{joinedDate}</span>
+                                                <span className="nb-meta shrink-0">{joinedDate}</span>
                                             ) : null}
                                         </div>
 
                                         {contribution.description && !hasProgression ? (
-                                            <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+                                            <p className="nb-compact mt-2 max-w-3xl text-muted-foreground">
                                                 {contribution.description}
                                             </p>
                                         ) : null}
@@ -144,15 +144,15 @@ export function ProjectContributionsCard({
                                                     const stageDate = formatJoinedDate(stage.startDate)
                                                     return (
                                                         <div key={stage.id} className="relative pb-5 pl-7 last:pb-0">
-                                                            {!isLast ? <div className="absolute bottom-[-4px] left-[5px] top-4 w-px bg-zinc-200 dark:bg-zinc-800" /> : null}
-                                                            <div className="absolute left-0 top-1.5 h-2.5 w-2.5 rounded-full bg-zinc-300 ring-4 ring-white dark:bg-zinc-600 dark:ring-zinc-950" />
+                                                            {!isLast ? <div className="absolute bottom-[-4px] left-[5px] top-4 w-px bg-border" /> : null}
+                                                            <div className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-primary ring-4 ring-card" />
                                                             <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                                                                 <div className="min-w-0">
-                                                                    <p className="text-[14px] font-semibold text-zinc-900 dark:text-zinc-100">{stage.roleTitle}</p>
-                                                                    {stage.summary ? <p className="mt-1 max-w-3xl text-[13px] leading-relaxed text-zinc-600 dark:text-zinc-400">{stage.summary}</p> : null}
+                                                                    <p className="nb-compact font-semibold text-foreground">{stage.roleTitle}</p>
+                                                                    {stage.summary ? <p className="nb-compact mt-1 max-w-3xl text-muted-foreground">{stage.summary}</p> : null}
                                                                     {stage.skills.length > 0 ? <SkillList skills={stage.skills} maxVisible={6} size="sm" className="mt-2" /> : null}
                                                                 </div>
-                                                                {stageDate ? <span className="shrink-0 text-xs font-medium text-zinc-500">{stageDate}</span> : null}
+                                                                {stageDate ? <span className="nb-meta shrink-0">{stageDate}</span> : null}
                                                             </div>
                                                         </div>
                                                     )
@@ -163,7 +163,7 @@ export function ProjectContributionsCard({
                                         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                                             {tags.length > 0 ? <SkillList skills={tags} maxVisible={8} size="sm" /> : <span />}
                                             {contribution.repoUrl ? (
-                                                <a href={contribution.repoUrl} target="_blank" rel="noreferrer" className="p-1 text-zinc-400 transition-colors hover:text-zinc-900 dark:hover:text-zinc-100" aria-label="View repository">
+                                                <a href={contribution.repoUrl} target="_blank" rel="noreferrer" className="p-1 text-muted-foreground transition-colors hover:text-foreground" aria-label="View repository">
                                                     {contribution.repoUrl.includes('github.com') ? <Github className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
                                                 </a>
                                             ) : null}
@@ -174,14 +174,24 @@ export function ProjectContributionsCard({
                         })}
                     </div>
                 ) : (
-                    <div className="py-6 text-center">
+                    <div className="nb-empty-state nb-grid-ground my-1 py-8 text-center">
+                        <FolderGit2 className="nb-empty-state-icon mb-2" />
+                        <p className="nb-card-title text-foreground">No project contributions</p>
+                        <p className="nb-compact mt-1 text-muted-foreground">
+                            {isOwner
+                                ? "Add your external projects or contribute to projects on NetworkBase."
+                                : "No public project contributions yet."}
+                        </p>
                         {isOwner && onAdd ? (
-                            <button type="button" onClick={onAdd} className="text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:underline dark:text-indigo-400">
-                                Add your first project contribution
+                            <button
+                                type="button"
+                                onClick={onAdd}
+                                className="mt-3.5 inline-flex items-center gap-1.5 rounded-[5px] border border-primary bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
+                            >
+                                <Plus className="size-3.5" />
+                                Add contribution
                             </button>
-                        ) : (
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400">No public project contributions</p>
-                        )}
+                        ) : null}
                     </div>
                 )}
             </div>

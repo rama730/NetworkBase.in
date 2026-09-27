@@ -1,25 +1,42 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
+  ArrowUpDown,
+  Check,
+  Copy,
+  CornerDownRight,
   Heart,
+  Link as LinkIcon,
   Loader2,
-  MessageCircle,
-  MessageCircleReply,
+  MessageSquare,
+  MoreHorizontal,
   Send,
   Trash2,
+  X,
 } from "lucide-react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { ThreadAvatarRail, ThreadRailBridge } from "@/components/ui/ThreadRail";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type {
   TaskDiscussionComment,
+  TaskDiscussionReply,
   TaskDiscussionTypingUser,
 } from "@/lib/projects/task-discussion";
 import { cn } from "@/lib/utils";
+import { createVisibilityAwareInterval } from "@/lib/utils/visibility";
 
-import MentionComposer from "../components/MentionComposer";
+import MentionComposer, { type MentionComposerHandle } from "../components/MentionComposer";
 import CommentBody from "../components/CommentBody";
 
 type CommentMutationResult = { success: boolean; error?: string };
@@ -35,6 +52,12 @@ interface CommentsTabProps {
   error: string | null;
   canEdit: boolean;
   currentUserId?: string;
+  currentUser?: {
+    fullName?: string | null;
+    avatarUrl?: string | null;
+    username?: string | null;
+  } | null;
+  members?: any[];
   presenceStatus: PresenceStatus;
   topLevelTypingUsers: TaskDiscussionTypingUser[];
   replyTypingUsersByParentId: Record<string, TaskDiscussionTypingUser[]>;
@@ -48,10 +71,6 @@ interface CommentsTabProps {
 
 function displayName(comment: Pick<TaskDiscussionComment, "author">) {
   return comment.author?.fullName || comment.author?.username || "Unknown";
-}
-
-function initials(comment: Pick<TaskDiscussionComment, "author">) {
-  return displayName(comment).charAt(0).toUpperCase();
 }
 
 function timeAgo(iso: string) {
@@ -71,34 +90,10 @@ function typingLabel(users: TaskDiscussionTypingUser[], reply = false) {
   return `${subject} ${names.length === 1 ? "is" : "are"} typing${reply ? " a reply" : ""}…`;
 }
 
-function ThreadRail({
-  children,
-  incoming,
-  outgoing,
-}: {
-  children: React.ReactNode;
-  incoming: boolean;
-  outgoing: boolean;
-}) {
-  return (
-    <div className="relative flex w-8 shrink-0 self-stretch justify-center py-0.5">
-      {/*
-       * Extend each side of the rail beneath the avatar ring. The overlap makes
-       * the parent/reply connection continuous even when either entry grows
-       * because of actions, mentions, or a multi-line comment.
-       */}
-      {incoming ? <span aria-hidden className="absolute -top-3 left-1/2 h-7 w-px -translate-x-1/2 bg-zinc-200 dark:bg-zinc-700" /> : null}
-      {outgoing ? <span aria-hidden className="absolute -bottom-3 left-1/2 top-4 w-px -translate-x-1/2 bg-zinc-200 dark:bg-zinc-700" /> : null}
-      <div className="relative z-10 h-8 w-8 rounded-full bg-white ring-[3px] ring-white dark:bg-zinc-900 dark:ring-zinc-900">
-        {children}
-      </div>
-    </div>
-  );
-}
-
 function DiscussionEntry({
   entry,
   replyTo,
+  roleLabel,
   currentUserId,
   canEdit,
   pendingDelete,
@@ -108,6 +103,7 @@ function DiscussionEntry({
   outgoing,
   showReply,
   showThread,
+  children,
   onDelete,
   onToggleLike,
   onReply,
@@ -115,6 +111,7 @@ function DiscussionEntry({
 }: {
   entry: TaskDiscussionComment | TaskDiscussionComment["replies"][number];
   replyTo?: string | null;
+  roleLabel?: string | null;
   currentUserId?: string;
   canEdit: boolean;
   pendingDelete: boolean;
@@ -124,6 +121,7 @@ function DiscussionEntry({
   outgoing: boolean;
   showReply: boolean;
   showThread: boolean;
+  children?: React.ReactNode;
   onDelete: () => void;
   onToggleLike: () => void;
   onReply: () => void;
@@ -131,80 +129,224 @@ function DiscussionEntry({
 }) {
   const deleted = Boolean(entry.deletedAt);
   const name = displayName(entry);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
+
+  const handleCopyLink = () => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("commentId", entry.id);
+    void navigator.clipboard.writeText(url.toString());
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleCopyText = () => {
+    if (typeof window === "undefined") return;
+    void navigator.clipboard.writeText(entry.content);
+    setCopiedText(true);
+    setTimeout(() => setCopiedText(false), 2000);
+  };
 
   return (
     <div
       id={`task-comment-${entry.id}`}
       className={cn(
-        "relative flex gap-3 rounded-md px-1 py-1.5 transition-colors duration-200",
-        highlighted && "bg-primary/10",
+        "group relative flex gap-2.5 rounded-[5px] px-2 py-1.5 transition-colors duration-[180ms] hover:bg-muted/25",
+        highlighted && "border border-primary/30 bg-primary/5",
       )}
     >
-      <ThreadRail incoming={incoming} outgoing={outgoing}>
-        <Avatar className="h-8 w-8 border border-zinc-200 dark:border-zinc-700">
-          <AvatarImage src={entry.author?.avatarUrl || undefined} alt={name} />
-          <AvatarFallback className="bg-zinc-200 text-[10px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-            {initials(entry)}
-          </AvatarFallback>
-        </Avatar>
-      </ThreadRail>
+      <ThreadAvatarRail incoming={incoming} outgoing={outgoing}>
+        {entry.author?.username ? (
+          <Link
+            href={`/u/${entry.author.username}`}
+            prefetch={false}
+            className="flex items-center justify-center shrink-0 transition-opacity hover:opacity-80"
+          >
+            <UserAvatar
+              identity={{
+                fullName: name,
+                username: entry.author.username,
+                avatarUrl: entry.author?.avatarUrl ?? null,
+              }}
+              size={replyTo ? 28 : 32}
+            />
+          </Link>
+        ) : (
+          <div className="flex items-center justify-center shrink-0">
+            <UserAvatar
+              identity={{
+                fullName: name,
+                username: entry.author?.username,
+                avatarUrl: entry.author?.avatarUrl ?? null,
+              }}
+              size={replyTo ? 28 : 32}
+            />
+          </div>
+        )}
+      </ThreadAvatarRail>
 
       <div className="min-w-0 flex-1 pt-0.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[13px] leading-4">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">{name}</span>
-              <span className="text-[12px] text-zinc-400 dark:text-zinc-500">· {timeAgo(entry.createdAt)}</span>
-              {entry.pending ? <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">Sending…</span> : null}
+              <span className="font-semibold text-foreground">
+                {entry.author?.username ? (
+                  <Link
+                    href={`/u/${entry.author.username}`}
+                    prefetch={false}
+                    className="hover:underline"
+                  >
+                    {name}
+                  </Link>
+                ) : (
+                  name
+                )}
+              </span>
+              {roleLabel && (
+                <span
+                  className="truncate max-w-[140px] font-mono text-[11px] text-muted-foreground"
+                  title={roleLabel}
+                >
+                  {roleLabel}
+                </span>
+              )}
+              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                · {timeAgo(entry.createdAt)}
+              </span>
+              {entry.pending ? (
+                <span className="font-mono text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Sending…
+                </span>
+              ) : null}
             </div>
-            {replyTo ? <p className="mt-0.5 text-[12px] leading-4 text-zinc-500">Replying to <span className="font-medium text-primary">@{replyTo}</span></p> : null}
+            {replyTo ? (
+              <div className="mt-0.5 flex items-center gap-1 font-mono text-[11px] leading-4 text-muted-foreground">
+                <CornerDownRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+                <span>
+                  Replying to <span className="font-medium text-primary">@{replyTo}</span>
+                </span>
+              </div>
+            ) : null}
           </div>
-          {!deleted && currentUserId === entry.userId ? (
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={pendingDelete}
-              className="rounded p-1 text-zinc-400 transition-colors hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label="Delete comment"
-            >
-              {pendingDelete ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-            </button>
+          {!deleted ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-[3px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground opacity-60 hover:opacity-100 focus-visible:opacity-100"
+                  aria-label="Comment options"
+                >
+                  <MoreHorizontal className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44 rounded-[5px] p-1 font-mono text-xs">
+                <DropdownMenuItem
+                  onClick={handleCopyLink}
+                  className="flex cursor-pointer items-center gap-2 rounded-[3px] px-2 py-1 text-xs"
+                >
+                  {copiedLink ? (
+                    <Check className="size-3.5 text-emerald-600" />
+                  ) : (
+                    <LinkIcon className="size-3.5" />
+                  )}
+                  <span>{copiedLink ? "Link copied!" : "Copy link"}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleCopyText}
+                  className="flex cursor-pointer items-center gap-2 rounded-[3px] px-2 py-1 text-xs"
+                >
+                  {copiedText ? (
+                    <Check className="size-3.5 text-emerald-600" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                  <span>{copiedText ? "Text copied!" : "Copy text"}</span>
+                </DropdownMenuItem>
+                {canEdit || currentUserId === entry.userId ? (
+                  <DropdownMenuItem
+                    onClick={onDelete}
+                    disabled={pendingDelete}
+                    className="flex cursor-pointer items-center gap-2 rounded-[3px] px-2 py-1 text-xs text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
+                  >
+                    {pendingDelete ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="size-3.5" />
+                    )}
+                    <span>Delete</span>
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
         </div>
 
         {deleted ? (
-          <p className="mt-1 text-sm italic text-zinc-500">This comment was removed.</p>
+          <p className="mt-1 text-sm italic text-muted-foreground">
+            This comment was removed.
+          </p>
         ) : (
-          <CommentBody content={entry.content} viewerUserId={currentUserId} className="mt-1 text-[14px] leading-5 text-zinc-700 dark:text-zinc-300" />
+          <CommentBody
+            content={entry.content}
+            viewerUserId={currentUserId}
+            className="mt-1 text-[13px] leading-5 text-foreground/90"
+          />
         )}
 
         {!deleted ? (
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium leading-4">
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium leading-4 pt-0.5">
             <button
               type="button"
               onClick={onToggleLike}
               disabled={!canEdit || pendingLike}
               className={cn(
                 "inline-flex items-center gap-1 transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                entry.likedByViewer ? "text-rose-500" : "text-zinc-500 hover:text-rose-500",
+                entry.likedByViewer
+                  ? "text-destructive"
+                  : "text-muted-foreground hover:text-destructive",
               )}
               aria-label={entry.likedByViewer ? "Remove like" : "Like comment"}
             >
-              {pendingLike ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Heart className={cn("h-3.5 w-3.5", entry.likedByViewer && "fill-current")} />}
-              {entry.likeCount > 0 ? entry.likeCount : "Like"}
+              {pendingLike ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Heart
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    entry.likedByViewer && "fill-current",
+                  )}
+                />
+              )}
+              {entry.likeCount > 0 ? (
+                <span className="font-mono">{entry.likeCount}</span>
+              ) : (
+                "Like"
+              )}
             </button>
             {showReply && canEdit ? (
-              <button type="button" onClick={onReply} className="inline-flex items-center gap-1 text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-200">
-                <MessageCircleReply className="h-3.5 w-3.5" /> Reply
+              <button
+                type="button"
+                onClick={onReply}
+                className="inline-flex items-center gap-1 rounded-[4px] border border-border/60 bg-muted/30 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted hover:text-foreground"
+              >
+                <CornerDownRight className="h-3 w-3" />
+                <span>Reply</span>
               </button>
             ) : null}
             {showThread ? (
-              <button type="button" onClick={onShowThread} className="text-primary transition-colors hover:underline">
-                View conversation
+              <button
+                type="button"
+                onClick={onShowThread}
+                className="inline-flex items-center gap-1 rounded-[4px] border border-border/60 bg-muted/30 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted hover:text-foreground"
+              >
+                <span>View conversation</span>
               </button>
             ) : null}
           </div>
         ) : null}
+
+        {children}
       </div>
     </div>
   );
@@ -220,6 +362,8 @@ export default function CommentsTab({
   error,
   canEdit,
   currentUserId,
+  currentUser = null,
+  members = [],
   presenceStatus,
   topLevelTypingUsers,
   replyTypingUsersByParentId,
@@ -232,7 +376,15 @@ export default function CommentsTab({
 }: CommentsTabProps) {
   const [draft, setDraft] = useState("");
   const [replyDraft, setReplyDraft] = useState("");
-  const [activeReplyParentId, setActiveReplyParentId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [activeReplyTarget, setActiveReplyTarget] = useState<{
+    parentCommentId: string;
+    targetCommentId: string;
+    replyToName: string;
+  } | null>(null);
+  const [expandedCommentIds, setExpandedCommentIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<Record<string, boolean>>({});
@@ -245,8 +397,22 @@ export default function CommentsTab({
   const [, setRelativeTimeTick] = useState(0);
   const rootTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const replyTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rootComposerRef = useRef<MentionComposerHandle | null>(null);
+  const replyComposerRef = useRef<MentionComposerHandle | null>(null);
   const typingStateRef = useRef(new Map<string, boolean>());
   const initialCommentLoadAttemptsRef = useRef(0);
+
+  const toggleExpanded = useCallback((commentId: string) => {
+    setExpandedCommentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(commentId)) {
+        next.delete(commentId);
+      } else {
+        next.add(commentId);
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => () => {
     if (rootTypingTimerRef.current) clearTimeout(rootTypingTimerRef.current);
@@ -254,12 +420,10 @@ export default function CommentsTab({
   }, []);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") {
-        setRelativeTimeTick((tick) => tick + 1);
-      }
+    const cleanup = createVisibilityAwareInterval(() => {
+      setRelativeTimeTick((tick) => tick + 1);
     }, 60_000);
-    return () => window.clearInterval(interval);
+    return () => cleanup();
   }, []);
 
   useEffect(() => {
@@ -313,14 +477,66 @@ export default function CommentsTab({
     onLoadOlderComments,
   ]);
 
+  const memberRoleMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!Array.isArray(members)) return map;
+    for (const m of members) {
+      const role =
+        m?.roleTitle ||
+        m?.roleLabel ||
+        m?.membershipRole ||
+        m?.role ||
+        m?.user?.roleTitle ||
+        m?.user?.roleLabel;
+      if (role && typeof role === "string") {
+        const id = m?.userId || m?.user_id || m?.id || m?.user?.id;
+        if (id) map.set(id, role);
+        if (m?.username) map.set(m.username, role);
+        if (m?.user?.username) map.set(m.user.username, role);
+      }
+    }
+    return map;
+  }, [members]);
+
+  const currentUserRole = useMemo(() => {
+    if (!currentUserId && !currentUser?.username) return null;
+    return (
+      (currentUserId ? memberRoleMap.get(currentUserId) : null) ||
+      (currentUser?.username ? memberRoleMap.get(currentUser.username) : null) ||
+      null
+    );
+  }, [currentUserId, currentUser, memberRoleMap]);
+
   const focusedThread = useMemo(() => {
     if (!focusedCommentId) return null;
     const root = comments.find((comment) => comment.id === focusedCommentId)
       ?? comments.find((comment) => comment.replies.some((reply) => reply.id === focusedCommentId));
     return root ?? null;
   }, [comments, focusedCommentId]);
+
   const visibleComments = focusedThread ? [focusedThread] : comments;
+
+  const sortedVisibleComments = useMemo(() => {
+    return [...visibleComments].sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
+    });
+  }, [visibleComments, sortOrder]);
+
   const topLevelTyping = useMemo(() => typingLabel(topLevelTypingUsers), [topLevelTypingUsers]);
+
+  useEffect(() => {
+    if (initialCommentId || focusedCommentId) {
+      const targetId = focusedCommentId || initialCommentId;
+      const parent = comments.find((c) =>
+        c.replies?.some((r) => r.id === targetId),
+      );
+      if (parent) {
+        setExpandedCommentIds((prev) => new Set(prev).add(parent.id));
+      }
+    }
+  }, [initialCommentId, focusedCommentId, comments]);
 
   const scheduleTypingStop = useCallback((parentCommentId?: string | null) => {
     const timerRef = parentCommentId ? replyTypingTimerRef : rootTypingTimerRef;
@@ -369,7 +585,8 @@ export default function CommentsTab({
         if (parentCommentId) {
           setReplyDraft("");
           setReplyResetKey((key) => key + 1);
-          setActiveReplyParentId(null);
+          setActiveReplyTarget(null);
+          setExpandedCommentIds((prev) => new Set(prev).add(parentCommentId));
         } else {
           setDraft("");
           setRootResetKey((key) => key + 1);
@@ -411,10 +628,24 @@ export default function CommentsTab({
     }
   }, []);
 
+  const handleClearRootDraft = () => {
+    setDraft("");
+    setRootResetKey((k) => k + 1);
+    if (rootTypingTimerRef.current) {
+      clearTimeout(rootTypingTimerRef.current);
+      rootTypingTimerRef.current = null;
+    }
+    typingStateRef.current.set("root", false);
+    void onSendTyping({ isTyping: false });
+  };
+
   const closeReply = () => {
-    if (activeReplyParentId) {
-      typingStateRef.current.set(activeReplyParentId, false);
-      void onSendTyping({ isTyping: false, parentCommentId: activeReplyParentId });
+    if (activeReplyTarget) {
+      typingStateRef.current.set(activeReplyTarget.parentCommentId, false);
+      void onSendTyping({
+        isTyping: false,
+        parentCommentId: activeReplyTarget.parentCommentId,
+      });
     }
     if (replyTypingTimerRef.current) {
       clearTimeout(replyTypingTimerRef.current);
@@ -422,173 +653,444 @@ export default function CommentsTab({
     }
     setReplyDraft("");
     setReplyResetKey((key) => key + 1);
-    setActiveReplyParentId(null);
+    setActiveReplyTarget(null);
   };
 
-  const openReply = (commentId: string) => {
-    if (activeReplyParentId === commentId) {
+  const openReply = (
+    parentCommentId: string,
+    targetCommentId: string,
+    replyToName: string,
+  ) => {
+    if (activeReplyTarget?.targetCommentId === targetCommentId) {
       closeReply();
       return;
     }
     closeReply();
     setComposerError(null);
-    setActiveReplyParentId(commentId);
+    setActiveReplyTarget({ parentCommentId, targetCommentId, replyToName });
   };
 
   return (
-    <div className="space-y-4 p-4 sm:p-5">
+    <div className="space-y-4 p-6">
       {focusedThread ? (
-        <button type="button" onClick={() => setFocusedCommentId(null)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-200">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to all comments
+        <button
+          type="button"
+          onClick={() => setFocusedCommentId(null)}
+          className="flex w-fit items-center gap-1.5 self-start font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Back to all comments</span>
         </button>
       ) : null}
 
       {error || composerError ? (
-        <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200">
+        <div
+          role="alert"
+          className="rounded-[5px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
           {composerError || error}
         </div>
       ) : null}
 
       {showPresenceIssue ? (
-        <p className="text-xs text-amber-700 dark:text-amber-300">Live typing is reconnecting. Posting comments remains available.</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400 font-mono">
+          Live typing is reconnecting. Posting comments remains available.
+        </p>
       ) : null}
 
       {!focusedThread && canEdit ? (
-        <div className="border-b border-zinc-100 pb-4 dark:border-zinc-800">
-          {topLevelTyping ? <p className="mb-2 text-xs text-zinc-500">{topLevelTyping}</p> : null}
-          <div className="flex gap-2">
-            <MessageCircle className="mt-3 h-5 w-5 shrink-0 text-zinc-400" aria-hidden />
-            <div className="min-w-0 flex-1">
+        <div className="space-y-2 pb-1">
+          {topLevelTyping ? (
+            <p className="text-xs text-muted-foreground font-mono">
+              {topLevelTyping}
+            </p>
+          ) : null}
+          <div className="group rounded-[6px] border border-border bg-card/70 shadow-2xs transition-all duration-200 focus-within:border-foreground/40 focus-within:bg-card focus-within:shadow-xs">
+            {/* Identity & Format Header */}
+            <div className="flex items-center justify-between border-b border-border/40 bg-muted/20 px-3 py-2 rounded-t-[5px]">
+              <div className="flex items-center gap-2">
+                <UserAvatar
+                  identity={{
+                    fullName: currentUser?.fullName ?? "You",
+                    avatarUrl: currentUser?.avatarUrl ?? null,
+                    username: currentUser?.username ?? null,
+                  }}
+                  size={20}
+                  className="rounded-[4px] shrink-0"
+                />
+                <span className="text-[12px] font-medium text-foreground">
+                  {currentUser?.fullName ?? "You"}
+                </span>
+                {currentUserRole ? (
+                  <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
+                    · {currentUserRole}
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+                <span className="inline-flex items-center rounded-[3px] border border-border/80 bg-background px-1.5 py-0.5 uppercase tracking-[0.09em]">
+                  Markdown
+                </span>
+              </div>
+            </div>
+
+            {/* Multiline MentionComposer */}
+            <div className="p-1">
               <MentionComposer
+                ref={rootComposerRef}
                 projectId={projectId}
-                placeholder="Add to the discussion…"
+                placeholder="Write a comment, use @ to mention teammates…"
                 disabled={submittingRoot}
                 resetKey={rootResetKey}
-                editorClassName="min-h-11 rounded-xl px-3 py-2 leading-5"
+                editorClassName="min-h-[76px] border-0 bg-transparent px-2.5 py-2 text-[13px] leading-relaxed text-foreground outline-none shadow-none focus:border-0 focus:ring-0 placeholder:text-muted-foreground/70"
                 onDraftChange={(value) => handleDraftChange(value)}
                 onSubmit={() => void submit()}
                 aria-label="Add a comment"
               />
             </div>
-            <button
-              type="button"
-              onClick={() => void submit()}
-              disabled={!draft.trim() || submittingRoot}
-              className="mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Post comment"
-            >
-              {submittingRoot ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </button>
+
+            {/* Utility & Action Footer */}
+            <div className="flex items-center justify-between border-t border-border/40 bg-muted/10 px-3 py-2 rounded-b-[5px]">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => rootComposerRef.current?.triggerMention()}
+                  className="inline-flex items-center gap-1 rounded-[3px] border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground transition hover:border-foreground/30 hover:bg-muted hover:text-foreground"
+                  title="Mention teammates"
+                >
+                  <span className="font-semibold text-primary">@</span>
+                  <span>Mention</span>
+                </button>
+                <span className="hidden sm:inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
+                  <span>Press</span>
+                  <kbd className="rounded-[3px] border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                    ⌘↵
+                  </kbd>
+                  <span>to post</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {draft.trim() ? (
+                  <button
+                    type="button"
+                    onClick={handleClearRootDraft}
+                    disabled={submittingRoot}
+                    className="h-[28px] rounded-[5px] px-2.5 font-mono text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-40"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void submit()}
+                  disabled={!draft.trim() || submittingRoot}
+                  className="h-[28px] gap-1.5 rounded-[5px] px-3.5 text-[12px] font-medium shadow-xs disabled:opacity-40"
+                  aria-label="Post comment"
+                >
+                  {submittingRoot ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Send className="size-3.5" />
+                  )}
+                  <span>Comment</span>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
 
       {!focusedThread ? (
-        <div className="flex items-center justify-between gap-3 text-xs text-zinc-500">
-          <span>{totalCount} comment{totalCount === 1 ? "" : "s"}</span>
-          {hasMore ? (
-            <button type="button" onClick={() => void onLoadOlderComments()} disabled={isLoadingMore} className="font-semibold text-primary hover:underline disabled:opacity-60">
-              {isLoadingMore ? "Loading…" : "Load older comments"}
+        <div className="flex items-center justify-between border-b border-border/60 pb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Discussion
+            </h3>
+            <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground">
+              {totalCount}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 font-mono text-xs text-muted-foreground">
+            {hasMore ? (
+              <button
+                type="button"
+                onClick={() => void onLoadOlderComments()}
+                disabled={isLoadingMore}
+                className="font-medium text-primary hover:underline disabled:opacity-60"
+              >
+                {isLoadingMore ? "Loading…" : "Load older"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() =>
+                setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+              }
+              className="inline-flex items-center gap-1 rounded-[3px] border border-border/60 bg-muted/30 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted hover:text-foreground"
+              title="Toggle comment order"
+            >
+              <ArrowUpDown className="size-3" />
+              <span>{sortOrder === "asc" ? "Oldest" : "Newest"}</span>
             </button>
-          ) : null}
+          </div>
         </div>
       ) : null}
 
       {isLoading ? (
         <div className="space-y-3 py-2">
-          <div className="h-12 animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800" />
-          <div className="h-12 animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800" />
+          <div aria-hidden="true" className="nb-skeleton h-12 rounded-md" />
+          <div aria-hidden="true" className="nb-skeleton h-12 rounded-md" />
         </div>
-      ) : visibleComments.length === 0 ? (
-        <div className="py-10 text-center">
-          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">No discussion yet</p>
-          <p className="mt-1 text-sm text-zinc-500">Start the conversation for this task.</p>
+      ) : sortedVisibleComments.length === 0 ? (
+        <div className="nb-empty-state nb-grid-ground my-4 py-12 text-center" role="status">
+          <div className="nb-empty-state-icon-box">
+            <MessageSquare className="nb-empty-state-icon" />
+          </div>
+          <h4 className="nb-empty-state-title">No discussion yet</h4>
+          <p className="nb-empty-state-desc">
+            Start the conversation for this task.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {visibleComments.map((comment) => {
-            const replies = comment.replies;
-            const replyTyping = typingLabel(replyTypingUsersByParentId[comment.id] ?? [], true);
-            const replying = activeReplyParentId === comment.id;
+          {sortedVisibleComments.map((comment) => {
+            const replies = comment.replies || [];
+            const isExpanded = expandedCommentIds.has(comment.id);
+            const needsCollapse = replies.length > 2 && !isExpanded;
+
+            type ThreadRow =
+              | { type: "root"; entry: TaskDiscussionComment }
+              | { type: "spacer"; hiddenCount: number }
+              | { type: "reply"; entry: TaskDiscussionReply };
+
+            const threadRows: ThreadRow[] = [{ type: "root", entry: comment }];
+
+            if (replies.length > 0) {
+              if (needsCollapse) {
+                threadRows.push({
+                  type: "spacer",
+                  hiddenCount: replies.length - 1,
+                });
+                threadRows.push({
+                  type: "reply",
+                  entry: replies[replies.length - 1]!,
+                });
+              } else {
+                for (const reply of replies) {
+                  threadRows.push({ type: "reply", entry: reply });
+                }
+              }
+            }
+
+            const replyTyping = typingLabel(
+              replyTypingUsersByParentId[comment.id] ?? [],
+              true,
+            );
+
             return (
-              <div key={comment.id} className="space-y-1">
-                <DiscussionEntry
-                  entry={comment}
-                  currentUserId={currentUserId}
-                  canEdit={canEdit}
-                  pendingDelete={pendingDeleteIds[comment.id] === true}
-                  pendingLike={pendingLikeIds[comment.id] === true}
-                  highlighted={focusedCommentId === comment.id || initialCommentId === comment.id}
-                  incoming={false}
-                  outgoing={replies.length > 0 || replying}
-                  showReply
-                  showThread={!focusedThread && replies.length > 0}
-                  onDelete={() => void runPending("delete", comment.id, () => onDeleteComment(comment.id), "Could not delete comment.")}
-                  onToggleLike={() => void runPending("like", comment.id, () => onToggleLike(comment.id), "Could not update the like.")}
-                  onReply={() => openReply(comment.id)}
-                  onShowThread={() => setFocusedCommentId(comment.id)}
-                />
+              <div key={comment.id} className="space-y-0.5">
+                {threadRows.map((row, rowIdx) => {
+                  if (row.type === "spacer") {
+                    return (
+                      <div
+                        key={`spacer-${comment.id}`}
+                        className="relative flex gap-2.5 px-1 py-0.5"
+                      >
+                        <ThreadRailBridge />
+                        <div className="flex flex-1 items-center py-0.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(comment.id)}
+                            className="inline-flex items-center gap-1.5 rounded-[3px] border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted hover:text-foreground text-left"
+                          >
+                            + {row.hiddenCount}{" "}
+                            {row.hiddenCount === 1 ? "reply" : "replies"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
 
-                {replies.map((reply, index) => (
-                  <DiscussionEntry
-                    key={reply.id}
-                    entry={reply}
-                    replyTo={displayName(comment)}
-                    currentUserId={currentUserId}
-                    canEdit={canEdit}
-                    pendingDelete={pendingDeleteIds[reply.id] === true}
-                    pendingLike={pendingLikeIds[reply.id] === true}
-                    highlighted={focusedCommentId === reply.id || initialCommentId === reply.id}
-                    incoming
-                    outgoing={index < replies.length - 1 || replying}
-                    showReply={false}
-                    showThread={false}
-                    onDelete={() => void runPending("delete", reply.id, () => onDeleteComment(reply.id), "Could not delete reply.")}
-                    onToggleLike={() => void runPending("like", reply.id, () => onToggleLike(reply.id), "Could not update the like.")}
-                    onReply={() => undefined}
-                    onShowThread={() => undefined}
-                  />
-                ))}
+                  const isFirst = rowIdx === 0;
+                  const isLast = rowIdx === threadRows.length - 1;
+                  const entry = row.entry;
+                  const isReply = row.type === "reply";
+                  const isReplyingHere =
+                    activeReplyTarget?.targetCommentId === entry.id;
+                  const roleLabel =
+                    memberRoleMap.get(entry.userId ?? "") ||
+                    memberRoleMap.get(entry.author?.id ?? "") ||
+                    (entry.author?.username
+                      ? memberRoleMap.get(entry.author.username)
+                      : null);
 
-                {comment.repliesHaveMore ? (
-                  <p className="pl-11 text-xs text-zinc-500">
-                    Showing the latest {replies.length} of {comment.replyCount ?? replies.length} replies.
-                  </p>
+                  return (
+                    <DiscussionEntry
+                      key={entry.id}
+                      entry={entry}
+                      replyTo={isReply ? displayName(comment) : null}
+                      roleLabel={roleLabel}
+                      currentUserId={currentUserId}
+                      canEdit={canEdit}
+                      pendingDelete={pendingDeleteIds[entry.id] === true}
+                      pendingLike={pendingLikeIds[entry.id] === true}
+                      highlighted={
+                        focusedCommentId === entry.id ||
+                        initialCommentId === entry.id
+                      }
+                      incoming={!isFirst}
+                      outgoing={!isLast}
+                      showReply={canEdit}
+                      showThread={!isReply && !focusedThread && replies.length > 0}
+                      onDelete={() =>
+                        void runPending(
+                          "delete",
+                          entry.id,
+                          () => onDeleteComment(entry.id),
+                          "Could not delete comment.",
+                        )
+                      }
+                      onToggleLike={() =>
+                        void runPending(
+                          "like",
+                          entry.id,
+                          () => onToggleLike(entry.id),
+                          "Could not update the like.",
+                        )
+                      }
+                      onReply={() =>
+                        openReply(
+                          comment.id,
+                          entry.id,
+                          entry.author?.fullName ||
+                            entry.author?.username ||
+                            displayName(entry),
+                        )
+                      }
+                      onShowThread={() => setFocusedCommentId(comment.id)}
+                    >
+                      {isReplyingHere && activeReplyTarget ? (
+                        <div className="relative z-30 mt-2.5 overflow-visible rounded-[6px] border border-border/80 bg-card shadow-2xs transition-all focus-within:border-foreground/40">
+                          {/* Reply Header */}
+                          <div className="flex items-center justify-between border-b border-border/40 bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground font-mono">
+                            <div className="flex items-center gap-1.5">
+                              <CornerDownRight className="size-3 text-primary shrink-0" />
+                              <span>
+                                Replying to{" "}
+                                <strong className="font-semibold text-foreground">
+                                  @{activeReplyTarget.replyToName}
+                                </strong>
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={closeReply}
+                              className="flex size-5 items-center justify-center rounded-[3px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                              aria-label="Cancel reply"
+                            >
+                              <X className="size-3" />
+                            </button>
+                          </div>
+
+                          {/* Multiline MentionComposer */}
+                          <div className="p-1">
+                            <MentionComposer
+                              ref={replyComposerRef}
+                              projectId={projectId}
+                              placeholder={`Reply to @${activeReplyTarget.replyToName}…`}
+                              disabled={
+                                submittingReplyParentId ===
+                                activeReplyTarget.parentCommentId
+                              }
+                              autoFocus
+                              resetKey={replyResetKey}
+                              editorClassName="min-h-[56px] border-0 bg-transparent px-2.5 py-1.5 text-[13px] leading-relaxed text-foreground outline-none shadow-none focus:border-0 focus:ring-0 placeholder:text-muted-foreground/70"
+                              onDraftChange={(value) =>
+                                handleDraftChange(
+                                  value,
+                                  activeReplyTarget.parentCommentId,
+                                )
+                              }
+                              onSubmit={() =>
+                                void submit(
+                                  activeReplyTarget.parentCommentId,
+                                )
+                              }
+                              aria-label={`Reply to ${activeReplyTarget.replyToName}`}
+                            />
+                          </div>
+
+                          {/* Reply Footer */}
+                          <div className="flex items-center justify-between border-t border-border/40 bg-muted/10 px-3 py-1.5 rounded-b-[5px]">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => replyComposerRef.current?.triggerMention()}
+                                className="inline-flex items-center gap-1 rounded-[3px] border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] font-medium text-muted-foreground transition hover:border-foreground/30 hover:bg-muted hover:text-foreground"
+                                title="Mention teammates"
+                              >
+                                <span className="font-semibold text-primary">@</span>
+                                <span>Mention</span>
+                              </button>
+                              <span className="font-mono text-[10px] text-muted-foreground">
+                                ⌘↵ to reply
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={closeReply}
+                                className="h-[26px] rounded-[5px] px-2 font-mono text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                              >
+                                Cancel
+                              </button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() =>
+                                  void submit(activeReplyTarget.parentCommentId)
+                                }
+                                disabled={
+                                  !replyDraft.trim() ||
+                                  submittingReplyParentId ===
+                                    activeReplyTarget.parentCommentId
+                                }
+                                className="h-[26px] gap-1.5 rounded-[5px] px-2.5 text-[11px] font-medium shadow-xs disabled:opacity-40"
+                                aria-label="Post reply"
+                              >
+                                {submittingReplyParentId ===
+                                activeReplyTarget.parentCommentId ? (
+                                  <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                  <Send className="size-3" />
+                                )}
+                                <span>Reply</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+                    </DiscussionEntry>
+                  );
+                })}
+
+                {comment.repliesHaveMore && isExpanded ? (
+                  <div className="relative flex items-center gap-2.5 px-1 py-1">
+                    <ThreadRailBridge />
+                    <p className="text-xs text-muted-foreground font-mono">
+                      Showing latest {replies.length} of{" "}
+                      {comment.replyCount ?? replies.length} replies
+                    </p>
+                  </div>
                 ) : null}
 
-                {replyTyping ? <p className="pl-11 text-xs text-zinc-500">{replyTyping}</p> : null}
-                {replying ? (
-                  <div className="flex gap-2 pl-11 pt-1">
-                    <div className="min-w-0 flex-1">
-                      <MentionComposer
-                        projectId={projectId}
-                        placeholder={`Reply to ${displayName(comment)}…`}
-                        disabled={submittingReplyParentId === comment.id}
-                        autoFocus
-                        resetKey={replyResetKey}
-                        editorClassName="min-h-11 rounded-xl px-3 py-2 leading-5"
-                        onDraftChange={(value) => handleDraftChange(value, comment.id)}
-                        onSubmit={() => void submit(comment.id)}
-                        aria-label={`Reply to ${displayName(comment)}`}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void submit(comment.id)}
-                      disabled={!replyDraft.trim() || submittingReplyParentId === comment.id}
-                      className="mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label="Post reply"
-                    >
-                      {submittingReplyParentId === comment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={closeReply}
-                      className="mt-1 h-10 shrink-0 rounded-full px-3 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                {replyTyping ? (
+                  <p className="pl-11 text-xs text-muted-foreground font-mono">
+                    {replyTyping}
+                  </p>
                 ) : null}
               </div>
             );

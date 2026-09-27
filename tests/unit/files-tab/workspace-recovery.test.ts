@@ -14,6 +14,8 @@ import {
   formatFileTimestamp,
 } from "@/components/projects/v2/files-tab/folder/format";
 import { FileIcon } from "@/components/projects/v2/explorer/FileIcons";
+import { FileTypeChip, resolveFileTypeMark } from "@/components/projects/v2/files-tab/FileTypeChip";
+import { isTextLike } from "@/components/projects/v2/utils/fileKind";
 
 test("task drawer returns to the same Files scope, query, file and inspector", () => {
   const origin = new URLSearchParams({
@@ -75,6 +77,51 @@ test("extensionless images and PDFs retain MIME-aware icons", () => {
     render("application/pdf"),
     render("application/octet-stream"),
   );
+});
+
+test("FileIcon provides accurate license and readme iconography adhering to design specifications", () => {
+  const render = (name: string, isFolder?: boolean) =>
+    renderToStaticMarkup(React.createElement(FileIcon, { name, isFolder: !!isFolder }));
+
+  const licenseMarkup = render("LICENSE");
+  const licenceMarkup = render("LICENCE");
+  const licenseMdMarkup = render("LICENSE.md");
+  const readmeMarkup = render("README.md");
+  const readmeLower = render("readme.txt");
+  const folderMarkup = render("docs", true);
+
+  // License files use the legal FileBadge icon and amber token #9A6B00
+  assert.match(licenseMarkup, /text-\[#9A6B00\]/);
+  assert.equal(licenseMarkup, licenceMarkup);
+  assert.equal(licenseMarkup, licenseMdMarkup);
+
+  // Readme files use BookOpen and cobalt token #2563C9
+  assert.match(readmeMarkup, /text-\[#2563C9\]/);
+  assert.match(readmeLower, /text-\[#2563C9\]/);
+
+  // Folders use brand clay token #D14E24
+  assert.match(folderMarkup, /text-\[#D14E24\]/);
+
+  // Main row chips (resolveFileTypeMark) classify LICENSE as LIC and hub as TXT
+  assert.equal(resolveFileTypeMark("LICENSE"), "LIC");
+  assert.equal(resolveFileTypeMark("LICENCE"), "LIC");
+  assert.equal(resolveFileTypeMark("LICENSE.md"), "LIC");
+  assert.equal(resolveFileTypeMark("README.md"), "TXT");
+  assert.equal(resolveFileTypeMark("hub"), "TXT");
+
+  // Main row chips (FileTypeChip) render the exact icons (FileBadge for license, ShieldCheck for security, BookOpen for readme)
+  const licenseChip = renderToStaticMarkup(React.createElement(FileTypeChip, { name: "LICENSE" }));
+  const securityChip = renderToStaticMarkup(React.createElement(FileTypeChip, { name: "SECURITY.md" }));
+  const readmeChip = renderToStaticMarkup(React.createElement(FileTypeChip, { name: "README.md" }));
+
+  assert.match(licenseChip, /text-\[#9A6B00\]/); // Amber legal icon
+  assert.match(securityChip, /text-\[#2F6B4F\]/); // Moss green shield icon
+  assert.match(readmeChip, /text-\[#2563C9\]/); // Cobalt book icon
+
+  // isTextLike classifies LICENSE, hub, and readme as text (not binary)
+  assert.equal(isTextLike({ type: "file", name: "LICENSE", mimeType: null }), true);
+  assert.equal(isTextLike({ type: "file", name: "hub", mimeType: null }), true);
+  assert.equal(isTextLike({ type: "file", name: "README.md", mimeType: null }), true);
 });
 
 test("cancelled cross-tab navigation preserves the draft; discard targets only this file", () => {

@@ -23,6 +23,92 @@ interface CommentBodyProps {
     className?: string;
 }
 
+function renderTaskRefs(text: string, keyPrefix: string): React.ReactNode {
+    const taskRefRegex = /\b([A-Z]{2,10}-\d+)\b/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = taskRefRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push(text.slice(lastIndex, match.index));
+        }
+        const taskId = match[1];
+        parts.push(
+            <span
+                key={`${keyPrefix}-tr-${match.index}`}
+                className="font-mono text-[12px] font-semibold text-primary"
+            >
+                {taskId}
+            </span>,
+        );
+        lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+        parts.push(text.slice(lastIndex));
+    }
+
+    return parts;
+}
+
+function renderInlineChunks(text: string, keyPrefix: string): React.ReactNode {
+    const inlineCodeRegex = /`([^`]+)`/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = inlineCodeRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push(renderTaskRefs(text.slice(lastIndex, match.index), `${keyPrefix}-${lastIndex}`));
+        }
+        parts.push(
+            <code
+                key={`${keyPrefix}-ic-${match.index}`}
+                className="rounded-[3px] border border-border bg-muted/60 px-1 py-0.5 font-mono text-[12px] font-medium text-foreground"
+            >
+                {match[1]}
+            </code>,
+        );
+        lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+        parts.push(renderTaskRefs(text.slice(lastIndex), `${keyPrefix}-${lastIndex}`));
+    }
+
+    return parts;
+}
+
+function renderFormattedText(text: string, keyPrefix: string): React.ReactNode {
+    const codeBlockRegex = /```(?:[a-zA-Z0-9_-]*\n)?([\s\S]*?)```/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push(renderInlineChunks(text.slice(lastIndex, match.index), `${keyPrefix}-${lastIndex}`));
+        }
+        const codeContent = match[1]?.trim() ?? "";
+        parts.push(
+            <pre
+                key={`${keyPrefix}-cb-${match.index}`}
+                className="my-1.5 max-h-60 overflow-x-auto rounded-[5px] border border-border bg-muted/40 p-2.5 font-mono text-[12px] leading-relaxed text-foreground"
+            >
+                <code>{codeContent}</code>
+            </pre>,
+        );
+        lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+        parts.push(renderInlineChunks(text.slice(lastIndex), `${keyPrefix}-${lastIndex}`));
+    }
+
+    return parts;
+}
+
 export function CommentBody({ content, viewerUserId, className }: CommentBodyProps) {
     const { segments } = React.useMemo(() => parseMentions(content), [content]);
 
@@ -30,9 +116,11 @@ export function CommentBody({ content, viewerUserId, className }: CommentBodyPro
         <div className={cn("whitespace-pre-wrap break-words", className)}>
             {segments.map((segment, index) => {
                 if (segment.type === "text") {
-                    // React will collapse consecutive text segments naturally;
-                    // the key mixes index so two identical strings stay stable.
-                    return <React.Fragment key={`t-${index}`}>{segment.value}</React.Fragment>;
+                    return (
+                        <React.Fragment key={`t-${index}`}>
+                            {renderFormattedText(segment.value, `t-${index}`)}
+                        </React.Fragment>
+                    );
                 }
                 const isMentioningViewer =
                     viewerUserId != null && segment.userId === viewerUserId;
@@ -41,10 +129,10 @@ export function CommentBody({ content, viewerUserId, className }: CommentBodyPro
                         key={`m-${index}-${segment.userId}`}
                         data-mention-id={segment.userId}
                         className={cn(
-                            "inline-flex items-center rounded-md px-1.5 py-px text-[13px] font-medium align-baseline",
+                            "inline-flex items-center rounded-[3px] px-1.5 py-px text-[13px] font-medium align-baseline",
                             isMentioningViewer
-                                ? "bg-amber-100 text-amber-900 ring-1 ring-amber-300 dark:bg-amber-900/40 dark:text-amber-100 dark:ring-amber-700/60"
-                                : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200",
+                                ? "border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                                : "bg-primary/10 text-primary",
                         )}
                     >
                         @{segment.displayName}

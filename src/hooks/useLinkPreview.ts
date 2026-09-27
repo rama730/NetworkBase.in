@@ -61,7 +61,8 @@ export function useLinkPreview(url: string | null) {
         queryKey: ['link-preview', url],
         queryFn: () => fetchLinkPreview(url!),
         enabled: Boolean(url),
-        staleTime: 5 * 60_000,
+        staleTime: 24 * 60 * 60_000,
+        gcTime: 24 * 60 * 60_000,
         refetchOnWindowFocus: false,
         retry: false,
     });

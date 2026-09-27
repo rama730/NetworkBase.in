@@ -11,7 +11,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Folder, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,12 +37,12 @@ export function FolderListLoading({
       aria-live="polite"
       data-testid="files-tab-folder-list-loading"
       className={cn(
-        "flex items-center justify-center gap-2 px-4 py-8 text-sm text-zinc-500 dark:text-zinc-400",
+        "flex items-center justify-center gap-2 px-4 py-8 text-sm text-muted-foreground",
         className,
       )}
     >
       <Loader2
-        className="h-4 w-4 animate-spin text-zinc-400 dark:text-zinc-500"
+        className="h-4 w-4 animate-spin text-muted-foreground"
         aria-hidden="true"
       />
       <span>Loading folder…</span>
@@ -70,11 +70,15 @@ export function FolderListEmpty({
       role="status"
       data-testid="files-tab-folder-list-empty"
       className={cn(
-        "flex items-center justify-center px-4 py-10 text-sm text-zinc-500 dark:text-zinc-400",
+        "nb-empty-state nb-grid-ground my-6 py-10",
         className,
       )}
     >
-      {message}
+      <Folder className="nb-empty-state-icon mb-2" />
+      <p className="nb-card-title text-foreground">{message}</p>
+      <p className="nb-compact mt-1 text-muted-foreground">
+        Upload or drag files into this folder to get started.
+      </p>
     </div>
   );
 }
@@ -100,7 +104,7 @@ export function FolderListError({
       role="alert"
       data-testid="files-tab-folder-list-error"
       className={cn(
-        "flex flex-col items-center justify-center gap-3 px-4 py-10 text-sm text-zinc-600 dark:text-zinc-300",
+        "flex flex-col items-center justify-center gap-3 px-4 py-10 text-sm text-muted-foreground",
         className,
       )}
     >

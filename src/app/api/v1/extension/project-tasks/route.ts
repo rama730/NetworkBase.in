@@ -6,7 +6,7 @@ import {
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
 import { getProjectAccessById } from "@/lib/data/project-access";
-import { and, desc, eq, isNull, lt, or } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { getProjectTaskSummary, getTaskFileCountMap } from "@/app/api/v1/extension/_project-counts";
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
         .select({
           id: tasks.id,
           title: tasks.title,
-          description: tasks.description,
+          description: sql<string | null>`SUBSTRING(${tasks.description} FROM 1 FOR 140)`,
           status: tasks.status,
           priority: tasks.priority,
           taskNumber: tasks.taskNumber,
@@ -100,6 +100,22 @@ export async function GET(request: Request) {
     const hasMore = taskRows.length > limit;
     const page = hasMore ? taskRows.slice(0, limit) : taskRows;
     const taskIds = page.map((task) => task.id);
+
+    // ETag caching for extension polling (when no pagination cursor is used)
+    const etag = !cursor
+      ? `W/"${projectId}-${summary.taskCount}-${page[0]?.updatedAt ? new Date(page[0].updatedAt).getTime() : 0}"`
+      : null;
+
+    if (etag && request.headers.get("if-none-match") === etag) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          ETag: etag,
+          "Cache-Control": "private, no-cache",
+        },
+      });
+    }
+
     const fileCountMap = await getTaskFileCountMap(projectId, taskIds);
     const lastTask = page.at(-1);
 
@@ -118,7 +134,7 @@ export async function GET(request: Request) {
       totalCount: summary.taskCount,
       hasMore,
       nextCursor: hasMore && lastTask ? encodeCursor(lastTask) : null,
-    });
+    }, undefined, etag ? { headers: { ETag: etag, "Cache-Control": "private, no-cache" } } : undefined);
   } catch (error) {
     logger.error(
       "[api/v1/extension/project-tasks] Failed to get project tasks",

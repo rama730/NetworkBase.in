@@ -137,32 +137,28 @@ export const SPRINT_STATUS_PRESENTATION: Record<
 > = {
   planning: {
     label: "Planning",
-    dotClassName: "bg-indigo-500/70",
-    toneClassName:
-      "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-300",
+    dotClassName: "nb-sprint-dot-info",
+    toneClassName: "nb-sprint-tone-info",
   },
   active: {
     label: "In Progress",
-    dotClassName: "bg-emerald-500",
-    toneClassName:
-      "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300",
+    dotClassName: "nb-sprint-dot-success",
+    toneClassName: "nb-sprint-tone-success",
   },
   completed: {
     label: "Completed",
-    dotClassName: "bg-zinc-400 dark:bg-zinc-500",
-    toneClassName:
-      "border-zinc-200 bg-zinc-100 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300",
+    dotClassName: "nb-sprint-dot-muted",
+    toneClassName: "nb-sprint-tone-muted",
   },
   archived: {
     label: "Archived",
-    toneClassName: "bg-zinc-100 text-zinc-600 border-zinc-200/60 dark:bg-zinc-800/60 dark:text-zinc-400 dark:border-zinc-700/60",
-    dotClassName: "bg-zinc-400 dark:bg-zinc-500",
+    toneClassName: "nb-sprint-tone-muted",
+    dotClassName: "nb-sprint-dot-muted",
   },
   cancelled: {
     label: "Cancelled",
-    dotClassName: "bg-rose-500/70",
-    toneClassName:
-      "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300",
+    dotClassName: "nb-sprint-dot-danger",
+    toneClassName: "nb-sprint-tone-danger",
   },
 };
 
@@ -175,23 +171,19 @@ export const SPRINT_TASK_STATUS_PRESENTATION: Record<
 > = {
   todo: {
     label: "To Do",
-    toneClassName:
-      "border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300",
+    toneClassName: "nb-sprint-tone-muted",
   },
   in_progress: {
     label: "In Progress",
-    toneClassName:
-      "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300",
+    toneClassName: "nb-sprint-tone-info",
   },
   done: {
     label: "Done",
-    toneClassName:
-      "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300",
+    toneClassName: "nb-sprint-tone-success",
   },
   blocked: {
     label: "Issues",
-    toneClassName:
-      "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300",
+    toneClassName: "nb-sprint-tone-danger",
   },
 };
 
@@ -261,11 +253,15 @@ export function formatSprintTimelineStamp(
     SPRINT_RELATIVE_TIME_UNITS.find(([, currentUnitMs]) => delta >= currentUnitMs) ??
     SPRINT_RELATIVE_TIME_UNITS[SPRINT_RELATIVE_TIME_UNITS.length - 1]!;
 
-  return `${date.toLocaleDateString(undefined, {
+  if (delta < 7 * 24 * 60 * 60 * 1000) {
+    return sprintRelativeTime.format(Math.round(elapsed / unitMs), unit);
+  }
+
+  return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
-  })} · ${sprintRelativeTime.format(Math.round(elapsed / unitMs), unit)}`;
+  });
 }
 
 export function pluralizeSprintUnit(count: number, singular: string, plural = `${singular}s`) {
@@ -279,7 +275,7 @@ export function buildSprintPermissionSet(input: {
   isMember: boolean;
   memberRole: SprintMemberRole;
 }): SprintPermissionSet {
-  // ponytail: use the existing project authority level at both boundaries.
+  // ponytail: use the existing project authority level at both boundaries. ceiling: isOwner or admin role. upgrade: granular custom role permissions if enterprise RBAC matrix introduced.
   const canManage = input.isOwner || input.memberRole === "admin";
   return {
     canRead: input.canRead,

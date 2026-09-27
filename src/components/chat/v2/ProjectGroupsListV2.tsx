@@ -10,6 +10,7 @@ import { useProjectGroups } from '@/hooks/useMessagesV2';
 import { buildIdentityPresentation } from '@/lib/ui/identity';
 import { StackedAvatars } from '@/components/ui/StackedAvatars';
 import { formatMessagePreview } from '@/lib/messages/preview';
+import { createVisibilityAwareInterval } from '@/lib/utils/visibility';
 import { InboxListSkeletonV2 } from './MessagesSurfaceSkeletons';
 
 interface ProjectGroupsListV2Props {
@@ -31,8 +32,8 @@ export function ProjectGroupsListV2({
     const hasMore = Boolean(pages[pages.length - 1]?.hasMore);
 
     useEffect(() => {
-        const timer = window.setInterval(() => setNowMinute(Date.now()), 60_000);
-        return () => window.clearInterval(timer);
+        const cleanup = createVisibilityAwareInterval(() => setNowMinute(Date.now()), 60_000);
+        return () => cleanup();
     }, []);
 
     if (query.isLoading && groups.length === 0) {
@@ -120,7 +121,7 @@ export function ProjectGroupsListV2({
                                     onClick={() => onSelectConversation(group.id)}
                                     aria-current={selectedConversationId === group.id ? 'true' : undefined}
                                     className={cn(
-                                        'w-full rounded-2xl border border-transparent text-left transition-colors app-density-list-row hover:border-zinc-200/80 hover:bg-zinc-50/80 dark:hover:border-zinc-800 dark:hover:bg-zinc-900',
+                                        'w-full rounded-lg border border-transparent text-left transition-colors app-density-list-row hover:border-zinc-200/80 hover:bg-zinc-50/80 dark:hover:border-zinc-800 dark:hover:bg-zinc-900',
                                         isPopup ? 'min-h-[78px] px-4 py-3' : 'min-h-[84px] px-4 py-3.5',
                                         selectedConversationId === group.id ? 'border-primary/40 bg-primary/5' : '',
                                     )}
@@ -128,7 +129,7 @@ export function ProjectGroupsListV2({
                                     <div className="flex items-center gap-3">
                                         {/* Project cover image */}
                                         <div className="relative shrink-0">
-                                            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl app-accent-gradient">
+                                            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg app-accent-gradient">
                                                 {group.projectCoverImage ? (
                                                     <Image
                                                         src={group.projectCoverImage}
@@ -156,7 +157,7 @@ export function ProjectGroupsListV2({
                                                 ) : null}
                                                 {group.unreadCount > 0 ? (
                                                     <span
-                                                        className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary"
+                                                        className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary"
                                                         aria-label={`${group.unreadCount} new message${group.unreadCount === 1 ? '' : 's'}`}
                                                     >
                                                         New

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 
 import { buildIdentityPresentation, type IdentityRecord } from "@/lib/ui/identity";
+import { getPersonAvatarTone, PERSON_AVATAR_TONE_STYLES } from "@/lib/ui/avatar";
 import { cn } from "@/lib/utils";
 
 export type UserAvatarProps = {
@@ -28,7 +29,7 @@ export function UserAvatar({
   size,
   className,
   style,
-  roundedClassName = "rounded-full",
+  roundedClassName = "rounded-md",
   imageClassName,
   fallbackClassName,
   priority = false,
@@ -46,9 +47,11 @@ export function UserAvatar({
   }, [presentation.avatarUrl]);
 
   const shouldRenderImage = Boolean(presentation.avatarUrl) && !imageFailed;
+  const fallbackTone = getPersonAvatarTone(presentation.id ?? presentation.username ?? presentation.displayName);
 
   return (
     <div
+      data-slot="user-avatar"
       title={title ?? presentation.displayName}
       className={cn(
         "relative flex shrink-0 items-center justify-center overflow-hidden",
@@ -73,10 +76,11 @@ export function UserAvatar({
 
       {!shouldRenderImage ? (
         <div
+          data-avatar-tone={fallbackTone}
+          style={PERSON_AVATAR_TONE_STYLES[fallbackTone]}
           className={cn(
-            "absolute inset-0 flex items-center justify-center bg-gradient-to-br text-white font-semibold",
+            "absolute inset-0 flex items-center justify-center bg-secondary text-foreground font-semibold",
             roundedClassName,
-            presentation.gradientClass,
             fallbackClassName,
           )}
         >

@@ -104,13 +104,13 @@ export async function getMutualConnectionProof(
         const viewerKey = `user:${viewerId}:connections`;
         const targetKey = `user:${targetId}:connections`;
 
-        // Check if both sets exist
-        const [viewerExists, targetExists] = await Promise.all([
-            redis.exists(viewerKey),
-            redis.exists(targetKey),
-        ]);
+        // Check if both sets exist in a single pipeline
+        const pipe = redis.pipeline();
+        pipe.exists(viewerKey);
+        pipe.exists(targetKey);
+        const [viewerExists, targetExists] = (await pipe.exec()) as [number, number];
 
-        if (!viewerExists || !targetExists) {
+        if (Number(viewerExists ?? 0) !== 1 || Number(targetExists ?? 0) !== 1) {
             return getMutualConnectionProofFromDatabase(viewerId, targetId, limit);
         }
 
@@ -187,17 +187,44 @@ export async function getBatchMutualConnectionProof(
             return results;
         }
 
-        // Process in parallel for speed
-        const proofs = await Promise.all(
-            targetIds.map(async (targetId) => {
-                const targetKey = `user:${targetId}:connections`;
-                const targetExists = await redis.exists(targetKey);
-                if (!targetExists) return { targetId, mutualIds: null as string[] | null };
+        // Pipeline exists checks across all targets in a single roundtrip
+        const existencePipeline = redis.pipeline();
+        for (const targetId of targetIds) {
+            existencePipeline.exists(`user:${targetId}:connections`);
+        }
+        const existResults = (await existencePipeline.exec()) as unknown[];
 
-                const mutualIds = await redis.sinter(viewerKey, targetKey) as string[];
-                return { targetId, mutualIds };
-            }),
-        );
+        // Pipeline sinter only for targets that exist in Redis
+        const sinterPipeline = redis.pipeline();
+        const existingTargetIndices: number[] = [];
+        for (let i = 0; i < targetIds.length; i++) {
+            if (Number(existResults[i] ?? 0) === 1) {
+                sinterPipeline.sinter(viewerKey, `user:${targetIds[i]}:connections`);
+                existingTargetIndices.push(i);
+            }
+        }
+
+        const sinterResults = existingTargetIndices.length > 0
+            ? ((await sinterPipeline.exec()) as unknown[])
+            : [];
+
+        const proofs: Array<{ targetId: string; mutualIds: string[] | null }> = [];
+        let sinterCursor = 0;
+        for (let i = 0; i < targetIds.length; i++) {
+            const targetId = targetIds[i];
+            if (!targetId) continue;
+            if (Number(existResults[i] ?? 0) === 1) {
+                proofs.push({
+                    targetId,
+                    mutualIds: (sinterResults[sinterCursor++] as string[]) || [],
+                });
+            } else {
+                proofs.push({
+                    targetId,
+                    mutualIds: null,
+                });
+            }
+        }
 
         const missingTargets = proofs.filter((item) => item.mutualIds === null).map((item) => item.targetId);
         for (let index = 0; index < missingTargets.length; index += 8) {

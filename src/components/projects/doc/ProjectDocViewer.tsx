@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Pencil } from "lucide-react";
 
 import { 
     useProjectDocSmartBlockPreviews,
@@ -10,13 +9,9 @@ import {
 import { normalizeProjectDocSlug, type ProjectDocPublishedPayload } from "@/lib/projects/doc";
 import type { ProjectDocSmartBlockPreview } from "@/lib/projects/doc-blocks";
 import { decodeReadmeHashTarget } from "@/lib/projects/doc-navigation";
-import { buildProjectDocViewModel, type ProjectDocRailAction } from "@/lib/projects/doc-view-model";
+import { buildProjectDocViewModel } from "@/lib/projects/doc-view-model";
+import { ProjectDocRail, ProjectDocMobileBar } from "@/components/projects/doc/ProjectDocRail";
 import type { Project } from "@/types/hub";
-
-const ProjectDocQuickConsole = dynamic(
-    () => import("@/components/projects/doc/ProjectDocQuickConsole").then((mod) => mod.ProjectDocQuickConsole),
-    { loading: () => null, ssr: false },
-);
 
 const ProjectDocRenderer = dynamic(
     () => import("@/components/projects/doc/ProjectDocRenderer").then((mod) => mod.ProjectDocRenderer),
@@ -33,12 +28,6 @@ const README_TARGET_SCROLL_BOTTOM_GAP = 48;
 const README_TARGET_CENTER_RATIO = 0.5;
 const README_HEADING_REVEAL_RATIO = 0.38;
 const README_TALL_TARGET_RATIO = 0.82;
-const README_RAIL_MEMORY_VERSION = 1;
-const README_DESKTOP_RAIL_QUERY = "(min-width: 1280px)";
-
-function getIsWideReadmeRail() {
-    return typeof window !== "undefined" && window.matchMedia(README_DESKTOP_RAIL_QUERY).matches;
-}
 
 function getRouteScrollRoot() {
     return document.querySelector<HTMLElement>('[data-scroll-root="route"]');
@@ -121,20 +110,6 @@ type ReadmeTargetFlash = {
     token: number;
 };
 
-type ReadmeRailUiState = {
-    openTab: ProjectDocRailAction["railTab"] | null;
-    selectedActionId: string | null;
-};
-
-type ReadmeRailMemory = ReadmeRailUiState & {
-    version: typeof README_RAIL_MEMORY_VERSION;
-    targetSignature: string;
-};
-
-function isDocRailTab(value: unknown, railTabs: ProjectDocRailAction["railTab"][]): value is ProjectDocRailAction["railTab"] {
-    return typeof value === "string" && railTabs.includes(value as ProjectDocRailAction["railTab"]);
-}
-
 export function ProjectDocViewer({
     project,
     payload,
@@ -169,46 +144,16 @@ export function ProjectDocViewer({
         for (const preview of readmePreviewsQuery.data ?? []) map.set(preview.key, preview);
         return map;
     }, [readmePreviewsQuery.data]);
-    const railActions = useMemo(() => readmeViewModel.railActions.map((action) => {
-        if (action.kind !== "reference" || !action.referencePreviewKey) return action;
-        const preview = previewByKey.get(action.referencePreviewKey);
-        const option = preview?.items[0] ?? null;
-        return {
-            ...action,
-            openHref: option?.href ?? preview?.href ?? null,
-            previewOption: option,
-            previewLoading: readmePreviewsQuery.isLoading,
-            previewError: readmePreviewsQuery.isError,
-        } satisfies ProjectDocRailAction;
-    }), [previewByKey, readmePreviewsQuery.isError, readmePreviewsQuery.isLoading, readmeViewModel.railActions]);
-    const recommendedAction = useMemo(() => {
-        if (!readmeViewModel.recommendedAction) return null;
-        return railActions.find((action) => action.id === readmeViewModel.recommendedAction?.id) ?? readmeViewModel.recommendedAction;
-    }, [railActions, readmeViewModel.recommendedAction]);
-    const hasQuickRail = readmeViewModel.railTabs.length > 0;
+
     const [highlightedTarget, setHighlightedTarget] = useState<ReadmeTargetFlash | null>(null);
-    const [railState, setRailState] = useState<ReadmeRailUiState>({ openTab: null, selectedActionId: null });
-    const [isWideRail, setIsWideRail] = useState(getIsWideReadmeRail);
     const highlightTimerRef = useRef<number | null>(null);
     const scrollFrameRef = useRef<number | null>(null);
     const mediaCorrectionFrameRef = useRef<number | null>(null);
     const targetRetryTimerRef = useRef<number | null>(null);
     const highlightTokenRef = useRef(0);
     const lastRevealTargetIdRef = useRef<string | null>(null);
-    const restoredRailMemoryKeyRef = useRef<string | null>(null);
     const readmeTargetIds = readmeViewModel.targetIds;
     const readmeTargetSignature = readmeViewModel.targetSignature;
-    const readmeRailMemoryKey = useMemo(() => (
-        `project-readme-rail:${project.id}:${normalizedDocSlug}:${version?.contentHash ?? version?.id ?? "draft"}`
-    ), [normalizedDocSlug, project.id, version?.contentHash, version?.id]);
-    const railActionIdSet = useMemo(() => new Set(railActions.map((action) => action.id)), [railActions]);
-    const actionByTargetId = useMemo(() => {
-        const map = new Map<string, ProjectDocRailAction>();
-        railActions.forEach((action) => {
-            if (!map.has(action.targetId)) map.set(action.targetId, action);
-        });
-        return map;
-    }, [railActions]);
 
     const flashTarget = useCallback((targetId: string) => {
         highlightTokenRef.current += 1;
@@ -298,16 +243,6 @@ export function ProjectDocViewer({
         });
     }, [highlightedTarget?.targetId, scrollToTarget]);
 
-    const handleRailAction = useCallback((action: ProjectDocRailAction) => {
-        scrollToTarget(action.targetId, { defer: true, highlight: true, updateHash: true });
-    }, [scrollToTarget]);
-
-    const selectRailActionForTarget = useCallback((targetId: string) => {
-        const action = actionByTargetId.get(targetId);
-        if (!action) return;
-        setRailState({ openTab: action.railTab, selectedActionId: action.id });
-    }, [actionByTargetId]);
-
     useEffect(() => {
         if (!readmeTargetIds.length) return;
         let cancelled = false;
@@ -317,7 +252,6 @@ export function ProjectDocViewer({
             const targetId = decodeReadmeHashTarget(window.location.hash);
             if (!targetId) return;
             if (scrollToTarget(targetId, { behavior: "auto", highlight: true, retry: false, updateHash: false })) {
-                selectRailActionForTarget(targetId);
                 return;
             }
             if (attemptsRemaining > 0) {
@@ -334,50 +268,7 @@ export function ProjectDocViewer({
             if (timer) window.clearTimeout(timer);
             window.removeEventListener("hashchange", handleHashChange);
         };
-    }, [readmeTargetIds.length, readmeTargetSignature, scrollToTarget, selectRailActionForTarget]);
-
-    useEffect(() => {
-        if (!hasQuickRail || restoredRailMemoryKeyRef.current === readmeRailMemoryKey) return;
-        restoredRailMemoryKeyRef.current = readmeRailMemoryKey;
-        try {
-            const rawMemory = window.sessionStorage.getItem(readmeRailMemoryKey);
-            if (!rawMemory) return;
-            const memory = JSON.parse(rawMemory) as Partial<ReadmeRailMemory>;
-            if (memory.version !== README_RAIL_MEMORY_VERSION || memory.targetSignature !== readmeTargetSignature) return;
-            const openTab = isDocRailTab(memory.openTab, readmeViewModel.railTabs) ? memory.openTab : null;
-            const selectedActionId = typeof memory.selectedActionId === "string" && railActionIdSet.has(memory.selectedActionId)
-                ? memory.selectedActionId
-                : null;
-            if (!openTab && !selectedActionId) return;
-            setRailState({ openTab, selectedActionId });
-        } catch {
-            window.sessionStorage.removeItem(readmeRailMemoryKey);
-        }
-    }, [hasQuickRail, railActionIdSet, readmeRailMemoryKey, readmeTargetSignature, readmeViewModel.railTabs]);
-
-    useEffect(() => {
-        if (!hasQuickRail || restoredRailMemoryKeyRef.current !== readmeRailMemoryKey) return;
-        try {
-            const memory: ReadmeRailMemory = {
-                version: README_RAIL_MEMORY_VERSION,
-                targetSignature: readmeTargetSignature,
-                openTab: railState.openTab,
-                selectedActionId: railState.selectedActionId,
-            };
-            window.sessionStorage.setItem(readmeRailMemoryKey, JSON.stringify(memory));
-        } catch {
-            // Storage can be unavailable in private contexts; rail behavior still works without memory.
-        }
-    }, [hasQuickRail, railState.openTab, railState.selectedActionId, readmeRailMemoryKey, readmeTargetSignature]);
-
-    useEffect(() => {
-        if (typeof window === "undefined") return;
-        const media = window.matchMedia(README_DESKTOP_RAIL_QUERY);
-        const handleChange = () => setIsWideRail(media.matches);
-        handleChange();
-        media.addEventListener("change", handleChange);
-        return () => media.removeEventListener("change", handleChange);
-    }, []);
+    }, [readmeTargetIds.length, readmeTargetSignature, scrollToTarget]);
 
     useEffect(() => {
         return () => {
@@ -391,38 +282,13 @@ export function ProjectDocViewer({
     if (!version) return null;
 
     return (
-        <div className="relative mx-auto w-full max-w-[1480px] px-4 py-0 sm:px-6 lg:px-8">
-
-
-            <div className={hasQuickRail && isWideRail ? "grid gap-8 xl:grid-cols-[minmax(0,1fr)_300px]" : ""}>
+        <div className="relative mx-auto w-full max-w-[1240px] px-0 py-0">
+            <ProjectDocMobileBar
+                projectId={project.id}
+                activeSlug={normalizedDocSlug}
+            />
+            <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="min-w-0">
-                    {hasQuickRail && !isWideRail ? (
-                        <ProjectDocQuickConsole
-                            projectId={project.id}
-                            docSlug={normalizedDocSlug}
-                            excerpt={readmeExcerpt}
-                            headings={readmeViewModel.headings}
-                            commands={readmeViewModel.commands}
-                            references={readmeViewModel.references}
-                            report={readmeViewModel.report}
-                            railActions={railActions}
-                            recommendedAction={recommendedAction}
-                            highlightedTargetId={highlightedTarget?.targetId}
-                            highlightedTargetToken={highlightedTarget?.token}
-                            instanceId="mobile"
-                            openTab={railState.openTab}
-                            onRailAction={handleRailAction}
-                            onOpenTabChange={(openTab) => setRailState((current) => ({ ...current, openTab }))}
-                            onSelectedActionChange={(selectedActionId) => setRailState((current) => ({ ...current, selectedActionId }))}
-                            railTabs={readmeViewModel.railTabs}
-                            referencePreviewByKey={previewByKey}
-                            referencesError={readmePreviewsQuery.isError}
-                            referencesLoading={readmePreviewsQuery.isLoading}
-                            selectedActionId={railState.selectedActionId}
-                            variant="compact"
-                            className="mb-5"
-                        />
-                    ) : null}
                     <ProjectDocRenderer
                         content={version.content}
                         project={project}
@@ -439,33 +305,10 @@ export function ProjectDocViewer({
                         highlightedTargetToken={highlightedTarget?.token}
                     />
                 </div>
-                {hasQuickRail && isWideRail ? (
-                    <aside>
-                        <div className="sticky top-24">
-                            <ProjectDocQuickConsole
-                                projectId={project.id}
-                                docSlug={normalizedDocSlug}
-                                excerpt={readmeExcerpt}
-                                headings={readmeViewModel.headings}
-                                commands={readmeViewModel.commands}
-                                references={readmeViewModel.references}
-                                report={readmeViewModel.report}
-                                railActions={railActions}
-                                recommendedAction={recommendedAction}
-                                instanceId="desktop"
-                                openTab={railState.openTab}
-                                onRailAction={handleRailAction}
-                                onOpenTabChange={(openTab) => setRailState((current) => ({ ...current, openTab }))}
-                                onSelectedActionChange={(selectedActionId) => setRailState((current) => ({ ...current, selectedActionId }))}
-                                railTabs={readmeViewModel.railTabs}
-                                referencePreviewByKey={previewByKey}
-                                referencesError={readmePreviewsQuery.isError}
-                                referencesLoading={readmePreviewsQuery.isLoading}
-                                selectedActionId={railState.selectedActionId}
-                            />
-                        </div>
-                    </aside>
-                ) : null}
+                <ProjectDocRail
+                    projectId={project.id}
+                    activeSlug={normalizedDocSlug}
+                />
             </div>
         </div>
     );

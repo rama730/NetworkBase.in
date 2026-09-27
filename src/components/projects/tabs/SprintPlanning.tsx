@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -37,18 +36,9 @@ import {
 } from "@/lib/projects/sprints";
 import { cn } from "@/lib/utils";
 
-const CreateSprintModal = dynamic(
-  () => import("@/components/projects/v2/sprints/CreateSprintModal"),
-  { ssr: false },
-);
-
-const SprintLifecycleModals = dynamic(
-  () =>
-    import("@/components/projects/tabs/sprint/SprintLifecycleModals").then(
-      (mod) => mod.SprintLifecycleModals,
-    ),
-  { ssr: false },
-);
+import CreateSprintModal from "@/components/projects/v2/sprints/CreateSprintModal";
+import { SprintLifecycleModals } from "@/components/projects/tabs/sprint/SprintLifecycleModals";
+import { SkeletonSprints } from "@/components/projects/skeletons/SkeletonSprints";
 
 interface SprintPlanningProps {
   projectId: string;
@@ -314,46 +304,17 @@ export default function SprintPlanning({
 
 
   if (isLoading && !detail) {
-    return (
-      <div className="flex h-full min-h-0 gap-6 overflow-hidden">
-        <div className="w-[280px] flex-shrink-0 space-y-3">
-          <div className="h-4 w-28 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" />
-          <div className="h-10 w-full animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-          <div className="space-y-2">
-            {[1, 2, 3].map((item) => (
-              <div
-                key={item}
-                className="h-20 w-full animate-pulse rounded-2xl bg-zinc-100 dark:bg-zinc-800"
-              />
-            ))}
-          </div>
-        </div>
-        <div className="flex-1 rounded-[28px] border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="space-y-4 p-8">
-            <div className="h-4 w-24 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" />
-            <div className="h-8 w-64 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" />
-            <div className="h-4 w-96 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" />
-            <div className="pt-6 space-y-8">
-              {[1, 2, 3].map((item) => (
-                <div
-                  key={item}
-                  className="h-24 w-full animate-pulse rounded-2xl bg-zinc-100/70 dark:bg-zinc-900"
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    // Match the dynamic tab fallback during the subsequent data request.
+    return <SkeletonSprints />;
   }
 
   if (isError && !detail) {
     return (
-      <div className="flex h-[500px] flex-col items-center justify-center rounded-2xl border border-zinc-200 bg-white px-6 text-center dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="flex h-[500px] flex-col items-center justify-center rounded-[8px] border border-border bg-card px-6 text-center">
         <div className="max-w-md space-y-3">
-          <h2 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">Sprint activity could not be loaded</h2>
-          <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">{error instanceof Error ? error.message : "Please try again."}</p>
-          <button type="button" onClick={() => void refetch()} className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900">Try again</button>
+          <h2 className="text-base font-semibold text-foreground">Sprint activity could not be loaded</h2>
+          <p className="text-sm leading-6 text-muted-foreground">{error instanceof Error ? error.message : "Please try again."}</p>
+          <button type="button" onClick={() => void refetch()} className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-foreground transition-[background-color,border-color,transform] duration-150 hover:border-input hover:bg-muted active:translate-y-px">Try again</button>
         </div>
       </div>
     );
@@ -361,50 +322,44 @@ export default function SprintPlanning({
 
   if (!detail || detail.sprints.length === 0) {
     return (
-      <div className="flex h-[500px] flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-6 text-center dark:border-zinc-800 dark:bg-zinc-900/50">
-        <div className="max-w-md space-y-4">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
-            <CalendarDays className="h-8 w-8 text-zinc-400" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-              No sprints yet
-            </h3>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Create the first sprint and this space will turn into a clean
-              execution timeline for the work inside it.
-            </p>
-          </div>
-          {permissions.canCreate ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setEditorState({ mode: "create", sprint: null })}
-                className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-zinc-100 transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-              >
-                <Plus className="h-4 w-4" />
-                Create Sprint
-              </button>
-              {isEditorOpen ? (
-                <CreateSprintModal
-                  projectId={projectId}
-                  isOpen={isEditorOpen}
-                  mode="create"
-                  onClose={() => setEditorState(null)}
-                  onSubmit={handleCreateSprint}
-                  sprintCount={0}
-                />
-              ) : null}
-            </>
-          ) : null}
-        </div>
+      <div className="nb-empty-state nb-grid-ground py-16" role="status">
+        <CalendarDays className="nb-empty-state-icon mb-3" aria-hidden="true" />
+        <h3 className="nb-empty-state-title">
+          No sprints yet
+        </h3>
+        <p className="nb-empty-state-desc">
+          Create the first sprint and this space will turn into a clean
+          execution timeline for the work inside it.
+        </p>
+        {permissions.canCreate ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setEditorState({ mode: "create", sprint: null })}
+              className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center gap-2 rounded-[5px] border border-primary bg-primary px-4 text-primary-foreground transition-[background-color,border-color,transform] duration-150 hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:translate-y-px active:border-[var(--primary-active)] active:bg-[var(--primary-active)]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Create sprint
+            </button>
+            {isEditorOpen ? (
+              <CreateSprintModal
+                projectId={projectId}
+                isOpen={isEditorOpen}
+                mode="create"
+                onClose={() => setEditorState(null)}
+                onSubmit={handleCreateSprint}
+                sprintCount={0}
+              />
+            ) : null}
+          </>
+        ) : null}
       </div>
     );
   }
 
   return (
     <>
-      <div className="grid min-h-0 gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
+      <div className="grid min-h-0 gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start">
         <SprintLeftRail
           projectSlug={projectSlug}
           sprints={detail.sprints}

@@ -444,7 +444,7 @@ function AuthorizationFrame({
         >
             <div className="flex h-full flex-col lg:flex-row">
                 {/* LEFT PANE: Authentication Details & Controls */}
-                <aside className="w-full lg:w-[380px] xl:w-[420px] flex flex-col justify-between p-6 border-b lg:border-b-0 lg:border-r border-zinc-200/80 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-950/90 h-full shrink-0 overflow-hidden">
+                <aside className="w-full lg:w-[380px] xl:w-[420px] flex flex-col justify-between p-6 border-b lg:border-b-0 lg:border-r border-zinc-200/80 bg-white/90 backdrop-blur-none dark:border-white/10 dark:bg-zinc-950/90 h-full shrink-0 overflow-hidden">
                     {/* Header */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between gap-3">
@@ -476,10 +476,10 @@ function AuthorizationFrame({
 
                     {/* Authentication details card */}
                     <div className="my-auto py-6 space-y-4">
-                        <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                             Authentication Details
                         </p>
-                        <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-4 space-y-3 shadow-sm dark:border-white/5 dark:bg-white/[0.02]">
+                        <div className="rounded-lg border border-zinc-200/80 bg-zinc-50/50 p-4 space-y-3 shadow-none dark:border-white/5 dark:bg-white/[0.02]">
                             <InfoRow icon={Fingerprint} label="Account" value={accountLabel} />
                             <InfoRow icon={Terminal} label="Editor" value={editorName} />
                             <InfoRow icon={Lock} label="Callback" value={callbackDestination} />
@@ -521,7 +521,7 @@ function AuthorizationFrame({
                                 Review the connection details and flow stages before generating your secure editor credentials.
                             </p>
                         </div>
-                        <div className="rounded-lg border border-zinc-200/80 bg-white/70 p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.035]">
+                        <div className="rounded-lg border border-zinc-200/80 bg-white/70 p-3 shadow-none dark:border-white/10 dark:bg-white/[0.035]">
                             <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                                 Status: {statusCopy.title}
                             </p>
@@ -538,7 +538,7 @@ function AuthorizationFrame({
 
                     {/* Permissions Checklist */}
                     <div className="space-y-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                             Security & Permissions Scope
                         </p>
                         <div className="grid gap-3 md:grid-cols-3">
@@ -572,7 +572,7 @@ function RightPanel({
 }) {
     return (
         <div className="grid w-full gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            <section className="rounded-lg border border-zinc-200 bg-white/82 p-4 shadow-[0_30px_90px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-none">
+            <section className="rounded-lg border border-zinc-200 bg-white/82 p-4 shadow-[0_30px_90px_rgba(15,23,42,0.08)] backdrop-blur-none dark:border-white/10 dark:bg-white/[0.045] dark:shadow-none">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <p className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
@@ -613,7 +613,7 @@ function RightPanel({
 
 function AuthRequiredPanel({ editorName }: { editorName: string }) {
     return (
-        <section className="rounded-lg border border-zinc-200 bg-white/82 p-4 shadow-[0_30px_90px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-none">
+        <section className="rounded-lg border border-zinc-200 bg-white/82 p-4 shadow-[0_30px_90px_rgba(15,23,42,0.08)] backdrop-blur-none dark:border-white/10 dark:bg-white/[0.045] dark:shadow-none">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <p className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
@@ -647,7 +647,7 @@ function FlowStepCard({ state, step }: { state: StepState; step: FlowStep }) {
     return (
         <li
             className={cn(
-                'rounded-lg border p-4 transition duration-200',
+                'rounded-lg border p-4 transition duration-[180ms]',
                 state === 'complete' && 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-400/20 dark:bg-emerald-400/10',
                 state === 'active' && 'border-blue-300 bg-blue-50/80 shadow-[0_18px_46px_rgba(37,99,235,0.12)] dark:border-blue-400/30 dark:bg-blue-400/10',
                 state === 'pending' && 'border-zinc-200 bg-zinc-50/70 dark:border-white/10 dark:bg-white/[0.035]',
@@ -720,7 +720,7 @@ function StateDetail({
                 </div>
                 <div className="mt-5 space-y-3">
                     <div className="h-2 rounded-full bg-zinc-100 dark:bg-white/10">
-                        <div className="h-full w-2/3 rounded-full bg-blue-600 motion-safe:animate-pulse dark:bg-blue-400" />
+                        <div className="h-full w-2/3 rounded-full bg-blue-600 motion-safe:animate-none dark:bg-blue-400" />
                     </div>
                     <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                         The token is generated on the server and linked to this browser-approved editor session.
@@ -786,7 +786,7 @@ function DetailShell({
     const Icon = icon
 
     return (
-        <section className="rounded-lg border border-zinc-200 bg-white/82 p-5 shadow-[0_30px_90px_rgba(15,23,42,0.07)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-none">
+        <section className="rounded-lg border border-zinc-200 bg-white/82 p-5 shadow-[0_30px_90px_rgba(15,23,42,0.07)] backdrop-blur-none dark:border-white/10 dark:bg-white/[0.045] dark:shadow-none">
             <div className="flex items-center gap-3">
                 <div
                     className={cn(

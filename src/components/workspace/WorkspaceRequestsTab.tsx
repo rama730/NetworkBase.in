@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { acceptApplicationAction, getIncomingApplicationsAction, rejectApplicationAction } from "@/app/actions/applications";
@@ -27,13 +27,44 @@ function errorMessage(error: unknown) {
     return error instanceof Error ? error.message : "Failed";
 }
 
+function WorkspaceRequestsSkeleton() {
+    return (
+        <div className="w-full space-y-5 px-1 py-1" aria-busy="true" aria-label="Loading invitations">
+            <div aria-hidden="true" className="nb-skeleton mb-4 h-4 w-3/4 rounded-[3px]" />
+            {[1, 2].map((section) => (
+                <div key={section} className="space-y-2.5">
+                    <div aria-hidden="true" className="nb-skeleton h-3 w-36 rounded-[3px]" />
+                    <div className="space-y-2">
+                        {[1, 2].map((row) => (
+                            <div key={row} className="flex items-center justify-between gap-3 rounded-[8px] border border-border/60 bg-card p-3">
+                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                    <div aria-hidden="true" className="nb-skeleton h-8 w-8 shrink-0 rounded-[5px]" />
+                                    <div className="space-y-1.5 flex-1 min-w-0">
+                                        <div aria-hidden="true" className="nb-skeleton h-3.5 w-32 rounded-[3px]" />
+                                        <div aria-hidden="true" className="nb-skeleton h-3 w-48 rounded-[3px]" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <div aria-hidden="true" className="nb-skeleton h-7 w-16 rounded-[5px]" />
+                                    <div aria-hidden="true" className="nb-skeleton h-7 w-16 rounded-[5px]" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceRequestsTabProps) {
     const isWorkspaceOpen = useUIStore((s) => s.isWorkspaceOpen);
     const setWorkspaceOpen = useUIStore((s) => s.setWorkspaceOpen);
     const queryClient = useQueryClient();
+    const [isBatchBusy, setIsBatchBusy] = useState(false);
 
     const query = useQuery({
-        queryKey: queryKeys.workspace.joinRequests(),
+        queryKey: queryKeys.workspace.joinRequests(20),
         // This is a compact launcher surface. Connections owns the full,
         // paginated request queue rather than hiding an unbounded list here.
         queryFn: () => getIncomingApplicationsAction({ limit: 20 }),
@@ -64,7 +95,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     const pendingConnections = connectionsQuery.data?.incoming ?? [];
 
     const removeOptimistically = (id: string) => {
-        queryClient.setQueryData(queryKeys.workspace.joinRequests(), (previous: typeof data) => {
+        queryClient.setQueryData(queryKeys.workspace.joinRequests(20), (previous: typeof data) => {
             if (!previous?.success) return previous;
             return {
                 ...previous,
@@ -123,22 +154,62 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
         }
     };
 
+    const handleAcceptAllConnections = async () => {
+        if (isBatchBusy || pendingConnections.length === 0) return;
+        setIsBatchBusy(true);
+        try {
+            await Promise.all(pendingConnections.map((req) => acceptRequest.mutateAsync(req.id)));
+            toast.success(`Accepted ${pendingConnections.length} connection request${pendingConnections.length === 1 ? "" : "s"}`);
+            invalidate();
+        } catch (batchErr) {
+            toast.error(errorMessage(batchErr));
+            invalidate();
+        } finally {
+            setIsBatchBusy(false);
+        }
+    };
+
+    const handleAcceptAllInvites = async () => {
+        if (isBatchBusy || pendingInvites.length === 0) return;
+        setIsBatchBusy(true);
+        try {
+            await Promise.all(pendingInvites.map((inv) => acceptInvite.mutateAsync(inv.id)));
+            toast.success(`Accepted ${pendingInvites.length} project invite${pendingInvites.length === 1 ? "" : "s"}`);
+            invalidate();
+        } catch (batchErr) {
+            toast.error(errorMessage(batchErr));
+            invalidate();
+        } finally {
+            setIsBatchBusy(false);
+        }
+    };
+
+    const handleAcceptAllIncoming = async () => {
+        if (isBatchBusy || pendingIncoming.length === 0) return;
+        setIsBatchBusy(true);
+        try {
+            await Promise.all(pendingIncoming.map((app) => acceptApp.mutateAsync(app.id)));
+            toast.success(`Accepted ${pendingIncoming.length} project application${pendingIncoming.length === 1 ? "" : "s"}`);
+            invalidate();
+        } catch (batchErr) {
+            toast.error(errorMessage(batchErr));
+            invalidate();
+        } finally {
+            setIsBatchBusy(false);
+        }
+    };
+
     if (isLoading || connectionsQuery.isLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center py-12 space-y-3" aria-live="polite">
-                <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">Loading requests...</span>
-            </div>
-        );
+        return <WorkspaceRequestsSkeleton />;
     }
 
     if (error || connectionsQuery.error || (data && !data.success)) {
         return (
-            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4 text-center dark:border-rose-900/30 dark:bg-rose-950/20">
-                <p className="text-xs font-medium text-rose-800 dark:text-rose-400">
-                    Failed to load requests. Please try again later.
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-center">
+                <p className="text-xs font-medium text-destructive">
+                    Failed to load invitations. Please try again later.
                 </p>
-                <button type="button" onClick={() => void query.refetch()} className="mt-2 text-xs font-semibold text-rose-700 underline underline-offset-2 dark:text-rose-300">Try again</button>
+                <button type="button" onClick={() => void query.refetch()} className="mt-2 text-xs font-semibold text-destructive underline underline-offset-2">Try again</button>
             </div>
         );
     }
@@ -147,13 +218,11 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
 
     if (!hasAnyRequests) {
         return (
-            <div className="flex flex-col items-center justify-center py-12 text-center rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/10 px-6">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400">
-                    <Inbox className="w-5 h-5" />
-                </div>
-                <h4 className="mt-3 text-xs font-semibold text-zinc-900 dark:text-zinc-100">No Pending Requests</h4>
-                <p className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400 max-w-xs">
-                    You have no new requests at this time.
+            <div className="nb-empty-state nb-grid-ground py-12">
+                <Inbox className="nb-empty-state-icon" aria-hidden="true" />
+                <h4 className="nb-card-title text-foreground">No pending invitations</h4>
+                <p className="nb-compact mx-auto mt-1 max-w-xs text-muted-foreground">
+                    You have no new invitations at this time.
                 </p>
             </div>
         );
@@ -161,17 +230,29 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
 
     return (
         <div id="workspace-requests-panel" role="tabpanel" aria-labelledby="workspace-requests-tab" className="w-full px-1 pb-10">
-            <p className="mb-4 px-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            <p className="mb-4 px-1 text-[13px] leading-5 text-muted-foreground">
                 Connection and project decisions that need your attention, in one place.
             </p>
             {pendingConnections.length > 0 && (
                 <div className="mb-6">
-                    <h4 className="mb-3 pl-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">Connection requests ({pendingConnections.length})</h4>
+                    <div className="mb-3 flex items-center justify-between pl-1">
+                        <h4 className="nb-micro">Connection requests ({pendingConnections.length})</h4>
+                        {pendingConnections.length > 1 && (
+                            <button
+                                type="button"
+                                disabled={isBatchBusy}
+                                onClick={handleAcceptAllConnections}
+                                className="text-[11px] font-semibold text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
+                            >
+                                {isBatchBusy ? "Accepting all..." : `Accept all (${pendingConnections.length})`}
+                            </button>
+                        )}
+                    </div>
                     <div className="space-y-2">
                         {pendingConnections.map((request) => {
                             const isAccepting = acceptRequest.isPending && acceptRequest.variables === request.id;
                             const isRejecting = rejectRequest.isPending && rejectRequest.variables?.id === request.id;
-                            const busy = isAccepting || isRejecting;
+                            const busy = isAccepting || isRejecting || isBatchBusy;
                             return (
                                 <RequestProfileRow
                                     key={request.id}
@@ -198,12 +279,24 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
             )}
             {pendingInvites.length > 0 && (
                 <div className="mb-6">
-                    <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 pl-1">Project Invitations ({pendingInvites.length})</h4>
+                    <div className="mb-3 flex items-center justify-between pl-1">
+                        <h4 className="nb-micro">Project invitations ({pendingInvites.length})</h4>
+                        {pendingInvites.length > 1 && (
+                            <button
+                                type="button"
+                                disabled={isBatchBusy}
+                                onClick={handleAcceptAllInvites}
+                                className="text-[11px] font-semibold text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
+                            >
+                                {isBatchBusy ? "Accepting all..." : `Accept all (${pendingInvites.length})`}
+                            </button>
+                        )}
+                    </div>
                     <div className="space-y-2">
                         {pendingInvites.map((invite) => {
                             const isAccepting = acceptInvite.isPending && acceptInvite.variables === invite.id;
                             const isRejecting = rejectInvite.isPending && rejectInvite.variables === invite.id;
-                            const isProcessing = isAccepting || isRejecting;
+                            const isProcessing = isAccepting || isRejecting || isBatchBusy;
                             
                             return <IncomingProjectApplicationRow key={invite.id} app={invite} busy={isProcessing} onAccept={() => acceptInvite.mutate(invite.id)} onReject={() => rejectInvite.mutate(invite.id)} />;
                         })}
@@ -213,7 +306,19 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
 
             {pendingIncoming.length > 0 && (
                 <div>
-                    <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 pl-1">Applications to your projects ({pendingIncoming.length})</h4>
+                    <div className="mb-3 flex items-center justify-between pl-1">
+                        <h4 className="nb-micro">Applications to your projects ({pendingIncoming.length})</h4>
+                        {pendingIncoming.length > 1 && (
+                            <button
+                                type="button"
+                                disabled={isBatchBusy}
+                                onClick={handleAcceptAllIncoming}
+                                className="text-[11px] font-semibold text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
+                            >
+                                {isBatchBusy ? "Accepting all..." : `Accept all (${pendingIncoming.length})`}
+                            </button>
+                        )}
+                    </div>
                     <div className="space-y-2">
                         {pendingIncoming.map((app) => {
                             const isAccepting = acceptApp.isPending && acceptApp.variables === app.id;
@@ -227,11 +332,11 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
             )}
             {hasAnyRequests ? (
                 <Link
-                    href="/people?tab=requests"
+                    href="/network?tab=invitations"
                     onClick={() => setWorkspaceOpen(false)}
                     className="mt-5 inline-flex text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                    View all requests
+                    View all invitations
                 </Link>
             ) : null}
         </div>

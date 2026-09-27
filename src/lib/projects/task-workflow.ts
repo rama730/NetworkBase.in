@@ -30,7 +30,7 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
     emptyTitle: "Tasks will appear here...",
     emptyDescription: "Tasks that are ready to start will appear here. Drag and drop your tasks here.",
     badgeClassName:
-      "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+      "border border-border bg-muted/60 text-muted-foreground",
     accentClassName: "zinc",
   },
   in_progress: {
@@ -41,7 +41,7 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
     emptyTitle: "Tasks will appear here...",
     emptyDescription: "Items will appear here as soon as they start. Drag and drop your tasks here.",
     badgeClassName:
-      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+      "border border-primary/20 bg-primary/10 text-primary",
     accentClassName: "blue",
   },
   blocked: {
@@ -52,7 +52,7 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
     emptyTitle: "Tasks will appear here...",
     emptyDescription: "Tasks waiting on blockers will appear here. Drag and drop your tasks here.",
     badgeClassName:
-      "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+      "border border-destructive/20 bg-destructive/10 text-destructive",
     accentClassName: "rose",
   },
   done: {
@@ -63,7 +63,7 @@ export const TASK_STATUS_PRESENTATION: Record<TaskWorkflowStatus, TaskWorkflowSt
     emptyTitle: "Tasks will appear here...",
     emptyDescription: "Finished work will appear here. Drag and drop your tasks here.",
     badgeClassName:
-      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+      "border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     accentClassName: "emerald",
   },
 };
@@ -73,25 +73,25 @@ export const TASK_PRIORITY_PRESENTATION: Record<TaskPriority, TaskPriorityPresen
     id: "low",
     label: "Low",
     badgeClassName:
-      "bg-rose-50 text-rose-500 dark:bg-rose-950/20 dark:text-rose-300",
+      "border border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400",
   },
   medium: {
     id: "medium",
     label: "Medium",
     badgeClassName:
-      "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300",
+      "border border-rose-500/30 bg-rose-500/15 text-rose-700 dark:text-rose-300",
   },
   high: {
     id: "high",
     label: "High",
     badgeClassName:
-      "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+      "border border-red-500/30 bg-red-500/20 text-red-700 dark:text-red-300",
   },
   urgent: {
     id: "urgent",
     label: "Urgent",
     badgeClassName:
-      "bg-red-600 text-white dark:bg-red-700 dark:text-white",
+      "border border-red-600 bg-red-600 text-white font-semibold",
   },
 };
 

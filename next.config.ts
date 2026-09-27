@@ -19,9 +19,44 @@ const e2eAuthRouteImplAbsolutePath =
 const nextConfig: NextConfig = {
   // Keep verification builds isolated from an actively running local dev server.
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  // ponytail: native HTTP 308 redirects preserve query params and offload route migration to edge.
+  async redirects() {
+    return [
+      { source: '/hub', destination: '/discover', permanent: true },
+      { source: '/hub/:path*', destination: '/discover/:path*', permanent: true },
+      { source: '/people', destination: '/network', permanent: true },
+      { source: '/people/:path*', destination: '/network/:path*', permanent: true },
+      { source: '/profile', destination: '/my-profile', permanent: true },
+      { source: '/profile/:path*', destination: '/my-profile/:path*', permanent: true },
+    ];
+  },
   // Security headers for all routes
   async headers() {
     return [
+      {
+        source: '/skill-sprites.svg',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/(images|skill-icons|ide-icons|social-icons|fonts)/(.*)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/(favicon.ico|favicon.svg|networkbase-mark.svg|manifest.webmanifest|robots.txt|apple-touch-icon.png)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/icon-:asset(.*)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [
@@ -46,7 +81,12 @@ const nextConfig: NextConfig = {
 
   // Image optimization configuration for external domains and local query strings
   images: {
+    minimumCacheTTL: 2678400, // 31 days
+    formats: ['image/avif', 'image/webp'],
     localPatterns: [
+      {
+        pathname: '/api/v1/projects/*/image',
+      },
       {
         pathname: '/social-icons/heliyon.svg',
         search: '?v=20260830-2',
@@ -101,9 +141,8 @@ const nextConfig: NextConfig = {
     ],
     serverActions: {
       // Binary uploads use signed upload-intent routes. Server actions carry
-      // structured metadata and text only, so keep their parsing budget small.
-      // Note: We increased this to 50mb because message attachments are currently uploaded via server actions.
-      bodySizeLimit: '50mb',
+      // structured metadata and compressed payloads only, keeping V8 parsing buffers minimal.
+      bodySizeLimit: '4mb',
     },
   },
 
@@ -115,14 +154,21 @@ const nextConfig: NextConfig = {
   },
 
   poweredByHeader: false,
+  compress: true,
   reactStrictMode: true,
   serverExternalPackages: [
     "@opentelemetry/sdk-node",
     "@opentelemetry/resources",
     "@opentelemetry/exporter-trace-otlp-grpc",
   ],
-  webpack(config, { dev }) {
+  webpack(config, { dev, isServer }) {
     config.resolve = config.resolve ?? {};
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...(config.resolve.fallback ?? {}),
+        crypto: false,
+      };
+    }
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
       "@/app/api/e2e/auth/route-impl": e2eAuthRouteImplAbsolutePath,

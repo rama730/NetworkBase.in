@@ -1,22 +1,30 @@
-/**
- * C3: Single source of truth for avatar gradient selection.
- * All avatar fallback gradients and hash logic consolidated here.
- */
+import type { CSSProperties } from 'react';
 
-const AVATAR_GRADIENTS = [
-    'from-violet-500 to-indigo-500',
-    'from-blue-500 to-cyan-500',
-    'from-emerald-500 to-teal-500',
-    'from-amber-500 to-orange-500',
-    'from-rose-500 to-pink-500',
-    'from-fuchsia-500 to-purple-500',
-] as const;
+/** Shared solid fallback treatment; the legacy name preserves the identity API. */
+export function getAvatarGradient(_name: string): string {
+    return 'nb-avatar-fallback';
+}
 
-/**
- * Returns a deterministic Tailwind gradient class pair for a given name.
- * Use with `bg-gradient-to-br ${getAvatarGradient(name)}`.
- */
-export function getAvatarGradient(name: string): string {
-    const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length] ?? 'from-violet-500 to-indigo-500';
+/** Stable, soft person-card fallback tones, shared across People views. */
+export const PERSON_AVATAR_TONES = ['amber', 'blue', 'mint', 'rose'] as const;
+
+export type PersonAvatarTone = (typeof PERSON_AVATAR_TONES)[number];
+
+/** Component aliases use the same semantic colors in light and dark themes. */
+export const PERSON_AVATAR_TONE_STYLES: Record<PersonAvatarTone, CSSProperties> = {
+    amber: { backgroundColor: 'var(--status-warning-soft)', color: 'var(--status-warning)' },
+    blue: { backgroundColor: 'var(--status-info-soft)', color: 'var(--status-info)' },
+    mint: { backgroundColor: 'var(--status-success-soft)', color: 'var(--status-success)' },
+    rose: { backgroundColor: 'var(--status-danger-soft)', color: 'var(--status-danger)' },
+};
+
+export function getPersonAvatarTone(identityKey: string): PersonAvatarTone {
+    // FNV-1a spreads similar names and IDs across the palette without relying on
+    // array position, which could change when the People list is reordered.
+    let hash = 2166136261;
+    for (const character of identityKey.trim().toLowerCase()) {
+        hash ^= character.codePointAt(0) ?? 0;
+        hash = Math.imul(hash, 16777619);
+    }
+    return PERSON_AVATAR_TONES[(hash >>> 0) % PERSON_AVATAR_TONES.length] ?? PERSON_AVATAR_TONES[0];
 }

@@ -11,6 +11,10 @@ import { logger } from "@/lib/logger";
 import { setUserBlocked } from "@/lib/privacy/blocks";
 import { validateCsrf } from "@/lib/security/csrf";
 
+const blockUserSchema = z.object({
+  userId: z.string().uuid("userId must be a valid UUID"),
+});
+
 export async function POST(request: Request) {
   const startedAt = Date.now();
   const requestId = getRequestId(request);
@@ -23,10 +27,6 @@ export async function POST(request: Request) {
   if (auth.response || !auth.user) {
     return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
   }
-
-  const blockUserSchema = z.object({
-    userId: z.string().uuid("userId must be a valid UUID"),
-  });
 
   try {
     const body = await request.json().catch(() => null);

@@ -109,17 +109,28 @@ test("Domain E: ProjectLayout eliminates forced layout reflow from getBoundingCl
 
   assert.doesNotMatch(layoutContent, /tabsRef\.current\?\.getBoundingClientRect\(\)\.height/);
   assert.match(layoutContent, /entries\[0\]\?\.contentRect/);
+  assert.match(layoutContent, /z-30 shrink-0 border-b border-border bg-card/);
 });
 
-test("Domain E: ProjectStatsBar removes unused icon imports", () => {
+test("Domain E: JourneyTimeline isolates card stacking context to prevent sticky header scroll overlap", () => {
+  const journeyContent = readFileSync(
+    resolve(ROOT, "src/components/projects/dashboard/JourneyTimeline.tsx"),
+    "utf-8"
+  );
+
+  assert.match(journeyContent, /<section className="isolate/);
+  assert.doesNotMatch(journeyContent, /className="[^"]*\bz-10\b[^"]*"[^>]*data-stage-index/);
+});
+
+test("Domain E: ProjectStatsBar renders both project metrics without legacy icon imports", () => {
   const statsBarContent = readFileSync(
     resolve(ROOT, "src/components/projects/ProjectStatsBar.tsx"),
     "utf-8"
   );
 
-  assert.doesNotMatch(statsBarContent, /\bUsers\b/);
   assert.doesNotMatch(statsBarContent, /\bBookmark\b/);
-  assert.match(statsBarContent, /import { TrendingUp } from "lucide-react";/);
+  assert.match(statsBarContent, /import { BarChart2, UsersRound } from "lucide-react";/);
+  assert.match(statsBarContent, /follower-count/);
 });
 
 test("Domain E: ProjectOverviewCard memoizes StatementBox and click handlers", () => {

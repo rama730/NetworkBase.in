@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Flag, Link2 } from "lucide-react";
+import { FileText, ChevronDown, CheckCircle2, Circle, FolderUp, Flag, Link2, ListTodo } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import {
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { TASK_WORKING_FILES_TITLE } from "@/lib/files/task-working-files";
 import { calculateTaskTimeHealth, getTaskTitlePresentation } from "@/lib/projects/task-presentation";
 import { format, isSameYear } from "date-fns";
+import { useReducedMotionPreference } from "@/components/providers/theme-provider";
 
 type Props = {
   projectSlug: string;
@@ -41,6 +42,7 @@ export function SprintTimelineContent({
   onLoadMore,
 }: Props) {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const reduceMotion = useReducedMotionPreference();
 
   const toggleTask = (taskId: string) => {
     setExpandedTaskId((prev) => (prev === taskId ? null : taskId));
@@ -53,39 +55,89 @@ export function SprintTimelineContent({
 
   return (
     <div className="space-y-4">
-      {summary ? (
-        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Sprint summary">
-          {[
-            ["Progress", `${summary.completionPercentage}%`],
-            ["Tasks", `${summary.completedTasks}/${summary.totalTasks}`],
-            ["Blocked", String(summary.blockedTasks)],
-            ["Files", String(summary.linkedFileCount)],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">{label}</dt>
-              <dd className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{value}</dd>
+      {summary || lifecycleRows.length > 0 ? (
+        <div
+          aria-label="Sprint summary"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border pb-3 text-xs"
+        >
+          <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 font-mono text-muted-foreground">
+            {summary ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-foreground">{summary.completionPercentage}%</span>
+                  <span>done</span>
+                </div>
+                <span className="text-border">·</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-foreground">{summary.completedTasks}/{summary.totalTasks}</span>
+                  <span>tasks</span>
+                </div>
+                {summary.blockedTasks > 0 ? (
+                  <>
+                    <span className="text-border">·</span>
+                    <div className="flex items-center gap-1.5 text-destructive font-medium">
+                      <span>{summary.blockedTasks}</span>
+                      <span>blocked</span>
+                    </div>
+                  </>
+                ) : null}
+                {summary.linkedFileCount > 0 ? (
+                  <>
+                    <span className="text-border">·</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-foreground">{summary.linkedFileCount}</span>
+                      <span>file{summary.linkedFileCount === 1 ? "" : "s"}</span>
+                    </div>
+                  </>
+                ) : null}
+              </>
+            ) : null}
+            {lifecycleRows.length > 0 ? (
+              <>
+                {summary ? <span className="text-border">·</span> : null}
+                <ol
+                  className="inline-flex flex-wrap items-center gap-x-3 gap-y-1"
+                  aria-label="Sprint lifecycle"
+                >
+                  {lifecycleRows.map((row) => (
+                    <li key={`${row.kind}:${row.id}`} className="inline-flex items-center gap-1 text-[11px]">
+                      <Flag aria-hidden="true" className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <span>{row.kind === "kickoff" ? "Started" : "Completed"}</span>
+                      {row.occurredAt ? (
+                        <time dateTime={row.occurredAt} className="font-medium text-foreground">
+                          {format(new Date(row.occurredAt), "MMM d, yyyy")}
+                        </time>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              </>
+            ) : null}
+          </div>
+
+          {summary ? (
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-24 overflow-hidden rounded-[2px] bg-muted">
+                <div
+                  className="h-full bg-primary transition-[width] duration-[180ms] motion-reduce:transition-none"
+                  style={{ width: `${Math.min(100, Math.max(0, summary.completionPercentage))}%` }}
+                />
+              </div>
+              <span className="font-mono text-[11px] font-medium text-muted-foreground">
+                {summary.completionPercentage}%
+              </span>
             </div>
-          ))}
-        </dl>
-      ) : null}
-      {lifecycleRows.length > 0 ? (
-        <ol className="flex flex-wrap gap-2" aria-label="Sprint lifecycle">
-          {lifecycleRows.map((row) => (
-            <li key={`${row.kind}:${row.id}`} className="inline-flex items-center gap-2 rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-500 dark:border-zinc-800">
-              <Flag aria-hidden="true" className="h-3 w-3" />
-              {row.kind === "kickoff" ? "Sprint started" : "Sprint completed"}
-              {row.occurredAt ? <time dateTime={row.occurredAt}>{format(new Date(row.occurredAt), "MMM d, yyyy")}</time> : null}
-            </li>
-          ))}
-        </ol>
+          ) : null}
+        </div>
       ) : null}
       {tasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 py-16 text-center dark:border-zinc-800">
-          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">No tasks in this sprint yet.</p>
-          <p className="mt-1 text-xs text-zinc-500">Assign tasks from the Task board to begin tracking this sprint.</p>
+        <div className="nb-empty-state nb-grid-ground rounded-[8px] py-16" role="status">
+          <ListTodo className="nb-empty-state-icon mb-3" aria-hidden="true" />
+          <h3 className="nb-empty-state-title">No tasks in this sprint yet.</h3>
+          <p className="nb-empty-state-desc">Assign tasks from the Task board to begin tracking this sprint.</p>
         </div>
       ) : (
-      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden shadow-sm">
+      <ul className="divide-y divide-border/60 rounded-[8px] border border-border bg-card overflow-hidden shadow-none">
         {tasks.map((task) => {
           const assignee = sprintTimelinePersonName(task.assignee, "Unassigned");
           const taskReference = task.taskNumber == null ? null : `${projectKey?.trim() || "Task"}-${task.taskNumber}`;
@@ -116,31 +168,32 @@ export function SprintTimelineContent({
           const titlePresentation = getTaskTitlePresentation(task);
           const isRemoved = task.isDeleted || task.membershipState === "historical";
           const isExpanded = expandedTaskId === task.id;
+          const isDone = task.status === "done" || titlePresentation.isCompleted;
 
           return (
-            <li key={task.id} className={cn("group flex flex-col transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/50", isRemoved && "opacity-50 grayscale")}>
+            <li key={task.id} className={cn("group flex flex-col transition-colors hover:bg-muted/40", isRemoved && "bg-muted/40 text-muted-foreground")}>
               <div className="flex items-center justify-between p-4">
                 <div className="flex items-start gap-4 min-w-0 flex-1">
                   <div className="mt-1 flex shrink-0">
-                    <UserAvatar identity={task.assignee} size={32} />
+                    <UserAvatar identity={task.assignee} size={32} roundedClassName="rounded-[5px]" />
                   </div>
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className={cn("inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset", status.toneClassName)}>
+                    <span className={cn("inline-flex items-center rounded-[3px] px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] ring-1 ring-inset", status.toneClassName)}>
                       {status.label}
                     </span>
-                    {timeHealth.state === "overdue" && (
-                      <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:ring-rose-900/50">
+                    {!isDone && timeHealth.state === "overdue" && (
+                      <span className="inline-flex items-center rounded-[3px] border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.09em] text-destructive">
                         Overdue
                       </span>
                     )}
-                    {timeHealth.state === "unfinished" && (
-                      <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-900/50">
+                    {!isDone && timeHealth.state === "unfinished" && (
+                      <span className="nb-status nb-sprint-tone-warning">
                         Rolled Over
                       </span>
                     )}
-                    {timeHealth.state === "overtime" && (
-                      <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:ring-orange-900/50">
+                    {!isDone && timeHealth.state === "overtime" && (
+                      <span className="nb-status nb-sprint-tone-warning">
                         Overtime
                       </span>
                     )}
@@ -149,26 +202,26 @@ export function SprintTimelineContent({
                       onClick={(e) => e.stopPropagation()}
                       className={cn(
                         "truncate text-sm font-semibold hover:underline",
-                        titlePresentation.className,
-                        titlePresentation.isCompleted && "hover:line-through",
-                        (timeHealth.state === "overdue" || timeHealth.state === "unfinished")
-                          ? "text-rose-700 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300"
-                          : "text-zinc-900 hover:text-blue-600 dark:text-zinc-100 dark:hover:text-blue-400"
+                        isDone
+                          ? "line-through text-muted-foreground decoration-muted-foreground/40 hover:text-foreground"
+                          : (timeHealth.state === "overdue" || timeHealth.state === "unfinished")
+                          ? "text-destructive hover:text-destructive/90"
+                          : "text-foreground hover:text-primary transition-colors",
                       )}
                       aria-label={titlePresentation.ariaLabel}
                     >
                       {task.title}
                     </Link>
-                    {isRemoved && <span className="text-xs font-medium text-zinc-500 border border-zinc-300 dark:border-zinc-700 px-1.5 py-0.5 rounded-sm bg-zinc-100 dark:bg-zinc-900">Removed</span>}
+                    {isRemoved && <span className="rounded-[3px] border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.09em] text-muted-foreground">Removed</span>}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-zinc-500 font-medium">
+                  <div className="flex items-center gap-3 font-mono text-xs text-muted-foreground font-medium">
                     {taskReference ? <span>{taskReference}</span> : null}
                     {taskReference ? <span>·</span> : null}
                     <span>{assignee}</span>
                     {task.storyPoints != null && (
                       <>
                         <span>·</span>
-                        <span className="inline-flex items-center gap-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                        <span className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground">
                           {task.storyPoints} PTS
                         </span>
                       </>
@@ -187,8 +240,8 @@ export function SprintTimelineContent({
                         <span>·</span>
                         <span className={cn(
                           "inline-flex items-center gap-1",
-                          (timeHealth.state === "overdue" || timeHealth.state === "unfinished" || timeHealth.state === "overtime")
-                            ? "text-rose-600 dark:text-rose-400 font-semibold"
+                          !isDone && (timeHealth.state === "overdue" || timeHealth.state === "unfinished" || timeHealth.state === "overtime")
+                            ? "text-destructive font-semibold"
                             : ""
                         )}>
                           Due {format(new Date(task.dueDate), isSameYear(new Date(task.dueDate), new Date()) ? "MMM d" : "MMM d, yyyy")}
@@ -205,12 +258,12 @@ export function SprintTimelineContent({
                   aria-expanded={isExpanded}
                   aria-controls={`sprint-task-${task.id}`}
                   aria-label={`${isExpanded ? "Collapse" : "Expand"} ${task.title}`}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                  className="nb-touch-target inline-flex h-7 w-7 items-center justify-center rounded-[4px] text-muted-foreground transition-[background-color,color,transform] duration-150 hover:bg-muted hover:text-foreground active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 >
                   <motion.div
                     initial={false}
                     animate={{ rotate: isExpanded ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
+                    transition={reduceMotion ? { duration: 0 } : { duration: 0.18 }}
                   >
                     <ChevronDown className="h-4 w-4" />
                   </motion.div>
@@ -230,26 +283,26 @@ export function SprintTimelineContent({
                     open: { opacity: 1, height: "auto" },
                     collapsed: { opacity: 0, height: 0 }
                   }}
-                  transition={{ duration: 0.3, ease: [0.04, 0.62, 0.23, 0.98] }}
+                  transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: "easeOut" }}
                   className="overflow-hidden"
                 >
-                  <div className="px-4 pb-4 pl-[3.75rem] text-sm text-zinc-600 dark:text-zinc-300">
+                  <div className="px-4 pb-4 pl-[3.75rem] text-sm text-muted-foreground">
                     {task.description ? (
-                      <div className="whitespace-pre-wrap">{task.description}</div>
+                      <div className="whitespace-pre-wrap text-foreground">{task.description}</div>
                     ) : (
-                      <p className="italic text-zinc-400">No description provided.</p>
+                      <p className="italic text-muted-foreground">No description provided.</p>
                     )}
                     {/* Subtasks Section */}
                     {task.subtasks && task.subtasks.length > 0 && (
                       <div className="mt-4 space-y-2">
-                        <h4 className="text-[11px] font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Subtasks</h4>
+                        <h4 className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground">Subtasks</h4>
                         <ul className="space-y-1.5">
                           {task.subtasks.map((subtask) => (
                             <li key={subtask.id} className={cn("flex items-start gap-2 text-xs", subtask.completed && "opacity-50 line-through")}>
                               {subtask.completed ? (
-                                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--status-success)]" />
                               ) : (
-                                <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                                <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                               )}
                               <span>{subtask.title}</span>
                             </li>
@@ -261,11 +314,11 @@ export function SprintTimelineContent({
                     {/* Deliverables Section */}
                     {task.linkedFiles && task.linkedFiles.filter(f => f.role === "deliverable").length > 0 && (
                       <div className="mt-4 space-y-2">
-                        <h4 className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Final Deliverables</h4>
+                        <h4 className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-[color:var(--status-success)]">Final Deliverables</h4>
                         <ul className="space-y-1.5">
                           {task.linkedFiles.filter(f => f.role === "deliverable").map((file) => (
-                            <li key={file.nodeId} className="flex items-center gap-2 text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                              <FolderUp className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            <li key={file.nodeId} className="flex items-center gap-2 text-xs font-medium text-foreground">
+                              <FolderUp className="h-3.5 w-3.5 shrink-0 text-[color:var(--status-success)]" />
                               <Link href={`/projects/${encodeURIComponent(projectSlug)}?tab=files&fileId=${encodeURIComponent(file.nodeId)}`} className="truncate hover:underline">{file.name}</Link>
                             </li>
                           ))}
@@ -276,12 +329,12 @@ export function SprintTimelineContent({
                     {/* Task working files and references */}
                     {task.linkedFiles && task.linkedFiles.filter(f => f.role === "working").length > 0 && (
                       <div className="mt-4 space-y-2">
-                        <h4 className="text-[11px] font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">{TASK_WORKING_FILES_TITLE}</h4>
+                        <h4 className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground">{TASK_WORKING_FILES_TITLE}</h4>
                         <ul className="space-y-1.5">
                           {task.linkedFiles.filter(f => f.role === "working").map((file) => (
                             <li key={file.nodeId} className="flex items-center gap-2 text-xs">
-                              <FileText className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                              <Link href={`/projects/${encodeURIComponent(projectSlug)}?tab=files&fileId=${encodeURIComponent(file.nodeId)}`} className="truncate text-zinc-600 hover:underline dark:text-zinc-400">{file.name}</Link>
+                              <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <Link href={`/projects/${encodeURIComponent(projectSlug)}?tab=files&fileId=${encodeURIComponent(file.nodeId)}`} className="truncate text-muted-foreground hover:text-foreground hover:underline transition-colors">{file.name}</Link>
                             </li>
                           ))}
                         </ul>
@@ -290,20 +343,20 @@ export function SprintTimelineContent({
 
                     {task.linkedFiles && task.linkedFiles.filter(f => f.role === "reference").length > 0 && (
                       <div className="mt-4 space-y-2">
-                        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">Task References</h4>
+                        <h4 className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground">Task References</h4>
                         <ul className="space-y-1.5">
                           {task.linkedFiles.filter(f => f.role === "reference").map((file) => (
                             <li key={file.nodeId} className="flex items-center gap-2 text-xs">
-                              <Link2 className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
-                              <Link href={`/projects/${encodeURIComponent(projectSlug)}?tab=files&fileId=${encodeURIComponent(file.nodeId)}`} className="truncate text-zinc-600 hover:underline dark:text-zinc-400">{file.name}</Link>
+                              <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <Link href={`/projects/${encodeURIComponent(projectSlug)}?tab=files&fileId=${encodeURIComponent(file.nodeId)}`} className="truncate text-muted-foreground hover:text-foreground hover:underline transition-colors">{file.name}</Link>
                             </li>
                           ))}
                         </ul>
                       </div>
                     )}
 
-                    <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800/50">
-                      <Link href={taskHref} className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <Link href={taskHref} className="nb-ui-label text-foreground underline underline-offset-4 transition-colors hover:text-primary">
                         View full task details &rarr;
                       </Link>
                     </div>
@@ -322,16 +375,19 @@ export function SprintTimelineContent({
             type="button"
             disabled={isLoadingMore}
             onClick={onLoadMore}
-            className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+            className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-foreground transition-[background-color,border-color,transform] duration-150 hover:border-input hover:bg-muted active:translate-y-px disabled:cursor-wait disabled:opacity-60"
           >
             {isLoadingMore ? "Loading tasks…" : "Load more tasks"}
           </button>
         </div>
       ) : null}
       {sprint?.status === "completed" && summary && summary.completedTasks < summary.totalTasks ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
-          Sprint closed with {summary.totalTasks - summary.completedTasks} task{summary.totalTasks - summary.completedTasks === 1 ? "" : "s"} retained in its history.
-        </p>
+        <div className="flex items-center gap-2 rounded-[5px] border border-border bg-muted/30 px-3.5 py-2 font-mono text-xs text-muted-foreground">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-[1px] bg-[var(--status-warning)]" />
+          <span>
+            Sprint closed with {summary.totalTasks - summary.completedTasks} task{summary.totalTasks - summary.completedTasks === 1 ? "" : "s"} retained in its history.
+          </span>
+        </div>
       ) : null}
     </div>
   );

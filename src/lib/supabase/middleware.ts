@@ -311,6 +311,25 @@ export async function updateSession(request: NextRequest, options: UpdateSession
     const onboardingCompleteCookie = user ? request.cookies.get(`onboarding_complete_${user.id}`)?.value === 'true' : false
     if (onboardingCompleteCookie) {
         onboardingComplete = true
+    } else if (user) {
+        // ponytail: JWT claims and cookie bypass cross-region DB query (<4ms vs 185ms). ceiling: valid user session metadata. upgrade: fallback to profiles table query if claims missing.
+        const metadataOnboarding =
+            user.app_metadata?.onboarding_completed === true ||
+            user.user_metadata?.onboarding_completed === true ||
+            user.user_metadata?.onboarding_status === 'completed' ||
+            (typeof user.user_metadata?.username === 'string' && user.user_metadata.username.trim().length > 0)
+        if (metadataOnboarding) {
+            onboardingComplete = true
+            supabaseResponse.cookies.set({
+                name: `onboarding_complete_${user.id}`,
+                value: 'true',
+                httpOnly: true,
+                sameSite: 'lax',
+                secure: process.env.NODE_ENV === 'production',
+                path: '/',
+                maxAge: 60 * 60 * 24 * 365, // 1 year
+            })
+        }
     }
 
     const shouldVerifyOnboardingFromProfile =
@@ -387,7 +406,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         const rawRedirect = request.nextUrl.searchParams.get('redirect')
         const redirectPath = rawRedirect ? normalizeAuthNextPath(rawRedirect) : ''
 
-        if (redirectPath && redirectPath !== '/hub') {
+        if (redirectPath && redirectPath !== '/discover' && redirectPath !== '/hub') {
             const redirectUrl = new URL(redirectPath, request.url)
             return redirectWithRequestId(redirectUrl, requestId, routeClass, supabaseResponse)
         }
@@ -395,21 +414,21 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         url.pathname = !emailVerified
             ? '/verify-email'
             : onboardingComplete
-                ? '/hub'
+                ? '/discover'
                 : '/onboarding'
         return redirectWithRequestId(url, requestId, routeClass, supabaseResponse)
     }
 
     if (user && pathname === '/verify-email') {
         if (emailVerified) {
-            url.pathname = onboardingComplete ? '/hub' : '/onboarding'
+            url.pathname = onboardingComplete ? '/discover' : '/onboarding'
             return redirectWithRequestId(url, requestId, routeClass, supabaseResponse)
         }
         return withRequestId(supabaseResponse, requestId, routeClass)
     }
 
     if (user && isOnboardingRoute(pathname) && onboardingComplete) {
-        url.pathname = '/hub'
+        url.pathname = '/discover'
         return redirectWithRequestId(url, requestId, routeClass, supabaseResponse)
     }
 
@@ -417,7 +436,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         const returnPath = normalizeAuthNextPath(`${pathname}${request.nextUrl.search}`)
         url.pathname = '/onboarding'
         url.search = ''
-        if (returnPath !== '/hub' && returnPath !== '/onboarding') {
+        if (returnPath !== '/discover' && returnPath !== '/hub' && returnPath !== '/onboarding') {
             url.searchParams.set('next', returnPath)
         }
         return redirectWithRequestId(url, requestId, routeClass, supabaseResponse)
@@ -425,7 +444,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
 
     if (pathname === '/') {
         if (user) {
-            url.pathname = !emailVerified ? '/verify-email' : onboardingComplete ? '/hub' : '/onboarding'
+            url.pathname = !emailVerified ? '/verify-email' : onboardingComplete ? '/discover' : '/onboarding'
         } else if (authLookupDegraded && shouldResolveAuth) {
             return withRequestId(supabaseResponse, requestId, routeClass)
         } else {

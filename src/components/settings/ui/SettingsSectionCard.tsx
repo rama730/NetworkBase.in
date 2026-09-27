@@ -20,21 +20,21 @@ export function SettingsSectionCard({
         <section
             data-testid={testId}
             className={cn(
-                "rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900",
+                "rounded-lg border border-border bg-card",
                 className
             )}
         >
-            <div className="p-5 sm:p-6 border-b border-zinc-100 dark:border-zinc-900">
-                <div className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+            <div className="border-b border-border p-6">
+                <h3 className="nb-card-title text-foreground">
                     {title}
-                </div>
+                </h3>
                 {description ? (
-                    <div className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                    <div className="nb-compact mt-1 text-muted-foreground">
                         {description}
                     </div>
                 ) : null}
             </div>
-            <div className="p-5 sm:p-6">{children}</div>
+            <div className="p-6">{children}</div>
         </section>
     );
 }

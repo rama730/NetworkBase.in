@@ -35,13 +35,13 @@ export function RevisionControlModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-white dark:bg-zinc-950 p-6 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-xl">
+      <DialogContent className="max-w-md bg-card p-6 rounded-[8px] border border-border shadow-xl">
         <DialogHeader className="mb-4">
-          <DialogTitle className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
+          <DialogTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Confirm Changes Application
           </DialogTitle>
-          <DialogDescription className="text-xs text-zinc-400 dark:text-zinc-500">
-            Choose how modifications to <span className="font-mono text-zinc-900 dark:text-zinc-100 font-semibold">{fileName}</span> should be saved.
+          <DialogDescription className="text-xs text-muted-foreground">
+            Choose how modifications to <span className="font-mono text-foreground font-semibold">{fileName}</span> should be saved.
           </DialogDescription>
         </DialogHeader>
 
@@ -49,19 +49,19 @@ export function RevisionControlModal({
         <div role="radiogroup" aria-label="How to save this revision" className="flex flex-col gap-3 my-4">
           {/* Commit as New Revision */}
           <label
-            className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-blue-500 ${
+            className={`flex items-start gap-3 p-3 rounded-[6px] border cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] focus-within:ring-1 focus-within:ring-[#D14E24] ${
               selected === "commit"
-                ? "border-indigo-500 bg-indigo-50/20 dark:border-indigo-600 dark:bg-indigo-950/10"
-                : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                ? "border-[#D14E24] bg-[#FCF0EA]/40 dark:bg-[#D14E24]/10"
+                : "border-border hover:border-border/80"
             }`}
           >
             <input type="radio" name="file-revision-mode" value="commit" checked={selected === "commit"} onChange={() => setSelected("commit")} className="sr-only" aria-label="Commit as New Revision" />
-            <div className={`p-1.5 rounded-full ${selected === "commit" ? "bg-indigo-100 dark:bg-indigo-950" : "bg-zinc-100 dark:bg-zinc-900"}`}>
-              <FileText className={`h-4 w-4 ${selected === "commit" ? "text-indigo-600 dark:text-indigo-400" : "text-zinc-500"}`} />
+            <div className={`p-1.5 rounded-[6px] ${selected === "commit" ? "bg-[#FCF0EA] dark:bg-[#D14E24]/20" : "bg-muted"}`}>
+              <FileText className={`h-4 w-4 ${selected === "commit" ? "text-[#D14E24]" : "text-muted-foreground"}`} />
             </div>
             <div className="flex-1">
-              <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Commit as New Revision</h4>
-              <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <h4 className="text-xs font-semibold text-foreground">Commit as New Revision</h4>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
                 Creates an incremental version log. Safe for tracking milestones and history.
               </p>
             </div>
@@ -69,19 +69,19 @@ export function RevisionControlModal({
 
           {/* Overwrite Active Revision */}
           <label
-            className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all focus-within:ring-2 focus-within:ring-blue-500 ${
+            className={`flex items-start gap-3 p-3 rounded-[6px] border cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] focus-within:ring-1 focus-within:ring-[#D14E24] ${
               selected === "overwrite"
-                ? "border-amber-500 bg-amber-50/20 dark:border-amber-600 dark:bg-amber-950/10"
-                : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                ? "border-amber-500/50 bg-amber-50/40 dark:bg-amber-950/20"
+                : "border-border hover:border-border/80"
             }`}
           >
             <input type="radio" name="file-revision-mode" value="overwrite" checked={selected === "overwrite"} onChange={() => setSelected("overwrite")} className="sr-only" aria-label="Apply to Active Revision" />
-            <div className={`p-1.5 rounded-full ${selected === "overwrite" ? "bg-amber-100 dark:bg-amber-950" : "bg-zinc-100 dark:bg-zinc-900"}`}>
-              <Edit className={`h-4 w-4 ${selected === "overwrite" ? "text-amber-600 dark:text-amber-400" : "text-zinc-500"}`} />
+            <div className={`p-1.5 rounded-[6px] ${selected === "overwrite" ? "bg-amber-100 dark:bg-amber-950" : "bg-muted"}`}>
+              <Edit className={`h-4 w-4 ${selected === "overwrite" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`} />
             </div>
             <div className="flex-1">
-              <h4 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Apply to Active Revision</h4>
-              <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <h4 className="text-xs font-semibold text-foreground">Apply to Active Revision</h4>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
                 Replaces the contents of this version without preserving its previous contents. Use a new revision to keep that history.
               </p>
             </div>
@@ -91,7 +91,7 @@ export function RevisionControlModal({
         {/* Optional Comment for Commit */}
         {selected === "commit" && (
           <div className="my-3">
-            <label htmlFor="commit-comment" className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 mb-1">
+            <label htmlFor="commit-comment" className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
               Changelog Comment (Optional)
             </label>
             <textarea
@@ -101,7 +101,7 @@ export function RevisionControlModal({
               placeholder="E.g., Updated section 4 layout improvements..."
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              className="w-full text-xs p-2 rounded border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 focus:outline-none   resize-none"
+              className="w-full text-xs p-2 rounded-[6px] border border-border bg-muted/50 text-foreground focus:outline-none resize-none"
             />
           </div>
         )}
@@ -111,7 +111,7 @@ export function RevisionControlModal({
             type="button"
             variant="ghost"
             onClick={() => onOpenChange(false)}
-            className="text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+            className="text-xs text-muted-foreground hover:bg-muted"
           >
             Cancel
           </Button>
@@ -120,8 +120,8 @@ export function RevisionControlModal({
             onClick={handleConfirm}
             className={`text-xs font-semibold px-4 py-2 text-white ${
               selected === "commit"
-                ? "bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
-                : "bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+                ? "bg-[#D14E24] hover:bg-[#B23F1C]"
+                : "bg-amber-600 hover:bg-amber-700"
             }`}
           >
             Confirm

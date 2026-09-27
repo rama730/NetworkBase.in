@@ -190,5 +190,9 @@ export async function GET(
     // The composer does its own sorting for keyboard navigation; on the wire
     // we nudge the owner to the top (already inserted first) and keep the rest
     // in the query order returned by Postgres.
-    return jsonSuccess({ members: results.slice(0, MAX_RESULTS) });
+    return jsonSuccess(
+        { members: results.slice(0, MAX_RESULTS) },
+        undefined,
+        { headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=120" } },
+    );
 }

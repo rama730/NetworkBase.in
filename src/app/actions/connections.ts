@@ -158,14 +158,7 @@ async function applySuggestedProfilePrivacy(
         connectionPrivacy: ConnectionPrivacySetting | null;
     }>,
 ): Promise<SuggestedProfile[]> {
-    const profilesForItems = preloadedProfiles
-        ? items.map((item) => preloadedProfiles.get(item.id)).filter((profile) => profile !== undefined)
-        : [];
-    const relationships = profilesForItems.length === items.length
-        ? await resolvePrivacyRelationshipsFromProfiles(viewerId, profilesForItems, {
-            connectionsKnownAbsent: true,
-        })
-        : await resolvePrivacyRelationships(viewerId, items.map((item) => item.id));
+    const relationships = await resolvePrivacyRelationships(viewerId, items.map((item) => item.id));
 
     return items.map((item) => {
         const relationship = relationships.get(item.id) ?? null;
@@ -299,17 +292,6 @@ type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 // ============================================================================
 
 // PURE OPTIMIZATION: lockConnectionPair fully replaced by native UNIQUE index constraint
-
-async function applyConnectionsCountDelta(tx: DbTransaction, userIds: string[], delta: number) {
-    if (userIds.length === 0 || delta === 0) return;
-    await tx
-        .update(profiles)
-        .set({
-            connectionsCount: sql`GREATEST(0, ${profiles.connectionsCount} + ${delta})`,
-            updatedAt: new Date(),
-        })
-        .where(inArray(profiles.id, userIds));
-}
 
 async function applyConnectionsCountDeltas(tx: DbTransaction, deltas: Map<string, number>) {
     const rows = Array.from(deltas, ([userId, amount]) => ({ userId, amount })).filter((row) => row.amount !== 0);
@@ -637,7 +619,6 @@ async function getConnectionsFeedImpl(
         };
     }
     input = validation.data;
-
     if (!user) {
         return {
             success: false as const,
@@ -709,7 +690,7 @@ async function getConnectionsFeedImpl(
         const conditions = [
             eq(connections.status, 'accepted'),
             or(eq(connections.requesterId, user.id), eq(connections.addresseeId, user.id)),
-            eq(profiles.onboardingStatus, 'completed'),
+            isNull(profiles.deletedAt),
         ];
 
         if (searchPattern && safeSearch) conditions.push(searchTokens.length === 1
@@ -762,7 +743,7 @@ async function getConnectionsFeedImpl(
                 location: profiles.location,
                 skills: profiles.skills,
                 interests: profiles.interests,
-                bio: profiles.bio,
+                bio: sql<string | null>`null`,
                 messagePrivacy: profiles.messagePrivacy,
                 openTo: profiles.openTo,
                 lastActiveAt: profiles.lastActiveAt,
@@ -905,7 +886,7 @@ async function getConnectionsFeedImpl(
         const conditions = [
             eq(connections.status, 'pending'),
             userCondition,
-            eq(profiles.onboardingStatus, 'completed'),
+            isNull(profiles.deletedAt),
         ];
         if (searchPattern) conditions.push(buildProfileNameIlikeSearchCondition(searchTokens));
         if (!isMutualRequestsSort && rawParsedCursor?.kind === 'date') {
@@ -1069,8 +1050,9 @@ async function getConnectionsFeedImpl(
         )`,
         sql`NOT EXISTS (
             SELECT 1 FROM ${connections} existing
-            WHERE (existing.requester_id = ${user.id} AND existing.addressee_id = ${profiles.id})
-               OR (existing.requester_id = ${profiles.id} AND existing.addressee_id = ${user.id})
+            WHERE ((existing.requester_id = ${user.id} AND existing.addressee_id = ${profiles.id})
+               OR (existing.requester_id = ${profiles.id} AND existing.addressee_id = ${user.id}))
+              AND existing.status IN ('accepted', 'blocked')
         )`,
     ];
     if (suggestionCursor) discoverConditions.push(buildSuggestionScoreCursorCondition(suggestionCursor));
@@ -1146,7 +1128,6 @@ async function getConnectionsFeedImpl(
 
     let searchFallbackHasMore = false;
     let searchFallbackNextCursor: string | null = null;
-
     // Search must cover every eligible profile, not only the viewer's precomputed
     // suggestion rows. The same query is also the cold-start fallback.
     if (!suggestionCursor && !input.filters?.hasMutuals && (Boolean(searchPattern) || items.length === 0)) {
@@ -1184,8 +1165,9 @@ async function getConnectionsFeedImpl(
             )`);
             fallbackConditions.push(sql`NOT EXISTS (
                 SELECT 1 FROM ${connections} existing
-                WHERE (existing.requester_id = ${user.id} AND existing.addressee_id = ${profiles.id})
-                   OR (existing.requester_id = ${profiles.id} AND existing.addressee_id = ${user.id})
+                WHERE ((existing.requester_id = ${user.id} AND existing.addressee_id = ${profiles.id})
+                   OR (existing.requester_id = ${profiles.id} AND existing.addressee_id = ${user.id}))
+                  AND existing.status IN ('accepted', 'blocked')
             )`);
         }
         if (input.filters?.seniorPlus) fallbackConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
@@ -1588,58 +1570,33 @@ export async function sendConnectionRequest(
             return await returnFailure('Cannot connect to yourself');
         }
 
-        const [existingConnection] = await db
-            .select({
-                id: connections.id,
-                status: connections.status,
-                requesterId: connections.requesterId,
-                addresseeId: connections.addresseeId,
-                updatedAt: connections.updatedAt,
-            })
-            .from(connections)
-            .where(
-                or(
-                    and(eq(connections.requesterId, user.id), eq(connections.addresseeId, addresseeId)),
-                    and(eq(connections.requesterId, addresseeId), eq(connections.addresseeId, user.id))
-                )
-            )
-            .orderBy(desc(connections.updatedAt))
-            .limit(1);
-
-        if (existingConnection?.status === 'accepted') {
-            return { success: true, connectionId: existingConnection.id, status: 'connected' };
-        }
-
-        if (existingConnection?.status === 'pending') {
-            return {
-                success: true,
-                connectionId: existingConnection.id,
-                status: existingConnection.requesterId === user.id ? 'pending_sent' : 'pending_received',
-            };
-        }
-
-        if (existingConnection?.status === 'blocked') {
-            return await returnFailure('You cannot send a request to this account.');
-        }
-
-        if (existingConnection?.status === 'rejected') {
-            const isSameDirection = existingConnection.requesterId === user.id && existingConnection.addresseeId === addresseeId;
-            if (isSameDirection) {
-                const cooldownUntil = new Date(new Date(existingConnection.updatedAt).getTime() + REJECT_REQUEST_COOLDOWN_MS);
-                if (cooldownUntil.getTime() > Date.now()) {
-                    return await returnFailure(`This request was recently declined. You can retry after ${cooldownUntil.toLocaleString()}.`);
-                }
-            }
-        }
-
+        // PURE OPTIMIZATION (Flow 1.4, Item 1, Item 105):
+        // Authoritative privacy check replaces redundant un-locked connections pre-read.
         const privacy = await resolvePrivacyRelationship(user.id, addresseeId);
         if (!privacy) {
             return await returnFailure('User not found');
         }
+        if (privacy.isConnected) {
+            return { success: true, connectionId: privacy.latestConnectionId ?? undefined, status: 'connected' };
+        }
+        if (privacy.hasPendingOutgoingRequest) {
+            return {
+                success: true,
+                connectionId: privacy.latestConnectionId ?? undefined,
+                status: 'pending_sent',
+            };
+        }
+        if (privacy.hasPendingIncomingRequest) {
+            return {
+                success: true,
+                connectionId: privacy.latestConnectionId ?? undefined,
+                status: 'pending_received',
+            };
+        }
+        if (privacy.blockedByViewer || privacy.blockedByTarget) {
+            return await returnFailure('You cannot send a request to this account.');
+        }
         if (!privacy.canSendConnectionRequest) {
-            if (privacy.blockedByViewer || privacy.blockedByTarget) {
-                return await returnFailure('You cannot send a request to this account.');
-            }
             if (privacy.connectionPrivacy === 'nobody') {
                 return await returnFailure('This user is not accepting connection requests.');
             }
@@ -1649,17 +1606,13 @@ export async function sendConnectionRequest(
             return await returnFailure('Cannot send request right now.');
         }
 
-        const canRetryExistingConnection =
-            existingConnection?.status === 'cancelled'
-            || existingConnection?.status === 'disconnected'
-            || existingConnection?.status === 'rejected';
-
-        if (canRetryExistingConnection) {
+        // If retrying a prior terminal connection (cancelled/disconnected/rejected), clear any stale hold.
+        if (privacy.latestConnectionId && privacy.connectionState === 'none') {
             await clearConnectionRequestHold(user.id, addresseeId);
         }
 
         const perTargetHoldKey = `connections-send-hold:${user.id}:${addresseeId}`;
-        const shouldEnforcePerTargetHold = !existingConnection;
+        const shouldEnforcePerTargetHold = !privacy.latestConnectionId;
         if (shouldEnforcePerTargetHold && redis) {
             try {
                 const held = await redis.get(perTargetHoldKey);
@@ -1690,8 +1643,9 @@ export async function sendConnectionRequest(
 
         const txResult = await db.transaction(async (tx) => {
             const pairKey = [user.id, addresseeId].sort().join(":");
+            // PURE OPTIMIZATION (Item 94): Upgrade 32-bit hashtext advisory lock to 64-bit hashtextextended.
             await tx.execute(sql`
-                SELECT pg_advisory_xact_lock(hashtext('connection-pair'), hashtext(${pairKey}))
+                SELECT pg_advisory_xact_lock(hashtextextended('connection-pair:' || ${pairKey}, 0))
             `);
             const existing = await tx
                 .select({
@@ -1790,9 +1744,7 @@ export async function sendConnectionRequest(
             } catch { /* ignore */ }
         }
 
-        await queueCounterRefreshBestEffort([addresseeId]);
         await invalidateDiscoverCacheForUsers([user.id, addresseeId]);
-
 
         if (!txResult.skippedWrite) {
             try {
@@ -1814,7 +1766,15 @@ export async function sendConnectionRequest(
             }
         }
 
-        await revalidateConnectionsPaths();
+        after(async () => {
+            try {
+                await queueCounterRefreshBestEffort([addresseeId]);
+                await revalidateConnectionsPaths();
+            } catch (backgroundError) {
+                console.error('[sendConnectionRequest] Background tasks failed:', backgroundError);
+            }
+        });
+
         return { success: true, connectionId: txResult.connectionId, status: txResult.status ?? 'created' };
     } catch (error) {
         await releaseIdempotencyLock();
@@ -1852,6 +1812,7 @@ export async function dismissConnectionSuggestion(
             });
 
         await invalidateDiscoverCacheForUsers([user.id]);
+        revalidatePath('/network');
         revalidatePath('/people');
         return { success: true };
     } catch (error) {
@@ -2048,7 +2009,10 @@ export async function cancelConnectionRequest(
             })
             .where(
                 and(
-                    eq(connections.id, connectionId),
+                    or(
+                        eq(connections.id, connectionId),
+                        eq(connections.addresseeId, connectionId)
+                    ),
                     eq(connections.requesterId, user.id),
                     eq(connections.status, 'pending')
                 )
@@ -2080,7 +2044,15 @@ export async function cancelConnectionRequest(
                     status: connections.status,
                 })
                 .from(connections)
-                .where(and(eq(connections.id, connectionId), eq(connections.requesterId, user.id)))
+                .where(
+                    and(
+                        or(
+                            eq(connections.id, connectionId),
+                            eq(connections.addresseeId, connectionId)
+                        ),
+                        eq(connections.requesterId, user.id)
+                    )
+                )
                 .limit(1);
 
             if (!existing) return { success: false, error: 'Request not found' };
@@ -2102,9 +2074,17 @@ export async function cancelConnectionRequest(
         if (!cancelled) return { success: false, error: 'Request cannot be withdrawn.' };
 
         await clearConnectionRequestHold(cancelled.requesterId, cancelled.addresseeId);
-        await queueCounterRefreshBestEffort([cancelled.addresseeId]);
         await invalidateDiscoverCacheForUsers([cancelled.requesterId, cancelled.addresseeId]);
-        await revalidateConnectionsPaths();
+
+        after(async () => {
+            try {
+                await queueCounterRefreshBestEffort([cancelled.addresseeId]);
+                await revalidateConnectionsPaths();
+            } catch (err) {
+                console.error('[cancelConnectionRequest] Background tasks failed:', err);
+            }
+        });
+
         return {
             success: true,
             connectionId: cancelled.id,
@@ -2147,25 +2127,31 @@ export async function acceptConnectionRequest(
             },
             async () => {
                 const accepted = await db.transaction(async (tx) => {
-                    const updated = await tx
-                        .update(connections)
-                        .set({
-                            status: 'accepted',
-                            updatedAt: new Date(),
-                        })
-                        .where(
-                            and(
-                                eq(connections.id, connectionId),
-                                eq(connections.addresseeId, user.id),
-                                eq(connections.status, 'pending')
+                    // PURE OPTIMIZATION (Item 2, Flow 1.5): Single atomic CTE updates connections and increments both profile connection counts.
+                    const result = await tx.execute<{ requester_id: string; addressee_id: string }>(sql`
+                        WITH updated_conn AS (
+                            UPDATE connections
+                            SET status = 'accepted', updated_at = now()
+                            WHERE id = ${connectionId}::uuid
+                              AND addressee_id = ${user.id}::uuid
+                              AND status = 'pending'
+                            RETURNING requester_id, addressee_id
+                        ),
+                        updated_profiles AS (
+                            UPDATE profiles
+                            SET connections_count = GREATEST(0, connections_count + 1),
+                                updated_at = now()
+                            WHERE id IN (
+                                SELECT requester_id FROM updated_conn
+                                UNION
+                                SELECT addressee_id FROM updated_conn
                             )
                         )
-                        .returning({
-                            requesterId: connections.requesterId,
-                            addresseeId: connections.addresseeId,
-                        });
+                        SELECT requester_id, addressee_id FROM updated_conn
+                    `);
 
-                    if (updated.length === 0) {
+                    const updatedRow = result[0];
+                    if (!updatedRow) {
                         const [existing] = await tx
                             .select({
                                 requesterId: connections.requesterId,
@@ -2187,13 +2173,11 @@ export async function acceptConnectionRequest(
                         return null;
                     }
 
-                    await applyConnectionsCountDelta(
-                        tx,
-                        [updated[0]!.requesterId, updated[0]!.addresseeId],
-                        1
-                    );
-
-                    return { ...updated[0], changed: true };
+                    return {
+                        requesterId: updatedRow.requester_id,
+                        addresseeId: updatedRow.addressee_id,
+                        changed: true,
+                    };
                 });
 
                 if (!accepted) {
@@ -2207,18 +2191,13 @@ export async function acceptConnectionRequest(
                 }
 
                 await clearConnectionRequestHold(acceptedRequesterId, acceptedAddresseeId);
-                await queueCounterRefreshBestEffort([acceptedRequesterId, acceptedAddresseeId]);
                 await invalidateDiscoverCacheForUsers([acceptedRequesterId, acceptedAddresseeId]);
 
                 if (accepted.changed) {
-                    await Promise.allSettled([
-                        applyConnectionPairsToRedis([{
-                            requesterId: acceptedRequesterId,
-                            addresseeId: acceptedAddresseeId,
-                        }], 'add'),
-                        inngest.send({ name: 'workspace/connections.sync_suggestions', data: { userId: acceptedRequesterId } }),
-                        inngest.send({ name: 'workspace/connections.sync_suggestions', data: { userId: acceptedAddresseeId } }),
-                    ]).catch(console.error);
+                    await applyConnectionPairsToRedis([{
+                        requesterId: acceptedRequesterId,
+                        addresseeId: acceptedAddresseeId,
+                    }], 'add').catch(console.error);
 
                     try {
                         await emitConnectionAcceptedNotification({
@@ -2239,7 +2218,21 @@ export async function acceptConnectionRequest(
                     }
                 }
 
-                await revalidateConnectionsPaths();
+                after(async () => {
+                    try {
+                        await queueCounterRefreshBestEffort([acceptedRequesterId, acceptedAddresseeId]);
+                        if (accepted.changed) {
+                            void inngest.send([
+                                { name: 'workspace/connections.sync_suggestions', data: { userId: acceptedRequesterId } },
+                                { name: 'workspace/connections.sync_suggestions', data: { userId: acceptedAddresseeId } },
+                            ]).catch(console.error);
+                        }
+                        await revalidateConnectionsPaths();
+                    } catch (err) {
+                        console.error('[acceptConnectionRequest] Background tasks failed:', err);
+                    }
+                });
+
                 return { success: true, requesterId: acceptedRequesterId, addresseeId: acceptedAddresseeId };
             },
         );
@@ -2398,29 +2391,35 @@ export async function removeConnection(
         }
 
         const removed = await db.transaction(async (tx) => {
-            // PURE OPTIMIZATION: Removed read-before-write and advisory lock in favor of atomic UPDATE + RETURNING.
-            const [updated] = await tx
-                .update(connections)
-                .set({
-                    status: 'disconnected',
-                    updatedAt: new Date(),
-                })
-                .where(
-                    and(
-                        eq(connections.id, connectionId),
-                        eq(connections.status, 'accepted'),
-                        or(eq(connections.requesterId, user.id), eq(connections.addresseeId, user.id))
+            // PURE OPTIMIZATION: Consolidate connection disconnect and profile count decrements into 1 atomic round-trip.
+            const result = await tx.execute<{ requester_id: string; addressee_id: string }>(sql`
+                WITH updated_conn AS (
+                    UPDATE connections
+                    SET status = 'disconnected', updated_at = now()
+                    WHERE id = ${connectionId}::uuid
+                      AND status = 'accepted'
+                      AND (requester_id = ${user.id}::uuid OR addressee_id = ${user.id}::uuid)
+                    RETURNING requester_id, addressee_id
+                ),
+                updated_profiles AS (
+                    UPDATE profiles
+                    SET connections_count = GREATEST(0, connections_count - 1),
+                        updated_at = now()
+                    WHERE id IN (
+                        SELECT requester_id FROM updated_conn
+                        UNION
+                        SELECT addressee_id FROM updated_conn
                     )
                 )
-                .returning({
-                    requesterId: connections.requesterId,
-                    addresseeId: connections.addresseeId,
-                });
+                SELECT requester_id, addressee_id FROM updated_conn
+            `);
 
-            if (!updated) return null;
-
-            await applyConnectionsCountDelta(tx, [updated.requesterId, updated.addresseeId], -1);
-            return updated;
+            const row = result[0];
+            if (!row) return null;
+            return {
+                requesterId: row.requester_id,
+                addresseeId: row.addressee_id,
+            };
         });
 
         if (!removed) {
@@ -2430,8 +2429,14 @@ export async function removeConnection(
         await clearConnectionRequestHold(removed.requesterId, removed.addresseeId);
         await invalidateDiscoverCacheForUsers([removed.requesterId, removed.addresseeId]);
 
-        // Non-blocking sync to Redis Edge Cache (removes from set).
-        await applyConnectionPairsToRedis([removed], 'remove').catch(console.error);
+        // Keep both the connection cache and derived recommendations current.
+        await Promise.allSettled([
+            applyConnectionPairsToRedis([removed], 'remove'),
+            inngest.send([
+                { name: 'workspace/connections.sync_suggestions', data: { userId: removed.requesterId } },
+                { name: 'workspace/connections.sync_suggestions', data: { userId: removed.addresseeId } },
+            ]),
+        ]);
 
         await revalidateConnectionsPaths();
         return { success: true };

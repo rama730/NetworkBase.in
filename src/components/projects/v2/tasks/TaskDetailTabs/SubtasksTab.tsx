@@ -1,14 +1,17 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { Check, ChevronDown, Loader2, MoreHorizontal, Plus, Send, Trash2 } from "lucide-react";
-
+import React, { useMemo, useRef, useState } from "react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Check,
+  CheckSquare,
+  Copy,
+  Edit2,
+  Loader2,
+  Plus,
+  Trash2,
+} from "lucide-react";
+
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { TaskPanelSubtask } from "@/hooks/useTaskPanelResource";
 
@@ -40,21 +43,29 @@ export default function SubtasksTab({
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [filter, setFilter] = useState<"all" | "open" | "completed">("all");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingIds, setPendingIds] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const { openSubtasks, completedSubtasks, completedCount, completionPercent } = useMemo(() => {
+  const { openSubtasks, completedSubtasks, completedCount } = useMemo(() => {
     const completed = subtasks.filter((subtask) => subtask.completed);
     return {
       openSubtasks: subtasks.filter((subtask) => !subtask.completed),
       completedSubtasks: completed,
       completedCount: completed.length,
-      completionPercent: subtasks.length ? Math.round((completed.length / subtasks.length) * 100) : 0,
     };
   }, [subtasks]);
+
+  const filteredSubtasks = useMemo(() => {
+    if (filter === "open") return openSubtasks;
+    if (filter === "completed") return completedSubtasks;
+    return subtasks;
+  }, [filter, openSubtasks, completedSubtasks, subtasks]);
+
   const displayError = localError || error;
 
   const setPending = (id: string, pending: boolean) => {
@@ -76,8 +87,12 @@ export default function SubtasksTab({
       if (result.success) {
         setDraft("");
         setAnnouncement("Subtask added.");
+        requestAnimationFrame(() => {
+          inputRef.current?.focus();
+        });
+      } else {
+        setLocalError(result.error || "Could not add subtask.");
       }
-      else setLocalError(result.error || "Could not add subtask.");
     } finally {
       setIsSubmitting(false);
     }
@@ -89,8 +104,13 @@ export default function SubtasksTab({
     setLocalError(null);
     try {
       const result = await onToggleSubtask(subtask.id, subtask.completed);
-      if (result.success) setAnnouncement(`Subtask marked ${subtask.completed ? "incomplete" : "complete"}.`);
-      else setLocalError(result.error || "Could not update subtask.");
+      if (result.success) {
+        setAnnouncement(
+          `Subtask marked ${subtask.completed ? "incomplete" : "complete"}.`,
+        );
+      } else {
+        setLocalError(result.error || "Could not update subtask.");
+      }
     } finally {
       setPending(subtask.id, false);
     }
@@ -113,8 +133,9 @@ export default function SubtasksTab({
       if (result.success) {
         setEditingId(null);
         setAnnouncement("Subtask title updated.");
+      } else {
+        setLocalError(result.error || "Could not rename subtask.");
       }
-      else setLocalError(result.error || "Could not rename subtask.");
     } finally {
       setPending(subtask.id, false);
     }
@@ -128,8 +149,9 @@ export default function SubtasksTab({
       const result = await onDeleteSubtask(subtask.id);
       if (!result.success) {
         setLocalError(result.error || "Could not delete subtask.");
+      } else {
+        setAnnouncement("Subtask deleted.");
       }
-      if (result.success) setAnnouncement("Subtask deleted.");
     } catch (error) {
       setLocalError(
         error instanceof Error ? error.message : "Could not delete subtask.",
@@ -139,22 +161,38 @@ export default function SubtasksTab({
     }
   };
 
+  const copySubtaskTitle = (subtask: TaskPanelSubtask) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      void navigator.clipboard.writeText(subtask.title);
+      setCopiedId(subtask.id);
+      setTimeout(() => setCopiedId(null), 1800);
+    }
+  };
+
   const startEditing = (subtask: TaskPanelSubtask) => {
     setEditingId(subtask.id);
     setEditingDraft(subtask.title);
   };
 
-  const renderSubtask = (subtask: TaskPanelSubtask) => {
+  const renderSubtask = (subtask: TaskPanelSubtask, index: number) => {
     const pending = pendingIds[subtask.id] === true;
     const editing = editingId === subtask.id;
+    const isCopied = copiedId === subtask.id;
+
     return (
       <li
         key={subtask.id}
         className={cn(
-          "group flex min-h-12 items-center gap-3 border-b border-zinc-100 px-1 py-2.5 last:border-b-0 dark:border-zinc-800",
-          subtask.completed && "text-zinc-500",
+          "group relative flex min-h-[42px] items-center gap-2.5 rounded-[5px] border border-border/80 bg-background px-3 py-2 transition-colors hover:border-foreground/30 shadow-2xs",
+          subtask.completed && "border-border/50 bg-muted/10 opacity-85",
         )}
       >
+        {/* Checkpoint Index */}
+        <span className="shrink-0 font-mono text-[10px] font-medium text-muted-foreground/60 w-5 text-center select-none">
+          #{index + 1}
+        </span>
+
+        {/* Checkbox Trigger */}
         <button
           type="button"
           onClick={() => void toggleSubtask(subtask)}
@@ -163,15 +201,20 @@ export default function SubtasksTab({
           aria-checked={subtask.completed}
           aria-label={`${subtask.completed ? "Mark incomplete" : "Mark complete"}: ${subtask.title}`}
           className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-60",
+            "flex size-4.5 shrink-0 items-center justify-center rounded-[3px] border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
             subtask.completed
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-zinc-300 text-zinc-400 hover:border-primary dark:border-zinc-700",
+              ? "border-emerald-600 bg-emerald-500 text-white shadow-2xs"
+              : "border-border bg-card hover:border-foreground/50",
           )}
         >
-          {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : subtask.completed ? <Check className="h-3 w-3" /> : null}
+          {pending ? (
+            <Loader2 className="size-3 animate-spin" />
+          ) : subtask.completed ? (
+            <Check className="size-3 stroke-[2.5]" />
+          ) : null}
         </button>
 
+        {/* Title / Inline Editor */}
         {editing ? (
           <input
             autoFocus
@@ -187,64 +230,186 @@ export default function SubtasksTab({
             onBlur={() => void saveTitle(subtask)}
             disabled={pending}
             aria-label="Subtask title"
-            className="min-w-0 flex-1 rounded bg-transparent px-1 text-sm text-zinc-900 outline-none ring-1 ring-primary/50 dark:text-zinc-100"
+            className="h-[28px] min-w-0 flex-1 rounded-[3px] border border-primary bg-background px-2 text-[13px] font-medium text-foreground outline-none"
           />
         ) : (
-          <span className={cn("min-w-0 flex-1 break-words text-sm", subtask.completed ? "text-zinc-400 line-through" : "text-zinc-800 dark:text-zinc-200")}>
+          <span
+            onClick={() => canEdit && !pending && startEditing(subtask)}
+            className={cn(
+              "min-w-0 flex-1 break-words text-[13px] leading-snug select-text",
+              canEdit && "cursor-pointer",
+              subtask.completed
+                ? "text-muted-foreground line-through decoration-muted-foreground/60"
+                : "font-medium text-foreground hover:text-primary transition-colors",
+            )}
+            title={canEdit ? "Click to edit title" : undefined}
+          >
             {subtask.title}
           </span>
         )}
 
-        {pending ? <span className="shrink-0 text-xs text-zinc-400">Saving…</span> : null}
+        {pending ? (
+          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+            Saving…
+          </span>
+        ) : null}
+
+        {/* Action Buttons on Hover */}
         {canEdit && !editing && !pending ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`Actions for ${subtask.title}`}
-                className="shrink-0 rounded p-1 text-zinc-400 opacity-0 transition hover:bg-zinc-100 hover:text-zinc-700 focus:opacity-100 group-hover:opacity-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="z-[300]">
-              <DropdownMenuItem onSelect={() => startEditing(subtask)}>Edit title</DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onSelect={() => void deleteSubtask(subtask)}>
-                <Trash2 className="h-4 w-4" /> Delete subtask
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+            <button
+              type="button"
+              onClick={() => copySubtaskTitle(subtask)}
+              aria-label={`Copy title of ${subtask.title}`}
+              className="size-7 flex items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              title="Copy title"
+            >
+              {isCopied ? (
+                <Check className="size-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+              ) : (
+                <Copy className="size-3.5" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => startEditing(subtask)}
+              aria-label={`Edit ${subtask.title}`}
+              className="size-7 flex items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              title="Edit title"
+            >
+              <Edit2 className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => void deleteSubtask(subtask)}
+              aria-label={`Delete ${subtask.title}`}
+              className="size-7 flex items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+              title="Delete subtask"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
         ) : null}
       </li>
     );
   };
 
   return (
-    <section className="flex min-h-full flex-col p-4 sm:p-5" aria-labelledby="subtasks-heading">
-      <header className="border-b border-zinc-100 pb-4 dark:border-zinc-800">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 id="subtasks-heading" className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Subtasks</h3>
-            <p className="mt-1 text-xs text-zinc-500">{completedCount} of {subtasks.length} complete</p>
+    <section
+      className="flex min-h-full flex-col p-6 space-y-4"
+      aria-labelledby="subtasks-heading"
+    >
+      {/* Unboxed Architectural Header */}
+      <div className="space-y-3 border-b border-border/60 pb-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h3
+              id="subtasks-heading"
+              className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+            >
+              Subtasks
+            </h3>
+            <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-1.5 font-mono text-[11px] font-medium text-foreground">
+              {completedCount}/{subtasks.length}
+            </span>
+            {completedCount === subtasks.length && subtasks.length > 0 ? (
+              <span className="inline-flex h-4 items-center rounded-[3px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 font-mono text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                Complete
+              </span>
+            ) : null}
           </div>
-          {subtasks.length > 0 ? <span className="text-xs font-semibold text-zinc-500">{completionPercent}%</span> : null}
+
+          {/* Bulk Productivity Action */}
+          {subtasks.length > 0 && canEdit ? (
+            <div className="flex items-center gap-2">
+              {openSubtasks.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    for (const s of openSubtasks) {
+                      void onToggleSubtask(s.id, false);
+                    }
+                  }}
+                  className="font-mono text-[11px] text-muted-foreground hover:text-foreground transition underline underline-offset-2"
+                >
+                  Mark all done
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    for (const s of completedSubtasks) {
+                      void onToggleSubtask(s.id, true);
+                    }
+                  }}
+                  className="font-mono text-[11px] text-muted-foreground hover:text-foreground transition underline underline-offset-2"
+                >
+                  Reopen all
+                </button>
+              )}
+            </div>
+          ) : null}
         </div>
+
+        <p className="text-xs text-muted-foreground">
+          Decompose this task into deliverable checkpoints.
+        </p>
+
+        {/* Filter Segmented Control */}
         {subtasks.length > 0 ? (
-          <div
-            className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"
-            role="progressbar"
-            aria-label="Subtask completion"
-            aria-valuemin={0}
-            aria-valuemax={subtasks.length}
-            aria-valuenow={completedCount}
-          >
-            <div className="h-full rounded-full bg-primary transition-[width] duration-200" style={{ width: `${completionPercent}%` }} />
+          <div className="flex items-center justify-between pt-0.5">
+            <div className="inline-flex h-[28px] items-center rounded-[5px] border border-border bg-muted/30 p-0.5 gap-0.5">
+              <button
+                type="button"
+                onClick={() => setFilter("all")}
+                className={cn(
+                  "h-5 rounded-[3px] px-2 text-xs font-medium transition-colors",
+                  filter === "all"
+                    ? "bg-card text-foreground shadow-2xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                All ({subtasks.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter("open")}
+                className={cn(
+                  "h-5 rounded-[3px] px-2 text-xs font-medium transition-colors",
+                  filter === "open"
+                    ? "bg-card text-foreground shadow-2xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Open ({openSubtasks.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter("completed")}
+                className={cn(
+                  "h-5 rounded-[3px] px-2 text-xs font-medium transition-colors",
+                  filter === "completed"
+                    ? "bg-card text-foreground shadow-2xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Done ({completedSubtasks.length})
+              </button>
+            </div>
+            {completedCount > 0 && openSubtasks.length === 0 ? (
+              <span className="font-mono text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                All checkpoints complete
+              </span>
+            ) : null}
           </div>
         ) : null}
-      </header>
+      </div>
 
       {displayError ? (
-        <div role="alert" className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200">
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-[5px] border border-destructive/20 bg-destructive/10 px-3.5 py-2.5 text-xs text-destructive"
+        >
           <span>{displayError}</span>
           <button
             type="button"
@@ -252,76 +417,112 @@ export default function SubtasksTab({
               setLocalError(null);
               void onRetry();
             }}
-            className="shrink-0 font-semibold underline"
+            className="shrink-0 font-medium underline hover:opacity-80"
           >
             Retry
           </button>
         </div>
       ) : null}
-      <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
+      <p className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </p>
 
+      {/* Subtasks Content */}
       {isLoading ? (
-        <div className="flex flex-1 items-center justify-center py-12" role="status" aria-label="Loading subtasks">
-          <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+        <div
+          className="space-y-2 py-1"
+          role="status"
+          aria-label="Loading subtasks"
+        >
+          <span className="sr-only">Loading subtasks…</span>
+          {[0, 1, 2].map((index) => (
+            <div
+              key={index}
+              className="flex min-h-[36px] items-center gap-2.5 rounded-[4px] border border-border/80 bg-card px-2.5 py-1.5"
+              aria-hidden="true"
+            >
+              <Skeleton className="h-3.5 w-5 rounded-[2px]" />
+              <Skeleton className="size-4.5 shrink-0 rounded-[3px]" />
+              <Skeleton className="h-4 flex-1 rounded-[3px]" />
+            </div>
+          ))}
         </div>
       ) : subtasks.length === 0 ? (
-        <div className="flex flex-1 flex-col justify-center py-12 text-center">
-          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">No subtasks yet</p>
-          <p className="mt-1 text-sm text-zinc-500">Break this task into clear, verifiable steps.</p>
+        <div
+          role="status"
+          onClick={() => canEdit && inputRef.current?.focus()}
+          className={cn(
+            "my-auto flex flex-1 flex-col items-center justify-center nb-empty-state nb-grid-ground p-8 text-center transition",
+            canEdit && "cursor-pointer hover:border-foreground/30 hover:bg-muted/10",
+          )}
+        >
+          <div className="nb-empty-state-icon-box mb-3">
+            <CheckSquare className="nb-empty-state-icon" />
+          </div>
+          <p className="nb-empty-state-title">
+            No subtasks added yet
+          </p>
+          <p className="nb-empty-state-desc max-w-[280px]">
+            Break down this task into clear, verifiable sub-items using the input below.
+          </p>
         </div>
       ) : (
-        <div className="flex-1 py-4">
-          {openSubtasks.length === 0 ? (
-            <p className="mb-3 text-sm font-medium text-emerald-700 dark:text-emerald-300">All subtasks complete.</p>
-          ) : null}
-          {openSubtasks.length > 0 ? (
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">Open · {openSubtasks.length}</p>
-              <ul aria-label="Open subtasks">{openSubtasks.map(renderSubtask)}</ul>
+        <div className="flex-1 py-1">
+          {filteredSubtasks.length === 0 ? (
+            <div className="nb-empty-state nb-grid-ground my-4 py-8 text-center" role="status">
+              <p className="nb-compact text-muted-foreground">
+                No subtasks match the selected filter.
+              </p>
             </div>
-          ) : null}
-          {completedSubtasks.length > 0 ? (
-            <div className={cn(openSubtasks.length > 0 && "mt-5")}>
-              <button
-                type="button"
-                onClick={() => setShowCompleted((current) => !current)}
-                className="mb-1 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-zinc-500 transition hover:text-zinc-900 dark:hover:text-zinc-200"
-                aria-expanded={showCompleted}
-              >
-                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !showCompleted && "-rotate-90")} />
-                Completed · {completedSubtasks.length}
-              </button>
-              {showCompleted ? <ul aria-label="Completed subtasks">{completedSubtasks.map(renderSubtask)}</ul> : null}
-            </div>
-          ) : null}
+          ) : (
+            <ul aria-label="Subtasks list" className="space-y-2">
+              {filteredSubtasks.map((subtask, index) =>
+                renderSubtask(subtask, index),
+              )}
+            </ul>
+          )}
         </div>
       )}
 
+      {/* High-Velocity Continuous Add Subtask Form */}
       {canEdit ? (
         <form
-          className="sticky bottom-0 mt-auto flex items-center gap-2 border-t border-zinc-100 bg-white pt-3 dark:border-zinc-800 dark:bg-zinc-900"
+          className="sticky bottom-0 mt-auto border-t border-border bg-card/95 backdrop-blur-xs pt-3"
           onSubmit={(event) => {
             event.preventDefault();
             void submitNewSubtask();
           }}
         >
-          <Plus className="h-4 w-4 shrink-0 text-zinc-400" aria-hidden />
-          <input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            disabled={isSubmitting}
-            placeholder="Add a subtask…"
-            aria-label="Add a subtask"
-            className="min-w-0 flex-1 bg-transparent py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 disabled:opacity-60 dark:text-zinc-100"
-          />
-          <button
-            type="submit"
-            disabled={!draft.trim() || isSubmitting}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-            Add
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <input
+                ref={inputRef}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                disabled={isSubmitting}
+                placeholder="Add a new subtask checkpoint…"
+                aria-label="Add a subtask"
+                className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground outline-none transition focus:border-primary placeholder:text-muted-foreground disabled:opacity-60"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!draft.trim() || isSubmitting}
+              className="inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[5px] bg-primary px-3.5 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Plus className="size-3.5" />
+              )}
+              Add subtask
+            </button>
+          </div>
+          <div className="flex items-center justify-between pt-1.5 px-0.5">
+            <span className="font-mono text-[10px] text-muted-foreground/60">
+              Press Enter ↵ to add checkpoint
+            </span>
+          </div>
         </form>
       ) : null}
     </section>

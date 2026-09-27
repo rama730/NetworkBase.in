@@ -83,6 +83,18 @@ export async function GET(request: Request) {
             )
           : undefined,
       ),
+      columns: {
+        id: true,
+        name: true,
+        type: true,
+        path: true,
+        s3Key: true,
+        size: true,
+        mimeType: true,
+        currentVersion: true,
+        syncStatus: true,
+        updatedAt: true,
+      },
       orderBy: (n, { asc }) => [asc(n.type), asc(n.name), asc(n.id)],
       limit: limit + 1,
     });

@@ -23,10 +23,7 @@ import {
 } from "@/app/api/v1/_shared";
 
 const ATTACHMENTS_BUCKET = "chat-attachments";
-const ATTACHMENT_SIGNED_URL_TTL_SECONDS = 300;
-const ATTACHMENT_SIGNED_URL_REUSE_MS = 240_000;
-const ATTACHMENT_SIGNED_URL_CACHE_MAX = 1_000;
-const attachmentSignedUrlCache = new Map<string, { signedUrl: string; reusableUntil: number }>();
+const ATTACHMENT_SIGNED_URL_TTL_SECONDS = 86_400; // 24 hours
 
 function storageImageTransformationsEnabled() {
   return process.env.SUPABASE_STORAGE_IMAGE_TRANSFORMATIONS_ENABLED?.trim().toLowerCase() === "true";
@@ -34,20 +31,10 @@ function storageImageTransformationsEnabled() {
 
 async function getReusableAttachmentSignedUrl(input: {
   admin: Awaited<ReturnType<typeof createAdminClient>>;
-  cacheKey: string;
   storagePath: string;
   download?: string;
   transform?: { width: number; resize: "contain"; format: "origin" };
 }) {
-  const now = Date.now();
-  const cached = attachmentSignedUrlCache.get(input.cacheKey);
-  if (cached && cached.reusableUntil > now) {
-    attachmentSignedUrlCache.delete(input.cacheKey);
-    attachmentSignedUrlCache.set(input.cacheKey, cached);
-    return cached.signedUrl;
-  }
-  if (cached) attachmentSignedUrlCache.delete(input.cacheKey);
-
   const { data, error } = await input.admin.storage
     .from(ATTACHMENTS_BUCKET)
     .createSignedUrl(input.storagePath, ATTACHMENT_SIGNED_URL_TTL_SECONDS, {
@@ -55,16 +42,6 @@ async function getReusableAttachmentSignedUrl(input: {
       transform: input.transform,
     });
   if (error || !data?.signedUrl) return null;
-
-  attachmentSignedUrlCache.set(input.cacheKey, {
-    signedUrl: data.signedUrl,
-    reusableUntil: now + ATTACHMENT_SIGNED_URL_REUSE_MS,
-  });
-  while (attachmentSignedUrlCache.size > ATTACHMENT_SIGNED_URL_CACHE_MAX) {
-    const oldest = attachmentSignedUrlCache.keys().next().value;
-    if (typeof oldest !== "string") break;
-    attachmentSignedUrlCache.delete(oldest);
-  }
   return data.signedUrl;
 }
 
@@ -249,7 +226,6 @@ export async function GET(
   if (isVideo || isStreamRequest) {
     const signedUrl = await getReusableAttachmentSignedUrl({
       admin,
-      cacheKey: `${user.id}:${storagePath}:stream`,
       storagePath,
     });
 
@@ -266,63 +242,26 @@ export async function GET(
       return jsonError("Attachment not found", 404, "NOT_FOUND");
     }
 
-    // Determine the correct Content-Type from db record or filename extension
-    let contentType = requestedMimeType || "application/octet-stream";
-    if (!contentType.startsWith("video/") && !contentType.startsWith("audio/")) {
-      const ext = (attachment.filename || "").split(".").pop()?.toLowerCase();
-      if (ext === "mp4") contentType = "video/mp4";
-      else if (ext === "webm") contentType = "video/webm";
-      else if (ext === "mov") contentType = "video/quicktime";
-      else if (ext === "ogg") contentType = "video/ogg";
-    }
-
-    const rangeHeader = request.headers.get("range");
-    const fetchHeaders: Record<string, string> = {};
-    if (rangeHeader) {
-      fetchHeaders["Range"] = rangeHeader;
-    }
-
-    const streamResponse = await fetch(signedUrl, {
-      headers: fetchHeaders,
-    });
-
     logApiRoute(request, {
       requestId,
       action: "messages.attachments.get",
       userId: user.id,
       startedAt,
       success: true,
-      status: streamResponse.status,
+      status: 307,
     });
 
-    const headers = new Headers();
-    headers.set("Content-Type", contentType);
-    headers.set("Cache-Control", "private, max-age=300");
-    headers.set(
-      "Content-Disposition",
-      download
-        ? `attachment; filename="${filename}"`
-        : `inline; filename="${filename}"`
-    );
-
-    // Forward range headers from the storage response
-    const contentRange = streamResponse.headers.get("content-range");
-    const contentLength = streamResponse.headers.get("content-length");
-    const acceptRanges = streamResponse.headers.get("accept-ranges");
-
-    if (contentRange) headers.set("Content-Range", contentRange);
-    if (contentLength) headers.set("Content-Length", contentLength);
-    headers.set("Accept-Ranges", acceptRanges || "bytes");
-
-    return new Response(streamResponse.body, {
-      status: streamResponse.status,
-      headers,
+    return new Response(null, {
+      status: 307,
+      headers: {
+        Location: signedUrl,
+        "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
+      },
     });
   }
 
   const signedUrl = await getReusableAttachmentSignedUrl({
     admin,
-    cacheKey: `${user.id}:${storagePath}:${download ? `download:${filename}` : usePreviewTransform ? "preview" : "inline"}`,
     storagePath,
     download: download ? filename : undefined,
     transform: usePreviewTransform ? {
@@ -358,7 +297,7 @@ export async function GET(
     status: 307,
     headers: {
       Location: signedUrl,
-      "Cache-Control": "private, max-age=300, stale-while-revalidate=60",
+      "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
     },
   });
 }

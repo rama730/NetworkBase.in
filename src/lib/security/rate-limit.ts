@@ -73,9 +73,46 @@ end
 return { allowed, count, tokens, retry_after_ms }
 `
 
+const MAX_TEST_BUCKETS = 500
 const TEST_BUCKETS = new Map<string, InMemoryBucket>()
 let hasLoggedRedisUnavailable = false
 let hasLoggedRedisCommandFailure = false
+
+// Local in-memory L1 negative cache for blocked keys to protect Upstash from high-concurrency request storms
+type L1BlockEntry = { blockedUntil: number; limit: number; remaining: number; resetAt: number }
+const L1_BLOCKED_CACHE = new Map<string, L1BlockEntry>()
+const MAX_L1_BLOCKED_ENTRIES = 5000
+
+function checkL1Blocked(key: string, now: number): RateLimitResult | null {
+    const entry = L1_BLOCKED_CACHE.get(key)
+    if (!entry) return null
+    if (now < entry.blockedUntil) {
+        return {
+            allowed: false,
+            count: entry.limit,
+            limit: entry.limit,
+            remaining: 0,
+            resetAt: entry.resetAt,
+            degraded: false,
+        }
+    }
+    L1_BLOCKED_CACHE.delete(key)
+    return null
+}
+
+function setL1Blocked(key: string, limit: number, resetAt: number, now: number) {
+    if (L1_BLOCKED_CACHE.size >= MAX_L1_BLOCKED_ENTRIES) {
+        const oldestKey = L1_BLOCKED_CACHE.keys().next().value
+        if (oldestKey !== undefined) L1_BLOCKED_CACHE.delete(oldestKey)
+    }
+    const blockDuration = Math.min(Math.max(500, resetAt - now), 2000)
+    L1_BLOCKED_CACHE.set(key, {
+        blockedUntil: now + blockDuration,
+        limit,
+        remaining: 0,
+        resetAt,
+    })
+}
 
 export const RATE_LIMIT_ROUTE_POLICIES: Record<string, RouteRateLimitPolicy> = {
     default: {},
@@ -283,6 +320,12 @@ function consumeTestRateLimit(identifier: string, limit: number, windowSeconds: 
         bucket.tokens -= cost
     }
 
+    if (TEST_BUCKETS.size >= MAX_TEST_BUCKETS && !TEST_BUCKETS.has(identifier)) {
+        const oldestKey = TEST_BUCKETS.keys().next().value
+        if (oldestKey !== undefined) {
+            TEST_BUCKETS.delete(oldestKey)
+        }
+    }
     TEST_BUCKETS.set(identifier, bucket)
 
     const remaining = Math.max(0, Math.floor(bucket.tokens))
@@ -329,6 +372,11 @@ export async function consumeRateLimitPolicy(policy: RateLimitPolicy): Promise<R
     }
 
     const nowMs = Date.now()
+    const l1Blocked = checkL1Blocked(redisKey, nowMs)
+    if (l1Blocked) {
+        return l1Blocked
+    }
+
     const ttlMs = Math.max(1_000, Math.ceil((burst / refillRate) * 1000 * 2))
 
     try {
@@ -351,6 +399,10 @@ export async function consumeRateLimitPolicy(policy: RateLimitPolicy): Promise<R
         const count = Number.isFinite(Number(countRaw)) ? Number(countRaw) : 0
         const remainingTokens = Number.isFinite(Number(remainingTokensRaw)) ? Number(remainingTokensRaw) : 0
         const retryAfterMs = Number.isFinite(Number(retryAfterMsRaw)) ? Number(retryAfterMsRaw) : 0
+
+        if (!allowed) {
+            setL1Blocked(redisKey, limit, nowMs + retryAfterMs, nowMs)
+        }
 
         return {
             allowed,

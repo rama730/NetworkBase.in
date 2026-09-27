@@ -34,7 +34,6 @@ type ProjectPublicTabVisibility = {
   files: boolean;
   sprints: boolean;
   tasks: boolean;
-  analytics: boolean;
 };
 type ProjectUpdateEntityRefs = {
   taskId?: string | null;
@@ -639,6 +638,11 @@ export const connections = pgTable(
       "connections_blocked_status_check",
       sql`(${t.status} <> 'blocked') OR (${t.blockedBy} IS NOT NULL AND ${t.blockedAt} IS NOT NULL)`,
     ),
+    reqAddrStatusIdx: index("connections_req_addr_status_idx").on(
+      t.requesterId,
+      t.addresseeId,
+      t.status,
+    ),
   }),
 );
 
@@ -778,7 +782,6 @@ export const projects = pgTable(
         files: true,
         sprints: false,
         tasks: false,
-        analytics: false,
       })
       .notNull(),
     notificationPreferences: jsonb("notification_preferences")
@@ -1873,6 +1876,14 @@ export const projectUpdates = pgTable(
       t.createdAt.desc(),
     ),
     deletedAtIdx: index("project_updates_deleted_at_idx").on(t.deletedAt),
+    likeCountNonNegative: check(
+      "project_updates_like_count_nonnegative",
+      sql`${t.likeCount} >= 0`,
+    ),
+    commentCountNonNegative: check(
+      "project_updates_comment_count_nonnegative",
+      sql`${t.commentCount} >= 0`,
+    ),
   }),
 );
 
@@ -2665,6 +2676,14 @@ export const notificationDeliveries = pgTable(
     notificationIdx: index("notification_deliveries_notification_idx")
       .on(t.notificationId)
       .where(sql`${t.notificationId} IS NOT NULL`),
+    notificationChannelStatusIdx: index(
+      "notification_deliveries_notif_channel_status_idx",
+    )
+      .on(t.notificationId, t.channel, t.status)
+      .where(sql`${t.notificationId} IS NOT NULL`),
+    userStatusCoveringIdx: index(
+      "notification_deliveries_user_status_covering_idx",
+    ).on(t.userId, t.status, t.attemptedAt.desc()),
   }),
 );
 
@@ -2812,6 +2831,15 @@ export const projectNodes = pgTable(
     deletedAtPartialIdx: index("project_nodes_deleted_at_partial_idx")
       .on(t.deletedAt)
       .where(sql`${t.deletedAt} IS NULL`),
+    projectTrashedIdx: index("project_nodes_trashed_idx")
+      .on(t.projectId, t.deletedAt.desc())
+      .where(sql`${t.deletedAt} IS NOT NULL`),
+    activeParentIdx: index("project_nodes_active_parent_idx")
+      .on(t.projectId, t.parentId)
+      .where(sql`${t.deletedAt} IS NULL`),
+    permDelRootIdx: index("idx_project_nodes_perm_del")
+      .on(t.projectId, sql`(${t.metadata}->>'permanentDeleteRoot')`)
+      .where(sql`${t.deletedAt} IS NOT NULL`),
   }),
 );
 
@@ -2914,6 +2942,10 @@ export const uploadIntents = pgTable(
     statusExpiresIdx: index("upload_intents_status_expires_idx").on(
       t.status,
       t.expiresAt,
+    ),
+    projectStatusIdx: index("upload_intents_project_status_idx").on(
+      t.projectId,
+      t.status,
     ),
   }),
 );
@@ -3133,7 +3165,12 @@ export const githubSyncFiles = pgTable("github_sync_files", {
   localBlobSha: text("local_blob_sha"),
   commitSha: text("commit_sha").notNull(),
   sequence: bigint("sequence", { mode: "number" }).notNull().default(0),
-}, t => ({ pk: primaryKey({ columns: [t.projectId, t.repositoryId, t.branch, t.path] }), nodeIdx: index("github_sync_files_node_idx").on(t.nodeId) }));
+}, t => ({
+  pk: primaryKey({ columns: [t.projectId, t.repositoryId, t.branch, t.path] }),
+  nodeIdx: index("github_sync_files_node_idx").on(t.nodeId),
+  localBlobShaIdx: index("github_sync_files_local_sha_idx").on(t.projectId, t.localBlobSha),
+  blobShaIdx: index("github_sync_files_blob_sha_idx").on(t.projectId, t.blobSha),
+}));
 export const githubContributorIdentities = pgTable("github_contributor_identities", {
   userId: uuid("user_id").primaryKey().references(() => profiles.id, { onDelete: "cascade" }),
   githubId: bigint("github_id", { mode: "number" }).notNull(),

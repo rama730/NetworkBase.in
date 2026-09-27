@@ -9,8 +9,12 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".next*/**",
     "out/**",
     "build/**",
+    "reports/**",
+    "artifacts/**",
+    "coverage/**",
     "next-env.d.ts",
     // Local skills, exploratory files, and service packages have their own
     // toolchains; they are not part of the Next product lint boundary.

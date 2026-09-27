@@ -13,7 +13,7 @@ export default function TaskPriorityBadge({ priority, className }: TaskPriorityB
 
     return (
         <span className={cn(
-            "px-2 py-0.5 rounded text-xs font-medium capitalize whitespace-nowrap",
+            "h-5 px-[7px] rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none inline-flex items-center whitespace-nowrap",
             presentation.badgeClassName,
             className
         )}>

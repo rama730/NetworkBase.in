@@ -26,7 +26,7 @@ export default function ChipSelector({
   onToggle,
   variant,
   size = 'md',
-  colorVariant = 'primary',
+  colorVariant: _colorVariant = 'primary',
   maxVisible = 12,
   expandLabel = 'Show more',
 }: ChipSelectorProps) {
@@ -62,34 +62,25 @@ export default function ChipSelector({
               aria-pressed={isSelected}
               onClick={() => handleToggle(option.value)}
               className={cn(
-                'inline-flex items-center rounded-full transition-[background-color,border-color] duration-150 ease-in-out',
-                'text-[13px] font-[450] leading-none select-none',
-                'focus-visible:outline-none   ',
+                'onb-focusable inline-flex items-center rounded-full border transition-[background-color,border-color,color] duration-[130ms] ease-in-out',
+                'text-[13px] font-medium leading-none select-none',
                 'min-h-[44px] sm:min-h-0',
                 // Size variants
                 size === 'sm' && 'px-[14px] py-[6px]',
                 size === 'md' && 'px-4 py-2',
                 // Unselected state
                 !isSelected && [
-                  'bg-background border border-border text-foreground',
-                  'hover:bg-muted hover:border-border/80',
+                  'bg-card border-border text-foreground',
+                  'hover:bg-muted hover:border-foreground/40',
                 ],
-                // Selected state - primary
-                isSelected && colorVariant === 'primary' && [
-                  'bg-primary/8 border-[1.5px] border-primary text-primary',
-                ],
-                // Selected state - secondary (chart-2)
-                isSelected && colorVariant === 'secondary' && [
-                  'bg-chart-2/8 border-[1.5px] border-chart-2 text-chart-2',
-                ],
+                isSelected && 'border-foreground bg-foreground text-background',
               )}
             >
               {isSelected && (
                 <Check
                   className={cn(
                     'w-3 h-3 mr-1.5 shrink-0',
-                    colorVariant === 'primary' && 'text-primary',
-                    colorVariant === 'secondary' && 'text-chart-2',
+                    'text-background',
                   )}
                   strokeWidth={2.5}
                 />
@@ -105,7 +96,7 @@ export default function ChipSelector({
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-150 self-start min-h-[44px] sm:min-h-0 focus-visible:outline-none    rounded"
+          className="onb-focusable inline-flex min-h-[44px] self-start items-center gap-1 rounded text-[13px] text-muted-foreground transition-colors duration-[130ms] hover:text-foreground sm:min-h-0"
         >
           {expanded ? (
             <>
@@ -123,7 +114,7 @@ export default function ChipSelector({
 
       {/* Selection counter */}
       {selected.size > 0 && (
-        <p className="text-[13px] text-muted-foreground">
+        <p className="onb-field-hint" aria-live="polite">
           {selected.size} selected
         </p>
       )}

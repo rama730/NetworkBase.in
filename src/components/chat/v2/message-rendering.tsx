@@ -163,7 +163,7 @@ export function CodeSegmentV2({
     return (
         <div
             className={cn(
-                'msg-rich-content max-w-full min-w-0 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950/95 shadow-sm',
+                'msg-rich-content max-w-full min-w-0 overflow-hidden rounded-lg border border-zinc-700 bg-card shadow-none',
                 isOwn ? 'text-zinc-100' : 'text-zinc-100',
             )}
         >
@@ -179,7 +179,7 @@ export function CodeSegmentV2({
                 </button>
             </div>
             <div className={cn(
-                "relative overflow-hidden transition-all duration-300 ease-in-out",
+                "relative overflow-hidden transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms] ease-in-out",
                 isLongContent ? (isCollapsed ? "max-h-[280px]" : "max-h-[4000px]") : ""
             )}>
                 <pre className="max-w-full overflow-x-auto px-3 py-2 text-[12px] leading-5 text-zinc-100">

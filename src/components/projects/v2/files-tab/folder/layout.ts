@@ -13,7 +13,7 @@
 
 export const FOLDER_LIST_NAME_MIN_WIDTH_PX = 320;
 export const FOLDER_LIST_UPDATED_WIDTH_PX = 140;
-export const FOLDER_LIST_SIZE_WIDTH_PX = 96;
+export const FOLDER_LIST_SIZE_WIDTH_PX = 112;
 export const FOLDER_LIST_BY_WIDTH_PX = 120;
 export const FOLDER_LIST_ROW_HEIGHT_PX = 48;
 

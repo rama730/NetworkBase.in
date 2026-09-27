@@ -35,7 +35,7 @@ function cleanupEntry(taskId: string) {
   const entry = taskResourceEntries.get(taskId);
   if (!entry) return;
 
-  // ponytail: invalidate callbacks from the channel we are intentionally closing.
+  // ponytail: invalidate callbacks from the channel we are intentionally closing. ceiling: entry.generation monotonically increasing integer. upgrade: AbortController signal if async subscriptions become cancellable.
   entry.generation += 1;
 
   if (entry.channel) {
@@ -48,7 +48,7 @@ function cleanupEntry(taskId: string) {
 }
 
 function openTaskResource(entry: TaskResourceEntry) {
-  // ponytail: configuration changes replace the channel; native Realtime owns reconnects.
+  // ponytail: configuration changes replace the channel; native Realtime owns reconnects. ceiling: single RealtimeChannel per task. upgrade: channel multiplexer if sub-channels per task view are added.
   const generation = entry.generation + 1;
   entry.generation = generation;
 

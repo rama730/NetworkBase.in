@@ -52,8 +52,8 @@ const WorkspaceContext = createContext<{
   taskId: string | null;
   taskTitle: string;
   setTaskTitle: React.Dispatch<React.SetStateAction<string>>;
-  fileRole: "all" | "reference" | "working";
-  setFileRole: (role: "all" | "reference" | "working") => void;
+  fileRole: "all" | "deliverable" | "reference" | "working";
+  setFileRole: (role: "all" | "deliverable" | "reference" | "working") => void;
   query: string;
   setQuery: (query: string) => void;
   sidebarMode: "collections" | "tree";
@@ -109,9 +109,9 @@ export function FilesWorkspaceViews({
     },
     [taskId],
   );
-  const [fileRole, setFileRole] = useState<"all" | "reference" | "working">(
-    "all",
-  );
+  const [fileRole, setFileRole] = useState<
+    "all" | "deliverable" | "reference" | "working"
+  >("all");
   const [query, setQuery] = useState("");
   const [sidebarMode, setSidebarMode] = useState<"collections" | "tree">(
     "collections",
@@ -149,11 +149,16 @@ export function FilesWorkspaceViews({
     setTaskId(nextTask);
     const role = params.get("filesRole");
     setFileRole(
-      nextView === "tasks" &&
+      (nextView === "tasks" &&
         nextTask &&
-        (role === "reference" || role === "working")
+        (role === "deliverable" || role === "reference" || role === "working")) ||
+      (nextView === "deliverables" &&
+        nextTask &&
+        (role === "deliverable" || role === "reference" || role === "working"))
         ? role
-        : "all",
+        : nextView === "deliverables"
+          ? "deliverable"
+          : "all",
     );
     setQuery(params.get("filesQuery") ?? "");
     setSidebarMode(

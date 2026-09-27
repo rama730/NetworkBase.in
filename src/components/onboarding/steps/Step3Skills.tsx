@@ -24,11 +24,12 @@ export default function Step3Skills({
 }: Step3SkillsProps) {
   return (
     <div className="flex flex-col">
-      <StepHeader title={step3Config.title} subtitle={step3Config.subtitle} />
+      <StepHeader title={step3Config.title} subtitle={step3Config.subtitle} step={3} totalSteps={4} />
 
       <div className="flex flex-col gap-6">
         {/* Skills section */}
         <div className="flex flex-col gap-2">
+          <p className="onb-field-hint" id="skills-requirement">Add at least one skill to continue. You can select up to 25.</p>
           <SkillPicker
             value={[...selectedSkills]}
             onChange={(nextSkills) => {
@@ -43,14 +44,17 @@ export default function Step3Skills({
             maxSkills={25}
             label="Skills (required)"
             description="Search across engineering, design, product, business, and human skills."
+            className="onb-skill-picker"
           />
+          <p className="onb-field-status" role="status" aria-live="polite">{selectedSkills.size} of 25 skills selected.</p>
         </div>
 
         {/* Interests section */}
-        <div className="flex flex-col gap-2">
-          <label className="text-base font-medium text-foreground">
+        <div className="onb-field">
+          <label className="onb-field-label">
             Interests
           </label>
+          <p className="onb-field-hint">Optional topics help refine project and collaborator recommendations.</p>
           <ChipSelector
             options={interestOptions}
             selected={selectedInterests}

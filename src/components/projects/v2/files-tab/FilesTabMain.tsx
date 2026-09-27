@@ -29,8 +29,8 @@ const GitHubSyncWorkspace = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex flex-1 items-center justify-center p-8 text-zinc-500">
-        <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+      <div className="flex flex-1 items-center justify-center p-8 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     ),
   },
@@ -101,6 +101,7 @@ export function FilesTabMain({
       <FilesWorkspaceHeader
         projectId={projectId}
         location={location}
+        projectSlug={projectSlug}
         canOpenGitHub={canOpenGitHub}
       >
         {!isCollection && (isBooting || unresolved) && (
@@ -132,9 +133,9 @@ export function FilesTabMain({
             aria-busy="true"
             aria-live="polite"
             data-testid="files-tab-main-loading"
-            className="flex flex-1 items-center justify-center gap-2 p-8 text-zinc-500"
+            className="flex flex-1 items-center justify-center gap-2 p-8 text-muted-foreground"
           >
-            <Loader2 className="h-4 w-4 animate-spin text-zinc-400 dark:text-zinc-500" />
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             <span>Loading workspace...</span>
           </div>
         ) : unresolved ? (
@@ -182,10 +183,10 @@ function LocationNotFound(): React.JSX.Element {
       className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center"
     >
       <AlertTriangle className="h-6 w-6 text-amber-500" aria-hidden="true" />
-      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+      <p className="text-sm font-medium text-foreground">
         This location could not be found
       </p>
-      <p className="max-w-md text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="max-w-md text-xs text-muted-foreground">
         The file or folder you requested is no longer available. Pick a
         different item from the sidebar to continue browsing.
       </p>

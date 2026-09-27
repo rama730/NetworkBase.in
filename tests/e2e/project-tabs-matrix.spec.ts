@@ -35,7 +35,15 @@ async function ensureFilesTabRouteHealthy(page: import("@playwright/test").Page)
 test.describe("Project tabs matrix @critical", () => {
   test.skip(!hasE2ECredentials, "E2E_USER_EMAIL and E2E_USER_PASSWORD are required.");
 
-  test("dashboard/sprints/tasks/analytics/files tabs render expected surfaces", async ({ browser }) => {
+  test("legacy Analytics links return to Dashboard without stale parameters", async ({ page }) => {
+    await login(page);
+    await page.goto(`/projects/${fixtureProjectSlug}?tab=analytics&analyticsTab=members&analyticsWindow=30`);
+    await expect(page.getByTestId("project-tab-dashboard")).toHaveAttribute("data-active", "true");
+    await expect(page.getByRole("heading", { name: "Recent activity" })).toBeVisible();
+    await expect.poll(() => new URL(page.url()).search).toBe("");
+  });
+
+  test("dashboard/sprints/tasks/files tabs render expected surfaces", async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
     const monitor = attachPageMonitoring(page, {
@@ -63,6 +71,7 @@ test.describe("Project tabs matrix @critical", () => {
     perf.mark("project.detail.shell.interactive", projectShellMs, `/projects/${fixtureProjectSlug}`);
 
     await expect(page.getByTestId("project-tab-dashboard")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Recent activity" })).toBeVisible();
 
     const headContract = await page.evaluate(() => ({
       titleText: document.title,
@@ -82,7 +91,7 @@ test.describe("Project tabs matrix @critical", () => {
     await expect(page.getByTestId("project-tab-readme")).toBeVisible();
     await expect(page.getByTestId("project-tab-sprints")).toBeVisible();
     await expect(page.getByTestId("project-tab-tasks")).toBeVisible();
-    await expect(page.getByTestId("project-tab-analytics")).toBeVisible();
+    await expect(page.getByTestId("project-tab-analytics")).toHaveCount(0);
     await expect(page.getByTestId("project-tab-files")).toBeVisible();
 
     const switchTab = async (tabTestId: string, tabParam: string, routeLabel: string) => {
@@ -105,9 +114,6 @@ test.describe("Project tabs matrix @critical", () => {
 
     await switchTab("project-tab-tasks", "tasks", "tasks");
     await expect(page.getByText(/Task|No tasks|Create task/i).first()).toBeVisible({ timeout: 15000 });
-
-    await switchTab("project-tab-analytics", "analytics", "analytics");
-    await expect(page.getByText(/Project Intelligence|Member Contributions|Work Flow/i).first()).toBeVisible({ timeout: 15000 });
 
     // Retry the server-rendered files tab route once before UI navigation; do not suppress 5xx responses.
     await ensureFilesTabRouteHealthy(page);

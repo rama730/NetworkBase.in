@@ -63,6 +63,7 @@ const CACHE_TTL_MS = {
   analyze: readCacheTtlEnv('GITHUB_CACHE_TTL_ANALYZE_MS', 20_000),
 };
 
+const MAX_ACTION_CACHE_ENTRIES = 50;
 const actionCache = new Map<string, { expiresAtMs: number; value: unknown }>();
 
 function clampNumber(value: number, min: number, max: number) {
@@ -80,6 +81,11 @@ function getCachedValue<T>(cacheKey: string): T | null {
 }
 
 function setCachedValue(cacheKey: string, value: unknown, ttlMs: number) {
+  // ponytail: bounded cache prevents unbounded memory accumulation in server actions
+  if (actionCache.size >= MAX_ACTION_CACHE_ENTRIES) {
+    const oldestKey = actionCache.keys().next().value;
+    if (oldestKey) actionCache.delete(oldestKey);
+  }
   actionCache.set(cacheKey, {
     value,
     expiresAtMs: Date.now() + ttlMs,

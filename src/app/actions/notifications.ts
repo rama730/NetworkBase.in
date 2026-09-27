@@ -6,6 +6,7 @@ import { isTransientDbError, readDbErrorCode, withDbRetry } from "@/lib/db/retry
 import { profiles } from "@/lib/db/schema";
 import {
     countUnreadNotifications,
+    dismissAllNotifications,
     dismissNotification,
     markAllNotificationsRead,
     markNotificationRead,
@@ -26,6 +27,20 @@ import {
 import type { NotificationMuteScope, NotificationPreferences } from "@/lib/notifications/types";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { getRedisClient } from "@/lib/redis";
+
+function invalidateNotificationUnreadCache(userId: string) {
+    const redis = getRedisClient();
+    if (redis) {
+        void redis.del(`unread:notif:${userId}`).catch((err) => {
+            logger.warn("notifications.cache_invalidate_failed", {
+                module: "notifications",
+                userId,
+                error: err instanceof Error ? err.message : String(err),
+            });
+        });
+    }
+}
 
 export async function readNotificationsAction(limit = 20, cursor?: string | null) {
     try {
@@ -59,7 +74,34 @@ export async function readNotificationUnreadCountAction() {
             return { success: false as const, error: "Unauthorized", unreadCount: 0, unreadImportantCount: 0 };
         }
 
+        const redis = getRedisClient();
+        const cacheKey = `unread:notif:${user.id}`;
+        if (redis) {
+            try {
+                const cached = await redis.get<{ total: number; important: number }>(cacheKey);
+                if (cached && typeof cached.total === "number") {
+                    return {
+                        success: true as const,
+                        unreadCount: cached.total,
+                        unreadImportantCount: cached.important ?? 0,
+                    };
+                }
+            } catch {
+                // Redis error fallback
+            }
+        }
+
         const counts = await countUnreadNotifications(user.id, db);
+        if (redis) {
+            void redis.set(cacheKey, counts, { ex: 60 }).catch((err) => {
+                logger.warn("notifications.cache_set_failed", {
+                    module: "notifications",
+                    userId: user.id,
+                    error: err instanceof Error ? err.message : String(err),
+                });
+            });
+        }
+
         return {
             success: true as const,
             unreadCount: counts.total,
@@ -91,6 +133,7 @@ export async function markNotificationReadAction(notificationId: string) {
         if (!row) {
             return { success: false as const, error: "Notification not found", item: null };
         }
+        invalidateNotificationUnreadCache(user.id);
         return { success: true as const, item: toNotificationItem(row) };
     } catch (error: any) {
         logger.error("notifications.mark_read_failed", {
@@ -112,6 +155,7 @@ export async function markNotificationsSeenAction(notificationIds: string[]) {
 
         const rows = await markNotificationsSeen(user.id, notificationIds, db);
         const items = rows.map((row) => toNotificationItem(row));
+        invalidateNotificationUnreadCache(user.id);
         logger.info("notifications.tray_seen_committed", {
             module: "notifications",
             count: items.length,
@@ -143,6 +187,7 @@ export async function markNotificationUnreadAction(notificationId: string) {
         if (!row) {
             return { success: false as const, error: "Notification not found", item: null };
         }
+        invalidateNotificationUnreadCache(user.id);
         return { success: true as const, item: toNotificationItem(row) };
     } catch (error: any) {
         logger.error("notifications.mark_unread_failed", {
@@ -162,6 +207,7 @@ export async function markAllNotificationsReadAction() {
         }
 
         const readAt = await markAllNotificationsRead(user.id, db);
+        invalidateNotificationUnreadCache(user.id);
         return {
             success: true as const,
             readAt: readAt?.toISOString() ?? null,
@@ -190,6 +236,7 @@ export async function markConversationMessageNotificationsReadAction(conversatio
         }
 
         await markConversationNotificationsRead(user.id, conversationId, db);
+        invalidateNotificationUnreadCache(user.id);
         return { success: true as const };
     } catch (error: any) {
         logger.error("notifications.mark_message_burst_conversation_read_failed", {
@@ -213,6 +260,7 @@ export async function dismissNotificationAction(notificationId: string) {
         if (!row) {
             return { success: false as const, error: "Notification not found", item: null };
         }
+        invalidateNotificationUnreadCache(user.id);
         return { success: true as const, item: toNotificationItem(row) };
     } catch (error: any) {
         logger.error("notifications.dismiss_failed", {
@@ -220,6 +268,26 @@ export async function dismissNotificationAction(notificationId: string) {
             error: error?.message || String(error),
         });
         return { success: false as const, error: error?.message || "Failed to dismiss notification", item: null };
+    }
+}
+
+export async function dismissAllNotificationsAction() {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return { success: false as const, error: "Unauthorized" };
+        }
+
+        await withDbRetry("notifications.dismiss_all", () => dismissAllNotifications(user.id, db));
+        invalidateNotificationUnreadCache(user.id);
+        return { success: true as const };
+    } catch (error: any) {
+        logger.error("notifications.dismiss_all_failed", {
+            module: "notifications",
+            error: error?.message || String(error),
+        });
+        return { success: false as const, error: error?.message || "Failed to clear notifications" };
     }
 }
 

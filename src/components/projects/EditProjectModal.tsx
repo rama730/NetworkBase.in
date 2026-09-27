@@ -70,9 +70,9 @@ const TABS = [
 
 function StatusSelector({ value, onChange }: { value: string; onChange: (val: string) => void }) {
     const options = [
-        { id: "draft", label: "Planning", desc: "Just getting started", color: "bg-blue-50 border-blue-200 text-blue-700" },
-        { id: "active", label: "In Progress", desc: "Actively building", color: "bg-emerald-50 border-emerald-200 text-emerald-700" },
-        { id: "completed", label: "Completed", desc: "Finished & Live", color: "bg-purple-50 border-purple-200 text-purple-700" },
+        { id: "draft", label: "Forming", desc: "Just getting started", color: "bg-blue-50 border-blue-200 text-blue-700" },
+        { id: "active", label: "Building", desc: "Actively building", color: "bg-emerald-50 border-emerald-200 text-emerald-700" },
+        { id: "completed", label: "Shipped", desc: "Finished & Live", color: "bg-purple-50 border-purple-200 text-purple-700" },
     ];
 
     return (
@@ -85,7 +85,7 @@ function StatusSelector({ value, onChange }: { value: string; onChange: (val: st
                         type="button"
                         onClick={() => onChange(opt.id)}
                         className={cn(
-                            "relative flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left",
+                            "relative flex flex-col items-start p-3 rounded-lg border-2 transition-[color,background-color,border-color,box-shadow,opacity,transform] text-left",
                             isSelected
                                 ? "border-indigo-600 bg-indigo-50/10 dark:bg-indigo-900/10"
                                 : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
@@ -212,7 +212,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={reduceMotion ? { duration: 0 } : undefined}
-                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-none"
                 >
                     {/* Backdrop Click */}
                     <div className="absolute inset-0" onClick={onClose} />
@@ -222,16 +222,16 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                         animate={reduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
                         exit={reduceMotion ? { opacity: 0 } : { scale: 0.95, opacity: 0 }}
                         transition={reduceMotion ? { duration: 0 } : undefined}
-                        className="relative z-10 w-full max-w-5xl h-[85vh] rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl flex flex-col overflow-hidden"
+                        className="relative z-10 w-full max-w-5xl h-[85vh] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl flex flex-col overflow-hidden"
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl app-accent-gradient flex items-center justify-center ring-2 ring-primary/20">
+                                <div className="w-10 h-10 rounded-lg app-accent-gradient flex items-center justify-center ring-2 ring-primary/20">
                                     <Sparkles className="w-5 h-5 text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Edit Project</h2>
+                                    <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Edit Project</h2>
                                     <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Make your project stand out</p>
                                 </div>
                             </div>
@@ -252,7 +252,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id)}
                                         className={cn(
-                                            "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all",
+                                            "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform]",
                                             activeTab === tab.id
                                                 ? "bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700"
                                                 : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
@@ -276,8 +276,8 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                 <div className="max-w-3xl mx-auto space-y-8">
                                     {/* ESSENTIALS */}
                                     {activeTab === "essentials" && (
-                                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                            <div className="space-y-6 bg-zinc-50/50 dark:bg-zinc-800/30 p-6 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-[260ms]">
+                                            <div className="space-y-6 bg-zinc-50/50 dark:bg-zinc-800/30 p-6 rounded-lg border border-zinc-100 dark:border-zinc-800">
                                                 <Controller
                                                     control={control}
                                                     name="status"
@@ -295,7 +295,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     <label className="block text-sm font-medium mb-1.5 ">Project Title</label>
                                                     <input
                                                         {...register("title")}
-                                                        className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-all"
+                                                        className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform]"
                                                         placeholder="e.g. NextGen CRM"
                                                     />
                                                     {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
@@ -304,7 +304,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     <label className="block text-sm font-medium mb-1.5">Tagline</label>
                                                     <input
                                                         {...register("shortDescription")}
-                                                        className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-all"
+                                                        className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform]"
                                                         placeholder="A brief pitch for your project..."
                                                     />
                                                     {errors.shortDescription && <p className="text-red-500 text-sm mt-1">{errors.shortDescription.message}</p>}
@@ -315,13 +315,13 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
 
                                     {/* DETAILS */}
                                     {activeTab === "details" && (
-                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-[260ms]">
                                             <div>
                                                 <label className="block text-sm font-medium mb-2">Full Description</label>
                                                 <textarea
                                                     {...register("description")}
                                                     onInput={(e: any) => adjustHeight(e)}
-                                                    className="w-full px-4 py-3 min-h-[150px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-all resize-none"
+                                                    className="w-full px-4 py-3 min-h-[150px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none"
                                                     placeholder="Tell the full story of your project..."
                                                 />
                                             </div>
@@ -331,7 +331,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     <textarea
                                                         {...register("problemStatement")}
                                                         onInput={(e: any) => adjustHeight(e)}
-                                                        className="w-full px-4 py-3 min-h-[100px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-all resize-none"
+                                                        className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none"
                                                         placeholder="What problem are you solving?"
                                                     />
                                                 </div>
@@ -340,7 +340,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     <textarea
                                                         {...register("solutionStatement")}
                                                         onInput={(e: any) => adjustHeight(e)}
-                                                        className="w-full px-4 py-3 min-h-[100px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-all resize-none"
+                                                        className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none"
                                                         placeholder="How does your project solve it?"
                                                     />
                                                 </div>
@@ -350,14 +350,14 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
 
                                     {/* STACK & LINKS */}
                                     {activeTab === "stack" && (
-                                        <div className="min-w-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                        <div className="min-w-0 space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-[260ms]">
                                             {/* Tech Stack */}
                                             <div>
                                                 <SkillPicker value={technologies} onChange={(next) => setValue("skills", next, { shouldDirty: true, shouldValidate: true })} label="Project skills and technologies" />
                                             </div>
 
                                             <div>
-                                                <h3 className="mb-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">Project links</h3>
+                                                <h3 className="mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Project links</h3>
                                                 <p className="mb-4 text-sm text-zinc-500">These icons appear beside the project title across every project tab.</p>
                                                 <ProjectLinkEditorFields
                                                     ref={projectLinksRef}
@@ -375,7 +375,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                             {/* Tags */}
                                             <div>
                                                 <label className="block text-sm font-medium mb-2">Tags</label>
-                                                <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 min-h-[80px] bg-zinc-50/30 dark:bg-zinc-800/20">
+                                                <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-700 min-h-[80px] bg-zinc-50/30 dark:bg-zinc-800/20">
                                                     <div className="flex min-w-0 flex-wrap gap-2 mb-3">
                                                         {tags.map((tag) => (
                                                             <span key={tag} className="inline-flex min-w-0 max-w-full items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-sm border border-blue-100 dark:border-blue-800">
@@ -404,12 +404,12 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
 
                                     {/* JOURNEY */}
                                     {activeTab === "journey" && (
-                                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-[260ms]">
                                             <div>
-                                                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">Journey</h3>
-                                                <p className="text-sm text-zinc-500 mb-6">Customize the stages your project will progress through.</p>
+                                                <h3 className="nb-card-title text-foreground mb-1">Journey</h3>
+                                                <p className="nb-compact text-muted-foreground mb-4">Customize the stages your project will progress through.</p>
                                                 
-                                                <div className="bg-zinc-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                                                <div className="bg-card p-6 rounded-lg border border-border">
                                                     <LifecycleEditor 
                                                         stages={watch('lifecycleStages')}
                                                         onChange={(stages) => setValue('lifecycleStages', stages)}
@@ -417,12 +417,15 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     />
                                                 </div>
 
-                                                <div className="mt-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/20 flex gap-3 text-sm text-blue-700 dark:text-blue-300">
-                                                    <Info className="w-5 h-5 shrink-0" />
-                                                    <p>
-                                                        Use the dashboard Advance button to move between these stages. 
-                                                        Reordering stages here will update the roadmap immediately.
-                                                    </p>
+                                                <div className="mt-4 p-4 rounded-lg bg-muted/20 border border-border flex gap-3 text-xs text-muted-foreground">
+                                                    <Info className="w-4 h-4 shrink-0 text-muted-foreground mt-0.5" />
+                                                    <div className="space-y-0.5">
+                                                        <p className="nb-ui-label text-foreground">Roadmap synchronization</p>
+                                                        <p className="nb-compact text-muted-foreground">
+                                                            Use the dashboard Advance button to move between these stages. 
+                                                            Reordering stages here will update the roadmap immediately.
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -436,7 +439,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                             control={control}
                                             errors={errors}
                                             disabled={isPending}
-                                            className="animate-in fade-in slide-in-from-bottom-2 duration-300"
+                                            className="animate-in fade-in slide-in-from-bottom-2 duration-[260ms]"
                                             onAddRole={() => appendRole({ role: "New Role", count: 1, description: "", skills: [] })}
                                             onRemoveRole={handleDeleteRole}
                                         />
@@ -446,7 +449,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                         </div>
 
                         {/* Sticky Footer */}
-                        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md flex items-center gap-3 shrink-0 z-20">
+                        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-card dark:bg-card backdrop-blur-none flex items-center gap-3 shrink-0 z-20">
                             <div className="mr-auto hidden sm:block">
                                 <p className="text-xs text-zinc-400">
                                     {isPending ? "Saving changes..." : "Unsaved changes will be lost if you cancel."}

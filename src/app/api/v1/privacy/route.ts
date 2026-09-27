@@ -131,16 +131,20 @@ export async function GET(request: Request) {
       success: true,
       status: 200,
     });
-    return jsonSuccess({
-      settings,
-      blockedAccounts,
-      overview,
-      privacyActivity: privacyActivity.map(formatPrivacyActivityEntry),
-      previews: {
-        profileVisibility: getProfilePreview(settings.profileVisibility),
-        interactionPermissions: getInteractionPreview(settings.messagePrivacy, settings.connectionPrivacy),
+    return jsonSuccess(
+      {
+        settings,
+        blockedAccounts,
+        overview,
+        privacyActivity: privacyActivity.map(formatPrivacyActivityEntry),
+        previews: {
+          profileVisibility: getProfilePreview(settings.profileVisibility),
+          interactionPermissions: getInteractionPreview(settings.messagePrivacy, settings.connectionPrivacy),
+        },
       },
-    });
+      undefined,
+      { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=60" } },
+    );
   } catch (error) {
     logger.error("[api/v1/privacy] failed", { module: 'api', error: error instanceof Error ? error.message : String(error) });
     logApiRoute(request, {

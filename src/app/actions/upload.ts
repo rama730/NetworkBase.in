@@ -180,15 +180,21 @@ export async function getBatchUploadUrls(
 
         const intentIdsByKey = new Map(intents.map(intent => [intent.storageKey, intent.id]));
 
-        const results = await Promise.all(
-            normalizedItems.map(async ({ key }) => {
-                const intentId = intentIdsByKey.get(key) || '';
-                const { data, error } = await supabase.storage
-                    .from('project-files')
-                    .createSignedUploadUrl(key, { upsert: true });
-                return { key, url: data?.signedUrl, error, intentId };
-            })
-        );
+        const CONCURRENCY_LIMIT = 10;
+        const results: Array<{ key: string; url?: string; error: unknown; intentId: string }> = [];
+        for (let i = 0; i < normalizedItems.length; i += CONCURRENCY_LIMIT) {
+            const chunk = normalizedItems.slice(i, i + CONCURRENCY_LIMIT);
+            const chunkResults = await Promise.all(
+                chunk.map(async ({ key }) => {
+                    const intentId = intentIdsByKey.get(key) || '';
+                    const { data, error } = await supabase.storage
+                        .from('project-files')
+                        .createSignedUploadUrl(key, { upsert: true });
+                    return { key, url: data?.signedUrl, error, intentId };
+                })
+            );
+            results.push(...chunkResults);
+        }
 
         for (const result of results) {
             if (result.url) {

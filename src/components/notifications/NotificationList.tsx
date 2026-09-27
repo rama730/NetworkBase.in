@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { Bell } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { NotificationBundleRow } from "@/components/notifications/NotificationBundleRow";
 import { NotificationRow } from "@/components/notifications/NotificationRow";
 import {
@@ -142,8 +144,14 @@ export function NotificationList(props: {
 
     if (filteredItems.length === 0) {
         return (
-            <div className="px-4 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                {emptyState ?? "You're all caught up."}
+            <div className="p-4">
+                <EmptyState
+                    icon={Bell}
+                    title="No notifications"
+                    description={emptyState ?? "You're all caught up."}
+                    compact
+                    className="rounded-xl"
+                />
             </div>
         );
     }
@@ -154,13 +162,14 @@ export function NotificationList(props: {
             onKeyDown={handleKeyDown}
             role="region"
             aria-label="Notifications list. Press J or down arrow to move down, K or up arrow to move up, Enter to open, E to dismiss, R to mark a seen notification as new."
+            className="pb-3"
         >
             {importantItems.length > 0 ? (
                 <section aria-label="Notifications needing attention">
-                    <div className="sticky top-0 z-10 border-b border-zinc-200 bg-white/95 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-600 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 dark:text-zinc-400">
+                    <div className="nb-micro sticky top-0 z-10 border-b border-border bg-card dark:bg-[#141A1E] px-4 py-2 text-destructive shadow-2xs">
                         Needs attention
                     </div>
-                    <div role="list" className="divide-y divide-zinc-100 dark:divide-zinc-900">
+                    <div role="list" className="divide-y divide-border">
                         {importantBundles.map((bundle) => (
                             <div role="listitem" key={bundle.key + ":" + bundle.lead.id}>
                                 {bundle.items.length > 1 ? (
@@ -194,10 +203,10 @@ export function NotificationList(props: {
                 if (groupItems.length === 0) return null;
                 return (
                     <section key={group} aria-label={`${GROUP_LABELS[group]} notifications`}>
-                        <div className="sticky top-0 z-10 border-b border-zinc-200 bg-white/95 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 dark:text-zinc-500">
+                        <div className="nb-micro sticky top-0 z-10 border-b border-border bg-card dark:bg-[#141A1E] px-4 py-2 text-muted-foreground shadow-2xs">
                             {GROUP_LABELS[group]}
                         </div>
-                        <div role="list" className="divide-y divide-zinc-100 dark:divide-zinc-900">
+                        <div role="list" className="divide-y divide-border">
                             {groupBundles[group].map((bundle) => (
                                 <div role="listitem" key={bundle.key + ":" + bundle.lead.id}>
                                     {bundle.items.length > 1 ? (
@@ -228,7 +237,7 @@ export function NotificationList(props: {
                 );
             })}
             {hasMore ? (
-                <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
+                <div className="border-t border-border px-4 py-3">
                     <Button
                         type="button"
                         variant="outline"

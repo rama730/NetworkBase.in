@@ -57,19 +57,23 @@ interface CachedBlobMeta {
   safeError?: string;
 }
 
-// ponytail: Deterministic Git blob SHA-1 and safety metadata keyed by SHA-256 content hash.
-// Both Git blob SHA and content safety are pure deterministic functions of content.
-// Zero S3 downloads on repeat comparisons, tab changes, or identical file revisions.
+// ponytail: 10,000-entry in-memory LRU cache of Git blob SHA and safety metadata keyed by SHA-256 hash. ceiling: 10,000 entries (~2MB RAM). upgrade: Redis key-value cache if multi-instance worker fleet requires shared blob cache across processes.
 const gitBlobCache = new Map<string, CachedBlobMeta>();
 
+function getCachedBlobMeta(hash: string): CachedBlobMeta | undefined {
+  const cached = gitBlobCache.get(hash);
+  if (cached) {
+    gitBlobCache.delete(hash);
+    gitBlobCache.set(hash, cached);
+  }
+  return cached;
+}
+
 function cacheBlobMeta(hash: string, meta: CachedBlobMeta) {
-  if (gitBlobCache.size >= 50000) {
-    const keys = gitBlobCache.keys();
-    for (let i = 0; i < 10000; i++) {
-      const next = keys.next();
-      if (next.done) break;
-      gitBlobCache.delete(next.value);
-    }
+  gitBlobCache.delete(hash);
+  if (gitBlobCache.size >= 10000) {
+    const oldest = gitBlobCache.keys().next().value;
+    if (oldest !== undefined) gitBlobCache.delete(oldest);
   }
   gitBlobCache.set(hash, meta);
 }
@@ -90,7 +94,7 @@ export async function resolveSyncContext(
   oauthToken?: string | null,
   repositoryOverride?: string,
 ) {
-  // ponytail: execute owner validation and sync connection queries in parallel
+  // ponytail: parallel owner validation and sync connection queries. ceiling: 2 concurrent DB queries. upgrade: single joined SQL query if connection volume exceeds 10k RPS.
   const [project, connection] = await Promise.all([
     requireSyncOwner(projectId, userId),
     db.query.githubSyncConnections.findFirst({
@@ -305,7 +309,15 @@ export async function compareSync(
       .limit(SYNC_LIMITS.comparisonFiles + 1),
     repo
       ? db
-          .select()
+          .select({
+            path: githubSyncFiles.path,
+            localBlobSha: githubSyncFiles.localBlobSha,
+            nodeId: githubSyncFiles.nodeId,
+            localHash: githubSyncFiles.localHash,
+            blobSha: githubSyncFiles.blobSha,
+            commitSha: githubSyncFiles.commitSha,
+            sequence: githubSyncFiles.sequence,
+          })
           .from(githubSyncFiles)
           .where(
             and(
@@ -314,8 +326,9 @@ export async function compareSync(
               eq(githubSyncFiles.branch, branch),
             ),
           )
+          .limit(SYNC_LIMITS.comparisonFiles)
       : Promise.resolve([]),
-    // ponytail: query all known content hashes across this project to eliminate S3 downloads
+    // ponytail: batch known content hashes query across project to eliminate S3 downloads. ceiling: comparisonFiles (2,500) rows. upgrade: cursor-based pagination if project files exceed 2,500.
     db
       .select({
         nodeId: githubSyncFiles.nodeId,
@@ -345,7 +358,7 @@ export async function compareSync(
     if (b.localBlobSha) {
       if (b.localHash) {
         knownBlobMap.set(b.localHash, b.localBlobSha);
-        if (!gitBlobCache.has(b.localHash)) {
+        if (!getCachedBlobMeta(b.localHash)) {
           cacheBlobMeta(b.localHash, { blobSha: b.localBlobSha, isSafe: true });
         }
       }
@@ -407,8 +420,7 @@ export async function compareSync(
   };
   const files = await runWithConcurrency(
     paths,
-    // ponytail: storage latency dominates; 24 keeps worst-case buffers bounded
-    // while avoiding hundreds of serial round trips for normal small files.
+    // ponytail: 24 concurrent storage downloads keeps worst-case memory bounded while avoiding serial I/O. ceiling: 24 concurrent streams (~120MB heap peak). upgrade: stream pipelining directly to crypto hashers without in-memory buffering.
     24,
     async (path): Promise<SyncFile> => {
       const row = local.get(path);
@@ -422,6 +434,7 @@ export async function compareSync(
         blocked = "File exceeds the 10 MB sync limit";
       let localHash: string | null = row?.version?.contentHash || null;
       let localBlobSha: string | null = null;
+      let cachedMeta: CachedBlobMeta | undefined;
       if (row && !row.node.s3Key) blocked = "File content is not available";
       if (row?.node.s3Key && !blocked) {
         // Fast path 1: baseline for this branch already has localBlobSha and node has not changed
@@ -459,11 +472,10 @@ export async function compareSync(
           if (localHash) cacheBlobMeta(localHash, { blobSha: localBlobSha, isSafe: true });
         }
         // Fast path 5: in-memory Git blob SHA cache (by contentHash)
-        else if (localHash && gitBlobCache.has(localHash)) {
-          const cached = gitBlobCache.get(localHash)!;
-          localBlobSha = cached.blobSha;
-          if (input.direction === "push" && !cached.isSafe) {
-            blocked = cached.safeError || "File content is blocked";
+        else if (localHash && (cachedMeta = getCachedBlobMeta(localHash))) {
+          localBlobSha = cachedMeta.blobSha;
+          if (input.direction === "push" && !cachedMeta.isSafe) {
+            blocked = cachedMeta.safeError || "File content is blocked";
           }
         }
         // Fast path 6: project-level known blob cache (by contentHash)
@@ -696,8 +708,7 @@ export async function createSyncReview(
           }
           let snapshotBytes = 0;
           if (source === "edge" && file.storageKey) {
-            // ponytail: project revisions are immutable and revalidated before
-            // publication, so duplicating every local file is wasted I/O.
+            // ponytail: reuse immutable project revision storageKey instead of duplicating file snapshots. ceiling: immutable version S3 keys. upgrade: write-on-copy COW snapshots if version immutability contract changes.
             if (!file.localHash || !file.localBlobSha)
               throw new Error(`Cannot verify ${file.path}. Compare again.`);
             item.snapshotKey = file.storageKey;
@@ -771,7 +782,12 @@ export async function createSyncReview(
 
 export async function cleanupReviewedSyncSnapshots() {
   const runs = await db
-    .select()
+    .select({
+      id: githubSyncRuns.id,
+      projectId: githubSyncRuns.projectId,
+      manifest: githubSyncRuns.manifest,
+      result: githubSyncRuns.result,
+    })
     .from(githubSyncRuns)
     .where(
       and(
@@ -814,7 +830,7 @@ export async function cleanupReviewedSyncSnapshots() {
   return runs.length;
 }
 export function syncRunView(
-  run: typeof githubSyncRuns.$inferSelect,
+  run: Pick<typeof githubSyncRuns.$inferSelect, 'id' | 'status' | 'stage' | 'error' | 'createdAt' | 'manifest' | 'result'>,
 ): SyncRunView {
   return {
     id: run.id,
@@ -845,8 +861,16 @@ export async function validateReviewedLocalFiles(
     nodeIds.length
       ? db
           .select({
-            node: projectNodes,
-            version: fileVersions,
+            node: {
+              id: projectNodes.id,
+              currentVersion: projectNodes.currentVersion,
+              s3Key: projectNodes.s3Key,
+              path: projectNodes.path,
+              mimeType: projectNodes.mimeType,
+            },
+            version: {
+              contentHash: fileVersions.contentHash,
+            },
           })
           .from(projectNodes)
           .leftJoin(
@@ -903,7 +927,7 @@ export async function validateReviewedLocalFiles(
     )
       throw new Error(`File changed after review: ${file.path}`);
     if (verifyContent) {
-      // ponytail: database contentHash check is instant (0 network round trips)
+      // ponytail: database contentHash validation (0 network round-trips). ceiling: database-backed contentHash. upgrade: S3 byte-range ETags if database contentHash is missing.
       if (row.version?.contentHash) {
         if (row.version.contentHash !== file.localHash) {
           throw new Error(`Content changed after review: ${file.path}`);

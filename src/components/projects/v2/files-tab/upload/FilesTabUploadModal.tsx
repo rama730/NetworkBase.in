@@ -269,8 +269,8 @@ export function FilesTabUploadModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && !isProcessing && onCancel()}>
       <DialogContent
-        className="z-[300] sm:max-w-lg max-h-[90vh] overflow-y-auto"
-        overlayClassName="z-[299]"
+        className="z-[300] sm:max-w-[460px] max-h-[90vh] overflow-y-auto rounded-[12px] border border-[#DBD5C8] bg-white p-6 shadow-2xl dark:border-border dark:bg-card"
+        overlayClassName="z-[299] bg-transparent backdrop-blur-none"
         onEscapeKeyDown={(e) => {
           if (expandedCard !== null) {
             e.preventDefault();
@@ -289,13 +289,13 @@ export function FilesTabUploadModal({
           <div className="flex flex-col gap-1 pr-4">
             <DialogTitle className="truncate text-base font-semibold">
               Upload {displayName}{" "}
-              <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs font-normal text-muted-foreground">
                 ({formatBytes(totalBytes)})
               </span>
             </DialogTitle>
-            <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <span>Destination:</span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-muted text-foreground font-mono">
                 {destinationFolderName}
               </span>
             </div>
@@ -311,14 +311,14 @@ export function FilesTabUploadModal({
 
         {/* Multi-file Removable Chip List */}
         {fileList.length > 1 && expandedCard === null && (
-          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 rounded-lg border border-zinc-200 bg-zinc-50/70 dark:border-zinc-800 dark:bg-zinc-900/40">
+          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 rounded-lg border border-border bg-muted/40 dark:border-border dark:bg-card/40">
             {fileList.map((file, idx) => (
               <span
                 key={`${file.name}-${file.size}-${idx}`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs text-zinc-700 shadow-2xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-xs text-foreground shadow-2xs dark:border-border dark:bg-card dark:text-foreground"
               >
                 <span className="max-w-[130px] truncate font-medium">{file.name}</span>
-                <span className="text-[10px] text-zinc-400">({formatBytes(file.size)})</span>
+                <span className="text-[11px] text-muted-foreground">({formatBytes(file.size)})</span>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -329,7 +329,7 @@ export function FilesTabUploadModal({
                       onCancel();
                     }
                   }}
-                  className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
                   aria-label={`Remove ${file.name}`}
                 >
                   <X className="size-3" />
@@ -374,10 +374,10 @@ export function FilesTabUploadModal({
             {/* Option 1: Project Files */}
             <div
               className={cn(
-                "flex flex-col rounded-lg border p-3 transition-colors cursor-pointer",
+                "flex flex-col rounded-[8px] border p-3 transition-colors cursor-pointer",
                 intent === "project"
-                  ? "border-blue-600 bg-blue-50/50 dark:border-blue-500 dark:bg-blue-500/10"
-                  : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700",
+                  ? "border-[#D14E24] bg-[#FCF0EA]/50 dark:border-[#D14E24]/60 dark:bg-[#D14E24]/10"
+                  : "border-[#DBD5C8] hover:border-[#B6C0C5] dark:border-white/10 dark:hover:border-white/20 bg-card",
               )}
               onClick={() => {
                 setIntent("project");
@@ -389,22 +389,22 @@ export function FilesTabUploadModal({
                   className={cn(
                     "mt-0.5 size-5 shrink-0",
                     intent === "project"
-                      ? "text-blue-600 dark:text-blue-400"
-                      : "text-zinc-400",
+                      ? "text-[#D14E24]"
+                      : "text-muted-foreground",
                   )}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    <div className="text-sm font-semibold text-foreground">
                       Project Files
                     </div>
                     {intent === "project" && (
-                      <span className="flex size-4 items-center justify-center rounded-full bg-blue-600 text-white dark:bg-blue-500">
-                        <Check className="size-2.5" />
+                      <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
+                        <Check className="size-2.5 stroke-[3]" />
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     Place among existing files in {destinationFolderName}. Click to browse project tree.
                   </div>
                 </div>
@@ -414,10 +414,10 @@ export function FilesTabUploadModal({
             {/* Option 2: Task Reference */}
             <div
               className={cn(
-                "flex flex-col rounded-lg border p-3 transition-colors cursor-pointer",
+                "flex flex-col rounded-[8px] border p-3 transition-colors cursor-pointer",
                 intent === "reference"
-                  ? "border-sky-600 bg-sky-50/50 dark:border-sky-500 dark:bg-sky-500/10"
-                  : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700",
+                  ? "border-[#D14E24] bg-[#FCF0EA]/50 dark:border-[#D14E24]/60 dark:bg-[#D14E24]/10"
+                  : "border-[#DBD5C8] hover:border-[#B6C0C5] dark:border-white/10 dark:hover:border-white/20 bg-card",
               )}
               onClick={() => setIntent("reference")}
             >
@@ -426,22 +426,22 @@ export function FilesTabUploadModal({
                   className={cn(
                     "mt-0.5 size-5 shrink-0",
                     intent === "reference"
-                      ? "text-sky-600 dark:text-sky-400"
-                      : "text-zinc-400",
+                      ? "text-[#D14E24]"
+                      : "text-muted-foreground",
                   )}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    <div className="text-sm font-semibold text-foreground">
                       Task Reference
                     </div>
                     {intent === "reference" && (
-                      <span className="flex size-4 items-center justify-center rounded-full bg-sky-600 text-white dark:bg-sky-500">
-                        <Check className="size-2.5" />
+                      <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
+                        <Check className="size-2.5 stroke-[3]" />
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     A brief, specification, example, or source file supplied as task input.
                   </div>
                 </div>
@@ -451,10 +451,10 @@ export function FilesTabUploadModal({
             {/* Option 3: Working File */}
             <div
               className={cn(
-                "flex flex-col rounded-lg border p-3 transition-colors cursor-pointer",
+                "flex flex-col rounded-[8px] border p-3 transition-colors cursor-pointer",
                 intent === "working"
-                  ? "border-blue-600 bg-blue-50/50 dark:border-blue-500 dark:bg-blue-500/10"
-                  : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700",
+                  ? "border-[#D14E24] bg-[#FCF0EA]/50 dark:border-[#D14E24]/60 dark:bg-[#D14E24]/10"
+                  : "border-[#DBD5C8] hover:border-[#B6C0C5] dark:border-white/10 dark:hover:border-white/20 bg-card",
               )}
               onClick={() => setIntent("working")}
             >
@@ -463,22 +463,22 @@ export function FilesTabUploadModal({
                   className={cn(
                     "mt-0.5 size-5 shrink-0",
                     intent === "working"
-                      ? "text-blue-600 dark:text-blue-400"
-                      : "text-zinc-400",
+                      ? "text-[#D14E24]"
+                      : "text-muted-foreground",
                   )}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    <div className="text-sm font-semibold text-foreground">
                       Working File
                     </div>
                     {intent === "working" && (
-                      <span className="flex size-4 items-center justify-center rounded-full bg-blue-600 text-white dark:bg-blue-500">
-                        <Check className="size-2.5" />
+                      <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
+                        <Check className="size-2.5 stroke-[3]" />
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     Active drafts and intermediate work produced while completing the task.
                   </div>
                 </div>
@@ -492,7 +492,7 @@ export function FilesTabUploadModal({
                     value={label}
                     onChange={(e) => setLabel(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-full rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 placeholder:text-zinc-400"
+                    className="w-full rounded-[5px] border border-border bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:border-foreground/40"
                   />
                 </div>
               )}
@@ -501,10 +501,10 @@ export function FilesTabUploadModal({
             {/* Option 4: Final Deliverable */}
             <div
               className={cn(
-                "flex flex-col rounded-lg border p-3 transition-colors cursor-pointer",
+                "flex flex-col rounded-[8px] border p-3 transition-colors cursor-pointer",
                 intent === "deliverable"
-                  ? "border-emerald-600 bg-emerald-50/50 dark:border-emerald-500 dark:bg-emerald-500/10"
-                  : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700",
+                  ? "border-[#D14E24] bg-[#FCF0EA]/50 dark:border-[#D14E24]/60 dark:bg-[#D14E24]/10"
+                  : "border-[#DBD5C8] hover:border-[#B6C0C5] dark:border-white/10 dark:hover:border-white/20 bg-card",
               )}
               onClick={() => {
                 setIntent("deliverable");
@@ -516,22 +516,22 @@ export function FilesTabUploadModal({
                   className={cn(
                     "mt-0.5 size-5 shrink-0",
                     intent === "deliverable"
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-zinc-400",
+                      ? "text-[#D14E24]"
+                      : "text-muted-foreground",
                   )}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    <div className="text-sm font-semibold text-foreground">
                       Final Deliverable
                     </div>
                     {intent === "deliverable" && (
-                      <span className="flex size-4 items-center justify-center rounded-full bg-emerald-600 text-white dark:bg-emerald-500">
-                        <Check className="size-2.5" />
+                      <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
+                        <Check className="size-2.5 stroke-[3]" />
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     The completed output of this task. Click to choose destination folder.
                   </div>
                 </div>
@@ -542,10 +542,10 @@ export function FilesTabUploadModal({
             {singleFile && versionCandidates.length > 0 && (
               <div
                 className={cn(
-                  "flex flex-col rounded-lg border p-3 transition-colors cursor-pointer",
+                  "flex flex-col rounded-[8px] border p-3 transition-colors cursor-pointer",
                   intent === "version"
-                    ? "border-amber-600 bg-amber-50/50 dark:border-amber-500 dark:bg-amber-500/10"
-                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700",
+                    ? "border-[#D14E24] bg-[#FCF0EA]/50 dark:border-[#D14E24]/60 dark:bg-[#D14E24]/10"
+                    : "border-[#DBD5C8] hover:border-[#B6C0C5] dark:border-white/10 dark:hover:border-white/20 bg-card",
                 )}
                 onClick={() => {
                   setIntent("version");
@@ -559,22 +559,22 @@ export function FilesTabUploadModal({
                     className={cn(
                       "mt-0.5 size-5 shrink-0",
                       intent === "version"
-                        ? "text-amber-600 dark:text-amber-400"
-                        : "text-zinc-400",
+                        ? "text-[#D14E24]"
+                        : "text-muted-foreground",
                     )}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      <div className="text-sm font-semibold text-foreground">
                         New Version of Existing File
                       </div>
                       {intent === "version" && (
-                        <span className="flex size-4 items-center justify-center rounded-full bg-amber-600 text-white dark:bg-amber-500">
-                          <Check className="size-2.5" />
+                        <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white">
+                          <Check className="size-2.5 stroke-[3]" />
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       Add this upload to an existing file&apos;s version history.
                     </div>
                   </div>
@@ -586,7 +586,7 @@ export function FilesTabUploadModal({
                       value={versionNodeId}
                       onChange={(e) => setVersionNodeId(e.target.value)}
                       onClick={(e) => e.stopPropagation()}
-                      className="w-full rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                      className="w-full rounded-[5px] border border-border bg-background px-2.5 py-1 text-xs text-foreground"
                     >
                       {versionCandidates.map((cand) => (
                         <option key={cand.id} value={cand.id}>
@@ -601,13 +601,13 @@ export function FilesTabUploadModal({
 
             {/* Task Selector for reference and working task categories */}
             {(intent === "reference" || intent === "working") && (
-              <div className="mt-2 rounded-lg border border-zinc-200 bg-zinc-50/70 p-3 dark:border-zinc-800 dark:bg-zinc-900/60 space-y-2">
+              <div className="mt-2 rounded-lg border border-border bg-muted/40 p-3 dark:border-border dark:bg-card/60 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                  <span className="text-xs font-semibold text-foreground">
                     Associated Task
                   </span>
                   {activeTaskTitle && (
-                    <span className="text-[11px] text-zinc-500 truncate max-w-[200px]">
+                    <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
                       {activeTaskTitle}
                     </span>
                   )}
@@ -616,23 +616,23 @@ export function FilesTabUploadModal({
                 {!activeTaskId && (
                   <div className="space-y-1.5">
                     <div className="relative">
-                      <Search className="absolute left-2.5 top-2 size-3.5 text-zinc-400" />
+                      <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
                       <input
                         type="text"
                         placeholder="Search project tasks to link…"
                         value={taskQuery}
                         onChange={(e) => setTaskQuery(e.target.value)}
-                        className="w-full rounded-md border border-zinc-200 bg-white pl-8 pr-3 py-1 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                        className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1 text-xs text-foreground"
                       />
                       {loadingTasks && (
-                        <Loader2 className="absolute right-2.5 top-2 size-3.5 animate-spin text-zinc-400" />
+                        <Loader2 className="absolute right-2.5 top-2 size-3.5 animate-spin text-muted-foreground" />
                       )}
                     </div>
                     {taskResults.length > 0 && (
                       <select
                         value={selectedTaskId}
                         onChange={(e) => setSelectedTaskId(e.target.value)}
-                        className="w-full rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                        className="w-full rounded-md border border-border bg-background px-2.5 py-1 text-xs text-foreground"
                       >
                         {taskResults.map((t) => (
                           <option key={t.id} value={t.id}>
@@ -656,33 +656,33 @@ export function FilesTabUploadModal({
             <button
               type="button"
               onClick={() => setExpandedCard(null)}
-              className="self-start inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer group"
+              className="self-start inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted dark:hover:bg-muted transition-colors cursor-pointer group"
             >
               <ArrowLeft className="size-3.5 transition-transform group-hover:-translate-x-0.5" />
               <span>Back to categories</span>
             </button>
 
             {/* Full-length Project-Tree Card */}
-            <div className="flex flex-col rounded-lg border border-blue-600 bg-blue-50/20 dark:border-blue-500 dark:bg-blue-500/5 p-3.5">
+            <div className="flex flex-col rounded-[8px] border border-[#D14E24] bg-[#FCF0EA]/50 dark:border-[#D14E24]/50 dark:bg-[#D14E24]/10 p-3.5">
               <div className="flex w-full items-center justify-between text-left mb-2">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <FolderUp className="size-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <FolderUp className="size-5 text-[#D14E24] shrink-0" />
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    <div className="text-sm font-semibold text-foreground">
                       Project Files
                     </div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                      Destination folder: <span className="font-medium text-blue-600 dark:text-blue-400">{destinationFolderName}</span>
+                    <div className="text-xs text-muted-foreground truncate">
+                      Destination folder: <span className="font-medium text-[#D14E24]">{destinationFolderName}</span>
                     </div>
                   </div>
                 </div>
-                <span className="flex size-4 items-center justify-center rounded-full bg-blue-600 text-white dark:bg-blue-500 shrink-0">
+                <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white shrink-0">
                   <Check className="size-2.5" />
                 </span>
               </div>
 
               {/* Full-length FolderPicker */}
-              <div className="mt-1 h-[320px] overflow-y-auto rounded-md border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-1.5 shadow-xs">
+              <div className="mt-1 h-[320px] overflow-y-auto rounded-[8px] border border-border bg-background dark:border-border dark:bg-card p-1.5 shadow-xs">
                 <FolderPicker
                   projectId={projectId}
                   selectedFolderId={destinationFolderId}
@@ -700,27 +700,27 @@ export function FilesTabUploadModal({
             <button
               type="button"
               onClick={() => setExpandedCard(null)}
-              className="self-start inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer group"
+              className="self-start inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted dark:hover:bg-muted transition-colors cursor-pointer group"
             >
               <ArrowLeft className="size-3.5 transition-transform group-hover:-translate-x-0.5" />
               <span>Back to categories</span>
             </button>
 
             {/* Full-length Final Deliverable Card */}
-            <div className="flex flex-col rounded-lg border border-emerald-600 bg-emerald-50/20 dark:border-emerald-500 dark:bg-emerald-500/5 p-3.5">
+            <div className="flex flex-col rounded-[8px] border border-[#D14E24] bg-[#FCF0EA]/50 dark:border-[#D14E24]/50 dark:bg-[#D14E24]/10 p-3.5">
               <div className="flex w-full items-center justify-between text-left mb-2">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <FolderUp className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <FolderUp className="size-5 text-[#D14E24] shrink-0" />
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    <div className="text-sm font-semibold text-foreground">
                       Final Deliverable
                     </div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                      Destination folder: <span className="font-medium text-emerald-600 dark:text-emerald-400">{destinationFolderName}</span>
+                    <div className="text-xs text-muted-foreground truncate">
+                      Destination folder: <span className="font-medium text-[#D14E24]">{destinationFolderName}</span>
                     </div>
                   </div>
                 </div>
-                <span className="flex size-4 items-center justify-center rounded-full bg-emerald-600 text-white dark:bg-emerald-500 shrink-0">
+                <span className="flex size-4 items-center justify-center rounded-[3px] bg-[#D14E24] text-white shrink-0">
                   <Check className="size-2.5" />
                 </span>
               </div>
@@ -729,23 +729,23 @@ export function FilesTabUploadModal({
               {!activeTaskId && (
                 <div className="mb-2 space-y-1.5">
                   <div className="relative">
-                    <Search className="absolute left-2.5 top-2 size-3.5 text-zinc-400" />
+                    <Search className="absolute left-2.5 top-2 size-3.5 text-muted-foreground" />
                     <input
                       type="text"
                       placeholder="Search project task for this deliverable…"
                       value={taskQuery}
                       onChange={(e) => setTaskQuery(e.target.value)}
-                      className="w-full rounded-md border border-zinc-200 bg-white pl-8 pr-3 py-1 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                      className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1 text-xs text-foreground"
                     />
                     {loadingTasks && (
-                      <Loader2 className="absolute right-2.5 top-2 size-3.5 animate-spin text-zinc-400" />
+                      <Loader2 className="absolute right-2.5 top-2 size-3.5 animate-spin text-muted-foreground" />
                     )}
                   </div>
                   {taskResults.length > 0 && (
                     <select
                       value={selectedTaskId}
                       onChange={(e) => setSelectedTaskId(e.target.value)}
-                      className="w-full rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                      className="w-full rounded-md border border-border bg-background px-2.5 py-1 text-xs text-foreground"
                     >
                       {taskResults.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -759,7 +759,7 @@ export function FilesTabUploadModal({
               )}
 
               {/* Full-length FolderPicker */}
-              <div className="mt-1 h-[300px] overflow-y-auto rounded-md border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 p-1.5 shadow-xs">
+              <div className="mt-1 h-[300px] overflow-y-auto rounded-md border border-border bg-background dark:border-border dark:bg-card p-1.5 shadow-xs">
                 <FolderPicker
                   projectId={projectId}
                   selectedFolderId={destinationFolderId}
@@ -770,12 +770,12 @@ export function FilesTabUploadModal({
           </div>
         )}
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="bg-[#F3F0EA] dark:bg-white/5 border-t border-[#DBD5C8] dark:border-white/10 -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex items-center justify-end gap-2">
           <button
             type="button"
             disabled={isProcessing}
             onClick={onCancel}
-            className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-4 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 cursor-pointer"
+            className="h-[34px] rounded-[5px] border border-border bg-background px-3.5 text-[13px] font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50 cursor-pointer dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
           >
             Cancel
           </button>
@@ -788,7 +788,7 @@ export function FilesTabUploadModal({
               (isTaskCategory && !activeTaskId && !selectedTaskId)
             }
             onClick={handleConfirm}
-            className="rounded-lg bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 px-5 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            className="flex h-[34px] items-center justify-center gap-1.5 rounded-[5px] bg-primary px-4 text-[13px] font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isProcessing && <Loader2 className="size-3.5 animate-spin" />}
             Confirm

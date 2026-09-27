@@ -187,10 +187,16 @@ export async function generateExtensionToken(
                         lastSeenAt: createdAt,
                     })
                     .onConflictDoNothing({ target: extensionDeviceSessions.tokenHash })
-                    .returning();
+                    .returning({
+                        id: extensionDeviceSessions.id,
+                        userId: extensionDeviceSessions.userId,
+                    });
 
                 const session = insertedSessions[0] ?? (await tx
-                    .select()
+                    .select({
+                        id: extensionDeviceSessions.id,
+                        userId: extensionDeviceSessions.userId,
+                    })
                     .from(extensionDeviceSessions)
                     .where(eq(extensionDeviceSessions.tokenHash, tokenHash))
                     .limit(1))[0];

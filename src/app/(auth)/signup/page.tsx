@@ -445,15 +445,15 @@ function SignupPageInner() {
     }
 
     return (
-        <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
+        <main className="min-h-dvh w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
             <GoogleOneTap nextPath={oneTapNextPath} onError={setError} />
             {/* Left Panel: Clean Interactive Registration & Verification Form */}
-            <div className="flex flex-col justify-start sm:justify-center items-center py-8 sm:py-12 pb-16 px-6 sm:px-10 lg:px-12 xl:p-16 w-full min-h-screen overflow-y-auto">
-                <div className="w-full max-w-md my-auto transition-all duration-300 ease-out">
+            <div className="flex flex-col justify-start sm:justify-center items-center py-8 sm:py-12 pb-16 px-6 sm:px-10 lg:px-12 xl:p-16 w-full min-h-dvh overflow-y-auto">
+                <div className="w-full max-w-md my-auto transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms] ease-out">
 
                     {/* Optional Invitation / Referral Context Banner */}
                     {inviteParam && !isVerifyingOtp && (
-                        <div className="mb-5 p-3 rounded-lg bg-primary/10 border border-primary/20 text-xs text-foreground flex items-center gap-2.5 animate-in fade-in-50 duration-200">
+                        <div className="mb-5 p-3 rounded-lg bg-primary/10 border border-primary/20 text-xs text-foreground flex items-center gap-2.5 animate-in fade-in-50 duration-[180ms]">
                             <Sparkles className="w-4 h-4 text-primary shrink-0" />
                             <span>
                                 You have been invited to join <strong>NetworkBase</strong>. Complete registration to accept.
@@ -463,7 +463,7 @@ function SignupPageInner() {
 
                     {isVerifyingOtp ? (
                         /* In-App 6-Digit OTP Email Verification State */
-                        <div className="space-y-6 animate-in fade-in-50 duration-300">
+                        <div className="space-y-6 animate-in fade-in-50 duration-[260ms]">
                             <div className="text-center space-y-2">
                                 <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
                                     <Mail className="w-6 h-6" />
@@ -481,7 +481,7 @@ function SignupPageInner() {
                             {otpError && (
                                 <div
                                     role="alert"
-                                    className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-200"
+                                    className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-[180ms]"
                                 >
                                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                                     <span>{otpError}</span>
@@ -489,7 +489,7 @@ function SignupPageInner() {
                             )}
 
                             {resendMessage && (
-                                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-200">
+                                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-[180ms]">
                                     <Check className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
                                     <span>{resendMessage}</span>
                                 </div>
@@ -510,7 +510,7 @@ function SignupPageInner() {
                                             value={digit}
                                             onChange={(e) => handleOtpChange(idx, e.target.value)}
                                             onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                                            className="w-11 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold rounded-lg border border-border bg-background focus-visible:border-neutral-400 dark:focus-visible:border-neutral-500 focus-visible:ring-0 focus:outline-none transition-colors"
+                                            className="w-11 h-12 sm:w-12 sm:h-14 text-center text-xl font-semibold rounded-lg border border-border bg-background focus-visible:border-neutral-400 dark:focus-visible:border-neutral-500 focus-visible:ring-0 focus:outline-none transition-colors"
                                             disabled={isOtpLoading}
                                         />
                                     ))}
@@ -518,7 +518,7 @@ function SignupPageInner() {
 
                                 <Button
                                     type="submit"
-                                    className="w-full h-11 font-medium shadow-sm transition-transform duration-200 active:scale-[0.99]"
+                                    className="w-full h-11 font-medium shadow-none transition-transform duration-[180ms] active:scale-[0.99]"
                                     disabled={isOtpLoading || otpDigits.some((d) => !d)}
                                 >
                                     {isOtpLoading ? (
@@ -653,7 +653,7 @@ function SignupPageInner() {
                                 {error && (
                                     <div
                                         role="alert"
-                                        className="mb-5 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-200"
+                                        className="mb-5 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-[180ms]"
                                     >
                                         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                                         <span>{error}</span>
@@ -661,7 +661,7 @@ function SignupPageInner() {
                                 )}
 
                                 {success && (
-                                    <div className="mb-5 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-200">
+                                    <div className="mb-5 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-200 text-sm flex items-start gap-2.5 animate-in fade-in-50 duration-[180ms]">
                                         <Check className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
                                         <span>{success}</span>
                                     </div>
@@ -669,7 +669,7 @@ function SignupPageInner() {
 
                                 {/* Smooth Progressive Expansion: Fields expand, pushing button in lockstep */}
                                 <div
-                                    className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
+                                    className={`grid transition-[grid-template-rows,opacity,margin] duration-[260ms] ease-out ${
                                         isEmailSectionOpen
                                             ? 'grid-rows-[1fr] opacity-100 mb-6'
                                             : 'grid-rows-[0fr] opacity-0 mb-0 pointer-events-none'
@@ -697,7 +697,7 @@ function SignupPageInner() {
                                             />
                                             {/* Live Handle Preview with Debounced Availability Check */}
                                             {suggestedHandle.length >= 2 && (
-                                                <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 pt-0.5 animate-in fade-in-50 duration-200">
+                                                <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 pt-0.5 animate-in fade-in-50 duration-[180ms]">
                                                     <div className="flex items-center gap-1.5 truncate">
                                                         <Sparkles className="w-3 h-3 text-primary/70 shrink-0" />
                                                         <span className="truncate">
@@ -745,14 +745,14 @@ function SignupPageInner() {
                                             />
                                             {/* Disposable Domain Warning */}
                                             {isDisposable && (
-                                                <div className="flex items-center gap-1.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in-50 duration-200">
+                                                <div className="flex items-center gap-1.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in-50 duration-[180ms]">
                                                     <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                                                     <span>Please use a permanent email address (disposable emails are not permitted).</span>
                                                 </div>
                                             )}
                                             {/* Instant Domain Typo Suggestion */}
                                             {emailTypo.hasTypo && emailTypo.suggestedEmail && !isDisposable && (
-                                                <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in-50 duration-200">
+                                                <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200 animate-in fade-in-50 duration-[180ms]">
                                                     <div className="flex items-center gap-1.5 truncate">
                                                         <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                                                         <span className="truncate">
@@ -807,7 +807,7 @@ function SignupPageInner() {
 
                                             {/* Password strength indicator */}
                                             {password && (
-                                                <div className="space-y-2 pt-2 animate-in fade-in-50 duration-200">
+                                                <div className="space-y-2 pt-2 animate-in fade-in-50 duration-[180ms]">
                                                     <div className="flex gap-1">
                                                         {[1, 2, 3, 4].map((level) => (
                                                             <div
@@ -884,7 +884,7 @@ function SignupPageInner() {
                                                 </button>
                                             </div>
                                             {confirmPassword && (
-                                                <div className="flex items-center gap-1.5 text-xs pt-0.5 animate-in fade-in-50 duration-200">
+                                                <div className="flex items-center gap-1.5 text-xs pt-0.5 animate-in fade-in-50 duration-[180ms]">
                                                     {password === confirmPassword ? (
                                                         <>
                                                             <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
@@ -915,7 +915,7 @@ function SignupPageInner() {
                                                 />
                                             </div>
                                         ) : (
-                                            <div className="flex items-center justify-between p-3 rounded-xl border border-border/80 bg-muted/20 my-2 transition-colors">
+                                            <div className="flex items-center justify-between p-3 rounded-lg border border-border/80 bg-muted/20 my-2 transition-colors">
                                                 <label className="flex items-center gap-2.5 cursor-pointer select-none">
                                                     <input
                                                         type="checkbox"
@@ -982,7 +982,7 @@ function SignupPageInner() {
                                 {/* Create account button: glides down with fields in lockstep */}
                                 <Button
                                     type="submit"
-                                    className="w-full h-11 font-medium shadow-sm transition-transform duration-200 active:scale-[0.99]"
+                                    className="w-full h-11 font-medium shadow-none transition-transform duration-[180ms] active:scale-[0.99]"
                                     disabled={isLoading}
                                 >
                                     {isLoading ? (
@@ -1022,16 +1022,16 @@ function SignupPageInner() {
 
 function SignupPageFallback() {
     return (
-        <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
-            <div className="flex flex-col justify-center items-center p-6 sm:p-10 lg:p-12 xl:p-16 w-full min-h-screen">
+        <main className="min-h-dvh w-full grid grid-cols-1 lg:grid-cols-2 bg-background text-foreground">
+            <div className="flex flex-col justify-center items-center p-6 sm:p-10 lg:p-12 xl:p-16 w-full min-h-dvh">
                 <div className="w-full max-w-md my-auto space-y-4">
-                    <div className="h-8 w-48 bg-muted rounded-md animate-pulse" />
-                    <div className="h-4 w-64 bg-muted/60 rounded-md animate-pulse" />
+                    <div aria-hidden="true" className="nb-skeleton h-8 w-48 rounded-md" />
+                    <div aria-hidden="true" className="nb-skeleton h-4 w-64 rounded-md" />
                     <div className="grid grid-cols-2 gap-3 pt-4">
-                        <div className="h-11 bg-muted/40 rounded-md animate-pulse" />
-                        <div className="h-11 bg-muted/40 rounded-md animate-pulse" />
+                        <div aria-hidden="true" className="nb-skeleton h-11 rounded-md" />
+                        <div aria-hidden="true" className="nb-skeleton h-11 rounded-md" />
                     </div>
-                    <div className="h-11 bg-muted/40 rounded-md animate-pulse mt-4" />
+                    <div aria-hidden="true" className="nb-skeleton mt-4 h-11 rounded-md" />
                 </div>
             </div>
             <AuthAmbientCanvas />

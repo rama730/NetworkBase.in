@@ -96,7 +96,7 @@ export function ConversationHeaderV2({
                                 }`}>
                                     <span className="truncate">{buildIdentityPresentation(otherParticipant).displayName}</span>
                                     {latestApplicationStatus === 'pending' && (
-                                        <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400">
+                                        <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400">
                                             Pending Request
                                         </span>
                                     )}
@@ -120,7 +120,7 @@ export function ConversationHeaderV2({
                                 }`}>
                                     <span className="truncate">{buildIdentityPresentation(otherParticipant).displayName}</span>
                                     {latestApplicationStatus === 'pending' && (
-                                        <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400">
+                                        <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[11px] font-semibold uppercase text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400">
                                             Pending Request
                                         </span>
                                     )}

@@ -7,7 +7,7 @@ export const WIZARD_PHASES = [
     { id: 1, label: 'Start', description: 'Source Selection' },
     { id: 2, label: 'Info', description: 'Basic Information' },
     { id: 3, label: 'Team', description: 'Roles & Skills' },
-    { id: 4, label: 'Settings', description: 'Privacy & Terms' },
+    { id: 4, label: 'Settings', description: 'Launch settings' },
     { id: 5, label: 'Review', description: 'Final Preview' },
 ] as const;
 

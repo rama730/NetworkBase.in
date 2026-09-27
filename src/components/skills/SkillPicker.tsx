@@ -4,13 +4,29 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Loader2, Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DEFAULT_CLIENT_SKILLS, resolveClientSkill } from '@/lib/skills/client'
-import { SKILL_CLIENT_CATALOG_VERSION, SKILL_CLIENT_CATEGORIES } from '@/lib/skills/generated-client-catalog'
+import { SKILL_CLIENT_CATALOG_VERSION, SKILL_CLIENT_CATEGORIES, SKILL_CLIENT_LOOKUP } from '@/lib/skills/generated-client-catalog'
 import { normalizeSkillLookup } from '@/lib/skills/normalization'
 import type { SkillSummary } from '@/lib/skills/types'
 import { SkillChip } from './SkillChip'
 import { SkillIcon } from './SkillIcon'
 
 type SkillsEnvelope = { success: true; data: { skills: SkillSummary[] } }
+
+// Pre-index canonical skills by category on the client for instantaneous 0ms category switching
+// and ultra-fast 60fps performance without redundant server requests.
+const CATEGORY_CLIENT_SKILLS: Record<string, SkillSummary[]> = (() => {
+    const map: Record<string, SkillSummary[]> = {}
+    const seen = new Set<string>()
+    for (const [, tuple] of Object.entries(SKILL_CLIENT_LOOKUP)) {
+        const canonicalKey = tuple[0]
+        if (seen.has(canonicalKey)) continue
+        seen.add(canonicalKey)
+        const cat = tuple[5]
+        if (!map[cat]) map[cat] = []
+        map[cat].push(resolveClientSkill(tuple[1]))
+    }
+    return map
+})()
 
 export function SkillPicker({
     value,
@@ -20,6 +36,8 @@ export function SkillPicker({
     label = 'Skills & expertise',
     description = 'Search the market catalog or add a custom skill.',
     compact = false,
+    progressive = false,
+    controlSize = 'default',
     placeholder = 'Search React, Figma, leadership…',
     className,
 }: {
@@ -30,62 +48,111 @@ export function SkillPicker({
     label?: string
     description?: string
     compact?: boolean
+    progressive?: boolean
+    controlSize?: 'default' | 'large'
     placeholder?: string
     className?: string
 }) {
     const inputId = useId()
     const listboxId = useId()
     const [query, setQuery] = useState('')
-    const [category, setCategory] = useState<string>('all')
+    const [category, setCategory] = useState<string | null>(null)
     const [results, setResults] = useState<SkillSummary[]>(DEFAULT_CLIENT_SKILLS)
     const [loading, setLoading] = useState(false)
     const [activeIndex, setActiveIndex] = useState(0)
+    const [catalogOpen, setCatalogOpen] = useState(!progressive)
     const requestRef = useRef<AbortController | null>(null)
     const selectedKeys = useMemo(() => new Set(value.map((skill) => resolveClientSkill(skill).canonicalKey)), [value])
 
+    const handleCategoryClick = useCallback((key: string) => {
+        if (category === key) {
+            // Clicking the active tab a second time deselects it completely
+            setCategory(null)
+            setActiveIndex(0)
+        } else {
+            setCategory(key)
+            setActiveIndex(0)
+        }
+    }, [category])
+
+    // Update results immediately when category changes without waiting for network
     useEffect(() => {
+        if (!query.trim()) {
+            if (!category || category === 'all') {
+                setResults(DEFAULT_CLIENT_SKILLS)
+            } else {
+                setResults(CATEGORY_CLIENT_SKILLS[category] || [])
+            }
+            setActiveIndex(0)
+            return
+        }
+
         const controller = new AbortController()
         requestRef.current?.abort()
         requestRef.current = controller
         const timer = window.setTimeout(async () => {
             setLoading(true)
             try {
-                // Version the request URL as well as the response ETag. This prevents
-                // a CDN/browser from serving a previous catalog release for up to the
-                // stale-while-revalidate window after an icon release is deployed.
-                const params = new URLSearchParams({ limit: '30', catalog: SKILL_CLIENT_CATALOG_VERSION })
-                if (query.trim()) params.set('q', query.trim())
-                else params.set('tier', 'core')
-                if (category !== 'all') params.set('category', category)
+                const params = new URLSearchParams({ limit: '40', catalog: SKILL_CLIENT_CATALOG_VERSION })
+                params.set('q', query.trim())
+                if (category && category !== 'all') params.set('category', category)
                 const response = await fetch(`/api/v1/skills?${params}`, { signal: controller.signal })
                 if (!response.ok) throw new Error('Skill search failed')
-                const payload = await response.json() as SkillsEnvelope
+                const payload = (await response.json()) as SkillsEnvelope
                 if (!controller.signal.aborted) {
-                    setResults(payload.data.skills)
+                    // Filter in code so only skills matching the selected category are displayed
+                    const fetched = payload.data.skills
+                    const filtered = !category || category === 'all' ? fetched : fetched.filter((s) => s.categoryKey === category)
+                    setResults(filtered)
                     setActiveIndex(0)
                 }
             } catch (error) {
                 if (!controller.signal.aborted) {
-                    setResults(query.trim() ? [] : DEFAULT_CLIENT_SKILLS)
-                    console.warn('[skills] catalog search unavailable', error)
+                    // Fallback to local client search
+                    const normalized = normalizeSkillLookup(query)
+                    const pool = !category || category === 'all'
+                        ? DEFAULT_CLIENT_SKILLS
+                        : (CATEGORY_CLIENT_SKILLS[category] || [])
+                    const localMatches = pool.filter((s) => normalizeSkillLookup(s.name).includes(normalized))
+                    setResults(localMatches)
+                    console.warn('[skills] catalog search unavailable, using client fallback', error)
                 }
             } finally {
                 if (!controller.signal.aborted) setLoading(false)
             }
-        }, query.trim() ? 180 : 0)
+        }, 180)
+
         return () => {
             window.clearTimeout(timer)
             controller.abort()
         }
     }, [category, query])
 
-    const selectableResults = useMemo(
-        () => results.filter((skill) => !selectedKeys.has(skill.canonicalKey)),
-        [results, selectedKeys],
-    )
+    // Strictly filter selectable results by category in programming to ensure no foreign skills leak in
+    const selectableResults = useMemo(() => {
+        const unselected = results.filter((skill) => !selectedKeys.has(skill.canonicalKey))
+        if (!category || category === 'all') return unselected
+        return unselected.filter((skill) => skill.categoryKey === category)
+    }, [category, results, selectedKeys])
+
+    // For the "All" category when search is empty: show only a few curated items
+    const displayedResults = useMemo(() => {
+        if ((category === null || category === 'all') && !query.trim()) {
+            return selectableResults.slice(0, 8)
+        }
+        return selectableResults
+    }, [category, query, selectableResults])
+
+    // Top curated skills for the horizontal scroll shelf in "All" category
+    const popularShelfSkills = useMemo(() => {
+        return DEFAULT_CLIENT_SKILLS.filter((skill) => !selectedKeys.has(skill.canonicalKey)).slice(0, 14)
+    }, [selectedKeys])
+
     const exactMatch = results.some((skill) => normalizeSkillLookup(skill.name) === normalizeSkillLookup(query))
     const canAddCustom = allowCustom && query.trim().length >= 2 && !exactMatch && !selectedKeys.has(resolveClientSkill(query).canonicalKey)
-    const optionCount = selectableResults.length + (canAddCustom ? 1 : 0)
+    const isVisible = category !== null || Boolean(query.trim())
+    const showCatalogControls = !progressive || catalogOpen || isVisible
+    const optionCount = displayedResults.length + (canAddCustom ? 1 : 0)
 
     const selectSkill = useCallback((name: string) => {
         if (value.length >= maxSkills) return
@@ -104,64 +171,178 @@ export function SkillPicker({
         <div className={cn('min-w-0 space-y-3', className)}>
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                    <label htmlFor={inputId} className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{label}</label>
-                    <p id={`${inputId}-description`} className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{description}</p>
+                    <label htmlFor={inputId} className="nb-ui-label block text-foreground">
+                        {label}
+                    </label>
+                    {description ? (
+                        <p id={`${inputId}-description`} className="nb-meta mt-1 text-muted-foreground">
+                            {description}
+                        </p>
+                    ) : null}
                 </div>
-                <span className="shrink-0 text-xs tabular-nums text-zinc-500" aria-live="polite">{value.length}/{maxSkills}</span>
+                <span className="shrink-0 nb-meta tabular-nums text-muted-foreground" aria-live="polite">
+                    {value.length}/{maxSkills}
+                </span>
             </div>
 
             {value.length > 0 ? (
                 <div className="flex min-w-0 flex-wrap gap-2" aria-label="Selected skills">
-                    {value.map((skill) => <SkillChip key={resolveClientSkill(skill).canonicalKey} skill={skill} size={compact ? 'sm' : 'md'} onRemove={() => removeSkill(skill)} />)}
+                    {value.map((skill) => (
+                        <SkillChip
+                            key={resolveClientSkill(skill).canonicalKey}
+                            skill={skill}
+                            size={compact ? 'sm' : 'md'}
+                            onRemove={() => removeSkill(skill)}
+                        />
+                    ))}
                 </div>
             ) : null}
 
             <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <input
                     id={inputId}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     onKeyDown={(event) => {
-                        if (event.key === 'ArrowDown') { event.preventDefault(); setActiveIndex((index) => Math.min(Math.max(0, optionCount - 1), index + 1)) }
-                        if (event.key === 'ArrowUp') { event.preventDefault(); setActiveIndex((index) => Math.max(0, index - 1)) }
-                        if (event.key === 'Escape') { setQuery(''); setActiveIndex(0) }
+                        if (event.key === 'ArrowDown') {
+                            event.preventDefault()
+                            if (!isVisible) {
+                                setCategory('all')
+                            } else {
+                                setActiveIndex((index) => Math.min(Math.max(0, optionCount - 1), index + 1))
+                            }
+                        }
+                        if (event.key === 'ArrowUp') {
+                            event.preventDefault()
+                            if (isVisible) {
+                                setActiveIndex((index) => Math.max(0, index - 1))
+                            }
+                        }
+                        if (event.key === 'Escape') {
+                            setQuery('')
+                            setCategory(null)
+                            setActiveIndex(0)
+                            if (progressive) setCatalogOpen(false)
+                        }
                         if (event.key === 'Enter') {
                             event.preventDefault()
-                            const result = selectableResults[activeIndex]
-                            if (result) selectSkill(result.name)
-                            else if (canAddCustom) selectSkill(query.trim())
+                            if (isVisible) {
+                                const result = displayedResults[activeIndex]
+                                if (result) selectSkill(result.name)
+                                else if (canAddCustom) selectSkill(query.trim())
+                            }
                         }
                     }}
                     role="combobox"
-                    aria-expanded="true"
+                    aria-expanded={isVisible}
                     aria-haspopup="listbox"
                     aria-controls={listboxId}
-                    aria-describedby={`${inputId}-description`}
-                    aria-activedescendant={optionCount > 0 ? `${listboxId}-option-${activeIndex}` : undefined}
+                    aria-describedby={description ? `${inputId}-description` : undefined}
+                    aria-activedescendant={isVisible && optionCount > 0 ? `${listboxId}-option-${activeIndex}` : undefined}
                     autoComplete="off"
                     placeholder={placeholder}
-                    className="h-11 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-10 text-sm text-zinc-900 outline-none transition focus:border-blue-500   disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                    onFocus={() => setCatalogOpen(true)}
+                    className={cn(
+                        'w-full rounded-md border border-border bg-card pl-9 pr-9 text-[15px] text-foreground placeholder:text-muted-foreground outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60',
+                        controlSize === 'large' ? 'h-[var(--ui-control-height-lg)]' : 'h-[var(--ui-control-height)]'
+                    )}
                     disabled={value.length >= maxSkills}
                 />
-                {loading ? <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-400" aria-label="Searching skills" /> : null}
+                {loading ? <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-label="Searching skills" /> : null}
             </div>
 
-            <div className="flex flex-wrap gap-2" aria-label="Filter skills by category">
-                <button type="button" onClick={() => setCategory('all')} className={cn('whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium', category === 'all' ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300')}>All</button>
-                {SKILL_CLIENT_CATEGORIES.map((item) => (
-                    <button key={item.key} type="button" onClick={() => setCategory(item.key)} className={cn('whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium', category === item.key ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300')}>{item.name}</button>
-                ))}
-            </div>
-
-            <div
-                id={listboxId}
-                role="listbox"
-                aria-busy={loading}
-                aria-label="Available skills"
-                className="min-h-40 max-h-72 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+            {/* Category Navigation Bar: Single-row horizontal scroll to avoid multi-line wrapping */}
+            {showCatalogControls ? <div
+                className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
+                aria-label="Filter skills by category"
+                role="tablist"
             >
-                {selectableResults.map((skill, index) => (
+                <button
+                    type="button"
+                    role="tab"
+                    aria-selected={category === 'all'}
+                    onClick={() => handleCategoryClick('all')}
+                    className={cn(
+                        'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                        category === 'all'
+                            ? 'bg-foreground text-background shadow-xs'
+                            : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                >
+                    All
+                </button>
+                {SKILL_CLIENT_CATEGORIES.map((item) => (
+                    <button
+                        key={item.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={category === item.key}
+                        onClick={() => handleCategoryClick(item.key)}
+                        className={cn(
+                            'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                            category === item.key
+                                ? 'bg-foreground text-background shadow-xs'
+                                : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                        )}
+                    >
+                        {item.name}
+                    </button>
+                ))}
+            </div> : null}
+
+            {/* "All" Category Horizontal Shelf: Curated popular skills with quick-add */}
+            {category === 'all' && !query.trim() && popularShelfSkills.length > 0 ? (
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="nb-meta text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                            Popular & Recommended
+                        </span>
+                        <span className="nb-meta text-xs text-muted-foreground">
+                            Scroll horizontally
+                        </span>
+                    </div>
+                    <div
+                        className="flex items-center gap-2 overflow-x-auto pb-1.5 no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
+                        role="region"
+                        aria-label="Popular skills shelf"
+                    >
+                        {popularShelfSkills.map((skill) => (
+                            <button
+                                key={skill.canonicalKey}
+                                type="button"
+                                onClick={() => selectSkill(skill.name)}
+                                className="group flex shrink-0 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left transition hover:border-foreground/30 hover:bg-muted/60"
+                                title={`Add ${skill.name}`}
+                            >
+                                <SkillIcon skill={skill} size={18} />
+                                <div className="min-w-0">
+                                    <span className="block truncate text-xs font-medium text-foreground">
+                                        {skill.name}
+                                    </span>
+                                    <span className="block truncate text-[10px] capitalize text-muted-foreground">
+                                        {skill.categoryKey.replaceAll('-', ' ')}
+                                    </span>
+                                </div>
+                                <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition group-hover:border-foreground/40 group-hover:text-foreground">
+                                    <Plus className="h-3 w-3" />
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
+
+            {/* Available Skills Listbox: Hidden initially on All tab, toggled by tab clicks or search query */}
+            {isVisible ? (
+                <div
+                    id={listboxId}
+                    role="listbox"
+                    aria-busy={loading}
+                    aria-label="Available skills"
+                    className="min-h-40 max-h-72 overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-none divide-y divide-border/30"
+                >
+                    {displayedResults.map((skill, index) => (
                         <button
                             id={`${listboxId}-option-${index}`}
                             key={skill.canonicalKey}
@@ -171,32 +352,74 @@ export function SkillPicker({
                             onMouseEnter={() => setActiveIndex(index)}
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => selectSkill(skill.name)}
-                            className={cn('flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left', index === activeIndex ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/70')}
+                            className={cn(
+                                'group flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left transition',
+                                index === activeIndex ? 'bg-muted text-foreground' : 'hover:bg-muted/50 text-foreground'
+                            )}
                         >
-                            <SkillIcon skill={skill} size={20} />
-                            <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{skill.name}</span>
-                                <span className="block truncate text-xs capitalize text-zinc-500">{skill.categoryKey.replaceAll('-', ' ')} · {skill.kind.replaceAll('-', ' ')}</span>
+                            <div className="flex min-w-0 items-center gap-3">
+                                <SkillIcon skill={skill} size={20} />
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-medium text-foreground">{skill.name}</span>
+                                    <span className="block truncate text-xs capitalize text-muted-foreground">{skill.categoryKey.replaceAll('-', ' ')} · {skill.kind.replaceAll('-', ' ')}</span>
+                                </span>
+                            </div>
+                            <span className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground opacity-60 transition group-hover:opacity-100 group-hover:border-foreground/30 group-hover:text-foreground">
+                                <Plus className="h-3.5 w-3.5" />
                             </span>
                         </button>
-                ))}
-                {canAddCustom ? (
+                    ))}
+
+                    {/* Custom Skill Addition */}
+                    {canAddCustom ? (
                         <button
-                            id={`${listboxId}-option-${selectableResults.length}`}
+                            id={`${listboxId}-option-${displayedResults.length}`}
                             type="button"
                             role="option"
-                            aria-selected={activeIndex === selectableResults.length}
-                            onMouseEnter={() => setActiveIndex(selectableResults.length)}
+                            aria-selected={activeIndex === displayedResults.length}
+                            onMouseEnter={() => setActiveIndex(displayedResults.length)}
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => selectSkill(query.trim())}
-                            className={cn('flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left', activeIndex === selectableResults.length ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/70')}
+                            className={cn(
+                                'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition',
+                                activeIndex === displayedResults.length ? 'bg-muted text-foreground' : 'hover:bg-muted/50 text-foreground'
+                            )}
                         >
-                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100"><Plus className="h-3.5 w-3.5" /></span>
-                            <span><span className="block text-sm font-medium">Add “{query.trim()}”</span><span className="block text-xs text-zinc-500">Custom skill · submitted for catalog review</span></span>
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-muted text-foreground">
+                                <Plus className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium text-foreground">Add “{query.trim()}”</span>
+                                <span className="block truncate text-xs text-muted-foreground">Custom skill · submitted for catalog review</span>
+                            </span>
                         </button>
-                ) : null}
-                {!loading && optionCount === 0 ? <p className="px-3 py-6 text-center text-sm text-zinc-500">No matching skills.</p> : null}
-            </div>
+                    ) : null}
+
+                    {/* Helper hint when viewing curated items in All */}
+                    {category === 'all' && !query.trim() && displayedResults.length > 0 ? (
+                        <div className="px-3 py-2 text-center text-xs text-muted-foreground">
+                            Showing popular skills. Search above or select a category to browse all technologies.
+                        </div>
+                    ) : null}
+
+                    {/* Empty State */}
+                    {!loading && optionCount === 0 ? (
+                        <div className="p-2">
+                            <div className="nb-empty-state nb-grid-ground py-6 text-center" role="status">
+                                <div className="nb-empty-state-icon-box">
+                                    <Search className="nb-empty-state-icon" />
+                                </div>
+                                <h4 className="nb-empty-state-title">No matching skills found</h4>
+                                <p className="nb-empty-state-desc">
+                                    {category !== 'all'
+                                        ? `Try switching to another category or searching for a specific term.`
+                                        : `Try searching for a different technology or adding a custom skill.`}
+                                </p>
+                            </div>
+                        </div>
+                    ) : null}
+                </div>
+            ) : null}
         </div>
     )
 }

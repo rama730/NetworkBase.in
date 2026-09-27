@@ -16,25 +16,30 @@ const options = [
 export default function TaskFilters({ scope, setScope }: TaskFiltersProps) {
   return (
     <div
-      className="inline-flex rounded-lg border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900"
+      role="group"
+      className="inline-flex h-[34px] items-center gap-0.5 rounded-[5px] border border-border bg-muted/30 p-0.5"
       aria-label="Task scope"
     >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          aria-pressed={scope === option.value}
-          onClick={() => setScope?.(option.value)}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-            scope === option.value
-              ? "app-selected-surface text-primary"
-              : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200",
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
+      {options.map((option) => {
+        const isSelected = scope === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={isSelected}
+            onClick={() => setScope?.(option.value)}
+            className={cn(
+              "h-full rounded-[3px] px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              isSelected
+                ? "border border-border/60 bg-card text-foreground shadow-2xs"
+                : "border border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
+

@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
-import SecurityOverviewSection from "@/components/settings/SecurityOverviewSection";
 import { useSecurityData } from "@/hooks/useSettingsQueries";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPasswordCredential } from "@/lib/auth/account-identity";
@@ -17,10 +16,10 @@ const SessionsList = dynamic(() => import("@/components/settings/SessionsList").
 const LoginHistory = dynamic(() => import("@/components/auth/LoginHistory"));
 
 function SecuritySectionsSkeleton() {
-    return <div className="h-96 animate-pulse rounded-2xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900" />;
+    return <div aria-hidden="true" className="nb-skeleton h-96 rounded-lg border border-border" />;
 }
 
-export default function SecurityPage() {
+export default function SecurityPage({ embedded = false }: { embedded?: boolean }) {
     const { user } = useAuth();
     const securityHardeningEnabled = isSecurityHardeningEnabled(user?.id ?? null);
     const { data: securityData, isLoading, error } = useSecurityData({ hardeningEnabled: securityHardeningEnabled });
@@ -41,97 +40,82 @@ export default function SecurityPage() {
     if (isLoading) {
         return (
             <div className="space-y-6" data-hardening-security={securityHardeningEnabled ? "v1" : "off"}>
-                <SettingsPageHeader
-                    title="Security"
-                    description="Protect your account with an authenticator app, manage your fallback password, and review recent activity."
-                />
+                {!embedded ? (
+                    <SettingsPageHeader
+                        title="Security"
+                        description="Protect your account with an authenticator app, manage your fallback password, and review recent activity."
+                    />
+                ) : null}
                 <SecuritySectionsSkeleton />
             </div>
         );
     }
 
     return (
-        <div className="space-y-8" data-hardening-security={securityHardeningEnabled ? "v1" : "off"}>
-            <SettingsPageHeader
-                title="Security"
-                description="Protect your account with an authenticator app, manage your fallback password, and review recent activity."
-            />
+        <div className="space-y-6" data-hardening-security={securityHardeningEnabled ? "v1" : "off"}>
+            {!embedded ? (
+                <SettingsPageHeader
+                    title="Security"
+                    description="Protect your account with an authenticator app, manage your fallback password, and review recent activity."
+                />
+            ) : null}
 
             {securityErrorMessage ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300">
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 nb-compact text-destructive">
                     {securityErrorMessage}
                 </div>
             ) : null}
 
-            <SecurityOverviewSection securityData={securityData} hasPassword={passwordAvailable} />
-
-            <div className="space-y-4">
-                <div className="space-y-1">
-                    <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
-                        Sign-In Protection
-                    </h2>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                        Use an authenticator app as your main extra protection, and keep a password available as a fallback sign-in method.
-                    </p>
-                </div>
-
-                <SettingsSectionCard
-                    title="Authenticator App"
-                    description="Add a 6-digit code from an authenticator app as your main extra layer of protection."
-                    testId="security-authenticator-section"
-                >
+            <SettingsSectionCard
+                title="Sign-in protection"
+                description="Manage the verification methods that protect your account."
+            >
+                <div data-testid="security-authenticator-section">
+                    <div className="mb-4">
+                        <h4 className="nb-ui-label text-foreground">Authenticator app</h4>
+                        <p className="nb-compact mt-1 text-muted-foreground">Use a 6-digit code as an extra verification step.</p>
+                    </div>
                     <MfaSetup
                         initialFactors={securityData?.mfaFactors}
                         recoveryCodes={securityData?.recoveryCodes}
                     />
-                </SettingsSectionCard>
-
+                </div>
+                <div className="my-6 border-t border-border" />
                 <PasswordManagementSection
+                    embedded
                     hasPassword={passwordAvailable}
                     lastChangedAt={securityData?.password?.lastChangedAt}
                     availableStepUpMethods={passwordStepUpMethods}
                     primaryTotpFactorId={primaryVerifiedFactorId}
                 />
-            </div>
+            </SettingsSectionCard>
 
-            <div className="space-y-4">
-                <div className="space-y-1">
-                    <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
-                        Session Activity
-                    </h2>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                        Review where you are signed in and check recent sign-in activity.
-                    </p>
-                </div>
-
-                <SettingsSectionCard
-                    title="Active Sessions"
-                    description="Review where your account is currently signed in."
-                    testId="security-active-sessions-section"
-                >
+            <SettingsSectionCard
+                title="Sessions and sign-ins"
+                description="Review signed-in devices and recent access to your account."
+            >
+                <div data-testid="security-active-sessions-section">
+                    <h4 className="nb-ui-label mb-3 text-foreground">Active sessions</h4>
                     <SessionsList
                         initialSessions={securityData?.sessions}
                         availableStepUpMethods={sessionStepUpMethods}
                         primaryTotpFactorId={primaryVerifiedFactorId}
                     />
-                </SettingsSectionCard>
-
-                <SettingsSectionCard
-                    title="Recent Login Activity"
-                    description="Recent sign-ins to your account."
-                    testId="security-login-activity-section"
-                >
+                </div>
+                <div className="my-6 border-t border-border" />
+                <div data-testid="security-login-activity-section">
+                    <h4 className="nb-ui-label mb-3 text-foreground">Recent sign-ins</h4>
                     <LoginHistory initialHistory={securityData?.loginHistory} />
-                </SettingsSectionCard>
+                </div>
+            </SettingsSectionCard>
 
-                <SettingsSectionCard
-                    title="Security Activity"
-                    description="Recent changes to your account security."
-                    testId="security-activity-section"
-                >
-                    <SecurityActivitySection activity={securityData?.securityActivity} />
-                </SettingsSectionCard>
-            </div>
+            <SettingsSectionCard
+                title="Security activity"
+                description="Review recent changes to account protection."
+                testId="security-activity-section"
+            >
+                <SecurityActivitySection activity={securityData?.securityActivity} />
+            </SettingsSectionCard>
         </div>
     );
 }

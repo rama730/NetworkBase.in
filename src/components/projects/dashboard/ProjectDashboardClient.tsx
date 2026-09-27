@@ -31,7 +31,7 @@ import {
     type WorkspaceTaskHandoff,
 } from '@/lib/stores/ui-store';
 
-import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, AnalyticsTab, SprintPlanning, ProjectSettingsTab } from '@/components/projects/dashboard/ProjectTabsRegistry';
+import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, ProjectSettingsTab } from '@/components/projects/dashboard/ProjectTabsRegistry';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
 import { useFilesWorkspaceStore } from '@/stores/filesWorkspaceStore';
 
@@ -46,6 +46,7 @@ const ProjectOnboardingModal = dynamic(() => import('@/components/projects/Proje
 function normalizeProjectDetailTabParam(value: string | null | undefined) {
     const tab = value?.trim();
     if (!tab) return 'dashboard';
+    if (tab === 'analytics') return 'dashboard';
     return tab === 'docs' ? 'readme' : tab;
 }
 
@@ -85,10 +86,8 @@ function clearProjectDetailScopedParams(params: URLSearchParams, activeTab: stri
         changed = deleteParam(params, 'readmeMode') || changed;
     }
 
-    if (resetActiveTab || activeTab !== 'analytics') {
-        for (const key of ['analyticsTab', 'memberId', 'analyticsMember', 'analyticsSource', 'analyticsWindow']) {
-            changed = deleteParam(params, key) || changed;
-        }
+    for (const key of ['analyticsTab', 'memberId', 'analyticsMember', 'analyticsSource', 'analyticsWindow']) {
+        changed = deleteParam(params, key) || changed;
     }
 
     return changed;
@@ -171,9 +170,12 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const guidance = (project as { guidance?: unknown }).guidance ?? null;
 
     const invalidateProjectDetailSlices = useCallback(
-        (options?: { shell?: boolean; shellRefresh?: boolean; tasks?: boolean; sprints?: boolean; analytics?: boolean; members?: boolean; files?: boolean }) => {
+        (options?: { shell?: boolean; shellRefresh?: boolean; tasks?: boolean; sprints?: boolean; members?: boolean; files?: boolean }) => {
             const o = options ?? {};
             if (o.shell) {
+                void queryClient.invalidateQueries({
+                    queryKey: queryKeys.project.detail.recentActivity(project.id),
+                });
                 if (project.slug) {
                     void queryClient.invalidateQueries({
                         queryKey: queryKeys.project.bySlug(project.slug),
@@ -200,11 +202,6 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 });
                 void queryClient.invalidateQueries({
                     queryKey: queryKeys.project.detail.sprintDetailRoot(project.id),
-                });
-            }
-            if (o.analytics) {
-                void queryClient.invalidateQueries({
-                    queryKey: queryKeys.project.detail.analytics(project.id),
                 });
             }
             if (o.members) {
@@ -249,7 +246,6 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 shellRefresh: true,
                 tasks: targetTab === 'tasks' || targetTab === 'dashboard',
                 sprints: targetTab === 'sprints',
-                analytics: targetTab === 'analytics',
                 members: true,
                 files: targetTab === 'files',
             });
@@ -532,13 +528,8 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         const member = allMembers.find((item: any) => item?.id === currentUserId);
         return member?.avatarUrl || member?.profile?.avatarUrl || member?.user?.avatarUrl || viewerAvatarUrl || null;
     }, [allMembers, currentUserId, viewerAvatarUrl]);
-    const canCreateUpdates = isOwner || currentProjectRole === 'admin' || currentProjectRole === 'member';
+    const canCreateUpdates = isOwner || currentProjectRole === 'admin' || (currentProjectRole === 'member' && Boolean(extendedProject?.memberUpdatesEnabled ?? (extendedProject as any)?.member_updates_enabled ?? true));
     const canManageUpdates = canManageProjectSettings;
-
-    // Current members
-    const members = useMemo(() => {
-        return membersData?.pages.flatMap((p: any) => p.members) || collaboratorUsers || [];
-    }, [membersData, collaboratorUsers]);
 
     const lifecycleStageNames = useMemo(() => {
         return (Array.isArray(extendedProject?.lifecycleStages) && extendedProject.lifecycleStages.length > 0 ? extendedProject.lifecycleStages : Array.isArray((extendedProject as any)?.lifecycle_stages) && (extendedProject as any).lifecycle_stages.length > 0 ? (extendedProject as any).lifecycle_stages : []) as string[];
@@ -568,6 +559,8 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 toast.error('That project tab is not visible for your current access.');
                 return;
             }
+            const routeRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
+            routeRoot?.scrollTo({ top: 0, left: routeRoot.scrollLeft, behavior: 'auto' });
             if (tabId === activeTab) {
                 // If they click the current tab, clear any tab-specific parameters to reset tab view/drawer
                 const nextParams = new URLSearchParams(window.location.search);
@@ -699,9 +692,6 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                     break;
                 case 'tasks':
                     void import('@/components/projects/v2/TasksTab');
-                    break;
-                case 'analytics':
-                    void import('@/components/projects/tabs/AnalyticsTab');
                     break;
                 case 'settings':
                     void import('@/components/projects/tabs/ProjectSettingsTab');
@@ -1065,11 +1055,11 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     }
 
     return (
-        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab} isDocEditing={isDocEditing} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onTabHover={handleTabHover}>
+        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab} isDocEditing={isDocEditing} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => setIsInviteModalOpen(true)} canInvite={canManageProjectSettings} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers}>
             {activeTab === 'dashboard' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Dashboard">
-                        <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} canManageTeam={canManageProjectSettings} members={members} loadingMembers={loadingMembers} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} onManageTeam={() => setIsInviteModalOpen(true)} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} />
+                        <DashboardTab project={projectWithLiveStats} isCreator={isOwner} isCollaborator={isMember} rolesWithFilled={rolesWithFilled} onEdit={handleEdit} onAdvanceStage={handleAdvanceStage} onRedoStage={handleRegressStage} onApplyToRole={handleApplyToRole} lifecycleStages={lifecycleStages} currentStageIndex={optimisticStageIndex} applicationStatus={applicationStatus} onAcceptInvitation={() => void handleInvitation('accept')} onDeclineInvitation={() => void handleInvitation('decline')} invitationLoading={invitationLoading} />
                     </TabErrorBoundary>
                 </div>
             )}
@@ -1103,15 +1093,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             {activeTab === 'tasks' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Tasks">
-                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} isOwner={isOwner} canEditTasks={canEditTasks} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? workspaceInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={workspaceInitialTaskId ? consumeWorkspaceTaskHandoff : undefined} />
-                    </TabErrorBoundary>
-                </div>
-            )}
-
-            {activeTab === 'analytics' && (
-                <div className="w-full h-full min-h-0">
-                    <TabErrorBoundary tabName="Analytics">
-                        <AnalyticsTab projectId={project.id} project={projectWithLiveStats} />
+                        <TasksTab projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} currentUserId={currentUserId || undefined} currentUserName={currentUserName} currentUserAvatarUrl={currentUserAvatarUrl} isOwner={isOwner} canEditTasks={canEditTasks} canManageFiles={canManageFiles} canManageWorkflow={canManageProjectSettings} initialTasks={tasks} members={allMembers} sprints={sprints} initialOpenTaskId={initialTaskDrawerId ?? workspaceInitialTaskId} initialPanelTab={initialTaskPanelTab} initialCommentId={searchParams?.get('commentId')} initialFileId={searchParams?.get('fileId')} onInitialTaskOpened={workspaceInitialTaskId ? consumeWorkspaceTaskHandoff : undefined} />
                     </TabErrorBoundary>
                 </div>
             )}

@@ -78,11 +78,8 @@ function taskContextLabel(
 }
 
 /**
- * SEC-H5: Atomically lock the task's project + membership rows and verify
- * the caller still has write access. Because the locks are held until the
- * surrounding transaction commits, a concurrent "remove member" operation
- * will serialize after the write and can no longer race ahead of the
- * in-flight update.
+ * SEC-H5 & PURE OPTIMIZATION (Item 3): Atomically lock the task's project + membership
+ * rows in a single join query and verify caller write access in 1 DB round-trip.
  */
 async function lockTaskForWrite(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
@@ -104,7 +101,7 @@ async function lockTaskForWrite(
   projectSlug: string | null;
   projectKey: string | null;
 }> {
-  const taskRows = await tx.execute<{
+  const rows = await tx.execute<{
     id: string;
     project_id: string;
     assignee_id: string | null;
@@ -117,19 +114,6 @@ async function lockTaskForWrite(
     status: TaskStatus;
     review_status: "none" | "pending" | "rejected";
     updated_at: Date;
-  }>(sql`
-        SELECT id, project_id, assignee_id, sprint_id, workflow_column_id, timeline_origin_sprint_id, creator_id, title, task_number, status, review_status, updated_at
-        FROM tasks
-        WHERE id = ${taskId}
-        FOR UPDATE
-    `);
-  const task = Array.from(taskRows)[0];
-  if (!task) {
-    throw new Error("Task not found");
-  }
-
-  const projectRows = await tx.execute<{
-    id: string;
     owner_id: string;
     slug: string | null;
     key: string | null;
@@ -137,41 +121,52 @@ async function lockTaskForWrite(
     member_role: string | null;
   }>(sql`
         SELECT
-            p.id, p.owner_id, p.slug, p.key, p.deleted_at,
+            t.id, t.project_id, t.assignee_id, t.sprint_id, t.workflow_column_id,
+            t.timeline_origin_sprint_id, t.creator_id, t.title, t.task_number,
+            t.status, t.review_status, t.updated_at,
+            p.owner_id, p.slug, p.key, p.deleted_at,
             m.role as member_role
-        FROM projects p
+        FROM tasks t
+        JOIN projects p ON p.id = t.project_id
         LEFT JOIN project_members m ON m.project_id = p.id AND m.user_id = ${userId}
-        WHERE p.id = ${task.project_id}
-        FOR UPDATE OF p
+        WHERE t.id = ${taskId}
+        FOR UPDATE OF t, p
     `);
-  const project = Array.from(projectRows)[0];
-  if (!project || project.deleted_at) {
+  const row = Array.from(rows)[0];
+  if (!row) {
+    const [exists] = await tx.execute<{ id: string }>(sql`SELECT id FROM tasks WHERE id = ${taskId} LIMIT 1`);
+    if (!exists) {
+      throw new Error("Task not found");
+    }
     throw new Error("Forbidden");
   }
-  const isOwner = project.owner_id === userId;
+  if (row.deleted_at) {
+    throw new Error("Forbidden");
+  }
+  const isOwner = row.owner_id === userId;
   if (!isOwner) {
-    if (!project.member_role) {
+    if (!row.member_role) {
       throw new Error("Forbidden");
     }
-    if ((project.member_role ?? "").toLowerCase() === "viewer") {
+    if ((row.member_role ?? "").toLowerCase() === "viewer") {
       throw new Error("Forbidden");
     }
   }
   return {
-    projectId: task.project_id,
+    projectId: row.project_id,
     isOwner,
-    previousAssigneeId: task.assignee_id ?? null,
-    previousSprintId: task.sprint_id ?? null,
-    currentWorkflowColumnId: task.workflow_column_id ?? null,
-    timelineOriginSprintId: task.timeline_origin_sprint_id ?? null,
-    creatorId: task.creator_id,
-    title: task.title,
-    taskNumber: task.task_number ?? null,
-    currentStatus: task.status,
-    reviewStatus: task.review_status,
-    currentUpdatedAt: new Date(task.updated_at),
-    projectSlug: project.slug ?? null,
-    projectKey: project.key ?? null,
+    previousAssigneeId: row.assignee_id ?? null,
+    previousSprintId: row.sprint_id ?? null,
+    currentWorkflowColumnId: row.workflow_column_id ?? null,
+    timelineOriginSprintId: row.timeline_origin_sprint_id ?? null,
+    creatorId: row.creator_id,
+    title: row.title,
+    taskNumber: row.task_number ?? null,
+    currentStatus: row.status,
+    reviewStatus: row.review_status,
+    currentUpdatedAt: row.updated_at,
+    projectSlug: row.slug ?? null,
+    projectKey: row.key ?? null,
   };
 }
 
@@ -293,6 +288,16 @@ export async function updateTaskFieldAction(
           updates.dueDate = parsed;
         } else {
           updates.dueDate = null;
+        }
+      } else if (field === "storyPoints") {
+        if (value === null || value === undefined || value === "") {
+          updates.storyPoints = null;
+        } else {
+          const num = typeof value === "number" ? value : Number(value);
+          if (!Number.isInteger(num) || num < 0 || num > 100) {
+            throw new Error("Story points must be between 0 and 100");
+          }
+          updates.storyPoints = num;
         }
       }
 
@@ -511,43 +516,55 @@ export async function updateTaskStatusAction(
         newReviewStatus = "rejected";
       }
 
-      const defaultColumn = await tx.query.projectWorkflowColumns.findFirst({
-        where: and(
-          eq(projectWorkflowColumns.projectId, locked.projectId),
-          eq(projectWorkflowColumns.status, status),
-          eq(projectWorkflowColumns.isDefault, true),
-        ),
-        columns: { id: true },
-      });
-      if (!defaultColumn)
-        throw new Error("Default workflow section is unavailable");
       const updatedAt = new Date();
-      await tx
-        .update(tasks)
-        .set({
-          status,
-          reviewStatus: newReviewStatus,
-          workflowColumnId: defaultColumn.id,
-          ...(position !== undefined && { position }),
-          updatedAt,
-        })
-        .where(eq(tasks.id, taskId));
-      if (locked.currentStatus !== status) {
-        await tx.insert(taskActivityEvents).values({
-          taskId,
-          projectId: locked.projectId,
-          sprintId: locked.previousSprintId,
-          actorId: user.id,
-          eventType: "status_changed",
-          payload: {
-            version: 1,
-            taskTitle: locked.title,
-            taskNumber: locked.taskNumber,
-            taskStatus: status,
-            from: locked.currentStatus,
-            to: status,
-          },
-        });
+      const posVal = position !== undefined ? position : null;
+      const statusChanged = locked.currentStatus !== status;
+
+      // PURE OPTIMIZATION (Item 4): Atomic CTE consolidates default column lookup, task position update, and activity log into 1 DB round-trip.
+      const updatedRows = await tx.execute<{ workflow_column_id: string | null }>(sql`
+        WITH default_col AS (
+          SELECT id FROM project_workflow_columns
+          WHERE project_id = ${locked.projectId}
+            AND status = ${status}
+            AND is_default = true
+          LIMIT 1
+        ),
+        updated_task AS (
+          UPDATE tasks
+          SET status = ${status},
+              review_status = ${newReviewStatus},
+              workflow_column_id = (SELECT id FROM default_col),
+              position = COALESCE(${posVal}, position),
+              updated_at = ${updatedAt}
+          WHERE id = ${taskId}
+            AND (SELECT id FROM default_col) IS NOT NULL
+          RETURNING id, workflow_column_id
+        ),
+        activity_insert AS (
+          INSERT INTO task_activity_events (task_id, project_id, sprint_id, actor_id, event_type, payload)
+          SELECT
+            ${taskId},
+            ${locked.projectId},
+            ${locked.previousSprintId},
+            ${user.id},
+            'status_changed',
+            ${JSON.stringify({
+              version: 1,
+              taskTitle: locked.title,
+              taskNumber: locked.taskNumber,
+              taskStatus: status,
+              from: locked.currentStatus,
+              to: status,
+            })}::jsonb
+          FROM updated_task
+          WHERE ${statusChanged}
+        )
+        SELECT workflow_column_id FROM updated_task
+      `);
+
+      const updatedRow = Array.from(updatedRows)[0];
+      if (!updatedRow || !updatedRow.workflow_column_id) {
+        throw new Error("Default workflow section is unavailable");
       }
 
       return { ...locked, updatedAt };
@@ -834,34 +851,43 @@ export async function assignTaskAction(
         throw new Error("Task does not belong to this project");
       }
 
-      if (assigneeId) {
-        const isProjectMember = await tx.query.projectMembers.findFirst({
-          where: and(
-            eq(projectMembers.projectId, locked.projectId),
-            eq(projectMembers.userId, assigneeId),
-          ),
-          columns: { id: true, role: true },
-        });
-        if (!isProjectMember) {
-          throw new Error("Assignee must be a project member");
-        }
-        if (!isProjectMemberEligibleFor(isProjectMember.role, "assign")) {
-          throw new Error("Assignee must be an assignable project member");
-        }
-      }
-
       const snapshotIds = [
         user.id,
         locked.previousAssigneeId,
         assigneeId,
       ].filter((id): id is string => !!id);
+
+      // PURE OPTIMIZATION (Item 5): Combine profile snapshots and assignee project membership in 1 query.
       const profileSnapshots =
         snapshotIds.length > 0
-          ? await tx.query.profiles.findMany({
-              where: inArray(profiles.id, snapshotIds),
-              columns: { id: true, fullName: true, avatarUrl: true },
-            })
+          ? await tx
+              .select({
+                id: profiles.id,
+                fullName: profiles.fullName,
+                avatarUrl: profiles.avatarUrl,
+                memberRole: projectMembers.role,
+              })
+              .from(profiles)
+              .leftJoin(
+                projectMembers,
+                and(
+                  eq(projectMembers.userId, profiles.id),
+                  eq(projectMembers.projectId, locked.projectId),
+                ),
+              )
+              .where(inArray(profiles.id, snapshotIds))
           : [];
+
+      if (assigneeId) {
+        const assigneeRow = profileSnapshots.find((p) => p.id === assigneeId);
+        if (!assigneeRow || !assigneeRow.memberRole) {
+          throw new Error("Assignee must be a project member");
+        }
+        if (!isProjectMemberEligibleFor(assigneeRow.memberRole, "assign")) {
+          throw new Error("Assignee must be an assignable project member");
+        }
+      }
+
       const snapshotById = new Map(
         profileSnapshots.map((profile) => [profile.id, profile]),
       );

@@ -373,7 +373,7 @@ export function FileActionsBar({
             type="button"
             variant="ghost"
             size="sm"
-            className="size-11 p-0"
+            className="size-7 [@media(pointer:coarse)]:size-11 rounded-[5px] p-0 text-[#4C5A61] hover:bg-[#F3F0EA] hover:text-[#141A1E] dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
             aria-label={`Actions for ${fileName || "file"}`}
             title="File actions"
             data-testid="files-tab-file-actions-dropdown-trigger"
@@ -381,7 +381,7 @@ export function FileActionsBar({
             <MoreHorizontal className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" collisionPadding={8} className="w-56 max-w-[calc(100vw-16px)] [&_[role=menuitem]]:min-h-10">
+        <DropdownMenuContent align="end" collisionPadding={8} className="w-56 max-w-[calc(100vw-16px)] rounded-[8px] border border-[#DBD5C8] bg-white p-1 shadow-md dark:border-border dark:bg-card [&_[role=menuitem]]:min-h-10 [&_[role=menuitem]]:rounded-[5px]">
           {workspace && <DropdownMenuItem onSelect={() => workspace.setInspector(current => current === "details" ? null : "details")}><Info className="size-4" />Details</DropdownMenuItem>}
           {projectId && nodeId && <>
             <DropdownMenuItem onSelect={() => useFilesWorkspaceStore.getState().toggleFavorite(projectId, nodeId)}><Star className="size-4" fill={starred ? "currentColor" : "none"} />{starred ? "Unstar" : "Star"}</DropdownMenuItem>
@@ -421,7 +421,7 @@ export function FileActionsBar({
               className="gap-2 cursor-pointer"
               aria-label="Upload a file revision"
             >
-              <FileUp className={cn("h-4 w-4 opacity-70", isReplacing && "animate-pulse")} />
+              <FileUp className={cn("h-4 w-4 opacity-70", isReplacing && "animate-none")} />
               <span>{lockConflict ? "Retry upload revision…" : "Upload revision…"}</span>
             </DropdownMenuItem>
           )}
@@ -452,7 +452,7 @@ export function FileActionsBar({
               onClick={onToggleLinkedTasks}
               data-testid="linked-tasks-toggle"
               aria-pressed={isLinkedTasksPanelOpen}
-              className={cn("gap-2 cursor-pointer", isLinkedTasksPanelOpen && "bg-zinc-100 dark:bg-zinc-800 font-medium")}
+              className={cn("gap-2 cursor-pointer", isLinkedTasksPanelOpen && "bg-muted font-medium")}
             >
               <ListTodo className="h-4 w-4 opacity-70" />
               <span>Linked tasks</span>
@@ -464,7 +464,7 @@ export function FileActionsBar({
               onClick={onToggleVersionHistory}
               data-testid="version-history-toggle"
               aria-pressed={isVersionHistoryPanelOpen}
-              className={cn("gap-2 cursor-pointer", isVersionHistoryPanelOpen && "bg-zinc-100 dark:bg-zinc-800 font-medium")}
+              className={cn("gap-2 cursor-pointer", isVersionHistoryPanelOpen && "bg-muted font-medium")}
             >
               <History className="h-4 w-4 opacity-70" />
               <span>Version history</span>

@@ -17,7 +17,7 @@ import { recordMessagesDraftLifecycle } from '@/lib/messages/observability';
 //   attempts=0 → 250 ms, 1 → 500 ms, 2 → 1 s, 3 → 2 s, 4 → 4 s, 5 → 8 s,
 //   6 → 16 s, 7+ → 30 s cap.
 function getRetryDelay(attempt: number) {
-    return Math.min(30_000, 250 * (2 ** Math.min(7, attempt)));
+    return Math.min(30_000, 1_000 * (2 ** Math.min(5, attempt)));
 }
 
 const MAX_RETRY_ATTEMPTS = 20;
@@ -75,6 +75,9 @@ export function useMessagesV2OutboxSync(enabled: boolean) {
 
         const flush = async () => {
             if (flushing) {
+                return;
+            }
+            if (typeof navigator !== 'undefined' && !navigator.onLine) {
                 return;
             }
 

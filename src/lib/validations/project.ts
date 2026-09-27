@@ -5,7 +5,7 @@ import { validateProjectSocialLinks } from '@/lib/projects/social-links';
 // Open Role Schema
 export const openRoleSchema = z.object({
     role: z.string().min(1, 'Role is required'),
-    count: z.number().min(1).default(1),
+    count: z.number().min(1, 'Add at least one position').max(10, 'A role can have up to 10 positions').default(1),
     description: z.string().optional(),
     skills: z.array(z.string()).default([]),
     experience_level: z.enum(['any', 'junior', 'mid', 'senior']).default('any'),
@@ -25,23 +25,6 @@ export const creatorRoleSchema = z.object({
 });
 
 export type CreatorRoleInput = z.infer<typeof creatorRoleSchema>;
-
-// Application Settings
-export const applicationSettingsSchema = z.object({
-    allow_applications: z.boolean().default(true),
-    require_portfolio: z.boolean().default(false),
-    custom_questions: z.array(z.string()).default([]),
-    auto_decline_days: z.number().min(1).max(90).default(30),
-});
-
-// Terms Schema
-export const termsSchema = z.object({
-    ip_agreement: z.enum(['discuss', 'company_owned', 'contributor_owned', 'shared']).default('discuss'),
-    license: z.string().optional(),
-    nda_required: z.enum(['none', 'mutual', 'one_way']).default('none'),
-    portfolio_showcase_allowed: z.boolean().default(true),
-    additional_terms: z.string().optional(),
-});
 
 // External Links Schema
 const legacyExternalLinksSchema = z.object({
@@ -122,8 +105,6 @@ export const createProjectSchema = z.object({
     creator_role: creatorRoleSchema.nullable().optional(),
     roles: z.array(openRoleSchema).optional(),
     team_settings: z.any().nullable().optional(),
-    application_settings: applicationSettingsSchema.optional(),
-    terms: termsSchema.optional(),
     external_links: externalLinksSchema.optional(),
     notification_preferences: projectNotificationSettingsSchema.optional(),
     readme: projectDocCreationIntentSchema.default({
@@ -142,6 +123,20 @@ export const createProjectSchema = z.object({
         metadata: z.record(z.string(), z.any()).optional(),
     }).optional(),
 }).superRefine((val, ctx) => {
+    const roleTitles = new Set<string>();
+    for (let index = 0; index < (val.roles || []).length; index += 1) {
+        const title = val.roles?.[index]?.role.trim().toLocaleLowerCase();
+        if (!title) continue;
+        if (roleTitles.has(title)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['roles', index, 'role'],
+                message: 'Each open role needs a unique title.',
+            });
+        }
+        roleTitles.add(title);
+    }
+
     const src = val.import_source;
     if (!src) return;
 

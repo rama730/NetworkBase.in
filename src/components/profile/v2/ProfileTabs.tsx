@@ -22,20 +22,15 @@ export function ProfileTabs({
     return (
         <div
             className={cn(
-                'transition-all duration-200',
+                'bg-background',
                 className
             )}
         >
-            <div className="transition-all duration-200 py-0">
-                <div
-                    role="tablist"
-                    aria-label="Profile sections"
-                    className={cn(
-                        'border border-zinc-200 dark:border-zinc-800 p-1 flex gap-1 shadow-sm overflow-hidden transition-all duration-300',
-                        'bg-white/95 dark:bg-zinc-950/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 supports-[backdrop-filter]:dark:bg-zinc-950/80',
-                        'rounded-2xl'
-                    )}
-                >
+            <div
+                role="tablist"
+                aria-label="Profile sections"
+                className="flex min-h-11 w-full items-end gap-5 border-b border-border bg-background"
+            >
                     {TABS.map((t) => {
                         const active = t.key === value;
                         return (
@@ -48,26 +43,28 @@ export function ProfileTabs({
                                 role="tab"
                                 id={`profile-tab-${t.key}`}
                                 aria-selected={active}
+                                tabIndex={active ? 0 : -1}
+                                onKeyDown={event => {
+                                    const index = TABS.findIndex(tab => tab.key === value);
+                                    const next = event.key === "ArrowRight" ? (index + 1) % TABS.length : event.key === "ArrowLeft" ? (index + TABS.length - 1) % TABS.length : event.key === "Home" ? 0 : event.key === "End" ? TABS.length - 1 : null;
+                                    if (next === null) return;
+                                    event.preventDefault();
+                                    const key = TABS[next]!.key;
+                                    onChange(key);
+                                    document.getElementById(`profile-tab-${key}`)?.focus();
+                                }}
                                 aria-controls={`profile-panel-${t.key}`}
                                 className={cn(
-                                    'flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 text-left group',
+                                    'nb-ui-label -mb-px min-h-11 border-b-2 border-transparent px-1 py-3 text-left focus-visible:bg-muted/70 focus-visible:outline-none',
                                     active
-                                        ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
-                                        : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:bg-transparent dark:hover:bg-zinc-900'
+                                        ? 'border-primary font-semibold text-foreground'
+                                        : 'text-muted-foreground hover:text-foreground'
                                 )}
                             >
-                                <div className="flex items-center justify-between gap-3">
-                                    <span className="font-semibold">{t.label}</span>
-                                    {active ? (
-                                        <span className="text-[11px] opacity-90 hidden sm:inline-block font-normal">
-                                            {t.hint}
-                                        </span>
-                                    ) : null}
-                                </div>
+                                {t.label}
                             </button>
                         );
                     })}
-                </div>
             </div>
         </div>
     );

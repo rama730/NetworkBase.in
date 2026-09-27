@@ -164,7 +164,7 @@ export function SprintLifecycleModals({
               {completionOptions.map((option) => (
                 <label
                   className={cn(
-                    "flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors",
+                    "flex cursor-pointer items-start gap-3 rounded-[6px] border p-3.5 transition-colors",
                     unfinishedChoice === option.value
                       ? "border-primary bg-primary/5"
                       : "border-border hover:bg-muted/50",
@@ -193,10 +193,10 @@ export function SprintLifecycleModals({
             </div>
 
             {requiresTargetSprint ? (
-              <label className="block space-y-2 text-sm font-medium text-foreground">
+              <label className="block space-y-2 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground">
                 Destination Sprint
                 <select
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="h-[34px] w-full rounded-[5px] border border-input bg-background px-3 font-mono text-xs uppercase tracking-[0.09em] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   disabled={isMutating || carryOverSprints.length === 0}
                   onChange={(event) => setNextSprintId(event.target.value)}
                   value={nextSprintId}
@@ -219,7 +219,7 @@ export function SprintLifecycleModals({
 
         <DialogFooter>
           <button
-            className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isMutating}
             onClick={close}
             type="button"
@@ -228,10 +228,10 @@ export function SprintLifecycleModals({
           </button>
           <button
             className={cn(
-              "rounded-md px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50",
+              "inline-flex h-[34px] items-center justify-center rounded-[5px] px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] transition-colors disabled:cursor-not-allowed disabled:opacity-50",
               openModal === "cancel"
-                ? "bg-destructive hover:bg-destructive/90"
-                : "bg-primary hover:bg-primary/90",
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : "bg-primary text-primary-foreground hover:bg-primary/90",
             )}
             disabled={
               isMutating ||

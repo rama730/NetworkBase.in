@@ -5,7 +5,6 @@ import {
     ChevronDown, ChevronRight, Inbox, History, UserMinus,
     ArrowDownLeft, ArrowUpRight, Ban, CheckCircle2, Users, MessageSquare,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { formatDistanceToNow, isToday, isYesterday, subDays, isAfter } from "date-fns";
 import { profileHref } from "@/lib/routing/identifiers";
@@ -19,8 +18,8 @@ import {
 } from "@/hooks/useConnections";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
-import { getAvatarGradient } from "@/lib/ui/avatar";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -31,7 +30,7 @@ import { RequestProfileRow, type RequestProfile } from "@/components/people/Requ
 import type { IncomingApplication, MyApplication } from "./ProjectApplicationsSection";
 
 const ProjectApplicationsSection = dynamic(() => import("./ProjectApplicationsSection"), {
-    loading: () => <div className="h-40 animate-pulse rounded-2xl bg-zinc-100 dark:bg-zinc-900" />,
+    loading: () => <div role="status" aria-label="Loading requests" className="nb-skeleton h-40 rounded-lg border border-border" />,
 });
 
 interface RequestsTabProps {
@@ -152,35 +151,11 @@ function TimelineAvatar({
     const sizeClass = size <= 32 ? "w-8 h-8" : "w-9 h-9";
     const textSize = size <= 32 ? "text-xs" : "text-sm";
 
-    if (user?.avatarUrl) {
-        return (
-            <Image
-                src={user.avatarUrl}
-                alt={user.fullName || user.username || "User"}
-                width={size}
-                height={size}
-                className={cn(sizeClass, "rounded-full object-cover flex-shrink-0")}
-            />
-        );
+    if (source === "application" && !user) {
+        return <div className={cn(sizeClass, "nb-avatar-fallback flex shrink-0 items-center justify-center rounded-md")}><Briefcase className="size-3.5" /></div>;
     }
 
-    const initial = (user?.fullName || user?.username || (source === "application" ? "P" : "U"))[0]?.toUpperCase();
-    const gradient = getAvatarGradient(user?.fullName || user?.username || "");
-
-    return (
-        <div className={cn(
-            sizeClass,
-            "rounded-full flex-shrink-0 flex items-center justify-center bg-gradient-to-br text-white font-semibold",
-            textSize,
-            gradient,
-        )}>
-            {source === "application" && !user ? (
-                <Briefcase className="w-3.5 h-3.5" />
-            ) : (
-                initial
-            )}
-        </div>
-    );
+    return <UserAvatar identity={user} size={size} fallbackClassName={textSize} />;
 }
 
 // ── Timeline item ───────────────────────────────────────────────────
@@ -475,13 +450,13 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
     // ── Loading skeleton ───────────────────────────────────────────
     if (isLoading) {
         return (
-            <div className="space-y-4 animate-pulse">
-                <div className="h-14 bg-zinc-200/50 dark:bg-zinc-800/50 rounded-2xl" />
+            <div role="status" aria-label="Loading requests" className="space-y-4">
+                <div aria-hidden="true" className="nb-skeleton h-14 rounded-lg" />
                 <div className="space-y-3">
-                    {[1, 2, 3].map((i) => <div key={i} className="h-[80px] bg-zinc-200/50 dark:bg-zinc-800/50 rounded-2xl" />)}
+                    {[1, 2, 3].map((i) => <div key={i} aria-hidden="true" className="nb-skeleton h-[80px] rounded-lg" />)}
                 </div>
                 <div className="space-y-3">
-                    {[1, 2].map((i) => <div key={i} className="h-[80px] bg-zinc-200/50 dark:bg-zinc-800/50 rounded-2xl" />)}
+                    {[1, 2].map((i) => <div key={i} aria-hidden="true" className="nb-skeleton h-[80px] rounded-lg" />)}
                 </div>
             </div>
         );
@@ -490,7 +465,7 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
     return (
         <div className="space-y-8">
             {/* ── Summary Bar ── */}
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-zinc-200/60 dark:border-white/5">
+            <div className="flex items-center justify-between p-4 rounded-lg bg-card dark:bg-card backdrop-blur-none border border-zinc-200/60 dark:border-white/5">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-primary" />
@@ -513,7 +488,7 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
                             type="button"
                             onClick={() => setBulkAction({ type: "accept" })}
                             disabled={acceptAllIncoming.isPending || rejectAllIncoming.isPending}
-                            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
                         >
                             <CheckCheck className="w-3.5 h-3.5" />
                             Accept all
@@ -522,7 +497,7 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
                             type="button"
                             onClick={() => setBulkAction({ type: "reject" })}
                             disabled={acceptAllIncoming.isPending || rejectAllIncoming.isPending}
-                            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
                         >
                             <X className="w-3.5 h-3.5" />
                             Reject all
@@ -533,10 +508,10 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
 
             {/* ── Combined empty state ── */}
             {incomingRequests.length === 0 && sentRequests.length === 0 && (
-                <div className="text-center py-16 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-2xl border border-zinc-200/60 dark:border-white/5">
-                    <Inbox className="w-14 h-14 text-zinc-300 dark:text-zinc-600 mx-auto mb-4" />
-                    <p className="text-zinc-600 dark:text-zinc-400 text-lg font-medium">No pending requests</p>
-                    <Link href="/people?tab=discover" className="text-primary hover:underline mt-2 inline-block text-sm">
+                <div className="nb-empty-state nb-grid-ground py-16 text-center">
+                    <Inbox className="nb-empty-state-icon mx-auto mb-3" />
+                    <p className="nb-card-title text-foreground">No pending requests</p>
+                    <Link href="/network?tab=suggested" className="nb-compact text-primary hover:underline mt-2 inline-block">
                         Discover people to connect with
                     </Link>
                 </div>
@@ -580,7 +555,7 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
                                                     type="button"
                                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAccept(req.id); }}
                                                     disabled={isProcessing}
-                                                    className="px-4 py-1.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                                                    className="px-4 py-1.5 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                                                     aria-label={`Accept request from ${req.requesterFullName || req.requesterUsername || "user"}`}
                                                 >
                                                     {isAccepting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Accept"}
@@ -591,7 +566,7 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
                                                             type="button"
                                                             disabled={isProcessing}
                                                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                                            className="px-4 py-1.5 rounded-xl text-sm font-medium text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+                                                            className="px-4 py-1.5 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
                                                             aria-label={`Decline request from ${req.requesterFullName || req.requesterUsername || "user"}`}
                                                         >
                                                             {isRejecting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
@@ -619,7 +594,7 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
                                                         <button
                                                             type="button"
                                                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                                            className="px-3 py-1.5 rounded-xl text-sm font-medium text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors inline-flex items-center gap-1"
+                                                            className="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors inline-flex items-center gap-1"
                                                             aria-label={`More actions for ${req.requesterFullName || req.requesterUsername || "user"}`}
                                                         >
                                                             More
@@ -696,7 +671,7 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
                                                 type="button"
                                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleWithdraw(req.id); }}
                                                 disabled={isProcessing}
-                                                className="px-4 py-1.5 rounded-xl text-sm font-medium text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 transition-colors disabled:opacity-50"
+                                                className="px-4 py-1.5 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 transition-colors disabled:opacity-50"
                                                 aria-label={`Cancel request to ${req.addresseeFullName || req.addresseeUsername || "user"}`}
                                             >
                                                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Cancel"}
@@ -704,7 +679,7 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
                                             {req.addresseeCanSendMessage ? (
                                                 <Link
                                                     href={`/messages?userId=${req.addresseeId}`}
-                                                    className="px-4 py-1.5 rounded-xl text-sm font-medium text-sky-700 dark:text-sky-300 border border-sky-200 bg-sky-50 dark:border-sky-900/60 dark:bg-sky-950/20 hover:bg-sky-100 dark:hover:bg-sky-950/40 transition-colors inline-flex items-center gap-1.5"
+                                                    className="px-4 py-1.5 rounded-lg text-sm font-medium text-sky-700 dark:text-sky-300 border border-sky-200 bg-sky-50 dark:border-sky-900/60 dark:bg-sky-950/20 hover:bg-sky-100 dark:hover:bg-sky-950/40 transition-colors inline-flex items-center gap-1.5"
                                                 >
                                                     <MessageSquare className="w-4 h-4" />
                                                     Message
@@ -741,37 +716,37 @@ export default function RequestsTab({ initialUser, initialRequests, initialAppli
                 panelId={timelinePanelId}
             >
                 {historyLoading && historyItems.length === 0 ? (
-                    <div className="rounded-2xl border border-zinc-200/60 dark:border-white/5 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl p-8">
-                        <div className="space-y-4 animate-pulse">
+                    <div className="rounded-lg border border-zinc-200/60 dark:border-white/5 bg-card dark:bg-card backdrop-blur-none p-8">
+                        <div role="status" aria-label="Loading activity" className="space-y-4">
                             {[1, 2, 3, 4].map((i) => (
                                 <div key={i} className="flex gap-3">
-                                    <div className="w-9 h-9 rounded-full bg-zinc-200/60 dark:bg-zinc-800 flex-shrink-0" />
+                                    <div aria-hidden="true" className="nb-skeleton h-9 w-9 flex-shrink-0 rounded-full" />
                                     <div className="flex-1 space-y-2 pt-1">
-                                        <div className="h-3.5 w-48 bg-zinc-200/60 dark:bg-zinc-800 rounded" />
-                                        <div className="h-3 w-64 bg-zinc-200/60 dark:bg-zinc-800 rounded" />
-                                        <div className="h-2.5 w-24 bg-zinc-200/60 dark:bg-zinc-800 rounded" />
+                                        <div aria-hidden="true" className="nb-skeleton h-3.5 w-48 rounded" />
+                                        <div aria-hidden="true" className="nb-skeleton h-3 w-64 rounded" />
+                                        <div aria-hidden="true" className="nb-skeleton h-2.5 w-24 rounded" />
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
                 ) : historyItems.length === 0 ? (
-                    <div className="rounded-2xl border border-zinc-200/60 dark:border-white/5 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl px-6 py-12 text-center">
-                        <History className="w-10 h-10 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
-                        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">No activity yet</p>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
+                    <div className="nb-empty-state nb-grid-ground my-2 py-12 text-center">
+                        <History className="nb-empty-state-icon mx-auto mb-3" />
+                        <p className="nb-card-title text-foreground">No activity yet</p>
+                        <p className="nb-compact mt-1 text-muted-foreground">
                             Your connection and application history will appear here
                         </p>
                     </div>
                 ) : (
-                    <div className="rounded-2xl border border-zinc-200/60 bg-white/80 backdrop-blur-xl dark:border-white/5 dark:bg-zinc-900/80">
+                    <div className="rounded-lg border border-zinc-200/60 bg-card backdrop-blur-none dark:border-white/5 dark:bg-card">
                         {groupedHistory.map((group, groupIndex) => <div key={group.label}>
-                            <div className={cn("sticky top-0 z-10 px-5 py-2.5 bg-zinc-50/90 backdrop-blur-sm dark:bg-zinc-900/90", groupIndex === 0 ? "rounded-t-2xl" : "border-t border-zinc-200/60 dark:border-white/5")}>
+                            <div className={cn("sticky top-0 z-10 px-5 py-2.5 bg-zinc-50/90 backdrop-blur-none dark:bg-zinc-900/90", groupIndex === 0 ? "rounded-t-2xl" : "border-t border-zinc-200/60 dark:border-white/5")}>
                                 <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">{group.label}</span>
                             </div>
                             <div className="px-5 py-4">{group.items.map((item, itemIndex) => <TimelineItem key={`${item.source}-${item.id}-${item.status}-${item.eventAt}`} item={item} isLast={itemIndex === group.items.length - 1} />)}</div>
                         </div>)}
-                        {hasMoreHistory ? <div className="px-5 py-3"><button type="button" disabled={isFetchingMoreHistory} onClick={() => fetchMoreHistory()} className="w-full rounded-xl px-3 py-2 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200">{isFetchingMoreHistory ? "Loading..." : "Load more activity"}</button></div> : null}
+                        {hasMoreHistory ? <div className="px-5 py-3"><button type="button" disabled={isFetchingMoreHistory} onClick={() => fetchMoreHistory()} className="w-full rounded-lg px-3 py-2 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200">{isFetchingMoreHistory ? "Loading..." : "Load more activity"}</button></div> : null}
                     </div>
                 )}
             </CollapsibleSection>

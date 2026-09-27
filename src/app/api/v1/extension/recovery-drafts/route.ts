@@ -216,11 +216,15 @@ async function finalizeIntent(userId: string, body: z.infer<typeof finalizeSchem
     failureReason: null,
     updatedAt: finalizedAt,
   }).where(eq(extensionRecoveryDrafts.id, draft.id));
-  await pruneExtensionRecoveryGenerations({
+  void pruneExtensionRecoveryGenerations({
     userId,
     deviceId: draft.deviceId,
     projectId: draft.projectId,
     filePath: draft.filePath,
+  }).catch((error) => {
+    logger.warn("[api/v1/extension/recovery-drafts] Async generation pruning encountered an issue", {
+      error: error instanceof Error ? error.message : String(error),
+    });
   });
 
   recordExtensionMetric("extension.recovery.finalize", {

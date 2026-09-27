@@ -53,12 +53,12 @@ export function useRealtimeTasks(projectId: string, deferredTaskId: string | nul
             const eventRow = (payload.eventType === "DELETE" ? payload.old : payload.new) as Record<string, unknown> | null;
             const eventTaskId = typeof eventRow?.id === "string" ? eventRow.id : null;
             if (eventTaskId && eventTaskId === deferredTaskRef.current) {
-              // ponytail: reconcile this one task after its optimistic drag settles instead of fighting the pointer mid-drag.
+              // ponytail: reconcile this one task after its optimistic drag settles instead of fighting the pointer mid-drag. ceiling: single active dragging task ref. upgrade: optimistic multi-pointer reconciliation if collaborative drag added.
               deferredTaskChangedRef.current = true;
               return;
             }
 
-            // ponytail: Dumb invalidation. If 30 changes happen, this absorbs it into 1 fetch. Zero stutter.
+            // ponytail: Dumb invalidation. If 30 changes happen, this absorbs it into 1 fetch. Zero stutter. ceiling: coalesced single fetch on settled drag. upgrade: granular task delta patch if payload contains all fields.
             scheduleReconcile();
           },
         },

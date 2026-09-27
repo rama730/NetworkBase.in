@@ -28,7 +28,7 @@ export async function GET(
   }
 
   const cacheControlHeader = isPublic
-    ? "public, max-age=86400, stale-while-revalidate=3600"
+    ? "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=86400"
     : "private, no-store, no-cache, must-revalidate";
 
   return new ImageResponse(
@@ -42,8 +42,8 @@ export async function GET(
           justifyContent: "space-between",
           padding: "56px",
           background:
-            "linear-gradient(135deg, rgb(15, 23, 42) 0%, rgb(37, 99, 235) 45%, rgb(14, 165, 233) 100%)",
-          color: "white",
+            "#FAF8F4",
+          color: "#141A1E",
           fontFamily: "system-ui, sans-serif",
         }}
       >
@@ -53,7 +53,7 @@ export async function GET(
             alignItems: "center",
             gap: 16,
             fontSize: 30,
-            fontWeight: 700,
+            fontWeight: 600,
             letterSpacing: "-0.02em",
           }}
         >
@@ -61,8 +61,8 @@ export async function GET(
             style={{
               width: 18,
               height: 18,
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.92)",
+              borderRadius: 0,
+              background: "#D14E24",
             }}
           />
           NetworkBase
@@ -70,9 +70,9 @@ export async function GET(
         <div style={{ display: "flex", flexDirection: "column", gap: 18, maxWidth: 980 }}>
           <div
             style={{
-              fontSize: 74,
+              fontSize: 60,
               lineHeight: 1.02,
-              fontWeight: 800,
+              fontWeight: 600,
               letterSpacing: "-0.04em",
             }}
           >
@@ -83,7 +83,7 @@ export async function GET(
               maxWidth: 880,
               fontSize: 30,
               lineHeight: 1.3,
-              color: "rgba(255,255,255,0.88)",
+              color: "#374349",
             }}
           >
             {description}
@@ -95,7 +95,7 @@ export async function GET(
             justifyContent: "space-between",
             alignItems: "center",
             fontSize: 24,
-            color: "rgba(255,255,255,0.82)",
+            color: "#4C5A61",
           }}
         >
           <div>Professional social network for builders</div>

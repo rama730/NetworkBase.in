@@ -2,7 +2,7 @@ import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_
 import { db } from "@/lib/db";
 import { profiles, projectNodes, taskNodeLinks, taskPushes, tasks } from "@/lib/db/schema";
 import { getProjectAccessById } from "@/lib/data/project-access";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
@@ -19,19 +19,46 @@ export async function GET(request: Request) {
     const taskId = searchParams.get("taskId")?.trim();
     if (!taskId) return jsonError("Missing taskId", 400, "BAD_REQUEST");
 
-    const task = await db.query.tasks.findFirst({
-      where: and(eq(tasks.id, taskId), isNull(tasks.deletedAt)),
-      columns: {
-        id: true,
-        projectId: true,
-        title: true,
-        taskNumber: true,
-      },
-    });
-    if (!task) return jsonError("Task not found", 404, "NOT_FOUND");
+    const rows = (await db.execute(sql`
+      SELECT 
+        t.id,
+        t.project_id AS "projectId",
+        t.title,
+        t.task_number AS "taskNumber",
+        p.owner_id AS "ownerId",
+        p.visibility,
+        p.status AS "projectStatus",
+        pm.id AS "memberId"
+      FROM tasks t
+      JOIN projects p ON p.id = t.project_id AND p.deleted_at IS NULL
+      LEFT JOIN project_members pm ON pm.project_id = t.project_id AND pm.user_id = ${user.id}::uuid
+      WHERE t.id = ${taskId}::uuid AND t.deleted_at IS NULL
+      LIMIT 1
+    `)) as unknown as Array<{
+      id: string;
+      projectId: string;
+      title: string;
+      taskNumber: number | null;
+      ownerId: string;
+      visibility: string;
+      projectStatus: string;
+      memberId: string | null;
+    }>;
 
-    const access = await getProjectAccessById(task.projectId, user.id);
-    if (!access.canRead) return jsonError("Forbidden", 403, "FORBIDDEN");
+    const row = rows[0];
+    if (!row) return jsonError("Task not found", 404, "NOT_FOUND");
+
+    const isOwner = row.ownerId === user.id;
+    const isMember = Boolean(row.memberId);
+    const canRead = isOwner || isMember || row.visibility === "public";
+    if (!canRead) return jsonError("Forbidden", 403, "FORBIDDEN");
+
+    const task = {
+      id: row.id,
+      projectId: row.projectId,
+      title: row.title,
+      taskNumber: row.taskNumber,
+    };
 
     const [fileRows, pushRows] = await Promise.all([
       db

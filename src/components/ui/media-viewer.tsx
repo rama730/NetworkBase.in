@@ -132,18 +132,18 @@ export function MediaViewerModal({
         ? {
             transform: `translate3d(${transX}px, ${transY}px, 0) scale(${initScale})`,
             opacity: 0,
-            transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease-in-out',
+            transition: 'transform 260ms cubic-bezier(.2,.8,.3,1), opacity 180ms cubic-bezier(.2,.8,.3,1)',
         }
         : isDragging || dragY !== 0
             ? {
                 transform: `translate3d(0, ${dragY}px, 0) scale(${Math.max(0.8, 1 - Math.abs(dragY) / 1000)})`,
                 opacity: Math.max(0.4, 1 - Math.abs(dragY) / 500),
-                transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease-out',
+                transition: isDragging ? 'none' : 'transform 260ms cubic-bezier(.2,.8,.3,1), opacity 260ms cubic-bezier(.2,.8,.3,1)',
             }
             : {
                 transform: 'translate3d(0, 0, 0) scale(1)',
                 opacity: 1,
-                transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease-out',
+                transition: 'transform 260ms cubic-bezier(.2,.8,.3,1), opacity 260ms cubic-bezier(.2,.8,.3,1)',
             };
 
     // Swipe gesture handlers
@@ -184,7 +184,7 @@ export function MediaViewerModal({
     return createPortal(
         <div
             className={cn(
-                "fixed inset-0 z-[9999] flex flex-col items-center justify-between bg-black/90 p-4 backdrop-blur-md transition-opacity duration-300",
+                "fixed inset-0 z-[9999] flex flex-col items-center justify-between bg-black/90 p-4 backdrop-blur-none transition-opacity duration-[260ms]",
                 (isEntering || isExiting) ? "opacity-0" : "opacity-100"
             )}
             style={isDragging || dragY !== 0 ? { backgroundColor: `rgba(0,0,0,${Math.max(0, 0.9 - Math.abs(dragY) / 400)})` } : undefined}
@@ -278,7 +278,7 @@ export function MediaViewerModal({
                             <img
                                 src={placeholderUrl}
                                 alt=""
-                                className="absolute inset-0 h-full w-full select-none object-contain blur-xl scale-105 opacity-50 transition-opacity duration-300"
+                                className="absolute inset-0 h-full w-full select-none object-contain blur-xl scale-105 opacity-50 transition-opacity duration-[260ms]"
                             />
                         </div>
                     )}
@@ -359,7 +359,7 @@ export function MediaViewerModal({
                                 aria-label={`View ${att.filename}`}
                                 aria-current={currentIndex === idx ? 'true' : undefined}
                                 className={cn(
-                                    "relative h-12 w-12 shrink-0 overflow-hidden rounded-md border-2 bg-zinc-900/50 transition-all duration-200 hover:scale-105",
+                                    "relative h-12 w-12 shrink-0 overflow-hidden rounded-md border-2 bg-zinc-900/50 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms] hover:scale-100",
                                     currentIndex === idx ? "border-primary scale-110 opacity-100 ring-2 ring-primary/20" : "border-transparent opacity-50 hover:opacity-100"
                                 )}
                             >

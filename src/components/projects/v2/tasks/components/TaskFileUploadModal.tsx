@@ -68,8 +68,8 @@ export function TaskFileUploadModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="z-[300] sm:max-w-md" overlayClassName="z-[299]">
         <DialogHeader>
-          <DialogTitle>Upload {displayName}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-base font-semibold text-foreground">Upload {displayName}</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
             How would you like to categorize these files?
           </DialogDescription>
         </DialogHeader>
@@ -77,10 +77,10 @@ export function TaskFileUploadModal({
         <div className="flex flex-col gap-3 py-4">
           <div
             className={cn(
-              "flex flex-col rounded-lg border p-3 transition-colors",
+              "flex flex-col rounded-[5px] border p-3 transition-colors",
               intent === "reference"
-                ? "border-sky-600 bg-sky-50/50 dark:border-sky-500 dark:bg-sky-500/10"
-                : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700",
+                ? "border-primary bg-primary/10"
+                : "border-border hover:border-foreground/30",
             )}
           >
             <button
@@ -93,15 +93,15 @@ export function TaskFileUploadModal({
                 className={cn(
                   "mt-0.5 h-5 w-5",
                   intent === "reference"
-                    ? "text-sky-600 dark:text-sky-400"
-                    : "text-zinc-400",
+                    ? "text-primary"
+                    : "text-muted-foreground",
                 )}
               />
               <div className="flex-1">
-                <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <div className="text-[13px] font-medium text-foreground">
                   Task Reference
                 </div>
-                <div className="text-xs text-zinc-500">
+                <div className="text-xs text-muted-foreground">
                   A brief, specification, example, or source file supplied as task input.
                 </div>
               </div>
@@ -114,7 +114,7 @@ export function TaskFileUploadModal({
                   aria-label="Task reference description or tag"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
-                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
+                  className="w-full rounded-[4px] border border-border bg-card px-3 py-1.5 text-[13px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/50"
                   maxLength={100}
                 />
               </div>
@@ -123,10 +123,10 @@ export function TaskFileUploadModal({
 
           <div
             className={cn(
-              "flex flex-col rounded-lg border p-3 transition-colors",
+              "flex flex-col rounded-[5px] border p-3 transition-colors",
               intent === "working"
-                ? "border-indigo-600 bg-indigo-50/50 dark:border-indigo-500 dark:bg-indigo-500/10"
-                : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700",
+                ? "border-primary bg-primary/10"
+                : "border-border hover:border-foreground/30",
             )}
           >
             <button
@@ -139,15 +139,15 @@ export function TaskFileUploadModal({
                 className={cn(
                   "mt-0.5 h-5 w-5",
                   intent === "working"
-                    ? "text-indigo-600 dark:text-indigo-400"
-                    : "text-zinc-400",
+                    ? "text-primary"
+                    : "text-muted-foreground",
                 )}
               />
               <div className="flex-1">
-                <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <div className="text-[13px] font-medium text-foreground">
                   Working File
                 </div>
-                <div className="text-xs text-zinc-500">
+                <div className="text-xs text-muted-foreground">
                   Active drafts and intermediate work produced while completing the task.
                 </div>
               </div>
@@ -160,7 +160,7 @@ export function TaskFileUploadModal({
                   aria-label="File description or tag"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
-                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm placeholder:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
+                  className="w-full rounded-[4px] border border-border bg-card px-3 py-1.5 text-[13px] text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/50"
                   maxLength={100}
                 />
               </div>
@@ -169,10 +169,10 @@ export function TaskFileUploadModal({
 
           <div
             className={cn(
-              "flex flex-col rounded-lg border p-3 transition-colors",
+              "flex flex-col rounded-[5px] border p-3 transition-colors",
               intent === "deliverable"
-                ? "border-emerald-600 bg-emerald-50/50 dark:border-emerald-500 dark:bg-emerald-500/10"
-                : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700",
+                ? "border-emerald-500/30 bg-emerald-500/10"
+                : "border-border hover:border-foreground/30",
             )}
           >
             <button
@@ -186,21 +186,21 @@ export function TaskFileUploadModal({
                   "mt-0.5 h-5 w-5",
                   intent === "deliverable"
                     ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-zinc-400",
+                    : "text-muted-foreground",
                 )}
               />
               <div className="flex-1">
-                <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <div className="text-[13px] font-medium text-foreground">
                   Final Deliverable
                 </div>
-                <div className="text-xs text-zinc-500">
+                <div className="text-xs text-muted-foreground">
                   The completed output of this task. Optionally choose its
                   project folder.
                 </div>
               </div>
             </button>
             {intent === "deliverable" && (
-              <div className="mt-3 pl-8 max-h-[200px] overflow-y-auto rounded-md border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950">
+              <div className="mt-3 pl-8 max-h-[200px] overflow-y-auto rounded-[4px] border border-border bg-card">
                 <FolderPicker
                   projectId={projectId}
                   selectedFolderId={destinationFolderId}
@@ -213,10 +213,10 @@ export function TaskFileUploadModal({
           {folderCount === 0 && fileCount === 1 && versionCandidates.length > 0 && (
             <div
               className={cn(
-                "flex flex-col rounded-lg border p-3 transition-colors",
+                "flex flex-col rounded-[5px] border p-3 transition-colors",
                 intent === "version"
-                  ? "border-amber-600 bg-amber-50/50 dark:border-amber-500 dark:bg-amber-500/10"
-                  : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700",
+                  ? "border-amber-500/30 bg-amber-500/10"
+                  : "border-border hover:border-foreground/30",
               )}
             >
               <button
@@ -236,14 +236,14 @@ export function TaskFileUploadModal({
                     "mt-0.5 h-5 w-5",
                     intent === "version"
                       ? "text-amber-600 dark:text-amber-400"
-                      : "text-zinc-400",
+                      : "text-muted-foreground",
                   )}
                 />
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <div className="text-[13px] font-medium text-foreground">
                     New Version of Existing File
                   </div>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-muted-foreground">
                     Add this upload to an attached file&apos;s version history.
                   </div>
                 </div>
@@ -256,7 +256,7 @@ export function TaskFileUploadModal({
                   </label>
                   <select
                     id="task-file-version-target"
-                    className="w-full rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                    className="w-full rounded-[4px] border border-border bg-card px-3 py-1.5 text-[13px] text-foreground outline-none focus:ring-1 focus:ring-primary/50"
                     value={versionNodeId}
                     onChange={(e) => setVersionNodeId(e.target.value)}
                   >
@@ -279,15 +279,15 @@ export function TaskFileUploadModal({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-[5px] border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={intent === "version" && !versionNodeId}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+            disabled={files.length === 0 || (intent === "version" && !versionNodeId)}
+            className="rounded-[5px] bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50"
           >
             Confirm
           </button>

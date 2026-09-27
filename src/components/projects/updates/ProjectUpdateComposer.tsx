@@ -10,13 +10,17 @@ import {
     Globe2,
     ImagePlus,
     Link2,
+    ListTodo,
     Loader2,
     Paperclip,
+    RefreshCw,
     Timer,
+    Trash2,
     Users,
     X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useLinkPreview } from "@/hooks/useLinkPreview";
 import { MultiAttachmentPicker } from "@/components/projects/v2/files-tab/picker/MultiAttachmentPicker";
 
 import { 
@@ -235,6 +239,24 @@ export function ProjectUpdateComposer({
     const [debouncedContextQuery] = useDebounce(contextQuery, 250);
     const [mediaUrl, setMediaUrl] = useState("");
     const [mediaLabel, setMediaLabel] = useState("");
+    const [linkDebouncedUrl] = useDebounce(mediaUrl.trim(), 350);
+
+    const normalizedPreviewUrl = useMemo(() => {
+        if (!linkDebouncedUrl) return null;
+        try {
+            const withProtocol = /^https?:\/\//i.test(linkDebouncedUrl)
+                ? linkDebouncedUrl
+                : `https://${linkDebouncedUrl}`;
+            const parsed = new URL(withProtocol);
+            if (!parsed.hostname || !parsed.hostname.includes(".")) return null;
+            return parsed.toString();
+        } catch {
+            return null;
+        }
+    }, [linkDebouncedUrl]);
+
+    const linkPreviewQuery = useLinkPreview(normalizedPreviewUrl);
+    const linkPreview = linkPreviewQuery.data;
     const draftStorageKey = useMemo(() => projectUpdateDraftStorageKey(projectId, currentUserId), [currentUserId, projectId]);
     const lastSavedDraftRef = useRef<string | null>(null);
 
@@ -536,6 +558,7 @@ export function ProjectUpdateComposer({
         if (editorRef.current) {
             editorRef.current.insertTextAtCursor(refText);
         }
+        addContextReference(option.kind, option.id);
         setActivePanel(null);
     };
 
@@ -544,8 +567,11 @@ export function ProjectUpdateComposer({
     };
 
     const addMediaFromPanel = (type: ProjectUpdateMediaItem["type"]) => {
-        const url = mediaUrl.trim();
+        let url = mediaUrl.trim();
         if (!url) return;
+        if (!/^https?:\/\//i.test(url)) {
+            url = `https://${url}`;
+        }
         if (!isSafeProjectUpdateUrl(url)) {
             toast.error("Use a valid http or https link.");
             return;
@@ -554,7 +580,8 @@ export function ProjectUpdateComposer({
             toast.error(`You can attach up to ${PROJECT_UPDATE_MAX_MEDIA_ITEMS} items.`);
             return;
         }
-        setMedia((current) => [...current, { type, url, label: mediaLabel.trim() || null }]);
+        const effectiveLabel = mediaLabel.trim() || linkPreview?.title || linkPreview?.domain || url;
+        setMedia((current) => [...current, { type, url, label: effectiveLabel }]);
         setMediaUrl("");
         setMediaLabel("");
         setActivePanel(null);
@@ -691,25 +718,33 @@ export function ProjectUpdateComposer({
         lastSavedDraftRef.current = JSON.stringify({ content: "", visibility: "public", updateType: null, entityRefs: {}, media: [] });
     };
 
-    const toolbarButtonClass = "rounded-full p-2 text-blue-500 transition hover:bg-blue-50 aria-pressed:bg-blue-50 aria-pressed:text-blue-700 dark:hover:bg-blue-950/30 dark:aria-pressed:bg-blue-950/40 dark:aria-pressed:text-blue-200";
+    const toolbarButtonClass = "size-7 rounded-[5px] flex items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border";
     const bottomPanel = expanded && activePanel ? (
         <div className={cn(
-            "mt-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950",
+            "mt-3 rounded-[8px] border border-border bg-card p-3 shadow-none",
         )}>
             <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    <p className="text-sm font-semibold text-foreground">
                         {activePanel === "link"
                             ? "Attach link"
-                            : `${activePanel} context`}
+                            : activePanel === "task"
+                            ? "Task context"
+                            : activePanel === "sprint"
+                            ? "Sprint context"
+                            : "File context"}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-muted-foreground">
                         {activePanel === "link"
                             ? "Add one supporting reference to this update."
+                            : activePanel === "task"
+                            ? "Connect this post to active project work."
+                            : activePanel === "sprint"
+                            ? "Connect this post to active project work."
                             : "Connect this post to active project work."}
                     </p>
                 </div>
-                <button type="button" onClick={() => setActivePanel(null)} className="rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-900 dark:hover:text-zinc-100" aria-label="Close composer panel">
+                <button type="button" onClick={() => setActivePanel(null)} className="size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Close composer panel">
                     <X className="h-4 w-4" />
                 </button>
             </div>
@@ -720,54 +755,168 @@ export function ProjectUpdateComposer({
                         value={contextQuery}
                         onChange={(event) => setContextQuery(event.target.value)}
                         placeholder={`Find ${activeContextKind}`}
-                        className="h-10 w-full rounded-full border border-zinc-200 bg-zinc-50 px-4 text-sm outline-none transition focus:border-blue-300 focus:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-blue-800 dark:focus:bg-zinc-950"
+                        className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] outline-none transition focus:border-foreground/30 placeholder:text-muted-foreground"
                     />
                     <div className="mt-3 grid gap-2">
                         {contextOptionsQuery.isLoading ? (
-                            <div className="h-12 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-900" />
+                            <div className="h-10 animate-none rounded-[5px] bg-muted/40" />
                         ) : activeContextOptions.length === 0 ? (
-                            <p className="rounded-xl bg-zinc-50 px-3 py-3 text-sm text-zinc-500 dark:bg-zinc-900/60">No matching project context.</p>
-                        ) : activeContextOptions.map((option) => (
-                            <button
-                                key={option.id}
-                                type="button"
-                                onClick={() => selectContext(option)}
-                                className={cn(
-                                    "min-w-0 rounded-xl border px-3 py-2 text-left transition",
-                                    entityRefs[refKeyForContextKind(option.kind)] === option.id
-                                        ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-200"
-                                        : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700",
-                                )}
-                            >
-                                <span className="block truncate text-sm font-semibold">{option.label}</span>
-                                {option.description ? <span className="block truncate text-xs text-zinc-500">{option.description}</span> : null}
-                            </button>
-                        ))}
+                            <p className="rounded-[5px] bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">No matching project context.</p>
+                        ) : activeContextOptions.map((option) => {
+                            const isSelected = entityRefs[refKeyForContextKind(option.kind)] === option.id;
+                            const status = option.description?.toLowerCase();
+                            const isDone = status === "done" || status === "completed";
+                            const isInProgress = status === "in_progress" || status === "in progress";
+
+                            return (
+                                <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => selectContext(option)}
+                                    className={cn(
+                                        "group flex items-center justify-between gap-3 min-w-0 rounded-[5px] border px-3 py-2 text-left transition",
+                                        isSelected
+                                            ? "border-primary/40 bg-primary/5 text-foreground"
+                                            : "border-border bg-card hover:border-foreground/20 hover:bg-muted/30",
+                                    )}
+                                >
+                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        {option.kind === "task" ? (
+                                            <ListTodo className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                                        ) : option.kind === "sprint" ? (
+                                            <Timer className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                                        ) : (
+                                            <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                                        )}
+                                        <span className="truncate text-[13px] font-medium text-foreground">{option.label}</span>
+                                    </div>
+                                    {option.kind === "task" && option.description ? (
+                                        <span className={cn(
+                                            "shrink-0 inline-flex h-5 items-center rounded-[3px] border px-[6px] font-mono text-[10px] font-medium uppercase tracking-[0.09em] leading-none",
+                                            isInProgress
+                                                ? "border-amber-500/20 bg-amber-500/10 text-amber-600"
+                                                : isDone
+                                                ? "border-primary/20 bg-primary/10 text-primary"
+                                                : "border-border bg-muted/60 text-muted-foreground"
+                                        )}>
+                                            {option.description.replace(/_/g, " ")}
+                                        </span>
+                                    ) : option.description ? (
+                                        <span className="shrink-0 font-mono text-[11px] text-muted-foreground truncate max-w-[140px]">
+                                            {option.description}
+                                        </span>
+                                    ) : null}
+                                </button>
+                            );
+                        })}
                     </div>
                 </>
             ) : (
-                <div className="grid gap-2">
-                    <input
-                        value={mediaUrl}
-                        onChange={(event) => setMediaUrl(event.target.value)}
-                        placeholder="Link URL"
-                        className="h-10 rounded-full border border-zinc-200 bg-zinc-50 px-4 text-sm outline-none transition focus:border-blue-300 focus:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-blue-800 dark:focus:bg-zinc-950"
-                    />
-                    <input
-                        value={mediaLabel}
-                        onChange={(event) => setMediaLabel(event.target.value.slice(0, 80))}
-                        placeholder="Optional label"
-                        className="h-10 rounded-full border border-zinc-200 bg-zinc-50 px-4 text-sm outline-none transition focus:border-blue-300 focus:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:focus:border-blue-800 dark:focus:bg-zinc-950"
-                    />
-                    <Button
-                        type="button"
-                        size="sm"
-                        className="justify-self-end rounded-full"
-                        disabled={!mediaUrl.trim()}
-                        onClick={() => addMediaFromPanel("link")}
-                    >
-                        Attach
-                    </Button>
+                <div className="grid gap-2.5">
+                    <div>
+                        <label className="mb-1 block font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+                            Link address
+                        </label>
+                        <input
+                            value={mediaUrl}
+                            onChange={(event) => setMediaUrl(event.target.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter" && !event.shiftKey) {
+                                    event.preventDefault();
+                                    addMediaFromPanel("link");
+                                }
+                            }}
+                            placeholder="Paste URL here (e.g. https://github.com/org/repo)"
+                            inputMode="url"
+                            autoComplete="url"
+                            className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] outline-none transition focus:border-foreground/30 placeholder:text-muted-foreground"
+                        />
+                    </div>
+
+                    {normalizedPreviewUrl ? (
+                        <div className="rounded-[6px] border border-border bg-muted/20 p-2.5 text-xs">
+                            {linkPreviewQuery.isFetching ? (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                                    <span>Identifying destination…</span>
+                                </div>
+                            ) : linkPreview?.title ? (
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5 font-medium text-foreground">
+                                        <Globe2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                        <span className="truncate">{linkPreview.title}</span>
+                                    </div>
+                                    {linkPreview.description ? (
+                                        <p className="line-clamp-2 text-[11px] text-muted-foreground leading-relaxed">
+                                            {linkPreview.description}
+                                        </p>
+                                    ) : null}
+                                    <span className="block font-mono text-[10px] text-muted-foreground">
+                                        {linkPreview.domain}
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                                    <Globe2 className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="truncate">{normalizedPreviewUrl}</span>
+                                </div>
+                            )}
+                        </div>
+                    ) : null}
+
+                    <div>
+                        <label className="mb-1 block font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+                            Display name
+                        </label>
+                        <div className="flex gap-2">
+                            <input
+                                value={mediaLabel}
+                                onChange={(event) => setMediaLabel(event.target.value.slice(0, 160))}
+                                onKeyDown={(event) => {
+                                    if (event.key === "Enter" && !event.shiftKey) {
+                                        event.preventDefault();
+                                        addMediaFromPanel("link");
+                                    }
+                                }}
+                                placeholder={
+                                    linkPreviewQuery.isFetching
+                                        ? "Finding destination name…"
+                                        : linkPreview?.title || "Display name (optional)"
+                                }
+                                className="h-[34px] flex-1 rounded-[5px] border border-border bg-background px-3 text-[13px] outline-none transition focus:border-foreground/30 placeholder:text-muted-foreground"
+                            />
+                            {linkPreviewQuery.isFetching ? (
+                                <span className="flex h-[34px] w-[34px] items-center justify-center rounded-[5px] border border-border bg-muted/30 text-muted-foreground">
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                                </span>
+                            ) : null}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-[32px] rounded-[5px] border-border px-3 text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                            onClick={() => {
+                                setMediaUrl("");
+                                setMediaLabel("");
+                                setActivePanel(null);
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            className="h-[32px] rounded-[5px] px-3 text-[12px] font-medium"
+                            disabled={!mediaUrl.trim()}
+                            onClick={() => addMediaFromPanel("link")}
+                        >
+                            Attach link
+                        </Button>
+                    </div>
                 </div>
             )}
         </div>
@@ -791,7 +940,7 @@ export function ProjectUpdateComposer({
         <div className="flex gap-3 relative">
             <UserAvatar
                 identity={{ fullName: currentUserName ?? "You", avatarUrl: currentUserAvatarUrl ?? null }}
-                size={44}
+                size={34}
                 className="mt-1"
             />
             <div className="min-w-0 flex-1">
@@ -799,7 +948,7 @@ export function ProjectUpdateComposer({
                     <button
                         type="button"
                         onClick={() => setExpanded(!expanded)}
-                        className="rounded-full p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 transition"
+                        className="size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                         aria-label={expanded ? "Collapse composer" : "Expand composer"}
                     >
                         {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -809,17 +958,17 @@ export function ProjectUpdateComposer({
                     <button
                         type="button"
                         onClick={() => setExpanded(true)}
-                        className="block min-h-11 w-[calc(100%-32px)] rounded-lg px-0 text-left transition-colors hover:bg-zinc-50 focus:outline-none   dark:hover:bg-zinc-900/40"
+                        className="block min-h-11 w-[calc(100%-32px)] rounded-[6px] border border-border bg-card/60 p-2.5 text-left transition-colors hover:border-foreground/20 hover:bg-muted/40 focus:outline-none"
                         aria-expanded={expanded}
                     >
                         <span className={cn(
-                            "block truncate text-base",
-                            draftPreview ? "text-zinc-800 dark:text-zinc-200" : "text-zinc-400",
+                            "block truncate text-[13px]",
+                            draftPreview ? "text-foreground font-medium" : "text-muted-foreground",
                         )}>
                             {draftPreview || `Share a project update for ${projectName}...`}
                         </span>
                         {draftPreview ? (
-                            <span className="mt-1 block text-xs font-medium text-blue-500">Draft saved</span>
+                            <span className="mt-1 inline-block font-mono text-[10px] font-semibold uppercase tracking-[0.09em] text-primary">Draft saved</span>
                         ) : null}
                     </button>
                 ) : (
@@ -828,20 +977,22 @@ export function ProjectUpdateComposer({
                             <button
                                 type="button"
                                 onClick={() => setVisibility((current) => current === "public" ? "members" : "public")}
-                                className="inline-flex items-center gap-1 rounded-full border border-blue-200 px-3 py-1 text-xs font-semibold text-blue-600 transition hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-300 dark:hover:bg-blue-950/30"
+                                className="inline-flex items-center gap-1.5 rounded-[3px] border border-border bg-muted/40 px-2.5 py-1 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground transition hover:border-foreground/30 hover:bg-muted"
                             >
-                                {visibility === "public" ? <Globe2 className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
-                                {visibility === "public" ? "Public followers" : "Project members"}
+                                {visibility === "public" ? <Globe2 className="h-3.5 w-3.5 text-muted-foreground" /> : <Users className="h-3.5 w-3.5 text-muted-foreground" />}
+                                {visibility === "public" ? "Public" : "Project members"}
                             </button>
                         </div>
-                        <ProjectUpdateRichTextEditor
-                            content={content}
-                            placeholder={`Share a project update for ${projectName}...`}
-                            onChange={setContent}
-                            onCommand={openPanel}
-                            onMention={() => openPanel("task")}
-                            editorRef={editorRef}
-                        />
+                        <div className="rounded-[8px] border border-border bg-card p-3 transition focus-within:border-foreground/30">
+                            <ProjectUpdateRichTextEditor
+                                content={content}
+                                placeholder={`Share a project update for ${projectName}...`}
+                                onChange={setContent}
+                                onCommand={openPanel}
+                                onMention={() => openPanel("task")}
+                                editorRef={editorRef}
+                            />
+                        </div>
                     </>
                 )}
 
@@ -863,10 +1014,10 @@ export function ProjectUpdateComposer({
                                 alt={item.altText || item.fileName}
                                 actions={(
                                     <>
-                                        <button type="button" onClick={() => clearPendingUpload(item.id)} className="absolute right-2 top-2 rounded-full bg-zinc-950/70 p-1 text-white hover:bg-zinc-900" aria-label="Remove image">
-                                            <X className="h-4 w-4" />
+                                        <button type="button" onClick={() => clearPendingUpload(item.id)} className="absolute right-2 top-2 size-6 rounded-[3px] flex items-center justify-center bg-foreground/80 p-1 text-background hover:bg-foreground transition-colors" aria-label="Remove image">
+                                            <X className="h-3.5 w-3.5" />
                                         </button>
-                                        <div className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] rounded-full bg-zinc-950/70 px-3 py-1 text-xs font-semibold text-white shadow-lg">
+                                        <div className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] rounded-[3px] border border-border/50 bg-background/90 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.09em] text-foreground shadow-sm">
                                             {item.error
                                                 ? "Upload failed"
                                                 : `${item.phase} · ${item.progress}%`}
@@ -882,19 +1033,24 @@ export function ProjectUpdateComposer({
                                 src={item.url}
                                 alt={item.altText || item.label || "Project update image"}
                                 actions={(
-                                    <button type="button" className="absolute right-2 top-2 rounded-full bg-zinc-950/70 p-1 text-white hover:bg-zinc-900" onClick={() => removeMedia(index)} aria-label="Remove image">
-                                        <X className="h-4 w-4" />
+                                    <button type="button" className="absolute right-2 top-2 size-6 rounded-[3px] flex items-center justify-center bg-foreground/80 p-1 text-background hover:bg-foreground transition-colors" onClick={() => removeMedia(index)} aria-label="Remove image">
+                                        <X className="h-3.5 w-3.5" />
                                     </button>
                                 )}
                             />
                         ) : (
-                            <div key={`${item.url}-${index}`} className="flex min-w-0 items-center gap-3 rounded-xl border border-zinc-200 px-3 py-2 dark:border-zinc-800">
-                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
-                                    <Link2 className="h-4 w-4" />
+                            <div key={`${item.url}-${index}`} className="flex min-w-0 items-center gap-2.5 rounded-[6px] border border-border bg-card px-3 py-2">
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] bg-muted/60 text-muted-foreground">
+                                    <Link2 className="h-3.5 w-3.5" />
                                 </span>
-                                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-700 dark:text-zinc-300">{item.label || item.url || "Linked item"}</span>
-                                <button type="button" className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-900 dark:hover:text-zinc-100" onClick={() => removeMedia(index)} aria-label="Remove media">
-                                    <X className="h-4 w-4" />
+                                <div className="min-w-0 flex-1">
+                                    <span className="block truncate text-[13px] font-medium text-foreground">{item.label || item.url || "Linked reference"}</span>
+                                    {item.url && item.label && item.label !== item.url ? (
+                                        <span className="block truncate font-mono text-[11px] text-muted-foreground">{item.url}</span>
+                                    ) : null}
+                                </div>
+                                <button type="button" className="size-6 rounded-[3px] flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors" onClick={() => removeMedia(index)} aria-label="Remove media">
+                                    <X className="h-3.5 w-3.5" />
                                 </button>
                             </div>
                         ))}
@@ -904,10 +1060,10 @@ export function ProjectUpdateComposer({
                 {expanded ? (
                     <>
                         {bottomPanel}
-                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-                            <div className="flex flex-wrap items-center gap-1">
+                        <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
+                            <div className="flex items-center gap-1 shrink-0">
                                 <button type="button" className={toolbarButtonClass} onClick={() => openPanel("task")} title="Task context" aria-label="Task context" aria-pressed={activePanel === "task"}>
-                                    <FileText className="h-4 w-4" />
+                                    <ListTodo className="h-4 w-4" />
                                 </button>
                                 <button type="button" className={toolbarButtonClass} onClick={() => openPanel("sprint")} title="Sprint context" aria-label="Sprint context" aria-pressed={activePanel === "sprint"}>
                                     <Timer className="h-4 w-4" />
@@ -915,21 +1071,21 @@ export function ProjectUpdateComposer({
                                 <button type="button" className={toolbarButtonClass} onClick={() => openPanel("file")} title="File context" aria-label="File context" aria-pressed={activePanel === "file"}>
                                     <Paperclip className="h-4 w-4" />
                                 </button>
-                                <span className="mx-1 h-5 w-px bg-blue-100 dark:bg-blue-900/60" aria-hidden="true" />
+                                <span className="mx-0.5 h-4 w-px bg-border shrink-0" aria-hidden="true" />
                                 <button type="button" className={toolbarButtonClass} onClick={() => openPanel("media")} title="Add image" aria-label="Add image" aria-pressed={false}>
                                     <ImagePlus className="h-4 w-4" />
                                 </button>
-                                <button type="button" className={toolbarButtonClass} onClick={() => openPanel("link")} title="Add link" aria-label="Add link" aria-pressed={activePanel === "link"}>
+                                <button type="button" className={toolbarButtonClass} onClick={() => openPanel("link")} title="Attach link" aria-label="Attach link" aria-pressed={activePanel === "link"}>
                                     <Link2 className="h-4 w-4" />
                                 </button>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <span className={cn("text-xs font-medium", remaining < 0 ? "text-red-500" : "text-zinc-400")}>{remaining}</span>
+                            <div className="flex items-center gap-2.5 shrink-0">
+                                <span className={cn("font-mono text-[11px] font-medium tabular-nums", remaining < 0 ? "text-destructive font-semibold" : "text-muted-foreground")}>{remaining}</span>
                                 <Button
                                     type="button"
                                     variant="outline"
                                     onClick={resetAfterPost}
-                                    className="rounded-full border border-zinc-200 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
+                                    className="h-[34px] rounded-[5px] border-border px-3 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                                 >
                                     Discard
                                 </Button>
@@ -949,7 +1105,7 @@ export function ProjectUpdateComposer({
                                         });
                                         resetAfterPost();
                                     }}
-                                    className="rounded-full"
+                                    className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
                                 >
                                     {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                     Post
@@ -975,7 +1131,7 @@ export function ProjectUpdateComposer({
                     handleImageFiles(event.dataTransfer.files);
                 }}
                 className={cn(
-                    "relative border-b border-zinc-200 px-1 py-4 transition-all duration-200 ease-out dark:border-zinc-800",
+                    "relative border-b border-border px-1 py-4 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms] ease-out",
                     expanded ? "pb-5" : "pb-4",
                 )}
             >

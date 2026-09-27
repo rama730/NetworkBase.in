@@ -38,11 +38,15 @@ const RealtimeContext = createContext<RealtimeContextType>({
     subscribeMessagingNotifications: () => () => { },
 });
 
+import { normalizeProfileRecord } from '@/lib/profile/browser-profile';
+
 function hasProfileDetailsChanged(next: Record<string, unknown>, currentProfile: any | null) {
     if (!currentProfile) return true;
-    if (next.username !== undefined && next.username !== currentProfile.username) return true;
-    if (next.full_name !== undefined && next.full_name !== currentProfile.fullName) return true;
-    if (next.avatar_url !== undefined && next.avatar_url !== currentProfile.avatarUrl) return true;
+    const normalized = normalizeProfileRecord(next);
+    if (!normalized) return false;
+    if (normalized.username !== undefined && normalized.username !== currentProfile.username) return true;
+    if (normalized.fullName !== undefined && normalized.fullName !== currentProfile.fullName) return true;
+    if (normalized.avatarUrl !== undefined && normalized.avatarUrl !== currentProfile.avatarUrl) return true;
     return false;
 }
 

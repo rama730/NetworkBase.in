@@ -1,50 +1,44 @@
-'use client';
+"use client";
 
-import { WIZARD_PHASES } from '@/constants/project-wizard';
+import { Check, X } from "lucide-react";
+import { WIZARD_PHASES } from "@/constants/project-wizard";
+import { Button } from "@/components/ui/button";
 
-interface WizardHeaderProps {
-    currentPhase: number;
-}
+type WizardHeaderProps = {
+  currentPhase: number;
+  onClose: () => void;
+};
 
-export default function WizardHeader({ currentPhase }: WizardHeaderProps) {
-    return (
-        <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-xl">
-            <div className="flex items-center justify-between max-w-5xl mx-auto">
-                <div className="flex items-center gap-4 w-full justify-center">
-                    {WIZARD_PHASES.map((phase, index) => {
-                        const isCompleted = currentPhase > phase.id;
-                        const isCurrent = currentPhase === phase.id;
-
-                        return (
-                            <div key={phase.id} className="flex items-center">
-                                <div className="flex flex-col items-center gap-1.5 min-w-[60px]">
-                                    <div 
-                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                                            isCurrent
-                                                ? 'bg-indigo-600 text-white ring-4 ring-indigo-100 dark:ring-indigo-900/30 scale-110'
-                                                : isCompleted
-                                                ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400'
-                                                : 'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'
-                                        }`}
-                                    >
-                                        {isCompleted ? '✓' : phase.id}
-                                    </div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                                        isCurrent ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-400'
-                                    }`}>
-                                        {phase.label}
-                                    </span>
-                                </div>
-                                {index < WIZARD_PHASES.length - 1 && (
-                                    <div className={`w-8 h-[2px] mb-4 mx-2 transition-colors duration-500 ${
-                                        isCompleted ? 'bg-indigo-200 dark:bg-indigo-900' : 'bg-zinc-100 dark:bg-zinc-800'
-                                    }`} />
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
+export default function WizardHeader({ currentPhase, onClose }: WizardHeaderProps) {
+  return (
+    <header className="shrink-0 border-b border-border bg-card px-5 py-3 sm:px-6">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-3 md:grid-cols-[minmax(9rem,1fr)_auto_minmax(9rem,1fr)]">
+        <h1 className="nb-section-title whitespace-nowrap text-foreground">Create project</h1>
+        <nav aria-label="Project creation progress" className="app-scroll app-scroll-x min-w-0 justify-self-center overflow-x-auto">
+          <ol className="flex min-w-max items-center">
+            {WIZARD_PHASES.map((wizardPhase, index) => {
+              const completed = currentPhase > wizardPhase.id;
+              const current = currentPhase === wizardPhase.id;
+              return (
+                <li key={wizardPhase.id} className="flex items-center" aria-current={current ? "step" : undefined}>
+                  {index > 0 ? <span className="mx-3 h-px w-8 bg-border sm:w-12" aria-hidden="true" /> : null}
+                  <span className={`flex items-center gap-2 text-sm ${current ? "font-semibold text-primary" : completed ? "text-foreground" : "text-muted-foreground"}`}>
+                    <span className={`flex size-6 items-center justify-center rounded-sm border font-mono text-[11px] ${current ? "border-primary bg-primary text-primary-foreground" : completed ? "border-[var(--status-success)] text-[var(--status-success)]" : "border-border"}`}>
+                      {completed ? <Check className="size-3.5" aria-label="Completed" /> : String(wizardPhase.id).padStart(2, "0")}
+                    </span>
+                    {wizardPhase.label}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+        <div className="justify-self-end">
+          <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close create project">
+            <X aria-hidden="true" />
+          </Button>
         </div>
-    );
+      </div>
+    </header>
+  );
 }

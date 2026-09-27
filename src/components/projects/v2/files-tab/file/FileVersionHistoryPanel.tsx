@@ -21,7 +21,14 @@
 import { toast } from "sonner";
 
 import * as React from "react";
-import { Download, History, Loader2, RotateCcw, Trash2 } from "lucide-react";
+import {
+  Download,
+  GitCompare,
+  History,
+  Loader2,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
@@ -32,14 +39,40 @@ import type { FileVersion } from "@/lib/db/schema";
 import { VersionPill } from "../VersionPill";
 import { FileInspectorPanelHeader } from "./FileInspectorPanelHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { formatBytes, formatFileTimestamp as formatDate, formatFileActor } from "../folder/format";
+import { formatBytes, formatFileActor } from "../folder/format";
 
 type FileVersionWithUploader = FileVersion & {
   uploadedByName?: string | null;
   uploadedByUsername?: string | null;
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────
+// In-memory cache for presigned download URLs with 4-minute TTL
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+async function getCachedVersionSignedUrl(
+  projectId: string,
+  nodeId: string,
+  version: number,
+): Promise<string> {
+  const cacheKey = `${projectId}:${nodeId}:${version}`;
+  const cached = signedUrlCache.get(cacheKey);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) {
+    return cached.url;
+  }
+  const { url } = await getVersionSignedUrl(projectId, nodeId, version, 300);
+  signedUrlCache.set(cacheKey, { url, expiresAt: now + 240_000 });
+  return url;
+}
+
+/** Formats timestamp to date and year only (e.g. "22 Jun 2026"), omitting time. */
+function formatFileVersionDate(value: Date | string | null | undefined): string {
+  if (!value) return "Not recorded";
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "Not recorded";
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
 
 // ─── Props ───────────────────────────────────────────────────────────
 
@@ -55,7 +88,7 @@ export interface FileVersionHistoryPanelProps {
   isDeleted?: boolean;
   /** Optional uploader display names keyed by user id. */
   uploaderNames?: Record<string, string>;
-  onCompareClick?: (versionNumber: number) => void;
+  onCompareClick?: (versionNumber: number, targetVersionNumber?: number) => void;
   onVersionChangeStart?: () => void;
   onVersionChanged?: (versionNumber: number | null) => void;
   onClose: () => void;
@@ -83,10 +116,11 @@ export function FileVersionHistoryPanel({
   const [pendingDeleteVersion, setPendingDeleteVersion] =
     React.useState<FileVersion | null>(null);
 
-  // ── Fetch versions on mount ────────────────────────────────────────
+  // ponytail: listVersions dependency re-fetches when nodeId changes. ceiling: single file version panel. upgrade: React Query cache if version lists are shared across multiple drawer tabs.
   React.useEffect(() => {
+    perfMarkedRef.current = false;
     void listVersions();
-  }, []);
+  }, [listVersions]);
 
   // ── Performance mark (Req 17.2) ────────────────────────────────────
   const perfMarkedRef = React.useRef(false);
@@ -142,17 +176,16 @@ export function FileVersionHistoryPanel({
     [canEdit, isDeleted, projectId, nodeId, restoreVersion, listVersions, onVersionChangeStart, onVersionChanged],
   );
 
-  // ── Download handler ────────────────────────────────────────────────
+  // ── Download handler with client cache ──────────────────────────────
   const handleDownload = React.useCallback(
     async (version: FileVersion) => {
       const actionKey = `dl:${version.id}`;
       setPendingAction(actionKey);
       try {
-        const { url } = await getVersionSignedUrl(
+        const url = await getCachedVersionSignedUrl(
           projectId,
           nodeId,
           version.version,
-          300,
         );
         const anchor = document.createElement("a");
         anchor.href = url;
@@ -162,6 +195,7 @@ export function FileVersionHistoryPanel({
         anchor.click();
         anchor.remove();
       } catch (err) {
+        signedUrlCache.delete(`${projectId}:${nodeId}:${version.version}`);
         const message =
           err instanceof Error ? err.message : "Download failed";
         toast.error(message);
@@ -224,6 +258,32 @@ export function FileVersionHistoryPanel({
     [uploaderNames],
   );
 
+  // ── Tabular Size Deltas relative to prior revision ───────────────────
+  const sizeDeltaMap = React.useMemo(() => {
+    const map = new Map<number, { label: string; tone: "positive" | "negative" | "neutral" }>();
+    if (!versions.length) return map;
+
+    // Sort ascending by version number to compute sequential diff
+    const sortedAsc = [...versions].sort((a, b) => a.version - b.version);
+    for (let i = 0; i < sortedAsc.length; i++) {
+      const current = sortedAsc[i]!;
+      const prev = sortedAsc[i - 1];
+      if (!prev || current.size == null || prev.size == null) {
+        map.set(current.version, { label: "Base", tone: "neutral" });
+      } else {
+        const diff = current.size - prev.size;
+        if (diff === 0) {
+          map.set(current.version, { label: "±0 B", tone: "neutral" });
+        } else if (diff > 0) {
+          map.set(current.version, { label: `+${formatBytes(diff)}`, tone: "positive" });
+        } else {
+          map.set(current.version, { label: `-${formatBytes(Math.abs(diff))}`, tone: "negative" });
+        }
+      }
+    }
+    return map;
+  }, [versions]);
+
   // Determine if Restore should be shown at all:
   // - canEdit must be true (Role_Owner/Role_Member)
   // - node must NOT be soft-deleted
@@ -236,7 +296,7 @@ export function FileVersionHistoryPanel({
       data-testid="file-version-history-panel"
       className={cn(
         "flex h-full w-full shrink-0 flex-col bg-white",
-        "dark:bg-zinc-950",
+        "dark:bg-card",
       )}
     >
       <FileInspectorPanelHeader
@@ -247,10 +307,10 @@ export function FileVersionHistoryPanel({
         closeTestId="files-tab-version-history-close"
         subtitle={
           <div className="flex items-center gap-1.5">
-          <p className="truncate text-[11px] text-zinc-400 dark:text-zinc-500">
+          <p className="truncate text-[11px] text-muted-foreground">
             {nodeName}
           </p>
-          <VersionPill v={currentVersion} className="h-3.5 px-1 text-[9px]" />
+          <VersionPill v={currentVersion} className="h-3.5 px-1 text-[11px]" />
           </div>
         }
       />
@@ -274,7 +334,7 @@ export function FileVersionHistoryPanel({
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-zinc-500">
+          <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Loading versions…
           </div>
@@ -284,11 +344,17 @@ export function FileVersionHistoryPanel({
             <button type="button" onClick={() => void listVersions()} className="mx-auto mt-3 block min-h-10 rounded border px-3">Retry</button>
           </div>
         ) : versions.length === 0 ? (
-          <div className="px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
-            No version history available.
+          <div className="p-3">
+            <div className="nb-empty-state nb-grid-ground py-8 text-center" role="status">
+              <div className="nb-empty-state-icon-box">
+                <History className="nb-empty-state-icon" />
+              </div>
+              <h4 className="nb-empty-state-title">No version history</h4>
+              <p className="nb-empty-state-desc">No version history available for this file yet.</p>
+            </div>
           </div>
         ) : (
-          <ul role="list" className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          <ul role="list" className="p-2 space-y-2">
             {versions.map((version) => {
               const isCurrent = version.version === currentVersion;
               const dlKey = `dl:${version.id}`;
@@ -299,103 +365,165 @@ export function FileVersionHistoryPanel({
                   key={version.id}
                   data-testid={`version-row-${version.version}`}
                   className={cn(
-                    "px-3 py-2.5",
+                    "rounded-[6px] border p-3 transition-colors",
                     isCurrent
-                      ? "bg-indigo-50/60 dark:bg-indigo-500/10"
-                      : "bg-transparent",
+                      ? "border-[#D14E24] bg-[#FCF0EA]/40 dark:border-[#D14E24]/60 dark:bg-[#D14E24]/10 shadow-xs"
+                      : "border-[#DBD5C8] bg-white hover:border-[#B6C0C5] dark:border-border dark:bg-card dark:hover:border-border",
                   )}
                 >
-                  <div className="flex items-start gap-2">
-                    {/* Version badge */}
-                    <div className="mt-0.5 flex h-5 w-10 flex-shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-[10px] font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
-                      v{version.version}
-                    </div>
-
-                    {/* Version details */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
+                  {/* Top Row: Version Badge + Size + Delta + (Active Pill or Delete action) */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={cn(
+                          "flex h-5 px-1.5 items-center justify-center rounded-[3px] border font-mono text-[11px] font-semibold",
+                          isCurrent
+                            ? "border-[#D14E24]/40 bg-white text-[#D14E24] dark:border-[#D14E24]/50 dark:bg-card"
+                            : "border-[#DBD5C8] bg-white text-[#141A1E] dark:border-border dark:bg-card dark:text-foreground",
+                        )}
+                      >
+                        v{version.version}
+                      </div>
+                      <div className="flex items-center gap-1.5 font-mono text-[12px]">
+                        <span className="text-[#4C5A61] dark:text-muted-foreground">
                           {formatBytes(version.size) || "Size not recorded"}
                         </span>
-                        {isCurrent && (
-                          <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200">
-                            Active
+                        {sizeDeltaMap.has(version.version) && (
+                          <span
+                            className={cn(
+                              "px-1 py-0.2 rounded-[2px] text-[10px] font-semibold tabular-nums",
+                              sizeDeltaMap.get(version.version)?.tone === "positive" &&
+                                "bg-[#EDF5F0] text-[#245A41] dark:bg-emerald-950/40 dark:text-emerald-300",
+                              sizeDeltaMap.get(version.version)?.tone === "negative" &&
+                                "bg-[#FCEDEB] text-[#96201A] dark:bg-red-950/40 dark:text-red-300",
+                              sizeDeltaMap.get(version.version)?.tone === "neutral" &&
+                                "bg-[#F3F0EA] text-[#6B7880] dark:bg-muted dark:text-muted-foreground",
+                            )}
+                            title="Size difference from previous revision"
+                          >
+                            {sizeDeltaMap.get(version.version)?.label}
                           </span>
                         )}
                       </div>
-                      <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                        {formatDate(version.uploadedAt)} · {uploaderLabel(version)}
-                      </div>
-                      {version.comment && (
-                        <div className="mt-1 rounded bg-zinc-50 px-1.5 py-0.5 text-[11px] text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800">
-                          {version.comment}
-                        </div>
-                      )}
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex flex-col gap-1 shrink-0 [&>button]:min-h-10 [&>button]:min-w-10">
+                    {isCurrent ? (
+                      <span className="inline-flex items-center gap-1 rounded-[2px] border border-[#D8E8DF] bg-[#EDF5F0] px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#245A41] dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        <span className="h-1.5 w-1.5 rounded-[2px] bg-[#2F6B4F]" aria-hidden="true" />
+                        Active
+                      </span>
+                    ) : canEdit && !isDeleted ? (
+                      <button
+                        type="button"
+                        disabled={pendingAction === `delete:${version.id}`}
+                        onClick={() => setPendingDeleteVersion(version)}
+                        aria-label={`Delete version ${version.version}`}
+                        title="Delete version"
+                        className="inline-flex size-6 items-center justify-center rounded-[3px] text-[#96201A] transition-colors hover:bg-[#FCEDEB] disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                      >
+                        {pendingAction === `delete:${version.id}` ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {/* Author & Date Row (Name, date, year — NO TIME) */}
+                  <div className="mt-2 flex items-center gap-1.5 text-[12px] text-[#374349] dark:text-muted-foreground">
+                    <span className="font-medium text-[#141A1E] dark:text-foreground truncate max-w-[140px]">
+                      {uploaderLabel(version)}
+                    </span>
+                    <span className="text-[#DBD5C8] dark:text-muted-foreground/40">·</span>
+                    <span className="font-mono text-[11px] text-[#6B7880] dark:text-muted-foreground whitespace-nowrap">
+                      {formatFileVersionDate(version.uploadedAt)}
+                    </span>
+                  </div>
+
+                  {/* Comment/Note if present */}
+                  {version.comment && (
+                    <div className="mt-2 rounded-[3px] border border-[#DBD5C8] bg-[#F3F0EA] px-2 py-1 text-[11px] text-[#374349] dark:border-border dark:bg-card dark:text-muted-foreground leading-relaxed font-sans">
+                      {version.comment}
+                    </div>
+                  )}
+
+                  {/* 28px Action Toolbar */}
+                  {isCurrent ? (
+                    <div className="mt-2.5 flex items-center justify-between border-t border-[#DBD5C8]/60 pt-2 dark:border-border">
                       <button
                         type="button"
                         disabled={pendingAction === dlKey}
                         onClick={() => void handleDownload(version)}
                         aria-label={`Download version ${version.version}`}
-                        className="inline-flex items-center justify-center gap-0.5 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        title="Download"
+                        className="inline-flex h-7 items-center justify-center gap-1.5 rounded-[5px] border border-[#DBD5C8] bg-white px-2.5 text-[12px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
                       >
                         {pendingAction === dlKey ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Download className="h-3 w-3" />
+                          <Download className="h-3.5 w-3.5 text-[#4C5A61] dark:text-muted-foreground shrink-0" />
                         )}
+                        <span>Download</span>
                       </button>
-
-                      {onCompareClick && !isCurrent && (
-                        <button
-                          type="button"
-                          onClick={() => onCompareClick(version.version)}
-                          aria-label={`Compare version ${version.version}`}
-                          className="inline-flex items-center justify-center gap-0.5 rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                        >
-                          Compare with active
-                        </button>
-                      )}
-
-                      {/* Restore button: Req 10.4, 10.5, 14.3, 24.2 */}
-                      {showRestoreAction && !isCurrent && (
-                        <button
-                          type="button"
-                          disabled={pendingAction === restoreKey}
-                          onClick={() => void handleRestore(version)}
-                          aria-label={`Restore version ${version.version}`}
-                          data-testid={`version-restore-${version.version}`}
-                          className="inline-flex items-center justify-center gap-0.5 rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200 dark:hover:bg-indigo-500/20"
-                        >
-                          {pendingAction === restoreKey ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <RotateCcw className="h-3 w-3" />
-                          )}
-                        </button>
-                      )}
-
-                      {/* Delete button: Leads/Co-Leads only */}
-                      {canEdit && !isDeleted && (
-                        <button
-                          type="button"
-                          disabled={pendingAction === `delete:${version.id}`}
-                          onClick={() => setPendingDeleteVersion(version)}
-                          aria-label={`Delete version ${version.version}`}
-                          className="inline-flex items-center justify-center gap-0.5 rounded border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200 dark:hover:bg-red-500/20"
-                        >
-                          {pendingAction === `delete:${version.id}` ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3 w-3" />
-                          )}
-                        </button>
-                      )}
                     </div>
-                  </div>
+                  ) : (
+                    <div className="mt-2.5 border-t border-[#DBD5C8]/60 pt-2 dark:border-border">
+                      {/* Three identical equal-sized buttons: Download, Compare, Restore */}
+                      <div className="flex items-center gap-1.5">
+                        {/* Download button */}
+                        <button
+                          type="button"
+                          disabled={pendingAction === dlKey}
+                          onClick={() => void handleDownload(version)}
+                          aria-label={`Download version ${version.version}`}
+                          title="Download"
+                          className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#DBD5C8] bg-white px-1.5 text-[11px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
+                        >
+                          {pendingAction === dlKey ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Download className="h-3.5 w-3.5 text-[#4C5A61] dark:text-muted-foreground shrink-0" />
+                          )}
+                          <span>Download</span>
+                        </button>
+
+                        {/* Compare button */}
+                        {onCompareClick && !isCurrent && (
+                          <button
+                            type="button"
+                            onClick={() => onCompareClick(version.version)}
+                            aria-label={`Compare version ${version.version} with active`}
+                            title="Compare with active"
+                            className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#DBD5C8] bg-white px-1.5 text-[11px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
+                          >
+                            <GitCompare className="h-3.5 w-3.5 text-[#4C5A61] dark:text-muted-foreground shrink-0" />
+                            <span>Compare</span>
+                          </button>
+                        )}
+
+                        {/* Restore button */}
+                        {showRestoreAction && !isCurrent && (
+                          <button
+                            type="button"
+                            disabled={pendingAction === restoreKey}
+                            onClick={() => void handleRestore(version)}
+                            aria-label={`Restore version ${version.version}`}
+                            title={`Restore version ${version.version}`}
+                            data-testid={`version-restore-${version.version}`}
+                            className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#D14E24]/30 bg-[#FCF0EA] px-1.5 text-[11px] font-medium text-[#D14E24] whitespace-nowrap transition-colors hover:bg-[#F7DFD5] disabled:opacity-50 dark:border-[#D14E24]/50 dark:bg-[#D14E24]/20 dark:text-[#FCF0EA]"
+                          >
+                            {pendingAction === restoreKey ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+                            )}
+                            <span>Restore</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -404,8 +532,8 @@ export function FileVersionHistoryPanel({
       </div>
 
       {/* Footer note */}
-      <div className="shrink-0 border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
-        <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+      <div className="shrink-0 border-t border-[#DBD5C8] bg-[#F3F0EA] px-4 py-2.5 dark:border-border dark:bg-card/50">
+        <p className="text-[11px] text-[#6B7880] dark:text-muted-foreground leading-normal">
           Restoring a version writes a new entry and never rewrites history.
         </p>
       </div>

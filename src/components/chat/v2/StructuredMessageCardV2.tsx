@@ -71,7 +71,7 @@ export function StructuredMessageCardV2({
 
     return (
         <div className={cn(
-            'msg-rich-content w-full max-w-full min-w-0 rounded-2xl border px-3 py-3',
+            'msg-rich-content w-full max-w-full min-w-0 rounded-lg border px-3 py-3',
             isOwn
                 ? 'border-white/15 bg-white/8 text-primary-foreground'
                 : 'border-zinc-200 bg-zinc-50/90 text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950/70 dark:text-zinc-100',
@@ -79,14 +79,14 @@ export function StructuredMessageCardV2({
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span className={cn(
-                        'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                        'rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
                         isOwn ? 'bg-white/10 text-white/75' : 'bg-primary/10 text-primary',
                     )}>
                         {actionLabel(structured.kind)}
                     </span>
                     {stateLabel ? (
                         <span className={cn(
-                            'rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                            'rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide',
                             isOwn
                                 ? 'border-white/15 bg-white/5 text-white/80'
                                 : 'border-zinc-200 bg-white text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300',
@@ -118,7 +118,7 @@ export function StructuredMessageCardV2({
 
             {note ? (
                 <div className={cn(
-                    'mt-2 rounded-xl border px-2.5 py-2 text-xs leading-5 break-words',
+                    'mt-2 rounded-lg border px-2.5 py-2 text-xs leading-5 break-words',
                     isOwn
                         ? 'border-white/10 bg-black/10 text-primary-foreground/80'
                         : 'border-zinc-200 bg-white text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300',

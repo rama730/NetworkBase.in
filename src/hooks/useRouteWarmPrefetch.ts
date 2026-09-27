@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-const ROUTE_PREFETCH_TTL_MS = 45_000;
+const ROUTE_PREFETCH_TTL_MS = 300_000;
 const ROUTE_PREFETCH_MAX_KEYS = 256;
 const warmedRouteMap = new Map<string, number>();
 

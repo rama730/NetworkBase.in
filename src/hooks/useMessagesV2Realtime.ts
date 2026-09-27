@@ -43,8 +43,8 @@ import {
 import { withReactionSummaryMetadata } from '@/lib/messages/reactions';
 import { buildMessageAttachmentAccessUrl } from '@/lib/messages/attachment-access';
 
-const FALLBACK_REFRESH_DEBOUNCE_MS = 220;
-const THREAD_MESSAGE_SYNC_DEBOUNCE_MS = 16;
+const FALLBACK_REFRESH_DEBOUNCE_MS = 500;
+const THREAD_MESSAGE_SYNC_DEBOUNCE_MS = 150;
 
 type MessageReadWatermark = Pick<MessageWithSender, 'id' | 'createdAt'>;
 
@@ -621,56 +621,6 @@ export function useMessagesV2Realtime(
         }, FALLBACK_REFRESH_DEBOUNCE_MS);
     }, [refreshConversationSummary]);
 
-    // Wave 1: surgical cache update when a delivery/read receipt arrives.
-    // Bumps the per-message deliveryCounts and derives the deliveryState so
-    // the UI ticks advance within ~100 ms without a full thread refetch.
-    const applyReceiptPatch = useCallback(
-        (
-            conversationId: string,
-            messageId: string,
-            kind: 'delivered' | 'read',
-        ) => {
-            let patchedMessage: MessageWithSender | null = null;
-            patchThreadMessage(queryClient, conversationId, messageId, (message) => {
-                const metadata = (message.metadata || {}) as Record<string, unknown>;
-                const currentCounts = (metadata.deliveryCounts as { total?: number; delivered?: number; read?: number } | undefined) ?? {};
-                const total = typeof currentCounts.total === 'number' ? currentCounts.total : 0;
-                const prevDelivered = typeof currentCounts.delivered === 'number' ? currentCounts.delivered : 0;
-                const prevRead = typeof currentCounts.read === 'number' ? currentCounts.read : 0;
-
-                const nextDelivered = kind === 'delivered' || kind === 'read'
-                    ? Math.max(prevDelivered, Math.min(total || prevDelivered + 1, prevDelivered + 1))
-                    : prevDelivered;
-                const nextRead = kind === 'read' ? Math.min(total || prevRead + 1, prevRead + 1) : prevRead;
-
-                // Never downgrade. If a read receipt arrives after a later
-                // event, keep the stronger state.
-                const currentState = metadata.deliveryState as string | undefined;
-                let nextState: 'sent' | 'delivered' | 'read' = 'sent';
-                if (nextRead > 0 || currentState === 'read') nextState = 'read';
-                else if (nextDelivered > 0 || currentState === 'delivered') nextState = 'delivered';
-
-                patchedMessage = {
-                    ...message,
-                    metadata: {
-                        ...metadata,
-                        deliveryState: nextState,
-                        deliveryCounts: {
-                            total,
-                            delivered: nextDelivered,
-                            read: nextRead,
-                        },
-                    },
-                };
-                return patchedMessage;
-            });
-
-            if (patchedMessage && isCachedConversationLastMessage(queryClient, conversationId, messageId)) {
-                patchConversationLastMessageFromMessage(queryClient, conversationId, patchedMessage);
-            }
-        },
-        [queryClient],
-    );
 
     const applyParticipantReadWatermark = useCallback((
         conversationId: string,
@@ -694,8 +644,7 @@ export function useMessagesV2Realtime(
             createdAt: watermark.createdAt,
         });
 
-        // ponytail: participant watermarks are the native fallback when a
-        // receipt event is missed; the direct receipt stream remains primary.
+        // ponytail: participant watermarks are the native fallback when a receipt event is missed. ceiling: participant read watermark timestamp. upgrade: direct receipt stream if sub-second per-recipient read telemetry required.
         patchThreadMessages(
             queryClient,
             conversationId,
@@ -1027,30 +976,7 @@ export function useMessagesV2Realtime(
                             void refreshMessageReactionSummary(activeConversationId, messageId);
                         },
                     },
-                    // Wave 1: listen for per-message delivery + read receipts
-                    // so the sender's tick advances live (✓ → ✓✓ → blue ✓✓).
-                    {
-                        event: 'INSERT',
-                        table: 'message_delivery_receipts',
-                        filter: `conversation_id=eq.${activeConversationId}`,
-                        handler: (payload) => {
-                            const messageId = getPayloadStringField(payload, 'new', 'message_id');
-                            if (messageId) {
-                                applyReceiptPatch(activeConversationId, messageId, 'delivered');
-                            }
-                        },
-                    },
-                    {
-                        event: 'INSERT',
-                        table: 'message_read_receipts',
-                        filter: `conversation_id=eq.${activeConversationId}`,
-                        handler: (payload) => {
-                            const messageId = getPayloadStringField(payload, 'new', 'message_id');
-                            if (messageId) {
-                                applyReceiptPatch(activeConversationId, messageId, 'read');
-                            }
-                        },
-                    },
+                    // ponytail: participant watermarks on conversation_participants advance read ticks natively. ceiling: conversation_participants table events. upgrade: granular message_read_receipts streaming if individual recipient read audit timeline required.
                     // Multiplexed: message_work_links changes for active thread (eliminates redundant channel)
                     {
                         event: '*',
@@ -1086,8 +1012,7 @@ export function useMessagesV2Realtime(
                     'messages',
                     'conversation_participants',
                     'message_reactions',
-                    'message_delivery_receipts',
-                    'message_read_receipts',
+                    'message_work_links',
                 ],
             });
         })().catch((error) => {
@@ -1110,8 +1035,7 @@ export function useMessagesV2Realtime(
                         'messages',
                         'conversation_participants',
                         'message_reactions',
-                        'message_delivery_receipts',
-                        'message_read_receipts',
+                        'message_work_links',
                     ],
                 });
             }
@@ -1120,7 +1044,6 @@ export function useMessagesV2Realtime(
         activeConversationId,
         activeThreadRealtimeEnabled,
         applyParticipantReadWatermark,
-        applyReceiptPatch,
         denormalizedInboxRealtimeEnabled,
         queueThreadMessageSync,
         queryClient,
@@ -1138,6 +1061,45 @@ export function useMessagesV2Realtime(
             threadMessageSyncTimerRef.current = null;
         }
     }, [activeConversationId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        let hiddenTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                hiddenTimer = setTimeout(() => {
+                    setActiveThreadConnected(false);
+                }, 3 * 60 * 1000);
+            } else if (document.visibilityState === 'visible') {
+                if (hiddenTimer) {
+                    clearTimeout(hiddenTimer);
+                    hiddenTimer = null;
+                }
+                scheduleInboxRefresh();
+                if (activeConversationIdRef.current) {
+                    scheduleConversationSummaryRefresh(activeConversationIdRef.current, { syncThread: true });
+                }
+            }
+        };
+
+        const handleOnline = () => {
+            scheduleInboxRefresh();
+            if (activeConversationIdRef.current) {
+                scheduleConversationSummaryRefresh(activeConversationIdRef.current, { syncThread: true });
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('online', handleOnline);
+
+        return () => {
+            if (hiddenTimer) clearTimeout(hiddenTimer);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('online', handleOnline);
+        };
+    }, [scheduleInboxRefresh, scheduleConversationSummaryRefresh]);
 
     useEffect(() => {
         return () => {

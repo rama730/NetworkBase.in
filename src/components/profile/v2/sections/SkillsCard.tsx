@@ -31,12 +31,12 @@ export function SkillsCard({ skills, isOwner, onAdd, variant = 'default' }: Skil
                             <button
                                 type="button"
                                 onClick={onAdd}
-                                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                                className="nb-ui-label text-primary hover:text-primary/80 transition-colors"
                             >
                                 Add skills to your profile
                             </button>
                         ) : (
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400">No skills listed</p>
+                            <p className="nb-body text-muted-foreground">No skills listed</p>
                         )}
                     </div>
                 )}

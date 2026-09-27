@@ -2,18 +2,23 @@
 
 import React from 'react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Ban, ChevronDown, Ellipsis, Lock, MapPin, Link2, Pencil, MessageSquare, UserPlus, UserCheck, UserMinus, Clock, Shield, Users } from 'lucide-react'
+import { Ban, ChevronDown, Lock, MapPin, Link2, Pencil, MessageSquare, Share2, UserPlus, UserCheck, UserMinus, Clock, Users } from 'lucide-react'
 import { buildPrivacyPresentation } from '@/lib/privacy/presentation'
-import type { ConnectionState, ProfilePrivacyRelationship } from './types'
+import type { ConnectionState, ProfilePrivacyRelationship, ProfileStats } from './types'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
+import { SkillIcon } from '@/components/skills'
+import { resolveClientSkill } from '@/lib/skills/client'
+import { formatLastActive } from '@/lib/ui/date-formatting'
+import { resolveProfileActionState } from './profile-action-state'
 
 function Chip({ children, className }: { children: React.ReactNode; className?: string }) {
     return (
         <span
             className={cn(
-                'inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800',
+                'nb-status inline-flex items-center px-3 py-1.5 rounded-[3px] border border-border bg-card text-muted-foreground',
                 className
             )}
         >
@@ -22,46 +27,20 @@ function Chip({ children, className }: { children: React.ReactNode; className?: 
     )
 }
 
-const PrimaryButton = React.forwardRef<
-    HTMLButtonElement,
-    React.ButtonHTMLAttributes<HTMLButtonElement> & {
-        variant?: 'solid' | 'outline'
-    }
->(function PrimaryButton({ children, className, variant = 'solid', type = 'button', ...props }, ref) {
-    return (
-        <button
-            ref={ref}
-            type={type}
-            className={cn(
-                'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-                variant === 'solid'
-                    ? 'app-accent-solid hover:bg-primary/90 transition-[background-color,box-shadow]'
-                    : 'border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-700',
-                className,
-            )}
-            {...props}
-        >
-            {children}
-        </button>
-    )
-})
+function PresenceDot({ lastActiveAt }: { lastActiveAt?: string | Date | null }) {
+    const activeLabel = formatLastActive(lastActiveAt)
+    const tone = activeLabel === 'Active today'
+        ? 'bg-[var(--status-success)]'
+        : activeLabel === 'Active this week'
+            ? 'bg-amber-500'
+            : 'bg-muted-foreground/40'
 
-function IconButton({
-    children,
-    className,
-    ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
     return (
-        <button
-            type="button"
-            className={cn(
-                'inline-flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-900 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700',
-                className,
-            )}
-            {...props}
-        >
-            {children}
-        </button>
+        <span
+            className={cn('absolute -bottom-0.5 -right-0.5 size-[19px] rounded-full ring-2 ring-card', tone)}
+            aria-label={activeLabel ?? 'Offline'}
+            title={activeLabel ?? 'Offline'}
+        />
     )
 }
 
@@ -72,6 +51,10 @@ export function ProfileHeader({
     isAuthenticated,
     connectionState,
     onEdit,
+    onShare,
+    onAvailabilityEdit,
+    onConnectionsClick,
+    onProjectsClick,
     onConnectPrimary,
     onConnectSecondary,
     onMessage,
@@ -79,6 +62,7 @@ export function ProfileHeader({
     isLoadingConnection = false,
     isBlocking = false,
     mutualCount = 0,
+    stats,
     privacyRelationship,
     lockedShell = false,
 }: {
@@ -88,6 +72,10 @@ export function ProfileHeader({
     isAuthenticated: boolean
     connectionState: ConnectionState
     onEdit: () => void
+    onShare?: () => void
+    onAvailabilityEdit?: () => void
+    onConnectionsClick?: () => void
+    onProjectsClick?: () => void
     onConnectPrimary: () => void
     onConnectSecondary?: () => void
     onMessage: () => void
@@ -95,6 +83,7 @@ export function ProfileHeader({
     isLoadingConnection?: boolean
     isBlocking?: boolean
     mutualCount?: number
+    stats?: Pick<ProfileStats, 'connectionsCount' | 'projectsCount'>
     privacyRelationship: ProfilePrivacyRelationship
     lockedShell?: boolean
 }) {
@@ -104,6 +93,10 @@ export function ProfileHeader({
     const username = vm.username ? `@${vm.username}` : ''
     const headline = vm.headline || ''
     const location = vm.location || ''
+    const skills = vm.skills || []
+    const isOpenToCollaborate = (vm.openTo || []).length > 0 || Boolean(vm.hoursPerWeek)
+    const connectionsCount = stats?.connectionsCount ?? vm.connectionsCount ?? 0
+    const projectsCount = stats?.projectsCount ?? vm.projectsCount ?? 0
 
     const connectLabel =
         connectionState === 'accepted'
@@ -115,7 +108,11 @@ export function ProfileHeader({
                     : 'Connect'
 
     const connectIcon =
-        connectionState === 'accepted' ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />
+        connectionState === 'accepted' || connectionState === 'pending_incoming'
+            ? <UserCheck className="size-4" />
+            : connectionState === 'pending_outgoing'
+                ? <Clock className="size-4" />
+                : <UserPlus className="size-4" />
 
     const secondaryConnectLabel =
         connectionState === 'accepted'
@@ -127,7 +124,9 @@ export function ProfileHeader({
                     : null
 
     const secondaryConnectIcon =
-        connectionState === 'accepted' ? <UserMinus className="w-4 h-4" /> : <Clock className="w-4 h-4" />
+        connectionState === 'pending_outgoing'
+            ? <Clock className="size-4" />
+            : <UserMinus className="size-4" />
 
     const blockActionLabel = privacyRelationship.blockedByViewer ? 'Unblock' : 'Block'
     const privacyPresentation = buildPrivacyPresentation({
@@ -161,69 +160,98 @@ export function ProfileHeader({
                                 : 'none',
         latestConnectionId: null,
     })
-    const showConnectAction = !privacyRelationship.blockedByViewer && !privacyRelationship.blockedByTarget
-    const canMessage = privacyPresentation.canSendMessage && !privacyRelationship.blockedByViewer && !privacyRelationship.blockedByTarget
     const lockLabel = privacyPresentation.relationshipBadgeText
     const canManageBlock = Boolean(isAuthenticated && onToggleBlock && !privacyRelationship.blockedByTarget)
-    const showsRelationshipMenuTrigger = connectionState === 'accepted' || connectionState === 'pending_outgoing'
-    const relationshipButtonClassName =
-        connectionState === 'accepted'
-            ? 'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200'
-            : connectionState === 'pending_outgoing'
-                ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200'
-                : undefined
-    const messageButtonClassName =
-        connectionState === 'accepted'
-            ? 'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200'
-            : undefined
-    const hasOverflowActions = Boolean((secondaryConnectLabel && onConnectSecondary) || canManageBlock)
+    const {
+        hasConnectionMenuAction,
+        isInteractionBlocked,
+        isPrimaryConnectionAction,
+        relationshipControlLabel,
+        relationshipControlVariant,
+        showMessageAction,
+        showRelationshipAction,
+    } = resolveProfileActionState({
+        connectionState,
+        isAuthenticated,
+        canSendMessage: privacyPresentation.canSendMessage,
+        canSendConnectionRequest: privacyRelationship.canSendConnectionRequest,
+        blockedByViewer: privacyRelationship.blockedByViewer,
+        blockedByTarget: privacyRelationship.blockedByTarget,
+        canManageBlock,
+        hasSecondaryHandler: Boolean(onConnectSecondary),
+    })
 
     return (
-        <div className="rounded-3xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
-            <div className="px-5 sm:px-8 py-6">
-                <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                        <UserAvatar
-                            identity={vm}
-                            className="w-20 h-20 sm:w-24 sm:h-24 border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900"
-                            roundedClassName="rounded-2xl"
-                            fallbackClassName="text-xl font-bold text-white"
-                            sizes="(max-width: 640px) 80px, 96px"
-                            priority
-                        />
-                        <div className="pb-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-zinc-100">{name}</h1>
-                                {username ? <span className="text-sm text-zinc-500 dark:text-zinc-400">{username}</span> : null}
-                                {vm.profileStrength ? (
-                                    <Chip className="hidden sm:inline-flex">
-                                        <Shield className="w-3.5 h-3.5 mr-1" />
-                                        {vm.profileStrength}% complete
-                                    </Chip>
+        <div data-testid="profile-summary-header" className="overflow-hidden rounded-lg border border-border bg-card shadow-none">
+            <div className="p-5 sm:p-6">
+                <div className="flex flex-col items-start justify-between gap-5 md:flex-row">
+                    <div className="flex min-w-0 flex-1 items-start gap-5">
+                        <div className="relative shrink-0">
+                            <UserAvatar
+                                identity={vm}
+                                className="size-[72px] border border-border bg-secondary"
+                                roundedClassName="rounded-[3px]"
+                                fallbackClassName="text-2xl font-semibold"
+                                sizes="72px"
+                                priority
+                            />
+                            <PresenceDot lastActiveAt={vm.lastActiveAt} />
+                        </div>
+                        <div className="min-w-0 flex-1 pb-1">
+                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
+                                <h1 className="nb-page-title text-foreground">{name}</h1>
+                                {username ? (
+                                    <span className="nb-meta break-all normal-case tracking-normal">
+                                        {username}
+                                    </span>
+                                ) : null}
+                                {isOpenToCollaborate ? (
+                                    <span className="nb-status" data-status="completed">
+                                        <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+                                        Open to collaborate
+                                    </span>
                                 ) : null}
                             </div>
-                            {headline ? <p className="mt-1 text-sm sm:text-base text-zinc-700 dark:text-zinc-300">{headline}</p> : null}
+                            {headline ? <p className="text-[15px] leading-normal font-normal mt-2 text-muted-foreground">{headline}</p> : null}
 
                             {mutualCount > 0 ? (
-                                <div className="mt-2 flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                                <div className="nb-meta mt-2 flex items-center gap-2 text-muted-foreground">
                                     <Users className="w-3 h-3 inline mr-1" />
-                                    <span className="text-xs">{mutualCount} mutual connections</span>
+                                    <span>{mutualCount} mutual connections</span>
                                 </div>
                             ) : null}
 
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                            <div className="nb-meta mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                                 {lockLabel ? (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                    <span className="nb-status border border-border/60 bg-muted/60 text-muted-foreground">
                                         <Lock className="w-3.5 h-3.5" />
                                         {lockLabel}
                                     </span>
                                 ) : null}
                                 {location ? (
-                                    <span className="inline-flex items-center gap-1">
-                                        <MapPin className="w-4 h-4" />
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <MapPin className="size-3.5" />
                                         {location}
                                     </span>
                                 ) : null}
+                                <button
+                                    type="button"
+                                    onClick={onConnectionsClick}
+                                    disabled={!onConnectionsClick}
+                                    aria-label={`View ${connectionsCount} ${connectionsCount === 1 ? 'connection' : 'connections'}`}
+                                    className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none"
+                                >
+                                    {connectionsCount} connections
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={onProjectsClick}
+                                    disabled={!onProjectsClick}
+                                    aria-label={`View ${projectsCount} ${projectsCount === 1 ? 'project' : 'projects'}`}
+                                    className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none"
+                                >
+                                    {projectsCount} projects
+                                </button>
                                 {vm.website ? (
                                     <a
                                         href={vm.website}
@@ -231,121 +259,128 @@ export function ProfileHeader({
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1 hover:text-primary"
                                     >
-                                        <Link2 className="w-4 h-4" />
-                                        {vm.website}
+                                        <Link2 className="size-3.5" />
+                                        Website
                                     </a>
                                 ) : null}
                             </div>
+                            {skills.length > 0 ? (
+                                <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Profile skills">
+                                    {skills.map((name: string) => {
+                                        const skill = resolveClientSkill(name)
+                                        return (
+                                            <span className="nb-tag" key={skill.canonicalKey}>
+                                                <SkillIcon skill={skill} size={14} />
+                                                {skill.name}
+                                            </span>
+                                        )
+                                    })}
+                                </div>
+                            ) : null}
                         </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2 pb-1">
+                    <div className="flex shrink-0 flex-col items-start gap-2.5 md:items-end">
                         {isOwner ? (
                             <>
-                                <PrimaryButton onClick={onEdit} variant="outline">
-                                    <Pencil className="w-4 h-4" />
-                                    Edit Profile
-                                </PrimaryButton>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button onClick={onShare} variant="outline" size="sm">
+                                        <Share2 className="size-4" />
+                                        Share
+                                    </Button>
+                                    <Button onClick={onEdit} size="sm">
+                                        <Pencil className="size-4" />
+                                        Edit profile
+                                    </Button>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={isOpenToCollaborate}
+                                    onClick={onAvailabilityEdit ?? onEdit}
+                                    className="nb-ui-label inline-flex items-center gap-2 text-foreground"
+                                    title="Manage collaboration preferences"
+                                >
+                                    <span
+                                        className={cn(
+                                            'relative inline-flex h-5 w-9 rounded-full border transition-colors',
+                                            isOpenToCollaborate
+                                                ? 'border-[#8F2E12] bg-primary'
+                                                : 'border-border bg-secondary',
+                                        )}
+                                        aria-hidden="true"
+                                    >
+                                        <span
+                                            className={cn(
+                                                'absolute top-0.5 size-3.5 rounded-full bg-white shadow-sm transition-transform',
+                                                isOpenToCollaborate ? 'translate-x-[17px]' : 'translate-x-0.5',
+                                            )}
+                                        />
+                                    </span>
+                                    Open to collaborators
+                                </button>
                             </>
                         ) : isLoadingConnection ? (
-                            <div className="flex gap-2">
-                                <div className="h-10 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-xl animate-pulse" />
-                                <div className="h-10 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-xl animate-pulse" />
-                            </div>
+                            <div aria-hidden="true" className="nb-skeleton h-10 w-28 rounded-[3px] border border-border/40" />
                         ) : (
                             <>
-                                {showConnectAction ? (
+                                {showRelationshipAction ? (
                                     <>
-                                        {showsRelationshipMenuTrigger ? (
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <PrimaryButton
-                                                        variant="outline"
-                                                        disabled={!isAuthenticated}
-                                                        className={relationshipButtonClassName}
-                                                        aria-label={`${connectLabel} options`}
-                                                    >
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant={relationshipControlVariant}
+                                                    disabled={!isAuthenticated}
+                                                    aria-label={`${relationshipControlLabel} options`}
+                                                >
+                                                    {connectIcon}
+                                                    {relationshipControlLabel}
+                                                    <ChevronDown className="size-4 opacity-70" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48">
+                                                {showMessageAction ? (
+                                                    <DropdownMenuItem onClick={onMessage}>
+                                                        <MessageSquare className="size-4" />
+                                                        Message
+                                                    </DropdownMenuItem>
+                                                ) : null}
+                                                {showMessageAction && hasConnectionMenuAction ? <DropdownMenuSeparator /> : null}
+                                                {isPrimaryConnectionAction ? (
+                                                    <DropdownMenuItem onClick={onConnectPrimary} disabled={isLoadingConnection}>
                                                         {connectIcon}
                                                         {connectLabel}
-                                                        <ChevronDown className="w-4 h-4 opacity-70" />
-                                                    </PrimaryButton>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-48">
-                                                    {secondaryConnectLabel && onConnectSecondary ? (
-                                                        <DropdownMenuItem onClick={onConnectSecondary} disabled={isLoadingConnection}>
-                                                            {secondaryConnectIcon}
-                                                            {secondaryConnectLabel}
-                                                        </DropdownMenuItem>
-                                                    ) : null}
-                                                    {secondaryConnectLabel && onConnectSecondary && canManageBlock ? (
-                                                        <DropdownMenuSeparator />
-                                                    ) : null}
-                                                    {canManageBlock ? (
-                                                        <DropdownMenuItem onClick={onToggleBlock} disabled={isBlocking} variant="destructive">
-                                                            <Ban className="w-4 h-4" />
-                                                            {blockActionLabel}
-                                                        </DropdownMenuItem>
-                                                    ) : null}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        ) : (
-                                            <PrimaryButton
-                                                onClick={onConnectPrimary}
-                                                disabled={!isAuthenticated || (!privacyRelationship.canSendConnectionRequest && connectionState === 'none')}
-                                            >
-                                                {connectIcon}
-                                                {connectLabel}
-                                            </PrimaryButton>
-                                        )}
-                                        <PrimaryButton
-                                            onClick={onMessage}
-                                            variant="outline"
-                                            disabled={!isAuthenticated || !canMessage}
-                                            className={messageButtonClassName}
-                                        >
-                                            <MessageSquare className="w-4 h-4" />
-                                            Message
-                                        </PrimaryButton>
-                                        {!showsRelationshipMenuTrigger && hasOverflowActions ? (
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <IconButton aria-label="Open relationship actions" disabled={!isAuthenticated}>
-                                                        <Ellipsis className="w-4 h-4" />
-                                                    </IconButton>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-48">
-                                                    {secondaryConnectLabel && onConnectSecondary ? (
-                                                        <DropdownMenuItem onClick={onConnectSecondary} disabled={isLoadingConnection}>
-                                                            {secondaryConnectIcon}
-                                                            {secondaryConnectLabel}
-                                                        </DropdownMenuItem>
-                                                    ) : null}
-                                                    {secondaryConnectLabel && onConnectSecondary && canManageBlock ? (
-                                                        <DropdownMenuSeparator />
-                                                    ) : null}
-                                                    {canManageBlock ? (
-                                                        <DropdownMenuItem onClick={onToggleBlock} disabled={isBlocking} variant="destructive">
-                                                            <Ban className="w-4 h-4" />
-                                                            {blockActionLabel}
-                                                        </DropdownMenuItem>
-                                                    ) : null}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        ) : null}
+                                                    </DropdownMenuItem>
+                                                ) : null}
+                                                {secondaryConnectLabel && onConnectSecondary ? (
+                                                    <DropdownMenuItem onClick={onConnectSecondary} disabled={isLoadingConnection}>
+                                                        {secondaryConnectIcon}
+                                                        {secondaryConnectLabel}
+                                                    </DropdownMenuItem>
+                                                ) : null}
+                                                {(showMessageAction || hasConnectionMenuAction) && canManageBlock ? <DropdownMenuSeparator /> : null}
+                                                {canManageBlock ? (
+                                                    <DropdownMenuItem onClick={onToggleBlock} disabled={isBlocking} variant="destructive">
+                                                        <Ban className="size-4" />
+                                                        {blockActionLabel}
+                                                    </DropdownMenuItem>
+                                                ) : null}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </>
-                                ) : (
-                                    <Chip className="border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/20 dark:text-rose-300">
+                                ) : isInteractionBlocked ? (
+                                    <Chip className="border-destructive/30 bg-destructive/10 text-destructive">
                                         <Ban className="mr-1 w-3.5 h-3.5" />
                                         {privacyPresentation.blockedBannerText || 'You cannot interact with this account'}
                                     </Chip>
-                                )}
+                                ) : null}
                             </>
                         )}
                     </div>
                 </div>
 
                 {lockedShell ? (
-                    <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-300">
+                    <div className="nb-compact mt-4 rounded-lg border border-border bg-muted/40 px-4 py-3 text-muted-foreground">
                         {privacyRelationship.blockedByViewer
                             ? `${privacyPresentation.blockedBannerText || 'You blocked this account'}. Their profile remains limited until you unblock them.`
                             : privacyRelationship.blockedByTarget

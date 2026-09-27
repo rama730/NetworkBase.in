@@ -64,7 +64,12 @@ function getDefaultLabel(targetType: MessageWorkLinkTargetType, metadata: Record
     return getString(metadata, "title") ?? "Decision";
 }
 
-export function mapMessageWorkLinkToSummary(row: MessageWorkLink): MessageLinkedWorkSummary {
+export type MessageWorkLinkRow = Pick<
+    MessageWorkLink,
+    'id' | 'sourceMessageId' | 'sourceConversationId' | 'targetType' | 'targetId' | 'targetProjectId' | 'visibility' | 'status' | 'ownerUserId' | 'assigneeUserId' | 'createdBy' | 'href' | 'metadata' | 'createdAt' | 'updatedAt'
+>;
+
+export function mapMessageWorkLinkToSummary(row: MessageWorkLinkRow): MessageLinkedWorkSummary {
     const targetType = row.targetType as MessageWorkLinkTargetType;
     const visibility = row.visibility as MessageWorkLinkVisibility;
     const status = row.status as MessageWorkLinkStatus;

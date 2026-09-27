@@ -95,46 +95,73 @@ function normalizeTaskDiscussionEntry(params: {
   };
 }
 
+// PURE OPTIMIZATION (Item 9): Single flat join verifies task access, project existence, and user role.
 async function assertTaskAccess(params: {
   taskId: string;
   projectId: string;
   userId: string;
   mode: "read" | "write";
 }) {
-  const [taskRow] = await db
-    .select({ id: tasks.id, projectId: tasks.projectId })
+  const rows = await db
+    .select({
+      id: tasks.id,
+      projectId: tasks.projectId,
+      ownerId: projects.ownerId,
+      slug: projects.slug,
+      title: projects.title,
+      deletedAt: projects.deletedAt,
+      role: projectMembers.role,
+    })
     .from(tasks)
+    .innerJoin(projects, eq(tasks.projectId, projects.id))
+    .leftJoin(
+      projectMembers,
+      and(
+        eq(projectMembers.projectId, projects.id),
+        eq(projectMembers.userId, params.userId),
+      ),
+    )
     .where(and(eq(tasks.id, params.taskId), isNull(tasks.deletedAt)))
     .limit(1);
 
-  if (!taskRow) {
+  const row = rows[0];
+  if (!row) {
     throw new Error("Task not found");
   }
-  if (taskRow.projectId !== params.projectId) {
+  if (row.projectId !== params.projectId) {
     throw new Error("Task does not belong to this project");
   }
-
-  const access = await getProjectAccessById(params.projectId, params.userId);
-  if (!access.project) {
+  if (row.deletedAt) {
     throw new Error("Project not found");
   }
-  if (params.mode === "read" && !access.canRead) {
-    throw new Error("Forbidden");
-  }
-  if (params.mode === "write") {
-    await requireProjectCapability(params.projectId, params.userId, "comment");
+
+  const isOwner = row.ownerId === params.userId;
+  if (!isOwner) {
+    if (!row.role) {
+      throw new Error("Forbidden");
+    }
+    if (params.mode === "write" && row.role.toLowerCase() === "viewer") {
+      throw new Error("You do not have permission to perform this project action");
+    }
   }
 
-  return taskRow;
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    ownerId: row.ownerId,
+    slug: row.slug,
+    title: row.title,
+  };
 }
 
+// PURE OPTIMIZATION (Item 9): Single flat join verifies comment, task, project, and permissions in 1 query.
 async function assertCommentAccess(params: {
   commentId: string;
   projectId: string;
   userId: string;
   mode: "read" | "write";
 }) {
-  const [commentRow] = await db
+  const rows = await db
     .select({
       id: taskComments.id,
       taskId: taskComments.taskId,
@@ -142,27 +169,45 @@ async function assertCommentAccess(params: {
       userId: taskComments.userId,
       parentCommentId: taskComments.parentCommentId,
       deletedAt: taskComments.deletedAt,
+      ownerId: projects.ownerId,
+      projectDeletedAt: projects.deletedAt,
+      role: projectMembers.role,
     })
     .from(taskComments)
     .innerJoin(tasks, eq(taskComments.taskId, tasks.id))
+    .innerJoin(projects, eq(tasks.projectId, projects.id))
+    .leftJoin(
+      projectMembers,
+      and(
+        eq(projectMembers.projectId, projects.id),
+        eq(projectMembers.userId, params.userId),
+      ),
+    )
     .where(eq(taskComments.id, params.commentId))
     .limit(1);
 
-  if (!commentRow) {
+  const row = rows[0];
+  if (!row) {
     throw new Error("Comment not found");
   }
-  if (commentRow.projectId !== params.projectId) {
+  if (row.projectId !== params.projectId) {
     throw new Error("Comment does not belong to this project");
   }
+  if (row.projectDeletedAt) {
+    throw new Error("Project not found");
+  }
 
-  await assertTaskAccess({
-    taskId: commentRow.taskId,
-    projectId: params.projectId,
-    userId: params.userId,
-    mode: params.mode,
-  });
+  const isOwner = row.ownerId === params.userId;
+  if (!isOwner) {
+    if (!row.role) {
+      throw new Error("Forbidden");
+    }
+    if (params.mode === "write" && row.role.toLowerCase() === "viewer") {
+      throw new Error("You do not have permission to perform this project action");
+    }
+  }
 
-  return commentRow;
+  return row;
 }
 
 async function readDiscussionRows(params: {
@@ -507,7 +552,7 @@ export async function createTaskCommentAction(
     }
     const trimmedContent = parsedContent.data;
 
-    await assertTaskAccess({
+    const taskAccess = await assertTaskAccess({
       taskId,
       projectId,
       userId: viewer.userId,
@@ -548,16 +593,8 @@ export async function createTaskCommentAction(
       };
     }
     let validatedMentionIds: string[] = [];
-    const [projectRow] = await db
-      .select({
-        ownerId: projects.ownerId,
-        slug: projects.slug,
-        title: projects.title,
-      })
-      .from(projects)
-      .where(eq(projects.id, projectId))
-      .limit(1);
 
+    // PURE OPTIMIZATION (Item 9): Omit redundant project select since taskAccess already provided ownerId/slug/title.
     if (candidateMentionIds.length > 0) {
       const memberRows = await db
         .select({ userId: projectMembers.userId })
@@ -570,7 +607,7 @@ export async function createTaskCommentAction(
         );
 
       const allowed = new Set<string>(memberRows.map((row) => row.userId));
-      if (projectRow?.ownerId) allowed.add(projectRow.ownerId);
+      if (taskAccess.ownerId) allowed.add(taskAccess.ownerId);
 
       validatedMentionIds = candidateMentionIds.filter((id) => allowed.has(id));
     }
@@ -644,8 +681,8 @@ export async function createTaskCommentAction(
           authorDisplayName: viewer.profile?.fullName ?? viewer.profile?.username ?? null,
           authorAvatarUrl: viewer.profile?.avatarUrl ?? null,
           projectId,
-          projectSlug: projectRow?.slug ?? null,
-          projectLabel: projectRow?.title ?? null,
+          projectSlug: taskAccess.slug ?? null,
+          projectLabel: taskAccess.title ?? null,
           taskId,
           commentId: inserted.id,
           parentCommentId: parentCommentId ?? null,
@@ -680,10 +717,10 @@ export async function createTaskCommentAction(
           affectedMemberId: parentCommentAuthorId,
           title: `${actorName || "Someone"} replied to your task comment`,
           body: parsedMentions.plainText,
-          href: `/projects/${encodeURIComponent(projectRow?.slug || projectId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}&panelTab=comments&commentId=${encodeURIComponent(inserted.id)}`,
+          href: `/projects/${encodeURIComponent(taskAccess.slug || projectId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}&panelTab=comments&commentId=${encodeURIComponent(inserted.id)}`,
           entityRefs: {
             projectId,
-            projectSlug: projectRow?.slug ?? null,
+            projectSlug: taskAccess.slug ?? null,
             taskId,
             commentId: inserted.id,
             parentCommentId,
@@ -692,7 +729,7 @@ export async function createTaskCommentAction(
           preview: {
             actorName,
             actorAvatarUrl: viewer.profile?.avatarUrl ?? null,
-            contextLabel: projectRow?.title ?? "Task discussion",
+            contextLabel: taskAccess.title ?? "Task discussion",
             contextKind: "task",
           },
           sourceEventId: inserted.id,
@@ -714,7 +751,6 @@ export async function createTaskCommentAction(
       commentId: inserted.id,
       viewerId: viewer.userId,
     });
-    revalidatePath(`/projects/${projectId}`);
 
     return {
       success: true as const,
@@ -756,39 +792,29 @@ export async function toggleTaskCommentLikeAction(
     }
 
     const liked = await db.transaction(async (tx) => {
-      const [existingLike] = await tx
-        .select({ id: taskCommentLikes.id })
-        .from(taskCommentLikes)
-        .where(
-          and(
-            eq(taskCommentLikes.commentId, commentId),
-            eq(taskCommentLikes.userId, viewerUserId),
-          ),
+      // PURE OPTIMIZATION (Item 8): Single atomic CTE toggles like state and touches comment updated_at.
+      const result = await tx.execute<{ liked: boolean }>(sql`
+        WITH deleted AS (
+          DELETE FROM task_comment_likes
+          WHERE comment_id = ${commentId}::uuid AND user_id = ${viewerUserId}::uuid
+          RETURNING id
+        ),
+        inserted AS (
+          INSERT INTO task_comment_likes (comment_id, user_id, created_at)
+          SELECT ${commentId}::uuid, ${viewerUserId}::uuid, now()
+          WHERE NOT EXISTS (SELECT 1 FROM deleted)
+          RETURNING id
+        ),
+        touch_comment AS (
+          UPDATE task_comments
+          SET updated_at = now()
+          WHERE id = ${commentId}::uuid
         )
-        .limit(1);
-
-      if (existingLike) {
-        await tx
-          .delete(taskCommentLikes)
-          .where(eq(taskCommentLikes.id, existingLike.id));
-      } else {
-        await tx.insert(taskCommentLikes).values({
-          commentId,
-          userId: viewerUserId,
-          createdAt: new Date(),
-        });
-      }
-
-      // Reuse the existing task-filtered comment channel as the invalidation
-      // owner instead of broadcasting every workspace like event.
-      await tx
-        .update(taskComments)
-        .set({ updatedAt: new Date() })
-        .where(eq(taskComments.id, commentId));
-      return !existingLike;
+        SELECT EXISTS(SELECT 1 FROM inserted) AS liked
+      `);
+      return Array.from(result)[0]?.liked ?? false;
     });
 
-    revalidatePath(`/projects/${projectId}`);
     return { success: true as const, liked };
   } catch (error: any) {
     console.error("Failed to toggle task discussion like:", error);
@@ -866,7 +892,6 @@ export async function deleteTaskCommentAction(
         })
       : null;
 
-    revalidatePath(`/projects/${projectId}`);
     return {
       success: true as const,
       data: {

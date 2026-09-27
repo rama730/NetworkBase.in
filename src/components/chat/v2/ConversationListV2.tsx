@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { getLastMessageDeliveryState } from '@/lib/messages/delivery-state';
 import { formatConversationPreview, shouldShowConversationReactionPreview } from '@/lib/messages/preview';
 import { buildConversationDisplay } from '@/lib/messages/conversation-display';
+import { createVisibilityAwareInterval } from '@/lib/utils/visibility';
 import { DeliveryIndicator } from './MessageBubbleV2';
 import { InboxListSkeletonV2 } from './MessagesSurfaceSkeletons';
 
@@ -101,8 +102,8 @@ export function ConversationListV2({
     } = useMessageAttentionState(filteredConversations, user?.id ?? null);
 
     useEffect(() => {
-        const timer = window.setInterval(() => setNowMinute(Date.now()), 60_000);
-        return () => window.clearInterval(timer);
+        const cleanup = createVisibilityAwareInterval(() => setNowMinute(Date.now()), 60_000);
+        return () => cleanup();
     }, []);
 
     useEffect(() => {
@@ -220,15 +221,15 @@ export function ConversationListV2({
 
     if (!loading && filteredConversations.length === 0) {
         return (
-            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white dark:bg-zinc-950">
-                <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                        <MessageSquare className="h-8 w-8 text-primary" />
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white dark:bg-zinc-950 p-4">
+                <div className="nb-empty-state nb-grid-ground flex flex-1 flex-col items-center justify-center p-6 text-center" role="status">
+                    <div className="nb-empty-state-icon-box mb-3">
+                        <MessageSquare className="nb-empty-state-icon" />
                     </div>
-                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    <h3 className="nb-card-title text-foreground">
                         {archivedView ? 'No archived conversations' : 'No conversations yet'}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    </h3>
+                    <p className="nb-compact mt-1 text-muted-foreground">
                         {archivedView
                             ? 'Archived conversations will appear here.'
                             : 'Open a chat to start building your inbox.'}
@@ -237,7 +238,7 @@ export function ConversationListV2({
                         <button
                             type="button"
                             onClick={onToggleArchivedView}
-                            className="mt-4 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                            className="mt-4 rounded-[5px] border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted"
                         >
                             {archivedView ? 'Back to inbox' : 'View archived'}
                         </button>
@@ -474,7 +475,7 @@ export const ConversationItemV2 = React.memo(function ConversationItemV2({
                     </div>
                 ) : null}
                 {/* The actual row content slides left */}
-                <div style={{ transform: `translateX(-${hasSwipeActions ? offsetX : 0}px)`, transition: isRevealed || offsetX === 0 ? 'transform 200ms ease-out' : 'none' }} className="relative bg-white dark:bg-zinc-950">
+                <div style={{ transform: `translateX(-${hasSwipeActions ? offsetX : 0}px)`, transition: isRevealed || offsetX === 0 ? 'transform 180ms cubic-bezier(.2,.8,.3,1)' : 'none' }} className="relative bg-white dark:bg-zinc-950">
                     <button
                         type="button"
                         onClick={() => onClick(conversation.id)}
@@ -507,7 +508,7 @@ export const ConversationItemV2 = React.memo(function ConversationItemV2({
                                         <span className={cn(
                                             "truncate text-sm",
                                             attention?.hasNewMessages && !attention.clearing
-                                                ? "font-bold text-zinc-950 dark:text-white"
+                                                ? "font-semibold text-zinc-950 dark:text-white"
                                                 : "font-semibold text-zinc-900 dark:text-zinc-100"
                                         )}>
                                             {display.title}
@@ -519,7 +520,7 @@ export const ConversationItemV2 = React.memo(function ConversationItemV2({
                                     <div className="ml-2 flex shrink-0 items-center gap-1">
                                         {attention?.hasNewMessages || attention?.clearing ? (
                                             <span className={cn(
-                                                'rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary transition-all duration-200',
+                                                'rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms]',
                                                 attention.clearing ? 'scale-95 opacity-0' : 'scale-100 opacity-100',
                                             )}>
                                                 New

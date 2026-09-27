@@ -47,7 +47,7 @@ export function OpenToRolesCard({
       type="button"
       onClick={onEdit}
       aria-label="Edit role preferences"
-      className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+      className="rounded-[3px] p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >
       <Pencil className="h-4 w-4" aria-hidden="true" />
     </button>
@@ -67,7 +67,7 @@ export function OpenToRolesCard({
             {roles.map((role) => (
               <li
                 key={role}
-                className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                className="nb-tag font-medium"
               >
                 {rolePreferenceLabel(role)}
               </li>
@@ -76,33 +76,33 @@ export function OpenToRolesCard({
         ) : null}
 
         {experience || capacity ? (
-          <dl className="space-y-2 text-sm">
+          <dl className="nb-compact space-y-2">
             {experience ? (
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-zinc-500 dark:text-zinc-400">Experience</dt>
-                <dd className="font-medium text-zinc-800 dark:text-zinc-200">{experience}</dd>
+                <dt className="text-muted-foreground">Experience</dt>
+                <dd className="font-medium text-foreground">{experience}</dd>
               </div>
             ) : null}
             {capacity ? (
               <div className="flex items-start justify-between gap-3">
-                <dt className="inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
+                <dt className="inline-flex items-center gap-1 text-muted-foreground">
                   <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
                   Weekly capacity
                 </dt>
-                <dd className="text-right font-medium text-zinc-800 dark:text-zinc-200">{capacity}</dd>
+                <dd className="text-right font-medium text-foreground">{capacity}</dd>
               </div>
             ) : null}
           </dl>
         ) : null}
 
         {!hasPreferences ? (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="nb-body text-muted-foreground">
             {isOwner ? 'Tell people which roles and opportunities interest you.' : 'Role preferences have not been shared.'}
           </p>
         ) : null}
 
         {isOwner && !hasPreferences && onEdit ? (
-          <button type="button" onClick={onEdit} className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+          <button type="button" onClick={onEdit} className="nb-ui-label text-primary hover:text-primary/80 transition-colors">
             Set role preferences
           </button>
         ) : null}
@@ -116,10 +116,8 @@ export function OpenToRolesCard({
                 onMouseEnter={onApplyIntent}
                 onFocus={onApplyIntent}
                 className={cn(
-                  "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 shadow-sm",
-                  onInvite
-                    ? "w-full sm:w-1/2 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-                    : "w-full bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  "nb-ui-label inline-flex items-center justify-center gap-2 rounded-[3px] px-4 py-2.5 font-semibold transition-colors duration-[130ms] shadow-none bg-primary text-primary-foreground hover:bg-primary/90",
+                  onInvite ? "w-full sm:w-1/2" : "w-full"
                 )}
               >
                 <Briefcase className="h-4 w-4" aria-hidden="true" />
@@ -133,10 +131,8 @@ export function OpenToRolesCard({
                 onMouseEnter={onInviteIntent}
                 onFocus={onInviteIntent}
                 className={cn(
-                  "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors duration-150 border",
-                  hasOpenRoles
-                    ? "w-full sm:w-1/2 bg-zinc-50 dark:bg-zinc-900 border-zinc-250 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
-                    : "w-full bg-zinc-50 dark:bg-zinc-900 border-zinc-250 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80"
+                  "nb-ui-label inline-flex items-center justify-center gap-2 rounded-[3px] border border-border bg-card px-4 py-2.5 font-semibold text-foreground transition-colors duration-[130ms] hover:bg-muted",
+                  hasOpenRoles ? "w-full sm:w-1/2" : "w-full"
                 )}
               >
                 <Briefcase className="h-4 w-4" aria-hidden="true" />

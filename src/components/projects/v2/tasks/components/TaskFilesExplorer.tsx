@@ -291,7 +291,7 @@ export function TaskFilesExplorer({
               </div>
               {isExpanded && isLoading && (
                 <div
-                  className="flex items-center gap-2 py-2 pl-8 text-xs text-zinc-500"
+                  className="flex items-center gap-2 py-2 pl-8 text-xs text-muted-foreground"
                   style={{ paddingLeft: `${16 + (level + 1) * 20}px` }}
                 >
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -309,7 +309,7 @@ export function TaskFilesExplorer({
                 <button
                   type="button"
                   onClick={() => void loadMoreChildren(node.id)}
-                  className="ml-8 mt-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                  className="ml-8 mt-1 text-xs font-medium text-primary hover:underline"
                   style={{ marginLeft: `${16 + (level + 1) * 20}px` }}
                 >
                   Load more
@@ -326,16 +326,16 @@ export function TaskFilesExplorer({
     <div className="flex flex-col space-y-8 pb-10">
       <div className="flex flex-col">
         <div className="mb-3 px-2">
-          <h3 className="text-xs font-semibold tracking-wider text-zinc-900 dark:text-zinc-100">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-foreground">
             Task References
           </h3>
-          <p className="mt-0.5 text-[11px] text-zinc-500">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             Files supplied with the task brief or explicitly linked as context.
           </p>
         </div>
         <div data-testid="task-files-list-references" className="flex flex-col gap-2">
           {referenceRoots.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 py-6 text-center text-[11px] font-medium text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/20 dark:text-zinc-500">
+            <div className="rounded-[5px] border border-dashed border-border bg-card/60 nb-grid-ground py-6 text-center text-xs font-medium text-muted-foreground" role="status">
               No task references attached.
             </div>
           ) : (
@@ -347,10 +347,10 @@ export function TaskFilesExplorer({
       {/* Deliverables Section */}
       <div className="flex flex-col">
         <div className="mb-3 px-2">
-          <h3 className="text-xs font-semibold tracking-wider text-zinc-900 dark:text-zinc-100">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-foreground">
             Final Deliverables
           </h3>
-          <p className="mt-0.5 text-[11px] text-zinc-500">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             The finished output resolving this task.
           </p>
         </div>
@@ -359,7 +359,7 @@ export function TaskFilesExplorer({
           className="flex flex-col gap-2"
         >
           {deliverableRoots.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 py-6 text-center text-[11px] font-medium text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/20 dark:text-zinc-500">
+            <div className="rounded-[5px] border border-dashed border-border bg-card/60 nb-grid-ground py-6 text-center text-xs font-medium text-muted-foreground" role="status">
               No final deliverables confirmed yet.
             </div>
           ) : (
@@ -371,10 +371,10 @@ export function TaskFilesExplorer({
       {/* Active task work */}
       <div className="flex flex-col">
         <div className="mb-3 px-2 mt-4">
-          <h3 className="text-xs font-semibold tracking-wider text-zinc-900 dark:text-zinc-100">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-foreground">
             {TASK_WORKING_FILES_TITLE}
           </h3>
-          <p className="mt-0.5 text-[11px] text-zinc-500">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             Drafts and active assets used while completing this task.
           </p>
         </div>
@@ -383,7 +383,7 @@ export function TaskFilesExplorer({
           className="flex flex-col gap-2"
         >
           {workingRoots.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 py-6 text-center text-[11px] font-medium text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/20 dark:text-zinc-500">
+            <div className="rounded-[5px] border border-dashed border-border bg-card/60 nb-grid-ground py-6 text-center text-xs font-medium text-muted-foreground" role="status">
               No working files attached.
             </div>
           ) : (

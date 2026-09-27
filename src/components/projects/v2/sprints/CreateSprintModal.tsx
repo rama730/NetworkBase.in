@@ -51,39 +51,20 @@ function toFieldErrors(error: z.ZodError<CreateSprintDraftInput>) {
   return nextErrors;
 }
 
-function Section({
+function SectionDivider({
   title,
-  description,
   children,
-  tone = "default",
 }: {
   title: string;
-  description?: string;
-  children: React.ReactNode;
-  tone?: "default" | "danger";
+  children?: React.ReactNode;
 }) {
   return (
-    <section
-      className={cn(
-        "rounded-2xl border px-4 py-4",
-        tone === "danger"
-          ? "border-rose-200 bg-rose-50/50 dark:border-rose-900/60 dark:bg-rose-950/15"
-          : "border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/30",
-      )}
-    >
-      <div className="mb-4 space-y-1">
-        <h4
-          className={cn(
-            "text-sm font-semibold",
-            tone === "danger" ? "text-rose-700 dark:text-rose-300" : "text-zinc-900 dark:text-zinc-100",
-          )}
-        >
-          {title}
-        </h4>
-        {description ? <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">{description}</p> : null}
-      </div>
+    <div className="flex items-center justify-between border-b border-border pb-1.5">
+      <span className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
+        {title}
+      </span>
       {children}
-    </section>
+    </div>
   );
 }
 
@@ -102,22 +83,21 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <label htmlFor={htmlFor} className="block text-[13px] font-medium text-foreground">
         {label}
-        {required ? " *" : ""}
+        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </label>
       {children}
-      {error ? <p className="text-xs text-rose-600 dark:text-rose-300">{error}</p> : null}
+      {error ? <p className="text-xs font-mono text-destructive">{error}</p> : null}
     </div>
   );
 }
 
 function inputClassName(hasError: boolean) {
   return cn(
-    "w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition   dark:bg-zinc-900 dark:text-zinc-100",
-    hasError
-      ? "border-rose-300 focus:border-rose-400 dark:border-rose-800 dark:focus:border-rose-700"
-      : "border-zinc-200 focus:border-blue-500 dark:border-zinc-700 dark:focus:border-blue-500",
+    "w-full rounded-[5px] border bg-background px-3 text-[13px] text-foreground outline-none transition placeholder:text-muted-foreground/60",
+    "border-input focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+    hasError && "border-destructive focus-visible:ring-destructive",
   );
 }
 
@@ -143,8 +123,8 @@ export default function SprintEditorModal({
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const pendingActionRef = React.useRef<PendingAction>(null);
   const onCloseRef = React.useRef(onClose);
-  const initializedDraftKeyRef = React.useRef<string | null>(null);
   const editorKey = `${mode}:${sprint?.id ?? "new"}`;
+  const initializedDraftKeyRef = React.useRef<string | null>(isOpen ? editorKey : null);
 
   React.useEffect(() => {
     pendingActionRef.current = pendingAction;
@@ -170,7 +150,7 @@ export default function SprintEditorModal({
   React.useEffect(() => {
     if (!isOpen) return;
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const frame = window.requestAnimationFrame(() => firstFieldRef.current?.focus());
+    const frame = window.requestAnimationFrame(() => firstFieldRef.current?.focus({ preventScroll: true }));
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !pendingActionRef.current) onCloseRef.current();
     };
@@ -268,25 +248,28 @@ export default function SprintEditorModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+        transition={{ duration: 0.15, ease: "easeOut" }}
+        className="fixed inset-0 bg-black/60"
         onClick={pendingAction ? undefined : onClose}
       />
 
       <motion.div
-        initial={{ scale: 0.95, opacity: 0, y: 10 }}
+        initial={{ scale: 0.98, opacity: 0, y: 4 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 10 }}
+        exit={{ scale: 0.98, opacity: 0, y: 4 }}
+        transition={{ duration: 0.15, ease: "easeOut" }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="sprint-editor-title"
-        className="relative z-10 flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-950"
+        className="relative z-10 flex max-h-[88vh] w-full sm:max-w-[640px] flex-col overflow-hidden rounded-[8px] border border-border bg-card shadow-2xl dark:border-white/10"
       >
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-          <div className="space-y-1">
-            <h3 id="sprint-editor-title" className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+        {/* Modal Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
+          <div className="space-y-0.5">
+            <h3 id="sprint-editor-title" className="text-base font-semibold text-foreground">
               {mode === "create" ? "Create Sprint" : "Edit Sprint"}
             </h3>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs text-muted-foreground">
               {mode === "create"
                 ? "Define the sprint goal and schedule without extra noise."
                 : "Adjust the sprint details and manage it from one place."}
@@ -297,170 +280,179 @@ export default function SprintEditorModal({
             aria-label="Close Sprint editor"
             onClick={onClose}
             disabled={!!pendingAction}
-            className="rounded-lg p-2 text-zinc-500 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:hover:bg-zinc-800"
+            className="rounded-[5px] p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Modal Form */}
+        <form
+          id="sprint-editor-form"
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
+          {/* Scrollable Form Body */}
+          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
             {errorMessage ? (
               <div
                 role="alert"
-                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300"
+                className="rounded-[5px] border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-mono text-destructive"
               >
                 {errorMessage}
               </div>
             ) : null}
 
-            <Section title="Basics" description="Keep the sprint definition tight and easy to scan.">
-              <div className="space-y-4">
-                <Field label="Sprint Name" htmlFor="sprint-name" required error={fieldErrors.name}>
-                  <input
-                    ref={firstFieldRef}
-                    id="sprint-name"
-                    required
-                    value={draft.name}
-                    onChange={(event) => handleFieldChange("name", event.target.value)}
-                    placeholder="e.g., Sprint 4"
-                    className={inputClassName(!!fieldErrors.name)}
-                  />
-                </Field>
+            {/* Basics Section */}
+            <div className="space-y-3.5">
+              <SectionDivider title="Basics" />
 
-                <Field label="Sprint Goal" htmlFor="sprint-goal" error={fieldErrors.goal}>
-                  <input
-                    id="sprint-goal"
-                    value={draft.goal}
-                    onChange={(event) => handleFieldChange("goal", event.target.value)}
-                    placeholder="What should this sprint accomplish?"
-                    className={inputClassName(!!fieldErrors.goal)}
-                  />
-                </Field>
+              <Field label="Sprint Name" htmlFor="sprint-name" required error={fieldErrors.name}>
+                <input
+                  ref={firstFieldRef}
+                  id="sprint-name"
+                  required
+                  value={draft.name}
+                  onChange={(event) => handleFieldChange("name", event.target.value)}
+                  placeholder="e.g., Sprint 4"
+                  className={cn("h-[34px]", inputClassName(!!fieldErrors.name))}
+                />
+              </Field>
 
-                <Field label="Description" htmlFor="sprint-description" error={fieldErrors.description}>
-                  <textarea
-                    id="sprint-description"
-                    rows={3}
-                    value={draft.description}
-                    onChange={(event) => handleFieldChange("description", event.target.value)}
-                    placeholder="Additional context, scope, or coordination notes."
-                    className={cn(inputClassName(!!fieldErrors.description), "resize-none")}
-                  />
-                </Field>
-              </div>
-            </Section>
+              <Field label="Sprint Goal" htmlFor="sprint-goal" error={fieldErrors.goal}>
+                <input
+                  id="sprint-goal"
+                  value={draft.goal}
+                  onChange={(event) => handleFieldChange("goal", event.target.value)}
+                  placeholder="What should this sprint accomplish?"
+                  className={cn("h-[34px]", inputClassName(!!fieldErrors.goal))}
+                />
+              </Field>
 
-            <Section title="Schedule" description="Set the sprint window and keep the duration intentional.">
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-                    Quick set
+              <Field label="Description" htmlFor="sprint-description" error={fieldErrors.description}>
+                <textarea
+                  id="sprint-description"
+                  rows={2}
+                  value={draft.description}
+                  onChange={(event) => handleFieldChange("description", event.target.value)}
+                  placeholder="Additional context, scope, or coordination notes."
+                  className={cn(inputClassName(!!fieldErrors.description), "min-h-[64px] resize-none py-2")}
+                />
+              </Field>
+            </div>
+
+            {/* Schedule Section */}
+            <div className="space-y-3.5">
+              <SectionDivider title="Schedule">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5">
+                    Quick set:
                   </span>
                   <button
                     type="button"
                     onClick={() => setDuration(7)}
-                    className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
+                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     1 week
                   </button>
                   <button
                     type="button"
                     onClick={() => setDuration(14)}
-                    className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
+                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     2 weeks
                   </button>
                   <button
                     type="button"
                     onClick={() => setDuration(28)}
-                    className="rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
+                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     4 weeks
                   </button>
                 </div>
+              </SectionDivider>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Start Date" htmlFor="sprint-start-date" required error={fieldErrors.startDate}>
-                    <input
-                      id="sprint-start-date"
-                      type="date"
-                      required
-                      value={draft.startDate}
-                      onChange={(event) => handleFieldChange("startDate", event.target.value)}
-                      className={inputClassName(!!fieldErrors.startDate)}
-                    />
-                  </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Start Date" htmlFor="sprint-start-date" required error={fieldErrors.startDate}>
+                  <input
+                    id="sprint-start-date"
+                    type="date"
+                    required
+                    value={draft.startDate}
+                    onChange={(event) => handleFieldChange("startDate", event.target.value)}
+                    className={cn("h-[34px]", inputClassName(!!fieldErrors.startDate))}
+                  />
+                </Field>
 
-                  <Field label="End Date" htmlFor="sprint-end-date" required error={fieldErrors.endDate}>
-                    <input
-                      id="sprint-end-date"
-                      type="date"
-                      required
-                      min={draft.startDate}
-                      value={draft.endDate}
-                      onChange={(event) => handleFieldChange("endDate", event.target.value)}
-                      className={inputClassName(!!fieldErrors.endDate)}
-                    />
-                  </Field>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-950/80">
-                  <CalendarDays className="h-4 w-4 text-zinc-400" />
-                  <span className="font-medium text-zinc-700 dark:text-zinc-200">
-                    {scheduleSummary?.label ?? "Set valid start and end dates to see the sprint duration."}
-                  </span>
-                  {sprint?.status === "active" ? (
-                    <span className="text-xs text-amber-600 dark:text-amber-300">
-                      This sprint is active. Complete it from the header before deleting it.
-                    </span>
-                  ) : null}
-                </div>
+                <Field label="End Date" htmlFor="sprint-end-date" required error={fieldErrors.endDate}>
+                  <input
+                    id="sprint-end-date"
+                    type="date"
+                    required
+                    min={draft.startDate}
+                    value={draft.endDate}
+                    onChange={(event) => handleFieldChange("endDate", event.target.value)}
+                    className={cn("h-[34px]", inputClassName(!!fieldErrors.endDate))}
+                  />
+                </Field>
               </div>
-            </Section>
 
+              <div className="flex items-center gap-2 rounded-[5px] border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground">
+                <CalendarDays className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="font-medium text-foreground">
+                  {scheduleSummary?.label ?? "Set valid start and end dates to see the sprint duration."}
+                </span>
+                {sprint?.status === "active" ? (
+                  <span className="ml-auto text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                    Active sprint
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Danger Zone (Edit mode only) */}
             {mode === "edit" ? (
-              <Section
-                title="Danger zone"
-                description="Only an empty Planning sprint can be deleted. Sprints with work history are archived instead."
-                tone="danger"
-              >
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-rose-200/80 bg-white px-4 py-3 dark:border-rose-900/50 dark:bg-zinc-950">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                          {deleteImpact?.affectedTaskCount ?? 0} historical work item{deleteImpact?.affectedTaskCount === 1 ? "" : "s"}
-                        </p>
-                        <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                          Any work history makes this record permanent. Use the lifecycle menu to cancel, complete, or archive it.
-                        </p>
-                      </div>
-                      <span className="rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                        {sprint?.status ?? "planning"}
-                      </span>
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between border-b border-destructive/20 pb-1.5">
+                  <span className="font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-destructive">
+                    Danger Zone
+                  </span>
+                </div>
+
+                <div className="space-y-3 rounded-[6px] border border-destructive/30 bg-destructive/5 p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-medium text-foreground">
+                        {deleteImpact?.affectedTaskCount ?? 0} historical work item{deleteImpact?.affectedTaskCount === 1 ? "" : "s"}
+                      </p>
+                      <p className="text-[11px] leading-4 text-muted-foreground">
+                        Only an empty Planning sprint can be deleted. Sprints with work history are permanent.
+                      </p>
                     </div>
+                    <span className="rounded-[3px] border border-border px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
+                      {sprint?.status ?? "planning"}
+                    </span>
                   </div>
 
                   {!deleteImpact?.canDelete ? (
-                    <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                    <div className="flex items-start gap-2 rounded-[5px] border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <p>{deleteImpact?.reason ?? "This sprint cannot be deleted right now."}</p>
                     </div>
                   ) : confirmDelete ? (
-                    <div className="space-y-3 rounded-xl border border-rose-200 bg-white px-4 py-4 dark:border-rose-900/50 dark:bg-zinc-950">
-                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <div className="space-y-2.5 rounded-[5px] border border-destructive/30 bg-card p-3">
+                      <p className="text-xs font-medium text-foreground">
                         Delete {deleteImpact.sprintName}?
                       </p>
-                      <p className="text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                        This cannot be undone. Only this empty Planning record will be removed; no task history is affected.
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        This cannot be undone. Only this empty Planning record will be removed.
                       </p>
-                      <div className="flex flex-wrap justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2 pt-1">
                         <button
                           type="button"
                           disabled={!!pendingAction}
                           onClick={() => setConfirmDelete(false)}
-                          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
+                          className="inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-3 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted"
                         >
                           Keep sprint
                         </button>
@@ -468,9 +460,9 @@ export default function SprintEditorModal({
                           type="button"
                           disabled={!!pendingAction}
                           onClick={() => void handleDelete()}
-                          className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+                          className="inline-flex h-[34px] items-center gap-1.5 rounded-[5px] bg-destructive px-3 font-mono text-xs font-medium uppercase tracking-[0.09em] text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                           {isDeleting ? "Deleting..." : "Delete sprint"}
                         </button>
                       </div>
@@ -480,35 +472,36 @@ export default function SprintEditorModal({
                       type="button"
                       disabled={!!pendingAction}
                       onClick={() => setConfirmDelete(true)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors hover:border-rose-400 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900/60 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                      className="inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-destructive/30 px-3 font-mono text-xs font-medium uppercase tracking-[0.09em] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                       Delete sprint
                     </button>
                   )}
                 </div>
-              </Section>
+              </div>
             ) : null}
+          </div>
 
-            <div className="flex flex-wrap justify-end gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
-              <button
-                type="button"
-                disabled={!!pendingAction}
-                onClick={onClose}
-                className="rounded-xl border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:text-zinc-100"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={!!pendingAction}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isSubmitting ? "Saving..." : mode === "create" ? "Create Sprint" : "Save changes"}
-              </button>
-            </div>
-          </form>
-        </div>
+          {/* Pinned Modal Footer */}
+          <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-[#DBD5C8] bg-[#F3F0EA] px-6 py-3.5 dark:border-white/10 dark:bg-white/5">
+            <button
+              type="button"
+              disabled={!!pendingAction}
+              onClick={onClose}
+              className="inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!!pendingAction}
+              className="inline-flex h-[34px] items-center justify-center rounded-[5px] bg-primary px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isSubmitting ? "Saving..." : mode === "create" ? "Create Sprint" : "Save changes"}
+            </button>
+          </div>
+        </form>
       </motion.div>
     </div>
   );

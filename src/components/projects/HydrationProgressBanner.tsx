@@ -110,8 +110,8 @@ export function HydrationProgressBanner({ projectId }: HydrationProgressBannerPr
   const percent = hydration.total > 0 ? Math.floor((hydration.completed / hydration.total) * 100) : 0;
 
   return (
-    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl animate-in slide-in-from-top-4 fade-in duration-300">
-      <div className="bg-background/95 backdrop-blur-sm border shadow-lg rounded-lg p-4 flex flex-col gap-2">
+    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl animate-in slide-in-from-top-4 fade-in duration-[260ms]">
+      <div className="bg-background/95 backdrop-blur-none border shadow-lg rounded-lg p-4 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">🚀</span>
@@ -122,7 +122,7 @@ export function HydrationProgressBanner({ projectId }: HydrationProgressBannerPr
           </span>
         </div>
         <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-          <div className="h-full bg-primary transition-all duration-300 ease-out" style={{ width: `${percent}%` }} />
+          <div className="h-full bg-primary transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms] ease-out" style={{ width: `${percent}%` }} />
         </div>
         <p className="text-xs text-muted-foreground mt-1">
           You can freely view and edit files while this finishes.

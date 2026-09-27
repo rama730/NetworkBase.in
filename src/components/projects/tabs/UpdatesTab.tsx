@@ -14,8 +14,10 @@ import { Virtuoso } from "react-virtuoso";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
+  CornerDownRight,
   FileText,
   Heart,
+  History,
   Loader2,
   MessageCircle,
   MoreHorizontal,
@@ -52,6 +54,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { ThreadAvatarRail, ThreadRailBridge } from "@/components/ui/ThreadRail";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   ProjectUpdateMediaFrame,
@@ -130,8 +133,8 @@ function ReferenceLink({
     if (reference.kind === "contributors") {
       const initial = reference.label.trim().charAt(0).toUpperCase() || "U";
       return (
-        <span className="inline-flex items-center gap-1 mx-1 rounded bg-blue-50 px-1.5 py-0.5 text-sm font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200">
-          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-500/15 text-[9px] font-bold text-blue-500">
+        <span className="inline-flex items-center gap-1 mx-1 rounded-[3px] border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-foreground">
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[2px] bg-primary/10 text-[10px] font-semibold text-primary">
             {initial}
           </span>
           {reference.label}
@@ -139,7 +142,7 @@ function ReferenceLink({
       );
     }
     return (
-      <span className="mx-0.5 inline font-medium text-blue-600 dark:text-blue-300">
+      <span className="mx-0.5 inline font-medium text-primary">
         {reference.label}
       </span>
     );
@@ -151,8 +154,8 @@ function ReferenceLink({
       onClick={handleClick}
       aria-disabled={loading}
       className={cn(
-        "mx-0.5 inline cursor-pointer p-0 align-baseline text-sm font-medium text-blue-600 underline-offset-2 transition hover:text-blue-700 hover:underline aria-disabled:cursor-not-allowed aria-disabled:opacity-75 dark:text-blue-300 dark:hover:text-blue-200",
-        loading && "animate-pulse"
+        "mx-0.5 inline cursor-pointer p-0 align-baseline text-sm font-medium text-primary underline-offset-2 transition hover:underline aria-disabled:cursor-not-allowed aria-disabled:opacity-75",
+        loading && "nb-skeleton"
       )}
     >
       {reference.label}
@@ -193,7 +196,7 @@ const ProjectUpdateComposer = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-32 rounded-xl bg-zinc-100 animate-pulse dark:bg-zinc-900" />
+      <div className="h-24 rounded-[8px] border border-border bg-muted/30" />
     ),
   },
 );
@@ -292,14 +295,20 @@ function ProjectUpdateContent({
   );
 }
 
-function UpdateContextAndMedia({ update }: { update: ProjectUpdateView }) {
+function UpdateContextAndMedia({
+  update,
+  compact = false,
+}: {
+  update: ProjectUpdateView;
+  compact?: boolean;
+}) {
   const [viewerMedia, setViewerMedia] = useState<ProjectUpdateMediaItem | null>(null);
   const mediaItems = update.media.filter((item) => item.url || item.label);
 
   if (mediaItems.length === 0) return null;
 
   return (
-    <div className="mt-2 space-y-2">
+    <div className={cn("mt-2 space-y-2", compact && "max-w-full")}>
 
       {mediaItems.map((item, index) =>
         item.url && (item.type === "image" || isProjectUpdateVideoMedia(item)) ? (
@@ -308,6 +317,7 @@ function UpdateContextAndMedia({ update }: { update: ProjectUpdateView }) {
             item={item}
             src={item.url}
             alt={item.altText || item.label || "Project update image"}
+            className={compact ? "max-h-[220px] w-full object-cover" : undefined}
             onOpen={item.type === "image" ? () => setViewerMedia(item) : undefined}
             openLabel={`Open ${item.label || item.altText || "project update media"}`}
           />
@@ -317,7 +327,7 @@ function UpdateContextAndMedia({ update }: { update: ProjectUpdateView }) {
             href={item.url ?? "#"}
             target={item.url ? "_blank" : undefined}
             rel={item.url ? "noreferrer" : undefined}
-            className="inline-flex min-w-0 items-center text-sm font-medium text-blue-600 underline-offset-2 transition hover:text-blue-700 hover:underline dark:text-blue-300 dark:hover:text-blue-200"
+            className="inline-flex min-w-0 items-center font-mono text-xs text-foreground underline underline-offset-4 decoration-border hover:decoration-foreground transition-colors"
           >
             <span className="truncate">{item.label || item.url || "Linked item"}</span>
           </a>
@@ -490,7 +500,7 @@ function renderCommentContent(content: string) {
           key={i}
           href={`/u/${username}`}
           prefetch={false}
-          className="font-medium text-blue-500 hover:underline"
+          className="font-mono font-medium text-foreground hover:underline"
         >
           {part}
         </Link>
@@ -498,53 +508,6 @@ function renderCommentContent(content: string) {
     }
     return <span key={i}>{part}</span>;
   });
-}
-
-function ThreadAvatarRail({
-  children,
-  incoming,
-  outgoing,
-}: {
-  children: React.ReactNode;
-  incoming: boolean;
-  outgoing: boolean;
-}) {
-  return (
-    <div className="relative flex w-8 shrink-0 self-stretch justify-center py-0.5">
-      {incoming ? (
-        <span
-          aria-hidden="true"
-          className="absolute left-1/2 top-[-4px] h-5 w-px -translate-x-1/2 bg-zinc-200 dark:bg-zinc-700"
-        />
-      ) : null}
-      {outgoing ? (
-        <span
-          aria-hidden="true"
-          className="absolute bottom-[-4px] left-1/2 top-4 w-px -translate-x-1/2 bg-zinc-200 dark:bg-zinc-700"
-        />
-      ) : null}
-      <div className="relative z-10 h-8 w-8 rounded-full bg-background ring-[3px] ring-background">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function ThreadRailBridge() {
-  return (
-    <div className="relative flex h-8 w-8 shrink-0 flex-col items-center justify-center gap-1" aria-hidden="true">
-      {/* Top connecting line */}
-      <span className="absolute top-0 h-1.5 w-px bg-zinc-200 dark:bg-zinc-700" />
-
-      {/* Three vertical dots */}
-      <span className="h-1 w-1 rounded-full bg-zinc-300 dark:bg-zinc-500" />
-      <span className="h-1 w-1 rounded-full bg-zinc-300 dark:bg-zinc-500" />
-      <span className="h-1 w-1 rounded-full bg-zinc-300 dark:bg-zinc-500" />
-
-      {/* Bottom connecting line */}
-      <span className="absolute bottom-0 h-1.5 w-px bg-zinc-200 dark:bg-zinc-700" />
-    </div>
-  );
 }
 
 function CommentRow({
@@ -631,9 +594,9 @@ function CommentRow({
                 <button
                   type="button"
                   onClick={() => setShowAllReplies(true)}
-                  className="text-xs font-semibold text-blue-500 hover:underline transition-colors text-left"
+                  className="inline-flex items-center gap-1.5 rounded-[3px] border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted hover:text-foreground text-left"
                 >
-                  Show {item.hiddenCount} replies
+                  + {item.hiddenCount} {item.hiddenCount === 1 ? "reply" : "replies"}
                 </button>
               </div>
             </div>
@@ -650,8 +613,8 @@ function CommentRow({
             key={c.id}
             id={`project-update-comment-${c.id}`}
             className={cn(
-              "relative flex gap-2.5 rounded-md px-1 py-1 transition-colors duration-300",
-              highlightedCommentId === c.id && "bg-blue-50/70 dark:bg-blue-950/20",
+              "relative flex gap-2.5 rounded-[5px] px-1 py-1.5 transition-colors duration-[260ms]",
+              highlightedCommentId === c.id && "border border-primary/30 bg-primary/5",
             )}
           >
             <ThreadAvatarRail incoming={!isFirst} outgoing={!isLast}>
@@ -659,7 +622,7 @@ function CommentRow({
                 <Link
                   href={`/u/${c.author.username}`}
                   prefetch={false}
-                  className="flex items-center justify-center shrink-0 transition-opacity hover:opacity-80 z-10 w-8 h-8"
+                  className="flex size-8 shrink-0 items-center justify-center transition-opacity hover:opacity-80"
                 >
                   <UserAvatar
                     identity={{
@@ -667,18 +630,18 @@ function CommentRow({
                       username: c.author.username,
                       avatarUrl: c.author.avatarUrl ?? null,
                     }}
-                    size={32}
+                    size={item.isReply ? 28 : 32}
                   />
                 </Link>
               ) : (
-                <div className="flex items-center justify-center shrink-0 w-8 h-8 z-10">
+                <div className="flex size-8 shrink-0 items-center justify-center">
                   <UserAvatar
                     identity={{
                       fullName: c.author?.fullName ?? c.author?.username ?? "Member",
                       username: c.author?.username ?? null,
                       avatarUrl: c.author?.avatarUrl ?? null,
                     }}
-                    size={32}
+                    size={item.isReply ? 28 : 32}
                   />
                 </div>
               )}
@@ -688,14 +651,14 @@ function CommentRow({
             <div className="min-w-0 flex-1 pt-0.5">
               <div className="rounded-md px-0 py-0">
                 {c.deletedAt ? (
-                  <p className="text-sm italic text-zinc-400">This comment was removed.</p>
+                  <p className="text-xs italic text-muted-foreground">This comment was removed.</p>
                 ) : (
                   <>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         {/* Name & Role in Same Line */}
                         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[13px] leading-4">
-                          <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                          <span className="font-semibold text-foreground">
                             {c.author?.username ? (
                               <Link
                                 href={`/u/${c.author.username}`}
@@ -709,26 +672,29 @@ function CommentRow({
                             )}
                           </span>
                           {c.author?.roleLabel && (
-                            <span className="text-[12px] font-medium text-zinc-500 dark:text-zinc-400">
+                            <span className="truncate max-w-[130px] font-mono text-[11px] text-muted-foreground" title={c.author.roleLabel}>
                               {c.author.roleLabel}
                             </span>
                           )}
-                          <span className="text-[12px] text-zinc-400 dark:text-zinc-500">
+                          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                             · {updateRelativeTime(c.createdAt)}
                           </span>
                         </div>
 
                         {/* Replying to username underneath */}
                         {replyingTo && (
-                          <div className="mt-0.5 text-[12px] leading-4 text-zinc-500 dark:text-zinc-400">
-                            Replying to{" "}
-                            <button
-                              type="button"
-                              onClick={() => onFocusComment?.(c.parentId!)}
-                              className="font-medium text-blue-500 hover:underline text-left"
-                            >
-                              @{replyingTo}
-                            </button>
+                          <div className="mt-0.5 flex items-center gap-1 font-mono text-[11px] leading-4 text-muted-foreground">
+                            <CornerDownRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+                            <span>
+                              Replying to{" "}
+                              <button
+                                type="button"
+                                onClick={() => onFocusComment?.(c.parentId!)}
+                                className="font-medium text-primary hover:underline text-left"
+                              >
+                                @{replyingTo}
+                              </button>
+                            </span>
                           </div>
                         )}
                       </div>
@@ -736,14 +702,14 @@ function CommentRow({
                         <button
                           type="button"
                           onClick={() => onDelete(c.id)}
-                          className="text-zinc-400 hover:text-red-500"
+                          className="ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                           aria-label="Delete comment"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 whitespace-pre-wrap break-words text-[14px] leading-5 text-zinc-700 dark:text-zinc-300">
+                    <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-[1.5] text-foreground/90">
                       {renderCommentContent(c.content)}
                     </p>
                   </>
@@ -752,7 +718,7 @@ function CommentRow({
 
               {/* Reply Trigger Button */}
               {!c.deletedAt && currentUserId && (
-                <div className="mt-0.5 flex items-center gap-4 text-xs font-medium leading-4 text-zinc-500">
+                <div className="mt-2 flex items-center gap-2 pt-0.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -763,33 +729,46 @@ function CommentRow({
                         setReplyDraft("");
                       }
                     }}
-                    className="hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors"
+                    className="inline-flex items-center gap-1 rounded-[4px] border border-border/60 bg-muted/30 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted hover:text-foreground"
                   >
-                    Reply
+                    <CornerDownRight className="h-3 w-3" />
+                    <span>Reply</span>
                   </button>
                 </div>
               )}
 
               {/* Reply Input Editor */}
               {replyingToId === c.id && (
-                <div className="mt-1.5 flex gap-2">
-                  <UserAvatar
-                    identity={{
-                      fullName: currentUserName ?? "You",
-                      avatarUrl: currentUserAvatarUrl ?? null,
-                    }}
-                    size={24}
-                    className="mt-0.5 shrink-0"
-                  />
-                  <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <div className="mt-2.5 rounded-[6px] border border-border bg-card p-2 shadow-2xs">
+                  <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground font-mono">
+                    <span className="flex items-center gap-1">
+                      <CornerDownRight className="h-3 w-3 text-muted-foreground/70" />
+                      Replying to <span className="font-semibold text-foreground">@{c.author?.username || c.author?.fullName || "member"}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setReplyingToId(null)}
+                      className="flex h-5 w-5 items-center justify-center rounded-[3px] hover:bg-muted hover:text-foreground transition-colors"
+                      aria-label="Cancel reply"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <UserAvatar
+                      identity={{
+                        fullName: currentUserName ?? "You",
+                        avatarUrl: currentUserAvatarUrl ?? null,
+                      }}
+                      size={24}
+                      className="shrink-0 rounded-[4px]"
+                    />
                     <input
                       autoFocus
                       value={replyDraft}
                       onChange={(e) => setReplyDraft(e.target.value.slice(0, 1000))}
-                      placeholder={`Reply to ${
-                        c.author?.fullName || c.author?.username || "comment"
-                      }...`}
-                      className="h-7 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-zinc-400"
+                      placeholder={`Write a reply...`}
+                      className="h-7 min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground text-foreground"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
@@ -803,9 +782,10 @@ function CommentRow({
                       type="button"
                       disabled={!replyDraft.trim()}
                       onClick={() => handleReplySubmit(c.id)}
-                      className="rounded-full p-1 text-blue-500 transition hover:bg-blue-50 disabled:opacity-50 dark:hover:bg-blue-950/30"
+                      className="flex h-6 items-center gap-1 rounded-[3px] bg-primary px-2 font-mono text-[11px] font-medium uppercase tracking-wider text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
                     >
-                      <Send className="h-3.5 w-3.5" />
+                      <Send className="h-3 w-3" />
+                      <span>Reply</span>
                     </button>
                   </div>
                 </div>
@@ -1204,8 +1184,8 @@ function UpdateComments({
         key={c.id}
         id={`project-update-comment-${c.id}`}
         className={cn(
-          "relative flex gap-2.5 rounded-md px-1 py-1 transition-colors duration-300",
-          highlightedCommentId === c.id && "bg-blue-50/70 dark:bg-blue-950/20",
+          "relative flex gap-2.5 rounded-[5px] px-1 py-1 transition-colors duration-[260ms]",
+          highlightedCommentId === c.id && "bg-muted/40",
         )}
       >
         <ThreadAvatarRail incoming={!isFirst} outgoing={!isLast}>
@@ -1242,21 +1222,21 @@ function UpdateComments({
         <div className="min-w-0 flex-1 pt-0.5">
           <div
             className={cn(
-              "rounded-md transition-colors duration-200",
+              "rounded-[5px] transition-colors duration-[180ms]",
               isFocused
-                ? "bg-blue-50/60 px-2 py-1 dark:bg-blue-950/20"
+                ? "bg-muted/30 px-2 py-1"
                 : "px-0 py-0"
             )}
           >
             {c.deletedAt ? (
-              <p className="text-sm italic text-zinc-400">This comment was removed.</p>
+              <p className="text-sm italic text-muted-foreground">This comment was removed.</p>
             ) : (
               <>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     {/* Name & Role in Same Line */}
                     <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[13px] leading-4">
-                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                      <span className="font-semibold text-foreground">
                         {c.author?.username ? (
                           <Link
                             href={`/u/${c.author.username}`}
@@ -1270,26 +1250,29 @@ function UpdateComments({
                         )}
                       </span>
                       {c.author?.roleLabel && (
-                        <span className="text-[12px] font-medium text-zinc-500 dark:text-zinc-400">
+                        <span className="text-[11px] font-mono text-muted-foreground">
                           {c.author.roleLabel}
                         </span>
                       )}
-                      <span className="text-[12px] text-zinc-400 dark:text-zinc-500">
+                      <span className="text-[11px] font-mono text-muted-foreground">
                         · {updateRelativeTime(c.createdAt)}
                       </span>
                     </div>
 
                     {/* Replying to username underneath */}
                     {replyingTo && (
-                      <div className="mt-0.5 text-[12px] leading-4 text-zinc-500 dark:text-zinc-400">
-                        Replying to{" "}
-                        <button
-                          type="button"
-                          onClick={() => setFocusedCommentId(c.parentId!)}
-                          className="font-medium text-blue-500 hover:underline text-left"
-                        >
-                          @{replyingTo}
-                        </button>
+                      <div className="mt-0.5 flex items-center gap-1 font-mono text-[11px] leading-4 text-muted-foreground">
+                        <CornerDownRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+                        <span>
+                          Replying to{" "}
+                          <button
+                            type="button"
+                            onClick={() => setFocusedCommentId(c.parentId!)}
+                            className="font-mono font-medium text-foreground hover:underline text-left"
+                          >
+                            @{replyingTo}
+                          </button>
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1297,14 +1280,14 @@ function UpdateComments({
                     <button
                       type="button"
                       onClick={() => deleteCommentMutation.mutate(c.id)}
-                      className="text-zinc-400 hover:text-red-500"
+                      className="ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                       aria-label="Delete comment"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   ) : null}
                 </div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words text-[14px] leading-5 text-zinc-700 dark:text-zinc-300">
+                <p className="mt-1 whitespace-pre-wrap break-words text-[13px] leading-5 text-foreground/90">
                   {renderCommentContent(c.content)}
                 </p>
               </>
@@ -1313,13 +1296,13 @@ function UpdateComments({
 
           {/* Action trigger button */}
           {!c.deletedAt && !isFocused && (
-            <div className="mt-0.5 flex items-center gap-4 text-xs font-medium leading-4 text-zinc-500">
+            <div className="mt-2 flex items-center gap-2 pt-0.5">
               <button
                 type="button"
                 onClick={() => setFocusedCommentId(c.id)}
-                className="text-blue-500 hover:underline transition-colors"
+                className="inline-flex items-center gap-1 rounded-[4px] border border-border/60 bg-muted/30 px-2 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-muted hover:text-foreground"
               >
-                View conversation
+                <span>View conversation</span>
               </button>
             </div>
           )}
@@ -1340,7 +1323,7 @@ function UpdateComments({
   }, [allComments, highlightedCommentId]);
 
   return (
-    <div ref={sectionRef} className="mt-2 flex min-h-0 flex-col border-t border-zinc-100 pt-2 dark:border-zinc-900">
+    <div ref={sectionRef} className="mt-2 flex min-h-0 flex-col border-t border-border/70 pt-2.5">
       {focusedComment ? (
         <div className="flex flex-col min-h-0">
           <button
@@ -1349,7 +1332,7 @@ function UpdateComments({
               setFocusedCommentId(null);
               setShowAllAncestors(false);
             }}
-            className="mb-2 flex w-fit items-center gap-1.5 self-start text-xs font-semibold text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-300"
+            className="mb-2 flex w-fit items-center gap-1.5 self-start font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Back to all comments
@@ -1369,7 +1352,7 @@ function UpdateComments({
                         <button
                           type="button"
                           onClick={() => setShowAllAncestors(true)}
-                          className="text-xs font-semibold text-blue-500 hover:underline transition-colors text-left"
+                          className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground hover:underline transition-colors text-left"
                         >
                           Show {ancestors.length - 2} replies
                         </button>
@@ -1405,9 +1388,9 @@ function UpdateComments({
                           avatarUrl: currentUserAvatarUrl ?? null,
                         }}
                         size={24}
-                        className="mt-0.5 shrink-0"
+                        className="mt-0.5 shrink-0 rounded-[5px]"
                       />
-                      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 dark:border-zinc-800 dark:bg-zinc-900/60">
+                      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[5px] border border-border bg-card px-2.5 py-0.5 shadow-2xs">
                         <input
                           autoFocus
                           value={focusedReplyDraft}
@@ -1415,7 +1398,7 @@ function UpdateComments({
                           placeholder={`Reply to ${
                             c.author?.fullName || c.author?.username || "comment"
                           }...`}
-                          className="h-7 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-zinc-400"
+                          className="h-7 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
                               e.preventDefault();
@@ -1435,9 +1418,9 @@ function UpdateComments({
                             commentMutation.mutate({ content: val, parentId: focusedCommentId });
                             setFocusedReplyDraft("");
                           }}
-                          className="rounded-full p-1 text-blue-500 transition hover:bg-blue-50 disabled:opacity-50 dark:hover:bg-blue-950/30"
+                          className="flex h-5 w-5 items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
                         >
-                          <Send className="h-3.5 w-3.5" />
+                          <Send className="h-3 w-3" />
                         </button>
                       </div>
                     </div>
@@ -1457,14 +1440,14 @@ function UpdateComments({
                   avatarUrl: currentUserAvatarUrl ?? null,
                 }}
                 size={28}
-                className="mt-0.5"
+                className="mt-0.5 shrink-0 rounded-[5px]"
               />
-              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 dark:border-zinc-800 dark:bg-zinc-900/60">
+              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[5px] border border-border bg-card px-2.5 shadow-2xs">
                 <input
                   value={draft}
                   onChange={(event) => setDraft(event.target.value.slice(0, 1_000))}
-                  placeholder="Write a comment"
-                  className="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-zinc-400"
+                  placeholder="Write a comment..."
+                  className="h-8 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -1484,13 +1467,13 @@ function UpdateComments({
                     setDraft("");
                     commentMutation.mutate({ content: value, parentId: null });
                   }}
-                  className="rounded-full p-1.5 text-blue-500 transition hover:bg-blue-50 disabled:opacity-50 dark:hover:bg-blue-950/30"
+                  className="flex h-6 w-6 items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
                   aria-label="Post comment"
                 >
                   {commentMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Send className="h-4 w-4" />
+                    <Send className="h-3.5 w-3.5" />
                   )}
                 </button>
               </div>
@@ -1498,7 +1481,7 @@ function UpdateComments({
           ) : null}
 
           {comments.isLoading ? (
-            <div className="h-9 shrink-0 animate-pulse rounded-full bg-zinc-100 dark:bg-zinc-900" />
+            <div aria-hidden="true" className="nb-skeleton h-8 shrink-0 rounded-[5px]" />
           ) : topLevelComments.length > 0 ? (
             <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
               {topLevelComments.map((comment) => (
@@ -1520,14 +1503,16 @@ function UpdateComments({
                   <button
                     type="button"
                     onClick={() => comments.fetchNextPage()}
-                    className="text-sm font-semibold text-blue-500 hover:underline"
+                    className="font-mono text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground hover:underline"
                   >
                     Load more comments
                   </button>
                 </div>
               ) : null}
             </div>
-          ) : null}
+          ) : (
+            <p className="py-2 text-center text-xs text-muted-foreground">No comments yet.</p>
+          )}
         </>
       )}
     </div>
@@ -1710,14 +1695,14 @@ function UpdateCard({
         }
       }}
       className={cn(
-        "group border-b border-zinc-200 px-1 py-3 transition-colors dark:border-zinc-800",
-        !isEditing && "cursor-pointer hover:bg-zinc-50/70 focus-visible:outline-none    dark:hover:bg-zinc-900/30",
-        highlighted && "bg-blue-50/70 dark:bg-blue-950/20",
+        "group border-b border-border/80 px-1 py-3 transition-colors",
+        !isEditing && "cursor-pointer hover:bg-muted/30 focus-visible:outline-none",
+        highlighted && "bg-muted/40",
       )}
     >
       {update.isPinned ? (
-        <div className="mb-2 ml-14 flex items-center gap-1 text-xs font-semibold text-zinc-500">
-          <Pin className="h-3.5 w-3.5" />
+        <div className="mb-2 ml-11 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+          <Pin className="h-3 w-3" />
           Pinned update
         </div>
       ) : null}
@@ -1730,8 +1715,8 @@ function UpdateCard({
                 username: update.author?.username ?? null,
                 avatarUrl: update.author?.avatarUrl ?? null,
               }}
-              size={40}
-              className="mt-0.5"
+              size={34}
+              className="mt-0.5 rounded-[5px]"
             />
           </Link>
         ) : (
@@ -1741,33 +1726,33 @@ function UpdateCard({
               username: update.author?.username ?? null,
               avatarUrl: update.author?.avatarUrl ?? null,
             }}
-            size={40}
-            className="mt-0.5"
+            size={34}
+            className="mt-0.5 rounded-[5px]"
           />
         )}
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[15px] leading-5">
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm leading-5">
                 {update.author?.username ? (
-                  <Link href={`/u/${update.author.username}`} prefetch={false} className="truncate font-semibold text-zinc-950 hover:underline dark:text-zinc-50">
+                  <Link href={`/u/${update.author.username}`} prefetch={false} className="truncate font-semibold text-foreground hover:underline">
                     {updateAuthorName(update)}
                   </Link>
                 ) : (
-                  <span className="truncate font-semibold text-zinc-950 dark:text-zinc-50">
+                  <span className="truncate font-semibold text-foreground">
                     {updateAuthorName(update)}
                   </span>
                 )}
                 {update.author?.roleLabel ? (
-                  <span className="text-sm text-zinc-500">
+                  <span className="font-mono text-[11px] text-muted-foreground">
                     {update.author.roleLabel}
                   </span>
                 ) : null}
-                <span className="text-sm text-zinc-400">
+                <span className="font-mono text-[11px] text-muted-foreground">
                   · {updateRelativeTime(update.createdAt)}
                 </span>
                 {!isDeleted && update.editedAt ? (
-                  <span className="text-xs leading-5 text-zinc-400">Edited</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Edited</span>
                 ) : null}
               </div>
             </div>
@@ -1775,7 +1760,7 @@ function UpdateCard({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="-mt-1 rounded-full p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
+                  className="-mt-1 flex h-7 w-7 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   aria-label="Update options"
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -1827,13 +1812,14 @@ function UpdateCard({
                 onChange={(event) =>
                   setDraft(event.target.value.slice(0, 2_000))
                 }
-                className="flex min-h-28 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring   disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30"
+                className="flex min-h-28 w-full resize-none rounded-[5px] border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30"
               />
               <div className="mt-2 flex justify-end gap-2">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="rounded-[5px]"
                   onClick={() => {
                     setDraft(update.content);
                     setIsEditing(false);
@@ -1844,6 +1830,7 @@ function UpdateCard({
                 <Button
                   type="button"
                   size="sm"
+                  className="rounded-[5px]"
                   disabled={!canSaveEdit || editMutation.isPending}
                   onClick={() => editMutation.mutate()}
                 >
@@ -1859,7 +1846,7 @@ function UpdateCard({
               content={update.content}
               projectId={projectId}
               projectSlug={projectSlug}
-              className="mt-1 block w-full whitespace-pre-wrap break-words text-left text-[15px] leading-5 text-zinc-800 transition group-hover:text-zinc-950 dark:text-zinc-200 dark:group-hover:text-zinc-50"
+              className="mt-1 block w-full whitespace-pre-wrap break-words text-left text-[15px] leading-relaxed text-foreground/90 transition group-hover:text-foreground"
             />
           ) : null}
 
@@ -1868,7 +1855,7 @@ function UpdateCard({
           ) : null}
 
           {!isDeleted ? (
-            <div className="mt-2 flex items-center gap-6 text-sm leading-5 text-zinc-500">
+            <div className="mt-2.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
               <button
                 type="button"
                 onClick={() =>
@@ -1877,17 +1864,17 @@ function UpdateCard({
                     : toast.error("Please log in to like updates")
                 }
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full transition hover:text-rose-500",
-                  update.likedByViewer && "text-rose-500",
+                  "inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-rose-500",
+                  update.likedByViewer && "text-rose-500 font-medium",
                 )}
               >
                 <Heart
                   className={cn(
-                    "h-4 w-4",
+                    "h-3.5 w-3.5",
                     update.likedByViewer && "fill-current",
                   )}
                 />
-                {update.likeCount}
+                <span>{update.likeCount}</span>
               </button>
               <button
                 type="button"
@@ -1898,10 +1885,10 @@ function UpdateCard({
                   }
                   onOpenDetail(update.id);
                 }}
-                className="inline-flex items-center gap-2 rounded-full transition hover:text-blue-500"
+                className="inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-foreground"
               >
-                <MessageCircle className="h-4 w-4" />
-                {update.commentCount}
+                <MessageCircle className="h-3.5 w-3.5" />
+                <span>{update.commentCount}</span>
               </button>
             </div>
           ) : null}
@@ -1964,14 +1951,14 @@ function UpdatesRightRail({
 
   return (
     <section aria-label="Update shortcuts" className="space-y-5">
-      <div className="border-b border-zinc-200 pb-4 dark:border-zinc-800">
-        <h3 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">
+      <div className="border-b border-border pb-3">
+        <h3 className="nb-ui-label text-foreground">
           Recent Activity
         </h3>
       </div>
 
       {postingMembers.length ? (
-        <div className="divide-y divide-zinc-200 border-b border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <div className="divide-y divide-border/60 border-b border-border/80">
           {postingMembers.map((update) => {
             const roleLabel = updateAuthorRoleLabel(update);
             const authorName = updateAuthorName(update);
@@ -1980,7 +1967,7 @@ function UpdatesRightRail({
                 key={update.id}
                 type="button"
                 onClick={() => onOpenDetail(update.id)}
-                className="group flex w-full min-w-0 items-center gap-3 py-3 text-left"
+                className="group flex w-full min-w-0 items-center gap-3 rounded-[5px] px-1 py-2.5 text-left transition-colors hover:bg-muted/40"
               >
                 <UserAvatar
                   identity={{
@@ -1989,25 +1976,26 @@ function UpdatesRightRail({
                     avatarUrl: update.author?.avatarUrl ?? null,
                   }}
                   size={32}
-                  className="shrink-0"
+                  className="shrink-0 rounded-[5px]"
                 />
-                <span className="min-w-0 flex-1 truncate text-sm text-zinc-500 transition-colors group-hover:text-zinc-950 dark:text-zinc-400 dark:group-hover:text-zinc-50">
-                  <span className="font-semibold text-zinc-950 dark:text-zinc-50">
+                <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground transition-colors group-hover:text-foreground">
+                  <span className="font-semibold text-foreground">
                     {authorName}
                   </span>
-                  {roleLabel ? <span> · {roleLabel}</span> : null}
-                  <span> · {updateRelativeTime(update.createdAt, "long")}</span>
+                  {roleLabel ? <span className="font-mono text-[11px]"> · {roleLabel}</span> : null}
+                  <span className="font-mono text-[11px]"> · {updateRelativeTime(update.createdAt, "long")}</span>
                 </span>
               </button>
             );
           })}
         </div>
       ) : (
-        <div className="border-b border-zinc-200 py-8 dark:border-zinc-800">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        <div className="nb-empty-state nb-grid-ground my-4 py-8 text-center" role="status">
+          <History className="nb-empty-state-icon mb-2" />
+          <p className="nb-empty-state-title">
             No updates yet
           </p>
-          <p className="mt-2 text-sm leading-6 text-zinc-500">
+          <p className="nb-empty-state-desc">
             Project members will appear here after their first post.
           </p>
         </div>
@@ -2053,26 +2041,26 @@ function UpdateDetailPanel({
 
   return (
     <section className={cn("w-full min-w-0 bg-transparent", className)}>
-      <div className="flex items-center justify-between border-b border-zinc-200 pb-4 dark:border-zinc-800">
+      <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-background/95 pb-3 backdrop-blur-sm">
         <div>
-          <p className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+          <p className="nb-ui-label text-foreground">
             Threads
           </p>
-          <p className="text-xs text-zinc-500">
+          <p className="font-mono text-[11px] text-muted-foreground">
             {updateRelativeTime(update.createdAt)}
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+          className="flex h-7 w-7 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           aria-label="Close detail"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
       <div className="py-4 pr-1">
-        <article className="border-b border-zinc-200 pb-4 dark:border-zinc-800">
+        <article className="border-b border-border pb-4">
           <div className="flex gap-3">
             {update.author?.username ? (
               <Link href={`/u/${update.author.username}`} prefetch={false} className="shrink-0 transition-opacity hover:opacity-80">
@@ -2082,8 +2070,8 @@ function UpdateDetailPanel({
                     username: update.author?.username ?? null,
                     avatarUrl: update.author?.avatarUrl ?? null,
                   }}
-                  size={40}
-                  className="mt-0.5"
+                  size={34}
+                  className="mt-0.5 rounded-[5px]"
                 />
               </Link>
             ) : (
@@ -2093,23 +2081,23 @@ function UpdateDetailPanel({
                   username: update.author?.username ?? null,
                   avatarUrl: update.author?.avatarUrl ?? null,
                 }}
-                size={40}
-                className="mt-0.5"
+                size={34}
+                className="mt-0.5 rounded-[5px]"
               />
             )}
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[15px] leading-5">
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm leading-5">
                 {update.author?.username ? (
-                  <Link href={`/u/${update.author.username}`} prefetch={false} className="truncate font-semibold text-zinc-950 hover:underline dark:text-zinc-50">
+                  <Link href={`/u/${update.author.username}`} prefetch={false} className="truncate font-semibold text-foreground hover:underline">
                     {updateAuthorName(update)}
                   </Link>
                 ) : (
-                  <span className="truncate font-semibold text-zinc-950 dark:text-zinc-50">
+                  <span className="truncate font-semibold text-foreground">
                     {updateAuthorName(update)}
                   </span>
                 )}
                 {update.author?.roleLabel ? (
-                  <span className="text-sm text-zinc-500">
+                  <span className="font-mono text-[11px] text-muted-foreground">
                     {update.author.roleLabel}
                   </span>
                 ) : null}
@@ -2120,22 +2108,22 @@ function UpdateDetailPanel({
                   content={update.content}
                   projectId={projectId}
                   projectSlug={projectSlug}
-                  className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-5 text-zinc-800 dark:text-zinc-200"
+                  className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground/90"
                 />
               ) : null}
 
               {!isDeleted ? (
-                <UpdateContextAndMedia update={update} />
+                <UpdateContextAndMedia update={update} compact />
               ) : null}
 
               {!isDeleted ? (
-                <div className="mt-2 flex items-center gap-6 text-sm leading-5 text-zinc-500">
-                  <span className="inline-flex items-center gap-2">
-                    <Heart className="h-4 w-4" />
+                <div className="mt-2.5 flex items-center gap-4 font-mono text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Heart className="h-3.5 w-3.5" />
                     {update.likeCount}
                   </span>
-                  <span className="inline-flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4" />
+                  <span className="inline-flex items-center gap-1.5">
+                    <MessageCircle className="h-3.5 w-3.5" />
                     {update.commentCount}
                   </span>
                 </div>
@@ -2434,26 +2422,24 @@ export default function UpdatesTab({
   });
 
   const feed = updatesQuery.isLoading ? (
-    <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+    <div className="divide-y divide-border/80">
       {Array.from({ length: 3 }).map((_, index) => (
         <div key={index} className="flex gap-3 px-1 py-3">
-          <div className="h-10 w-10 animate-pulse rounded-full bg-zinc-100 dark:bg-zinc-900" />
+          <div aria-hidden="true" className="nb-skeleton h-9 w-9 shrink-0 rounded-[5px]" />
           <div className="flex-1 space-y-2">
-            <div className="h-4 w-1/3 animate-pulse rounded bg-zinc-100 dark:bg-zinc-900" />
-            <div className="h-12 animate-pulse rounded bg-zinc-100 dark:bg-zinc-900" />
+            <div aria-hidden="true" className="nb-skeleton h-3.5 w-1/3 rounded-[3px]" />
+            <div aria-hidden="true" className="nb-skeleton h-10 rounded-[5px]" />
           </div>
         </div>
       ))}
     </div>
   ) : visibleUpdates.length === 0 ? (
-    <div className="px-6 py-16 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-500 dark:bg-blue-950/30">
-        <MessageCircle className="h-6 w-6" />
-      </div>
-      <h3 className="mt-4 text-base font-semibold text-zinc-950 dark:text-zinc-50">
+    <div className="nb-empty-state nb-grid-ground py-16" role="status">
+      <MessageCircle className="nb-empty-state-icon mb-3" />
+      <h3 className="nb-empty-state-title">
         No updates yet
       </h3>
-      <p className="mx-auto mt-2 max-w-sm text-sm text-zinc-500">
+      <p className="nb-empty-state-desc">
         {canCreate
           ? "Share the first progress post so followers can see what is moving."
           : "Follow this project to get notified when the team shares progress."}
@@ -2499,16 +2485,16 @@ export default function UpdatesTab({
   return (
     <div
       className={cn(
-        "grid w-full max-w-none gap-8 xl:grid-cols-[minmax(0,760px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,820px)_minmax(0,1fr)]"
+        "mx-auto grid w-full max-w-[1240px] gap-8 xl:grid-cols-[minmax(0,1fr)_440px]"
       )}
     >
       <main className="min-w-0">
         <div className="px-1 pb-3 pt-2">
           <div>
-            <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-              Project Feed
+            <h2 className="nb-section-title text-foreground">
+              Project feed
             </h2>
-            <p className="text-sm text-zinc-500">
+            <p className="nb-compact text-muted-foreground">
               Progress posts for followers and project visitors.
             </p>
           </div>
@@ -2542,7 +2528,7 @@ export default function UpdatesTab({
               highlightedCommentId={
                 detailUpdate.id === initialUpdateId ? initialCommentId : null
               }
-              className="mb-4 animate-in fade-in slide-in-from-bottom-2 border-y border-zinc-200 py-4 duration-200 dark:border-zinc-800"
+              className="mb-4 animate-in fade-in slide-in-from-bottom-2 border-y border-border py-4 duration-[180ms]"
             />
           </div>
         ) : null}
@@ -2554,7 +2540,7 @@ export default function UpdatesTab({
             <Button
               type="button"
               variant="outline"
-              className="w-full rounded-full"
+              className="w-full rounded-[5px] font-mono text-xs uppercase tracking-wider"
               onClick={() => updatesQuery.fetchNextPage()}
               disabled={updatesQuery.isFetchingNextPage}
             >
@@ -2567,9 +2553,9 @@ export default function UpdatesTab({
         ) : null}
       </main>
 
-      <aside className="hidden w-full min-w-0 self-stretch xl:block">
+      <aside className="hidden w-full min-w-0 xl:block xl:w-[440px] shrink-0 border-l border-border pl-6">
         <div
-          className="sticky top-4 min-h-[calc(100dvh-10rem)] max-h-[calc(100dvh-2rem)] w-full overflow-y-auto border-l border-zinc-200 pl-7 pr-4 dark:border-zinc-800"
+          className="sticky top-[calc(var(--project-tabs-height,42px)+1rem)] max-h-[calc(100dvh-var(--project-tabs-height,42px)-2rem)] overflow-y-auto pr-2 space-y-6"
         >
           {detailUpdate ? (
             <UpdateDetailPanel
@@ -2584,7 +2570,7 @@ export default function UpdatesTab({
               highlightedCommentId={
                 detailUpdate.id === initialUpdateId ? initialCommentId : null
               }
-              className="animate-in fade-in slide-in-from-right-2 duration-200"
+              className="animate-in fade-in slide-in-from-right-2 duration-[180ms]"
             />
           ) : (
             <div className="space-y-6">

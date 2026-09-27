@@ -9,10 +9,13 @@ export const config = {
     matcher: [
         '/',
         '/hub/:path*',
+        '/discover/:path*',
         '/settings/:path*',
         '/messages/:path*',
         '/profile/:path*',
+        '/my-profile/:path*',
         '/people/:path*',
+        '/network/:path*',
         '/workspace/:path*',
         '/monitor/:path*',
         '/u/:path*',

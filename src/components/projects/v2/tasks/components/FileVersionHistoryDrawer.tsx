@@ -204,11 +204,11 @@ export function FileVersionHistoryDrawer({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <History className="h-4 w-4 text-zinc-400" />
+            <DialogTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <History className="h-4 w-4 text-muted-foreground" />
               Version history
             </DialogTitle>
-            <DialogDescription className="mt-1 truncate text-xs">
+            <DialogDescription className="mt-1 truncate text-xs text-muted-foreground">
               {node.name}
               {currentVersion ? ` • active task version is v${currentVersion}` : null}
             </DialogDescription>
@@ -216,30 +216,30 @@ export function FileVersionHistoryDrawer({
           <button
             type="button"
             aria-label="Close"
-            className="rounded p-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded-[4px] p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={() => onOpenChange(false)}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-3 min-h-[160px] max-h-[60vh] overflow-y-auto rounded-lg border border-zinc-200 bg-zinc-50/40 dark:border-zinc-800 dark:bg-zinc-900/40">
+        <div className="mt-3 min-h-[160px] max-h-[60vh] overflow-y-auto rounded-[5px] border border-border bg-muted/20">
           {state.kind === "loading" || state.kind === "idle" ? (
-            <div className="flex items-center justify-center gap-2 p-6 text-sm text-zinc-500">
+            <div className="flex items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading versions…
             </div>
           ) : state.kind === "error" ? (
-            <div className="p-4 text-sm text-rose-600 dark:text-rose-300">
+            <div className="p-4 text-sm text-destructive">
               {state.message}
             </div>
           ) : state.versions.length === 0 ? (
-            <div className="p-4 text-sm text-zinc-500">
+            <div className="p-4 text-sm text-muted-foreground">
               No version history yet. The first upload seeded v1 but it hasn&apos;t been
               replaced.
             </div>
           ) : (
-            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <ul className="divide-y divide-border">
               {state.versions.map((version) => {
                 const isCurrent = version.version === currentVersion;
                 const dlKey = `dl:${version.id}`;
@@ -250,36 +250,36 @@ export function FileVersionHistoryDrawer({
                     className={cn(
                       "flex items-start gap-3 px-4 py-3",
                       isCurrent
-                        ? "bg-indigo-50/60 dark:bg-indigo-500/10"
+                        ? "bg-primary/5"
                         : "bg-transparent",
                     )}
                   >
-                    <div className="mt-1 flex h-6 w-12 flex-shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-[11px] font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+                    <div className="mt-1 flex h-5 w-10 flex-shrink-0 items-center justify-center rounded-[3px] border border-border bg-card font-mono text-[10px] font-semibold text-foreground">
                       v{version.version}
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        <span className="font-mono text-xs font-medium text-foreground">
                           {formatBytes(version.size)}
                         </span>
                         {isCurrent ? (
-                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200">
+                          <span className="inline-flex h-4 items-center rounded-[3px] border border-primary/20 bg-primary/10 px-1.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-primary">
                             Active
                           </span>
                         ) : null}
                       </div>
-                      <div className="mt-0.5 text-xs text-zinc-500">
+                      <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                         {formatDate(version.uploadedAt)} ·{" "}
                         {uploaderLabel(version.uploadedBy)}
                       </div>
                       {version.mimeType ? (
-                        <div className="mt-0.5 truncate text-[11px] text-zinc-400">
+                        <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                           {version.mimeType}
                         </div>
                       ) : null}
                       {version.comment ? (
-                        <div className="mt-2 rounded-md bg-white px-2 py-1 text-xs text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800">
+                        <div className="mt-2 rounded-[4px] bg-card px-2 py-1 text-xs text-foreground ring-1 ring-border">
                           {version.comment}
                         </div>
                       ) : null}
@@ -290,7 +290,7 @@ export function FileVersionHistoryDrawer({
                         type="button"
                         disabled={pendingAction === dlKey}
                         onClick={() => void handleDownload(version)}
-                        className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        className="inline-flex items-center gap-1 rounded-[4px] border border-border bg-card px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                       >
                         {pendingAction === dlKey ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
@@ -304,7 +304,7 @@ export function FileVersionHistoryDrawer({
                           type="button"
                           disabled={pendingAction === restoreKey}
                           onClick={() => void handleRestore(version)}
-                          className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-medium text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200 dark:hover:bg-indigo-500/20"
+                          className="inline-flex items-center gap-1 rounded-[4px] border border-primary/20 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
                         >
                           {pendingAction === restoreKey ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
@@ -322,7 +322,7 @@ export function FileVersionHistoryDrawer({
           )}
         </div>
 
-        <div className="mt-3 text-[11px] text-zinc-500">
+        <div className="mt-3 text-[11px] text-muted-foreground">
           Restoring a version writes a new entry and never rewrites history.
           Historical blobs remain available for download.
         </div>

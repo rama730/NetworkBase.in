@@ -303,7 +303,9 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
         root.setAttribute('data-density', density)
         if (effectiveReduceMotion) root.setAttribute('data-reduce-motion', 'true')
         else root.removeAttribute('data-reduce-motion')
-        ensureThemeColorMeta(resolvedTheme === 'dark' ? '#0a0a0a' : '#ffffff')
+        // Keep browser chrome tied to the fixed app-icon field. The active
+        // page palette remains controlled by `resolvedTheme` below.
+        ensureThemeColorMeta('#141A1E')
     }, [accentColor, density, effectiveReduceMotion, resolvedTheme, theme])
 
     useEffect(() => {

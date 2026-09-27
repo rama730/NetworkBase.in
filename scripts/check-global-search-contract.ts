@@ -23,7 +23,7 @@ const requiredIndexes = [
   "projects_description_search_idx",
   "profiles_username_search_idx",
   "profiles_full_name_search_idx",
-  "tasks_project_idx",
+  "tasks_project_status_idx",
   "tasks_title_search_idx",
   "tasks_project_number_idx",
 ];
@@ -38,8 +38,8 @@ assert.match(connectionsAction, /includeMeta: z\.boolean\(\)\.optional\(\)/);
 assert.doesNotMatch(connectionsAction, /filters: z\.any|historyFilters: z\.any/);
 assert.match(connectionsAction, /accepted_connection\.status = 'accepted'/);
 assert.match(connectionsAction, /blocked_connection\.status = 'blocked'/);
-assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items\)/);
-assert.match(taskAction, /surface: 'full' \| 'preview'/);
+assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id,\s*items/);
+assert.match(taskAction, /surface:\s*['"]full['"]\s*\|\s*['"]preview['"]/);
 assert.match(previewHook, /queryKeys\.globalSearch\.preview/);
 assert.match(previewHook, /userId: profile\.id/);
 assert.match(commandPalette, /useConnectionMutations\(\)/);

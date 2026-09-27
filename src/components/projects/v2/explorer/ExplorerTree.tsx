@@ -65,7 +65,7 @@ function GridThumbnail({ projectId, nodeId }: { projectId: string; nodeId: strin
     return () => { active = false; };
   }, [projectId, nodeId]);
 
-  if (!url) return <ImageIcon className="w-8 h-8 text-purple-300 animate-pulse delay-150" />;
+  if (!url) return <ImageIcon className="w-8 h-8 text-purple-300 animate-none delay-150" />;
 
   return (
     <div className="relative w-full h-full">
@@ -185,7 +185,7 @@ const FileGridItem = React.memo(function FileGridItem({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       className={cn(
-        "group flex flex-col items-center p-2 rounded-lg cursor-pointer border transition-all duration-200",
+        "group flex flex-col items-center p-2 rounded-lg cursor-pointer border transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms]",
         "hover:bg-zinc-100 dark:hover:bg-zinc-800/50",
         selected
           ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-500/20 dark:border-indigo-500/30"
@@ -193,7 +193,7 @@ const FileGridItem = React.memo(function FileGridItem({
       )}
     >
       <div className={cn(
-        "w-16 h-16 mb-2 flex items-center justify-center rounded-md bg-zinc-50 dark:bg-zinc-900 shadow-sm border border-zinc-100 dark:border-zinc-800",
+        "w-16 h-16 mb-2 flex items-center justify-center rounded-md bg-zinc-50 dark:bg-zinc-900 shadow-none border border-zinc-100 dark:border-zinc-800",
         selected && "border-indigo-200 dark:border-indigo-500/30"
       )}>
         {getIcon()}
@@ -203,12 +203,12 @@ const FileGridItem = React.memo(function FileGridItem({
           {node.name}
         </div>
         {!isFolder ? (
-          <div className="text-[10px] text-zinc-400 mt-0.5">
+          <div className="text-[11px] text-zinc-400 mt-0.5">
             {formatGridBytes(node.size || 0)}
           </div>
         ) : (
           childrenCount !== undefined ? (
-            <div className="text-[10px] text-zinc-400 mt-0.5">
+            <div className="text-[11px] text-zinc-400 mt-0.5">
               {childrenCount} item{childrenCount !== 1 ? 's' : ''}
             </div>
           ) : null
@@ -519,21 +519,23 @@ export function ExplorerTree({
 
   if (safeRowsToRender.length === 0) {
     return (
-      <div
-        role="status"
-        className="flex-1 flex flex-col items-center justify-center p-8 text-center"
-      >
-        <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
-          <FolderPlus className="w-8 h-8 text-zinc-400" />
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div
+          role="status"
+          className="nb-empty-state nb-grid-ground w-full max-w-sm p-8 text-center"
+        >
+          <div className="nb-empty-state-icon-box mb-3">
+            <FolderPlus className="nb-empty-state-icon" />
+          </div>
+          <p className="nb-card-title text-foreground mb-1">
+            {effectiveMode === "trash" ? "Trash is empty" : "No files yet"}
+          </p>
+          <p className="nb-compact text-muted-foreground">
+            {effectiveMode === "trash"
+              ? "Deleted files will appear here."
+              : "Create a file or folder to get started."}
+          </p>
         </div>
-        <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          {effectiveMode === "trash" ? "Trash is empty" : "No files yet"}
-        </p>
-        <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          {effectiveMode === "trash"
-            ? "Deleted files will appear here."
-            : "Create a file or folder to get started."}
-        </p>
       </div>
     );
   }
@@ -598,7 +600,7 @@ export function ExplorerTree({
                <Eye className="w-4 h-4" />
             </button>
             <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 px-2 py-0.5 rounded-md border border-zinc-200 dark:border-white/10">
-              <label className="text-[10px] font-medium text-zinc-500 uppercase">Scale</label>
+              <label className="text-[11px] font-medium text-zinc-500 uppercase">Scale</label>
               <select
                 value={gridSize}
                 onChange={(e) => {
@@ -619,11 +621,14 @@ export function ExplorerTree({
 
         {/* Grid Wrapper */}
         {assetNodes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center flex-1 text-center p-8">
-            <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
-              <FolderPlus className="w-5 h-5 text-zinc-400" />
+          <div className="flex-1 flex items-center justify-center p-4">
+            <div className="nb-empty-state nb-grid-ground w-full max-w-sm p-8 text-center" role="status">
+              <div className="nb-empty-state-icon-box mb-3">
+                <FolderPlus className="nb-empty-state-icon" />
+              </div>
+              <p className="nb-card-title text-foreground">Empty folder</p>
+              <p className="nb-compact mt-1 text-muted-foreground">This folder does not contain any assets yet.</p>
             </div>
-            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Empty folder</p>
           </div>
         ) : (
           <div className="flex-1 min-h-0 flex flex-row relative">
@@ -688,7 +693,7 @@ export function ExplorerTree({
                     </div>
 
                     <div className="flex flex-col items-center gap-3 pt-2">
-                       <div className="w-24 h-24 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow-sm">
+                       <div className="w-24 h-24 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center shadow-none">
                           {inspectedNode.type === "folder" ? (
                             <FolderPlus className="w-10 h-10 text-blue-500" />
                           ) : isAssetLike(inspectedNode) ? (
@@ -705,7 +710,7 @@ export function ExplorerTree({
 
                     <div className="mt-4 flex flex-col gap-2">
                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] uppercase font-semibold text-zinc-400">Size</span>
+                          <span className="text-[11px] uppercase font-semibold text-zinc-400">Size</span>
                           <span className="text-xs text-zinc-700 dark:text-zinc-300">
                              {inspectedNode.type === "folder" 
                                ? `${childrenByParentId[filesParentKey(inspectedNode.id)]?.length || 0} items`
@@ -713,13 +718,13 @@ export function ExplorerTree({
                           </span>
                        </div>
                        <div className="flex flex-col gap-1 mt-2">
-                          <span className="text-[10px] uppercase font-semibold text-zinc-400">Created</span>
+                          <span className="text-[11px] uppercase font-semibold text-zinc-400">Created</span>
                           <span className="text-xs text-zinc-700 dark:text-zinc-300">
                              {inspectedNode.createdAt ? new Date(inspectedNode.createdAt).toLocaleDateString() : 'Unknown'}
                           </span>
                        </div>
                        <div className="flex flex-col gap-1 mt-2">
-                          <span className="text-[10px] uppercase font-semibold text-zinc-400">Updated</span>
+                          <span className="text-[11px] uppercase font-semibold text-zinc-400">Updated</span>
                           <span className="text-xs text-zinc-700 dark:text-zinc-300">
                              {inspectedNode.updatedAt ? new Date(inspectedNode.updatedAt).toLocaleDateString() : 'Unknown'}
                           </span>
@@ -744,7 +749,7 @@ export function ExplorerTree({
           : `${row.kind}:${"parentId" in row ? row.parentId : "root"}`
       }
       itemContent={(_, row, context) => (
-        <div className="min-h-[22px] [@media(pointer:coarse)]:min-h-11 px-2" role="none">
+        <div className="h-8 min-h-[32px] [@media(pointer:coarse)]:h-11 px-2" role="none">
           <FileTreeItem row={row} context={context} />
         </div>
       )}

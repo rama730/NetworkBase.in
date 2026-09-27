@@ -16,7 +16,7 @@ export function ProfileAvatar({
             identity={profile}
             size={size}
             priority={priority}
-            className="ring-2 ring-white transition-all group-hover:ring-primary/20 dark:ring-zinc-950"
+            className="ring-2 ring-white transition-[color,background-color,border-color,box-shadow,opacity,transform] group-hover:ring-primary/20 dark:ring-zinc-950"
             fallbackClassName="text-sm font-semibold text-white"
         />
     );

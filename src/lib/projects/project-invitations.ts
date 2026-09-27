@@ -98,14 +98,31 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
 
         if (idempotencyKey) {
             const [existing] = await tx
-                .select()
+                .select({
+                    id: projectInvitations.id,
+                    inviterId: projectInvitations.inviterId,
+                    idempotencyKey: projectInvitations.idempotencyKey,
+                    candidateId: projectInvitations.candidateId,
+                    projectId: projectInvitations.projectId,
+                    roleId: projectInvitations.roleId,
+                    roleTitle: projectInvitations.roleTitle,
+                    projectTitle: projectInvitations.projectTitle,
+                    kind: projectInvitations.kind,
+                    guidanceLabel: projectInvitations.guidanceLabel,
+                    status: projectInvitations.status,
+                    expiresAt: projectInvitations.expiresAt,
+                    reviewAt: projectInvitations.reviewAt,
+                    note: projectInvitations.note,
+                    createdAt: projectInvitations.createdAt,
+                    updatedAt: projectInvitations.updatedAt,
+                })
                 .from(projectInvitations)
                 .where(and(
                     eq(projectInvitations.inviterId, input.actorId),
                     eq(projectInvitations.idempotencyKey, idempotencyKey),
                 ))
                 .limit(1);
-            if (existing) return { invitation: existing, created: false, projectSlug: null };
+            if (existing) return { invitation: existing as unknown as typeof projectInvitations.$inferSelect, created: false, projectSlug: null };
         }
 
         const project = await lockProject(tx, input.projectId);
@@ -122,40 +139,32 @@ export async function createProjectInvitation(input: CreateProjectInvitationInpu
                 sql`${projectInvitations.expiresAt} <= now()`,
             ));
 
-        const managerRole = await readManagerRole(tx, input.projectId, input.actorId, project.owner_id);
+        const preflightRows = (await tx.execute(sql`
+            SELECT 
+                pm_actor.role AS actor_role,
+                EXISTS(SELECT 1 FROM profiles WHERE id = ${input.candidateId}::uuid) AS candidate_exists,
+                EXISTS(SELECT 1 FROM project_members WHERE project_id = ${input.projectId}::uuid AND user_id = ${input.candidateId}::uuid) AS candidate_is_member,
+                EXISTS(SELECT 1 FROM role_applications WHERE project_id = ${input.projectId}::uuid AND applicant_id = ${input.candidateId}::uuid AND status = 'pending') AS has_pending_app
+            FROM (SELECT 1) _
+            LEFT JOIN project_members pm_actor ON pm_actor.project_id = ${input.projectId}::uuid AND pm_actor.user_id = ${input.actorId}::uuid
+        `)) as unknown as Array<{
+            actor_role: string | null;
+            candidate_exists: boolean;
+            candidate_is_member: boolean;
+            has_pending_app: boolean;
+        }>;
+
+        const preflight = preflightRows[0];
+        const managerRole = input.actorId === project.owner_id ? "owner" as const : (preflight?.actor_role === "admin" ? "admin" as const : null);
         if (!managerRole) throw new Error("You can only invite to projects you manage");
         if (input.kind === "guidance_appointment" && managerRole !== "owner") {
             throw new Error("Only the project Lead can appoint a guidance co-leader");
         }
 
-        const [candidate] = await tx
-            .select({ id: profiles.id })
-            .from(profiles)
-            .where(eq(profiles.id, input.candidateId))
-            .limit(1);
-        if (!candidate) throw new Error("Candidate not found");
+        if (!preflight?.candidate_exists) throw new Error("Candidate not found");
         if (input.candidateId === project.owner_id) throw new Error("The current project Owner cannot hold this appointment");
-
-        const [existingMember] = await tx
-            .select({ id: projectMembers.id })
-            .from(projectMembers)
-            .where(and(
-                eq(projectMembers.projectId, input.projectId),
-                eq(projectMembers.userId, input.candidateId),
-            ))
-            .limit(1);
-        if (existingMember) throw new Error("User is already a member of this project");
-
-        const [pendingApplication] = await tx
-            .select({ id: roleApplications.id })
-            .from(roleApplications)
-            .where(and(
-                eq(roleApplications.projectId, input.projectId),
-                eq(roleApplications.applicantId, input.candidateId),
-                eq(roleApplications.status, "pending"),
-            ))
-            .limit(1);
-        if (pendingApplication) throw new Error("Review the existing application before sending an invitation");
+        if (preflight.candidate_is_member) throw new Error("User is already a member of this project");
+        if (preflight.has_pending_app) throw new Error("Review the existing application before sending an invitation");
 
         let roleId: string | null = null;
         let roleTitle: string | null = null;

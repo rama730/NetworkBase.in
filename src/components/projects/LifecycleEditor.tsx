@@ -2,16 +2,18 @@
 
 import React, { useState } from "react";
 import { Plus, X, GripVertical } from "lucide-react";
-import { Reorder, useDragControls } from "framer-motion";
+import { Reorder } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface LifecycleEditorProps {
     stages: string[];
     onChange: (stages: string[]) => void;
     currentStageIndex?: number; // Optional visual indicator of current progress
+    showCurrentStage?: boolean;
 }
 
-export function LifecycleEditor({ stages, onChange, currentStageIndex = 0 }: LifecycleEditorProps) {
+export function LifecycleEditor({ stages, onChange, currentStageIndex = 0, showCurrentStage = true }: LifecycleEditorProps) {
     const [newStage, setNewStage] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
 
@@ -52,6 +54,7 @@ export function LifecycleEditor({ stages, onChange, currentStageIndex = 0 }: Lif
     };
 
     const handleRemove = (index: number) => {
+        if (stages.length <= 1) return;
         const newStages = stages.filter((_, i) => i !== index);
         onChange(newStages);
     };
@@ -81,77 +84,109 @@ export function LifecycleEditor({ stages, onChange, currentStageIndex = 0 }: Lif
     };
 
     return (
-        <div className="space-y-4">
-            <div className="space-y-1.5">
-                <div className="flex gap-2">
-                    <input
-                        value={newStage}
-                        onChange={handleChange}
-                        onKeyDown={handleKeyDown}
-                        maxLength={35}
-                        placeholder="Add a stage (e.g. 'Design Review')"
-                        className="flex-1 px-4 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm   outline-none"
-                    />
-                    <button
-                        type="button"
-                        onClick={handleAdd}
-                        disabled={!newStage.trim() || !!errorMsg}
-                        className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        <Plus className="w-4 h-4" />
-                    </button>
+        <div className="divide-y divide-border">
+            <div className="pb-6">
+                <div className="space-y-1.5">
+                    <div>
+                        <label htmlFor="lifecycle-add-stage-input" className="nb-ui-label text-foreground">
+                            Add stage
+                        </label>
+                        <p className="nb-compact text-muted-foreground mt-0.5">
+                            Define milestones your team will progress through (e.g. Prototype, Security Audit, Public Beta).
+                        </p>
+                    </div>
+                    <div className="flex gap-2 pt-0.5">
+                        <input
+                            id="lifecycle-add-stage-input"
+                            value={newStage}
+                            onChange={handleChange}
+                            onKeyDown={handleKeyDown}
+                            maxLength={35}
+                            aria-describedby={errorMsg ? "lifecycle-stage-error" : undefined}
+                            placeholder="Add a stage (e.g. 'Beta Testing', 'Design Review')..."
+                            className="h-[34px] flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                        <Button
+                            type="button"
+                            onClick={handleAdd}
+                            disabled={!newStage.trim() || !!errorMsg}
+                            className="h-[34px] gap-1.5 rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add stage
+                        </Button>
+                    </div>
+                    {errorMsg && (
+                        <p id="lifecycle-stage-error" role="alert" className="nb-compact text-destructive animate-in fade-in-50 duration-[180ms]">
+                            {errorMsg}
+                        </p>
+                    )}
                 </div>
-                {errorMsg && (
-                    <p className="text-xs text-red-500 font-medium px-1 animate-in slide-in-from-top-1 duration-200">
-                        {errorMsg}
-                    </p>
-                )}
             </div>
 
-            <Reorder.Group axis="y" values={stages} onReorder={handleReorder} className="space-y-2">
-                {stages.map((stage, index) => (
-                    <Reorder.Item
-                        key={stage}
-                        value={stage}
-                        className={cn(
-                            "flex items-center gap-3 p-3 rounded-lg border bg-white dark:bg-zinc-900 shadow-sm cursor-grab active:cursor-grabbing",
-                            index === currentStageIndex 
-                                ? "border-indigo-500 ring-1 ring-indigo-500/20" 
-                                : "border-zinc-200 dark:border-zinc-800"
-                        )}
-                    >
-                        <GripVertical className="w-4 h-4 text-zinc-400" />
-                        <input
-                            value={stage}
-                            onChange={(event) => handleStageChange(index, event.target.value)}
-                            maxLength={35}
-                            className="flex-1 bg-transparent text-sm font-medium text-zinc-700 outline-none  dark:text-zinc-200"
-                            aria-label={`Stage ${index + 1} name`}
-                        />
-                        
-                        {index === currentStageIndex && (
-                            <span className="text-[10px] uppercase font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full mr-2">
-                                Current
-                            </span>
-                        )}
-
-                        <button
-                            type="button"
-                            onClick={() => handleRemove(index)}
-                            className="text-zinc-400 hover:text-red-500 transition-colors p-1"
-                            title="Remove stage"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    </Reorder.Item>
-                ))}
-            </Reorder.Group>
-            
-            {stages.length === 0 && (
-                <div className="text-center p-4 text-sm text-zinc-500 italic border border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg">
-                    No stages defined. Add one above.
+            <div className="pt-6 space-y-3">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h5 className="nb-ui-label font-semibold text-foreground">Project journey stages</h5>
+                        <p className="nb-compact text-muted-foreground mt-0.5">
+                            Drag stages using the grip handle to reorder the project roadmap timeline.
+                        </p>
+                    </div>
+                    <span className="inline-flex items-center h-5 px-[7px] rounded-[3px] border border-border bg-muted/40 font-mono text-[11px] leading-none text-muted-foreground">
+                        {stages.length} {stages.length === 1 ? "stage" : "stages"}
+                    </span>
                 </div>
-            )}
+
+                <Reorder.Group axis="y" values={stages} onReorder={handleReorder} className="space-y-2">
+                    {stages.map((stage, index) => (
+                        <Reorder.Item
+                            key={stage}
+                            value={stage}
+                            className={cn(
+                                "flex min-h-[44px] items-center gap-2.5 rounded-lg border bg-card px-3 py-2 shadow-none transition-colors cursor-grab active:cursor-grabbing",
+                                showCurrentStage && index === currentStageIndex
+                                    ? "border-primary/40 bg-primary/[0.03] ring-1 ring-primary/20"
+                                    : "border-border hover:border-border/80"
+                            )}
+                        >
+                            <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-colors hover:text-foreground" />
+                            <span className="flex size-5 shrink-0 items-center justify-center rounded-[3px] border border-border/80 bg-muted/40 font-mono text-[11px] font-medium tabular-nums text-muted-foreground leading-none">
+                                {index + 1}
+                            </span>
+                            <input
+                                value={stage}
+                                onChange={(event) => handleStageChange(index, event.target.value)}
+                                maxLength={35}
+                                className="h-[28px] flex-1 rounded-[5px] border border-transparent bg-transparent px-2 text-[13px] font-medium leading-[1.5] text-foreground transition hover:border-border/60 focus:border-border focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                aria-label={`Stage ${index + 1} name`}
+                            />
+
+                            {showCurrentStage && index === currentStageIndex && (
+                                <span className="inline-flex items-center h-5 px-[7px] rounded-[3px] border border-primary/20 bg-primary/10 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-primary leading-none shrink-0">
+                                    Current
+                                </span>
+                            )}
+
+                            <button
+                                type="button"
+                                aria-label={`Remove ${stage} stage`}
+                                onClick={() => handleRemove(index)}
+                                disabled={stages.length <= 1}
+                                className="inline-flex size-7 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                                title={stages.length <= 1 ? "At least one stage is required" : "Remove stage"}
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        </Reorder.Item>
+                    ))}
+                </Reorder.Group>
+
+                {stages.length === 0 && (
+                    <div className="nb-empty-state nb-grid-ground rounded-lg border border-dashed border-border p-6 text-center nb-compact text-muted-foreground">
+                        No stages defined. Add one above.
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

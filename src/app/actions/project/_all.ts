@@ -177,20 +177,7 @@ import {
   normalizeProjectPublicTabVisibility,
   type ProjectPublicTabVisibility,
 } from "@/lib/projects/settings-policies";
-import {
-  buildProjectAnalyticsMemberDetail,
-  buildProjectAnalyticsMemberSummaries,
-  buildProjectAnalyticsOverview,
-  buildProjectAnalyticsTimeline,
-  filterProjectAnalyticsDatasetByContext,
-  normalizeProjectAnalyticsContext,
-  PROJECT_ANALYTICS_DATASET_LIMITS,
-  resolveProjectAnalyticsAccess,
-  type BuildProjectAnalyticsInput,
-  type ProjectAnalyticsContextFilters,
-  type ProjectAnalyticsTimelineFilters,
-} from "@/lib/projects/analytics";
-import { syncProjectSkills, syncRoleSkills } from "@/lib/skills/service";
+import { syncProjectSkills, syncRoleSkills, syncRoleSkillsBatch } from "@/lib/skills/service";
 import {
   containsLikePattern,
   escapeLikePattern,
@@ -593,8 +580,10 @@ const revalidateProjectPaths = async (projectId: string) => {
   } catch (err) {
     console.error("Failed to invalidate public feed cache:", err);
   }
-  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/discover");
   revalidatePath("/hub");
+  revalidatePath("/my-profile");
+  revalidatePath(`/projects/${projectId}`);
   // Next.js 16's cache API requires an explicit cache-life profile for tag revalidation.
   revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
   revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, "max");
@@ -614,7 +603,9 @@ const revalidateProjectPaths = async (projectId: string) => {
 
 export async function invalidateProjectPublicCaches(projectId: string) {
   const feed = await invalidatePublicProjectsFeedCache(projectId);
+  revalidatePath("/discover");
   revalidatePath("/hub");
+  revalidatePath("/my-profile");
   revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
   revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, "max");
   return feed;
@@ -1133,7 +1124,6 @@ const projectDetailProjectSchema = z.object({
     files: z.boolean(),
     sprints: z.boolean(),
     tasks: z.boolean(),
-    analytics: z.boolean(),
   }),
   lookingForCollaborators: z.boolean(),
   memberUpdatesEnabled: z.boolean(),
@@ -2407,6 +2397,8 @@ export async function createProjectAction(
     const externalLinksSplit = splitProjectSocialLinks(input.external_links);
     if ("error" in externalLinksSplit)
       return { success: false, error: externalLinksSplit.error };
+    const openRoles = (input.roles || []).filter((role) => role.role.trim().length > 0);
+    const lookingForCollaborators = openRoles.length > 0;
 
     let finalSlug = input.slug || generateSlug(input.title);
     // Initial Key Generation
@@ -2453,7 +2445,8 @@ export async function createProjectAction(
           externalLinkMetadata: externalLinksSplit.metadata,
           visibility,
           status: mapStatus(input.status),
-          lookingForCollaborators: true,
+          lookingForCollaborators,
+          openRolesCount: openRoles.length,
           lifecycleStages,
           currentStageIndex: completedInitialStageCount,
           stageCompletionDates: Object.fromEntries(
@@ -2542,11 +2535,11 @@ export async function createProjectAction(
             .where(eq(profiles.id, user.id));
 
           // 5. Insert Open Roles (if any)
-          if (input.roles && input.roles.length > 0) {
+          if (openRoles.length > 0) {
             const insertedRoles = await tx
               .insert(projectOpenRoles)
               .values(
-                input.roles.map((role) => ({
+                openRoles.map((role) => ({
                   projectId: newProject.id,
                   role: role.role,
                   count: role.count,
@@ -2555,14 +2548,12 @@ export async function createProjectAction(
                 })),
               )
               .returning({ id: projectOpenRoles.id });
-            for (const [index, insertedRole] of insertedRoles.entries()) {
-              await syncRoleSkills(
-                tx,
-                insertedRole.id,
-                input.roles[index]?.skills ?? [],
-                user.id,
-              );
-            }
+            // ponytail: batch open-role skill syncing cuts N sequential DB roundtrips to 1 bulk insert. ceiling: 50 open roles. upgrade: multi-row batching beyond 50.
+            const roleSkillEntries = insertedRoles.map((insertedRole, index) => ({
+              roleId: insertedRole.id,
+              labels: openRoles[index]?.skills ?? [],
+            }));
+            await syncRoleSkillsBatch(tx, roleSkillEntries, user.id);
           }
 
           // 6. Insert Tags and Skills into Junction Tables
@@ -2579,17 +2570,20 @@ export async function createProjectAction(
               .filter((t) => t.slug);
 
             if (tagValues.length > 0) {
-              await tx.insert(tags).values(tagValues).onConflictDoNothing();
-              const slugs = tagValues.map((v) => v.slug);
-              const foundTags = await tx
-                .select()
-                .from(tags)
-                .where(inArray(tags.slug, slugs));
-              if (foundTags.length > 0) {
+              // PURE OPTIMIZATION: Insert with onConflictDoUpdate returning id eliminates separate SELECT tags query.
+              const insertedTags = await tx
+                .insert(tags)
+                .values(tagValues)
+                .onConflictDoUpdate({
+                  target: tags.slug,
+                  set: { name: sql`EXCLUDED.name` },
+                })
+                .returning({ id: tags.id });
+              if (insertedTags.length > 0) {
                 await tx
                   .insert(projectTags)
                   .values(
-                    foundTags.map((t) => ({
+                    insertedTags.map((t) => ({
                       projectId: newProject.id,
                       tagId: t.id,
                     })),
@@ -2616,6 +2610,7 @@ export async function createProjectAction(
           return newProject;
         });
 
+        revalidatePath("/discover");
         revalidatePath("/hub");
 
         // Add to Import Queue if applicable
@@ -2707,7 +2702,17 @@ export async function updateProject(projectId: string, data: any) {
     .transaction(async (tx) => {
       // Check ownership
       const [project] = await tx
-        .select()
+        .select({
+          id: projects.id,
+          ownerId: projects.ownerId,
+          externalLinkMetadata: projects.externalLinkMetadata,
+          lifecycleStages: projects.lifecycleStages,
+          currentStageIndex: projects.currentStageIndex,
+          stageCompletionDates: projects.stageCompletionDates,
+          importSource: projects.importSource,
+          slug: projects.slug,
+          coverImage: projects.coverImage,
+        })
         .from(projects)
         .where(eq(projects.id, projectId))
         .limit(1);
@@ -2873,7 +2878,7 @@ export async function updateProject(projectId: string, data: any) {
             await tx.insert(tags).values(tagValues).onConflictDoNothing();
             const slugs = tagValues.map((v) => v.slug);
             const foundTags = await tx
-              .select()
+              .select({ id: tags.id })
               .from(tags)
               .where(inArray(tags.slug, slugs));
             if (foundTags.length > 0) {
@@ -2922,6 +2927,28 @@ export async function updateProject(projectId: string, data: any) {
             .update(projects)
             .set({ importSource: updatedImportSource })
             .where(eq(projects.id, projectId));
+        } else {
+          // ponytail: keep leadFocus synced if lead occupies an open role directly
+          const prevLeadFocus = ((project.importSource as any)?.metadata?.leadFocus || "").trim().toLowerCase();
+          const matchingRole = roles.find((r: any) => (r.role || "").trim().toLowerCase() === prevLeadFocus);
+          if (matchingRole) {
+            const metadata = {
+              ...((project.importSource as any)?.metadata || {}),
+            };
+            metadata.leadFocus = (matchingRole.role || "").trim();
+            if (matchingRole.description) {
+              metadata.leadDescription = matchingRole.description.trim();
+            }
+            updatedImportSource = {
+              ...(project.importSource || { type: "scratch" }),
+              metadata,
+            };
+            updateValues.importSource = updatedImportSource;
+            await tx
+              .update(projects)
+              .set({ importSource: updatedImportSource })
+              .where(eq(projects.id, projectId));
+          }
         }
 
         // Filter out lead-role from database projectOpenRoles sync
@@ -3020,6 +3047,7 @@ export async function updateProject(projectId: string, data: any) {
         success: true,
         slug: project.slug,
         id: project.id,
+        ownerId: project.ownerId,
         previousCoverImage: project.coverImage,
         nextCoverImage,
         openRoles,
@@ -3030,6 +3058,7 @@ export async function updateProject(projectId: string, data: any) {
         success,
         slug,
         id,
+        ownerId,
         previousCoverImage,
         nextCoverImage,
         openRoles,
@@ -3083,6 +3112,19 @@ export async function updateProject(projectId: string, data: any) {
               deletedCount,
             },
           );
+        }
+        if (Array.isArray(data?.roles) || data?.status !== undefined) {
+          void inngest.send({
+            name: "workspace/connections.sync_suggestions",
+            data: { userId: ownerId },
+          }).catch((syncError) => {
+            logger.warn("project.suggestion_sync_enqueue_failed", {
+              module: "project",
+              projectId: id,
+              userId: ownerId,
+              error: syncError instanceof Error ? syncError.message : String(syncError),
+            });
+          });
         }
         return openRoles === undefined ? { success } : { success, openRoles };
       },
@@ -4919,67 +4961,6 @@ function formatFileUploadPermission(
   };
 }
 
-type AnalyticsFileSource = "github" | "manual" | "system";
-
-function readRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function readBoolean(value: unknown): boolean | null {
-  return typeof value === "boolean" ? value : null;
-}
-
-function normalizeProjectNodeAnalyticsMetadata(input: {
-  metadata: Record<string, unknown> | null | undefined;
-  gitHash?: string | null;
-  importSourceType?: "github" | "upload" | "scratch" | null;
-}): {
-  source: AnalyticsFileSource;
-  analyticsVisible: boolean;
-  publicVisible: boolean;
-  privateReason: string | null;
-} {
-  const metadata = readRecord(input.metadata);
-  const analytics = readRecord(metadata.analytics);
-  const privacy = readRecord(metadata.privacy);
-  const rawSource =
-    analytics.source ?? metadata.source ?? metadata.importSource;
-  const source: AnalyticsFileSource =
-    rawSource === "github" || input.gitHash
-      ? "github"
-      : rawSource === "system"
-        ? "system"
-        : input.importSourceType === "github" && input.gitHash
-          ? "github"
-          : "manual";
-  const privateReason =
-    typeof analytics.privateReason === "string"
-      ? analytics.privateReason
-      : typeof privacy.reason === "string"
-        ? privacy.reason
-        : typeof metadata.privateReason === "string"
-          ? metadata.privateReason
-          : null;
-  const publicVisible =
-    readBoolean(analytics.publicVisible) ??
-    readBoolean(privacy.publicVisible) ??
-    readBoolean(metadata.publicVisible) ??
-    metadata.visibility !== "private";
-  const analyticsVisible =
-    readBoolean(analytics.analyticsVisible) ??
-    readBoolean(metadata.analyticsVisible) ??
-    (metadata.visibility === "private" || privacy.private === true
-      ? false
-      : true);
-  return {
-    source,
-    analyticsVisible,
-    publicVisible,
-    privateReason,
-  };
-}
 
 export async function getProjectFileWorkspaceSettingsAction(
   projectId: string,
@@ -6280,7 +6261,7 @@ export async function archiveProjectAction(
         eventKey: "security.project_archived",
         title: `${actor.actorName || "Someone"} archived ${owned.project.title || "Project"}`,
         body: "The project was archived from settings.",
-        href: `/projects/${encodeURIComponent(owned.project.slug || projectId)}?tab=settings&settings=security-data`,
+        href: `/projects/${encodeURIComponent(owned.project.slug || projectId)}?tab=settings&settings=danger`,
         sourceEventId: `archive:${projectId}`,
         entityRefs: {
           projectId,
@@ -6432,12 +6413,13 @@ export async function deleteProject(
       result: "success",
     });
 
+    revalidatePath("/discover");
     revalidatePath("/hub");
     revalidatePath(`/projects/${project.slug || projectId}`);
     return {
       success: true,
       message: "Project deleted successfully.",
-      data: { redirectTo: "/hub" },
+      data: { redirectTo: "/discover" },
     };
   } catch (error) {
     console.error("Failed to delete project:", error);
@@ -6533,6 +6515,7 @@ export async function deleteProjectDraftAction(
       console.error("S3 recursive draft cleanup failed:", storageError);
     }
 
+    revalidatePath("/discover");
     revalidatePath("/hub");
     return { success: true };
   } catch (error: any) {
@@ -6736,7 +6719,7 @@ export async function getProjectUserStateAction(projectId: string) {
     async () => {
       const [follow, project] = await Promise.all([
         db
-          .select()
+          .select({ id: projectFollows.id })
           .from(projectFollows)
           .where(
             and(
@@ -8020,9 +8003,9 @@ async function readSprintTaskActivityPage(input: {
     ),
   );
 
-  const actorRows =
+  const [actorRows, fileLinkRows, subtasks] = await Promise.all([
     actorIds.length > 0
-      ? await db
+      ? db
           .select({
             id: profiles.id,
             fullName: profiles.fullName,
@@ -8030,67 +8013,69 @@ async function readSprintTaskActivityPage(input: {
           })
           .from(profiles)
           .where(inArray(profiles.id, actorIds))
-      : [];
+      : Promise.resolve([]),
+    taskIds.length > 0
+      ? ((db.execute(sql`
+          SELECT
+            tnl.task_id AS "taskId",
+            pn.id AS "nodeId",
+            pn.name AS "nodeName",
+            pn.type AS "nodeType",
+            pn.path AS "nodePath",
+            pn.canonical_node_id AS "canonicalNodeId",
+            tnl.linked_at AS "linkedAt",
+            tnl.annotation,
+            tnl.tags,
+            fv.version AS "latestVersion",
+            p.id AS "uploaderId",
+            p.full_name AS "uploaderName",
+            p.avatar_url AS "uploaderAvatarUrl"
+          FROM task_node_links tnl
+          INNER JOIN project_nodes pn ON pn.id = tnl.node_id AND pn.project_id = ${input.projectId}::uuid AND pn.deleted_at IS NULL
+          LEFT JOIN file_versions fv ON fv.node_id = pn.id AND fv.version = pn.current_version
+          LEFT JOIN profiles p ON p.id = fv.uploaded_by
+          WHERE tnl.task_id IN (${sql.join(taskIds.map((taskId) => sql`${taskId}::uuid`), sql`, `)})
+          ORDER BY tnl.linked_at DESC
+        `)) as unknown as Promise<Array<{
+          taskId: string;
+          nodeId: string;
+          nodeName: string;
+          nodeType: "folder" | "file";
+          nodePath: string;
+          canonicalNodeId: string | null;
+          linkedAt: Date;
+          annotation: string | null;
+          tags: string[] | null;
+          latestVersion: number | null;
+          uploaderId: string | null;
+          uploaderName: string | null;
+          uploaderAvatarUrl: string | null;
+        }>>)
+      : Promise.resolve([]),
+    taskIds.length > 0
+      ? db
+          .select({
+            id: taskSubtasks.id,
+            taskId: taskSubtasks.taskId,
+            title: taskSubtasks.title,
+            completed: taskSubtasks.completed,
+            position: taskSubtasks.position,
+          })
+          .from(taskSubtasks)
+          .where(inArray(taskSubtasks.taskId, taskIds))
+          .orderBy(taskSubtasks.position, taskSubtasks.createdAt)
+      : Promise.resolve([]),
+  ]);
 
   const actorById = new Map(actorRows.map((row) => [row.id, row]));
 
-  const fileLinks =
-    taskIds.length > 0
-      ? await db
-          .select({
-            taskId: taskNodeLinks.taskId,
-            nodeId: projectNodes.id,
-            nodeName: projectNodes.name,
-            nodeType: projectNodes.type,
-            nodePath: projectNodes.path,
-            canonicalNodeId: projectNodes.canonicalNodeId,
-            linkedAt: taskNodeLinks.linkedAt,
-            annotation: taskNodeLinks.annotation,
-            tags: taskNodeLinks.tags,
-          })
-          .from(taskNodeLinks)
-          .innerJoin(
-            projectNodes,
-            and(
-              eq(projectNodes.id, taskNodeLinks.nodeId),
-              eq(projectNodes.projectId, input.projectId),
-              isNull(projectNodes.deletedAt),
-            ),
-          )
-          .where(inArray(taskNodeLinks.taskId, taskIds))
-          .orderBy(desc(taskNodeLinks.linkedAt))
-      : [];
-  const nodeIds = Array.from(new Set(fileLinks.map((link) => link.nodeId)));
-  const latestVersions =
-    nodeIds.length > 0
-      ? await db
-          .selectDistinctOn([fileVersions.nodeId], {
-            nodeId: fileVersions.nodeId,
-            version: fileVersions.version,
-            uploaderId: profiles.id,
-            uploaderName: profiles.fullName,
-            uploaderAvatarUrl: profiles.avatarUrl,
-          })
-          .from(fileVersions)
-          .leftJoin(profiles, eq(profiles.id, fileVersions.uploadedBy))
-          .where(inArray(fileVersions.nodeId, nodeIds))
-          .orderBy(
-            fileVersions.nodeId,
-            desc(fileVersions.version),
-            desc(fileVersions.uploadedAt),
-          )
-      : [];
-  const versionByNodeId = new Map(
-    latestVersions.map((version) => [version.nodeId, version]),
-  );
   const filesByTaskId = new Map<
     string,
     SprintTaskTimelineEntity["linkedFiles"]
   >();
-  for (const link of fileLinks) {
+  for (const link of fileLinkRows) {
     const files = filesByTaskId.get(link.taskId) ?? [];
     if (files.some((file) => file.nodeId === link.nodeId)) continue;
-    const version = versionByNodeId.get(link.nodeId);
     const role = inferTaskFileRole({
       id: link.nodeId,
       name: link.nodeName,
@@ -8104,12 +8089,12 @@ async function readSprintTaskActivityPage(input: {
     files.push({
       nodeId: link.nodeId,
       name: link.nodeName,
-      latestVersion: version?.version ?? null,
-      latestUploader: version?.uploaderId
+      latestVersion: link.latestVersion ?? null,
+      latestUploader: link.uploaderId
         ? {
-            id: version.uploaderId,
-            fullName: version.uploaderName ?? null,
-            avatarUrl: version.uploaderAvatarUrl ?? null,
+            id: link.uploaderId,
+            fullName: link.uploaderName ?? null,
+            avatarUrl: link.uploaderAvatarUrl ?? null,
           }
         : null,
       annotation: link.annotation ?? null,
@@ -8118,21 +8103,6 @@ async function readSprintTaskActivityPage(input: {
     });
     filesByTaskId.set(link.taskId, files);
   }
-
-  const subtasks =
-    taskIds.length > 0
-      ? await db
-          .select({
-            id: taskSubtasks.id,
-            taskId: taskSubtasks.taskId,
-            title: taskSubtasks.title,
-            completed: taskSubtasks.completed,
-            position: taskSubtasks.position,
-          })
-          .from(taskSubtasks)
-          .where(inArray(taskSubtasks.taskId, taskIds))
-          .orderBy(taskSubtasks.position, taskSubtasks.createdAt)
-      : [];
 
   const subtasksByTaskId = new Map<
     string,
@@ -8739,6 +8709,13 @@ export async function getProjectMembersAction(
 
         const membersResult = await db.query.projectMembers.findMany({
           where: and(...whereConditions),
+          columns: {
+            id: true,
+            projectId: true,
+            userId: true,
+            role: true,
+            joinedAt: true,
+          },
           with: {
             user: {
               columns: {
@@ -8831,556 +8808,6 @@ export async function getProjectMembersAction(
   }
 }
 
-async function getProjectAnalyticsDataset(
-  projectId: string,
-  actorId: string | null,
-): Promise<BuildProjectAnalyticsInput> {
-  await assertProjectReadAccess(projectId, actorId);
-
-  const [projectRow] = await db
-    .select({
-      id: projects.id,
-      slug: projects.slug,
-      title: projects.title,
-      ownerId: projects.ownerId,
-      visibility: projects.visibility,
-      publicTabVisibility: projects.publicTabVisibility,
-      importSource: projects.importSource,
-      syncStatus: projects.syncStatus,
-    })
-    .from(projects)
-    .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
-    .limit(1);
-
-  if (!projectRow) throw new Error("Project not found");
-
-  const actorMemberRows =
-    actorId && actorId !== projectRow.ownerId
-      ? await db
-          .select({
-            userId: projectMembers.userId,
-            role: projectMembers.role,
-          })
-          .from(projectMembers)
-          .where(
-            and(
-              eq(projectMembers.projectId, projectId),
-              eq(projectMembers.userId, actorId),
-            ),
-          )
-          .limit(1)
-      : [];
-
-  const membersForAccess = actorMemberRows.map((member) => ({
-    userId: member.userId,
-    role: member.role,
-  }));
-  const accessLevel = resolveProjectAnalyticsAccess({
-    actorId,
-    projectOwnerId: projectRow.ownerId,
-    members: membersForAccess,
-    projectIsPublic: projectRow.visibility === "public",
-  });
-
-  if (
-    accessLevel === "public" &&
-    !isProjectTabVisibleToViewer({
-      tabId: "analytics",
-      isOwnerOrMember: false,
-      publicTabVisibility: projectRow.publicTabVisibility,
-    })
-  ) {
-    throw new Error("Project analytics are not publicly visible");
-  }
-
-  if (accessLevel === "public") {
-    const importSourceType =
-      (
-        projectRow.importSource as
-          | { type?: "github" | "upload" | "scratch" }
-          | null
-          | undefined
-      )?.type ?? null;
-    return {
-      project: {
-        id: projectRow.id,
-        slug: projectRow.slug,
-        title: projectRow.title,
-        ownerId: projectRow.ownerId,
-        importSourceType,
-        syncStatus: projectRow.syncStatus,
-      },
-      accessLevel,
-      actorId,
-      hiddenPrivateFiles: 0,
-      members: [],
-      tasks: [],
-      sprints: [],
-      files: [],
-      fileVersions: [],
-      taskFileLinks: [],
-      comments: [],
-      applications: [],
-      roles: [],
-      workflows: [],
-      events: [],
-      taskEvents: [],
-      sprintEvents: [],
-    };
-  }
-
-  const memberRows = await db
-    .select({
-      id: projectMembers.id,
-      userId: projectMembers.userId,
-      role: projectMembers.role,
-      joinedAt: projectMembers.joinedAt,
-      username: profiles.username,
-      fullName: profiles.fullName,
-      avatarUrl: profiles.avatarUrl,
-    })
-    .from(projectMembers)
-    .leftJoin(profiles, eq(profiles.id, projectMembers.userId))
-    .where(
-      and(eq(projectMembers.projectId, projectId), isNull(profiles.deletedAt)),
-    )
-    .orderBy(desc(projectMembers.joinedAt))
-    .limit(PROJECT_ANALYTICS_DATASET_LIMITS.members);
-
-  const [
-    taskRows,
-    sprintRows,
-    fileRows,
-    applicationRows,
-    roleRows,
-    workflowRows,
-    linkedWorkRows,
-    eventRows,
-    taskEventRows,
-  ] = await Promise.all([
-    db
-      .select({
-        id: tasks.id,
-        title: tasks.title,
-        status: tasks.status,
-        priority: tasks.priority,
-        assigneeId: tasks.assigneeId,
-        creatorId: tasks.creatorId,
-        sprintId: tasks.sprintId,
-        dueDate: tasks.dueDate,
-        createdAt: tasks.createdAt,
-        updatedAt: tasks.updatedAt,
-      })
-      .from(tasks)
-      .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))
-      .orderBy(desc(tasks.updatedAt))
-      .limit(PROJECT_ANALYTICS_DATASET_LIMITS.tasks),
-    db
-      .select({
-        id: projectSprints.id,
-        name: projectSprints.name,
-        status: projectSprints.status,
-        startDate: projectSprints.startDate,
-        endDate: projectSprints.endDate,
-        createdAt: projectSprints.createdAt,
-        updatedAt: projectSprints.updatedAt,
-      })
-      .from(projectSprints)
-      .where(eq(projectSprints.projectId, projectId))
-      .orderBy(desc(projectSprints.updatedAt))
-      .limit(PROJECT_ANALYTICS_DATASET_LIMITS.sprints),
-    db
-      .select({
-        id: projectNodes.id,
-        name: projectNodes.name,
-        path: projectNodes.path,
-        type: projectNodes.type,
-        createdBy: projectNodes.createdBy,
-        createdAt: projectNodes.createdAt,
-        updatedAt: projectNodes.updatedAt,
-        metadata: projectNodes.metadata,
-        gitHash: projectNodes.gitHash,
-      })
-      .from(projectNodes)
-      .where(
-        and(
-          eq(projectNodes.projectId, projectId),
-          eq(projectNodes.type, "file"),
-          isNull(projectNodes.deletedAt),
-        ),
-      )
-      .orderBy(desc(projectNodes.updatedAt))
-      .limit(PROJECT_ANALYTICS_DATASET_LIMITS.files),
-    db
-      .select({
-        id: roleApplications.id,
-        applicantId: roleApplications.applicantId,
-        status: roleApplications.status,
-        createdAt: roleApplications.createdAt,
-        updatedAt: roleApplications.updatedAt,
-      })
-      .from(roleApplications)
-      .where(eq(roleApplications.projectId, projectId))
-      .orderBy(desc(roleApplications.updatedAt))
-      .limit(PROJECT_ANALYTICS_DATASET_LIMITS.applications),
-    db
-      .select({
-        id: projectOpenRoles.id,
-        title: projectOpenRoles.title,
-        role: projectOpenRoles.role,
-        count: projectOpenRoles.count,
-        filled: projectOpenRoles.filled,
-        updatedAt: projectOpenRoles.updatedAt,
-      })
-      .from(projectOpenRoles)
-      .where(eq(projectOpenRoles.projectId, projectId))
-      .orderBy(desc(projectOpenRoles.updatedAt))
-      .limit(PROJECT_ANALYTICS_DATASET_LIMITS.roles),
-    db
-      .select({
-        id: messageWorkflowItems.id,
-        targetId: messageWorkflowItems.taskId,
-        status: messageWorkflowItems.status,
-        assigneeUserId: messageWorkflowItems.assigneeUserId,
-        createdBy: messageWorkflowItems.creatorId,
-        createdAt: messageWorkflowItems.createdAt,
-        updatedAt: messageWorkflowItems.updatedAt,
-      })
-      .from(messageWorkflowItems)
-      .where(eq(messageWorkflowItems.projectId, projectId))
-      .orderBy(desc(messageWorkflowItems.updatedAt))
-      .limit(PROJECT_ANALYTICS_DATASET_LIMITS.workflows / 2),
-    db
-      .select({
-        id: messageWorkLinks.id,
-        targetId: messageWorkLinks.targetId,
-        status: messageWorkLinks.status,
-        assigneeUserId: messageWorkLinks.assigneeUserId,
-        createdBy: messageWorkLinks.createdBy,
-        createdAt: messageWorkLinks.createdAt,
-        updatedAt: messageWorkLinks.updatedAt,
-      })
-      .from(messageWorkLinks)
-      .where(
-        and(
-          eq(messageWorkLinks.targetProjectId, projectId),
-          isNull(messageWorkLinks.deletedAt),
-        ),
-      )
-      .orderBy(desc(messageWorkLinks.updatedAt))
-      .limit(PROJECT_ANALYTICS_DATASET_LIMITS.workflows / 2),
-    db
-      .select({
-        id: projectNodeEvents.id,
-        type: projectNodeEvents.type,
-        actorId: projectNodeEvents.actorId,
-        metadata: projectNodeEvents.metadata,
-        createdAt: projectNodeEvents.createdAt,
-      })
-      .from(projectNodeEvents)
-      .where(eq(projectNodeEvents.projectId, projectId))
-      .orderBy(desc(projectNodeEvents.createdAt))
-      .limit(PROJECT_ANALYTICS_DATASET_LIMITS.events),
-    db
-      .select({
-        id: taskActivityEvents.id,
-        taskId: taskActivityEvents.taskId,
-        actorId: taskActivityEvents.actorId,
-        eventType: taskActivityEvents.eventType,
-        payload: taskActivityEvents.payload,
-        createdAt: taskActivityEvents.createdAt,
-      })
-      .from(taskActivityEvents)
-      .where(eq(taskActivityEvents.projectId, projectId))
-      .orderBy(desc(taskActivityEvents.createdAt))
-      .limit(PROJECT_ANALYTICS_DATASET_LIMITS.events),
-  ]);
-
-  const sprintEventRows = await db
-    .select({
-      id: projectSprintEvents.id,
-      sprintId: projectSprintEvents.sprintId,
-      actorId: projectSprintEvents.actorId,
-      eventType: projectSprintEvents.eventType,
-      payload: projectSprintEvents.payload,
-      createdAt: projectSprintEvents.createdAt,
-    })
-    .from(projectSprintEvents)
-    .where(eq(projectSprintEvents.projectId, projectId))
-    .orderBy(desc(projectSprintEvents.createdAt))
-    .limit(PROJECT_ANALYTICS_DATASET_LIMITS.events)
-    .catch((error) => {
-      if (isMissingTable(error, "project_sprint_events")) {
-        return [];
-      }
-      throw error;
-    });
-  const importSourceType =
-    (
-      projectRow.importSource as
-        | { type?: "github" | "upload" | "scratch" }
-        | null
-        | undefined
-    )?.type ?? null;
-  const analyticsFileRows = fileRows.map((file) => {
-    const contract = normalizeProjectNodeAnalyticsMetadata({
-      metadata: file.metadata as Record<string, unknown> | null | undefined,
-      gitHash: file.gitHash,
-      importSourceType,
-    });
-    return { ...file, analyticsContract: contract };
-  });
-  const visibleFileRows = analyticsFileRows.filter(
-    (file) => file.analyticsContract.analyticsVisible,
-  );
-  const hiddenPrivateFiles = analyticsFileRows.length - visibleFileRows.length;
-  const fileNodeIds = visibleFileRows.map((file) => file.id);
-  const taskIds = taskRows.map((task) => task.id);
-
-  const [versionRows, taskFileLinkRows, commentRows] = await Promise.all([
-    fileNodeIds.length
-      ? db
-          .select({
-            id: fileVersions.id,
-            nodeId: fileVersions.nodeId,
-            uploadedBy: fileVersions.uploadedBy,
-            uploadedAt: fileVersions.uploadedAt,
-          })
-          .from(fileVersions)
-          .where(inArray(fileVersions.nodeId, fileNodeIds))
-          .orderBy(desc(fileVersions.uploadedAt))
-          .limit(PROJECT_ANALYTICS_DATASET_LIMITS.fileVersions)
-      : Promise.resolve([]),
-    taskIds.length
-      ? db
-          .select({
-            id: taskNodeLinks.id,
-            taskId: taskNodeLinks.taskId,
-            nodeId: taskNodeLinks.nodeId,
-            annotation: taskNodeLinks.annotation,
-            linkedAt: taskNodeLinks.linkedAt,
-          })
-          .from(taskNodeLinks)
-          .where(inArray(taskNodeLinks.taskId, taskIds))
-          .orderBy(desc(taskNodeLinks.linkedAt))
-          .limit(PROJECT_ANALYTICS_DATASET_LIMITS.taskFileLinks)
-      : Promise.resolve([]),
-    taskIds.length
-      ? db
-          .select({
-            id: taskComments.id,
-            taskId: taskComments.taskId,
-            userId: taskComments.userId,
-            createdAt: taskComments.createdAt,
-          })
-          .from(taskComments)
-          .where(
-            and(
-              inArray(taskComments.taskId, taskIds),
-              isNull(taskComments.deletedAt),
-            ),
-          )
-          .orderBy(desc(taskComments.createdAt))
-          .limit(PROJECT_ANALYTICS_DATASET_LIMITS.comments)
-      : Promise.resolve([]),
-  ]);
-
-  return {
-    project: {
-      id: projectRow.id,
-      slug: projectRow.slug,
-      title: projectRow.title,
-      ownerId: projectRow.ownerId,
-      importSourceType,
-      syncStatus: projectRow.syncStatus,
-    },
-    accessLevel,
-    actorId,
-    hiddenPrivateFiles,
-    members: memberRows.map((member) => ({
-      id: member.id,
-      userId: member.userId,
-      role: projectRow.ownerId === member.userId ? "owner" : member.role,
-      joinedAt: member.joinedAt,
-      user: {
-        id: member.userId,
-        username: member.username,
-        fullName: member.fullName,
-        avatarUrl: member.avatarUrl,
-      },
-    })),
-    tasks: taskRows,
-    sprints: sprintRows,
-    files: visibleFileRows.map((file) => ({
-      id: file.id,
-      name: file.name,
-      path: file.path,
-      type: file.type,
-      createdBy: file.createdBy,
-      createdAt: file.createdAt,
-      updatedAt: file.updatedAt,
-      source: file.analyticsContract.source,
-      analyticsVisible: file.analyticsContract.analyticsVisible,
-      publicVisible: file.analyticsContract.publicVisible,
-      privateReason: file.analyticsContract.privateReason,
-    })),
-    fileVersions: versionRows,
-    taskFileLinks: taskFileLinkRows,
-    comments: commentRows,
-    applications: applicationRows,
-    roles: roleRows,
-    workflows: [
-      ...workflowRows,
-      ...linkedWorkRows.map((link) => ({
-        id: link.id,
-        targetId: link.targetId,
-        status: link.status,
-        assigneeUserId: link.assigneeUserId,
-        createdBy: link.createdBy,
-        createdAt: link.createdAt,
-        updatedAt: link.updatedAt,
-      })),
-    ],
-    events: eventRows,
-    taskEvents: taskEventRows,
-    sprintEvents: sprintEventRows,
-  };
-}
-
-const readProjectAnalyticsData = async (projectId: string) => {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const actorId = user?.id ?? null;
-  return runInFlightDeduped(
-    `project:analytics:v2:${projectId}:${actorId ?? "anon"}`,
-    () => getProjectAnalyticsDataset(projectId, actorId),
-  );
-};
-
-const readProjectAnalyticsScopedData = async (
-  projectId: string,
-  context?: Partial<ProjectAnalyticsContextFilters> | null,
-) => {
-  const dataset = await readProjectAnalyticsData(projectId);
-  return filterProjectAnalyticsDatasetByContext(
-    dataset,
-    normalizeProjectAnalyticsContext(context),
-  );
-};
-
-const canReadMemberDetail = (
-  dataset: BuildProjectAnalyticsInput,
-  memberUserId: string,
-) => {
-  if (dataset.accessLevel === "owner" || dataset.accessLevel === "co_leader")
-    return true;
-  if (dataset.accessLevel === "member" || dataset.accessLevel === "viewer")
-    return dataset.actorId === memberUserId;
-  return false;
-};
-
-export async function readProjectAnalyticsOverviewAction(
-  projectId: string,
-  context?: Partial<ProjectAnalyticsContextFilters> | null,
-) {
-  try {
-    const rawDataset = await readProjectAnalyticsData(projectId);
-    const dataset = filterProjectAnalyticsDatasetByContext(
-      rawDataset,
-      normalizeProjectAnalyticsContext(context),
-    );
-    return {
-      success: true as const,
-      overview: buildProjectAnalyticsOverview(dataset, context, rawDataset),
-    };
-  } catch (error) {
-    console.error("Failed to fetch project analytics overview:", error);
-    return {
-      success: false as const,
-      error: "Failed to fetch project analytics overview",
-    };
-  }
-}
-
-export async function readProjectAnalyticsMembersAction(
-  projectId: string,
-  context?: Partial<ProjectAnalyticsContextFilters> | null,
-) {
-  try {
-    const dataset = await readProjectAnalyticsScopedData(projectId, context);
-    if (dataset.accessLevel === "public")
-      return { success: true as const, members: [] };
-    return {
-      success: true as const,
-      members: buildProjectAnalyticsMemberSummaries(dataset),
-    };
-  } catch (error) {
-    console.error("Failed to fetch project analytics members:", error);
-    return {
-      success: false as const,
-      error: "Failed to fetch project analytics members",
-    };
-  }
-}
-
-export async function readProjectMemberAnalyticsAction(
-  projectId: string,
-  memberUserId: string,
-  context?: Partial<ProjectAnalyticsContextFilters> | null,
-) {
-  try {
-    const dataset = await readProjectAnalyticsScopedData(projectId, {
-      ...context,
-      memberId: memberUserId,
-    });
-    if (!canReadMemberDetail(dataset, memberUserId)) {
-      return {
-        success: false as const,
-        error: "Member analytics are not visible for this access level",
-      };
-    }
-    return {
-      success: true as const,
-      detail: buildProjectAnalyticsMemberDetail(dataset, memberUserId),
-    };
-  } catch (error) {
-    console.error("Failed to fetch project member analytics:", error);
-    return {
-      success: false as const,
-      error: "Failed to fetch project member analytics",
-    };
-  }
-}
-
-export async function readProjectAnalyticsTimelineAction(
-  projectId: string,
-  filters: ProjectAnalyticsTimelineFilters = {},
-) {
-  try {
-    const dataset = await readProjectAnalyticsData(projectId);
-    if (dataset.accessLevel === "public") {
-      return {
-        success: true as const,
-        timeline: buildProjectAnalyticsTimeline(
-          { ...dataset, events: [], comments: [], workflows: [] },
-          filters,
-        ),
-      };
-    }
-    return {
-      success: true as const,
-      timeline: buildProjectAnalyticsTimeline(dataset, filters),
-    };
-  } catch (error) {
-    console.error("Failed to fetch project analytics timeline:", error);
-    return {
-      success: false as const,
-      error: "Failed to fetch project analytics timeline",
-    };
-  }
-}
 
 const createTaskSchema = baseCreateTaskSchema.extend({
   subtasks: z
@@ -10904,7 +10331,6 @@ export async function updateProjectStageAction(
     const slugOrId = updated.slug || projectId;
     revalidatePath(`/projects/${slugOrId}`);
     revalidatePath(`/projects/${projectId}`);
-    revalidatePath("/hub");
 
     return {
       success: true,
@@ -11024,7 +10450,6 @@ export async function updateProjectLifecycleAction(
     const slugOrId = project.slug || projectId;
     revalidatePath(`/projects/${slugOrId}`);
     revalidatePath(`/projects/${projectId}`);
-    revalidatePath("/hub");
 
     return { success: true, newStageIndex: newIndex };
   } catch (error) {
@@ -11087,7 +10512,11 @@ export async function finalizeProjectAction(
 
           // 1. Verify Ownership
           const [project] = await tx
-            .select()
+            .select({
+              id: projects.id,
+              ownerId: projects.ownerId,
+              status: projects.status,
+            })
             .from(projects)
             .where(eq(projects.id, projectId))
             .for("update")

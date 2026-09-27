@@ -1,119 +1,158 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { CreateProjectInput } from '@/lib/validations/project';
-import { Globe, Lock } from 'lucide-react';
+import { Check, Globe, Lock, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { ProjectLinkEditorFields } from '@/components/projects/dashboard/ProjectSocialLinksCard';
 import { socialLinkItemsFromStorage } from '@/lib/profile/normalization';
+import { CreateProjectInput } from '@/lib/validations/project';
 
-const DEFAULT_TERMS = {
-    ip_agreement: 'discuss' as const,
-    nda_required: 'none' as const,
-    portfolio_showcase_allowed: true,
-    license: '',
-    additional_terms: '',
+type Phase4SettingsProps = {
+    showValidationSummary?: boolean;
+    linkComposerPending?: boolean;
+    onLinkComposerPending?: (pending: boolean) => void;
+    onEditRoles?: () => void;
 };
 
-export default function Phase4Settings() {
-    const { setValue, watch } = useFormContext<CreateProjectInput>();
-    const visibility = watch('visibility');
-    const terms = watch('terms');
-    const externalLinks = socialLinkItemsFromStorage(watch('external_links'));
-    const importSource = watch('import_source');
+function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; title: string; description: string; id: string }) {
+    return (
+        <div className="max-w-[65ch]">
+            <p className="nb-micro text-primary">{eyebrow}</p>
+            <h3 id={id} className="nb-card-title mt-1 text-foreground">{title}</h3>
+            <p className="nb-compact mt-1 text-muted-foreground">{description}</p>
+        </div>
+    );
+}
 
-    const updateTerms = (updates: Partial<typeof DEFAULT_TERMS>) => {
-        setValue('terms', {
-            ...DEFAULT_TERMS,
-            ...terms,
-            ...updates,
-        });
+export default function Phase4Settings({ showValidationSummary = false, linkComposerPending = false, onLinkComposerPending, onEditRoles }: Phase4SettingsProps) {
+    const { setValue, watch, formState: { errors } } = useFormContext<CreateProjectInput>();
+    const visibility = watch('visibility') || 'public';
+    const openRoles = watch('roles') || [];
+    const externalLinks = socialLinkItemsFromStorage(watch('external_links'));
+    const openRoleCount = openRoles.filter((role) => role.role.trim().length > 0).length;
+    const openPositionCount = openRoles.reduce((total, role) => total + role.count, 0);
+    const externalLinksError = (errors.external_links as { message?: string } | undefined)?.message;
+    const validationMessages = [
+        linkComposerPending ? 'Finish adding the project link or clear the URL before continuing.' : null,
+        externalLinksError,
+    ].filter((message): message is string => Boolean(message));
+
+    useEffect(() => () => onLinkComposerPending?.(false), [onLinkComposerPending]);
+
+    const selectVisibility = (nextVisibility: 'public' | 'private') => {
+        setValue('visibility', nextVisibility, { shouldDirty: true, shouldValidate: true });
     };
 
     return (
-        <div className="space-y-8">
-            {/* Visibility */}
-            <div>
-                <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-                    Project Visibility
-                </h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-                    Control who can see and discover your project
-                </p>
+        <div className="min-w-0 w-full space-y-8 pb-6">
+            <div className="max-w-[65ch]">
+                <p className="nb-micro text-primary">Phase 4 · settings</p>
+                <h2 className="nb-section-title mt-1 text-foreground">Set the project’s launch settings</h2>
+                <p className="nb-compact mt-1.5 text-muted-foreground">Choose who can find the project, confirm its collaboration state, and add the destinations people need.</p>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {[
-                        { id: 'public', label: 'Public', icon: Globe, description: 'Anyone can find and view' },
-                        { id: 'private', label: 'Private', icon: Lock, description: 'Only team members' },
-                    ].map((opt) => {
-                        const Icon = opt.icon;
-                        const isSelected = visibility === opt.id;
+            {showValidationSummary && validationMessages.length > 0 ? (
+                <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
+                    <p className="font-semibold">Finish the project links before continuing</p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+                        {validationMessages.map((message) => <li key={message}>{message}</li>)}
+                    </ul>
+                </div>
+            ) : null}
 
+            <section aria-labelledby="project-access-heading" className="border-t border-border pt-6">
+                <SectionHeading
+                    id="project-access-heading"
+                    eyebrow="Access"
+                    title="Choose project visibility"
+                    description="This controls whether the project can be discovered now. You can refine public tabs after the project is created."
+                />
+
+                <fieldset className="mt-5 border-y border-border" aria-describedby="create-project-visibility-help">
+                    <legend className="sr-only">Project visibility</legend>
+                    {([
+                        { id: 'public' as const, label: 'Public', icon: Globe, description: 'Anyone can discover the project and view its public surfaces.' },
+                        { id: 'private' as const, label: 'Private', icon: Lock, description: 'Only collaborators can access the project until you make it public.' },
+                    ]).map((option) => {
+                        const Icon = option.icon;
+                        const isSelected = visibility === option.id;
                         return (
-                            <button
-                                key={opt.id}
-                                type="button"
-                                onClick={() => setValue('visibility', opt.id as 'public' | 'private')}
-                                className={`flex flex-col items-start p-4 rounded-xl border-2 transition-all ${isSelected
-                                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
-                                        : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-                                    }`}
-                            >
-                                <Icon className={`w-5 h-5 mb-2 ${isSelected ? 'text-indigo-600' : 'text-zinc-400'}`} />
-                                <span className={`font-medium ${isSelected ? 'text-indigo-600' : 'text-zinc-700 dark:text-zinc-300'}`}>
-                                    {opt.label}
+                            <label key={option.id} className={`flex cursor-pointer items-start gap-3 border-b border-border px-4 py-4 last:border-b-0 transition-[background-color,border-color] duration-[130ms] focus-within:ring-2 focus-within:ring-ring/30 ${isSelected ? 'bg-secondary/60' : 'hover:bg-muted/30'}`}>
+                                <input type="radio" name="project-visibility" value={option.id} checked={isSelected} onChange={() => selectVisibility(option.id)} className="sr-only" />
+                                <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[3px] border ${isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-transparent'}`} aria-hidden="true">
+                                    <Check className="size-3" strokeWidth={2} />
                                 </span>
-                                <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
-                                    {opt.description}
+                                <Icon className={`mt-0.5 size-4 shrink-0 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} strokeWidth={1.75} aria-hidden="true" />
+                                <span className="min-w-0">
+                                    <span className="nb-ui-label block text-foreground">{option.label}</span>
+                                    <span className="nb-compact mt-1 block max-w-[58ch] text-muted-foreground">{option.description}</span>
                                 </span>
-                            </button>
+                            </label>
                         );
                     })}
-                </div>
-            </div>
-
-            {/* Terms & IP */}
-            <div>
-                <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-                    Terms & IP
-                </h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-                    Set clear expectations for contributions
+                </fieldset>
+                <p id="create-project-visibility-help" className="mt-3 max-w-[65ch] text-[13px] leading-[1.5] text-muted-foreground">
+                    <span className="font-medium text-foreground">Visible at launch: </span>
+                    {visibility === 'public'
+                        ? 'Dashboard · Doc · Updates · Files. You can change these surfaces later in Project settings.'
+                        : 'Collaborators only. Public-surface choices take effect only after you make the project public.'}
                 </p>
+            </section>
 
-                <div className="space-y-4">
-
-
-                    <div className="flex items-center gap-3">
-                        <input
-                            type="checkbox"
-                            checked={terms?.portfolio_showcase_allowed ?? true}
-                            onChange={(e) => updateTerms({ portfolio_showcase_allowed: e.target.checked })}
-                            className="w-4 h-4 rounded border-zinc-300 text-indigo-600 "
-                        />
-                        <label className="text-sm text-zinc-700 dark:text-zinc-300">
-                            Contributors can showcase work in their portfolios
-                        </label>
+            <section aria-labelledby="project-collaboration-heading" className="border-t border-border pt-6">
+                <div className="flex items-start justify-between gap-4">
+                    <SectionHeading
+                        id="project-collaboration-heading"
+                        eyebrow="Collaboration"
+                        title="Confirm the initial availability"
+                        description="This reflects the roles you set in the previous phase."
+                    />
+                    {onEditRoles ? <Button type="button" variant="link" size="sm" className="-mt-1 shrink-0" onClick={onEditRoles}>Edit roles</Button> : null}
+                </div>
+                <div className="mt-5 flex items-start gap-3 border-y border-border py-4">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-[3px] border border-border bg-secondary text-primary" aria-hidden="true"><Users className="size-4" strokeWidth={1.75} /></span>
+                    <div className="min-w-0">
+                        <p className="nb-ui-label text-foreground">{openRoleCount > 0 ? 'Open to collaborators' : 'No openings planned'}</p>
+                        <p className="nb-compact mt-1 max-w-[60ch] text-muted-foreground">
+                            {openRoleCount > 0
+                                ? `${openRoleCount} ${openRoleCount === 1 ? 'role' : 'roles'} · ${openPositionCount} ${openPositionCount === 1 ? 'opening' : 'openings'} will be visible to potential contributors.`
+                                : 'The project will be created without recruitment listings. You can add roles later from Project settings.'}
+                        </p>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            {/* Project Links */}
-            <div>
-                <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-                    Project Links
-                </h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-                    Paste any public project destination. The service and icon are detected automatically.
-                </p>
-                <ProjectLinkEditorFields
-                    links={externalLinks}
-                    savedLinks={[]}
-                    onChange={(links) => setValue('external_links', links, { shouldDirty: true, shouldValidate: true })}
-                    githubRepoUrl={importSource?.type === 'github' ? importSource.repoUrl : null}
-                    importSource={importSource}
-                    projectType={watch('project_type')}
+            <section aria-labelledby="project-links-heading" className="border-t border-border pt-6">
+                <SectionHeading
+                    id="project-links-heading"
+                    eyebrow="Destinations"
+                    title="Project links"
+                    description="External project destinations and connected repositories displayed beside the project title and across public surfaces."
                 />
-            </div>
+
+                <div className="mt-5">
+                    <ProjectLinkEditorFields
+                        links={externalLinks}
+                        savedLinks={[]}
+                        onChange={(links) => setValue('external_links', links, { shouldDirty: true, shouldValidate: true })}
+                        onPendingChange={onLinkComposerPending}
+                        importSource={watch('import_source')}
+                        projectType={watch('project_type')}
+                        commitContext="project-create"
+                    />
+                </div>
+                {externalLinksError ? <p role="alert" className="mt-2 text-[13px] leading-[1.5] text-destructive">{externalLinksError}</p> : null}
+            </section>
+
+            <p aria-live="polite" className="border-t border-border pt-4 text-[13px] leading-[1.5] text-muted-foreground">
+                <span className="font-medium text-foreground">Ready to review: </span>
+                {visibility === 'private' ? 'Private project' : 'Public project'} · {openRoleCount === 0 ? 'no openings' : `${openRoleCount} ${openRoleCount === 1 ? 'role' : 'roles'} · ${openPositionCount} ${openPositionCount === 1 ? 'opening' : 'openings'}`} · {externalLinks.length === 0 ? 'no public links' : `${externalLinks.length} ${externalLinks.length === 1 ? 'public link' : 'public links'}`}
+            </p>
+
+            <aside className="border-l-2 border-border pl-4 text-[13px] leading-[1.5] text-muted-foreground">
+                Roles, notifications, public-tab controls, documents, files, and privacy policies remain available after creation in Project settings.
+            </aside>
         </div>
     );
 }
