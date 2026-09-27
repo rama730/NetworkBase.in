@@ -1163,6 +1163,13 @@
       "when": 1789300000000,
       "tag": "0166_project_recent_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 166,
+      "version": "7",
+      "when": 1790524534980,
+      "tag": "0168_realtime_publication_trim",
+      "breakpoints": true
     }
   ]
 }
