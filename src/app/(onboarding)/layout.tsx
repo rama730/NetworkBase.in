@@ -43,7 +43,7 @@ export default async function OnboardingLayout({
   });
 
   if (isCompletedOnboardingStatus(profile?.onboardingStatus, profile?.username)) {
-    redirect('/hub');
+    redirect('/discover');
   }
 
   const bootstrap = {

@@ -7,11 +7,11 @@ const root = process.cwd();
 const source = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 
 test("QRY-001..006 hub pagination keeps filters, rejects cursors, and has no dead project owner", () => {
-  const action = source("src/app/actions/hub.ts");
-  const hub = source("src/lib/data/hub.ts");
+  const action = source("src/app/actions/discover.ts");
+  const hub = source("src/lib/data/discover.ts");
 
   assert.match(action, /includedIds:\s*filters\.includedIds/);
-  assert.match(hub, /throw new InvalidHubCursorError\(\)/);
+  assert.match(hub, /throw new InvalidDiscoverCursorError\(\)/);
   assert.match(hub, /\.limit\(pageSize \+ 1\)/);
   assert.match(hub, /while \(pageRows\.length < pageSize/);
   assert.equal(fs.existsSync(path.join(root, "src/lib/data/project.ts")), false);

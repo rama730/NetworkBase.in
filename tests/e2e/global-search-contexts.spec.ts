@@ -9,7 +9,7 @@ test.describe('context-aware global search', () => {
     });
 
     test('routes Hub and Connections searches through their canonical query state', async ({ page }) => {
-        await page.goto('/hub');
+        await page.goto('/discover');
         await page.getByRole('button', { name: 'Search projects' }).click();
         await expect(page.getByText('Start typing to preview matching projects.')).toBeVisible();
         const hubSearch = page.getByRole('searchbox', { name: /search hub \/ projects/i });
@@ -36,7 +36,7 @@ test.describe('context-aware global search', () => {
         await expect(removeRecentSearch).toHaveCount(0);
         await page.getByRole('button', { name: 'Close search' }).click();
 
-        await page.goto('/people?tab=requests');
+        await page.goto('/network?tab=requests');
         await page.getByRole('button', { name: 'Search builders and collaborators' }).click();
         const peopleSearch = page.getByRole('searchbox', { name: /search connections \/ builders/i });
         await peopleSearch.fill('TypeScript');
@@ -44,7 +44,7 @@ test.describe('context-aware global search', () => {
         await expect(page).toHaveURL(/\/people\?(?=.*tab=discover)(?=.*q=TypeScript)/);
         await expect(page.getByRole('searchbox')).toHaveCount(0);
 
-        await page.goto('/people?tab=network');
+        await page.goto('/network?tab=network');
         await page.getByRole('button', { name: 'Search your network' }).click();
         const networkSearch = page.getByRole('searchbox', { name: /search connections \/ network/i });
         await networkSearch.fill('Ramanayudu');
@@ -53,7 +53,7 @@ test.describe('context-aware global search', () => {
     });
 
     test('exposes a selected Hub technology and clears it without losing unrelated filters', async ({ page }) => {
-        await page.goto('/hub?tech=GitHub&type=startup');
+        await page.goto('/discover?tech=GitHub&type=startup');
         await expect(page.getByRole('button', { name: /current query: github/i })).toBeVisible();
         await page.getByRole('button', { name: 'Clear search' }).click();
         await expect(page).toHaveURL(/\/hub\?type=startup$/);

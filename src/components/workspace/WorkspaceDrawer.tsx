@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { getWorkspaceSummaryAction } from "@/app/actions/workspace";
-import { usePeopleNotifications } from "@/hooks/usePeopleNotifications";
+import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 
 import WorkspaceTasksTab from "./WorkspaceTasksTab";
 import WorkspaceRequestsTab from "./WorkspaceRequestsTab";
@@ -18,7 +18,7 @@ export default function WorkspaceDrawer() {
   const setWorkspaceOpen = useUIStore((s) => s.setWorkspaceOpen);
   const activeTab = useUIStore((s) => s.workspaceTab);
   const setActiveTab = useUIStore((s) => s.setWorkspaceTab);
-  const { pendingConnections } = usePeopleNotifications();
+  const { pendingConnections } = useNetworkNotifications();
 
   const { data: summary } = useQuery({
     queryKey: queryKeys.workspace.summary(),

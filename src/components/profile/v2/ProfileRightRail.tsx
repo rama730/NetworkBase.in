@@ -159,7 +159,7 @@ export function ProfileRightRail({
                     {isOwner ? (
                         <>
                             <Link
-                                href="/profile"
+                                href="/my-profile"
                                 className="nb-ui-label rounded-[3px] border border-border bg-card px-3 py-2 text-foreground hover:bg-muted transition-colors flex items-center gap-2"
                             >
                                 <Pencil className="w-4 h-4 text-muted-foreground" />

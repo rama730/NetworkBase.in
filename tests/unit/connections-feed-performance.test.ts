@@ -22,18 +22,18 @@ test("connections feed shares auth, overlaps reads, and keeps privacy auditing o
 });
 
 test("People lazily loads inactive tabs and has a route-level loading shell", () => {
-  const hub = source("src/components/people/PeopleHubClient.tsx");
-  const invitations = source("src/components/people/InvitationsClient.tsx");
-  const loading = source("src/app/(main)/people/loading.tsx");
+  const hub = source("src/components/network/NetworkClient.tsx");
+  const invitations = source("src/components/network/InvitationsClient.tsx");
+  const loading = source("src/app/(main)/network/loading.tsx");
 
-  assert.match(hub, /const loadPeopleClient = \(\) => import\("@\/components\/people\/PeopleClient"\)/);
+  assert.match(hub, /const loadPeopleClient = \(\) => import\("@\/components\/people\/NetworkPeopleTab"\)/);
   assert.match(hub, /const loadConnectionsClient = \(\) => import\("@\/components\/people\/ConnectionsClient"\)/);
   assert.match(hub, /const loadInvitationsClient = \(\) => import\("@\/components\/people\/InvitationsClient"\)/);
   assert.match(hub, /dynamic\(loadPeopleClient/);
   assert.match(hub, /dynamic\(loadConnectionsClient/);
   assert.match(hub, /dynamic\(loadInvitationsClient/);
   assert.match(hub, /onMouseEnter=\{\(\) => preloadTab\(tab\.key\)\}/);
-  assert.doesNotMatch(hub, /import PeopleClient from/);
+  assert.doesNotMatch(hub, /import NetworkPeopleTab from/);
   assert.match(hub, /pendingConnections \+ pendingInvites/);
   assert.match(invitations, /getIncomingApplicationsAction\(\{ limit: 50 \}\)/);
   assert.match(invitations, /invitation\.isWorkflowItem/);

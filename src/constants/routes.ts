@@ -4,14 +4,11 @@ export const ROUTES = {
     SIGNUP: '/signup',
     ONBOARDING: '/onboarding',
     WORKSPACE: '/workspace',
-    HUB: '/discover',
     DISCOVER: '/discover',
-    PEOPLE: '/network',
     NETWORK: '/network',
     MESSAGES: '/messages',
     PROJECTS: '/projects',
     SETTINGS: '/settings',
-    PROFILE: '/my-profile',
     MY_PROFILE: '/my-profile',
 } as const
 

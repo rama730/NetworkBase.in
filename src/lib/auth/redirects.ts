@@ -1,4 +1,4 @@
-export const DEFAULT_AUTH_NEXT_PATH = '/hub';
+export const DEFAULT_AUTH_NEXT_PATH = '/discover';
 const DEFAULT_LOCAL_ORIGIN = 'http://localhost:3000';
 const MISSING_CANONICAL_BASE_ERROR =
     '[auth.redirects] missing APP_URL/NEXT_PUBLIC_APP_URL in production runtime';

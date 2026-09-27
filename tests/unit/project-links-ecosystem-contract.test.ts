@@ -33,7 +33,7 @@ test('Project Links has one canonical settings surface and participates in proje
 });
 
 test('hub workspace cards expose a privacy-filtered primary destination action', () => {
-    const hubData = source('src/lib/data/hub.ts');
+    const hubData = source('src/lib/data/discover.ts');
     const card = source('src/components/projects/ProjectCard.tsx');
     assert.match(hubData, /filterProjectLinksForAudience/);
     assert.match(card, /primaryProjectLink/);

@@ -1013,11 +1013,11 @@ script.debug-script-view {
   .nb-project-card { transition: none; }
 }
 /* Virtualized lists manage DOM unmounting directly. content-visibility: auto inside Virtuoso breaks off-screen measurement and causes violent scroll jitter/flicker */
-[data-testid="hub-feed-scroll"],
-[data-testid="hub-feed-scroll"] [data-virtuoso-scroller] {
+[data-testid="discover-feed-scroll"],
+[data-testid="discover-feed-scroll"] [data-virtuoso-scroller] {
   overflow-anchor: none;
 }
-[data-testid="hub-feed-scroll"] .nb-project-card,
+[data-testid="discover-feed-scroll"] .nb-project-card,
 [data-virtuoso-scroller] .nb-project-card {
   content-visibility: visible;
   contain-intrinsic-size: none;

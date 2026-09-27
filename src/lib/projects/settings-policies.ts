@@ -593,14 +593,14 @@ export function buildProjectAccessPolicy(
   const affectedAreasByVisibility: Record<ProjectSettingsVisibility, string[]> =
     {
       public: [
-        "Project cards, Hub discovery, search, and public profile references can show the project",
+        "Project cards, Discover, search, and public profile references can show the project",
         "Shared links can show the project title, description, and project image preview",
         "Followers may receive public project updates when an update creates attention",
         "Doc, Updates, Files, and Applications inherit their own public/member-safe access checks",
       ],
       private: [
         "Only the owner and approved project members can open project detail surfaces",
-        "Hub discovery, public search, public profile cards, and anonymous metadata hide the project",
+        "Discover, public search, public profile cards, and anonymous metadata hide the project",
         "Shared links resolve only for members; outsiders get a safe unavailable response",
         "Files, tasks, Doc, Updates, applications, and notifications use member-only access",
       ],
@@ -707,14 +707,14 @@ export function buildProjectAccessImpact(
   const transitionChecklist =
     visibility === "private"
       ? [
-          "Hide the project from Hub discovery, public search, and public profile project cards.",
+          "Hide the project from Discover, public search, and public profile project cards.",
           "Return safe unavailable metadata for anonymous shared links.",
           "Keep owner and approved member access unchanged.",
           "Keep pending applicant context limited to their own application or conversation.",
           "Keep files, tasks, Doc, Updates, and notifications behind member-safe access checks.",
         ]
       : [
-          "Restore Hub discovery, public search, and public profile project cards.",
+          "Restore Discover, public search, and public profile project cards.",
           "Allow shared links to show project title, description, and project image metadata.",
           "Keep write access role-based; Public does not grant edit rights.",
           "Allow open roles and applications to be discovered publicly.",

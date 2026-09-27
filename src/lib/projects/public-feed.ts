@@ -1,4 +1,4 @@
-import type { Project } from '@/types/hub'
+import type { Project } from '@/types/discover'
 
 export type PublicProjectsCursor = {
     createdAt: string
@@ -90,7 +90,7 @@ function normalizeProjectStatus(status: string | null): Project['status'] {
     return 'draft'
 }
 
-export function mapPublicProjectToHubProject(project: PublicProjectsFeedItem): Project {
+export function mapPublicProjectToDiscoverProject(project: PublicProjectsFeedItem): Project {
     const ownerVisibility = project.profiles.visibility || 'public'
     const shouldMaskOwner = ownerVisibility !== 'public'
     return {

@@ -120,9 +120,9 @@ describe('skills ecosystem contract', () => {
     })
 
     it('keeps discovery and project ranking on canonical matching helpers', () => {
-        assert.match(source('src/components/people/PersonCard.tsx'), /matchingSkillLabels/)
+        assert.match(source('src/components/network/PersonCard.tsx'), /matchingSkillLabels/)
         assert.match(source('src/inngest/functions/social-graph-suggestions.ts'), /matchingSkillLabels/)
-        assert.match(source('src/lib/data/hub.ts'), /countCanonicalSkillMatches/)
+        assert.match(source('src/lib/data/discover.ts'), /countCanonicalSkillMatches/)
     })
 
     it('keeps catalog traffic observable without logging search text', () => {

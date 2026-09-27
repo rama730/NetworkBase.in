@@ -29,18 +29,18 @@ describe('auth redirects', () => {
     })
 
     it('normalizes valid internal next paths', () => {
-        assert.equal(normalizeAuthNextPath('/hub'), '/hub')
+        assert.equal(normalizeAuthNextPath('/discover'), '/discover')
         assert.equal(normalizeAuthNextPath('/projects/abc?tab=files'), '/projects/abc?tab=files')
     })
 
     it('rejects malformed or external next paths', () => {
-        assert.equal(normalizeAuthNextPath('https://evil.example/steal'), '/hub')
-        assert.equal(normalizeAuthNextPath('//evil.example/steal'), '/hub')
-        assert.equal(normalizeAuthNextPath('hub'), '/hub')
-        assert.equal(normalizeAuthNextPath('/auth/callback'), '/hub')
-        assert.equal(normalizeAuthNextPath('/\\evil'), '/hub')
-        assert.equal(normalizeAuthNextPath('/%5cevil'), '/hub')
-        assert.equal(normalizeAuthNextPath('/_internal'), '/hub')
+        assert.equal(normalizeAuthNextPath('https://evil.example/steal'), '/discover')
+        assert.equal(normalizeAuthNextPath('//evil.example/steal'), '/discover')
+        assert.equal(normalizeAuthNextPath('hub'), '/discover')
+        assert.equal(normalizeAuthNextPath('/auth/callback'), '/discover')
+        assert.equal(normalizeAuthNextPath('/\\evil'), '/discover')
+        assert.equal(normalizeAuthNextPath('/%5cevil'), '/discover')
+        assert.equal(normalizeAuthNextPath('/_internal'), '/discover')
     })
 
     it('resolves canonical auth base URL using APP_URL precedence', () => {
@@ -98,36 +98,36 @@ describe('auth redirects', () => {
         const redirectTo = buildOAuthRedirectTo('https://app.example.com', 'https://evil.example')
         assert.equal(
             redirectTo,
-            'https://app.example.com/auth/callback?next=%2Fhub',
+            'https://app.example.com/auth/callback?next=%2Fdiscover',
         )
     })
 
     it('includes request id in oauth callback redirect URL when provided', () => {
-        const redirectTo = buildOAuthRedirectTo('https://app.example.com', '/hub', 'req-123')
+        const redirectTo = buildOAuthRedirectTo('https://app.example.com', '/discover', 'req-123')
         assert.equal(
             redirectTo,
-            'https://app.example.com/auth/callback?next=%2Fhub&rid=req-123',
+            'https://app.example.com/auth/callback?next=%2Fdiscover&rid=req-123',
         )
     })
 
     it('includes provider in oauth callback redirect URL when provided', () => {
-        const redirectTo = buildOAuthRedirectTo('https://app.example.com', '/hub', 'req-123', 'github')
+        const redirectTo = buildOAuthRedirectTo('https://app.example.com', '/discover', 'req-123', 'github')
         assert.equal(
             redirectTo,
-            'https://app.example.com/auth/callback?next=%2Fhub&rid=req-123&provider=github',
+            'https://app.example.com/auth/callback?next=%2Fdiscover&rid=req-123&provider=github',
         )
     })
 
     it('preserves local development host aliases in oauth callback URLs', () => {
-        const redirectTo = buildOAuthRedirectTo('http://127.0.0.1:3000', '/hub', 'req-456')
+        const redirectTo = buildOAuthRedirectTo('http://127.0.0.1:3000', '/discover', 'req-456')
         assert.equal(
             redirectTo,
-            'http://127.0.0.1:3000/auth/callback?next=%2Fhub&rid=req-456',
+            'http://127.0.0.1:3000/auth/callback?next=%2Fdiscover&rid=req-456',
         )
     })
 
     it('builds auth page href from normalized redirect path', () => {
-        assert.equal(buildAuthPageHref('/signup', '/hub'), '/signup')
+        assert.equal(buildAuthPageHref('/signup', '/discover'), '/signup')
         assert.equal(
             buildAuthPageHref('/login', '/projects/a?tab=files'),
             '/login?redirect=%2Fprojects%2Fa%3Ftab%3Dfiles',

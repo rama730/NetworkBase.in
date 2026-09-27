@@ -446,7 +446,6 @@ export async function registerUploadedFolderAction(
     revalidatePath(`/projects/${projectId}`);
     if (project.slug) revalidatePath(`/projects/${project.slug}`);
     revalidatePath('/discover');
-    revalidatePath('/hub');
     logger.metric('upload.register.result', {
       projectId,
       userId: user.id,
@@ -809,7 +808,6 @@ export async function registerUploadedFolderAction(
     revalidatePath(`/projects/${projectId}`);
     if (project.slug) revalidatePath(`/projects/${project.slug}`);
     revalidatePath('/discover');
-    revalidatePath('/hub');
 
     const value = lockResult.value || {
       registeredFiles: 0,
@@ -940,7 +938,6 @@ export async function markProjectSyncFailedAction(
   revalidatePath(`/projects/${projectId}`);
   if (project.slug) revalidatePath(`/projects/${project.slug}`);
   revalidatePath('/discover');
-  revalidatePath('/hub');
 
   logger.metric('upload.register.result', {
     projectId,

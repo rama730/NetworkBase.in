@@ -307,7 +307,7 @@ function AuthorizePageInner() {
         }
 
         setTimeout(() => {
-            window.location.assign('/hub')
+            window.location.assign('/discover')
         }, 300)
     }
 
@@ -380,7 +380,7 @@ function AuthorizePageInner() {
                 status === 'success'
                     ? {
                         label: 'Dashboard',
-                        onClick: () => router.push('/hub'),
+                        onClick: () => router.push('/discover'),
                     }
                     : {
                         label: 'Cancel',

@@ -63,7 +63,7 @@ export async function GET(request: Request) {
         // When an in-app linking attempt (such as from /settings?tab=integrations) encounters
         // an OAuth error (e.g. identity_already_exists), return back to the requesting page
         // instead of bouncing through /login with misleading success parameters.
-        if (nextPath.startsWith('/settings') || nextPath.startsWith('/projects') || nextPath.startsWith('/hub')) {
+        if (nextPath.startsWith('/settings') || nextPath.startsWith('/projects') || nextPath.startsWith('/discover')) {
             const inAppUrl = new URL(nextPath, baseUrl)
             inAppUrl.searchParams.delete('githubIdentity')
             if (oauthErrorCode === 'identity_already_exists') {
@@ -139,7 +139,7 @@ export async function GET(request: Request) {
 
         if (!complete) {
             const onboardingUrl = new URL('/onboarding', baseUrl)
-            if (afterAcceptance !== '/hub' && afterAcceptance !== '/onboarding') {
+            if (afterAcceptance !== '/discover' && afterAcceptance !== '/onboarding') {
                 onboardingUrl.searchParams.set('next', afterAcceptance)
             }
 
@@ -154,9 +154,9 @@ export async function GET(request: Request) {
                 destinationPath = `${onboardingUrl.pathname}${onboardingUrl.search}`
             }
         } else if (isLegalAcceptance && hasCurrentAcceptance) {
-            destinationPath = afterAcceptance === '/onboarding' ? '/hub' : afterAcceptance
+            destinationPath = afterAcceptance === '/onboarding' ? '/discover' : afterAcceptance
         } else if (nextPath === '/onboarding' || nextPath.startsWith('/onboarding?')) {
-            destinationPath = '/hub'
+            destinationPath = '/discover'
         }
     } catch (profileError) {
         logger.warn('auth.callback.onboarding_resolution_failed', {

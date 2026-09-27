@@ -265,7 +265,7 @@ async function enqueueApplicationReceivedBestEffort(params: {
             eventKey: "applications.received",
             title: `${params.actorName || "Someone"} applied to ${params.projectTitle || "your project"}`,
             body: params.roleTitle ? `Role: ${params.roleTitle}` : params.projectTitle ? `Project: ${params.projectTitle}` : "New application received",
-            href: `/people?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
+            href: `/network?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
             entityRefs: {
                 applicationId: params.applicationId,
                 conversationId: params.conversationId ?? null,
@@ -321,7 +321,7 @@ async function enqueueApplicationDecisionBestEffort(params: {
             body: params.projectTitle ? `Project: ${params.projectTitle}` : null,
             href: params.conversationId
                 ? `/messages?conversationId=${encodeURIComponent(params.conversationId)}`
-                : `/people?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
+                : `/network?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
             entityRefs: {
                 applicationId: params.applicationId,
                 conversationId: params.conversationId ?? null,
@@ -371,7 +371,7 @@ async function enqueueApplicationWithdrawnBestEffort(params: {
             eventKey: "applications.withdrawn",
             title: `${params.actorName || "Someone"} withdrew an application`,
             body: params.roleTitle ? `Role: ${params.roleTitle}` : params.projectTitle ? `Project: ${params.projectTitle}` : "Application withdrawn",
-            href: `/people?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
+            href: `/network?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
             entityRefs: {
                 applicationId: params.applicationId,
                 projectId: params.projectId,

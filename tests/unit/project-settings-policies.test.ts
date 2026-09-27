@@ -213,7 +213,7 @@ test("project access impact explains counts and transition checklist", () => {
     assert.ok(privateImpact.transitionChecklist.some((item) => item.includes("safe unavailable metadata")));
 
     const publicImpact = buildProjectAccessImpact({ visibility: "public", openRolesCount: 2 });
-    assert.ok(publicImpact.transitionChecklist.some((item) => item.includes("Restore Hub discovery")));
+    assert.ok(publicImpact.transitionChecklist.some((item) => item.includes("Restore Discover")));
 });
 
 test("project role policy excludes the current owner from transfer candidates", () => {

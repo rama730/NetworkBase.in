@@ -8,9 +8,9 @@ function source(relativePath: string) {
 }
 
 test("Discovery people rail is a compact, shared-avatar recommendation surface", () => {
-  const rail = source("src/components/hub/DiscoverPeopleRail.tsx");
-  const hub = source("src/components/hub/SimpleHubClient.tsx");
-  const networkCard = source("src/components/people/PersonCard.tsx");
+  const rail = source("src/components/discover/DiscoverPeopleRail.tsx");
+  const hub = source("src/components/discover/DiscoverClient.tsx");
+  const networkCard = source("src/components/network/PersonCard.tsx");
   const css = source("src/app/globals.css");
 
   assert.match(rail, /useSuggestedPeople\(3/);
@@ -34,7 +34,7 @@ test("rail recommendations use the same privacy-safe source as the connection li
   const connections = source("src/app/actions/connections.ts");
   const suggestions = source("src/inngest/functions/social-graph-suggestions.ts");
   const profile = source("src/app/actions/profile.ts");
-  const hubPage = source("src/app/(main)/hub/page.tsx");
+  const hubPage = source("src/app/(main)/discover/page.tsx");
 
   assert.match(hubPage, /getConnectionsFeed\(\{ tab: 'discover', limit: 3, includeMeta: false \}\)/);
   assert.doesNotMatch(connections, /recommendationMode/);

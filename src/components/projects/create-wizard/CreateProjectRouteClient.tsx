@@ -21,7 +21,7 @@ export function CreateProjectRouteClient({
             return
         }
 
-        router.push('/hub')
+        router.push('/discover')
     }, [router])
 
     const handleSuccess = useCallback((projectId: string) => {

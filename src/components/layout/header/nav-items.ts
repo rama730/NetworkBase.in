@@ -3,8 +3,8 @@ import { Compass, MessageSquare, Settings, Users } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 
 export const MAIN_NAV_ITEMS = [
-    { href: ROUTES.HUB, label: "Discover", icon: Compass },
-    { href: ROUTES.PEOPLE, label: "Network", icon: Users },
+    { href: ROUTES.DISCOVER, label: "Discover", icon: Compass },
+    { href: ROUTES.NETWORK, label: "Network", icon: Users },
     { href: ROUTES.MESSAGES, label: "Messages", icon: MessageSquare },
 ] as const;
 

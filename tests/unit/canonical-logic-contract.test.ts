@@ -24,7 +24,7 @@ describe("check-canonical-logic-contract script", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "canonical-logic-pass-"));
     seedCanonicalModules(tmp);
     write(
-      path.join(tmp, "src/components/people/PersonCard.tsx"),
+      path.join(tmp, "src/components/network/PersonCard.tsx"),
       `
         import { UserAvatar } from "@/components/ui/UserAvatar";
         export function PersonCard() {
@@ -41,7 +41,7 @@ describe("check-canonical-logic-contract script", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "canonical-logic-fail-"));
     seedCanonicalModules(tmp);
     write(
-      path.join(tmp, "src/components/people/PersonCard.tsx"),
+      path.join(tmp, "src/components/network/PersonCard.tsx"),
       `
         export function PersonCard({ profile }) {
           return profile.avatarUrl ? <div /> : <div className="app-accent-gradient">{profile.fullName?.[0]}</div>;

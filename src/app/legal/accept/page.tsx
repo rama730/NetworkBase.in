@@ -7,7 +7,7 @@ import { Loader2, ShieldCheck } from "lucide-react";
 import { LEGAL_VERSIONS } from "@/lib/legal/versions";
 
 function safeNext(value: string | null) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/hub";
+  return value?.startsWith("/") && !value.startsWith("//") ? value : "/discover";
 }
 
 export default function LegalAcceptancePage() {

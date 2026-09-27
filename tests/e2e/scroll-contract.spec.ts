@@ -4,11 +4,11 @@ import { attachPageMonitoring } from "./_helpers/monitoring";
 import { openRoute } from "./_helpers/navigation";
 
 const ROUTES: Array<{ path: string; ready: string; checkHubHeader?: boolean; checkProfileHeader?: boolean }> = [
-  { path: "/hub", ready: "[data-testid='hub-feed-scroll']", checkHubHeader: true },
+  { path: "/discover", ready: "[data-testid='discover-feed-scroll']", checkHubHeader: true },
   { path: "/workspace", ready: "[data-testid='workspace-drawer']", checkHubHeader: true },
   { path: "/messages", ready: "[data-scroll-root='route']" },
-  { path: "/people", ready: "[data-scroll-root='route']" },
-  { path: "/profile", ready: "[data-scroll-root='route']", checkProfileHeader: true },
+  { path: "/network", ready: "[data-scroll-root='route']" },
+  { path: "/my-profile", ready: "[data-scroll-root='route']", checkProfileHeader: true },
   { path: "/settings?tab=security", ready: "[data-scroll-root='route']" },
 ];
 
@@ -57,7 +57,7 @@ test.describe("Scroll contract @critical", () => {
       expect(pageScrollDelta, `${route.path} should not rely on document-level scrolling`).toBeLessThanOrEqual(2);
 
       if (route.checkHubHeader) {
-        const header = page.locator("[data-testid='hub-header-shell']").first();
+        const header = page.locator("[data-testid='discover-header-shell']").first();
         await expect(header).toBeVisible();
 
         const beforeTop = await header.evaluate((node) => node.getBoundingClientRect().top);

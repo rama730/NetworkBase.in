@@ -22,9 +22,9 @@ export function useToggleProjectFollow() {
             return result;
         },
         onSuccess: (_, { userId }) => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.hub.userFollowedProjects(userId) });
-            queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsSimpleRoot() });
-            queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.hubRoot() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.discover.userFollowedProjects(userId) });
+            queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
         },
     });
 }

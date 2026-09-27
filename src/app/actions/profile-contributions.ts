@@ -344,7 +344,6 @@ export async function saveProfileContributionsAction(
       .where(eq(profiles.id, user.id))
       .limit(1);
     revalidatePath("/my-profile");
-    revalidatePath("/profile");
     if (profile?.username) revalidatePath(`/u/${profile.username}`);
     logger.metric("profile.contributions.save", {
       userId: user.id,

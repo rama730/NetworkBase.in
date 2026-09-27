@@ -9,12 +9,12 @@ import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
 import ProjectLayout from '@/components/projects/dashboard/ProjectLayout';
 import { TabErrorBoundary } from '@/components/projects/TabErrorBoundary';
-import type { Project } from '@/types/hub';
+import type { Project } from '@/types/discover';
 import { toggleProjectFollowAction, updateProjectStageAction, incrementProjectViewAction } from '@/app/actions/project';
 import { getApplicationStatusAction, acceptProposedRoleAction, declineProposedRoleAction, type ApplicationStatusResult } from '@/app/actions/applications';
 import { resolveMessageWorkflowActionV2 } from '@/app/actions/messaging';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
-import { useProjectMembers } from '@/hooks/hub/useProjectMembers';
+import { useProjectMembers } from '@/hooks/projects/useProjectMembers';
 import { queryKeys } from '@/lib/query-keys';
 import { logger } from '@/lib/logger';
 import { subscribeProjectStage } from '@/lib/realtime/subscriptions';
@@ -779,10 +779,10 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
                 // Invalidate the Hub project feed query cache
                 void queryClient.invalidateQueries({
-                    queryKey: queryKeys.hub.projectsSimpleRoot(),
+                    queryKey: queryKeys.discover.projectsSimpleRoot(),
                 });
                 void queryClient.invalidateQueries({
-                    queryKey: queryKeys.globalSearch.hubRoot(),
+                    queryKey: queryKeys.globalSearch.discoverRoot(),
                 });
             }
             toast.success(newIsFollowing ? 'Following project' : 'Unfollowed project');

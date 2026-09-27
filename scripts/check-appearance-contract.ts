@@ -13,7 +13,7 @@ const CORE_APPEARANCE_FILES = [
   "src/components/layout/header/NavLink.tsx",
   "src/components/layout/header/TopNav.tsx",
   "src/components/layout/header/MobileMenu.tsx",
-  "src/components/hub/HubHeader.tsx",
+  "src/components/discover/DiscoverHeader.tsx",
   "src/components/chat/v2/ChatPopupV2.tsx",
   "src/components/chat/v2/MessageComposerV2.tsx",
   "src/components/chat/v2/MessagesWorkspaceV2.tsx",

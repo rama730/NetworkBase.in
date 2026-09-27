@@ -108,7 +108,7 @@ import {
   buildJourneyCompletionDates,
   normalizeJourneyCompletionDates,
 } from "@/lib/projects/journey-completion";
-import type { Project } from "@/types/hub";
+import type { Project } from "@/types/discover";
 import { logger } from "@/lib/logger";
 import {
   markProjectCollaboratorsSummaryStale,
@@ -577,7 +577,6 @@ const revalidateProjectPaths = async (projectId: string) => {
     console.error("Failed to invalidate public feed cache:", err);
   }
   revalidatePath("/discover");
-  revalidatePath("/hub");
   revalidatePath("/my-profile");
   revalidatePath(`/projects/${projectId}`);
   // Next.js 16's cache API requires an explicit cache-life profile for tag revalidation.
@@ -600,7 +599,6 @@ const revalidateProjectPaths = async (projectId: string) => {
 export async function invalidateProjectPublicCaches(projectId: string) {
   const feed = await invalidatePublicProjectsFeedCache(projectId);
   revalidatePath("/discover");
-  revalidatePath("/hub");
   revalidatePath("/my-profile");
   revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
   revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, "max");
@@ -2607,7 +2605,6 @@ export async function createProjectAction(
         });
 
         revalidatePath("/discover");
-        revalidatePath("/hub");
 
         // Add to Import Queue if applicable
         if (
@@ -6410,7 +6407,6 @@ export async function deleteProject(
     });
 
     revalidatePath("/discover");
-    revalidatePath("/hub");
     revalidatePath(`/projects/${project.slug || projectId}`);
     return {
       success: true,
@@ -6512,7 +6508,6 @@ export async function deleteProjectDraftAction(
     }
 
     revalidatePath("/discover");
-    revalidatePath("/hub");
     return { success: true };
   } catch (error: any) {
     console.error("Failed to delete draft:", error);

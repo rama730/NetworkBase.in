@@ -95,7 +95,7 @@ test("Domain D: DocTab loads the document and its list in one request", () => {
 
 test("Domain D: useProjectMembers configures gcTime for memory cleanup", () => {
   const hookContent = readFileSync(
-    resolve(ROOT, "src/hooks/hub/useProjectMembers.ts"),
+    resolve(ROOT, "src/hooks/projects/useProjectMembers.ts"),
     "utf-8"
   );
 

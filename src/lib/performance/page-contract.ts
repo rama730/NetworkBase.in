@@ -211,15 +211,6 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 320,
     allowForceDynamic: false,
   }),
-  "/hub": buildUserShellContract("/hub", "src/app/(main)/hub/page.tsx", {
-    renderingMode: "dynamic",
-    cacheTtlSeconds: 45,
-    invalidationOwner: "api",
-    hydrationBoundary: "standard",
-    bootstrapReadModel: "auth_snapshot",
-    maxInitialPayloadKb: 340,
-    allowForceDynamic: true,
-  }),
   "/discover": buildUserShellContract("/discover", "src/app/(main)/discover/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 45,
@@ -227,15 +218,6 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     hydrationBoundary: "standard",
     bootstrapReadModel: "auth_snapshot",
     maxInitialPayloadKb: 340,
-    allowForceDynamic: true,
-  }),
-  "/people": buildUserShellContract("/people", "src/app/(main)/people/page.tsx", {
-    renderingMode: "dynamic",
-    cacheTtlSeconds: 30,
-    invalidationOwner: "server-action",
-    hydrationBoundary: "standard",
-    bootstrapReadModel: "auth_snapshot",
-    maxInitialPayloadKb: 260,
     allowForceDynamic: true,
   }),
   "/network": buildUserShellContract("/network", "src/app/(main)/network/page.tsx", {
@@ -274,14 +256,6 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "server_query",
     maxInitialPayloadKb: 240,
     allowForceDynamic: true,
-  }),
-  "/profile": buildUserShellContract("/profile", "src/app/(main)/profile/page.tsx", {
-    renderingMode: "dynamic",
-    cacheTtlSeconds: 60,
-    invalidationOwner: "server-action",
-    hydrationBoundary: "standard",
-    bootstrapReadModel: "auth_snapshot",
-    maxInitialPayloadKb: 240,
   }),
   "/my-profile": buildUserShellContract("/my-profile", "src/app/(main)/my-profile/page.tsx", {
     renderingMode: "dynamic",

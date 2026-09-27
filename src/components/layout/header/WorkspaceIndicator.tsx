@@ -6,13 +6,13 @@ import { getWorkspaceSummaryAction } from "@/app/actions/workspace";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { usePeopleNotifications } from "@/hooks/usePeopleNotifications";
+import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 
 export default function WorkspaceIndicator() {
     const isWorkspaceOpen = useUIStore((s) => s.isWorkspaceOpen);
     const openWorkspace = useUIStore((s) => s.openWorkspace);
     const setWorkspaceOpen = useUIStore((s) => s.setWorkspaceOpen);
-    const { pendingConnections } = usePeopleNotifications();
+    const { pendingConnections } = useNetworkNotifications();
     const { data: summary } = useQuery({
         queryKey: queryKeys.workspace.summary(),
         queryFn: getWorkspaceSummaryAction,

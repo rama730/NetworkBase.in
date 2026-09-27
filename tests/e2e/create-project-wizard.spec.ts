@@ -9,7 +9,7 @@ test.describe("Create project wizard", () => {
     const page = await context.newPage();
 
     await login(page);
-    await page.goto("/hub?createProject=1", { waitUntil: "domcontentloaded" });
+    await page.goto("/discover?createProject=1", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.mouse.click(8, 8);
@@ -46,7 +46,7 @@ test.describe("Create project wizard", () => {
     const page = await context.newPage();
 
     await login(page);
-    await page.goto("/hub", { waitUntil: "domcontentloaded" });
+    await page.goto("/discover", { waitUntil: "domcontentloaded" });
 
     await page.getByRole("button", { name: /new project/i }).click();
     await page.getByTestId("create-project-source-card-github").click();
@@ -80,7 +80,7 @@ test.describe("Create project wizard", () => {
     const page = await context.newPage();
 
     await login(page);
-    await page.goto("/hub?createProject=1&createProjectSource=github", { waitUntil: "domcontentloaded" });
+    await page.goto("/discover?createProject=1&createProjectSource=github", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();

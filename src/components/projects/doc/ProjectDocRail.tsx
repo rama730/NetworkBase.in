@@ -5,7 +5,7 @@ import { FileText, Loader2 } from "lucide-react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 import { normalizeProjectDocSlug } from "@/lib/projects/doc";
-import { useProjectDocList } from "@/hooks/hub/useProjectDocData";
+import { useProjectDocList } from "@/hooks/projects/useProjectDocData";
 import { cn } from "@/lib/utils";
 
 export function ProjectDocRail({

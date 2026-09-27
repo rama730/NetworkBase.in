@@ -1,25 +1,25 @@
-import type { FilterView } from "@/constants/hub";
-import type { HubFilters } from "@/types/hub";
+import type { FilterView } from "@/constants/discover";
+import type { DiscoverFilters } from "@/types/discover";
 
 const asNullable = (value?: string | null) => value ?? null;
 type ProjectTaskScope = "all" | "backlog" | "sprint";
 
 export const queryKeys = {
-  hub: {
-    root: () => ["hub"] as const,
-    projectsRoot: () => ["hub", "projects"] as const,
-    projectsSimpleRoot: () => ["hub", "projects-simple"] as const,
-    projectsSimple: (view: FilterView, filters: HubFilters) =>
-      ["hub", "projects-simple", view, filters] as const,
-    projects: (view: FilterView, filters: HubFilters) =>
-      ["hub", "projects", view, filters] as const,
-    trending: () => ["hub", "trending"] as const,
+  discover: {
+    root: () => ["discover"] as const,
+    projectsRoot: () => ["discover", "projects"] as const,
+    projectsSimpleRoot: () => ["discover", "projects-simple"] as const,
+    projectsSimple: (view: FilterView, filters: DiscoverFilters) =>
+      ["discover", "projects-simple", view, filters] as const,
+    projects: (view: FilterView, filters: DiscoverFilters) =>
+      ["discover", "projects", view, filters] as const,
+    trending: () => ["discover", "trending"] as const,
     userFollowedProjects: (userId: string | null | undefined) =>
-      ["hub", "user-followed-projects", asNullable(userId)] as const,
+      ["discover", "user-followed-projects", asNullable(userId)] as const,
     userProjectIds: (userId: string | null) =>
-      ["hub", "user-project-ids", asNullable(userId)] as const,
+      ["discover", "user-project-ids", asNullable(userId)] as const,
     projectPrefetch: (projectId: string) =>
-      ["hub", "project-prefetch", projectId] as const,
+      ["discover", "project-prefetch", projectId] as const,
   },
   connections: {
     root: () => ["connections"] as const,
@@ -85,13 +85,13 @@ export const queryKeys = {
   globalSearch: {
     root: () => ["global-search"] as const,
     previewsRoot: () => ["global-search", "previews"] as const,
-    hubRoot: () => ["global-search", "previews", "hub"] as const,
-    peopleRoot: () => ["global-search", "previews", "people"] as const,
+    discoverRoot: () => ["global-search", "previews", "discover"] as const,
+    networkRoot: () => ["global-search", "previews", "network"] as const,
     projectRoot: () => ["global-search", "previews", "project"] as const,
     preview: (
       context:
-        | "hub"
-        | "people"
+        | "discover"
+        | "network"
         | "project"
         | "settings"
         | "messages"

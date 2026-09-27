@@ -5,13 +5,13 @@ import dynamic from "next/dynamic";
 
 import { 
     useProjectDocSmartBlockPreviews,
-} from "@/hooks/hub/useProjectDocData";
+} from "@/hooks/projects/useProjectDocData";
 import { normalizeProjectDocSlug, type ProjectDocPublishedPayload } from "@/lib/projects/doc";
 import type { ProjectDocSmartBlockPreview } from "@/lib/projects/doc-blocks";
 import { decodeReadmeHashTarget } from "@/lib/projects/doc-navigation";
 import { buildProjectDocViewModel } from "@/lib/projects/doc-view-model";
 import { ProjectDocRail, ProjectDocMobileBar } from "@/components/projects/doc/ProjectDocRail";
-import type { Project } from "@/types/hub";
+import type { Project } from "@/types/discover";
 
 const ProjectDocRenderer = dynamic(
     () => import("@/components/projects/doc/ProjectDocRenderer").then((mod) => mod.ProjectDocRenderer),

@@ -21,13 +21,13 @@ describe("page performance contract", () => {
   });
 
   it("classifies rendering mode from route id", () => {
-    assert.equal(classifyRouteRenderingMode("/hub"), "dynamic");
+    assert.equal(classifyRouteRenderingMode("/discover"), "dynamic");
     assert.equal(classifyRouteRenderingMode("/settings"), "dynamic");
     assert.equal(classifyRouteRenderingMode("/login"), "dynamic");
   });
 
   it("returns deterministic cache policy by route class", () => {
-    assert.deepEqual(getRouteCachePolicy("/hub"), {
+    assert.deepEqual(getRouteCachePolicy("/discover"), {
       strategy: "none",
       ttlSeconds: 0,
       invalidationOwner: "api",

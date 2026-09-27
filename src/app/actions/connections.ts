@@ -52,7 +52,7 @@ export interface ConnectionStats {
     pendingSent: number;
 }
 
-export async function readPeoplePendingCountsAction() {
+export async function readNetworkPendingCountsAction() {
     try {
         const user = await getAuthUser();
         if (!user) return { success: false as const, error: 'Not authenticated', pendingConnections: 0, pendingInvites: 0 };
@@ -638,7 +638,7 @@ async function getConnectionsFeedImpl(
     const recordPreview = (outcome: 'success' | 'empty' | 'rate-limited' | 'error', resultCount: number) => {
         if (includeMeta || !safeSearch) return;
         recordGlobalSearchMetric({
-            domain: 'people',
+            domain: 'network',
             scope: tab,
             outcome,
             durationMs: performance.now() - startedAt,
@@ -1813,7 +1813,6 @@ export async function dismissConnectionSuggestion(
 
         await invalidateDiscoverCacheForUsers([user.id]);
         revalidatePath('/network');
-        revalidatePath('/people');
         return { success: true };
     } catch (error) {
         console.error('Error dismissing suggestion:', error);

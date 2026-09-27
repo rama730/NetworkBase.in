@@ -18,7 +18,7 @@ test.describe("Project views and followers flow", () => {
 
         await login(page);
 
-        await page.goto("/hub");
+        await page.goto("/discover");
         const firstCard = page.locator("[data-testid^='project-card-']").first();
         await expect(firstCard).toBeVisible();
         const projectId = (await firstCard.getAttribute("data-project-id")) || "";
@@ -72,7 +72,7 @@ test.describe("Project views and followers flow", () => {
         await expect.poll(async () => parseCount(await detailFollowers.textContent())).not.toBe(detailFollowersBeforeToggle);
         const detailFollowersAfterToggle = parseCount(await detailFollowers.textContent());
 
-        await page.goto("/hub");
+        await page.goto("/discover");
         await expect(firstCard).toBeVisible();
         const hubFollowersFinalBadge = page.locator(`[data-testid="project-card-followers-${projectId}"]`);
         await firstCard.hover();

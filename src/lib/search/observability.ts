@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 
-type SearchDomain = "hub" | "people" | "project-tasks";
+type SearchDomain = "discover" | "network" | "project-tasks";
 type SearchOutcome = "success" | "empty" | "rate-limited" | "error";
 
 export type GlobalSearchMetric = {

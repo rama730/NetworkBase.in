@@ -38,9 +38,9 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
     const triggerLabel = useMemo(() => {
         const contextLabel = (() => {
             switch (context) {
-                case "hub":
+                case "discover":
                     return "Search projects";
-                case "people":
+                case "network":
                     return placeholder.replace(/\.\.\.$/, "");
                 case "messages":
                     return "Open the dedicated Messages search";

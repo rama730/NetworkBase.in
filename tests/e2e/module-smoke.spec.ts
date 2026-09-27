@@ -20,15 +20,15 @@ test.describe("Module smoke matrix", () => {
 
         await login(page);
 
-        await page.goto("/hub");
+        await page.goto("/discover");
         const firstCard = page.locator("[data-testid^='project-card-']").first();
         await expect(firstCard).toBeVisible();
         const projectHref = await firstCard.locator("a[href^='/projects/']").first().getAttribute("href");
         expect(projectHref).toBeTruthy();
 
         const routesToCheck = [
-            "/profile",
-            "/people",
+            "/my-profile",
+            "/network",
             "/messages",
             projectHref!,
             `${projectHref!}?tab=tasks`,

@@ -33,7 +33,7 @@ import { OnlineIndicator } from "@/components/ui/OnlineIndicator";
 
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useNotifications } from "@/hooks/useNotifications";
-import { usePeopleNotifications } from "@/hooks/usePeopleNotifications";
+import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import { ROUTES } from "@/constants/routes";
 import { resolveTopNavAuthUiState } from "./topnav-auth-state";
 
@@ -61,7 +61,7 @@ export default function TopNav() {
     const { user, isAuthenticated: isSignedIn, isLoading: authLoading, profile, signOut } = useAuth();
 
     const notifications = useNotifications();
-    const peopleNotifications = usePeopleNotifications();
+    const peopleNotifications = useNetworkNotifications();
     const messageAttention = useMessageAttention();
     const { connectionHealth } = useRealtime();
 
@@ -110,7 +110,7 @@ export default function TopNav() {
     useEffect(() => {
         // The Hub owns its own query-driven wizard. Every other page restores the
         // wizard here so a GitHub callback returns to the place it was launched (createProject=1).
-        if (pathname === '/hub' || typeof window === 'undefined') return;
+        if (pathname === '/discover' || typeof window === 'undefined') return;
         const currentSearchParams = new URLSearchParams(window.location.search);
         if (currentSearchParams.get('createProject') !== '1') return;
 
@@ -189,7 +189,7 @@ export default function TopNav() {
             <div className="px-4 sm:px-5 flex min-w-0 items-center justify-between gap-3 h-[var(--ui-topnav-height)]">
                 <div className="flex shrink-0 items-center gap-4">
                     <div className="md:hidden">
-                        <Logo href={authUiState === "signed-in" ? ROUTES.HUB : ROUTES.HOME} />
+                        <Logo href={authUiState === "signed-in" ? ROUTES.DISCOVER : ROUTES.HOME} />
                     </div>
                 </div>
 

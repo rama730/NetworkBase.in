@@ -10,8 +10,8 @@ const REPO_ROOT = process.cwd();
 
 const TARGET_PREFIXES = [
   "src/components/workspace/",
-  "src/components/hub/",
-  "src/hooks/hub/",
+  "src/components/discover/",
+  "src/hooks/projects/",
   "src/hooks/useWorkspace",
   "src/hooks/useMessages",
 ];

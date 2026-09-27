@@ -34,7 +34,7 @@ import { normalizeProjectDocSlug } from "@/lib/projects/doc";
 import {
   PROJECT_DOCS_QUERY_KEY,
   PROJECT_DOC_LIST_QUERY_KEY,
-} from "@/hooks/hub/useProjectDocData";
+} from "@/hooks/projects/useProjectDocData";
 
 import { FilesTabRoleContext } from "../FilesTabRoleContext";
 import { useFilesWorkspaceView } from "../FilesWorkspaceViews";
