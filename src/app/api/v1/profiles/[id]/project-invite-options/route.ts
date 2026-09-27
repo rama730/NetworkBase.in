@@ -1,4 +1,4 @@
-import { enforceRouteLimit, getRequestId, jsonError, jsonSuccess, logApiRoute, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { getRequestId, jsonError, jsonSuccess, logApiRoute, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { getProfileInviteProjectOptions } from "@/lib/profile/collaboration";
 import { logger } from "@/lib/logger";
 import { isUuid } from "@/lib/validations/uuid";
@@ -14,8 +14,6 @@ export async function GET(
     return jsonError("Invalid profile id", 400, "BAD_REQUEST");
   }
 
-  const limitResponse = await enforceRouteLimit(request, "api:v1:profiles:project-invite-options", 120, 60);
-  if (limitResponse) return limitResponse;
 
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) {

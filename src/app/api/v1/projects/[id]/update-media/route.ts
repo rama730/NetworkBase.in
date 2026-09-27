@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 
-import { enforceRouteLimit, jsonError } from "@/app/api/v1/_shared";
+import { jsonError } from "@/app/api/v1/_shared";
 import { getProjectAccessById } from "@/lib/data/project-access";
 import { logger } from "@/lib/logger";
 import { isProjectTabVisibleToViewer } from "@/lib/projects/settings-policies";
@@ -17,8 +17,6 @@ const PRIVATE_REDIRECT_MAX_AGE_SECONDS = 12 * 60;
 const PUBLIC_REDIRECT_MAX_AGE_SECONDS = 5 * 60;
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-    const limitResponse = await enforceRouteLimit(request, "api:v1:projects:updateMedia", 180, 60);
-    if (limitResponse) return limitResponse;
 
     const { id: projectId } = await context.params;
     if (!isUuid(projectId)) return jsonError("Not found", 404, "NOT_FOUND");

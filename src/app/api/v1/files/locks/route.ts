@@ -1,15 +1,12 @@
 import { z } from "zod";
 
 import { jsonError, jsonSuccess } from "@/app/api/v1/_envelope";
-import { enforceRouteLimit } from "@/app/api/v1/_shared";
 import { getProjectFileLeases } from "@/lib/files/file-lock-service";
 import { assertProjectFileReadAccess } from "@/lib/files/internal-helpers";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
   try {
-    const limited = await enforceRouteLimit(request, "api:v1:files:locks", 120, 60);
-    if (limited) return limited;
     const projectId = z.string().uuid().safeParse(new URL(request.url).searchParams.get("projectId"));
     if (!projectId.success) return jsonError("Invalid project id", 400, "BAD_REQUEST");
     const supabase = await createClient();

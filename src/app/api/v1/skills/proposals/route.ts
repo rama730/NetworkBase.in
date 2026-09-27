@@ -9,8 +9,6 @@ import { logger } from '@/lib/logger'
 import { validateCsrf } from '@/lib/security/csrf'
 
 export async function GET(request: Request) {
-    const limited = await enforceRouteLimit(request, 'skills:proposals:read', 30, 60)
-    if (limited) return limited
     const auth = await requireAuthenticatedUser()
     if (auth.response) return auth.response
     if (!auth.user) return jsonError('Not authenticated', 401, 'UNAUTHORIZED')

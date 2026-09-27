@@ -1,5 +1,5 @@
 import { and, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
-import { jsonSuccess, requireAuthenticatedUser, enforceRouteLimit } from "@/app/api/v1/_shared";
+import { jsonSuccess, requireAuthenticatedUser, } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { projects, projectMembers, githubSyncConnections } from "@/lib/db/schema";
 import { getLatestPasswordChangeAt } from "@/lib/security/audit";
@@ -15,8 +15,6 @@ export async function GET(request: Request) {
     }
 
     const { user } = auth;
-    const limitResponse = await enforceRouteLimit(request, `api:integrations:${user.id}`, 60, 60);
-    if (limitResponse) return limitResponse;
 
     const identitiesResult = await db.execute<{
         id: string;

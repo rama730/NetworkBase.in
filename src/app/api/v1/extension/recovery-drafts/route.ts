@@ -270,8 +270,6 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const limited = await enforceRouteLimit(request, "api:v1:extension:recovery-drafts:read", 60, 60);
-  if (limited) return limited;
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
 
