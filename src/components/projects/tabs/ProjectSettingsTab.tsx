@@ -1332,9 +1332,9 @@ export default function ProjectSettingsTab({
             toast.success("General settings updated.");
             onProjectUpdated();
             broadcastProjectUpdated(projectId);
-            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsSimpleRoot() });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsRoot() });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.hubRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
             router.refresh();
         } catch (error) {
             console.error("Failed to save general project settings", error);
@@ -2017,9 +2017,9 @@ export default function ProjectSettingsTab({
             toast.success(preparedImage.optimized ? "Project avatar optimized and updated." : "Project avatar updated.");
             onProjectUpdated({ coverImage: finalized.publicUrl });
             broadcastProjectUpdated(projectId, { coverImage: finalized.publicUrl });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsSimpleRoot() });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsRoot() });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.hubRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
             router.refresh();
         } catch (error) {
             console.error("Failed to upload project avatar", error);
@@ -2051,9 +2051,9 @@ export default function ProjectSettingsTab({
             toast.success("Project avatar removed.");
             onProjectUpdated({ coverImage: null });
             broadcastProjectUpdated(projectId, { coverImage: null });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsSimpleRoot() });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsRoot() });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.hubRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
             router.refresh();
         } catch (error) {
             console.error("Failed to remove project avatar", error);

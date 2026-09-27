@@ -18,7 +18,7 @@ const CANONICAL_AVATAR_SURFACES = [
   "src/components/layout/header/ProfileMenu.tsx",
   "src/components/profile/ProfileHeader.tsx",
   "src/components/profile/v2/ProfileHeader.tsx",
-  "src/components/people/PersonCard.tsx",
+  "src/components/network/PersonCard.tsx",
   "src/components/projects/ProjectCard.tsx",
   "src/components/settings/PrivacySettings.tsx",
 ] as const;

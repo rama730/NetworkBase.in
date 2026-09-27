@@ -5,7 +5,7 @@ import { isMissingRelationError } from '@/lib/db/errors'
 import { profiles, projectOpenRoles, projects, projectMembers } from '@/lib/db/schema'
 import { logger } from '@/lib/logger'
 import { getCacheEnvelope, cacheStaleableData, isCacheStale, redis } from '@/lib/redis'
-import { clearHubSnapshotCache } from '@/lib/hub/snapshot-cache'
+import { clearDiscoverSnapshotCache } from '@/lib/discover/snapshot-cache'
 import {
     buildPublicProjectsCacheKey,
     encodePublicProjectsCursor,
@@ -278,7 +278,7 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
 
 export async function invalidatePublicProjectsFeedCache(projectId?: string | null) {
     let redisDeleted = 0
-    const localSnapshotsCleared = clearHubSnapshotCache()
+    const localSnapshotsCleared = clearDiscoverSnapshotCache()
 
     if (redis) {
         try {

@@ -12,7 +12,7 @@ const projectActionsBarrelSource = fs.readFileSync(
   "utf8",
 );
 const sprintDataHookSource = fs.readFileSync(
-  path.join(process.cwd(), "src/hooks/hub/useProjectTasksData.ts"),
+  path.join(process.cwd(), "src/hooks/projects/useProjectTasksData.ts"),
   "utf8",
 );
 

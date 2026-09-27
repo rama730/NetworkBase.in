@@ -87,7 +87,7 @@ describe("workspace drawer contracts", () => {
   });
 
   it("keeps workspace refreshes scoped to task and request notifications", () => {
-    const provider = read("src/components/providers/PeopleNotificationsProvider.tsx");
+    const provider = read("src/components/providers/NetworkNotificationsProvider.tsx");
 
     assert.match(provider, /WORKSPACE_NOTIFICATION_KINDS/);
     assert.match(provider, /event\.kind !== "notification"/);
@@ -100,7 +100,7 @@ describe("workspace drawer contracts", () => {
   });
 
   it("uses shared lifecycle rows with contextual request controls", () => {
-    const row = read("src/components/people/IncomingProjectApplicationRow.tsx");
+    const row = read("src/components/network/IncomingProjectApplicationRow.tsx");
     const requests = read("src/components/workspace/WorkspaceRequestsTab.tsx");
 
     assert.match(row, /Project invitation/);
@@ -147,13 +147,13 @@ it("keeps actionable workspace state visible without task-tab scaffolding", () =
   const drawer = read("src/components/workspace/WorkspaceDrawer.tsx");
 
   assert.match(indicator, /getWorkspaceSummaryAction/);
-  assert.match(indicator, /usePeopleNotifications/);
+  assert.match(indicator, /useNetworkNotifications/);
   assert.match(indicator, /summary\.taskCount \+ summary\.requestCount \+ pendingConnections/);
   assert.match(indicator, /className="nb-nav-count"/);
   assert.doesNotMatch(indicator, /(?:text|bg)-rose-/);
   assert.match(indicator, /<ListChecks size=\{16\}/);
   assert.match(indicator, /actionCount/);
-  assert.match(drawer, /usePeopleNotifications/);
+  assert.match(drawer, /useNetworkNotifications/);
   assert.match(drawer, /summary\.requestCount : 0\) \+ pendingConnections/);
   assert.doesNotMatch(drawer, /needsAttention/);
   assert.match(drawer, /className="nb-tab-count"/);

@@ -25,7 +25,7 @@ test('GitHub authorization snapshots wizard input, restores the in-place modal, 
     const phase = source('src/components/projects/create-wizard/phases/Phase1SourceSelection.tsx');
     const wizard = source('src/components/projects/create-wizard/CreateProjectWizard.tsx');
     const topNav = source('src/components/layout/header/TopNav.tsx');
-    const hub = source('src/components/hub/SimpleHubClient.tsx');
+    const hub = source('src/components/discover/DiscoverClient.tsx');
 
     assert.match(phase, /saveGithubOAuthResume\(getValues\(\), getCreateProjectReturnPath\(returnUrl\)\)/);
     assert.match(phase, /isResumingGithubOAuth/);
@@ -33,6 +33,6 @@ test('GitHub authorization snapshots wizard input, restores the in-place modal, 
     assert.match(wizard, /initialValues: githubOAuthResume\?\.values/);
     assert.match(wizard, /onGithubOAuthResumeRestored/);
     assert.match(topNav, /readGithubOAuthResume\(returnPath\)/);
-    assert.match(topNav, /pathname === '\/hub'/);
+    assert.match(topNav, /pathname === '\/discover'/);
     assert.match(hub, /readGithubOAuthResume\(returnPath\)/);
 });

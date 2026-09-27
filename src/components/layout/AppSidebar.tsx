@@ -11,7 +11,7 @@ import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isMainNavRouteActive } from "./heade
 import { ROUTES } from "@/constants/routes";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { useMessageAttention } from "@/components/providers/MessageAttentionProvider";
-import { usePeopleNotifications } from "@/hooks/usePeopleNotifications";
+import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import WorkspaceIndicator from "./header/WorkspaceIndicator";
 import { queryKeys } from "@/lib/query-keys";
@@ -63,7 +63,7 @@ export function AppSidebar() {
     const { profile, isAuthenticated } = useAuth();
     const messageAttention = useMessageAttention();
     const { connectionHealth } = useRealtime();
-    const people = usePeopleNotifications();
+    const people = useNetworkNotifications();
     const profileId = profile?.id ?? null;
     const projectsQuery = useQuery({
         queryKey: queryKeys.profile.sidebarProjects(profileId ?? "unknown"),
@@ -129,7 +129,7 @@ export function AppSidebar() {
                                 {count > 0 && <span className="nb-nav-count" aria-label={`${count} unread items`}>{count > 99 ? "99+" : count}</span>}
                             </Link>;
                         })}
-                        <Link href={ROUTES.MY_PROFILE} prefetch={false} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={pathname === ROUTES.MY_PROFILE || pathname === "/profile" ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>
+                        <Link href={ROUTES.MY_PROFILE} prefetch={false} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={pathname === ROUTES.MY_PROFILE ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>
                         {isAuthenticated && <WorkspaceIndicator />}
                     </nav>
                     {isAuthenticated && <section className="nb-sidebar-workspace space-y-2" aria-labelledby="sidebar-workspace-heading">

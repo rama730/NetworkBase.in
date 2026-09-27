@@ -224,11 +224,11 @@ test("Discovery page avatar cache synchronization & multi-tab real-time updates 
     const projectActionsSource = readFileSync(resolve(ROOT, "src/app/actions/project/_all.ts"), "utf-8");
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
     const settingsSource = readFileSync(resolve(ROOT, "src/components/projects/tabs/ProjectSettingsTab.tsx"), "utf-8");
-    const hubClientSource = readFileSync(resolve(ROOT, "src/components/hub/SimpleHubClient.tsx"), "utf-8");
+    const hubClientSource = readFileSync(resolve(ROOT, "src/components/discover/DiscoverClient.tsx"), "utf-8");
 
     // 1. Server route revalidation includes /discover, /hub, and /my-profile
-    assert.match(projectActionsSource, /const revalidateProjectPaths = async[\s\S]*?revalidatePath\("\/discover"\)[\s\S]*?revalidatePath\("\/hub"\)/);
-    assert.match(projectActionsSource, /export async function invalidateProjectPublicCaches[\s\S]*?revalidatePath\("\/discover"\)[\s\S]*?revalidatePath\("\/hub"\)/);
+    assert.match(projectActionsSource, /const revalidateProjectPaths = async[\s\S]*?revalidatePath\("\/discover"\)/);
+    assert.match(projectActionsSource, /export async function invalidateProjectPublicCaches[\s\S]*?revalidatePath\("\/discover"\)/);
 
     // 2. ProjectAvatar exports broadcastProjectUpdated for 0ms cross-window/tab sync
     assert.match(avatarSource, /export function broadcastProjectUpdated\(projectId: string, update\?:/);
@@ -237,26 +237,26 @@ test("Discovery page avatar cache synchronization & multi-tab real-time updates 
     // 3. ProjectSettingsTab broadcasts and invalidates hub queries on avatar upload/clear
     assert.match(settingsSource, /broadcastProjectUpdated\(projectId,\s*\{\s*coverImage:\s*finalized\.publicUrl\s*\}\)/);
     assert.match(settingsSource, /broadcastProjectUpdated\(projectId,\s*\{\s*coverImage:\s*null\s*\}\)/);
-    assert.match(settingsSource, /queryClient\.invalidateQueries\(\{\s*queryKey:\s*queryKeys\.hub\.projectsSimpleRoot\(\)\s*\}\)/);
+    assert.match(settingsSource, /queryClient\.invalidateQueries\(\{\s*queryKey:\s*queryKeys\.discover\.projectsSimpleRoot\(\)\s*\}\)/);
 
-    // 4. SimpleHubClient synchronizes initialProjectsPage and listens to nb-project-updated
+    // 4. DiscoverClient synchronizes initialProjectsPage and listens to nb-project-updated
     assert.match(hubClientSource, /window\.addEventListener\("nb-project-updated"/);
     assert.match(hubClientSource, /new BroadcastChannel\("nb-project-updated-v1"\)/);
-    assert.match(hubClientSource, /queryClient\.setQueriesData<any>\(\s*\{\s*queryKey:\s*queryKeys\.hub\.projectsSimpleRoot\(\)\s*\}/);
+    assert.match(hubClientSource, /queryClient\.setQueriesData<any>\(\s*\{\s*queryKey:\s*queryKeys\.discover\.projectsSimpleRoot\(\)\s*\}/);
 });
 
 test("Discovery feed smooth scrolling & Virtuoso stability contract", () => {
     const globalsCss = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");
-    const hubClientSource = readFileSync(resolve(ROOT, "src/components/hub/SimpleHubClient.tsx"), "utf-8");
+    const hubClientSource = readFileSync(resolve(ROOT, "src/components/discover/DiscoverClient.tsx"), "utf-8");
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
 
     // 1. Virtualized list overrides content-visibility to visible to prevent ResizeObserver measurement oscillations
-    assert.match(globalsCss, /\[data-testid="hub-feed-scroll"\] \.nb-project-card[\s\S]*?content-visibility:\s*visible;[\s\S]*?contain-intrinsic-size:\s*none;/);
+    assert.match(globalsCss, /\[data-testid="discover-feed-scroll"\] \.nb-project-card[\s\S]*?content-visibility:\s*visible;[\s\S]*?contain-intrinsic-size:\s*none;/);
 
     // 2. Vertical scroll area contains rubberband momentum to prevent parent layout bounce
     assert.match(globalsCss, /\.app-scroll\s*\{[\s\S]*?overscroll-behavior-y:\s*contain;/);
 
-    // 3. SimpleHubClient provides stable memoized Virtuoso props (no inline component remounting)
+    // 3. DiscoverClient provides stable memoized Virtuoso props (no inline component remounting)
     assert.match(hubClientSource, /const VIRTUOSO_CONTAINER_STYLE = \{ width: "100%" \} as const;/);
     assert.match(hubClientSource, /const computeProjectItemKey = \(_: number, project: Project\) => project\.id;/);
     assert.match(hubClientSource, /components=\{virtuosoComponents\}/);
@@ -266,7 +266,7 @@ test("Discovery feed smooth scrolling & Virtuoso stability contract", () => {
     assert.match(avatarSource, /let sharedPresenceChannel: BroadcastChannel \| null = null;/);
 
     // 5. Scroll container and virtuoso scroller disable scroll anchoring to prevent upward scroll jitter
-    assert.match(globalsCss, /\[data-testid="hub-feed-scroll"\][\s\S]*?overflow-anchor:\s*none;/);
+    assert.match(globalsCss, /\[data-testid="discover-feed-scroll"\][\s\S]*?overflow-anchor:\s*none;/);
 
     // 6. Virtuoso sets generous viewport buffer to prevent upward scrolling compensation jitter
     assert.match(hubClientSource, /increaseViewportBy=\{VIRTUOSO_INCREASE_VIEWPORT_BY\}/);

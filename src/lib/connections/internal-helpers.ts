@@ -6,9 +6,7 @@ import { revalidatePath } from 'next/cache';
 
 export async function revalidateConnectionsPaths() {
     revalidatePath('/network');
-    revalidatePath('/people');
     revalidatePath('/my-profile');
-    revalidatePath('/profile');
     revalidatePath('/messages');
 }
 

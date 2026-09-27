@@ -7,7 +7,7 @@ import Link from "next/link";
 import { isToday, isAfter, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { formatLastActive } from "@/lib/ui/date-formatting";
-import type { Project } from "@/types/hub";
+import type { Project } from "@/types/discover";
 
 export function getProjectAvatarUrl(project: Partial<Project> | null | undefined): string | null {
     if (!project) return null;

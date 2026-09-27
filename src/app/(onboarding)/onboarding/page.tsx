@@ -226,10 +226,10 @@ function readOnboardingDraft(userId: string, draftKey: string): ScopedLocalDraft
 }
 
 function getOnboardingReturnPath() {
-    if (typeof window === 'undefined') return '/hub'
+    if (typeof window === 'undefined') return '/discover'
     const requested = new URLSearchParams(window.location.search).get('next')
     const normalized = normalizeAuthNextPath(requested)
-    return normalized === '/onboarding' || normalized.startsWith('/onboarding?') ? '/hub' : normalized
+    return normalized === '/onboarding' || normalized.startsWith('/onboarding?') ? '/discover' : normalized
 }
 
 function mergeOnboardingData(current: OnboardingData, updates: OnboardingDataUpdates): OnboardingData {

@@ -25,7 +25,6 @@ function main() {
         { label: 'check:page-contract', command: npmExecutable(), args: ['run', 'check:page-contract'] },
         { label: 'check:force-dynamic-allowlist', command: npmExecutable(), args: ['run', 'check:force-dynamic-allowlist'] },
         { label: 'check:runtime-boundaries', command: npmExecutable(), args: ['run', 'check:runtime-boundaries'] },
-        { label: 'check:hub-canonical-contract', command: npmExecutable(), args: ['run', 'check:hub-canonical-contract'] },
         { label: 'build', command: npmExecutable(), args: ['run', 'build'] },
         { label: 'check:build-rendering-contract', command: npmExecutable(), args: ['run', 'check:build-rendering-contract'] },
     ]

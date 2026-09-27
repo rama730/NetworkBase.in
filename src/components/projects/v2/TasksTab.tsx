@@ -37,7 +37,7 @@ import {
   useProjectInfiniteTasks,
   useProjectSprints,
   type ProjectTaskScope,
-} from "@/hooks/hub/useProjectTasksData";
+} from "@/hooks/projects/useProjectTasksData";
 import {
   normalizeAssignableMembers,
   normalizeSprintOptions,

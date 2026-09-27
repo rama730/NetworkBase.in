@@ -23,7 +23,7 @@ import {
 } from "./GlobalSearchResultCards";
 import {
     buildGlobalSearchHref,
-    getPeopleSearchScope,
+    getNetworkSearchScope,
     getProjectIdentifierFromPathname,
     getGlobalSearchRecentScope,
     readRecentGlobalSearches,
@@ -46,9 +46,9 @@ type CommandPaletteProps = {
 };
 
 const CONTEXT_PRESENTATION = {
-    default: { label: "Hub / Projects", hints: ["Project name", "Technology", "Category"] },
-    hub: { label: "Hub / Projects", hints: ["Project name", "Technology", "Category"] },
-    people: { label: "Connections / Builders", hints: ["Name", "Skill", "Location"] },
+    default: { label: "Discover / Projects", hints: ["Project name", "Technology", "Category"] },
+    discover: { label: "Discover / Projects", hints: ["Project name", "Technology", "Category"] },
+    network: { label: "Network / Builders", hints: ["Name", "Skill", "Location"] },
     project: { label: "Project / Work & Links", hints: ["Task title", "Destination name", "Link purpose"] },
     settings: { label: "Workspace / Settings", hints: ["Theme", "Privacy", "Integrations"] },
     messages: { label: "Messages", hints: [] },
@@ -145,10 +145,10 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     const currentParams = useMemo(() => new URLSearchParams(paramsString), [paramsString]);
     const routeContext = resolveGlobalSearchContext(pathname, currentParams);
     const searchContext = context ?? routeContext.context;
-    const peopleScope = getPeopleSearchScope(currentParams);
+    const peopleScope = getNetworkSearchScope(currentParams);
     const projectIdentifier = getProjectIdentifierFromPathname(pathname);
     const recentSearchScope = getGlobalSearchRecentScope(searchContext, peopleScope, projectIdentifier);
-    const presentation = searchContext === "people" && peopleScope === "network"
+    const presentation = searchContext === "network" && peopleScope === "network"
         ? { label: "Connections / Network", hints: ["Connection name", "Username"] }
         : CONTEXT_PRESENTATION[searchContext];
     const palettePlaceholder = `Search ${presentation.label}...`;
@@ -170,7 +170,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     const taskResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "task" }>; index: number } => entry.result.kind === "task");
     const linkResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "link" }>; index: number } => entry.result.kind === "link");
     const skillResults = previewResults.map((result, index) => ({ result, index })).filter((entry): entry is { result: Extract<GlobalSearchPreview, { kind: "skill" }>; index: number } => entry.result.kind === "skill");
-    const supportsPreviews = searchContext === "hub" || searchContext === "people" || searchContext === "project" || searchContext === "default";
+    const supportsPreviews = searchContext === "discover" || searchContext === "network" || searchContext === "project" || searchContext === "default";
     const resultCount = searchContext === "settings" ? settingsResults.length : previewResults.length;
     const activeResult = searchContext === "settings" ? settingsResults[activeIndex] : previewResults[activeIndex];
     const isRateLimited = previews.error instanceof SearchPreviewError && previews.error.code === "RATE_LIMITED";
@@ -219,7 +219,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     };
 
     const cancelActivePreviews = () => {
-        const previewContext = searchContext === "default" ? "hub" : searchContext;
+        const previewContext = searchContext === "default" ? "discover" : searchContext;
         queryClient.cancelQueries({
             queryKey: ["global-search", "previews", previewContext],
         });
@@ -407,7 +407,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                             </AppScrollArea>
                         </div>
                     ) : supportsPreviews ? (
-                        <AppScrollArea id="global-search-preview-results" axis="y" role={normalizedQuery ? "listbox" : "region"} aria-busy={previews.isFetching || previews.isDebouncing} aria-label={normalizedQuery ? searchContext === "people" ? "Builder search results" : searchContext === "project" ? "Task search results" : "Project search results" : "Search guidance and recent searches"} className="min-h-0 min-w-0 flex-1 sm:max-h-[480px]">
+                        <AppScrollArea id="global-search-preview-results" axis="y" role={normalizedQuery ? "listbox" : "region"} aria-busy={previews.isFetching || previews.isDebouncing} aria-label={normalizedQuery ? searchContext === "network" ? "Builder search results" : searchContext === "project" ? "Task search results" : "Project search results" : "Search guidance and recent searches"} className="min-h-0 min-w-0 flex-1 sm:max-h-[480px]">
                             {normalizedQuery.length === 0 ? (
                                 <div className="px-5 pt-3 pb-6 sm:pt-3 sm:pb-6">
                                     {recentSearches.length ? (
@@ -423,7 +423,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                                     </span>
                                                 ))}
                                             </div>
-                                            <p className="mt-4 nb-meta text-xs text-muted-foreground/80">Start typing to preview matching {searchContext === "people" ? "builders" : searchContext === "project" ? "tasks" : "projects"}.</p>
+                                            <p className="mt-4 nb-meta text-xs text-muted-foreground/80">Start typing to preview matching {searchContext === "network" ? "builders" : searchContext === "project" ? "tasks" : "projects"}.</p>
                                         </div>
                                     )}
                                 </div>
@@ -447,7 +447,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                 </div>
                             ) : previewResults.length === 0 ? (
                                 <div className="px-5 py-12 text-center">
-                                    <p className="text-sm font-medium text-foreground">No {searchContext === "people" ? "builders" : searchContext === "project" ? "project work or links" : "projects"} match “{normalizedQuery}”.</p>
+                                    <p className="text-sm font-medium text-foreground">No {searchContext === "network" ? "builders" : searchContext === "project" ? "project work or links" : "projects"} match “{normalizedQuery}”.</p>
                                     <p className="mt-1 text-xs text-muted-foreground">Try a {presentation.hints.map((hint) => hint.toLowerCase()).join(", ")}.</p>
                                 </div>
                             ) : (

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { memo, useEffect, useRef, useState } from "react";
 import { Users, UserPlus, UserCheck, BarChart2, ExternalLink, Globe } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Project } from "@/types/hub";
+import type { Project } from "@/types/discover";
 import type { ProjectCardViewModel } from "@/lib/view-models/project-card";
 import { useToggleProjectFollow } from "@/hooks/mutations/useProjectMutations";
 import { UserAvatar } from "@/components/ui/UserAvatar";

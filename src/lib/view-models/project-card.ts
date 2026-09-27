@@ -1,5 +1,5 @@
-import { Project } from '@/types/hub';
-import { PROJECT_STATUS, } from '@/constants/hub';
+import { Project } from '@/types/discover';
+import { PROJECT_STATUS, } from '@/constants/discover';
 
 export interface ProjectCardViewModel {
     id: string;

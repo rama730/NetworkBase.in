@@ -8,7 +8,7 @@ import {
     Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Project } from "@/types/hub";
+import type { Project } from "@/types/discover";
 import ProjectStatsBar from "@/components/projects/ProjectStatsBar";
 import ProjectAvatar, { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
 import { ProjectPresenceDot } from "@/components/projects/ProjectAvatar";

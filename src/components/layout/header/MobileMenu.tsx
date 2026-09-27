@@ -102,7 +102,7 @@ export default function MobileMenu(props: {
                     {MAIN_NAV_ITEMS.map((item) => {
                         const isActive = isMainNavRouteActive(pathname, item.href);
                         const hasUnreadMessages = item.href === ROUTES.MESSAGES && messageUnreadCount > 0;
-                        const isConnectionsItem = item.href === ROUTES.PEOPLE;
+                        const isConnectionsItem = item.href === ROUTES.NETWORK;
                         return (
                             <Link
                                 key={item.href}

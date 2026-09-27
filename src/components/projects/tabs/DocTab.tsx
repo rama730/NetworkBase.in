@@ -5,9 +5,9 @@ import { useSearchParams } from "next/navigation";
 
 import { ProjectDocViewer } from "@/components/projects/doc/ProjectDocViewer";
 import { SkeletonDoc } from "@/components/projects/skeletons/SkeletonDoc";
-import { useProjectDoc } from "@/hooks/hub/useProjectDocData";
+import { useProjectDoc } from "@/hooks/projects/useProjectDocData";
 import { normalizeProjectDocSlug } from "@/lib/projects/doc";
-import type { Project } from "@/types/hub";
+import type { Project } from "@/types/discover";
 
 export default function DocTab({
     projectId,

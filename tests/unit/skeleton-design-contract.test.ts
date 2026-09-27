@@ -27,13 +27,13 @@ test("Skeleton architectural contract: Section 33 CSS tokens and shimmer animati
 test("Skeleton architectural contract: Canonical route loading shells exist", () => {
     const canonicalRoutes = [
         "src/app/(main)/discover/loading.tsx",
-        "src/app/(main)/hub/loading.tsx",
+        "src/app/(main)/discover/loading.tsx",
         "src/app/(main)/network/loading.tsx",
-        "src/app/(main)/people/loading.tsx",
+        "src/app/(main)/network/loading.tsx",
         "src/app/(main)/projects/[slug]/loading.tsx",
         "src/app/(main)/projects/new/loading.tsx",
         "src/app/(main)/u/[username]/loading.tsx",
-        "src/app/(main)/profile/loading.tsx",
+        "src/app/(main)/my-profile/loading.tsx",
         "src/app/(main)/my-profile/loading.tsx",
         "src/app/(main)/messages/loading.tsx",
         "src/app/(main)/settings/loading.tsx",
@@ -59,9 +59,9 @@ test("Skeleton architectural contract: Header and Global overlay hygiene", () =>
 });
 
 test("Skeleton architectural contract: People and Network measured card skeletons", () => {
-    const peopleClient = readFileSync(resolve(ROOT, "src/components/people/PeopleClient.tsx"), "utf-8");
-    const peopleHub = readFileSync(resolve(ROOT, "src/components/people/PeopleHubClient.tsx"), "utf-8");
-    const invitations = readFileSync(resolve(ROOT, "src/components/people/InvitationsClient.tsx"), "utf-8");
+    const peopleClient = readFileSync(resolve(ROOT, "src/components/network/NetworkPeopleTab.tsx"), "utf-8");
+    const peopleHub = readFileSync(resolve(ROOT, "src/components/network/NetworkClient.tsx"), "utf-8");
+    const invitations = readFileSync(resolve(ROOT, "src/components/network/InvitationsClient.tsx"), "utf-8");
 
     assert.match(peopleClient, /<PersonCardSkeleton key=\{item\} \/>/);
     assert.match(peopleHub, /<PersonCardSkeleton key=\{item\} \/>/);

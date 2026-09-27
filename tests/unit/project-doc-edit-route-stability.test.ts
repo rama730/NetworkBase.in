@@ -44,7 +44,7 @@ test("project docs isolate published document identity across URLs and cache", (
         "utf8",
     );
     const queryHook = fs.readFileSync(
-        path.join(repoRoot, "src/hooks/hub/useProjectDocData.ts"),
+        path.join(repoRoot, "src/hooks/projects/useProjectDocData.ts"),
         "utf8",
     );
 

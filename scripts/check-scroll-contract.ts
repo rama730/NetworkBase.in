@@ -74,14 +74,14 @@ function collectExtraContractFiles(pageFile: string, repoRoot: string): string[]
     if (fs.existsSync(target)) {
       extras.push(target);
       const targetRel = toPosix(path.relative(repoRoot, target));
-      if (targetRel === "src/app/(main)/hub/page.tsx") {
-        extras.push(path.join(repoRoot, "src/components/hub/SimpleHubClient.tsx"));
+      if (targetRel === "src/app/(main)/discover/page.tsx") {
+        extras.push(path.join(repoRoot, "src/components/discover/DiscoverClient.tsx"));
       }
     }
   }
 
-  if (rel === "src/app/(main)/hub/page.tsx" || rel === "src/app/(main)/discover/page.tsx") {
-    extras.push(path.join(repoRoot, "src/components/hub/SimpleHubClient.tsx"));
+  if (rel === "src/app/(main)/discover/page.tsx" || rel === "src/app/(main)/discover/page.tsx") {
+    extras.push(path.join(repoRoot, "src/components/discover/DiscoverClient.tsx"));
   }
   if (rel.startsWith("src/app/(main)/settings/")) {
     extras.push(path.join(repoRoot, "src/components/settings/SettingsLayout.tsx"));

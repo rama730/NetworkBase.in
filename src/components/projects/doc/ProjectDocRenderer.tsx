@@ -32,8 +32,8 @@ import { normalizeProjectDocSlug } from "@/lib/projects/doc";
 import { buildProjectDocViewModel, type ProjectDocViewModel } from "@/lib/projects/doc-view-model";
 import { ProjectDocCommandBlock } from "@/components/projects/doc/ProjectDocCommandBlock";
 import { ProjectDocSmartBlock } from "@/components/projects/doc/ProjectDocSmartBlock";
-import { useProjectDocSmartBlockPreviews } from "@/hooks/hub/useProjectDocData";
-import type { Project } from "@/types/hub";
+import { useProjectDocSmartBlockPreviews } from "@/hooks/projects/useProjectDocData";
+import type { Project } from "@/types/discover";
 import { cn } from "@/lib/utils";
 
 const ReactMarkdown = dynamic(() => import("react-markdown"), { ssr: false });

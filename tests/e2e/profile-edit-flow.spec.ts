@@ -31,7 +31,7 @@ test.describe("Profile edit flow", () => {
         });
 
         await login(page);
-        await page.goto("/profile");
+        await page.goto("/my-profile");
         await expect(page).toHaveURL(/\/profile$/);
 
         const pageHeading = page.getByRole("heading", { level: 1 }).first();
@@ -83,7 +83,7 @@ test.describe("Profile edit flow", () => {
         const saveResponse = page.waitForResponse(
             (response) =>
                 response.request().method() === "POST" &&
-                response.url().includes("/profile") &&
+                response.url().includes("/my-profile") &&
                 (response.request().postData() || "").includes(updatedHeadline),
             { timeout: 30000 }
         );
@@ -124,7 +124,7 @@ test.describe("Profile edit flow", () => {
         const page = await context.newPage();
 
         await login(page);
-        await page.goto("/profile");
+        await page.goto("/my-profile");
 
         const about = page.getByRole("heading", { name: "About", exact: true });
         const skills = page.getByRole("heading", { name: "Skills", exact: true });
@@ -147,7 +147,7 @@ test.describe("Profile edit flow", () => {
         const contributionName = scopedName("E2E-external-contribution");
 
         await login(ownerPage);
-        await ownerPage.goto("/profile");
+        await ownerPage.goto("/my-profile");
         const handleNode = ownerPage.locator("text=/@[-_a-zA-Z0-9]+/").first();
         await expect(handleNode).toBeVisible({ timeout: 15000 });
         const username = ((await handleNode.textContent()) || "").trim().replace(/^@/, "");

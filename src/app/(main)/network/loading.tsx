@@ -1,4 +1,4 @@
-import { NetworkRouteSkeleton } from "@/components/people/NetworkRouteSkeleton";
+import { NetworkRouteSkeleton } from "@/components/network/NetworkRouteSkeleton";
 
 export default function NetworkLoading() {
     return <NetworkRouteSkeleton />;

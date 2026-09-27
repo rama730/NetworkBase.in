@@ -6,7 +6,7 @@ import ProjectCard from "@/components/projects/ProjectCard";
 import ProjectCardSkeleton from "@/components/projects/ProjectCardSkeleton";
 import { toProjectCardViewModel } from "@/lib/view-models/project-card";
 import type { ProfileCollaborationProject } from "@/lib/profile/collaboration";
-import type { Project } from "@/types/hub";
+import type { Project } from "@/types/discover";
 
 interface ProjectsGridCardProps {
     projects: ProfileCollaborationProject[];

@@ -7,7 +7,7 @@ function source(relativePath: string) {
 }
 
 const schema = source("src/lib/db/schema/index.ts");
-const hubAction = source("src/app/actions/hub.ts");
+const hubAction = source("src/app/actions/discover.ts");
 const connectionsAction = source("src/app/actions/connections.ts");
 const taskAction = source("src/app/actions/project/_all.ts");
 const observability = source("src/lib/search/observability.ts");
@@ -16,7 +16,7 @@ const commandPalette = source("src/components/layout/header/CommandPalette.tsx")
 const topNav = source("src/components/layout/header/TopNav.tsx");
 const searchContract = source("src/components/layout/header/global-search.ts");
 const resultCards = source("src/components/layout/header/GlobalSearchResultCards.tsx");
-const hubData = source("src/lib/data/hub.ts");
+const hubData = source("src/lib/data/discover.ts");
 
 const requiredIndexes = [
   "projects_title_search_idx",

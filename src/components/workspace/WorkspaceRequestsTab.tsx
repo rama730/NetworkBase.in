@@ -11,10 +11,10 @@ import { Inbox } from "lucide-react";
 import {
     IncomingProjectApplicationRow,
     type IncomingProjectApplication,
-} from "@/components/people/IncomingProjectApplicationRow";
+} from "@/components/network/IncomingProjectApplicationRow";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { RequestProfileRow } from "@/components/people/RequestProfileRow";
+import { RequestProfileRow } from "@/components/network/RequestProfileRow";
 import { useConnectionMutations, usePendingRequests } from "@/hooks/useConnections";
 
 interface WorkspaceRequestsTabProps {
@@ -107,7 +107,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     const invalidate = () => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.root() });
         void queryClient.invalidateQueries({ queryKey: ["connections", "pending-requests"] });
-        void queryClient.invalidateQueries({ queryKey: ["people", "project-applications"] });
+        void queryClient.invalidateQueries({ queryKey: ["network", "project-applications"] });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root() });
     };
 

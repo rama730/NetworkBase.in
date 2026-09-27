@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mapPublicProjectToHubProject } from "@/lib/projects/public-feed";
+import { mapPublicProjectToDiscoverProject } from "@/lib/projects/public-feed";
 
 describe("public project owner masking", () => {
     it("masks non-public owners in cached public feed items", () => {
-        const project = mapPublicProjectToHubProject({
+        const project = mapPublicProjectToDiscoverProject({
             id: "project-1",
             slug: "project-1",
             title: "Project",

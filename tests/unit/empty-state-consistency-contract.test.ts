@@ -73,7 +73,7 @@ test("Empty state architectural contract: Projects and Tasks surfaces", () => {
 });
 
 test("Empty state architectural contract: Discover, People, and Skills surfaces", () => {
-    const hubClient = readFileSync(resolve(ROOT, "src/components/hub/SimpleHubClient.tsx"), "utf-8");
+    const hubClient = readFileSync(resolve(ROOT, "src/components/discover/DiscoverClient.tsx"), "utf-8");
     const skillPicker = readFileSync(resolve(ROOT, "src/components/skills/SkillPicker.tsx"), "utf-8");
 
     assert.match(hubClient, /className=["'][^"']*nb-empty-state nb-grid-ground/);

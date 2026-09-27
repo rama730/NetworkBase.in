@@ -15,7 +15,7 @@ const requiredFiles = [
   "src/components/layout/header/NavLink.tsx",
   "src/components/layout/header/TopNav.tsx",
   "src/components/layout/header/MobileMenu.tsx",
-  "src/components/hub/HubHeader.tsx",
+  "src/components/discover/DiscoverHeader.tsx",
   "src/components/chat/v2/ChatPopupV2.tsx",
   "src/components/chat/v2/MessageComposerV2.tsx",
   "src/components/chat/v2/MessagesWorkspaceV2.tsx",
@@ -43,7 +43,7 @@ describe("check-appearance-contract script", () => {
       write(path.join(tmp, filePath), `export const ok = "app-selected-surface";`);
     }
     write(
-      path.join(tmp, "src/components/hub/HubHeader.tsx"),
+      path.join(tmp, "src/components/discover/DiscoverHeader.tsx"),
       `export const bad = "app-accent-gradient-horizontal bg-indigo-600 text-white";`,
     );
 

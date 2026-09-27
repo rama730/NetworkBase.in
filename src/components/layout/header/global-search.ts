@@ -3,8 +3,8 @@ import { settingsTabHref } from "@/constants/routes";
 
 export type GlobalSearchContext =
     | "default"
-    | "hub"
-    | "people"
+    | "discover"
+    | "network"
     | "messages"
     | "project"
     | "settings";
@@ -16,9 +16,9 @@ export type SearchContext = {
     description: string;
 };
 
-export type PeopleSearchScope = "discover" | "network";
+export type NetworkSearchScope = "discover" | "network";
 
-export function getPeopleSearchScope(searchParams?: URLSearchParams | null): PeopleSearchScope {
+export function getNetworkSearchScope(searchParams?: URLSearchParams | null): NetworkSearchScope {
     const tab = searchParams?.get("tab");
     return tab === "network" || tab === "connections" ? "network" : "discover";
 }
@@ -54,11 +54,11 @@ function readRecentGlobalSearchStore(ownerId: string): RecentGlobalSearchStore {
 
 export function getGlobalSearchRecentScope(
     context: GlobalSearchContext,
-    peopleScope: PeopleSearchScope,
+    peopleScope: NetworkSearchScope,
     projectIdentifier: string | null,
 ) {
-    if (context === "default" || context === "hub") return "hub";
-    if (context === "people") return `people:${peopleScope}`;
+    if (context === "default" || context === "discover") return "discover";
+    if (context === "network") return `network:${peopleScope}`;
     if (context === "project") return `project:${projectIdentifier || "unknown"}`;
     return context;
 }
@@ -212,10 +212,10 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
             description: "Search task keys, titles, and descriptions in this project.",
         };
     }
-    if (pathname?.startsWith("/network") || pathname?.startsWith("/people")) {
-        const scope = getPeopleSearchScope(searchParams);
+    if (pathname?.startsWith("/network")) {
+        const scope = getNetworkSearchScope(searchParams);
         return {
-            context: "people",
+            context: "network",
             placeholder: scope === "network" ? "Search your network..." : "Find builders & collaborators...",
             title: scope === "network" ? "Search your network" : "Find builders",
             description: scope === "network"
@@ -223,9 +223,9 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
                 : "Search people by name, skills, interests, or location.",
         };
     }
-    if (pathname?.startsWith("/discover") || pathname?.startsWith("/hub")) {
+    if (pathname?.startsWith("/discover")) {
         return {
-            context: "hub",
+            context: "discover",
             placeholder: "Search projects...",
             title: "Search projects",
             description: "Search project names, descriptions, and technologies.",
@@ -260,7 +260,7 @@ export function getGlobalSearchQuery(searchParams: URLSearchParams, context: Glo
     if (context === "project") return normalizeGlobalSearchQuery(searchParams.get("search") || "");
     const query = searchParams.get("q");
     const tag = searchParams.get("tag");
-    const technologies = context === "hub" || context === "default"
+    const technologies = context === "discover" || context === "default"
         ? searchParams.get("tech")?.split(",").map((item) => item.trim()).filter(Boolean) ?? []
         : [];
     return normalizeGlobalSearchQuery(query || (tag ? `#${tag}` : technologies.join(", ")));
@@ -311,7 +311,7 @@ export function buildGlobalSearchHref({
         params.delete("panelTab");
     } else {
         if (context === "default") targetPath = "/discover";
-        if (context === "people" && (params.get("tab") === "requests" || params.get("tab") === "invitations")) params.set("tab", "suggested");
+        if (context === "network" && (params.get("tab") === "requests" || params.get("tab") === "invitations")) params.set("tab", "suggested");
         params.set("q", value);
         params.delete("tag");
     }

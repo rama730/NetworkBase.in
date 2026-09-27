@@ -236,7 +236,7 @@ export function EditProfileModal({
             void queryClient.invalidateQueries({ queryKey: queryKeys.profile.collaborationSummary(profile.id) });
             void queryClient.invalidateQueries({ queryKey: queryKeys.profile.projects(profile.id) });
         }
-        void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.peopleRoot(), refetchType: "active" });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.networkRoot(), refetchType: "active" });
     };
 
     const persistChanges = async (closeOnSuccess: boolean) => {

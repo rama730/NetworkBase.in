@@ -213,7 +213,7 @@ test.describe('Onboarding smoke', () => {
 
         await expect
             .poll(() => new URL(page.url()).pathname, { timeout: 45000 })
-            .toBe('/hub')
+            .toBe('/discover')
 
         await monitor.assertNoViolations()
         monitor.detach()
@@ -385,7 +385,7 @@ test.describe('Onboarding smoke', () => {
 
         await expect
             .poll(() => new URL(page.url()).pathname, { timeout: 45000 })
-            .toBe('/hub')
+            .toBe('/discover')
 
         await monitor.assertNoViolations()
         monitor.detach()

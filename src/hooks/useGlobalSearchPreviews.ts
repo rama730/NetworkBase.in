@@ -6,10 +6,10 @@ import { useDebounce } from "use-debounce";
 import { get as getIdb, set as setIdb } from "idb-keyval";
 
 import { getConnectionsFeed, type SuggestedProfile } from "@/app/actions/connections";
-import { fetchHubProjectsAction } from "@/app/actions/hub";
+import { fetchDiscoverProjectsAction } from "@/app/actions/discover";
 import { fetchProjectLinkPreviewsAction, fetchProjectTaskPreviewsAction } from "@/app/actions/project";
-import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS } from "@/constants/hub";
-import { normalizeGlobalSearchQuery, type GlobalSearchContext, type PeopleSearchScope } from "@/components/layout/header/global-search";
+import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS } from "@/constants/discover";
+import { normalizeGlobalSearchQuery, type GlobalSearchContext, type NetworkSearchScope } from "@/components/layout/header/global-search";
 import { profileHref } from "@/lib/routing/identifiers";
 import { queryKeys } from "@/lib/query-keys";
 import { isRetryableSearchError, toSearchPreviewError, SearchPreviewError, type SearchErrorCode } from "@/lib/search/contracts";
@@ -145,7 +145,7 @@ function textIncludes(value: string | null | undefined, query: string) {
 }
 
 async function fetchProjectPreviews(query: string): Promise<GlobalSearchPreview[]> {
-    const result = await fetchHubProjectsAction({
+    const result = await fetchDiscoverProjectsAction({
         status: PROJECT_STATUS.ALL,
         type: PROJECT_TYPE.ALL,
         tech: [],
@@ -198,14 +198,14 @@ async function fetchProjectPreviews(query: string): Promise<GlobalSearchPreview[
         kind: "skill" as const,
         title: skill,
         subtitle: "View projects using this skill",
-        href: `/hub?tech=${encodeURIComponent(skill)}`,
+        href: `/discover?tech=${encodeURIComponent(skill)}`,
         matchReason: `Skill in matching projects: ${skill}`,
     }));
 
     return [...projects, ...skills];
 }
 
-async function fetchProfilePreviews(query: string, scope: PeopleSearchScope): Promise<GlobalSearchPreview[]> {
+async function fetchProfilePreviews(query: string, scope: NetworkSearchScope): Promise<GlobalSearchPreview[]> {
     const result = await getConnectionsFeed({
         tab: scope,
         limit: PREVIEW_LIMIT,
@@ -326,14 +326,14 @@ export function useGlobalSearchPreviews({
     query: string;
     enabled: boolean;
     projectIdentifier?: string | null;
-    peopleScope?: PeopleSearchScope;
+    peopleScope?: NetworkSearchScope;
 }) {
     const [debouncedQuery] = useDebounce(
         normalizeGlobalSearchQuery(query),
         query.trim().length <= 3 ? 450 : 250,
     );
-    const previewContext = context === "default" ? "hub" : context;
-    const supportsPreviews = previewContext === "hub" || previewContext === "people" || (previewContext === "project" && Boolean(projectIdentifier));
+    const previewContext = context === "default" ? "discover" : context;
+    const supportsPreviews = previewContext === "discover" || previewContext === "network" || (previewContext === "project" && Boolean(projectIdentifier));
     const [cooldownUntil, setCooldownUntil] = useState(globalCooldownUntil);
 
     useEffect(() => {
@@ -356,7 +356,7 @@ export function useGlobalSearchPreviews({
             }
             const cacheKey = `offline:search:${previewContext}:${peopleScope}:${projectIdentifier || 'none'}:${debouncedQuery.toLowerCase()}`;
             try {
-                const results = await (previewContext === "people"
+                const results = await (previewContext === "network"
                     ? fetchProfilePreviews(debouncedQuery, peopleScope)
                     : previewContext === "project" && projectIdentifier
                         ? fetchProjectContextPreviews(projectIdentifier, debouncedQuery)
@@ -380,7 +380,7 @@ export function useGlobalSearchPreviews({
             }
         },
         enabled: enabled && supportsPreviews && debouncedQuery.length >= 2 && cooldownUntil === 0,
-        staleTime: previewContext === "hub" ? 60_000 : previewContext === "people" ? 30_000 : 15_000,
+        staleTime: previewContext === "discover" ? 60_000 : previewContext === "network" ? 30_000 : 15_000,
         gcTime: 5 * 60_000,
         retry: (failureCount, error) => failureCount < 1 && isRetryableSearchError(error),
         refetchOnWindowFocus: false,

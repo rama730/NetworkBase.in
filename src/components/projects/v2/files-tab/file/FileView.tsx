@@ -58,7 +58,7 @@ import {
 } from "lucide-react";
 
 import { useRouter, usePathname } from "next/navigation";
-import { useProjectDocList } from "@/hooks/hub/useProjectDocData";
+import { useProjectDocList } from "@/hooks/projects/useProjectDocData";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -72,7 +72,7 @@ import { normalizeProjectDocSlug } from "@/lib/projects/doc";
 import { cn } from "@/lib/utils";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 import { useFileVersions } from "@/hooks/useFileVersions";
-import { useProjectMembers } from "@/hooks/hub/useProjectMembers";
+import { useProjectMembers } from "@/hooks/projects/useProjectMembers";
 
 import { fileKind, type FileKind } from "../../utils/fileKind";
 import AssetPreview from "../../preview/AssetPreview";

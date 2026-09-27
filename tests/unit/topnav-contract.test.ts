@@ -40,11 +40,11 @@ test("top-nav routes use tabbed settings and correctly classify project detail r
 test("global-search preserves unrelated filters and only resets task pagination", () => {
   assert.equal(
     buildGlobalSearchClearHref({
-      pathname: "/hub",
+      pathname: "/discover",
       searchParams: new URLSearchParams("q=react&tech=GitHub&type=startup&sort=popular"),
-      context: "hub",
+      context: "discover",
     }),
-    "/hub?type=startup&sort=popular",
+    "/discover?type=startup&sort=popular",
   );
   assert.equal(
     buildGlobalSearchClearHref({
@@ -65,21 +65,21 @@ test("global-search preserves unrelated filters and only resets task pagination"
   );
   assert.equal(
     buildGlobalSearchHref({
-      pathname: "/people",
+      pathname: "/network",
       searchParams: new URLSearchParams("tab=requests"),
-      context: "people",
+      context: "network",
       query: "TypeScript",
     }),
-    "/people?tab=suggested&q=TypeScript",
+    "/network?tab=suggested&q=TypeScript",
   );
   assert.equal(
     buildGlobalSearchHref({
-      pathname: "/people",
+      pathname: "/network",
       searchParams: new URLSearchParams("tab=network"),
-      context: "people",
+      context: "network",
       query: "Ramanayudu",
     }),
-    "/people?tab=network&q=Ramanayudu",
+    "/network?tab=network&q=Ramanayudu",
   );
   assert.equal(
     buildGlobalSearchHref({
@@ -92,7 +92,7 @@ test("global-search preserves unrelated filters and only resets task pagination"
   );
   assert.equal(
     buildGlobalSearchHref({
-      pathname: "/profile",
+      pathname: "/my-profile",
       searchParams: new URLSearchParams("edit=true"),
       context: "default",
       query: "design systems",
@@ -102,23 +102,23 @@ test("global-search preserves unrelated filters and only resets task pagination"
 });
 
 test("global-search exposes and clears selected Hub technologies", () => {
-  assert.equal(getGlobalSearchQuery(new URLSearchParams("tech=GitHub"), "hub"), "GitHub");
-  assert.equal(getGlobalSearchQuery(new URLSearchParams("tech=GitHub,React"), "hub"), "GitHub, React");
-  assert.equal(getGlobalSearchQuery(new URLSearchParams("q=pony&tech=GitHub"), "hub"), "pony");
+  assert.equal(getGlobalSearchQuery(new URLSearchParams("tech=GitHub"), "discover"), "GitHub");
+  assert.equal(getGlobalSearchQuery(new URLSearchParams("tech=GitHub,React"), "discover"), "GitHub, React");
+  assert.equal(getGlobalSearchQuery(new URLSearchParams("q=pony&tech=GitHub"), "discover"), "pony");
   assert.equal(
     buildGlobalSearchClearHref({
-      pathname: "/hub",
+      pathname: "/discover",
       searchParams: new URLSearchParams("tech=GitHub&type=startup"),
-      context: "hub",
+      context: "discover",
     }),
-    "/hub?type=startup",
+    "/discover?type=startup",
   );
 });
 
 test("recent global searches are scoped, deduplicated, and bounded", () => {
-  assert.equal(getGlobalSearchRecentScope("default", "discover", null), "hub");
-  assert.equal(getGlobalSearchRecentScope("hub", "discover", null), "hub");
-  assert.equal(getGlobalSearchRecentScope("people", "network", null), "people:network");
+  assert.equal(getGlobalSearchRecentScope("default", "discover", null), "discover");
+  assert.equal(getGlobalSearchRecentScope("discover", "discover", null), "discover");
+  assert.equal(getGlobalSearchRecentScope("network", "network", null), "network:network");
   assert.equal(getGlobalSearchRecentScope("project", "discover", "deepscope-ai"), "project:deepscope-ai");
   const query = (value: string): RecentGlobalSearchItem => ({ kind: "query", key: `query:${value.toLowerCase()}`, label: value, query: value });
   assert.deepEqual(mergeRecentGlobalSearches([query("React"), query("GitHub")], query("react")), [query("react"), query("GitHub")]);
@@ -139,32 +139,32 @@ test("recent global-search storage isolates users and contexts and tolerates mal
   });
 
   try {
-    rememberRecentGlobalSearch("alice", "hub", "React");
-    rememberRecentGlobalSearch("alice", "hub", "GitHub");
-    rememberRecentGlobalSearch("alice", "people:discover", "Lakshmi");
-    rememberRecentGlobalSearch("bob", "hub", "Supabase");
+    rememberRecentGlobalSearch("alice", "discover", "React");
+    rememberRecentGlobalSearch("alice", "discover", "GitHub");
+    rememberRecentGlobalSearch("alice", "network:discover", "Lakshmi");
+    rememberRecentGlobalSearch("bob", "discover", "Supabase");
 
-    assert.deepEqual(readRecentGlobalSearches("alice", "hub").map((item) => item.label), ["GitHub", "React"]);
-    assert.deepEqual(readRecentGlobalSearches("alice", "people:discover").map((item) => item.label), ["Lakshmi"]);
-    assert.deepEqual(readRecentGlobalSearches("bob", "hub").map((item) => item.label), ["Supabase"]);
-    assert.deepEqual(readRecentGlobalSearches("", "hub"), []);
+    assert.deepEqual(readRecentGlobalSearches("alice", "discover").map((item) => item.label), ["GitHub", "React"]);
+    assert.deepEqual(readRecentGlobalSearches("alice", "network:discover").map((item) => item.label), ["Lakshmi"]);
+    assert.deepEqual(readRecentGlobalSearches("bob", "discover").map((item) => item.label), ["Supabase"]);
+    assert.deepEqual(readRecentGlobalSearches("", "discover"), []);
 
-    assert.deepEqual(removeRecentGlobalSearch("alice", "hub", "query:github").map((item) => item.label), ["React"]);
-    assert.deepEqual(readRecentGlobalSearches("alice", "hub").map((item) => item.label), ["React"]);
-    assert.deepEqual(removeRecentGlobalSearch("alice", "people:discover", "missing").map((item) => item.label), ["Lakshmi"]);
+    assert.deepEqual(removeRecentGlobalSearch("alice", "discover", "query:github").map((item) => item.label), ["React"]);
+    assert.deepEqual(readRecentGlobalSearches("alice", "discover").map((item) => item.label), ["React"]);
+    assert.deepEqual(removeRecentGlobalSearch("alice", "network:discover", "missing").map((item) => item.label), ["Lakshmi"]);
 
     const preview = { id: "project:ponytail", title: "Ponytail", kind: "project" as const, href: "/projects/ponytail" };
-    rememberRecentGlobalSearchPreview("alice", "hub", preview);
-    const selected = readRecentGlobalSearches("alice", "hub")[0];
+    rememberRecentGlobalSearchPreview("alice", "discover", preview);
+    const selected = readRecentGlobalSearches("alice", "discover")[0];
     assert.equal(selected?.kind, "preview");
     assert.equal(selected?.label, "Ponytail");
     assert.deepEqual(selected?.kind === "preview" ? selected.preview : null, preview);
 
     storage.set("nb:global-search:recent:v1:broken", "{");
-    assert.deepEqual(readRecentGlobalSearches("broken", "hub"), []);
+    assert.deepEqual(readRecentGlobalSearches("broken", "discover"), []);
 
-    storage.set("nb:global-search:recent:v1:legacy", JSON.stringify({ hub: ["React"] }));
-    assert.equal(readRecentGlobalSearches("legacy", "hub")[0]?.label, "React");
+    storage.set("nb:global-search:recent:v1:legacy", JSON.stringify({ discover: ["React"] }));
+    assert.equal(readRecentGlobalSearches("legacy", "discover")[0]?.label, "React");
   } finally {
     if (previousWindow) {
       Object.defineProperty(globalThis, "window", previousWindow);
@@ -190,9 +190,9 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   const layout = source("src/components/layout/MainLayout.tsx");
   const notificationActions = source("src/app/actions/notifications.ts");
   const messages = source("src/components/chat/v2/MessagesWorkspaceV2.tsx");
-  const people = source("src/components/people/PeopleHubClient.tsx");
-  const discoverPeople = source("src/components/people/PeopleClient.tsx");
-  const networkPeople = source("src/components/people/ConnectionsClient.tsx");
+  const people = source("src/components/network/NetworkClient.tsx");
+  const discoverPeople = source("src/components/network/NetworkPeopleTab.tsx");
+  const networkPeople = source("src/components/network/ConnectionsClient.tsx");
   const taskAction = source("src/app/actions/project/_all.ts");
   const commandPalette = source("src/components/layout/header/CommandPalette.tsx");
   const globalSearch = source("src/components/layout/header/GlobalSearch.tsx");
@@ -200,9 +200,9 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   const searchPreviews = source("src/hooks/useGlobalSearchPreviews.ts");
   const connectionsHook = source("src/hooks/useConnections.ts");
   const connectionsAction = source("src/app/actions/connections.ts");
-  const personCard = source("src/components/people/PersonCard.tsx");
+  const personCard = source("src/components/network/PersonCard.tsx");
   const resultCards = source("src/components/layout/header/GlobalSearchResultCards.tsx");
-  const hubData = source("src/lib/data/hub.ts");
+  const hubData = source("src/lib/data/discover.ts");
   const globals = source("src/app/globals.css");
 
   assert.match(topNav, /e\.key\.toLowerCase\(\) === "k"/);
@@ -223,7 +223,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(notifications, /onItemsViewed/);
   assert.match(notifications, /data-\[state=open\]/);
   assert.doesNotMatch(notifications, /Mark all read/);
-  assert.match(runtime, /<PeopleNotificationsProvider>/);
+  assert.match(runtime, /<NetworkNotificationsProvider>/);
   assert.doesNotMatch(runtime, /PresencePublisher|startPresenceHeartbeat/);
   assert.match(realtime, /resourceType: 'profile'/);
   assert.doesNotMatch(realtime, /table: 'tasks'/);
@@ -274,7 +274,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(commandPalette, /useConnectionMutations\(\)/);
   assert.match(commandPalette, /getConnectionRequestSuccessMessage/);
   assert.match(searchPreviews, /userId: profile\.id/);
-  assert.match(connectionsHook, /queryKeys\.globalSearch\.peopleRoot\(\)/);
+  assert.match(connectionsHook, /queryKeys\.globalSearch\.networkRoot\(\)/);
   assert.match(discoverPeople, /getConnectionRequestSuccessMessage/);
   assert.match(resultCards, /TaskSearchResultCard/);
   assert.match(resultCards, /SettingsSearchResultCard/);
@@ -297,7 +297,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(hubData, /acceptedRoleTitle/);
   assert.match(hubData, /Lead \/ /);
   assert.match(hubData, /connectionRank/);
-  assert.match(searchPreviews, /fetchHubProjectsAction/);
+  assert.match(searchPreviews, /fetchDiscoverProjectsAction/);
   assert.match(searchPreviews, /getConnectionsFeed/);
   assert.match(searchPreviews, /fetchProjectTaskPreviewsAction/);
   assert.match(connectionsAction, /accepted_connection\.status = 'accepted'/);
@@ -318,7 +318,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.doesNotMatch(networkPeople, /<h3 className="truncate/);
   assert.match(searchPreviews, /query\.trim\(\)\.length <= 3 \? 450 : 250/);
   assert.match(searchPreviews, /debouncedQuery\.length >= 2/);
-  assert.match(searchPreviews, /previewContext === "hub" \? 60_000/);
+  assert.match(searchPreviews, /previewContext === "discover" \? 60_000/);
   assert.match(searchPreviews, /queryKeys\.globalSearch\.preview/);
   assert.match(searchPreviews, /isDebouncing/);
   assert.match(searchPreviews, /refetchOnWindowFocus: false/);

@@ -10,7 +10,7 @@ test.describe("Connections smoke matrix", () => {
 
         await login(page);
 
-        await page.goto("/people?tab=discover");
+        await page.goto("/network?tab=discover");
         await expect(page.getByRole("tab", { name: /Suggested/ })).toBeVisible();
         await expect(page.getByRole("tab", { name: /Invitations/ })).toBeVisible();
         await expect(page.getByRole("tab", { name: /Connections/ })).toBeVisible();

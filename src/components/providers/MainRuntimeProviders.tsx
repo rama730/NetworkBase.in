@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { PeopleNotificationsProvider } from '@/components/providers/PeopleNotificationsProvider';
+import { NetworkNotificationsProvider } from '@/components/providers/NetworkNotificationsProvider';
 import { MessageAttentionProvider } from '@/components/providers/MessageAttentionProvider';
 import { RealtimeProvider } from '@/components/providers/RealtimeProvider';
 import { ChatPopupV2 } from '@/components/chat/v2/ChatPopupV2';
@@ -27,13 +27,13 @@ export function MainRuntimeProviders({
   return (
     <>
       <RealtimeProvider>
-        <PeopleNotificationsProvider>
+        <NetworkNotificationsProvider>
           <MessageAttentionProvider>
             {children}
             <ChatPopupV2 />
             <LazyChatProvider presenceEnabled={true} />
           </MessageAttentionProvider>
-        </PeopleNotificationsProvider>
+        </NetworkNotificationsProvider>
       </RealtimeProvider>
     </>
   );

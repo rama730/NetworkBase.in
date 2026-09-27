@@ -38,7 +38,7 @@ test("task board ordering is conflict-safe and pagination-complete", () => {
 });
 
 test("sprint detail paginates while lifecycle remains persisted", () => {
-  const data = read("src/hooks/hub/useProjectTasksData.ts");
+  const data = read("src/hooks/projects/useProjectTasksData.ts");
   const detail = read("src/lib/projects/sprint-detail.ts");
   const header = read("src/components/projects/tabs/sprint/SprintHeader.tsx");
   const timeline = read(

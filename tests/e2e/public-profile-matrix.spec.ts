@@ -11,7 +11,7 @@ test.describe("Public profile matrix @critical", () => {
     const monitor = attachPageMonitoring(page, { monitorConsoleTypes: ["error", "warning"] });
 
     await login(page);
-    await page.goto("/profile");
+    await page.goto("/my-profile");
 
     const handleNode = page.locator("text=/@[-_a-zA-Z0-9]+/").first();
     await expect(handleNode).toBeVisible({ timeout: 15000 });
@@ -41,7 +41,7 @@ test.describe("Public profile matrix @critical", () => {
     const page = await context.newPage();
 
     await login(page);
-    await page.goto("/profile");
+    await page.goto("/my-profile");
 
     const handleNode = page.locator("text=/@[-_a-zA-Z0-9]+/").first();
     await expect(handleNode).toBeVisible({ timeout: 15000 });

@@ -17,12 +17,9 @@ const ACTIVE_SURFACE_ROUTES: RouteDescriptor[] = [
 ]
 
 const USER_SHELL_ROUTES: RouteDescriptor[] = [
-    { pathname: '/hub', routeClass: 'user_shell' },
     { pathname: '/discover', routeClass: 'user_shell' },
     { pathname: '/settings', routeClass: 'user_shell' },
-    { pathname: '/profile', routeClass: 'user_shell' },
     { pathname: '/my-profile', routeClass: 'user_shell' },
-    { pathname: '/people', routeClass: 'user_shell' },
     { pathname: '/network', routeClass: 'user_shell' },
     { pathname: '/monitor', routeClass: 'user_shell' },
     { pathname: '/onboarding', routeClass: 'user_shell' },

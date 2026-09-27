@@ -275,7 +275,7 @@ function patchDiscoverAndSuggestionStatus(
         userId?: string;
         connectionStatus?: DiscoverConnectionItem['connectionStatus'];
         canConnect?: boolean;
-    }>>({ queryKey: queryKeys.globalSearch.peopleRoot() }, (items) => items?.map((item) =>
+    }>>({ queryKey: queryKeys.globalSearch.networkRoot() }, (items) => items?.map((item) =>
         item.kind === 'profile' && item.userId && userIds.has(item.userId)
             ? { ...item, connectionStatus: input.status, canConnect: input.canConnect }
             : item,
@@ -470,11 +470,11 @@ export function useConnectionMutations() {
         invalidateTimeoutRef.current = setTimeout(() => {
             invalidateConnectionsScoped(queryClient);
             void queryClient.invalidateQueries({
-                queryKey: queryKeys.globalSearch.peopleRoot(),
+                queryKey: queryKeys.globalSearch.networkRoot(),
                 refetchType: 'active',
             });
             void queryClient.invalidateQueries({
-                queryKey: queryKeys.globalSearch.hubRoot(),
+                queryKey: queryKeys.globalSearch.discoverRoot(),
                 refetchType: 'active',
             });
             if (targetId) {

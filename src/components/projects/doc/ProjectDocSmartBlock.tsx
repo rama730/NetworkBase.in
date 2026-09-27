@@ -5,7 +5,7 @@ import { AlertCircle, FileText, FolderOpen, ListTodo, Sparkles, Timer, Users } f
 
 import { ProjectDocSmartBlockPreviewCard } from "@/components/projects/doc/ProjectDocReferencePreview";
 import type { ProjectDocSmartBlock, ProjectDocSmartBlockPreview } from "@/lib/projects/doc-blocks";
-import type { Project } from "@/types/hub";
+import type { Project } from "@/types/discover";
 import { cn } from "@/lib/utils";
 
 const BLOCK_COPY: Record<ProjectDocSmartBlock["kind"], { title: string; icon: typeof Sparkles; tab: string; description: string }> = {

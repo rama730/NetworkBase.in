@@ -374,7 +374,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         const rawRedirect = request.nextUrl.searchParams.get('redirect')
         const redirectPath = rawRedirect ? normalizeAuthNextPath(rawRedirect) : ''
 
-        if (redirectPath && redirectPath !== '/discover' && redirectPath !== '/hub') {
+        if (redirectPath && redirectPath !== '/discover') {
             const redirectUrl = new URL(redirectPath, request.url)
             return redirectWithRequestId(redirectUrl, requestId, routeClass, supabaseResponse)
         }
@@ -404,7 +404,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         const returnPath = normalizeAuthNextPath(`${pathname}${request.nextUrl.search}`)
         url.pathname = '/onboarding'
         url.search = ''
-        if (returnPath !== '/discover' && returnPath !== '/hub' && returnPath !== '/onboarding') {
+        if (returnPath !== '/discover' && returnPath !== '/onboarding') {
             url.searchParams.set('next', returnPath)
         }
         return redirectWithRequestId(url, requestId, routeClass, supabaseResponse)

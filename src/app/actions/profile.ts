@@ -667,7 +667,6 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
             })
         }
         revalidatePath('/my-profile')
-        revalidatePath('/profile')
         if (current.username) revalidatePath(`/u/${current.username}`)
         if (patch.username) revalidatePath(`/u/${patch.username}`)
 

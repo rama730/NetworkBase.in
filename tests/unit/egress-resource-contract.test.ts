@@ -20,7 +20,7 @@ test("stable project media routes use version or ETag caching", () => {
 test("profile shell and pages reuse server profile reads", () => {
   assert.match(read("src/app/(main)/layout.tsx"), /initialProfile=\{profile\}/);
   assert.match(read("src/app/(main)/u/[username]/page.tsx"), /const readPublicProfileRoute = cache/);
-  assert.match(read("src/app/(main)/profile/page.tsx"), /const readOwnerProfileRoute = cache/);
+  assert.match(read("src/app/(main)/my-profile/page.tsx"), /const readOwnerProfileRoute = cache/);
 });
 
 test("avatar and onboarding writes use the shared optimized lifecycle", () => {

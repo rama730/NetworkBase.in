@@ -59,7 +59,7 @@ export async function GET(
         const link = normalizeSocialLinks({ socialLinks: profile.socialLinks }).find((item) => item.id === requestedLinkKey || item.canonicalKey === requestedLinkKey);
         url = link?.url ?? null;
         linkPlatform = link?.serviceKey ?? link?.platform ?? linkPlatform;
-        editHref = user?.id === profile.id ? '/profile' : null;
+        editHref = user?.id === profile.id ? '/my-profile' : null;
     } else if (ownerType === 'project') {
         const access = await getProjectAccessById(ownerId, user?.id ?? null);
         if (!access.project || !access.canRead) return blocked('This link is not available.', 404);

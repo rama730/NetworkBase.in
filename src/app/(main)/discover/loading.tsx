@@ -1,5 +1,5 @@
-import { HubRouteSkeleton } from "@/components/hub/HubRouteSkeleton";
+import { DiscoverRouteSkeleton } from "@/components/discover/DiscoverRouteSkeleton";
 
 export default function DiscoverLoading() {
-  return <HubRouteSkeleton />;
+  return <DiscoverRouteSkeleton />;
 }

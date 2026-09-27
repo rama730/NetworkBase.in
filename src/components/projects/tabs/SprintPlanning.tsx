@@ -19,7 +19,7 @@ import {
 } from "@/app/actions/project";
 import {
   useSprintDetail,
-} from "@/hooks/hub/useProjectTasksData";
+} from "@/hooks/projects/useProjectTasksData";
 import { queryKeys } from "@/lib/query-keys";
 import {
   buildProjectSprintDetailHref,

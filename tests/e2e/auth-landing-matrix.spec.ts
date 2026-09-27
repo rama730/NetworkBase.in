@@ -29,7 +29,7 @@ test.describe("Auth and landing matrix @critical", () => {
     const monitor = attachPageMonitoring(page);
 
     await ensureLoggedOut(page);
-    await page.goto("/hub");
+    await page.goto("/discover");
     await expect(page).toHaveURL(/\/login/);
 
     await monitor.assertNoViolations();

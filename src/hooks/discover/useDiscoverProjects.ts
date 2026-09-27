@@ -1,0 +1,137 @@
+'use client';
+
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { Project, DiscoverFilters } from '@/types/discover';
+import { fetchDiscoverProjectsAction } from '@/app/actions/discover';
+import { FILTER_VIEWS, SORT_OPTIONS, type FilterView } from '@/constants/discover';
+import { queryKeys } from '@/lib/query-keys';
+import { mapPublicProjectToDiscoverProject, type PublicProjectsFeedItem } from '@/lib/projects/public-feed';
+
+const PAGE_SIZE = 24;
+
+type PublicProjectsApiResponse = {
+    success: true
+    data: {
+        projects: PublicProjectsFeedItem[]
+        nextCursor: string | null
+    }
+} | {
+    success: false
+    message?: string
+}
+
+function canUsePublicProjectsFeed(filters: DiscoverFilters, view: FilterView) {
+    return view === FILTER_VIEWS.ALL
+        && (!filters.status || filters.status === 'all')
+        && (!filters.type || filters.type === 'all')
+        && (!filters.sort || filters.sort === SORT_OPTIONS.NEWEST)
+        && (!filters.tech || filters.tech.length === 0)
+        && !filters.search
+        && !filters.includedIds
+}
+
+async function fetchPublicProjectsPage(cursor: string | undefined) {
+    const searchParams = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+    })
+    if (cursor) {
+        searchParams.set('cursor', cursor)
+    }
+
+    const response = await fetch(`/api/v1/projects?${searchParams.toString()}`, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json',
+        },
+    })
+    const fallbackResponse = response.clone()
+    let payload: PublicProjectsApiResponse
+
+    try {
+        payload = await response.json() as PublicProjectsApiResponse
+    } catch {
+        const responseText = (await fallbackResponse.text().catch(() => '')).trim()
+        const statusMessage = `Failed to fetch projects (${response.status})`
+        throw new Error(
+            responseText
+                ? `${statusMessage}: ${responseText}`
+                : `${statusMessage}: Invalid server response`,
+        )
+    }
+
+    if (!response.ok || !payload.success) {
+        const errorMessage =
+            'message' in payload && typeof payload.message === 'string'
+                ? payload.message
+                : 'Failed to fetch projects'
+        throw new Error(errorMessage)
+    }
+
+    return {
+        projects: payload.data.projects.map(mapPublicProjectToDiscoverProject),
+        nextCursor: payload.data.nextCursor || undefined,
+        hasMore: Boolean(payload.data.nextCursor),
+    }
+}
+
+export function useDiscoverProjects(
+    filters: DiscoverFilters,
+    view: FilterView,
+    initialProjectsPage?: {
+        projects?: Project[];
+        nextCursor?: string;
+        hasMore?: boolean;
+    } | null,
+) {
+    return useInfiniteQuery({
+        queryKey: queryKeys.discover.projectsSimple(view, filters),
+        queryFn: async ({ pageParam = undefined as string | undefined }) => {
+            if (canUsePublicProjectsFeed(filters, view)) {
+                return fetchPublicProjectsPage(pageParam)
+            }
+
+            const result = await fetchDiscoverProjectsAction(filters, pageParam, PAGE_SIZE, view);
+
+            if (!result.success) {
+                throw new Error(result.error);
+            }
+
+            // Explicitly cast to the success shape
+            const successResult = result as {
+                success: true;
+                projects: Project[];
+                nextCursor?: string;
+                hasMore: boolean;
+            };
+
+            return {
+                projects: successResult.projects || [],
+                nextCursor: successResult.nextCursor,
+                hasMore: successResult.hasMore,
+            };
+        },
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
+        staleTime: 120_000,
+        refetchOnWindowFocus: false,
+        // Use initial data if provided and filters match default (empty/all)
+        // Note: infinite query initialData structure needs { pages: [...], pageParams: [...] }
+        initialData: (initialProjectsPage && view === 'all' && isDefaultFilters(filters)) ? {
+            pages: [{
+                projects: initialProjectsPage.projects || [],
+                nextCursor: initialProjectsPage.nextCursor,
+                hasMore: initialProjectsPage.hasMore
+            }],
+            pageParams: [undefined]
+        } : undefined,
+    });
+}
+
+function isDefaultFilters(filters: DiscoverFilters) {
+    // Check if filters match the default fetched server-side
+    return (
+        canUsePublicProjectsFeed(filters, FILTER_VIEWS.ALL) &&
+        !filters.hideOpened
+    );
+}

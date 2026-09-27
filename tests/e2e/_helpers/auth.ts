@@ -38,7 +38,7 @@ async function tryUseCachedAuthState(page: Page) {
   if (!state || state.cookies.length === 0) return false;
 
   await page.context().addCookies(state.cookies);
-  await page.goto("/hub", { waitUntil: "domcontentloaded" });
+  await page.goto("/discover", { waitUntil: "domcontentloaded" });
   return new URL(page.url()).pathname !== "/login";
 }
 
@@ -83,7 +83,7 @@ export async function login(page: Page): Promise<void> {
       },
     });
     if (fallback.ok()) {
-      await page.goto("/hub");
+      await page.goto("/discover");
       await expect
         .poll(async () => new URL(page.url()).pathname, { timeout: 15000 })
         .not.toBe("/login");

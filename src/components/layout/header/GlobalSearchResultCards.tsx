@@ -25,7 +25,7 @@ import type { ReactNode } from "react";
 import { SkillIcon } from "@/components/skills";
 import { SocialPresenceIcon } from "@/components/profile/SocialPresenceIcon";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { PersonPresenceDot } from "@/components/people/PersonPresenceDot";
+import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
 import ProjectAvatar from "@/components/projects/ProjectAvatar";
 import type {
     GlobalSearchPreview,
