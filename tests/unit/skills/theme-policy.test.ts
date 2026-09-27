@@ -19,41 +19,40 @@ describe('skill icon theme policy', () => {
 
         assert.match(anthropic, /dark:hidden/)
         assert.match(anthropic, /hidden dark:block/)
-        assert.match(anthropic, /style="fill:#181818"/)
-        assert.match(anthropic, /style="fill:#FFFFFF"/i)
-        assert.match(anthropic, /skill-logos-anthropic-icon/)
+        assert.match(anthropic, /background-color:#181818/)
+        assert.match(anthropic, /background-color:#FFFFFF/i)
+        assert.match(anthropic, /\/skill-icons\/v1\/logos-anthropic-icon\.svg/)
     })
 
     it('never adds theme variants to stable multicolor brand assets', () => {
         for (const name of ['SolidJS', 'MATLAB', 'PowerShell', 'Codex']) {
             const markup = render(name)
-            assert.match(markup, /skill-sprites\.svg(?:\?\S+)?#skill-/, name)
+            assert.match(markup, /<img[^>]*src="\/skill-icons\/v1\/[^"]+"/, name)
             assert.doesNotMatch(markup, /dark:hidden|dark:block/, name)
         }
     })
 
-    it('keeps Safari-unsafe custom SVG gradients out of the external sprite path', () => {
+    it('renders custom SVG gradients as a plain image', () => {
         const markup = render('Google Antigravity')
 
         assert.match(markup, /\/skill-icons\/v1\/curated-google-antigravity\.svg/)
-        assert.doesNotMatch(markup, /skill-sprites\.svg/)
         assert.doesNotMatch(markup, /dark:hidden|dark:block/)
     })
 
     it('uses an explicit inverse only for reviewed dark-colliding monochrome marks', () => {
         const github = render('GitHub')
 
-        assert.match(github, /style="fill:#181717"/)
-        assert.match(github, /style="fill:#FFFFFF"/i)
+        assert.match(github, /background-color:#181717/)
+        assert.match(github, /background-color:#FFFFFF/i)
         assert.match(github, /hidden dark:block/)
-        assert.match(github, /skill-github/)
+        assert.match(github, /\/skill-icons\/v1\/github\.svg/)
     })
 
     it('switches to upstream light and dark assets when the source publishes a pair', () => {
         const next = render('Next.js')
 
-        assert.match(next, /skill-skill-icons-nextjs-light/)
-        assert.match(next, /skill-skill-icons-nextjs-dark/)
+        assert.match(next, /\/skill-icons\/v1\/skill-icons-nextjs-light\.svg/)
+        assert.match(next, /\/skill-icons\/v1\/skill-icons-nextjs-dark\.svg/)
         assert.match(next, /dark:hidden/)
         assert.match(next, /hidden dark:block/)
     })
@@ -61,16 +60,15 @@ describe('skill icon theme policy', () => {
     it('uses current color without a brand theme pair when requested', () => {
         const anthropic = render('Anthropic API', 'current')
 
-        assert.match(anthropic, /skill-logos-anthropic-icon/)
+        assert.match(anthropic, /\/skill-icons\/v1\/logos-anthropic-icon\.svg/)
         assert.doesNotMatch(anthropic, /dark:hidden|dark:block/)
-        assert.match(anthropic, /style="fill:currentColor"/)
+        assert.match(anthropic, /background-color:currentColor/)
     })
 
     it('uses a semantic theme-readable glyph for WebSockets', () => {
         const websockets = render('WebSockets')
 
-        assert.match(websockets, /<svg/)
         assert.match(websockets, /aria-label="WebSockets"/)
-        assert.match(websockets, /skill-lucide-/)
+        assert.match(websockets, /\/skill-icons\/v1\/lucide-[a-z0-9-]+\.svg/)
     })
 })

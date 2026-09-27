@@ -1,7 +1,7 @@
-import { memo } from 'react'
+import { memo, type CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 import { GENERATED_SKILL_ICON_THEME_ASSET_VARIANTS } from '@/lib/skills/generated-icon-theme-variants'
-import { resolveSkillIconThemeVariant } from '@/lib/skills/icon-theme-policy'
+import { resolveSkillIconThemeVariant, SKILL_ICON_THEME_VARIANTS } from '@/lib/skills/icon-theme-policy'
 import { skillMonogram } from '@/lib/skills/normalization'
 import type { SkillSummary } from '@/lib/skills/types'
 
@@ -9,11 +9,13 @@ const IDENTITY_FALLBACK_KINDS = new Set<SkillSummary['kind']>([
     'language', 'framework', 'library', 'tool', 'platform', 'database',
 ])
 
-const SPRITE_VERSION = '1.3.6'
-const SPRITE_UNSAFE_LOCAL_IMAGE_KEYS = new Set(['curated-google-antigravity'])
+function iconUrl(iconKey: string): string {
+    return `/skill-icons/v1/${/\.(?:svg|png|jpe?g|webp)$/i.test(iconKey) ? iconKey : `${iconKey}.svg`}`
+}
 
-function assetFilename(iconKey: string): string {
-    return /\.(?:svg|png|jpe?g|webp)$/i.test(iconKey) ? iconKey : `${iconKey}.svg`
+function maskStyle(url: string, size: number, color: string): CSSProperties {
+    const mask = `url(${url}) center / contain no-repeat`
+    return { width: size, height: size, backgroundColor: color, mask, WebkitMask: mask }
 }
 
 export const SkillIcon = memo(function SkillIcon({
@@ -31,8 +33,7 @@ export const SkillIcon = memo(function SkillIcon({
 }) {
     const labelProps = decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': skill.name }
 
-    // 1. Monogram Fallbacks (Concepts/Competencies or Identity fallback kinds without keys)
-    if (skill.iconSource === 'monogram' || (skill.iconSource === 'lucide' && IDENTITY_FALLBACK_KINDS.has(skill.kind))) {
+    if (skill.iconSource === 'monogram' || (skill.iconSource === 'lucide' && IDENTITY_FALLBACK_KINDS.has(skill.kind)) || (!skill.iconKey && skill.iconSource !== 'lucide')) {
         return (
             <span
                 {...labelProps}
@@ -44,116 +45,55 @@ export const SkillIcon = memo(function SkillIcon({
         )
     }
 
-    // 2. Lucide Icons (Rendered via sprite symbols)
     if (skill.iconSource === 'lucide') {
-        const fallbackKey = skill.iconKey ?? 'badge'
         return (
-            <svg
+            <span
                 {...labelProps}
-                width={size}
-                height={size}
-                className={cn('inline-block shrink-0 text-current fill-none stroke-current', className)}
-                style={{ strokeWidth: 1.8 }}
-            >
-                <use href={`/skill-sprites.svg?v=${SPRITE_VERSION}#skill-lucide-${fallbackKey}`} />
-            </svg>
-        )
-    }
-
-    // 3. Branded & Curated Icons (Rendered via sprite symbols)
-    if (skill.iconKey) {
-        // Theme variants (e.g. logos-anthropic-icon / logos-openai-icon, light vs dark assets)
-        const assetVariant = colorMode === 'brand'
-            ? GENERATED_SKILL_ICON_THEME_ASSET_VARIANTS[skill.iconKey as keyof typeof GENERATED_SKILL_ICON_THEME_ASSET_VARIANTS]
-            : undefined
-
-        if (assetVariant) {
-            return (
-                <span {...labelProps} className={cn('relative inline-block shrink-0', className)} style={{ width: size, height: size }}>
-                    <svg width={size} height={size} className="absolute inset-0 dark:hidden" style={{ fill: 'currentColor' }} aria-hidden="true">
-                        <use href={`/skill-sprites.svg?v=${SPRITE_VERSION}#skill-${assetVariant.lightIconKey}`} />
-                    </svg>
-                    <svg width={size} height={size} className="absolute inset-0 hidden dark:block" style={{ fill: 'currentColor' }} aria-hidden="true">
-                        <use href={`/skill-sprites.svg?v=${SPRITE_VERSION}#skill-${assetVariant.darkIconKey}`} />
-                    </svg>
-                </span>
-            )
-        }
-
-        // Custom light/dark colors (simple-icons and overrides)
-        const themeVariant = colorMode === 'brand'
-            ? resolveSkillIconThemeVariant(skill)
-            : undefined
-
-        if (themeVariant) {
-            return (
-                <span {...labelProps} className={cn('relative inline-block shrink-0', className)} style={{ width: size, height: size }}>
-                    <svg
-                        width={size}
-                        height={size}
-                        className="absolute inset-0 dark:hidden"
-                        style={{ fill: themeVariant.lightColor }}
-                        aria-hidden="true"
-                    >
-                        <use href={`/skill-sprites.svg?v=${SPRITE_VERSION}#skill-${skill.iconKey}`} />
-                    </svg>
-                    <svg
-                        width={size}
-                        height={size}
-                        className="absolute inset-0 hidden dark:block"
-                        style={{ fill: themeVariant.darkColor }}
-                        aria-hidden="true"
-                    >
-                        <use href={`/skill-sprites.svg?v=${SPRITE_VERSION}#skill-${skill.iconKey}`} />
-                    </svg>
-                </span>
-            )
-        }
-
-        // Single brand color or currentColor fallback
-        const useBrandColor = colorMode === 'brand' && Boolean(skill.brandColor)
-        const useLocalImage = skill.iconSource === 'custom' && (
-            SPRITE_UNSAFE_LOCAL_IMAGE_KEYS.has(skill.iconKey)
-            || /\.(?:png|jpe?g|webp)$/i.test(skill.iconKey)
-        )
-
-        // Safari can lose SVG defs/gradients for a few custom icons when they render through an external sprite <use>.
-        if (useLocalImage) {
-            return (
-                <span
-                    {...labelProps}
-                    className={cn('inline-block shrink-0 bg-center bg-no-repeat', className)}
-                    style={{
-                        width: size,
-                        height: size,
-                        backgroundImage: `url(/skill-icons/v1/${assetFilename(skill.iconKey)})`,
-                        backgroundSize: 'contain',
-                    }}
-                />
-            )
-        }
-
-        return (
-            <svg
-                {...labelProps}
-                width={size}
-                height={size}
                 className={cn('inline-block shrink-0', className)}
-                style={useBrandColor ? { fill: skill.brandColor! } : { fill: 'currentColor' }}
-            >
-                <use href={`/skill-sprites.svg?v=${SPRITE_VERSION}#skill-${skill.iconKey}`} />
-            </svg>
+                style={maskStyle(iconUrl(`lucide-${skill.iconKey ?? 'badge'}`), size, 'currentColor')}
+            />
         )
     }
 
-    // Ultimate fallback badge
+    const iconKey = skill.iconKey!
+    const assetVariant = colorMode === 'brand'
+        ? GENERATED_SKILL_ICON_THEME_ASSET_VARIANTS[iconKey as keyof typeof GENERATED_SKILL_ICON_THEME_ASSET_VARIANTS]
+        : undefined
+
+    if (assetVariant) {
+        return (
+            <span {...labelProps} className={cn('relative inline-block shrink-0', className)} style={{ width: size, height: size }}>
+                <img src={iconUrl(assetVariant.lightIconKey)} alt="" width={size} height={size} loading="lazy" decoding="async" className="absolute inset-0 dark:hidden" />
+                <img src={iconUrl(assetVariant.darkIconKey)} alt="" width={size} height={size} loading="lazy" decoding="async" className="absolute inset-0 hidden dark:block" />
+            </span>
+        )
+    }
+
+    const themeVariant = colorMode === 'brand' ? resolveSkillIconThemeVariant(skill) : undefined
+    if (themeVariant) {
+        return (
+            <span {...labelProps} className={cn('relative inline-block shrink-0', className)} style={{ width: size, height: size }}>
+                <span className="absolute inset-0 dark:hidden" style={maskStyle(iconUrl(iconKey), size, themeVariant.lightColor)} />
+                <span className="absolute inset-0 hidden dark:block" style={maskStyle(iconUrl(iconKey), size, themeVariant.darkColor)} />
+            </span>
+        )
+    }
+
+    if (skill.iconSource === 'simple-icons' || iconKey in SKILL_ICON_THEME_VARIANTS) {
+        const color = colorMode === 'brand' && skill.brandColor ? skill.brandColor : 'currentColor'
+        return <span {...labelProps} className={cn('inline-block shrink-0', className)} style={maskStyle(iconUrl(iconKey), size, color)} />
+    }
+
     return (
-        <span
-            {...labelProps}
-            className={cn('inline-flex shrink-0 items-center justify-center rounded-[4px] bg-zinc-200 font-semibold leading-none text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100', className)}
-            style={{ width: size, height: size, fontSize: Math.max(7, Math.round(size * 0.43)) }}
-        >
-            {skillMonogram(skill.name)}
-        </span>
+        <img
+            src={iconUrl(iconKey)}
+            alt={decorative ? '' : skill.name}
+            aria-hidden={decorative || undefined}
+            width={size}
+            height={size}
+            loading="lazy"
+            decoding="async"
+            className={cn('inline-block shrink-0', className)}
+        />
     )
 })

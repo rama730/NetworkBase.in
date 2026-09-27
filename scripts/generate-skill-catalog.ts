@@ -748,81 +748,16 @@ const developerIconCount = Object.values(manifest).filter((icon) => icon.source 
 const curatedIconCount = Object.values(manifest).filter((icon) => icon.source === 'custom').length
 await writeFile(seedMigrationPath, `${sql.join('\n')}\n`, 'utf8')
 
-// Generate SVG Sprite Sheet including all local brand icons and Lucide icons
-console.log("Generating SVG Sprite Sheet at public/skill-sprites.svg...")
-const spriteSymbols: string[] = []
-
-// 1. Process all generated brand assets (SVGs)
-for (const filename of Array.from(writtenAssets).sort()) {
-    if (!filename.endsWith('.svg')) continue
-    const filePath = path.join(assetDir, filename)
-    const svgContent = await readFile(filePath, 'utf8')
-    
-    // Extract viewBox
-    const viewBoxMatch = svgContent.match(/viewBox=["']([^"']+)["']/i)
-    const viewBox = viewBoxMatch ? viewBoxMatch[1] : '0 0 24 24'
-    
-    // Extract inner content (strip <svg ...> and </svg> and clean XML namespace junk)
-    let innerContent = svgContent
-        .replace(/<svg[^>]*>/i, '')
-        .replace(/<\/svg>/i, '')
-        .replace(/<!DOCTYPE[^>]*>/gi, '')
-        .replace(/<\?xml[^>]*\?>/gi, '')
-        .replace(/<!--[\s\S]*?-->/g, '')
-        .replace(/<metadata[^>]*>[\s\S]*?<\/metadata>/gi, '')
-        .replace(/<(?:sodipodi|inkscape|rdf|dc|cc):[^>]*>[\s\S]*?<\/(?:sodipodi|inkscape|rdf|dc|cc):[^>]*>/gi, '')
-        .replace(/<(?:sodipodi|inkscape|rdf|dc|cc):[^>]*\/>/gi, '')
-        // Clean up all attributes containing non-standard namespace prefixes (except xlink:, xml:, xmlns:)
-        .replace(/\b(?!(?:xlink|xml|xmlns)\b)[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+=(["'])[\s\S]*?\1/gi, '')
-        .trim()
-        
-    // Generate clean symbol ID matching the assetKey (without suffix)
-    const assetKey = filename.slice(0, -4)
-    const symbolId = `skill-${assetKey}`
-    
-    // Detect if this asset is a monochrome simple-icon or defined in the theme policy map
-    const manifestIcon = Object.values(manifest).find(icon => icon.assetKey === assetKey)
-    const isSimpleIcon = manifestIcon?.source === 'simple-icons'
-    const isThemeVariant = SKILL_ICON_THEME_VARIANTS[assetKey] !== undefined
-    
-    if (isSimpleIcon || isThemeVariant) {
-        innerContent = innerContent
-            .replace(/fill=(["'])(?!none\b)#[a-fA-F0-9]{3,8}\1/gi, 'fill="currentColor"')
-            .replace(/stroke=(["'])(?!none\b)#[a-fA-F0-9]{3,8}\1/gi, 'stroke="currentColor"')
-    }
-    
-    spriteSymbols.push(`  <symbol id="${symbolId}" viewBox="${viewBox}">\n    ${innerContent.replace(/\n/g, '\n    ')}\n  </symbol>`)
-}
-
-// 2. Render all Lucide Icons to SVG symbols
-console.log("Compiling Lucide symbols into sprite...")
+const lucideKeys = new Set<string>(['badge'])
+for (const skill of MARKET_SKILLS) if (!manifest[skill.canonicalKey] && skill.iconKey) lucideKeys.add(skill.iconKey)
 for (const [key, Component] of Object.entries(LucideIcons)) {
-    if (typeof Component === 'function' || (typeof Component === 'object' && Component !== null)) {
-        try {
-            const svgContent = renderToStaticMarkup(createElement(Component as any, { size: 24 }))
-            const viewBoxMatch = svgContent.match(/viewBox=["']([^"']+)["']/i)
-            const viewBox = viewBoxMatch ? viewBoxMatch[1] : '0 0 24 24'
-            const innerContent = svgContent
-                .replace(/<svg[^>]*>/i, '')
-                .replace(/<\/svg>/i, '')
-                .trim()
-                
-            const kebabKey = key
-                .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-                .toLowerCase()
-                
-            spriteSymbols.push(`  <symbol id="skill-lucide-${kebabKey}" viewBox="${viewBox}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\n    ${innerContent.replace(/\n/g, '\n    ')}\n  </symbol>`)
-        } catch {
-            // Skip non-component exports if any
-        }
-    }
+    const kebabKey = key.replace(/([a-z])([A-Z0-9])/g, '$1-$2').replace(/([0-9])([A-Z])/g, '$1-$2').toLowerCase()
+    if (!lucideKeys.has(kebabKey) || (typeof Component !== 'function' && (typeof Component !== 'object' || Component === null))) continue
+    const svg = renderToStaticMarkup(createElement(Component as ComponentType<{ size: number }>, { size: 24 }))
+        .replace(/ class="[^"]*"/, '')
+        .replace(/ width="24" height="24"/, '')
+    await writeFile(path.join(assetDir, `lucide-${kebabKey}.svg`), `${svg}\n`, 'utf8')
 }
-const spriteSheet = 
-    `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="display: none;">\n` +
-    `${spriteSymbols.join('\n')}\n` +
-    `</svg>\n`
-await writeFile(path.join(root, 'public', 'skill-sprites.svg'), spriteSheet, 'utf8')
 console.log(JSON.stringify({
     catalogVersion: SKILL_CATALOG_VERSION,
     skills: MARKET_SKILLS.length,
