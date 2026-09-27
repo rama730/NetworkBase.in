@@ -1,3 +1,4 @@
+import { handlePrivacySettingPatch } from "@/app/api/v1/privacy/_update";
 import {
   getRequestId,
   jsonError,
@@ -153,4 +154,38 @@ export async function GET(request: Request) {
     });
     return jsonError("Failed to load privacy settings", 500, "INTERNAL_ERROR");
   }
+}
+
+const PRIVACY_SETTINGS = [
+  {
+    kind: "profileVisibility",
+    bodyKey: "visibility",
+    responseKey: "visibility",
+    values: ["public", "connections", "private"] as const,
+    invalidMessage: "Invalid profile visibility",
+    failureMessage: "Failed to update profile visibility",
+  },
+  {
+    kind: "connectionPrivacy",
+    bodyKey: "connectionPrivacy",
+    responseKey: "connectionPrivacy",
+    values: ["everyone", "mutuals_only", "nobody"] as const,
+    invalidMessage: "Invalid connection request privacy",
+    failureMessage: "Failed to update connection request privacy",
+  },
+  {
+    kind: "messagePrivacy",
+    bodyKey: "messagePrivacy",
+    responseKey: "messagePrivacy",
+    values: ["everyone", "connections"] as const,
+    invalidMessage: "Invalid messaging privacy",
+    failureMessage: "Failed to update messaging privacy",
+  },
+] as const;
+
+export async function PATCH(request: Request) {
+  const body = await request.clone().json().catch(() => null) as Record<string, unknown> | null;
+  const setting = PRIVACY_SETTINGS.find((candidate) => body && candidate.bodyKey in body);
+  if (!setting) return jsonError("Unknown privacy setting", 400, "BAD_REQUEST");
+  return handlePrivacySettingPatch<string>(request, setting);
 }
