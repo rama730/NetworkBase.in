@@ -16,9 +16,6 @@ import type { ProjectNode } from "@/lib/db/schema";
  */
 export const FILES_TAB_SIDEBAR_WIDTH_PX = 240;
 
-/** Header height used by the sidebar header row (design.md § FilesTabSidebar). */
-export const FILES_TAB_SIDEBAR_HEADER_HEIGHT_PX = 32;
-
 /** Inline-search debounce window (design.md § FilesTabSidebar header row). */
 export const FILES_TAB_SIDEBAR_SEARCH_DEBOUNCE_MS = 200;
 

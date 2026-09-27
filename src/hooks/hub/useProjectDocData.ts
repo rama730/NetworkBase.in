@@ -13,12 +13,6 @@ import { normalizeProjectDocSlug } from "@/lib/projects/doc";
 
 export const PROJECT_DOC_QUERY_KEY = (projectId: string, docSlug: string = "readme") =>
     [...queryKeys.project.detail.readme(projectId), normalizeProjectDocSlug(docSlug)] as const;
-export const PROJECT_DOC_SETTINGS_QUERY_KEY = (projectId: string, docSlug: string = "readme") =>
-    [...queryKeys.project.detail.readmeSettings(projectId), normalizeProjectDocSlug(docSlug)] as const;
-export const PROJECT_DOC_REFERENCES_QUERY_KEY = (projectId: string, kind: ProjectDocReferenceKind, query: string) =>
-    queryKeys.project.detail.readmeReferences(projectId, kind, query.trim());
-export const PROJECT_DOC_IMPORT_CANDIDATES_QUERY_KEY = (projectId: string, query: string) =>
-    queryKeys.project.detail.readmeImportCandidates(projectId, query.trim());
 export const PROJECT_DOC_SMART_BLOCK_PREVIEWS_QUERY_KEY = (projectId: string, blockSignature: string) =>
     queryKeys.project.detail.readmeSmartBlockPreviews(projectId, blockSignature);
 
@@ -33,36 +27,6 @@ export function useProjectDoc(projectId: string, docSlug: string = "readme") {
         },
         staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,
-    });
-}
-
-export function useProjectDocSettings(projectId: string, docSlug: string = "readme", enabled = true) {
-    return useQuery({
-        queryKey: PROJECT_DOC_SETTINGS_QUERY_KEY(projectId, docSlug),
-        queryFn: async () => {
-            const { readProjectDocSettingsAction } = await import("@/app/actions/project");
-            const result = await readProjectDocSettingsAction(projectId, docSlug);
-            if (!result.success) throw new Error(result.error);
-            return result.settings;
-        },
-        staleTime: 1000 * 60 * 2,
-        refetchOnWindowFocus: false,
-        enabled,
-    });
-}
-
-export function useProjectDocReferenceOptions(projectId: string, kind: ProjectDocReferenceKind, query: string, enabled = true) {
-    return useQuery({
-        queryKey: PROJECT_DOC_REFERENCES_QUERY_KEY(projectId, kind, query),
-        queryFn: async () => {
-            const { readProjectDocReferenceOptionsAction } = await import("@/app/actions/project");
-            const result = await readProjectDocReferenceOptionsAction(projectId, { kind, query, limit: 12 });
-            if (!result.success) throw new Error(result.error);
-            return result.options;
-        },
-        staleTime: 1000 * 30,
-        refetchOnWindowFocus: false,
-        enabled,
     });
 }
 

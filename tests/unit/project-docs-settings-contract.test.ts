@@ -97,10 +97,10 @@ test("project docs/readme tab eliminates duplicate header and redundant cards, r
         /External images/,
         "External images configuration option must be retained",
     );
-    assert.match(
+    assert.doesNotMatch(
         readmeBlock,
         /Notify on publish/,
-        "Notify on publish configuration option must be retained",
+        "Doc settings must not offer a publish notification that nothing sends",
     );
 });
 
@@ -175,11 +175,4 @@ test("project docs settings and components adhere to NetworkBase drafting-table 
         "ProjectDocReferencePreview must use Section 10 contract for badges",
     );
 
-    // 5. DocumentSwitcher uses drafting-table buttons
-    const quickConsole = source("src/components/projects/doc/ProjectDocQuickConsole.tsx");
-    assert.match(
-        quickConsole,
-        /h-\[34px\] items-center justify-center rounded-\[5px\] border px-3 text-\[13px\]/,
-        "DocumentSwitcher must use drafting-table h-[34px] rounded-[5px] text-[13px] buttons",
-    );
 });

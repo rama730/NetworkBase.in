@@ -1,59 +1,41 @@
 'use server';
 
-import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
-import { and, desc, eq, ilike, inArray, isNull, lt, max, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
 import { getProjectFileContent } from "@/app/actions/files/content";
-import { parseGithubRepo } from "@/lib/github/repo-preview";
 import { db } from "@/lib/db";
 import {
     profiles,
     projectMembers,
     projectNodes,
     projectOpenRoles,
-    projectMarkdownAssets,
     projectMarkdownVersions,
     projectMarkdowns,
-    projectMarkdownDraftContributors,
     projectSprints,
     projects,
     tasks,
-    fileVersions,
 } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { toIsoString as toIso } from "@/lib/utils/date";
 import { isUuid } from "@/lib/validations/uuid";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
-import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { consumeRateLimit } from "@/lib/security/rate-limit";
+import { createClient, } from "@/lib/supabase/server";
 import { recordNodeEvent } from "@/lib/files/internal-helpers";
-import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
-import { normalizeAndValidateFileSize, normalizeAndValidateMimeType } from "@/lib/upload/security";
 import {
     getOrBuildProjectDocPublishMetadata,
-    buildProjectDocStorageKey,
     DEFAULT_PROJECT_DOC_SETTINGS,
-    PROJECT_DOC_ALLOWED_IMAGE_MIME_TYPES,
-    PROJECT_DOC_ASSET_BUCKET,
-    PROJECT_DOC_ASSET_MAX_BYTES,
     buildProjectDocQualityReport,
     normalizeProjectDocContent,
     normalizeProjectDocHeadings,
     normalizeProjectDocSettings,
     normalizeProjectDocSlug,
-    readmeImageExtensionFromMimeType,
     resolveProjectDocPermission,
-    type ProjectDocAsset,
-    type ProjectDocDraftPayload,
     type ProjectDocPublishedPayload,
     type ProjectDocQualityReport,
     type ProjectDocSettings,
     type ProjectDocVersion,
 } from "@/lib/projects/doc";
-import { isDocLikePath } from "@/lib/projects/doc-create-intent";
 import { normalizeProjectPublicTabVisibility } from "@/lib/projects/settings-policies";
 import type {
     ProjectDocReferenceKind,
@@ -65,7 +47,6 @@ import { parseProjectDocSmartBlocks } from "@/lib/projects/doc-blocks";
 
 const PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG = "public-project-detail-shell";
 const PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG = "public-project-detail-metadata";
-const PROJECT_DOC_ASSET_ROUTE_PREFIX = "/api/v1/projects";
 const profileDisplayNameSql = (userId: unknown) => sql<string | null>`(
     SELECT COALESCE(NULLIF(full_name, ''), NULLIF(username, ''))
     FROM profiles
@@ -78,55 +59,8 @@ const readmeSettingsSchema = z.object({
     docSlug: docSlugSchema,
     editPolicy: z.enum(["leaders", "members"]).optional(),
     publicVisibility: z.literal("inherit_project").optional(),
-    mediaUploads: z.boolean().optional(),
     externalImages: z.boolean().optional(),
     projectBlocks: z.boolean().optional(),
-    notifyOnPublish: z.boolean().optional(),
-});
-
-const saveDraftSchema = z.object({
-    docSlug: docSlugSchema,
-    content: z.string(),
-    expectedDraftUpdatedAt: z.string().nullable().optional(),
-});
-
-const publishSchema = z.object({
-    docSlug: docSlugSchema,
-    content: z.string().optional(),
-    changeSummary: z.string().max(500).nullable().optional(),
-    notifyFollowers: z.boolean().optional(),
-    expectedDraftUpdatedAt: z.string().nullable().optional(),
-    syncToFilesTab: z.boolean().optional().default(true),
-});
-
-const uploadUrlSchema = z.object({
-    docSlug: docSlugSchema,
-    mimeType: z.string(),
-    sizeBytes: z.number().int().positive(),
-    altText: z.string().max(240).nullable().optional(),
-    width: z.number().int().positive().nullable().optional(),
-    height: z.number().int().positive().nullable().optional(),
-});
-
-const referenceKindSchema = z.enum(["roles", "contributors", "files", "tasks", "sprints"]);
-
-const referenceOptionsSchema = z.object({
-    kind: referenceKindSchema,
-    query: z.string().max(80).optional(),
-    limit: z.number().int().min(1).max(20).optional(),
-});
-
-const importCandidatesSchema = z.object({
-    docSlug: docSlugSchema,
-    query: z.string().max(80).optional(),
-    limit: z.number().int().min(1).max(30).optional(),
-});
-
-const importReadmeSchema = z.object({
-    docSlug: docSlugSchema,
-    nodeId: z.string().uuid(),
-    expectedDraftUpdatedAt: z.string().nullable().optional(),
-    publish: z.boolean().optional(),
 });
 
 const applyCreationIntentSchema = z.object({
@@ -183,25 +117,6 @@ function toDocVersion(row: (typeof projectMarkdownVersions.$inferSelect & { crea
         coAuthors: coAuthorsData ?? [],
         createdBy: row.createdBy,
         createdByName: row.createdByName ?? null,
-        createdAt: toIso(row.createdAt) ?? new Date().toISOString(),
-        deletedAt: toIso(row.deletedAt),
-    };
-}
-
-function toDocAsset(row: typeof projectMarkdownAssets.$inferSelect): ProjectDocAsset {
-    return {
-        id: row.id,
-        projectId: row.projectId,
-        versionId: row.versionId,
-        bucket: row.bucket,
-        storageKey: row.storageKey,
-        mimeType: row.mimeType,
-        sizeBytes: row.sizeBytes,
-        width: row.width,
-        height: row.height,
-        altText: row.altText,
-        status: row.status,
-        createdBy: row.createdBy,
         createdAt: toIso(row.createdAt) ?? new Date().toISOString(),
         deletedAt: toIso(row.deletedAt),
     };
@@ -277,9 +192,6 @@ async function getOrCreateMarkdown(projectId: string, userId: string, docSlug: s
             projectId,
             slug: docSlug,
             filename,
-            draftContent: "",
-            draftUpdatedBy: userId,
-            draftUpdatedAt: new Date(),
             settings,
         })
         .returning();
@@ -300,12 +212,6 @@ function revalidateProjectDoc(project: { id: string; slug: string | null }) {
     revalidatePath(`/projects/${slugOrId}?tab=docs&doc=readme`);
     revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
     revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, "max");
-}
-
-function extractAssetIdsFromContent(content: string, projectId: string) {
-    const escaped = projectId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`/api/v1/projects/${escaped}/doc-assets/([a-f0-9-]{36})`, "gi");
-    return Array.from(new Set(Array.from(content.matchAll(regex)).map((match) => match[1])));
 }
 
 function projectHref(project: { id: string; slug: string | null }, tab: string) {
@@ -501,126 +407,6 @@ function optionFromFile(
     };
 }
 
-function isDocImportCandidate(row: Pick<typeof projectNodes.$inferSelect, "name" | "path" | "mimeType" | "size">) {
-    const name = row.name.toLowerCase();
-    const path = row.path.toLowerCase();
-    if (!isDocLikePath(name) && !isDocLikePath(path)) return false;
-    if (typeof row.size === "number" && row.size > 500 * 1024) return false;
-    const mime = (row.mimeType || "").toLowerCase();
-    return !mime || mime.includes("markdown") || mime.includes("text") || mime.includes("plain");
-}
-
-function normalizeReadmeCandidatePath(value: string | null | undefined) {
-    return (value || "")
-        .trim()
-        .replace(/^\/+/, "")
-        .replace(/\/+/g, "/");
-}
-
-function readmePathBasename(path: string) {
-    return path.split("/").filter(Boolean).pop() || path;
-}
-
-async function findProjectDocNodeByPath(projectId: string, sourcePath: string) {
-    const normalizedPath = normalizeReadmeCandidatePath(sourcePath);
-    if (!normalizedPath || !isDocLikePath(normalizedPath)) return null;
-    const fileName = readmePathBasename(normalizedPath);
-    const rows = await db.query.projectNodes.findMany({
-        where: and(
-            eq(projectNodes.projectId, projectId),
-            eq(projectNodes.type, "file"),
-            isNull(projectNodes.deletedAt),
-            or(
-                eq(projectNodes.path, normalizedPath),
-                eq(projectNodes.path, `/${normalizedPath}`),
-                eq(projectNodes.name, normalizedPath),
-                eq(projectNodes.name, fileName),
-                ilike(projectNodes.path, `%${normalizedPath}`),
-            )!,
-        ),
-        columns: {
-            id: true,
-            name: true,
-            path: true,
-            mimeType: true,
-            size: true,
-            s3Key: true,
-            updatedAt: true,
-        },
-        orderBy: [desc(projectNodes.updatedAt)],
-        limit: 40,
-    });
-    const exact = rows.find((row) => {
-        const rowPath = normalizeReadmeCandidatePath(row.path);
-        const rowName = normalizeReadmeCandidatePath(row.name);
-        return rowPath === normalizedPath || rowPath === `/${normalizedPath}` || rowName === normalizedPath || rowName === fileName;
-    });
-    return [exact, ...rows].find((row) => Boolean(row && isDocImportCandidate(row))) ?? null;
-}
-
-function resolveProjectGithubSource(project: Awaited<ReturnType<typeof getDocProjectContext>>["project"]) {
-    const importSource = (project.importSource || {}) as {
-        repoUrl?: string | null;
-        branch?: string | null;
-        metadata?: Record<string, unknown> | null;
-    };
-    const metadata = importSource.metadata || {};
-    const metadataRepoUrl =
-        typeof metadata.normalizedRepoUrl === "string" ? metadata.normalizedRepoUrl
-            : typeof metadata.repoUrl === "string" ? metadata.repoUrl
-                : null;
-    return {
-        repoUrl: project.githubRepoUrl || importSource.repoUrl || metadataRepoUrl,
-        branch: importSource.branch || project.githubDefaultBranch || "main",
-    };
-}
-
-async function getGithubProviderToken() {
-    try {
-        const supabase = await createClient();
-        const { data } = await supabase.auth.getSession();
-        const session = data.session as { provider_token?: string | null } | null;
-        return session?.provider_token || null;
-    } catch {
-        return null;
-    }
-}
-
-async function fetchGithubReadmeContentForProject(
-    project: Awaited<ReturnType<typeof getDocProjectContext>>["project"],
-    sourcePath: string,
-) {
-    const normalizedPath = normalizeReadmeCandidatePath(sourcePath);
-    if (!normalizedPath || !isDocLikePath(normalizedPath)) return null;
-    const { repoUrl, branch } = resolveProjectGithubSource(project);
-    if (!repoUrl) return null;
-    const parsed = parseGithubRepo(repoUrl);
-    if (!parsed) return null;
-
-    const encodedPath = normalizedPath.split("/").map(encodeURIComponent).join("/");
-    const url = `https://api.github.com/repos/${encodeURIComponent(parsed.owner)}/${encodeURIComponent(parsed.repo)}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`;
-    const token = await getGithubProviderToken();
-    const response = await fetch(url, {
-        cache: "no-store",
-        headers: {
-            Accept: "application/vnd.github+json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-    });
-    if (!response.ok) return null;
-
-    const payload = await response.json() as {
-        type?: string;
-        encoding?: string;
-        size?: number;
-        content?: string | null;
-    };
-    if (payload.type !== "file" || !payload.content) return null;
-    if (typeof payload.size === "number" && payload.size > 500 * 1024) return null;
-    if (payload.encoding !== "base64") return null;
-    return Buffer.from(payload.content.replace(/\s/g, ""), "base64").toString("utf8");
-}
-
 function optionFromRole(
     row: {
         id: string;
@@ -766,144 +552,6 @@ export async function readProjectDocAction(projectId: string, docSlug: string = 
             error: error instanceof Error ? error.message : String(error),
         });
         return { success: false, error: "Failed to load document." };
-    }
-}
-
-export async function validateProjectDocAction(projectId: string, content: unknown) {
-    try {
-        const userId = await requireUserId();
-        const context = await getDocProjectContext(projectId, userId);
-        if (!context.permission.canEdit) return { success: false as const, error: "You cannot validate this document." };
-        const normalized = normalizeProjectDocContent(content);
-        return {
-            success: true as const,
-            qualityReport: buildProjectDocQualityReport(normalized),
-            headings: getOrBuildProjectDocPublishMetadata(normalized).headings,
-        };
-    } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to validate document." };
-    }
-}
-
-export async function readProjectDocReferenceOptionsAction(projectId: string, input: unknown): Promise<
-    | { success: true; options: ProjectDocReferenceOption[] }
-    | { success: false; error: string }
-> {
-    try {
-        const userId = await requireUserId();
-        const parsed = referenceOptionsSchema.parse(input);
-        const context = await getDocProjectContext(projectId, userId);
-        if (!context.permission.canEdit) return { success: false, error: "You cannot insert document project references." };
-
-        const query = parsed.query?.trim() || "";
-        const like = `%${query.replace(/[%_]/g, "\\$&")}%`;
-        const limit = parsed.limit ?? 12;
-
-        if (parsed.kind === "tasks") {
-            const taskConditions = [eq(tasks.projectId, projectId), isNull(tasks.deletedAt)];
-            if (query) taskConditions.push(or(ilike(tasks.title, like), ilike(tasks.description, like))!);
-            const rows = await db
-                .select({
-                    id: tasks.id,
-                    title: tasks.title,
-                    description: tasks.description,
-                    status: tasks.status,
-                    priority: tasks.priority,
-                    taskNumber: tasks.taskNumber,
-                    assigneeId: tasks.assigneeId,
-                    creatorId: tasks.creatorId,
-                    assigneeName: profileDisplayNameSql(tasks.assigneeId),
-                    creatorName: profileDisplayNameSql(tasks.creatorId),
-                })
-                .from(tasks)
-                .where(and(...taskConditions))
-                .orderBy(desc(tasks.updatedAt))
-                .limit(limit);
-            return { success: true, options: rows.map((row) => optionFromTask(row, context.project)) };
-        }
-
-        if (parsed.kind === "sprints") {
-            const sprintConditions = [eq(projectSprints.projectId, projectId)];
-            if (query) sprintConditions.push(or(ilike(projectSprints.name, like), ilike(projectSprints.goal, like), ilike(projectSprints.description, like))!);
-            const rows = await db.query.projectSprints.findMany({
-                where: and(...sprintConditions),
-                columns: {
-                    id: true,
-                    name: true,
-                    goal: true,
-                    description: true,
-                    status: true,
-                    startDate: true,
-                    endDate: true,
-                },
-                orderBy: [desc(projectSprints.updatedAt)],
-                limit,
-            });
-            return { success: true, options: rows.map((row) => optionFromSprint(row, context.project)) };
-        }
-
-        if (parsed.kind === "files") {
-            const fileConditions = [eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt)];
-            if (query) fileConditions.push(or(ilike(projectNodes.name, like), ilike(projectNodes.path, like))!);
-            const rows = await db.query.projectNodes.findMany({
-                where: and(...fileConditions),
-                columns: {
-                    id: true,
-                    name: true,
-                    path: true,
-                    currentVersion: true,
-                    mimeType: true,
-                },
-                orderBy: [desc(projectNodes.updatedAt)],
-                limit,
-            });
-            return { success: true, options: rows.map((row) => optionFromFile(row, context.project)) };
-        }
-
-        if (parsed.kind === "roles") {
-            const roleConditions = [eq(projectOpenRoles.projectId, projectId)];
-            if (query) roleConditions.push(or(ilike(projectOpenRoles.role, like), ilike(projectOpenRoles.title, like), ilike(projectOpenRoles.description, like))!);
-            const rows = await db.query.projectOpenRoles.findMany({
-                where: and(...roleConditions),
-                columns: {
-                    id: true,
-                    role: true,
-                    title: true,
-                    description: true,
-                    count: true,
-                    filled: true,
-                },
-                orderBy: [desc(projectOpenRoles.updatedAt)],
-                limit,
-            });
-            return { success: true, options: rows.map((row) => optionFromRole(row, context.project)) };
-        }
-
-        const contributorConditions = [eq(projectMembers.projectId, projectId), isNull(profiles.deletedAt)];
-        if (query) contributorConditions.push(or(ilike(profiles.fullName, like), ilike(profiles.username, like))!);
-        const rows = await db
-            .select({
-                userId: projectMembers.userId,
-                role: projectMembers.role,
-                fullName: profiles.fullName,
-                username: profiles.username,
-                avatarUrl: profiles.avatarUrl,
-                projectRoleTitle: acceptedRoleTitleSql(projectId, projectMembers.userId),
-            })
-            .from(projectMembers)
-            .innerJoin(profiles, eq(profiles.id, projectMembers.userId))
-            .where(and(...contributorConditions))
-            .orderBy(desc(projectMembers.joinedAt))
-            .limit(limit);
-
-        return { success: true, options: rows.map((row) => optionFromContributor(row, context.project)) };
-    } catch (error) {
-        logger.error("project_readme.reference_options_failed", {
-            module: "projects",
-            projectId,
-            error: error instanceof Error ? error.message : String(error),
-        });
-        return { success: false, error: "Failed to load document references." };
     }
 }
 
@@ -1233,9 +881,6 @@ export async function linkProjectDocAction(projectId: string, nodeId: string, do
                     slug: docSlug,
                     filename,
                     linkedNodeId: nodeId,
-                    draftContent: "",
-                    draftUpdatedBy: userId,
-                    draftUpdatedAt: new Date(),
                     settings: context.settings,
                 });
             } else {
@@ -1243,16 +888,12 @@ export async function linkProjectDocAction(projectId: string, nodeId: string, do
                     .set({
                         filename: node.name || readme.filename,
                         linkedNodeId: nodeId,
-                        draftUpdatedBy: userId,
-                        draftUpdatedAt: new Date(),
                         updatedAt: new Date(),
                     })
                     .where(eq(projectMarkdowns.id, readme.id));
             }
         });
 
-        revalidatePath(`/projects/${context.project.slug}/readme`);
-        revalidatePath(`/projects/${context.project.slug}/files`);
 
         return { success: true as const };
     } catch (error) {
@@ -1274,8 +915,6 @@ export async function unlinkProjectDocAction(projectId: string, docSlug: string 
             await db.update(projectMarkdowns)
                 .set({
                     linkedNodeId: null,
-                    draftUpdatedBy: userId,
-                    draftUpdatedAt: new Date(),
                     updatedAt: new Date(),
                 })
                 .where(and(
@@ -1284,30 +923,6 @@ export async function unlinkProjectDocAction(projectId: string, docSlug: string 
                 ));
         } else {
             if (context.readme) {
-                // Find all assets to clean up storage
-                const assets = await db
-                    .select({
-                        bucket: projectMarkdownAssets.bucket,
-                        storageKey: projectMarkdownAssets.storageKey,
-                    })
-                    .from(projectMarkdownAssets)
-                    .where(eq(projectMarkdownAssets.markdownId, context.readme.id));
-
-                if (assets.length > 0) {
-                    try {
-                        const admin = await createAdminClient();
-                        for (const asset of assets) {
-                            await admin.storage.from(asset.bucket).remove([asset.storageKey]);
-                        }
-                    } catch (err) {
-                        logger.error("project_readme.unlink_delete_assets_failed", {
-                            projectId,
-                            docSlug,
-                            error: err instanceof Error ? err.message : String(err),
-                        });
-                    }
-                }
-
                 await db.delete(projectMarkdowns)
                     .where(and(
                         eq(projectMarkdowns.projectId, projectId),
@@ -1317,107 +932,11 @@ export async function unlinkProjectDocAction(projectId: string, docSlug: string 
         }
 
         revalidateProjectDoc(context.project);
-        revalidatePath(`/projects/${context.project.slug}/readme`);
-        revalidatePath(`/projects/${context.project.slug}/files`);
 
         return { success: true as const };
     } catch (error) {
         logger.error("project_readme.unlink_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Internal server error." };
-    }
-}
-
-export async function readProjectMarkdownSearchAction(projectId: string, queryText: string) {
-    try {
-        const actorUserId = await getOptionalUserId();
-        const [project] = await db
-            .select({
-                id: projects.id,
-                slug: projects.slug,
-                ownerId: projects.ownerId,
-                visibility: projects.visibility,
-                publicTabVisibility: projects.publicTabVisibility,
-            })
-            .from(projects)
-            .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
-            .limit(1);
-        if (!project) return { success: false as const, error: "Project not found" };
-
-        const membership = actorUserId
-            ? await db.query.projectMembers.findFirst({
-                where: and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, actorUserId)),
-                columns: { role: true },
-            })
-            : null;
-
-        const docs = await db
-            .select({
-                id: projectMarkdowns.id,
-                slug: projectMarkdowns.slug,
-                filename: projectMarkdowns.filename,
-                draftContent: projectMarkdowns.draftContent,
-                publishedVersionId: projectMarkdowns.publishedVersionId,
-                settings: projectMarkdowns.settings,
-                publishedContent: projectMarkdownVersions.content,
-            })
-            .from(projectMarkdowns)
-            .leftJoin(projectMarkdownVersions, eq(projectMarkdowns.publishedVersionId, projectMarkdownVersions.id))
-            .where(eq(projectMarkdowns.projectId, projectId));
-
-        const results: { slug: string; filename: string; matches: { line: number; text: string }[] }[] = [];
-        const isOwner = actorUserId === project.ownerId;
-        const term = queryText.trim().toLowerCase();
-
-        if (!term) {
-            return { success: true as const, results: [] };
-        }
-
-        for (const doc of docs) {
-            const settings = normalizeProjectDocSettings(doc.settings);
-            const hasPublishedReadme = Boolean(doc.publishedVersionId);
-            const permission = resolveProjectDocPermission({
-                actorUserId,
-                projectVisibility: project.visibility,
-                publicTabVisibility: project.publicTabVisibility,
-                settings,
-                membershipRole: isOwner ? "owner" : membership?.role,
-                isOwner,
-                isActiveMember: isOwner || Boolean(membership),
-                hasPublishedReadme,
-            });
-
-            if (!permission.canReadPublished && !permission.canEdit) {
-                continue;
-            }
-
-            const contentToSearch = (permission.canReadDraft ? doc.draftContent : doc.publishedContent) || "";
-            if (!contentToSearch) continue;
-
-            const lines = contentToSearch.split("\n");
-            const matches: { line: number; text: string }[] = [];
-
-            lines.forEach((lineText, idx) => {
-                if (lineText.toLowerCase().includes(term)) {
-                    matches.push({
-                        line: idx + 1,
-                        text: lineText.trim(),
-                    });
-                }
-            });
-
-            if (matches.length > 0) {
-                results.push({
-                    slug: doc.slug,
-                    filename: doc.filename,
-                    matches: matches.slice(0, 100),
-                });
-            }
-        }
-
-        return { success: true as const, results };
-    } catch (error) {
-        logger.error("project_readme.search_failed", { projectId, queryText, error: error instanceof Error ? error.message : String(error) });
-        return { success: false as const, error: "Failed to perform search." };
     }
 }
 
@@ -1497,45 +1016,6 @@ export async function listProjectMarkdownsAction(projectId: string) {
     }
 }
 
-const createMarkdownSchema = z.object({
-    filename: z.string().min(1).max(100),
-    content: z.string().optional().default(""),
-});
-
-export async function createProjectMarkdownAction(projectId: string, input: unknown) {
-    try {
-        const userId = await requireUserId();
-        const parsed = createMarkdownSchema.parse(input);
-        const filename = parsed.filename.trim();
-        const slug = normalizeProjectDocSlug(filename, "doc");
-        
-        const context = await getDocProjectContext(projectId, userId, slug);
-        if (!context.permission.canEdit) return { success: false as const, error: "You cannot create documents in this project." };
-        
-        const readme = await getOrCreateMarkdown(projectId, userId, slug, context.settings);
-        
-        await db.update(projectMarkdowns)
-            .set({ filename })
-            .where(eq(projectMarkdowns.id, readme.id));
-            
-        if (parsed.content) {
-            await db.update(projectMarkdowns)
-                .set({ draftContent: parsed.content, draftUpdatedAt: new Date() })
-                .where(eq(projectMarkdowns.id, readme.id));
-        }
-
-        revalidateProjectDoc(context.project);
-
-        return { success: true as const, slug };
-    } catch (error) {
-        logger.error("project_readme.create_markdown_failed", {
-            projectId,
-            error: error instanceof Error ? error.message : String(error),
-        });
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to create document." };
-    }
-}
-
 // ponytail: single atomic doc draft init on project creation. ceiling: 500KB starter draft. upgrade: chunked version insert if drafts exceed 500KB.
 export async function applyCreationIntentAction(projectId: string, input: unknown) {
     try {
@@ -1581,9 +1061,6 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
             await db
                 .update(projectMarkdowns)
                 .set({
-                    draftContent: starterText,
-                    draftUpdatedAt: new Date(),
-                    draftUpdatedBy: userId,
                     ...(publishedVersionId ? { publishedVersionId } : {}),
                 })
                 .where(eq(projectMarkdowns.id, readme.id));

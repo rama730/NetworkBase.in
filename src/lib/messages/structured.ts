@@ -33,9 +33,6 @@ export const MESSAGE_WORKFLOW_ITEM_STATUSES = [
 ] as const;
 export type MessageWorkflowItemStatus = (typeof MESSAGE_WORKFLOW_ITEM_STATUSES)[number];
 
-export const MESSAGE_WORKFLOW_ITEM_SCOPES = ['conversation', 'private'] as const;
-export type MessageWorkflowItemScope = (typeof MESSAGE_WORKFLOW_ITEM_SCOPES)[number];
-
 export const STRUCTURED_WORKFLOW_RESOLUTION_ACTIONS = [
     'accept',
     'decline',

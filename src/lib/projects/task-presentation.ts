@@ -4,7 +4,6 @@ import {
   type SprintStatus,
   type SprintListItem,
 } from "@/lib/projects/sprint-detail";
-import type { ProjectNode } from "@/lib/db/schema";
 import {
   getTaskPriorityPresentation,
   getTaskStatusPresentation,
@@ -380,23 +379,3 @@ export function getTaskPriorityLabel(priority: string | null | undefined) {
   return getTaskPriorityPresentation(priority).label;
 }
 
-export function toLinkedSprintFiles(
-  nodes: ProjectNode[],
-  taskId: string,
-  occurredAt: string | null,
-) {
-  return nodes.map((node, index) => ({
-    id: `linked-file:${taskId}:${node.id}:${index}`,
-    taskId,
-    nodeId: node.id,
-    nodeName: node.name,
-    nodePath: node.path ?? node.name,
-    nodeType: node.type === "folder" ? ("folder" as const) : ("file" as const),
-    annotation: null,
-    linkedAt: occurredAt ?? null,
-    lastEventType: null,
-    lastEventAt:
-      node.updatedAt instanceof Date ? node.updatedAt.toISOString() : null,
-    lastEventBy: null,
-  }));
-}

@@ -18,11 +18,9 @@ describe("realtime health contract", () => {
   });
 
   it("keeps request attention separate from transport health in the header", () => {
-    const nav = read("src/components/layout/header/NavLink.tsx");
     const topNav = read("src/components/layout/header/TopNav.tsx");
     const indicator = read("src/components/layout/header/ConnectionStatusIndicator.tsx");
 
-    assert.match(nav, /connectionHealth/);
     assert.match(topNav, /ConnectionStatusIndicator/);
     assert.match(read("src/components/layout/AppSidebar.tsx"), /connectionHealth/);
     assert.match(topNav, /connectionHealth=\{connectionHealth\}/);

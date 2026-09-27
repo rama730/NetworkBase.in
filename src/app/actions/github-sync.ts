@@ -196,64 +196,6 @@ export async function getGitHubSyncState(projectId: string) {
     };
   });
 }
-export async function getGitHubSyncContributors(projectId: string) {
-  return result(async () => {
-    idSchema.parse(projectId);
-    const { user, token } = await session();
-    const access = await assertProjectFileReadAccess(projectId, user.id);
-    if (!access.isOwner && !access.isMember)
-      throw new Error(
-        "Project membership is required to view file contribution activity",
-      );
-    const rows = await db.execute<{
-      user_id: string | null;
-      contributor_key: string;
-      name: string;
-      username: string | null;
-      avatar_url: string | null;
-      github_login: string | null;
-      files: number;
-    }>(sql`
-      WITH evidence AS (
-        SELECT event.actor_id,event.node_id,NULL::text AS github_id,NULL::text AS name,NULL::text AS login,NULL::text AS avatar
-        FROM project_node_events event
-        WHERE event.project_id=${projectId} AND event.type IN ('file_content_contributed', 'create_file')
-        UNION SELECT node.created_by,node.id,NULL,NULL,NULL,NULL FROM project_nodes node
-        WHERE node.project_id=${projectId} AND node.created_by IS NOT NULL AND node.git_blob_hash IS NULL
-        UNION SELECT version.uploaded_by,version.node_id,NULL,NULL,NULL,NULL FROM file_versions version
-        JOIN project_nodes node ON node.id=version.node_id WHERE node.project_id=${projectId}
-          AND node.git_blob_hash IS NULL AND version.attribution='{}'::jsonb
-        UNION SELECT identity.user_id,event.node_id,author->>'githubId',author->>'name',author->>'githubLogin',author->>'avatarUrl'
-        FROM project_node_events event
-        CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(event.metadata->'attribution'->'contributors')='array' THEN event.metadata->'attribution'->'contributors' ELSE '[]'::jsonb END) AS author
-        LEFT JOIN github_contributor_identities identity ON identity.github_id::text=author->>'githubId'
-        WHERE event.project_id=${projectId} AND event.type='file_content_contributed' AND event.metadata->>'source'='github'
-      ), normalized AS (
-        SELECT evidence.node_id,p.id AS user_id,
-          COALESCE(p.id::text,'github:'||evidence.github_id,'unlinked:'||evidence.name) AS contributor_key,
-          COALESCE(p.full_name,p.username,evidence.name,'Contributor') AS name,
-          p.username,COALESCE(p.avatar_url,evidence.avatar) AS avatar_url,
-          COALESCE(identity.login,evidence.login) AS github_login
-      FROM evidence LEFT JOIN profiles p ON p.id=evidence.actor_id
-      JOIN project_nodes node ON node.id=evidence.node_id AND node.task_id IS NULL AND node.canonical_node_id IS NULL
-        AND node.deleted_at IS NULL AND node.path NOT LIKE '/.system/%'
-      LEFT JOIN github_contributor_identities identity ON identity.user_id=p.id
-      WHERE p.deleted_at IS NULL AND (p.id IS NOT NULL OR evidence.name IS NOT NULL)
-      ) SELECT contributor_key,user_id,max(name) AS name,max(username) AS username,max(avatar_url) AS avatar_url,
-        max(github_login) AS github_login,count(DISTINCT node_id)::int AS files
-      FROM normalized GROUP BY contributor_key,user_id ORDER BY files DESC,contributor_key LIMIT 200
-    `);
-    return Array.from(rows).map((row) => ({
-      userId: row.user_id,
-      key: row.contributor_key,
-      name: row.name,
-      username: row.username,
-      avatarUrl: row.avatar_url,
-      githubLogin: row.github_login,
-      files: row.files,
-    }));
-  });
-}
 export async function connectGitHubSyncRepository(
   projectId: string,
   repository: string,

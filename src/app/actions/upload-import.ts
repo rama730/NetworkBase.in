@@ -16,7 +16,7 @@ import {
   normalizeAndValidateUploadRelativePath,
   PROJECT_UPLOAD_MAX_FILE_BYTES,
 } from '@/lib/upload/security';
-import { finalizeUploadIntent, finalizeUploadIntents } from '@/lib/upload/upload-intents';
+import { finalizeUploadIntents } from '@/lib/upload/upload-intents';
 
 export type UploadManifestEntry = {
   relativePath: string;

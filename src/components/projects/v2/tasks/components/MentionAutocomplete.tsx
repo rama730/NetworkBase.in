@@ -34,8 +34,6 @@ interface MentionAutocompleteProps {
 }
 
 const MENU_WIDTH = 300;
-const MENU_OFFSET_Y = 6;
-const ESTIMATED_MENU_HEIGHT = 260;
 
 function getDisplayName(candidate: MentionCandidate): string {
     return (

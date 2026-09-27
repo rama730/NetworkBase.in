@@ -1,7 +1,6 @@
 import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { profiles, projectNodes, taskNodeLinks, taskPushes, tasks } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/project-access";
+import { profiles, projectNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 

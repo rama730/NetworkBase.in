@@ -5,7 +5,6 @@ import { projectNodes, projects, tasks } from "@/lib/db/schema";
 import type { ProjectNode } from "@/lib/db/schema";
 import { eq, and, isNull, ilike, inArray, sql, asc, desc } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
-import { logger } from "@/lib/logger";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { canProjectMemberUploadFiles } from "@/lib/projects/settings-policies";
 import {
@@ -19,11 +18,7 @@ import {
     escapeLikePattern,
     FILES_ERROR_CODES,
     MAX_TREE_PAGE_SIZE,
-    MAX_BATCH_PARENT_FOLDERS,
     UUID_RE,
-    MAX_BATCH_FETCH_PER_PARENT,
-    MAX_BATCH_FETCH_TOTAL,
-    BATCH_PARENT_QUERY_CONCURRENCY,
     type FilesActionResult,
 } from "./_constants";
 import { getTaskLinkCounts } from "./links";
@@ -315,109 +310,6 @@ export async function initializeProjectWorkspaceRoot(projectId: string) {
     return ensureSystemRootFolder(projectId, user.id, project?.title || "Project");
 }
 
-export async function getProjectNodesSafe(
-    projectId: string,
-    parentId: string | null = null,
-    query?: string,
-    limit: number = 100,
-    cursor?: string
-): Promise<FilesActionResult<GetProjectNodesResult>> {
-    try {
-        const data = await getProjectNodes(projectId, parentId, query, limit, cursor);
-        return { success: true, data };
-    } catch (error) {
-        return {
-            success: false,
-            code: FILES_ERROR_CODES.UNKNOWN_ERROR,
-            message: error instanceof Error ? error.message : "Failed to load nodes",
-        };
-    }
-}
-
-export async function getProjectBatchNodes(projectId: string, parentIds: (string | null)[]): Promise<{ nodes: ProjectNodeWithAttribution[], taskLinkCounts: Record<string, number> } | []> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!parentIds.length) return [];
-
-    // De-dupe and sanitize. Ignore empty/invalid values so they never hit UUID SQL params.
-    const uniqueParents = Array.from(new Set(parentIds));
-    const cleanParents = Array.from(
-        new Set(
-            uniqueParents.flatMap((parentId) => {
-                if (parentId === null || parentId === "root") return [null];
-                const normalized = String(parentId).trim();
-                if (!normalized) return [];
-                if (normalized === "root") return [null];
-                if (!UUID_RE.test(normalized)) return [];
-                return [normalized];
-            })
-        )
-    );
-
-    if (cleanParents.length > MAX_BATCH_PARENT_FOLDERS) {
-        throw new Error(`Too many folders requested in one batch. Max: ${MAX_BATCH_PARENT_FOLDERS}`);
-    }
-    if (!cleanParents.length) return [];
-    const actorId = user?.id ?? null;
-    const parentKey = cleanParents.map((parentId) => parentId ?? "__root__").sort().join(",");
-
-    return await runInFlightDeduped(`files:batch-nodes:${projectId}:${parentKey}:${actorId ?? "anon"}`, async () => {
-        await assertProjectFileReadAccess(projectId, actorId);
-
-        const hasNullParent = cleanParents.some((p) => p === null);
-        const nonNullParents = cleanParents.filter((p): p is string => typeof p === "string");
-
-        const rawRows = (await db.execute(sql`
-            WITH ranked_nodes AS (
-                SELECT 
-                    pn.*,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY COALESCE(pn.parent_id, '00000000-0000-0000-0000-000000000000'::uuid) 
-                        ORDER BY pn.type ASC, pn.name ASC, pn.id ASC
-                    ) AS rn
-                FROM project_nodes pn
-                WHERE pn.project_id = ${projectId}::uuid
-                  AND pn.deleted_at IS NULL
-                  AND pn.task_id IS NULL
-                  AND pn.path NOT LIKE '/.system%'
-                  AND (
-                      ${hasNullParent ? sql`pn.parent_id IS NULL` : sql`false`}
-                      ${hasNullParent && nonNullParents.length > 0 ? sql`OR` : sql``}
-                      ${nonNullParents.length > 0 ? sql`pn.parent_id = ANY(${nonNullParents}::uuid[])` : sql``}
-                  )
-            )
-            SELECT 
-                id, project_id AS "projectId", parent_id AS "parentId",
-                type, name, path, s3_key AS "s3Key", size, mime_type AS "mimeType",
-                task_id AS "taskId", current_version AS "currentVersion",
-                created_by AS "createdBy", created_at AS "createdAt",
-                updated_at AS "updatedAt", deleted_at AS "deletedAt",
-                sync_status AS "syncStatus", metadata
-            FROM ranked_nodes 
-            WHERE rn <= ${MAX_BATCH_FETCH_PER_PARENT}
-            ORDER BY type ASC, name ASC, id ASC
-            LIMIT ${MAX_BATCH_FETCH_TOTAL}
-        `)) as unknown as ProjectNode[];
-
-        const out = Array.from(rawRows);
-        if (out.length >= MAX_BATCH_FETCH_TOTAL) {
-            logger.metric("files.batch_fetch.cap_hit", {
-                module: "files",
-                projectId,
-                requestedParents: cleanParents.length,
-                fetchedRows: out.length,
-                cap: MAX_BATCH_FETCH_TOTAL,
-            });
-        }
-
-        const enriched = await enrichNodesWithLatestVersionAttribution(out);
-        const fileIds = enriched.filter((node) => node.type === "file").map((node) => node.id);
-        const taskLinkCounts = fileIds.length ? await getTaskLinkCounts(projectId, fileIds) : {};
-        return { nodes: enriched, taskLinkCounts };
-    });
-}
-
 export async function getNodesByIds(projectId: string, nodeIds: string[]) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -440,147 +332,6 @@ export async function getNodesByIds(projectId: string, nodeIds: string[]) {
         });
         return await enrichNodesWithLatestVersionAttribution(nodes);
     });
-}
-
-export async function getTaskWorkingFilesCollection(
-    projectId: string,
-): Promise<FilesActionResult<{
-    collection: ProjectNodeWithAttribution | null;
-    nodes: ProjectNodeWithAttribution[];
-    folderPayloads: Array<{
-        parentId: string;
-        childIds: string[];
-        nextCursor: string | null;
-        hasMore: boolean;
-        loaded: boolean;
-    }>;
-    taskLinkCounts: Record<string, number>;
-}>> {
-    try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        const actorId = user?.id ?? null;
-
-        return await runInFlightDeduped(
-            `files:task-working-files:${projectId}:${actorId ?? "anon"}`,
-            async () => {
-                const access = await assertProjectFileReadAccess(projectId, actorId);
-                if (!canReadProjectTaskFiles(access)) throw new Error("Task files are not available to this viewer.");
-
-                const collection = await db.query.projectNodes.findFirst({
-                    where: and(
-                        eq(projectNodes.projectId, projectId),
-                        eq(projectNodes.path, "/.system/tasks"),
-                        eq(projectNodes.type, "folder"),
-                        isNull(projectNodes.deletedAt),
-                    ),
-                });
-                if (!collection) {
-                    return {
-                        success: true as const,
-                        data: {
-                            collection: null,
-                            nodes: [],
-                            folderPayloads: [],
-                            taskLinkCounts: {},
-                        },
-                    };
-                }
-
-                const taskFolders = await db.query.projectNodes.findMany({
-                    where: and(
-                        eq(projectNodes.projectId, projectId),
-                        eq(projectNodes.parentId, collection.id),
-                        eq(projectNodes.type, "folder"),
-                        isNull(projectNodes.deletedAt),
-                    ),
-                    orderBy: (nodes, { asc }) => [asc(nodes.name), asc(nodes.id)],
-                });
-                const taskFolderIds = taskFolders.map((folder) => folder.id);
-                const taskFiles = taskFolderIds.length === 0
-                    ? []
-                    : await db.query.projectNodes.findMany({
-                        where: and(
-                            eq(projectNodes.projectId, projectId),
-                            inArray(projectNodes.parentId, taskFolderIds),
-                            isNull(projectNodes.deletedAt),
-                        ),
-                        orderBy: (nodes, { asc }) => [
-                            asc(nodes.parentId),
-                            asc(nodes.type),
-                            asc(nodes.name),
-                            asc(nodes.id),
-                        ],
-                    });
-
-                const childIdsByTaskFolder = new Map<string, string[]>();
-                for (const node of taskFiles) {
-                    if (!node.parentId) continue;
-                    const childIds = childIdsByTaskFolder.get(node.parentId) ?? [];
-                    childIds.push(node.id);
-                    childIdsByTaskFolder.set(node.parentId, childIds);
-                }
-                const nonEmptyTaskFolders = taskFolders.filter(
-                    (folder) => (childIdsByTaskFolder.get(folder.id)?.length ?? 0) > 0,
-                );
-                const visibleTaskFolderIds = new Set(
-                    nonEmptyTaskFolders.map((folder) => folder.id),
-                );
-                const visibleTaskFiles = taskFiles.filter(
-                    (node) => node.parentId && visibleTaskFolderIds.has(node.parentId),
-                );
-                const enriched = await enrichNodesWithLatestVersionAttribution([
-                    collection,
-                    ...nonEmptyTaskFolders,
-                    ...visibleTaskFiles,
-                ]);
-                const enrichedCollection = enriched[0] ?? null;
-                const nodes = enriched.slice(1);
-                const fileIds = visibleTaskFiles
-                    .filter((node) => node.type === "file")
-                    .map((node) => node.id);
-                const taskLinkCounts = fileIds.length
-                    ? await getTaskLinkCounts(projectId, fileIds)
-                    : {};
-
-                // ponytail: hydrate collection and task folders in one store commit to eliminate lazy-load gap. ceiling: single-project task files collection. upgrade: cursor-based pagination if task files exceed 500.
-                const folderPayloads = [
-                    {
-                        parentId: collection.id,
-                        childIds: nonEmptyTaskFolders.map((folder) => folder.id),
-                        nextCursor: null,
-                        hasMore: false,
-                        loaded: true,
-                    },
-                    ...nonEmptyTaskFolders.map((folder) => ({
-                        parentId: folder.id,
-                        childIds: childIdsByTaskFolder.get(folder.id) ?? [],
-                        nextCursor: null,
-                        hasMore: false,
-                        loaded: true,
-                    })),
-                ];
-
-                return {
-                    success: true as const,
-                    data: {
-                        collection: enrichedCollection,
-                        nodes,
-                        folderPayloads,
-                        taskLinkCounts,
-                    },
-                };
-            },
-        );
-    } catch (error) {
-        return {
-            success: false,
-            code: FILES_ERROR_CODES.UNKNOWN_ERROR,
-            message: error instanceof Error
-                ? error.message
-                : "Failed to load task files",
-        };
-    }
 }
 
 export async function getNodeMetadataBatch(
@@ -717,25 +468,6 @@ export async function getBreadcrumbs(projectId: string, folderId: string | null)
     });
 }
 
-export async function findNodeByPath(projectId: string, path: string[]) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    const access = await assertProjectFileReadAccess(projectId, user?.id ?? null);
-
-    if (!path.length || path[0] === ".system" || path.some((segment) => !segment || segment.includes("/"))) {
-        return null;
-    }
-    return (await db.query.projectNodes.findFirst({
-        where: and(
-            eq(projectNodes.projectId, projectId),
-            eq(projectNodes.path, `/${path.join("/")}`),
-            eq(projectNodes.type, "folder"),
-            isNull(projectNodes.deletedAt),
-            canReadProjectTaskFiles(access) ? sql`true` : isNull(projectNodes.taskId),
-        ),
-    })) ?? null;
-}
-
 export async function findNodeByPathAny(projectId: string, path: string[]) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -841,26 +573,3 @@ export async function getProjectNodesWithCounts(
     }
 }
 
-export async function getProjectRecentNodes(projectId: string, limit: number = 5): Promise<ProjectNodeWithAttribution[]> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-    const safeLimit = Math.max(1, Math.min(50, limit));
-    return await runInFlightDeduped(`files:recent-nodes:${projectId}:${safeLimit}:${user.id}`, async () => {
-        const access = await assertProjectFileReadAccess(projectId, user.id);
-
-        // Fetch the most recently updated files (excluding folders)
-        const nodes = await db.query.projectNodes.findMany({
-            where: and(
-                eq(projectNodes.projectId, projectId),
-                eq(projectNodes.type, 'file'),
-                isNull(projectNodes.deletedAt),
-                canReadProjectTaskFiles(access) ? sql`true` : sql`${projectNodes.taskId} IS NULL AND ${projectNodes.path} NOT LIKE '/.system%'`,
-            ),
-            orderBy: (nodes, { desc }) => [desc(nodes.updatedAt)],
-            limit: safeLimit,
-        });
-
-        return await enrichNodesWithLatestVersionAttribution(nodes);
-    });
-}

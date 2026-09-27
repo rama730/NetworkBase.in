@@ -16,8 +16,6 @@ export const PROJECT_TYPE_OPTIONS = [
     { id: "video", label: "Video/Media", description: "Video content" },
 ] as const;
 
-export type ProjectTypeId = typeof PROJECT_TYPE_OPTIONS[number]["id"];
-
 export const OTHER_PROJECT_TYPE_ID = "other";
 
 export const POPULAR_PROJECT_TAGS = [

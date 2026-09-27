@@ -19,19 +19,6 @@ async function getViewerId() {
     return user?.id ?? null;
 }
 
-async function assertConversationAccess(conversationId: string, userId: string) {
-    const [participant] = await db
-        .select({ id: conversationParticipants.id })
-        .from(conversationParticipants)
-        .where(and(
-            eq(conversationParticipants.conversationId, conversationId),
-            eq(conversationParticipants.userId, userId),
-        ))
-        .limit(1);
-
-    if (!participant) throw new Error("Not authorized for this conversation");
-}
-
 export async function readMessageWorkLinksAction(
     conversationId: string,
     messageIds: string[],

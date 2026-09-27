@@ -602,8 +602,6 @@ for (const skill of MARKET_SKILLS) {
     }
 }
 
-export const CORE_SKILLS = MARKET_SKILLS.filter((skill) => skill.marketTier === 'core')
-
 export function findCatalogSkill(value: string): MarketSkillDefinition | null {
     return LOOKUP_INDEX.get(normalizeSkillLookup(value)) ?? null
 }

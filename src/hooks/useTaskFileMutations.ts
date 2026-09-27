@@ -11,7 +11,6 @@ import {
   getUploadCollisionSummary,
 } from "@/app/actions/files/mutations";
 import { getUploadPresignedUrl } from "@/app/actions/upload";
-import { applyUploadedFileRevision } from "@/app/actions/files/versions";
 import { buildProjectFileKey } from "@/lib/storage/project-file-key";
 import type { DroppedFolder } from "@/lib/files/folder-drop";
 import { newClientId } from "@/lib/utils/client-id";
@@ -35,7 +34,6 @@ async function runWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T,
 
 // We keep dummy types for TS compatibility with parent components if they import them.
 export type TaskFileUploadStatus = { id: string; status: "uploading" | "success" | "error"; progress: number; filename: string };
-export type TaskFilePendingResolution = null;
 
 function extOf(name: string) {
   const parts = name.split(".");

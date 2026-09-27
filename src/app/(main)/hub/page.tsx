@@ -11,15 +11,6 @@ import type { ConnectionFeedPage, DiscoverConnectionItem } from "@/hooks/useConn
 
 import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
 
-const INITIAL_HUB_FILTERS = {
-    status: PROJECT_STATUS.ALL,
-    type: PROJECT_TYPE.ALL,
-    sort: SORT_OPTIONS.NEWEST,
-    tech: [],
-    search: undefined,
-    includedIds: undefined
-};
-
 export function generateMetadata() {
     return buildRouteMetadata({
         title: 'Discover | NetworkBase',

@@ -30,9 +30,6 @@ function compareRows(left: SprintTimelineRow, right: SprintTimelineRow) {
   return delta || left.id.localeCompare(right.id);
 }
 
-/** Cache callers use the same stable ordering as the visible summary trail. */
-export const compareSprintTimelineActivityRows = compareRows;
-
 /** Keep overlapping cursor pages idempotent after a refetch or optimistic task mutation. */
 export function mergeSprintTimelineRows(groups: ReadonlyArray<ReadonlyArray<SprintTimelineRow>>) {
   const rows = new Map<string, SprintTimelineRow>();

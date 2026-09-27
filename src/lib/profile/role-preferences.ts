@@ -18,8 +18,6 @@ export const EXPERIENCE_LEVEL_OPTIONS = [
   { value: 'founder', label: 'Founder' },
 ] as const
 
-export type ProfileExperienceLevel = (typeof EXPERIENCE_LEVEL_OPTIONS)[number]['value']
-
 export const WEEKLY_CAPACITY_OPTIONS = [
   { value: 'lt_5', label: 'Less than 5 hours per week' },
   { value: 'h_5_10', label: '5–10 hours per week' },
@@ -27,8 +25,6 @@ export const WEEKLY_CAPACITY_OPTIONS = [
   { value: 'h_20_40', label: '20–40 hours per week' },
   { value: 'h_40_plus', label: '40+ hours per week' },
 ] as const
-
-export type WeeklyCapacity = (typeof WEEKLY_CAPACITY_OPTIONS)[number]['value']
 
 const roleAliases = new Map<string, RolePreferenceValue>([
   ['full_time', 'Full-time roles'],
@@ -104,12 +100,3 @@ export function weeklyCapacityLabel(value: unknown): string | null {
   return WEEKLY_CAPACITY_OPTIONS.find((option) => option.value === value)?.label ?? null
 }
 
-export function hasRolePreferences(input: {
-  openTo?: unknown
-  experienceLevel?: unknown
-  hoursPerWeek?: unknown
-}): boolean {
-  return getRolePreferences(input.openTo).length > 0
-    || Boolean(experienceLevelLabel(input.experienceLevel))
-    || Boolean(weeklyCapacityLabel(input.hoursPerWeek))
-}

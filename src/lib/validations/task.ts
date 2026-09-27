@@ -44,5 +44,3 @@ export const updateTaskFieldSchema = z.object({
   value: z.unknown(),
 });
 
-export type CreateTaskInput = z.infer<typeof createTaskSchema>;
-export type UpdateTaskFieldInput = z.infer<typeof updateTaskFieldSchema>;

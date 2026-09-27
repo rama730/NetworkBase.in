@@ -7,7 +7,6 @@ const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta
 test("stable project media routes use version or ETag caching", () => {
   for (const path of [
     "src/app/api/v1/projects/[id]/image/route.ts",
-    "src/app/api/v1/projects/[id]/doc-assets/[assetId]/route.ts",
     "src/app/api/v1/projects/[id]/update-media/route.ts",
   ]) {
     const source = read(path);
@@ -15,7 +14,6 @@ test("stable project media routes use version or ETag caching", () => {
     assert.match(source, /ETag/);
   }
   assert.match(read("src/app/api/v1/projects/[id]/image/route.ts"), /private, max-age=/);
-  assert.match(read("src/app/api/v1/projects/[id]/doc-assets/[assetId]/route.ts"), /private, max-age=720/);
   assert.match(read("src/app/api/v1/projects/[id]/update-media/route.ts"), /PRIVATE_REDIRECT_MAX_AGE_SECONDS = 12 \* 60/);
 });
 

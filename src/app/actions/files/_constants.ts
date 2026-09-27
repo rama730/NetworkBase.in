@@ -1,20 +1,11 @@
 import { eq, isNull } from "drizzle-orm";
 import { projectNodes } from "@/lib/db/schema";
-import { FILES_RUNTIME_BUDGETS } from "@/lib/files/runtime-budgets";
 
 export const MAX_NODE_NAME_LENGTH = 255;
 export const MAX_SEARCH_QUERY_CHARS = 120;
 export const MAX_TREE_PAGE_SIZE = 200;
-export const MAX_BATCH_PARENT_FOLDERS = 50;
 export const MAX_BULK_NODE_OPS = 200;
-export const MAX_NODE_ACTIVITY_ITEMS = 100;
-export const MAX_NODE_LINKED_TASKS = 100;
-export const MAX_BATCH_REPLACE_FILES = 60;
-export const MAX_BATCH_REPLACE_TOTAL_BYTES = 4 * 1024 * 1024;
 export { UUID_RE } from "@/lib/validations/uuid";
-export const MAX_BATCH_FETCH_PER_PARENT = 200;
-export const MAX_BATCH_FETCH_TOTAL = FILES_RUNTIME_BUDGETS.maxFolderBatchRowsPerInteraction;
-export const BATCH_PARENT_QUERY_CONCURRENCY = 6;
 
 export const FILES_ERROR_CODES = {
     UNAUTHORIZED: "UNAUTHORIZED",
@@ -67,30 +58,6 @@ export function assertBulkLimit(nodeIds: string[]) {
     if (nodeIds.length > MAX_BULK_NODE_OPS) {
         throw new Error(`Too many nodes selected. Max allowed: ${MAX_BULK_NODE_OPS}`);
     }
-}
-
-export function countOccurrences(content: string, needle: string) {
-    if (!needle) return 0;
-    let count = 0;
-    let start = 0;
-    while (true) {
-        const index = content.indexOf(needle, start);
-        if (index === -1) break;
-        count += 1;
-        start = index + Math.max(1, needle.length);
-    }
-    return count;
-}
-
-export function firstSnippet(content: string, needle: string, radius = 80) {
-    if (!content) return "";
-    const index = needle ? content.indexOf(needle) : -1;
-    if (index === -1) {
-        return content.slice(0, 180).replace(/\s+/g, " ");
-    }
-    const start = Math.max(0, index - radius);
-    const end = Math.min(content.length, index + needle.length + radius);
-    return content.slice(start, end).replace(/\s+/g, " ");
 }
 
 export async function formatSqlLight(content: string) {

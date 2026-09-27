@@ -25,8 +25,6 @@ import {
   replaceOptimisticTaskDiscussionEntry,
   tombstoneTaskDiscussionEntry,
   type TaskDiscussionAuthor,
-  type TaskDiscussionBaseEntry,
-  type TaskDiscussionComment,
   type TaskDiscussionCursor,
   type TaskDiscussionThreadPage,
 } from "@/lib/projects/task-discussion";

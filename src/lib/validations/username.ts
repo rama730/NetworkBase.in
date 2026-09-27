@@ -17,8 +17,6 @@ export const CORE_RESERVED_USERNAMES = [
     'onboarding',
 ] as const
 
-export const RESERVED_USERNAMES = CORE_RESERVED_USERNAMES
-
 export type UsernameValidationResult = {
     valid: boolean
     message: string

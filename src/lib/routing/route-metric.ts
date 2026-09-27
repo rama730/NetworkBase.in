@@ -14,8 +14,6 @@ const SAFE_STATIC_SEGMENTS = new Set([
   "completion",
   "contributions",
   "delete",
-  "doc-assets",
-  "doc-collaboration-token",
   "files",
   "forgot-password",
   "go",

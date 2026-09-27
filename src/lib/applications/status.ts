@@ -20,12 +20,7 @@ export const CONNECTION_REQUEST_HISTORY_STATUSES = [
 ] as const;
 export type ConnectionRequestHistoryStatus = (typeof CONNECTION_REQUEST_HISTORY_STATUSES)[number];
 
-const APP_LIFECYCLE_SET = new Set<string>(['none', ...APPLICATION_LIFECYCLE_STATUSES]);
 const CONNECTION_HISTORY_SET = new Set<string>(CONNECTION_REQUEST_HISTORY_STATUSES);
-
-export function isApplicationLifecycleStatus(value: unknown): value is ApplicationLifecycleStatus | 'none' {
-    return typeof value === 'string' && APP_LIFECYCLE_SET.has(value);
-}
 
 export function isConnectionHistoryStatus(value: unknown): value is ConnectionRequestHistoryStatus {
     return typeof value === 'string' && CONNECTION_HISTORY_SET.has(value);

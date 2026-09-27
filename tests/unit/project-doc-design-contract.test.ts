@@ -11,7 +11,6 @@ test("Docs Tab Design Specification Conformance Contract (Section 22 & Sections 
     const skeletonDoc = fs.readFileSync(path.join(skeletonsDir, "SkeletonDoc.tsx"), "utf-8");
     const renderer = fs.readFileSync(path.join(docDir, "ProjectDocRenderer.tsx"), "utf-8");
     const commandBlock = fs.readFileSync(path.join(docDir, "ProjectDocCommandBlock.tsx"), "utf-8");
-    const quickConsole = fs.readFileSync(path.join(docDir, "ProjectDocQuickConsole.tsx"), "utf-8");
     const smartBlock = fs.readFileSync(path.join(docDir, "ProjectDocSmartBlock.tsx"), "utf-8");
     const referencePreview = fs.readFileSync(path.join(docDir, "ProjectDocReferencePreview.tsx"), "utf-8");
     const viewer = fs.readFileSync(path.join(docDir, "ProjectDocViewer.tsx"), "utf-8");
@@ -42,14 +41,6 @@ test("Docs Tab Design Specification Conformance Contract (Section 22 & Sections 
         assert.match(commandBlock, /font-mono text-\[13px\] leading-\[1\.6\]/, "Code blocks must use 13px mono at 1.6 leading");
         assert.match(commandBlock, /tracking-\[0\.09em\]/, "Language header must use 0.09em tracking");
         assert.match(commandBlock, /size-7.*rounded-\[5px\]/, "Copy button must be 28px square with 5px radius");
-    });
-
-    await t.test("ProjectDocQuickConsole conforms to Section 22 context rail specification", () => {
-        assert.doesNotMatch(quickConsole, /text-zinc-|bg-zinc-|border-zinc-/, "QuickConsole must have zero zinc leaks");
-        assert.doesNotMatch(quickConsole, /text-blue-|bg-blue-|border-blue-/, "QuickConsole must have zero blue leaks");
-        assert.match(quickConsole, /h-\[34px\].*rounded-\[5px\]/, "Search input must be 34px height with 5px radius");
-        assert.match(quickConsole, /ReferenceRow.*rounded-\[5px\]/s, "ReferenceRow must use 5px corners");
-        assert.match(quickConsole, /HeadingRow.*rounded-\[5px\]/s, "HeadingRow must use 5px corners");
     });
 
     await t.test("ProjectDocSmartBlock & ProjectDocReferencePreview conform to Card and Option geometry", () => {

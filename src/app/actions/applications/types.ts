@@ -82,7 +82,3 @@ export type ApplicationCursorPaginationInput = {
     cursor?: string | null;
 };
 
-export type ApplicationCursorPageInfo = {
-    hasMore: boolean;
-    nextCursor: string | null;
-};

@@ -20,13 +20,9 @@ import {
   projectWorkflowColumns,
   taskNodeLinks,
   taskSubtasks,
-  taskComments,
   taskActivityEvents,
   tags,
   projectTags,
-  fileVersions,
-  messageWorkflowItems,
-  messageWorkLinks,
   projectMarkdowns,
   projectMarkdownVersions,
   projectGuidanceAppointments,
@@ -6703,57 +6699,6 @@ export async function incrementProjectViewAction(
     console.error("Failed to increment view", e);
     return { success: false, error: "Failed to increment view" };
   }
-}
-
-export async function getProjectUserStateAction(projectId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { isFollowing: false, isOwner: false };
-  }
-  return await runInFlightDeduped(
-    `project:user-state:${projectId}:${user.id}`,
-    async () => {
-      const [follow, project] = await Promise.all([
-        db
-          .select({ id: projectFollows.id })
-          .from(projectFollows)
-          .where(
-            and(
-              eq(projectFollows.projectId, projectId),
-              eq(projectFollows.userId, user.id),
-            ),
-          )
-          .limit(1),
-        db
-          .select({
-            ownerId: projects.ownerId,
-            conversationId: projects.conversationId,
-          })
-          .from(projects)
-          .where(eq(projects.id, projectId))
-          .limit(1),
-      ]);
-
-      // LAZY PROJECT GROUP CREATION: If owner visits and project has no group, create it
-      // SYNCHRONOUS: Wait for creation to complete so group is immediately visible
-      if (
-        project[0] &&
-        !project[0].conversationId &&
-        project[0].ownerId === user.id
-      ) {
-        await ensureProjectGroupExists(projectId, project[0].ownerId);
-      }
-
-      return {
-        isFollowing: !!follow[0],
-        isOwner: project[0]?.ownerId === user.id,
-      };
-    },
-  );
 }
 
 // Helper: Map wizard status to database status

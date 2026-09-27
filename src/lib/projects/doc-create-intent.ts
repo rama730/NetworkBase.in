@@ -1,67 +1,6 @@
 import type { OpenRoleInput } from "@/lib/validations/project";
 
-export type ProjectDocCreationMode = "detected" | "starter" | "skip";
-
-export type ProjectDocCreationIntent = {
-    mode: ProjectDocCreationMode;
-    sourcePath?: string | null;
-    publishOnCreate?: boolean;
-    includeRoles?: boolean;
-};
-
-export type ReadmeCandidate = {
-    name: string;
-    path: string;
-    type?: "file" | "dir";
-    size?: number | null;
-    excludedReason?: string | null;
-};
-
 const README_MAX_BYTES = 500 * 1024;
-
-function basename(path: string) {
-    return path.split("/").filter(Boolean).pop() || path;
-}
-
-export function isDocLikePath(pathOrName: string) {
-    const raw = (pathOrName || "").trim();
-    if (!raw) return false;
-    const name = basename(raw).toLowerCase();
-    const path = raw.toLowerCase();
-    return (
-        name === "readme" ||
-        /^readme(?:[._-]|$)/i.test(name) ||
-        /readme.*\.(md|mdx|markdown|mdown|txt)$/i.test(name) ||
-        /\.(md|mdx|markdown|mdown)$/i.test(name) ||
-        /(^|\/)readme(?:[._-]|$)/i.test(path) ||
-        /(^|\/).*readme.*\.(md|mdx|markdown|mdown|txt)$/i.test(path)
-    );
-}
-
-export function findBestReadmeCandidate<T extends ReadmeCandidate>(items: T[] | null | undefined): T | null {
-    const candidates = (items || []).filter((item) => {
-        if (!item || item.type === "dir") return false;
-        if (item.excludedReason) return false;
-        if (typeof item.size === "number" && item.size > README_MAX_BYTES) return false;
-        return isDocLikePath(item.path || item.name);
-    });
-
-    if (candidates.length === 0) return null;
-
-    return candidates
-        .map((candidate) => {
-            const normalizedPath = (candidate.path || candidate.name || "").replace(/^\/+/, "").toLowerCase();
-            const name = basename(normalizedPath);
-            let score = 0;
-            if (name === "readme.md") score += 100;
-            if (name.startsWith("readme")) score += 80;
-            if (!normalizedPath.includes("/")) score += 50;
-            if (normalizedPath.startsWith("docs/")) score += 15;
-            if (/\.(md|mdx|markdown|mdown)$/i.test(name)) score += 10;
-            return { candidate, score, pathLength: normalizedPath.length };
-        })
-        .sort((a, b) => b.score - a.score || a.pathLength - b.pathLength)[0]?.candidate ?? null;
-}
 
 function cleanLine(value: unknown, fallback = "") {
     const text = typeof value === "string" ? value : fallback;

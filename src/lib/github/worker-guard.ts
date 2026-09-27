@@ -1,9 +1,7 @@
-import { lstatSync, readdirSync } from "fs";
 
 import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { appendSafePathSegment } from "@/lib/security/path-safety";
 import { GITHUB_SYNC_LIMITS } from "@/lib/github/sync-limits";
 
 const TENANT_LOCK_NAMESPACE = "project-git-sync-tenant";
@@ -59,56 +57,3 @@ export async function withTenantSyncLock<T>(
   });
 }
 
-export function assertRepositoryWithinBudgets(
-  rootDir: string,
-  input: { job: string; projectId: string },
-) {
-  let fileCount = 0;
-  let totalBytes = 0;
-
-  const scan = (dir: string) => {
-    for (const entry of readdirSync(dir)) {
-      if (entry === ".git") continue;
-
-      const fullPath = appendSafePathSegment(dir, entry, "repository entry");
-      const stat = lstatSync(fullPath);
-
-      if (stat.isSymbolicLink()) {
-        continue;
-      }
-
-      if (stat.isDirectory()) {
-        scan(fullPath);
-        continue;
-      }
-
-      fileCount += 1;
-      totalBytes += stat.size;
-
-      if (fileCount > GITHUB_WORKER_BUDGETS.maxFiles) {
-        throw new Error(
-          `${input.job} rejected for project ${input.projectId}: repository exceeds file budget (${fileCount} > ${GITHUB_WORKER_BUDGETS.maxFiles})`,
-        );
-      }
-
-      if (stat.size > GITHUB_WORKER_BUDGETS.maxSingleFileBytes) {
-        throw new Error(
-          `${input.job} rejected for project ${input.projectId}: file exceeds size budget (${entry})`,
-        );
-      }
-
-      if (totalBytes > GITHUB_WORKER_BUDGETS.maxBytes) {
-        throw new Error(
-          `${input.job} rejected for project ${input.projectId}: repository exceeds byte budget (${totalBytes} > ${GITHUB_WORKER_BUDGETS.maxBytes})`,
-        );
-      }
-    }
-  };
-
-  scan(rootDir);
-
-  return {
-    fileCount,
-    totalBytes,
-  };
-}

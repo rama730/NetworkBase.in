@@ -30,10 +30,6 @@ export function normalizeProjectDescription(...values: unknown[]): string {
     return "No description provided";
 }
 
-export function countLabel(count: number, singular: string, plural = `${singular}s`): string {
-    return `${count} ${count === 1 ? singular : plural}`;
-}
-
 export function buildProfileMetadataDescription(input: ProfileMetadataInput): string {
     const bio = trimDisplayText(input.bio);
     if (bio.length >= MIN_PROFILE_METADATA_BIO_LENGTH) {

@@ -8,7 +8,6 @@ import { useDebounce } from "use-debounce";
 
 import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
 import { PersonCardSkeleton } from "@/components/people/PersonCardSkeleton";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useSuggestedPeople } from "@/hooks/useConnections";
 import { usePeopleNotifications } from "@/hooks/usePeopleNotifications";
 import { normalizeSearchQuery } from "@/lib/search/query";

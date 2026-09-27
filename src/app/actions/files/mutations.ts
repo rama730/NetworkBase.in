@@ -26,7 +26,6 @@ import {
     assertProjectWriteAccessTx,
     assertProjectManageFilesAccess,
     assertProjectManageFilesAccessTx,
-    assertProjectFileReadAccess,
     assertProjectUploadAccess,
     assertProjectUploadAccessTx,
     assertValidParentFolder,
@@ -142,16 +141,6 @@ function subtreePathPredicate(node: { id: string; path: string; type: string; ta
         predicates.push(sql`${projectNodes.path} LIKE ${descendantLikePattern(node.path)} ESCAPE '\\'`);
     }
     return and(taskScopePredicate(node.taskId), or(...predicates) ?? sql`FALSE`) ?? sql`FALSE`;
-}
-
-function subtreeOrSystemRootPredicate(
-    node: { id: string; path: string; type: string; taskId: string | null },
-    systemRoot: { id: string; path: string; type: string; taskId: string | null } | null,
-): SQL {
-    return or(
-        systemRoot ? subtreePathPredicate(systemRoot) : sql`FALSE`,
-        subtreePathPredicate(node)
-    ) ?? sql`FALSE`;
 }
 
 function activeSubtreeWhere(projectId: string, node: { id: string; path: string; type: string; taskId: string | null }): SQL {
@@ -1525,23 +1514,3 @@ export async function getOrCreateTaskSystemFolderAction(projectId: string, taskI
     });
 }
 
-export async function getSystemTasksFolderIdAction(projectId: string): Promise<string | null> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-    await assertProjectFileReadAccess(projectId, user.id);
-
-    const systemRoot = await db.query.projectNodes.findFirst({
-        where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.name, '.system'), isNull(projectNodes.parentId)),
-        columns: { id: true }
-    });
-    if (!systemRoot) return null;
-
-    const tasksRoot = await db.query.projectNodes.findFirst({
-        where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.name, 'tasks'), eq(projectNodes.parentId, systemRoot.id)),
-        columns: { id: true }
-    });
-    if (!tasksRoot) return null;
-
-    return tasksRoot.id;
-}

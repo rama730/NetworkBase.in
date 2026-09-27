@@ -10,7 +10,6 @@ import {
     projectGuidanceAppointments,
     projectInvitations,
     projectMembers,
-    projectNodeEvents,
     projects,
     roleApplications,
 } from "@/lib/db/schema";
@@ -23,7 +22,6 @@ import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import {
     createProjectInvitation,
-    endProjectGuidanceAppointmentInternal,
     projectInvitationDisplayRole,
     resolveProjectInvitationInternal,
     type ProjectInvitationKind,
@@ -210,74 +208,6 @@ export async function getProjectGuidancePreflightAction(input: { projectId: stri
         } : null,
         capacity: getGuidanceCapacityState(capacity?.count ?? 0),
     };
-}
-
-export async function renameProjectGuidanceLabelAction(input: { projectId: string; label: string }) {
-    const user = await getAuthUser();
-    if (!user) return { success: false as const, error: "Not authenticated" };
-    const label = input.label.trim().replace(/\s+/g, " ").slice(0, 60);
-    if (!label) return { success: false as const, error: "Enter a guidance label" };
-    try {
-        await db.transaction(async (tx) => {
-            const [project] = await tx.select({ ownerId: projects.ownerId })
-                .from(projects)
-                .where(eq(projects.id, input.projectId))
-                .for("update")
-                .limit(1);
-            if (!project || project.ownerId !== user.id) throw new Error("Only the project Lead can rename the guidance appointment");
-            const [appointment] = await tx.update(projectGuidanceAppointments)
-                .set({ label, updatedAt: new Date() })
-                .where(and(eq(projectGuidanceAppointments.projectId, input.projectId), eq(projectGuidanceAppointments.status, "active")))
-                .returning({ id: projectGuidanceAppointments.id });
-            if (!appointment) throw new Error("There is no active guidance appointment");
-            await tx.insert(projectNodeEvents).values({
-                projectId: input.projectId,
-                actorId: user.id,
-                nodeId: null,
-                type: "project_guidance.renamed",
-                metadata: { appointmentId: appointment.id, label },
-                createdAt: new Date(),
-            });
-        });
-        revalidatePath(`/projects/${input.projectId}`);
-        return { success: true as const };
-    } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to rename guidance appointment" };
-    }
-}
-
-export async function setProjectGuidanceAttributionConsentAction(input: { projectId: string; consent: boolean }) {
-    const user = await getAuthUser();
-    if (!user) return { success: false as const, error: "Not authenticated" };
-    const updated = await db.update(projectGuidanceAppointments)
-        .set({ publicAttributionConsent: input.consent, updatedAt: new Date() })
-        .where(and(
-            eq(projectGuidanceAppointments.projectId, input.projectId),
-            eq(projectGuidanceAppointments.guideUserId, user.id),
-            eq(projectGuidanceAppointments.status, "active"),
-        ))
-        .returning({ id: projectGuidanceAppointments.id });
-    if (!updated[0]) return { success: false as const, error: "Only the active appointed person can set attribution consent" };
-    revalidatePath(`/projects/${input.projectId}`);
-    return { success: true as const };
-}
-
-export async function endProjectGuidanceAppointmentAction(input: {
-    projectId: string;
-    outcome: "restore_previous_role" | "keep_admin" | "keep_member" | "remove";
-    removalMode?: "preserve_history" | "unassign_active_tasks" | "reassign_active_tasks";
-    reassignToUserId?: string | null;
-    reason?: string | null;
-}) {
-    const user = await getAuthUser();
-    if (!user) return { success: false as const, error: "Not authenticated" };
-    try {
-        await db.transaction((tx) => endProjectGuidanceAppointmentInternal(tx, { ...input, actorId: user.id }));
-        revalidatePath(`/projects/${input.projectId}`);
-        return { success: true as const };
-    } catch (error) {
-        return { success: false as const, error: error instanceof Error ? error.message : "Failed to end guidance appointment" };
-    }
 }
 
 export async function resolveProjectInvitationAction(input: {

@@ -157,10 +157,6 @@ export function resolveNotificationDeliveryPolicy(params: {
     return { allowed: true, delayUntil: null, delayReason: null };
 }
 
-export function shouldDelayNotification(preferences: NotificationPreferences, now: Date = new Date()) {
-    return isNotificationPauseActive(preferences, now) || isQuietHoursActive(preferences, now);
-}
-
 function logEmission(payload: {
     kind: string;
     category: string;
@@ -680,26 +676,6 @@ export async function dismissAllNotifications(
             updatedAt: dismissedAt,
         })
         .where(and(eq(userNotifications.userId, userId), isNull(userNotifications.dismissedAt)));
-}
-
-export async function pauseNotifications(
-    userId: string,
-    pausedUntil: string | null,
-    executor?: NotificationWriteExecutor,
-) {
-    const tx = getExecutor(executor);
-    const preferenceMap = await getNotificationPreferencesMap(tx, [userId]);
-    const current = preferenceMap.get(userId) ?? DEFAULT_NOTIFICATION_PREFERENCES;
-    const normalized = normalizeNotificationPreferences({
-        ...current,
-        pausedUntil,
-    });
-    const [row] = await tx
-        .update(profiles)
-        .set({ notificationPreferences: normalized, updatedAt: new Date() })
-        .where(eq(profiles.id, userId))
-        .returning({ notificationPreferences: profiles.notificationPreferences });
-    return normalizeNotificationPreferences(row?.notificationPreferences ?? normalized);
 }
 
 export async function muteNotificationScope(

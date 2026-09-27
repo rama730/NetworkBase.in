@@ -23,7 +23,7 @@ import {
 } from '@/lib/db/schema';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { getAuthUser } from '@/lib/supabase/auth-user';
-import { eq, and, asc, desc, lt, lte, gt, ne, isNull, inArray, sql, or } from 'drizzle-orm';
+import { eq, and, asc, desc, lt, gt, ne, isNull, inArray, sql, or } from 'drizzle-orm';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
 import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
@@ -40,9 +40,6 @@ import {
     getStructuredMessageSearchKind,
 } from '@/lib/messages/structured';
 import { buildConversationParticipantPreview } from '@/lib/messages/preview-authority';
-import {
-    refreshConversationParticipantPreviews,
-} from '@/lib/messages/preview-refresh';
 import { buildMessageAttachmentAccessUrl } from '@/lib/messages/attachment-access';
 import { resolveAttachmentStoragePath } from '@/lib/messages/attachment-storage-path';
 import {
@@ -924,134 +921,6 @@ export async function hydrateConversationLastMessageDeliveryMetadata<
                 ),
             },
         };
-    });
-}
-
-async function readLatestVisibleConversationPreview(
-    conversationId: string,
-    userId: string,
-): Promise<ConversationWithDetails['lastMessage']> {
-    const [latestMessage] = await db
-        .select({
-            id: messages.id,
-            content: messages.content,
-            type: messages.type,
-            metadata: messages.metadata,
-            createdAt: messages.createdAt,
-            senderId: messages.senderId,
-        })
-        .from(messages)
-        .where(
-            and(
-                eq(messages.conversationId, conversationId),
-                isNull(messages.deletedAt),
-                sql`NOT EXISTS (
-                    SELECT 1
-                    FROM ${messageHiddenForUsers} h
-                    WHERE h.message_id = ${messages.id}
-                      AND h.user_id = ${userId}
-                )`,
-            ),
-        )
-        .orderBy(desc(messages.createdAt), desc(messages.id))
-        .limit(1);
-
-    return latestMessage
-        ? {
-            id: latestMessage.id,
-            content: latestMessage.content,
-            senderId: latestMessage.senderId,
-            createdAt: latestMessage.createdAt,
-            type: latestMessage.type,
-            metadata: latestMessage.metadata as Record<string, unknown> | null,
-        }
-        : null;
-}
-
-async function reconcileConversationLastMessagePreviews(
-    viewerId: string,
-    conversationRows: ConversationWithDetails[],
-): Promise<ConversationWithDetails[]> {
-    const lastMessageIds = Array.from(new Set(
-        conversationRows
-            .map((conversation) => conversation.lastMessage?.id ?? null)
-            .filter(Boolean),
-    )) as string[];
-    if (lastMessageIds.length === 0) {
-        return conversationRows;
-    }
-
-    const visibleRows = await db
-        .select({ id: messages.id })
-        .from(messages)
-        .where(
-            and(
-                inArray(messages.id, lastMessageIds),
-                isNull(messages.deletedAt),
-                sql`NOT EXISTS (
-                    SELECT 1
-                    FROM ${messageHiddenForUsers} h
-                    WHERE h.message_id = ${messages.id}
-                      AND h.user_id = ${viewerId}
-                )`,
-            ),
-        );
-    const visibleLastMessageIds = new Set(visibleRows.map((row) => row.id));
-    const staleConversationIds = Array.from(new Set(
-        conversationRows.flatMap((conversation) =>
-            conversation.lastMessage && !visibleLastMessageIds.has(conversation.lastMessage.id)
-                ? [conversation.id]
-                : [],
-        ),
-    ));
-    if (staleConversationIds.length === 0) {
-        return conversationRows;
-    }
-
-    const refreshedEntries = await Promise.all(staleConversationIds.map(async (conversationId) => {
-        const latestMessage = await readLatestVisibleConversationPreview(conversationId, viewerId);
-        
-        await db.update(conversationParticipants)
-            .set(buildConversationParticipantPreview(latestMessage))
-            .where(and(
-                eq(conversationParticipants.conversationId, conversationId),
-                eq(conversationParticipants.userId, viewerId)
-            ));
-
-        return [
-            conversationId,
-            latestMessage,
-        ] as const;
-    }));
-    const refreshedLastMessageByConversationId = new Map(refreshedEntries);
-
-    return conversationRows.map((conversation) => {
-        if (!refreshedLastMessageByConversationId.has(conversation.id)) {
-            return conversation;
-        }
-        const lastMessage = refreshedLastMessageByConversationId.get(conversation.id) ?? null;
-        return {
-            ...conversation,
-            updatedAt: lastMessage?.createdAt ?? conversation.updatedAt,
-            lifecycleState: lastMessage
-                ? 'active'
-                : conversation.lifecycleState === 'archived'
-                    ? 'archived'
-                    : 'draft',
-            lastMessage,
-        };
-    });
-}
-
-function sortConversationsByLatestActivity<TConversation extends ConversationWithDetails>(
-    conversationRows: TConversation[],
-): TConversation[] {
-    return [...conversationRows].sort((left, right) => {
-        const leftMs = left.updatedAt instanceof Date ? left.updatedAt.getTime() : new Date(left.updatedAt).getTime();
-        const rightMs = right.updatedAt instanceof Date ? right.updatedAt.getTime() : new Date(right.updatedAt).getTime();
-        const activityDiff = (Number.isFinite(rightMs) ? rightMs : 0) - (Number.isFinite(leftMs) ? leftMs : 0);
-        if (activityDiff !== 0) return activityDiff;
-        return right.id.localeCompare(left.id);
     });
 }
 

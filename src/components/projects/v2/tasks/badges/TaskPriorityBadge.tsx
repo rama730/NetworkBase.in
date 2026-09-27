@@ -1,4 +1,3 @@
-import React from "react";
 import { cn } from "@/lib/utils";
 import { getTaskPriorityLabel } from "@/lib/projects/task-presentation";
 import { getTaskPriorityPresentation } from "@/lib/projects/task-workflow";

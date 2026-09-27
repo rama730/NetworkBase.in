@@ -3327,7 +3327,6 @@ export default function ProjectSettingsTab({
                                         <div className="grid gap-3">
                                             {([
                                                 ["externalImages", "External images", "Allow embedding externally hosted images in documentation. Keep this disabled for private or sensitive projects to prevent tracking pixels and referrer leaks."],
-                                                ["notifyOnPublish", "Notify on publish", "Automatically send notification alerts to project followers and members whenever documentation changes are published."],
                                             ] as const).map(([key, title, description]) => (
                                                 <div
                                                     key={key}

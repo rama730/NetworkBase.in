@@ -275,10 +275,6 @@ export function getNarrowestNotificationMuteScope(item: NotificationItem): Notif
     return scopes[0]!;
 }
 
-export function resolveMuteScope(item: NotificationItem): NotificationMuteScope {
-    return getNarrowestNotificationMuteScope(item);
-}
-
 export function buildNotificationHref(item: NotificationItem): string | null {
     const conversationId = item.entityRefs?.conversationId;
     const sourceMessageId = item.entityRefs?.sourceMessageId;
@@ -374,4 +370,3 @@ export function shouldSuppressNotificationToast(params: {
     return false;
 }
 
-export const shouldSuppressToast = shouldSuppressNotificationToast;

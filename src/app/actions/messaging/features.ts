@@ -49,11 +49,6 @@ async function listAccessibleMessages(messageIds: string[], userId: string) {
         ));
 }
 
-async function assertMessageAccess(messageId: string, userId: string) {
-    const [messageRow] = await listAccessibleMessages([messageId], userId);
-    return messageRow ?? null;
-}
-
 // ============================================================================
 // REACTIONS
 // ============================================================================

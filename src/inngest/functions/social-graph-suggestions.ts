@@ -1,10 +1,9 @@
-import { and, eq, sql, or, inArray, notInArray } from "drizzle-orm";
+import { and, eq, sql, or, notInArray } from "drizzle-orm";
 import { inngest } from "../client";
 import { db } from "@/lib/db";
 import {
     connections,
     connectionSuggestions,
-    connectionSuggestionDismissals,
     profiles,
     projects,
     projectOpenRoles

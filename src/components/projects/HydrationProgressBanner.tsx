@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
 

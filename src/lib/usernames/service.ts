@@ -187,18 +187,6 @@ export async function getUsernameAvailability(params: {
     return result
 }
 
-export async function ensureUsernameClaimable(params: {
-    username: string
-    viewerId?: string | null
-    repo?: UsernameRepository
-}) {
-    const result = await getUsernameAvailability(params)
-    if (!result.available) {
-        throw new UsernamePersistenceError(result.code || 'USERNAME_TAKEN', result.message)
-    }
-    return result.normalizedUsername
-}
-
 export async function resolvePublicUsernameRouteNoCache(params: {
     username: string
     repo?: UsernameRepository

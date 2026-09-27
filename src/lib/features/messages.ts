@@ -61,16 +61,6 @@ function resolveMessagingFlag(
     return resolveFlagWithRollout(config.enabled, config.rolloutPercent, userId ?? null);
 }
 
-/**
- * Messages feature flags.
- *
- * V2 is the only active messaging system. The V1 codepath and its
- * `hardeningV1` flag have been removed.
- */
-export function isMessagesV2Enabled(_userId?: string | null): boolean {
-    return true;
-}
-
 export function isMessagingStructuredActionsEnabled(userId?: string | null): boolean {
     return resolveMessagingFlag('structuredActions', userId);
 }

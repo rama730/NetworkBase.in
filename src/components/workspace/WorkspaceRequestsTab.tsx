@@ -7,7 +7,7 @@ import { acceptApplicationAction, getIncomingApplicationsAction, rejectApplicati
 import { resolveMessageWorkflowActionV2 } from "@/app/actions/messaging";
 import { queryKeys } from "@/lib/query-keys";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { Loader2, Inbox } from "lucide-react";
+import { Inbox } from "lucide-react";
 import {
     IncomingProjectApplicationRow,
     type IncomingProjectApplication,

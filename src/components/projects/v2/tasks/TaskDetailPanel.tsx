@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Check,
@@ -139,8 +139,6 @@ export default function TaskDetailPanel({
       avatarUrl,
     };
   }, [members, currentUserId, currentUserName, currentUserAvatarUrl]);
-
-  const currentMember = currentUser;
 
   useEffect(() => {
     setActiveTab(initialTab ?? "details");

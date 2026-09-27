@@ -27,7 +27,6 @@ import {
     type HistoryFilters,
     type SuggestedProfile,
 } from '@/app/actions/connections';
-import { getUnifiedRequestHistory, type UnifiedRequestHistoryItem } from '@/app/actions/request-history';
 import { queryKeys } from '@/lib/query-keys';
 
 export type FeedStats = Pick<ConnectionStats, 'totalConnections' | 'pendingIncoming' | 'pendingSent'>;
@@ -168,13 +167,6 @@ export type PendingRequestsData = {
     hasMoreIncoming: boolean;
     hasMoreSent: boolean;
     stats: FeedStats;
-};
-
-export type RequestHistoryItem = UnifiedRequestHistoryItem;
-
-export type RequestHistoryData = {
-    items: RequestHistoryItem[];
-    warning?: string | null;
 };
 
 const EMPTY_STATS: FeedStats = {
@@ -457,13 +449,6 @@ export function usePendingRequests(
     });
 }
 
-export type RequestHistoryPage = {
-    items: RequestHistoryItem[];
-    hasMore: boolean;
-    nextCursor: string | null;
-    warning?: string | null;
-};
-
 function connectionMutationTargetId(variables: unknown) {
     if (typeof variables === 'string') return variables;
     if (!variables || typeof variables !== 'object') return undefined;
@@ -472,23 +457,6 @@ function connectionMutationTargetId(variables: unknown) {
         if (typeof record[key] === 'string') return record[key];
     }
     return undefined;
-}
-
-export function useRequestHistory(limit = 40, historyFilters?: HistoryFilters, enabled = true) {
-    const filtersKey = historyFilters ? JSON.stringify(historyFilters) : '';
-    return useInfiniteQuery({
-        queryKey: [...CONNECTIONS_QUERY_KEYS.requestHistory(limit), filtersKey] as const,
-        queryFn: async ({ pageParam }: { pageParam: string | undefined }): Promise<RequestHistoryPage> => {
-            const result = await getUnifiedRequestHistory(limit, pageParam, historyFilters);
-            if (!result.success) throw new Error(`Failed to load request history (${result.error})`);
-            return result;
-        },
-        initialPageParam: undefined as string | undefined,
-        getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
-        staleTime: 20_000,
-        refetchOnWindowFocus: false,
-        enabled,
-    });
 }
 
 export function useConnectionMutations() {

@@ -1,7 +1,6 @@
 import type { FilterView } from "@/constants/hub";
 import type { HubFilters } from "@/types/hub";
 
-const asCursor = (value?: string) => value ?? null;
 const asNullable = (value?: string | null) => value ?? null;
 type ProjectTaskScope = "all" | "backlog" | "sprint";
 

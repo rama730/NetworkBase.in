@@ -1,4 +1,3 @@
-import React from "react";
 import { cn } from "@/lib/utils";
 import { getTaskStatusLabel } from "@/lib/projects/task-presentation";
 import { getTaskStatusPresentation } from "@/lib/projects/task-workflow";

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { projects, projectNodes, fileVersions } from "@/lib/db/schema";
+import { projects, projectNodes, } from "@/lib/db/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { recordNodeEvent } from "@/lib/files/internal-helpers";
 

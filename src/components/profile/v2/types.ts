@@ -51,13 +51,3 @@ export interface ViewerContext {
     connectionPromise?: Promise<ConnectionState>
 }
 
-export interface ProfileViewModel {
-    profile: Profile & {
-        profileStrength?: number
-    }
-    stats: ProfileStats
-    statsPromise?: Promise<ProfileStats>
-    detailsPromise?: Promise<any>
-    data?: any
-    viewer: ViewerContext
-}

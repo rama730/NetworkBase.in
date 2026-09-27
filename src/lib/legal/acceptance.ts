@@ -42,12 +42,6 @@ export function setCachedLegalAcceptance(userId: string, accepted: boolean) {
   });
 }
 
-export function clearCachedLegalAcceptance(userId: string) {
-  if (userId) {
-    legalAcceptanceCache.delete(userId);
-  }
-}
-
 function evidenceHash(value: string | null) {
   if (!value) return null;
   const configuredKey = process.env.AUDIT_METADATA_HASH_SECRET?.trim();

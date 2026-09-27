@@ -1,6 +1,5 @@
 import { Project } from '@/types/hub';
-import { PROJECT_STATUS, ProjectStatus } from '@/constants/hub';
-import { formatDistanceToNow } from 'date-fns';
+import { PROJECT_STATUS, } from '@/constants/hub';
 
 export interface ProjectCardViewModel {
     id: string;

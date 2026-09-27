@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionIdentifierFromSession } from "@/lib/auth/session-identifier";
 import { consumeRateLimitForRoute } from "@/lib/security/rate-limit";

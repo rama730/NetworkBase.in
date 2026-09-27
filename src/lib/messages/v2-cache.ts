@@ -221,30 +221,6 @@ export function hasCachedInboxData(queryClient: QueryClient) {
     }).some(([, data]) => Boolean(data));
 }
 
-function isMessageOlderThanBoundary(
-    message: Pick<MessageWithSender, 'id' | 'createdAt'>,
-    boundary: Pick<MessageWithSender, 'id' | 'createdAt'>,
-): boolean {
-    const messageCreatedAt = toEpochMs(message.createdAt);
-    const boundaryCreatedAt = toEpochMs(boundary.createdAt);
-    if (messageCreatedAt !== boundaryCreatedAt) {
-        return messageCreatedAt < boundaryCreatedAt;
-    }
-    return message.id.localeCompare(boundary.id) < 0;
-}
-
-function isMessageNewerThanBoundary(
-    message: Pick<MessageWithSender, 'id' | 'createdAt'>,
-    boundary: Pick<MessageWithSender, 'id' | 'createdAt'>,
-): boolean {
-    const messageCreatedAt = toEpochMs(message.createdAt);
-    const boundaryCreatedAt = toEpochMs(boundary.createdAt);
-    if (messageCreatedAt !== boundaryCreatedAt) {
-        return messageCreatedAt > boundaryCreatedAt;
-    }
-    return message.id.localeCompare(boundary.id) > 0;
-}
-
 export function upsertInboxConversation(queryClient: QueryClient, conversation: InboxConversationV2) {
     updateInboxData(queryClient, (conversations) => {
         const byId = new Map(conversations.map((entry) => [entry.id, entry] as const));

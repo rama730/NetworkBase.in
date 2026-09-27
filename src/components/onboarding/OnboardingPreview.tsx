@@ -14,7 +14,7 @@ import Step3Skills from '@/components/onboarding/steps/Step3Skills'
 import { Step4Privacy } from '@/components/onboarding/steps/Step4Privacy'
 import { Button } from '@/components/ui/button'
 import { ONBOARDING_SOCIAL_KEYS, type OnboardingExperienceLevel, type OnboardingGenderIdentity, type OnboardingHoursPerWeek, type OnboardingMessagePrivacy, type OnboardingSocialLinkKey, type OnboardingVisibility } from '@/lib/onboarding/contracts'
-import { ONBOARDING_STEP2_SECTIONS, type OnboardingStep2SectionId } from '@/lib/onboarding/config'
+import { type OnboardingStep2SectionId } from '@/lib/onboarding/config'
 import { STEP_UI_CONFIG } from '@/lib/onboarding/step-ui-config'
 
 const INTEREST_SUGGESTIONS = [

@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import { moveProjectNodes } from "@/app/actions/files/mutations";
-import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 import type { ProjectNode } from "@/lib/db/schema";
 import { getErrorMessage, type ExplorerOperation } from "./explorerTypes";
 

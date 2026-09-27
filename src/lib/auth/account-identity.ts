@@ -55,21 +55,6 @@ export function resolvePrimaryProvider(user: User | null | undefined): string | 
     return user.email ? "email" : null;
 }
 
-export function formatProviderLabel(provider: string | null): string {
-    if (!provider) return "Unknown";
-
-    switch (provider) {
-        case "google":
-            return "Google";
-        case "github":
-            return "GitHub";
-        case "email":
-            return "Email and password";
-        default:
-            return provider.charAt(0).toUpperCase() + provider.slice(1);
-    }
-}
-
 export function formatAccountProviderLabel(provider: AccountAuthProvider | string | null): string {
     const normalized = normalizeAccountProvider(provider);
     if (!normalized) return "Unknown";

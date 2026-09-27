@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getTaskLinkCounts } from "@/app/actions/files/links";
 
 import {
   getProjectNodesWithCounts,

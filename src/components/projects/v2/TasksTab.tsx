@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { filesReturnQuery } from "@/lib/files/task-navigation";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, UserPlus, Plus, Check, Search, X } from "lucide-react";
+import { Plus, Check, Search, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -51,7 +51,6 @@ import {
   WORKFLOW_COLORS,
   type SemanticColor,
 } from "@/lib/projects/workflow-colors";
-import type { ProjectNode } from "@/lib/db/schema";
 import { queryKeys } from "@/lib/query-keys";
 import type { TaskPanelTab } from "@/hooks/useTaskPanelResource";
 import { OpenInIdeButton } from "@/components/projects/v2/files-tab/OpenInIdeButton";
@@ -96,16 +95,6 @@ interface TasksTabProps {
   initialCommentId?: string | null;
   initialFileId?: string | null;
   onInitialTaskOpened?: () => void;
-}
-
-function isProjectNode(value: unknown): value is ProjectNode {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<ProjectNode>;
-  return (
-    typeof candidate.id === "string" &&
-    typeof candidate.name === "string" &&
-    typeof candidate.type === "string"
-  );
 }
 
 export default function TasksTab({

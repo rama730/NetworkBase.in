@@ -42,11 +42,6 @@ export type TaskDiscussionThreadPage = {
   totalCount: number;
 };
 
-export type TaskDiscussionTypingContext = {
-  scope: "task_comment";
-  parentCommentId?: string | null;
-};
-
 export type TaskDiscussionTypingUser = {
   id: string;
   username: string | null;
@@ -60,10 +55,6 @@ export function createEmptyTaskDiscussionPage(): TaskDiscussionThreadPage {
     nextCursor: null,
     totalCount: 0,
   };
-}
-
-export function isTaskDiscussionCommentDeleted(entry: Pick<TaskDiscussionBaseEntry, "deletedAt">) {
-  return Boolean(entry.deletedAt);
 }
 
 export function countTaskDiscussionEntries(page: TaskDiscussionThreadPage) {

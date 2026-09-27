@@ -129,8 +129,3 @@ export function buildMessageThreadModel({
     };
 }
 
-export function buildMessageThreadItems(
-    params: Parameters<typeof buildMessageThreadModel>[0],
-): MessageThreadItem[] {
-    return buildMessageThreadModel(params).items;
-}

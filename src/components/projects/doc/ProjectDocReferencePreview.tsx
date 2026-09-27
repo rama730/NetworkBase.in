@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, FileText, FolderOpen, ListTodo, Timer, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FileText, ListTodo, Timer, Users } from "lucide-react";
 import Image from "next/image";
 
 import type { ProjectDocReferenceOption, ProjectDocSmartBlockPreview } from "@/lib/projects/doc-blocks";
