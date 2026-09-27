@@ -4,7 +4,6 @@ import { type ReactNode } from 'react'
 import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
 import { useAuth } from '@/hooks/useAuth'
-import { isHardeningDomainEnabled } from '@/lib/features/hardening'
 import { WorkspaceDrawerHost } from '@/components/workspace/WorkspaceDrawerHost'
 
 interface MainLayoutProps {
@@ -13,12 +12,11 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
     const { user } = useAuth();
-    const shellHardeningEnabled = isHardeningDomainEnabled("shellV1", user?.id ?? null);
 
     return (
         <div
             className="h-dvh min-h-0 overflow-hidden bg-background flex flex-col"
-            data-hardening-shell={shellHardeningEnabled ? "v1" : "off"}
+            data-hardening-shell="v1"
         >
             <a href="#main-content" className="nb-skip-link">Skip to content</a>
             <AppSidebar />

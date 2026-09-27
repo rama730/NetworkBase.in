@@ -41,11 +41,6 @@ import {
     emitWorkflowResolvedNotification,
 } from '@/lib/notifications/emitters';
 import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
-import {
-    isMessagingActivityBridgesEnabled,
-    isMessagingPrivateFollowUpsEnabled,
-    isMessagingStructuredActionsEnabled,
-} from '@/lib/features/messages';
 import { logger } from '@/lib/logger';
 import { buildMessageSourceHref, mapWorkflowStatusToLinkStatus, upsertMessageWorkLink } from '@/lib/messages/linked-work-server';
 import { mapMessageWorkLinkToSummary, type MessageLinkedWorkSummary } from '@/lib/messages/linked-work';
@@ -314,10 +309,6 @@ async function emitActivityBridgeMessage(params: {
     contextChips?: MessageContextChip[];
     entityRefs?: StructuredMessagePayload['entityRefs'];
 }) {
-    if (!isMessagingActivityBridgesEnabled(params.senderId)) {
-        return null;
-    }
-
     const payload = buildStructuredPayload({
         kind: 'activity_bridge',
         title: params.title,
@@ -377,10 +368,6 @@ export async function getMessagingStructuredCatalogV2(params: {
         if (!user) {
             return { success: false, error: 'Not authenticated' };
         }
-        if (!isMessagingStructuredActionsEnabled(user.id)) {
-            return { success: false, error: 'Structured actions are unavailable' };
-        }
-
         const conversationId = await resolveConversationId(params);
         await requireConversationAccess(conversationId, user.id);
 
@@ -549,10 +536,6 @@ export async function sendStructuredMessageActionV2(params: {
         if (!user) {
             return { success: false, error: 'Not authenticated' };
         }
-        if (!isMessagingStructuredActionsEnabled(user.id)) {
-            return { success: false, error: 'Structured actions are unavailable' };
-        }
-
         const conversationId = await resolveConversationId(params);
         await requireConversationAccess(conversationId, user.id);
         const clientMessageId = params.clientMessageId?.trim() || null;
@@ -1046,10 +1029,6 @@ export async function resolveMessageWorkflowActionV2(params: {
         if (!user) {
             return { success: false, error: 'Not authenticated' };
         }
-        if (!isMessagingStructuredActionsEnabled(user.id)) {
-            return { success: false, error: 'Structured actions are unavailable' };
-        }
-
         const [workflow] = await db
             .select({
                 id: messageWorkflowItems.id,
@@ -1759,10 +1738,6 @@ export async function convertMessageToFollowUpActionV2(params: {
     try {
         const user = await getAuthUser();
         if (!user) return { success: false, error: 'Not authenticated' };
-        if (!isMessagingPrivateFollowUpsEnabled(user.id)) {
-            return { success: false, error: 'Private follow-ups are unavailable' };
-        }
-
         const [messageRow] = await db
             .select({
                 id: messages.id,

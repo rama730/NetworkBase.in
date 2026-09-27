@@ -6,7 +6,6 @@ import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCar
 import { useSecurityData } from "@/hooks/useSettingsQueries";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPasswordCredential } from "@/lib/auth/account-identity";
-import { isSecurityHardeningEnabled } from "@/lib/features/security";
 import { buildSecurityStepUpMethods } from "@/lib/security/step-up-methods";
 
 const SecurityActivitySection = dynamic(() => import("@/components/settings/SecurityActivitySection"));
@@ -21,8 +20,7 @@ function SecuritySectionsSkeleton() {
 
 export default function SecurityPage({ embedded = false }: { embedded?: boolean }) {
     const { user } = useAuth();
-    const securityHardeningEnabled = isSecurityHardeningEnabled(user?.id ?? null);
-    const { data: securityData, isLoading, error } = useSecurityData({ hardeningEnabled: securityHardeningEnabled });
+    const { data: securityData, isLoading, error } = useSecurityData({ hardeningEnabled: true });
     const securityErrorMessage = error ? (error instanceof Error ? error.message : String(error)) : null;
     const passwordAvailable = Boolean(securityData?.password?.hasPassword || hasPasswordCredential(user));
     const verifiedTotpFactors = (securityData?.mfaFactors ?? []).filter(
@@ -39,7 +37,7 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
 
     if (isLoading) {
         return (
-            <div className="space-y-6" data-hardening-security={securityHardeningEnabled ? "v1" : "off"}>
+            <div className="space-y-6" data-hardening-security="v1">
                 {!embedded ? (
                     <SettingsPageHeader
                         title="Security"
@@ -52,7 +50,7 @@ export default function SecurityPage({ embedded = false }: { embedded?: boolean 
     }
 
     return (
-        <div className="space-y-6" data-hardening-security={securityHardeningEnabled ? "v1" : "off"}>
+        <div className="space-y-6" data-hardening-security="v1">
             {!embedded ? (
                 <SettingsPageHeader
                     title="Security"

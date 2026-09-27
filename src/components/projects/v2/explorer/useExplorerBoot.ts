@@ -7,7 +7,6 @@ import {
 } from "@/app/actions/files/nodes";
 import { filesParentKey, useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 import type { ProjectNode } from "@/lib/db/schema";
-import { filesFeatureFlags } from "@/lib/features/files";
 import { getErrorMessage } from "./explorerTypes";
 import { FILES_RUNTIME_BUDGETS } from "@/lib/files/runtime-budgets";
 import { recordFilesMetric } from "@/lib/files/observability";
@@ -96,41 +95,19 @@ export function useExplorerBoot(options: {
 
           setAccessError(null);
 
-          let newNodes: ProjectNode[] = [];
-          let nextCursor: string | null = null;
-          let taskCounts: Record<string, number> | null = null;
-
-          if (filesFeatureFlags.storeBatching || filesFeatureFlags.wave2StoreBatching) {
-            const payload = await getProjectNodesWithCounts(
-              projectId,
-              parentId,
-              undefined,
-              limit,
-              cursor
-            );
-            if (!payload.success) {
-              throw new Error(payload.message || "Failed to load files");
-            }
-            newNodes = payload.data.nodes;
-            nextCursor = payload.data.nextCursor;
-            taskCounts = payload.data.taskLinkCounts;
-          } else {
-            const res = (await getProjectNodes(
-              projectId,
-              parentId,
-              undefined,
-              limit,
-              cursor
-            )) as {
-              nodes: ProjectNode[];
-              nextCursor: string | null;
-            };
-            newNodes = res.nodes;
-            nextCursor = res.nextCursor;
-            if (newNodes.length > 0) {
-              upsertNodes(projectId, newNodes);
-            }
+          const payload = await getProjectNodesWithCounts(
+            projectId,
+            parentId,
+            undefined,
+            limit,
+            cursor
+          );
+          if (!payload.success) {
+            throw new Error(payload.message || "Failed to load files");
           }
+          const newNodes: ProjectNode[] = payload.data.nodes;
+          const nextCursor: string | null = payload.data.nextCursor;
+          const taskCounts: Record<string, number> | null = payload.data.taskLinkCounts;
 
           if (!isActiveRef.current) return;
 

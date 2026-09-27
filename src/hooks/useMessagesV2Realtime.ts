@@ -29,7 +29,6 @@ import {
     isRealtimeTerminalStatus,
     subscribeActiveResource,
 } from '@/lib/realtime/subscriptions';
-import { isMessagingDenormalizedInboxRealtimeEnabled } from '@/lib/features/messages';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useRealtime } from '@/components/providers/RealtimeProvider';
@@ -435,7 +434,6 @@ export function useMessagesV2Realtime(
     const userId = user?.id ?? null;
     const realtimeToken = session?.access_token ?? null;
     const requestedRealtime = normalizeMessagesRealtimeOptions(options);
-    const denormalizedInboxRealtimeEnabled = isMessagingDenormalizedInboxRealtimeEnabled(userId);
     const realtimeAvailable = Boolean(userId) && Boolean(realtimeToken) && !isLoading;
     const inboxRealtimeEnabled = requestedRealtime.inbox && realtimeAvailable;
     const activeThreadRealtimeEnabled = requestedRealtime.activeThread && realtimeAvailable;
@@ -779,7 +777,6 @@ export function useMessagesV2Realtime(
             });
         };
     }, [
-        denormalizedInboxRealtimeEnabled,
         inboxRealtimeEnabled,
         queryClient,
         realtimeToken,
@@ -1044,7 +1041,6 @@ export function useMessagesV2Realtime(
         activeConversationId,
         activeThreadRealtimeEnabled,
         applyParticipantReadWatermark,
-        denormalizedInboxRealtimeEnabled,
         queueThreadMessageSync,
         queryClient,
         realtimeToken,

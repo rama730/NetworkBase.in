@@ -9,7 +9,6 @@ import { buildProjectFileKey } from '@/lib/storage/project-file-key';
 import { randomUUID } from 'crypto';
 import { logger } from '@/lib/logger';
 import { buildProjectImportEventId, buildUploadManifestHash } from '@/lib/import/idempotency';
-import { isFilesHardeningEnabled } from '@/lib/features/files';
 import {
   normalizeAndValidateFileSize,
   normalizeAndValidateMimeType,
@@ -302,7 +301,6 @@ export async function registerUploadedFolderAction(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthorized');
 
-  const filesHardeningEnabled = isFilesHardeningEnabled(user.id);
 
   const [project] = await db
     .select({
@@ -345,9 +343,7 @@ export async function registerUploadedFolderAction(
   const reconcilePolicy: UploadReconcilePolicy =
     options?.reconcilePolicy === 'additive'
       ? 'additive'
-      : filesHardeningEnabled
-        ? 'mirror'
-        : 'additive';
+      : 'mirror';
   const importEventId = buildProjectImportEventId({
     projectId,
     source: 'upload',

@@ -6,8 +6,7 @@ import { SecurityRuntimeProvider } from "@/components/providers/SecurityRuntimeP
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { CookieConsentRuntime } from "@/components/privacy/CookieConsentRuntime";
-import { NextIntlClientProvider } from "next-intl";
-import { getMessages } from "next-intl/server";
+import { Suspense } from "react";
 import "@/lib/env";
 import "./globals.css";
 import { buildThemePrehydrateScript } from "@/lib/theme/appearance";
@@ -75,32 +74,26 @@ export const viewport: import("next").Viewport = {
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-async function I18nAndThemeProviders({
+function ThemeProviders({
   children,
   nonce,
 }: {
   children: React.ReactNode;
   nonce?: string;
 }) {
-  const messages = await getMessages();
-
   return (
-    <NextIntlClientProvider messages={messages}>
-      <ThemeProvider nonce={nonce}>
-        <QueryProvider>
-          <TooltipProvider>
-            <RoutePerformanceObserver />
-            {children}
-            <Toaster />
-            <CookieConsentRuntime analyticsAvailable={SHOULD_RENDER_VERCEL_ANALYTICS} />
-          </TooltipProvider>
-        </QueryProvider>
-      </ThemeProvider>
-    </NextIntlClientProvider>
+    <ThemeProvider nonce={nonce}>
+      <QueryProvider>
+        <TooltipProvider>
+          <RoutePerformanceObserver />
+          {children}
+          <Toaster />
+          <CookieConsentRuntime analyticsAvailable={SHOULD_RENDER_VERCEL_ANALYTICS} />
+        </TooltipProvider>
+      </QueryProvider>
+    </ThemeProvider>
   );
 }
-
-import { Suspense } from 'react';
 
 export default async function RootLayout({
   children,
@@ -124,9 +117,9 @@ export default async function RootLayout({
       <body className={`${instrumentSans.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <SecurityRuntimeProvider nonce={nonce ?? null}>
           <Suspense fallback={<div className="min-h-screen w-full bg-zinc-50 dark:bg-zinc-950" />}>
-            <I18nAndThemeProviders nonce={nonce ?? undefined}>
+            <ThemeProviders nonce={nonce ?? undefined}>
               {children}
-            </I18nAndThemeProviders>
+            </ThemeProviders>
           </Suspense>
         </SecurityRuntimeProvider>
       </body>

@@ -247,7 +247,6 @@ async function readPublishedVersion(versionId: string | null | undefined) {
 function revalidateProjectDoc(project: { id: string; slug: string | null }) {
     const slugOrId = project.slug || project.id;
     revalidatePath(`/projects/${slugOrId}`);
-    revalidatePath(`/projects/${slugOrId}?tab=docs&doc=readme`);
     revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
     revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, "max");
 }

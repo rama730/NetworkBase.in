@@ -4,8 +4,7 @@
  * Task 12.10. Audit area (Req 18.1):
  *   - "git change indicators / M-A-D badges"
  *
- * Covers Req 12.1 (M/A/D badges in folder list), Req 12.2 (gated on
- * `filesFeatureFlags.wave4GitIntegration`), Req 12.5 (no badge when
+ * Covers Req 12.1 (M/A/D badges in folder list), Req 12.5 (no badge when
  * status absent), Req 12.6 (no badge for unsupported statuses).
  *
  * The full verification requires a git-linked fixture project. When
@@ -113,8 +112,7 @@ test.describe("Files tab v3 — git change indicators (Task 12.10)", () => {
             result: "not_applicable",
             justification:
               `No git change badges in folder list of project "${PROJECT_SLUG}". ` +
-              `Either filesFeatureFlags.wave4GitIntegration is off in this environment, ` +
-              `or the project is not git-linked, or the fixture has no uncommitted changes. ` +
+              `Either the project is not git-linked, or the fixture has no uncommitted changes. ` +
               `Set E2E_GIT_FIXTURE_PROJECT_SLUG to a git-linked fixture with M/A/D changes ` +
               `to exercise the full pass path.`,
           };

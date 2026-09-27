@@ -44,7 +44,6 @@ export interface FolderListRowProps {
   /** Optional git change status for this node. */
   gitChange?: GitChangeStatus | null;
   /** Feature-flag gate for git change badges (Req 12.1). */
-  gitIntegrationEnabled: boolean;
   /** Number of tasks linked to this node (from store taskLinkCounts). Req 7.1. */
   taskLinkCount?: number;
   /** Row click handler. Receives the node id. */
@@ -153,7 +152,6 @@ export const FolderListRow = React.memo(function FolderListRow({
   canMove = canEdit,
   isFavorite,
   gitChange,
-  gitIntegrationEnabled,
   taskLinkCount,
   onNavigate,
   onContextMenu,
@@ -174,8 +172,7 @@ export const FolderListRow = React.memo(function FolderListRow({
   const isFolder = node.type === "folder";
   const [dropHighlight, setDropHighlight] = React.useState(false);
 
-  const showGitBadge =
-    gitIntegrationEnabled && !!gitChange && !isFolder;
+  const showGitBadge = !!gitChange && !isFolder;
 
   const handleClick = React.useCallback(() => {
     if (onSelectionChange) onSelectionChange(node.id, !selected);
