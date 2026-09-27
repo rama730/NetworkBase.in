@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 import { isAdminUser } from "@/lib/security/admin";
 import { createClient } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 type ChannelRollup = {
