@@ -82,8 +82,9 @@ test("presence is chat-scoped and debounce markers follow persistence", () => {
   assert.match(chat, /document\.hidden \? pause\(\) : resume\(\)/);
   assert.match(chat, /CHAT_IDLE_MS/);
   assert.match(chat, /presenceActive && engaged \? <OnlinePresencePublisher/);
-  assert.ok(heartbeat.indexOf("withDbRetry(\"presence.heartbeat.last_active\"") < heartbeat.indexOf("redis.set(debounceKey"));
-  assert.ok(heartbeat.indexOf("withDbRetry(\"presence.heartbeat.last_active\"") < heartbeat.indexOf("markLocallyDebounced(debounceKey)"));
+  assert.match(heartbeat, /withDbRetry\("presence\.heartbeat\.last_active"/);
+  assert.match(heartbeat, /lt\(profiles\.lastActiveAt/);
+  assert.doesNotMatch(heartbeat, /getRedisClient|localHeartbeatDebounce/);
 });
 
 test("extension workspace bounds root files per project", () => {
