@@ -2,8 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
     getWorkspaceCounterWindow,
-    isWorkspaceTaskDueToday,
-    isWorkspaceTaskOverdue,
     buildWorkspaceTaskCounterFilters,
     serializeWorkspaceCounterTimestamp,
 } from '@/lib/workspace/counter-logic'
@@ -21,27 +19,6 @@ test('workspace counter window ends at UTC end of day', () => {
     assert.equal(todayEnd.getUTCMinutes(), 59)
     assert.equal(todayEnd.getUTCSeconds(), 59)
     assert.equal(todayEnd.getUTCMilliseconds(), 999)
-})
-
-test('workspace task due-today excludes overdue tasks from earlier today', () => {
-    const now = new Date('2026-03-20T15:00:00.000Z')
-    const { todayEnd } = getWorkspaceCounterWindow(now)
-
-    const overdueEarlierToday = new Date('2026-03-20T09:00:00.000Z')
-    const dueLaterToday = new Date('2026-03-20T18:00:00.000Z')
-
-    assert.equal(isWorkspaceTaskOverdue(overdueEarlierToday, 'todo', now), true)
-    assert.equal(isWorkspaceTaskDueToday(overdueEarlierToday, 'todo', now, todayEnd), false)
-    assert.equal(isWorkspaceTaskDueToday(dueLaterToday, 'todo', now, todayEnd), true)
-})
-
-test('workspace task counter logic ignores done tasks', () => {
-    const now = new Date('2026-03-20T15:00:00.000Z')
-    const { todayEnd } = getWorkspaceCounterWindow(now)
-    const dueLaterToday = new Date('2026-03-20T18:00:00.000Z')
-
-    assert.equal(isWorkspaceTaskOverdue(dueLaterToday, 'done', now), false)
-    assert.equal(isWorkspaceTaskDueToday(dueLaterToday, 'done', now, todayEnd), false)
 })
 
 test('workspace counter timestamps serialize dates to ISO strings', () => {

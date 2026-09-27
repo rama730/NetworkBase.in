@@ -130,8 +130,6 @@ test('messages workspace advances only the concrete watermark reported by visibl
 test('active-thread read handling does not duplicate notification or global unread work', () => {
     const workspace = readProjectFile('src/components/chat/v2/MessagesWorkspaceV2.tsx');
     const realtime = readProjectFile('src/hooks/useMessagesV2Realtime.ts');
-
-    assert.doesNotMatch(workspace, /markConversationMessageNotificationsReadAction/);
     assert.doesNotMatch(realtime, /getUnreadCount/);
     assert.doesNotMatch(realtime, /scheduleUnreadRefresh/);
     assert.doesNotMatch(realtime, /refreshUnreadSummary/);

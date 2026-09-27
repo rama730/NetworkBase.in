@@ -27,7 +27,6 @@ import {
 } from "@/components/projects/v2/files-tab/url";
 import {
   handlePopState,
-  shouldPreserveTaskFileDeepLink,
   syncUrlToLocation,
 } from "@/components/projects/v2/files-tab/hooks/useFilesTabUrlSync";
 import {
@@ -275,41 +274,6 @@ describe("syncUrlToLocation (Task 2.4 — Req 10.4 ONLY replaceState)", () => {
 });
 
 describe("task-file deep links", () => {
-  it("retains an opaque fileId instead of exposing internal task storage", () => {
-    assert.equal(
-      shouldPreserveTaskFileDeepLink("?tab=files&fileId=task-file-1", {
-        type: "file",
-        id: "task-file-1",
-        node: { taskId: "task-1" },
-      }),
-      true,
-    );
-  });
-
-  it("allows canonical project files to settle on their readable path", () => {
-    assert.equal(
-      shouldPreserveTaskFileDeepLink("?tab=files&fileId=project-file-1", {
-        type: "file",
-        id: "project-file-1",
-        node: { taskId: null },
-      }),
-      false,
-    );
-  });
-
-  it("keeps hidden working-file storage out of the browser URL", () => {
-    assert.equal(
-      shouldPreserveTaskFileDeepLink("?tab=files&fileId=working-file-1", {
-        type: "file",
-        id: "working-file-1",
-        node: {
-          taskId: null,
-          path: "/.system/tasks/task-1/Hussain_resume.pdf",
-        },
-      }),
-      true,
-    );
-  });
 });
 
 // ─── evaluateDeepLinkPath / resolveDeepLinkFromSearch — (iii) ────────

@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { projectNodes, } from "@/lib/db/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, } from "drizzle-orm";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { parseProjectFileKey } from "@/lib/storage/project-file-key";
@@ -10,14 +10,7 @@ import {
     assertProjectFileReadAccess,
     assertProjectReadAccess,
     assertTaskFileNodeVisible,
-    assertProjectWriteAccess,
-    assertProjectWriteAccessTx,
-    assertNodeNotLockedByAnotherUser,
 } from "@/lib/files/internal-helpers";
-import {
-    formatSqlLight,
-    UUID_RE,
-} from "./_constants";
 
 class FileContentUnavailableError extends Error {
     readonly code = "FILE_CONTENT_UNAVAILABLE";
@@ -168,128 +161,6 @@ export async function getProjectFileSignedUrl(projectId: string, nodeId: string,
         const now = Date.now();
         return { url: data.signedUrl, expiresAt: now + clampedTtl * 1000 };
     });
-}
-
-export async function getProjectFileSignedUrlBatch(
-    projectId: string,
-    nodeIds: string[],
-    ttlSeconds: number = 300
-): Promise<Record<string, { url: string; expiresAt: number }>> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    const unique = Array.from(new Set(nodeIds)).filter((id) => UUID_RE.test(id));
-    if (unique.length === 0) return {};
-    if (unique.length > 50) throw new Error("Too many nodes requested. Max: 50");
-    const actorId = user?.id ?? null;
-    const stableIdsKey = unique.slice().sort().join(",");
-    const clampedTtl = Math.max(30, Math.min(3600, ttlSeconds));
-
-    return await runInFlightDeduped(`files:signed-url-batch:${projectId}:${stableIdsKey}:${clampedTtl}:${actorId ?? "anon"}`, async () => {
-        const access = await assertProjectFileReadAccess(projectId, actorId);
-
-        const nodes = await db.query.projectNodes.findMany({
-            where: and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, unique)),
-            columns: { id: true, s3Key: true, path: true, taskId: true, deletedAt: true },
-        });
-
-        const adminClient = await createAdminClient();
-        const now = Date.now();
-
-        const entries = await Promise.all(
-            nodes.map(async (node) => {
-                try { assertTaskFileNodeVisible(access, node); } catch { return null; }
-                const currentS3Key = node.s3Key;
-                if (!currentS3Key) return null;
-                const parsedKey = parseProjectFileKey(currentS3Key);
-                if (!parsedKey || parsedKey.projectId !== projectId) return null;
-
-                const { data, error } = await adminClient.storage
-                    .from("project-files")
-                    .createSignedUrl(currentS3Key, clampedTtl);
-                if (error || !data?.signedUrl) return null;
-                return [node.id, { url: data.signedUrl, expiresAt: now + clampedTtl * 1000 }] as const;
-            })
-        );
-
-        return Object.fromEntries(entries.filter(Boolean) as Array<readonly [string, { url: string; expiresAt: number }]>);
-    });
-}
-
-export async function formatProjectFileContent(projectId: string, filename: string, content: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-    await assertProjectWriteAccess(projectId, user.id);
-
-    const ext = filename.split('.').pop()?.toLowerCase();
-
-    if (ext === "sql") {
-        return await formatSqlLight(content);
-    }
-
-    const parser =
-        ext === 'ts' || ext === 'tsx' ? 'typescript' :
-            ext === 'js' || ext === 'jsx' ? 'babel' :
-                ext === 'json' ? 'json' :
-                    ext === 'md' ? 'markdown' :
-                        ext === 'css' ? 'css' :
-                            ext === 'html' ? 'html' :
-                                null;
-
-    if (!parser) return content;
-
-    try {
-        const prettier = await import("prettier");
-        return await prettier.format(content, { parser });
-    } catch {
-        // Keep content unchanged if parser fails to avoid destructive formatting.
-        return content;
-    }
-}
-
-export async function updateProjectFileStats(projectId: string, nodeId: string, size: number) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-    await assertProjectWriteAccess(projectId, user.id);
-
-    const node = await db.transaction(async (tx) => {
-        await assertProjectWriteAccessTx(tx, projectId, user.id);
-        await assertNodeNotLockedByAnotherUser(projectId, nodeId, user.id, tx);
-
-        const result = (await tx.execute(sql`
-            WITH updated_node AS (
-                UPDATE project_nodes
-                SET size = ${size}, updated_at = NOW()
-                WHERE id = ${nodeId}::uuid AND project_id = ${projectId}::uuid
-                RETURNING *
-            ),
-            updated_ver AS (
-                UPDATE file_versions fv
-                SET size = ${size}, uploaded_by = ${user.id}::uuid, uploaded_at = NOW()
-                FROM updated_node un
-                WHERE fv.node_id = un.id AND fv.version = COALESCE(un.current_version, 1)
-                RETURNING fv.id
-            )
-            SELECT un.*, p.full_name, p.username, p.avatar_url
-            FROM updated_node un
-            LEFT JOIN profiles p ON p.id = ${user.id}::uuid
-        `)) as unknown as Array<any>;
-
-        const row = result[0];
-        if (!row) return null;
-        return {
-            ...row,
-            updatedById: user.id,
-            updatedByName: row.full_name ?? null,
-            updatedByUsername: row.username ?? null,
-            updatedByAvatarUrl: row.avatar_url ?? null,
-            versionUpdatedAt: row.updated_at,
-        };
-    });
-
-    // ponytail: client handles file content save directly via Zustand; skip route revalidation. ceiling: single-tab editor. upgrade: Realtime broadcast if multi-tab collaborative editor state sync required.
-    return node;
 }
 
 async function tryRecoverFromGitHub(projectId: string, nodePath: string | null): Promise<string | null> {

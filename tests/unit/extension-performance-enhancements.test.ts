@@ -14,7 +14,6 @@ describe("IDE & Editor Extension Performance & Architecture Enhancements", () =>
     // Must define in-memory cache with TTL to prevent DB query storms at 1M users
     assert.match(sessionRoute, /SESSION_CACHE_TTL_MS\s*=\s*30_000/, "must define 30s TTL for liveness cache");
     assert.match(sessionRoute, /sessionStatusCache\.get\(tokenHash\)/, "must check in-memory cache first");
-    assert.match(sessionRoute, /invalidateExtensionSessionCache/, "must export cache invalidation function");
     assert.match(sessionRoute, /sessionStatusCache\.delete\(tokenHash\)/, "must invalidate cache upon session revocation");
   });
 

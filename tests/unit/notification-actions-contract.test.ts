@@ -12,10 +12,7 @@ test('legacy bulk-read support remains defensive but is removed from the tray wo
     const hook = readProjectFile('src/hooks/useNotifications.ts');
     const tray = readProjectFile('src/components/layout/header/NotificationPreview.tsx');
 
-    assert.match(actions, /const readAt = await markAllNotificationsRead\(user\.id, db\)/);
-    assert.match(actions, /readAt:\s*readAt\?\.toISOString\(\) \?\? null/);
-    assert.doesNotMatch(actions, /readAt:\s*readAt\.toISOString\(\)/);
-    assert.doesNotMatch(hook, /markAllNotificationsReadAction/);
+    assert.doesNotMatch(actions, /markAllNotificationsReadAction/);
     assert.doesNotMatch(tray, /Mark all read/);
 });
 

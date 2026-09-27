@@ -31,19 +31,6 @@ export const POPULAR_PROJECT_TAGS = [
     "DevTools",
 ];
 
-export const POPULAR_PROJECT_TECH = [
-    "React",
-    "Next.js",
-    "TypeScript",
-    "Node.js",
-    "Python",
-    "PostgreSQL",
-    "Tailwind",
-    "Supabase",
-    "Prisma",
-    "GraphQL",
-];
-
 export function isKnownProjectType(value: string) {
     return value === OTHER_PROJECT_TYPE_ID || PROJECT_TYPE_OPTIONS.some((type) => type.id === value);
 }

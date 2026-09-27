@@ -20,7 +20,6 @@ import {
 import {
     OTHER_PROJECT_TYPE_ID,
     POPULAR_PROJECT_TAGS,
-    POPULAR_PROJECT_TECH,
     PROJECT_TYPE_OPTIONS,
     isKnownProjectType,
 } from "../../src/lib/projects/project-create-options";
@@ -338,14 +337,6 @@ test("project danger preflight removes finalize and keeps archive/delete policy"
 
     const missingServerPreflight = buildProjectSettingsPreflight(null);
     assert.equal(missingServerPreflight.canDelete, false);
-});
-
-test("project settings and create wizard share project category and info options", () => {
-    assert.ok(isKnownProjectType("web_app"));
-    assert.ok(isKnownProjectType(OTHER_PROJECT_TYPE_ID));
-    assert.ok(PROJECT_TYPE_OPTIONS.some((option) => option.id === "side_project" && option.label === "Side Project"));
-    assert.ok(POPULAR_PROJECT_TAGS.includes("AI/ML"));
-    assert.ok(POPULAR_PROJECT_TECH.includes("Next.js"));
 });
 
 test("project metadata uses uploaded cover image for share previews", () => {

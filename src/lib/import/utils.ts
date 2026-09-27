@@ -1,14 +1,8 @@
 
-import fs from 'fs/promises';
 import path from 'path';
-import { createAdminClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
 import { projectNodes } from '@/lib/db/schema';
 import { eq, and, inArray, isNull, sql } from 'drizzle-orm';
-import { IGNORED_DIRS, isTooLarge } from '@/lib/import/import-filters';
-import { buildProjectFileKey } from '@/lib/storage/project-file-key';
-import { appendSafePathSegment } from '@/lib/security/path-safety';
-import { runWithConcurrency } from '@/lib/utils/concurrency';
 
 export interface ScannedFile {
     relativePath: string;
@@ -17,36 +11,8 @@ export interface ScannedFile {
     mimeType: string;
 }
 
-const MIME_TYPES: Record<string, string> = {
-    '.js': 'text/javascript',
-    '.jsx': 'text/javascript',
-    '.ts': 'text/typescript',
-    '.tsx': 'text/typescript',
-    '.json': 'application/json',
-    '.md': 'text/markdown',
-    '.css': 'text/css',
-    '.html': 'text/html',
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.svg': 'image/svg+xml',
-    '.txt': 'text/plain',
-    '.csv': 'text/csv',
-    '.py': 'text/x-python',
-    '.go': 'text/x-go',
-    '.rs': 'text/x-rust',
-    '.sql': 'application/sql',
-};
-
-function getMimeType(filename: string): string {
-    const ext = path.extname(filename).toLowerCase();
-    return MIME_TYPES[ext] || 'application/octet-stream';
-}
-
 const ROOT_KEY = 'root';
-const FILE_BATCH_SIZE = 25;
 const DB_BATCH_SIZE = 500;
-const UPLOAD_CONCURRENCY = 2;
 const MAX_IMPORT_FILE_COUNT = Number(process.env.GITHUB_IMPORT_MAX_FILES || 20000);
 const MAX_IMPORT_TOTAL_BYTES = Number(process.env.GITHUB_IMPORT_MAX_TOTAL_BYTES || 1024 * 1024 * 1024); // 1GB
 const MAX_IMPORT_DIR_COUNT = Number(process.env.GITHUB_IMPORT_MAX_DIRS || 8000);
@@ -117,44 +83,6 @@ async function fetchExistingNodes(
     }
 
     return map;
-}
-
-async function collectDirPaths(dir: string, rootDir: string, dirPaths: Set<string>) {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-        if (IGNORED_DIRS.has(entry.name)) continue;
-        const fullPath = appendSafePathSegment(dir, entry.name, 'directory entry');
-        const rel = normalizeRelativePath(path.relative(rootDir, fullPath));
-
-        if (entry.isDirectory()) {
-            if (rel && rel !== '.') {
-                dirPaths.add(rel);
-            }
-            await collectDirPaths(fullPath, rootDir, dirPaths);
-        }
-    }
-}
-
-async function* walkFiles(dir: string, rootDir: string): AsyncGenerator<ScannedFile> {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-        if (IGNORED_DIRS.has(entry.name)) continue;
-        const fullPath = appendSafePathSegment(dir, entry.name, 'directory entry');
-        const relativePath = normalizeRelativePath(path.relative(rootDir, fullPath));
-
-        if (entry.isDirectory()) {
-            yield* walkFiles(fullPath, rootDir);
-        } else if (entry.isFile()) {
-            const stats = await fs.stat(fullPath);
-            if (isTooLarge(stats.size)) continue;
-            yield {
-                relativePath,
-                absolutePath: fullPath,
-                size: stats.size,
-                mimeType: getMimeType(entry.name),
-            };
-        }
-    }
 }
 
 export async function createDirectoryStructureFromPaths(
@@ -261,219 +189,6 @@ export async function createDirectoryStructureFromPaths(
     return folderIdByPath;
 }
 
-export async function createDirectoryStructureFromRoot(
-    projectId: string,
-    rootDir: string,
-    userId: string
-): Promise<Map<string, string>> {
-    const dirPaths = new Set<string>();
-    await collectDirPaths(rootDir, rootDir, dirPaths);
-    if (dirPaths.size > MAX_IMPORT_DIR_COUNT) {
-        throw new Error(`Repository has too many folders (${dirPaths.size}). Limit is ${MAX_IMPORT_DIR_COUNT}.`);
-    }
-    return await createDirectoryStructureFromPaths(projectId, dirPaths, userId);
-}
-
-export async function uploadRepoFiles(
-    projectId: string,
-    rootDir: string,
-    folderMap: Map<string, string>,
-    userId: string
-): Promise<{ processed: number; uploaded: number; failed: number; touchedNodeIds: string[] }> {
-    const adminClient = await createAdminClient();
-    const touchedNodeIds = new Set<string>();
-
-    const upsertFileNodesBatch = async (batch: ScannedFile[]) => {
-        const items = batch.map((file) => {
-            const rel = normalizeRelativePath(file.relativePath);
-            const dir = path.posix.dirname(rel);
-            const parentId = dir === '.' ? null : folderMap.get(dir) || null;
-            const name = path.posix.basename(rel);
-            const s3Key = buildProjectFileKey(projectId, rel);
-            const nodePath = `/${rel}`;
-            return { name, parentId, path: nodePath, s3Key, size: file.size, mimeType: file.mimeType };
-        });
-
-        const existingMap = await fetchExistingNodes(
-            projectId,
-            'file',
-            items.map((i) => ({ parentId: i.parentId, name: i.name }))
-        );
-
-        const toInsert: Array<{
-            projectId: string;
-            parentId: string | null;
-            type: 'file';
-            name: string;
-            path: string;
-            s3Key: string;
-            size: number;
-            mimeType: string;
-            createdBy: string;
-            createdAt: Date;
-            updatedAt: Date;
-        }> = [];
-        const toUpdate: Array<{ id: string; path: string; s3Key: string; size: number; mimeType: string; updatedAt: Date }> = [];
-
-        for (const item of items) {
-            const key = makeKey(item.parentId, item.name);
-            const existing = existingMap.get(key);
-            if (existing) {
-                toUpdate.push({
-                    id: existing.id,
-                    path: item.path,
-                    s3Key: item.s3Key,
-                    size: item.size,
-                    mimeType: item.mimeType,
-                    updatedAt: new Date(),
-                });
-            } else {
-                const now = new Date();
-                toInsert.push({
-                    projectId,
-                    parentId: item.parentId,
-                    type: 'file',
-                    name: item.name,
-                    path: item.path,
-                    s3Key: item.s3Key,
-                    size: item.size,
-                    mimeType: item.mimeType,
-                    createdBy: userId,
-                    createdAt: now,
-                    updatedAt: now,
-                });
-            }
-        }
-
-        if (toInsert.length > 0) {
-            const inserted = await db.insert(projectNodes).values(toInsert).returning({
-                id: projectNodes.id,
-            });
-            for (const row of inserted) {
-                touchedNodeIds.add(row.id);
-            }
-        }
-
-        if (toUpdate.length > 0) {
-            for (const row of toUpdate) {
-                touchedNodeIds.add(row.id);
-            }
-            const values = toUpdate.map((u) =>
-                sql`(${u.id}, ${u.path}, ${u.s3Key}, ${u.size}, ${u.mimeType}, ${u.updatedAt})`
-            );
-            await db.execute(sql`
-                UPDATE ${projectNodes} AS t
-                SET path = v.path,
-                    s3_key = v.s3_key,
-                    size = v.size,
-                    mime_type = v.mime_type,
-                    updated_at = v.updated_at
-                FROM (VALUES ${sql.join(values, sql`,`)}) AS v(id, path, s3_key, size, mime_type, updated_at)
-                WHERE t.id = v.id
-            `);
-        }
-    };
-
-    let batch: ScannedFile[] = [];
-    let fileCount = 0;
-    let totalBytes = 0;
-    let uploadedCount = 0;
-    let failedCount = 0;
-    for await (const file of walkFiles(rootDir, rootDir)) {
-        batch.push(file);
-        fileCount++;
-        totalBytes += file.size;
-
-        if (fileCount > MAX_IMPORT_FILE_COUNT) {
-            throw new Error(`Repository has too many files (${fileCount}). Limit is ${MAX_IMPORT_FILE_COUNT}.`);
-        }
-        if (totalBytes > MAX_IMPORT_TOTAL_BYTES) {
-            throw new Error(`Repository is too large (${totalBytes} bytes). Limit is ${MAX_IMPORT_TOTAL_BYTES} bytes.`);
-        }
-
-        if (batch.length >= FILE_BATCH_SIZE) {
-            const results = await runWithConcurrency(batch, UPLOAD_CONCURRENCY, async (f) => {
-                try {
-                    const rel = normalizeRelativePath(f.relativePath);
-                    const s3Key = buildProjectFileKey(projectId, rel);
-                    const content = await fs.readFile(f.absolutePath);
-                    const { error: uploadError } = await adminClient.storage
-                        .from('project-files')
-                        .upload(s3Key, content, {
-                            contentType: f.mimeType,
-                            cacheControl: '3600',
-                            upsert: true
-                        });
-                    if (uploadError) {
-                        console.error("[Worker] Failed to upload file", {
-                            relativePath: f.relativePath,
-                            uploadError,
-                        });
-                        return null;
-                    }
-                    return f;
-                } catch (err) {
-                    console.error("[Worker] Error processing file", {
-                        relativePath: f.relativePath,
-                        error: err,
-                    });
-                    return null;
-                }
-            });
-            const successful = results.filter((f): f is ScannedFile => !!f);
-            uploadedCount += successful.length;
-            failedCount += results.length - successful.length;
-            if (successful.length > 0) {
-                await upsertFileNodesBatch(successful);
-            }
-            batch = [];
-        }
-    }
-
-    if (batch.length > 0) {
-        const results = await runWithConcurrency(batch, UPLOAD_CONCURRENCY, async (f) => {
-            try {
-                const rel = normalizeRelativePath(f.relativePath);
-                const s3Key = buildProjectFileKey(projectId, rel);
-                const content = await fs.readFile(f.absolutePath);
-                const { error: uploadError } = await adminClient.storage
-                    .from('project-files')
-                    .upload(s3Key, content, {
-                        contentType: f.mimeType,
-                        cacheControl: '3600',
-                        upsert: true
-                    });
-                if (uploadError) {
-                    console.error("[Worker] Failed to upload file", {
-                        relativePath: f.relativePath,
-                        uploadError,
-                    });
-                    return null;
-                }
-                return f;
-            } catch (err) {
-                console.error("[Worker] Error processing file", {
-                    relativePath: f.relativePath,
-                    error: err,
-                });
-                return null;
-            }
-        });
-        const successful = results.filter((f): f is ScannedFile => !!f);
-        uploadedCount += successful.length;
-        failedCount += results.length - successful.length;
-        if (successful.length > 0) {
-            await upsertFileNodesBatch(successful);
-        }
-    }
-
-    return {
-        processed: fileCount,
-        uploaded: uploadedCount,
-        failed: failedCount,
-        touchedNodeIds: Array.from(touchedNodeIds),
-    };
-}
 export async function insertVirtualFileNodes(
     projectId: string,
     files: { path: string; name: string; sha: string; size: number; mimeType: string }[],

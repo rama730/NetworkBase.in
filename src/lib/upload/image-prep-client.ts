@@ -8,15 +8,6 @@ export type PreparedImageUpload = {
     optimized: boolean;
 };
 
-type PrepareCoverImageOptions = {
-    maxBytes: number;
-    width: number;
-    height: number;
-    focalX: number;
-    focalY: number;
-    outputType?: "image/jpeg" | "image/webp";
-};
-
 type PrepareProjectImageOptions = {
     maxBytes: number;
     size: number;
@@ -55,12 +46,6 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number):
     });
 }
 
-function assertPositiveImageDimension(value: number, label: string) {
-    if (!Number.isFinite(value) || value <= 0) {
-        throw new Error(`${label} must be a positive image dimension.`);
-    }
-}
-
 function clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));
 }
@@ -94,97 +79,6 @@ function getCoverDrawState(image: HTMLImageElement, size: number, previewSize: n
         drawWidth,
         drawHeight,
     };
-}
-
-export async function prepareCoverImageForUpload(
-    file: File,
-    options: PrepareCoverImageOptions,
-): Promise<PreparedImageUpload> {
-    // ponytail: preserve animated GIF frames by bypassing 2D canvas rasterization
-    const isGif = file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif");
-    if (isGif) {
-        if (file.size > options.maxBytes) {
-            throw new Error(`GIF image must be under ${Math.round(options.maxBytes / (1024 * 1024))}MB.`);
-        }
-        return {
-            blob: file.type === "image/gif" ? file : new Blob([file], { type: "image/gif" }),
-            contentType: "image/gif",
-            originalSize: file.size,
-            optimizedSize: file.size,
-            optimized: false,
-        };
-    }
-
-    const image = await loadImage(file);
-    const outputType = options.outputType ?? "image/jpeg";
-    assertPositiveImageDimension(options.width, "Target width");
-    assertPositiveImageDimension(options.height, "Target height");
-    assertPositiveImageDimension(image.naturalWidth, "Source image width");
-    assertPositiveImageDimension(image.naturalHeight, "Source image height");
-    const targetRatio = options.width / options.height;
-    const sourceRatio = image.naturalWidth / image.naturalHeight;
-    let sourceWidth = image.naturalWidth;
-    let sourceHeight = image.naturalHeight;
-    let sourceX = 0;
-    let sourceY = 0;
-
-    if (sourceRatio > targetRatio) {
-        sourceWidth = image.naturalHeight * targetRatio;
-        sourceX = clamp(
-            (image.naturalWidth - sourceWidth) * (options.focalX / 100),
-            0,
-            image.naturalWidth - sourceWidth,
-        );
-    } else {
-        sourceHeight = image.naturalWidth / targetRatio;
-        sourceY = clamp(
-            (image.naturalHeight - sourceHeight) * (options.focalY / 100),
-            0,
-            image.naturalHeight - sourceHeight,
-        );
-    }
-
-    const sizeSteps = [1, 0.85, 0.7, 0.55].map((scale) => ({
-        width: Math.max(1, Math.round(options.width * scale)),
-        height: Math.max(1, Math.round(options.height * scale)),
-    }));
-    const qualitySteps = [0.9, 0.82, 0.74, 0.66, 0.58];
-
-    for (const size of sizeSteps) {
-        const canvas = document.createElement("canvas");
-        canvas.width = size.width;
-        canvas.height = size.height;
-        const context = canvas.getContext("2d");
-        if (!context) {
-            throw new Error("Image adjustment is not supported in this browser.");
-        }
-        context.drawImage(
-            image,
-            sourceX,
-            sourceY,
-            sourceWidth,
-            sourceHeight,
-            0,
-            0,
-            size.width,
-            size.height,
-        );
-
-        for (const quality of qualitySteps) {
-            const blob = await canvasToBlob(canvas, outputType, quality);
-            if (blob.size <= options.maxBytes) {
-                return {
-                    blob,
-                    contentType: outputType,
-                    originalSize: file.size,
-                    optimizedSize: blob.size,
-                    optimized: blob.size !== file.size || outputType !== file.type,
-                };
-            }
-        }
-    }
-
-    throw new Error("Image is too large to upload. Please choose a smaller image.");
 }
 
 export async function prepareProjectImageForUpload(

@@ -93,11 +93,3 @@ export function mergeMessageAttention(
     };
 }
 
-export function extractMessageBurstConversationId(value: {
-    kind?: string | null;
-    entityRefs?: { conversationId?: string | null } | null;
-} | null | undefined): string | null {
-    if (value?.kind !== 'message_burst') return null;
-    const conversationId = value.entityRefs?.conversationId;
-    return typeof conversationId === 'string' && conversationId.length > 0 ? conversationId : null;
-}

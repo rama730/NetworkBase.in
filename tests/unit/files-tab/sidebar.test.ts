@@ -32,7 +32,6 @@ import path from "node:path";
 import type { ProjectNode } from "@/lib/db/schema";
 import {
   computeVisibleIdsForSearch,
-  FILES_TAB_SIDEBAR_SEARCH_DEBOUNCE_MS,
   FILES_TAB_SIDEBAR_WIDTH_PX,
 } from "@/components/projects/v2/files-tab/sidebarSearch";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
@@ -362,11 +361,6 @@ describe("FilesTabSidebar — structural contracts (source-level)", () => {
       /navigateTo\(node\.id\)/,
       "row clicks must dispatch navigateTo(node.id) per Req 2.8/2.10",
     );
-  });
-
-  it("retains the shared helper without running a second sidebar search", () => {
-    assert.equal(FILES_TAB_SIDEBAR_SEARCH_DEBOUNCE_MS, 200);
-    assert.doesNotMatch(SIDEBAR_SOURCE, /getProjectNodes\(/);
   });
 
   it("applies `width: 240` (via FILES_TAB_SIDEBAR_WIDTH_PX) when visible and `width: 0` when collapsed", () => {

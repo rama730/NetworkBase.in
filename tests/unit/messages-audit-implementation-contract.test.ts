@@ -25,18 +25,12 @@ test("message receipt buffering is debounced, session-deduplicated, and never fl
 
 test("read-receipt recovery uses the participant watermark without a refetch loop", () => {
   const realtime = readProjectFile("src/hooks/useMessagesV2Realtime.ts");
-  const notifications = readProjectFile("src/app/actions/notifications.ts");
 
   assert.match(realtime, /const participantReadWatermarksRef = useRef\(new Map<string, MessageReadWatermark>\(\)\)/);
   assert.match(realtime, /const applyParticipantReadWatermark = useCallback/);
   assert.match(realtime, /patchThreadMessages\(/);
   assert.match(realtime, /table: 'conversation_participants'/);
   assert.match(realtime, /applyParticipantReadWatermark\(/);
-  assert.match(notifications, /await markConversationNotificationsRead\(user\.id, conversationId, db\)/);
-  assert.doesNotMatch(
-    notifications.slice(notifications.indexOf('export async function markConversationMessageNotificationsReadAction')),
-    /syncMessageBurstConversationReads\(\[conversationId\]\)/,
-  );
 });
 
 test("message workspace uses URL-backed transitions and explicit recovery states", () => {

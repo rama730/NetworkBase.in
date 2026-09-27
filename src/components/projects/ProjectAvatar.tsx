@@ -84,31 +84,6 @@ export function formatProjectActivePresenceLabel(value: string | Date | null | u
 
 export type ProjectPresenceState = "today" | "week" | "offline";
 
-export function getProjectPresenceState(value: string | Date | null | undefined): ProjectPresenceState {
-    const activeState = formatLastActive(value);
-    if (activeState === "Active today") return "today";
-    if (activeState === "Active this week") return "week";
-    return "offline";
-}
-
-/**
- * Broadcast local project activity without server/database roundtrips (1M users scale)
- */
-export function broadcastProjectActivity(projectId?: string) {
-    if (typeof window === "undefined") return;
-    const now = new Date().toISOString();
-    window.dispatchEvent(new CustomEvent("nb-project-activity", { detail: { projectId, timestamp: now } }));
-    if (typeof BroadcastChannel !== "undefined") {
-        try {
-            const channel = new BroadcastChannel("nb-project-activity-v1");
-            channel.postMessage({ projectId, timestamp: now });
-            channel.close();
-        } catch {
-            // Ignore restricted cross-origin contexts
-        }
-    }
-}
-
 /**
  * Broadcast project metadata and cover updates across local windows and tabs (1M users scale)
  */

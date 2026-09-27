@@ -63,51 +63,6 @@ export type TaskEditorSubtaskDraft = {
   title: string;
 };
 
-export function buildTaskEditorDraft(input?: {
-  task?: Partial<{
-    title: string | null;
-    description: string | null;
-    sprintId: string | null;
-    sprint_id: string | null;
-    status: string | null;
-    priority: string | null;
-    assigneeId: string | null;
-    assignee_id: string | null;
-    dueDate: string | null;
-    due_date: string | null;
-    storyPoints: number | null;
-    story_points: number | null;
-  }> | null;
-}): TaskEditorDraft {
-  const task = input?.task ?? null;
-  const dueDateValue = task?.dueDate ?? task?.due_date ?? null;
-
-  return {
-    title: task?.title?.trim() || "",
-    description: task?.description?.trim() || "",
-    sprintId: task?.sprintId ?? task?.sprint_id ?? null,
-    status:
-      task?.status && taskStatusEnum.safeParse(task.status).success
-        ? (task.status as TaskEditorDraft["status"])
-        : "todo",
-    priority:
-      task?.priority && taskPriorityEnum.safeParse(task.priority).success
-        ? (task.priority as TaskEditorDraft["priority"])
-        : "medium",
-    assigneeId: task?.assigneeId ?? task?.assignee_id ?? null,
-    dueDate:
-      typeof dueDateValue === "string" && dueDateValue
-        ? dueDateValue.slice(0, 10)
-        : null,
-    storyPoints:
-      typeof task?.storyPoints === "number"
-        ? task.storyPoints
-        : typeof task?.story_points === "number"
-          ? task.story_points
-          : null,
-  };
-}
-
 export function buildTaskSubmitPayload(input: {
   draft: TaskEditorDraft;
   projectId: string;

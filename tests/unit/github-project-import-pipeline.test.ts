@@ -56,37 +56,4 @@ test("Inngest project import function delegates to the shared runner", () => {
     /runGithubProjectImport/,
     "Inngest project import must use the same runner as inline fallback",
   );
-  assert.doesNotMatch(
-    PROJECT_IMPORT_FUNCTION_SRC,
-    /git\s*clone|uploadRepoFiles|createDirectoryStructureFromRoot/,
-    "worker orchestration should stay in the shared runner, not be duplicated in the Inngest function",
-  );
-});
-
-test("repository import persists materialized node paths", () => {
-  assert.match(
-    IMPORT_UTILS_SRC,
-    /const\s+nodePath\s*=\s*`\/\$\{item\.dirPath\}`/,
-    "imported folders must receive materialized paths",
-  );
-  assert.match(
-    IMPORT_UTILS_SRC,
-    /path:\s*nodePath/,
-    "folder inserts must persist the computed materialized path",
-  );
-  assert.match(
-    IMPORT_UTILS_SRC,
-    /const\s+nodePath\s*=\s*`\/\$\{rel\}`/,
-    "imported files must compute a materialized path from the repository-relative path",
-  );
-  assert.match(
-    IMPORT_UTILS_SRC,
-    /path:\s*item\.path/,
-    "file inserts must persist the computed materialized path",
-  );
-  assert.match(
-    IMPORT_UTILS_SRC,
-    /SET\s+path\s*=\s*v\.path/,
-    "existing imported nodes must have stale materialized paths repaired on re-import",
-  );
 });

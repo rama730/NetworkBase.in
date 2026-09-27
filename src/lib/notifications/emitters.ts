@@ -47,12 +47,6 @@ function humanWorkflowLabel(kind: string) {
     return labels[kind] ?? kind.replace(/_/g, " ");
 }
 
-function toIsoString(value?: Date | string | null) {
-    if (!value) return null;
-    const date = value instanceof Date ? value : new Date(value);
-    return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
 export async function emitMessageBurstNotifications(params: {
     recipients: Array<{ userId: string; muted?: boolean | null }>;
     actorUserId: string;

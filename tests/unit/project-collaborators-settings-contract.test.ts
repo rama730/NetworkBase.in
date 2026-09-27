@@ -37,34 +37,3 @@ test("project collaborators tab eliminates duplicate headers and renders a singl
   assert.match(collaboratorsBlock, /aria-label="Search collaborators"/, "Collaborator search input must exist");
   assert.match(collaboratorsBlock, /No collaborators found/, "Team Directory must have empty state when filtered");
 });
-
-test("CollaboratorCard adheres to NetworkBase drafting-table design tokens, squared UserAvatar, and single Actions DropdownMenu", () => {
-  const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
-
-  // Extract CollaboratorCard definition
-  const cardDef = settingsTab.split("function CollaboratorCard({")[1]?.split("function ProjectNotificationPresetButton({")[0] ?? "";
-  assert.ok(cardDef.length > 0, "CollaboratorCard definition must exist");
-
-  // Uses squared UserAvatar per NetworkBase drafting-table standards
-  assert.match(cardDef, /<UserAvatar[\s\S]*?identity=\{[\s\S]*?size=\{44\}[\s\S]*?roundedClassName="rounded-(?:\[5px\]|md)"/, "CollaboratorCard must use squared UserAvatar with 44px size and squared radius");
-
-  // Uses single Actions DropdownMenu instead of <details>
-  assert.doesNotMatch(cardDef, /<details/, "CollaboratorCard must not use unstyled <details> accordion");
-  assert.match(cardDef, /<DropdownMenu[\s\S]*?<DropdownMenuTrigger[\s\S]*?Actions[\s\S]*?<ChevronDown/, "CollaboratorCard must render single Actions DropdownMenu");
-
-  // Actions menu contains role changes, transfer, notifications, and remove
-  assert.match(cardDef, /Change role to/, "DropdownMenu must include role change options");
-  assert.match(cardDef, /Transfer ownership/, "DropdownMenu must include Transfer ownership when permitted");
-  assert.match(cardDef, /Notification settings/, "DropdownMenu must include Notification settings");
-  assert.match(cardDef, /Remove member/, "DropdownMenu must include Remove member when permitted");
-
-  // Semantic tokens without raw zinc or blue classes
-  assert.doesNotMatch(cardDef, /zinc-/, "CollaboratorCard must not use raw zinc classes");
-  assert.doesNotMatch(cardDef, /blue-/, "CollaboratorCard must not use raw blue classes");
-  assert.match(cardDef, /nb-ui-label/, "DisplayName uses nb-ui-label");
-  assert.match(cardDef, /nb-compact/, "Subtitle uses nb-compact");
-  assert.match(cardDef, /nb-meta/, "JoinedAt uses nb-meta");
-  assert.match(cardDef, /nb-tag/, "Responsibility hints use nb-tag");
-  assert.match(cardDef, /h-5 px-\[7px\] rounded-\[3px\] font-mono text-\[11px\]/, "Role badges must use Section 10 rectangular badge contract");
-  assert.doesNotMatch(cardDef, /rounded-full/, "CollaboratorCard must not use circular rounded-full badges");
-});

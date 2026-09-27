@@ -262,15 +262,12 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     { fn: "createFileNode", src: () => MUTATIONS_SRC },
     { fn: "renameNode", src: () => MUTATIONS_SRC },
     { fn: "moveProjectNodes", src: () => MUTATIONS_SRC },
-    { fn: "trashNode", src: () => MUTATIONS_SRC },
     { fn: "restoreNode", src: () => MUTATIONS_SRC },
     { fn: "bulkTrashNodes", src: () => MUTATIONS_SRC },
     { fn: "bulkRestoreNodes", src: () => MUTATIONS_SRC },
 
     { fn: "bulkCreateFolderTree", src: () => MUTATIONS_SRC },
     // content.ts — write-side formatters / stats
-    { fn: "formatProjectFileContent", src: () => CONTENT_SRC },
-    { fn: "updateProjectFileStats", src: () => CONTENT_SRC },
     // versions.ts — version history writes
     { fn: "applyUploadedFileRevision", src: () => VERSIONS_SRC },
     { fn: "restoreFileVersion", src: () => VERSIONS_SRC },
@@ -278,7 +275,6 @@ describe("Server-side mutation authorization (Req 19.6)", () => {
     { fn: "linkNodeToTask", src: () => LINKS_SRC },
     { fn: "unlinkNodeFromTask", src: () => LINKS_SRC },
     { fn: "updateTaskNodeLink", src: () => LINKS_SRC },
-    { fn: "updateTaskNodeLinksOrder", src: () => LINKS_SRC },
   ];
 
   it("permanent deletion delegates to the authenticated, manage-files-only transaction", () => {

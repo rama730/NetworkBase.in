@@ -18,7 +18,6 @@ import { createNotification } from "@/lib/notifications/service";
 import { resolvePrivacyRelationships } from "@/lib/privacy/resolver";
 import { getGuidanceCapacityState } from "@/lib/projects/guidance-capacity";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
-import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import {
     createProjectInvitation,
     projectInvitationDisplayRole,
@@ -120,51 +119,6 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
     } catch (error) {
         return { success: false as const, error: error instanceof Error ? error.message : "Failed to create invitation" };
     }
-}
-
-export async function getProjectGuidanceDisplayAction(projectId: string) {
-    const user = await getAuthUser();
-    return runInFlightDeduped(`project-guidance:${projectId}:${user?.id ?? "anonymous"}`, async () => {
-        const [project] = await db
-            .select({ ownerId: projects.ownerId, visibility: projects.visibility })
-            .from(projects)
-            .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
-            .limit(1);
-        if (!project) return { success: false as const, error: "Project not found", guidance: null };
-
-        const [appointment] = await db
-            .select({
-                id: projectGuidanceAppointments.id,
-                guideUserId: projectGuidanceAppointments.guideUserId,
-                label: projectGuidanceAppointments.label,
-                reviewAt: projectGuidanceAppointments.reviewAt,
-                publicAttributionConsent: projectGuidanceAppointments.publicAttributionConsent,
-                fullName: profiles.fullName,
-                username: profiles.username,
-                avatarUrl: profiles.avatarUrl,
-            })
-            .from(projectGuidanceAppointments)
-            .innerJoin(profiles, eq(profiles.id, projectGuidanceAppointments.guideUserId))
-            .where(and(
-                eq(projectGuidanceAppointments.projectId, projectId),
-                eq(projectGuidanceAppointments.status, "active"),
-            ))
-            .limit(1);
-        if (!appointment) return { success: true as const, guidance: null };
-
-        const [membership] = user
-            ? await db.select({ id: projectMembers.id })
-                .from(projectMembers)
-                .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, user.id)))
-                .limit(1)
-            : [];
-        const canSeePrivateAttribution = Boolean(user && (user.id === project.ownerId || membership));
-        const canSeePublicAttribution = appointment.publicAttributionConsent && project.visibility === "public";
-        if (!canSeePrivateAttribution && !canSeePublicAttribution) {
-            return { success: true as const, guidance: null };
-        }
-        return { success: true as const, guidance: appointment };
-    });
 }
 
 /** Small, Lead-only preview for the shared recruitment composer. Final checks stay in createProjectInvitation. */

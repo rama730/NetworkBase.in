@@ -21,16 +21,7 @@ const J1_KIND_LIST: readonly NotificationKind[] = [
 
 const J1_KINDS: ReadonlySet<NotificationKind> = new Set(J1_KIND_LIST);
 
-export function classifyNotificationKind(kind: NotificationKind): NotificationClass {
-    return J1_KINDS.has(kind) ? "j1" : "j2";
-}
-
 export function importanceForKind(kind: NotificationKind): NotificationImportance {
     return J1_KINDS.has(kind) ? "important" : "more";
 }
 
-export function isActionRequiredKind(kind: NotificationKind): boolean {
-    return J1_KINDS.has(kind);
-}
-
-export const J1_NOTIFICATION_KINDS: readonly NotificationKind[] = J1_KIND_LIST;

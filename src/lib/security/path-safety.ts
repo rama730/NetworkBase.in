@@ -1,5 +1,4 @@
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
 function buildPathError(label: string, value: string): Error {
   return new Error(`Unsafe ${label}: ${value}`);
@@ -40,16 +39,3 @@ export function appendSafePathSegment(parentDir: string, segment: string, label 
   return `${normalizedParent}${path.sep}${safeSegment}`;
 }
 
-export function resolvePathUnderRoot(rootDir: string, relativePath: string, label = "path"): string {
-  const safeRelativePath = normalizeSafeRelativePath(relativePath, label);
-  const rootAbsolute = path.isAbsolute(rootDir) ? rootDir : path.resolve(rootDir);
-  const rootWithSep = rootAbsolute.endsWith(path.sep) ? rootAbsolute : `${rootAbsolute}${path.sep}`;
-  const rootUrl = pathToFileURL(rootWithSep);
-  const resolvedUrl = new URL(safeRelativePath, rootUrl);
-  const resolvedPath = fileURLToPath(resolvedUrl);
-  const relativeToRoot = path.relative(rootAbsolute, resolvedPath);
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-    throw buildPathError(label, relativePath);
-  }
-  return resolvedPath;
-}

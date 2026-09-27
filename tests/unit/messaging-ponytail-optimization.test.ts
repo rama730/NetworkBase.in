@@ -127,28 +127,6 @@ test('optimization 6: attachment proxy route expands rate limit and includes sta
     );
 });
 
-test('optimization 7: pruneOldMessageReceipts cleans up receipts targeting deliveredAt and readAt', () => {
-    const featuresFile = readFileSync(
-        resolve(ROOT, 'src/app/actions/messaging/features.ts'),
-        'utf8',
-    );
-    assert.match(
-        featuresFile,
-        /export async function pruneOldMessageReceipts/,
-        'Must export pruneOldMessageReceipts retention helper',
-    );
-    assert.match(
-        featuresFile,
-        /db\.delete\(messageDeliveryReceipts\)\.where\(lt\(messageDeliveryReceipts\.deliveredAt,\s*cutoff\)\)/,
-        'Delivery receipts deletion must target deliveredAt column',
-    );
-    assert.match(
-        featuresFile,
-        /db\.delete\(messageReadReceipts\)\.where\(lt\(messageReadReceipts\.readAt,\s*cutoff\)\)/,
-        'Read receipts deletion must target readAt column',
-    );
-});
-
 test('optimization 8: schema index pruning removes redundant B-tree and GIN indexes', () => {
     const schemaFile = readFileSync(
         resolve(ROOT, 'src/lib/db/schema/index.ts'),

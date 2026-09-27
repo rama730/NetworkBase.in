@@ -24,7 +24,6 @@ test("QRY-007..012 authorize before sensitive reads and keep file reads side-eff
   assert.ok(matchmaking.indexOf("const access = await getProjectAccessById") < matchmaking.indexOf("db.query.profiles.findFirst"));
   assert.match(matchmaking, /!access\.isOwner && access\.memberRole !== 'admin'/);
   assert.match(content, /class FileContentUnavailableError/);
-  assert.doesNotMatch(content.slice(content.indexOf("getProjectFileSignedUrl"), content.indexOf("getProjectFileSignedUrlBatch")), /\.upload\(|\.update\(projectNodes\)/);
 });
 
 test("QRY-013..023 retire unsafe batch replacement and full-tree/task-slug scans", () => {

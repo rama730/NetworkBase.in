@@ -3,7 +3,6 @@ import test from "node:test";
 import type { InfiniteData } from "@tanstack/react-query";
 
 import {
-  markAllNotificationsReadInInfiniteData,
   markNotificationsSeenInInfiniteData,
   patchNotificationReadStateInInfiniteData,
   upsertNotificationInInfiniteData,
@@ -99,28 +98,6 @@ test("completed tray reviews preserve source activity and linked-content read st
   assert.equal(next?.pages[0]?.items[1]?.readAt, null);
   assert.equal(next?.pages[0]?.items[1]?.seenAt, "2026-04-21T03:00:00.000Z");
   assert.equal(next?.pages[0]?.unreadCount, 1);
-});
-
-test("markAllNotificationsReadInInfiniteData patches every unread row optimistically", () => {
-  const readAt = "2026-04-21T03:00:00.000Z";
-  const data: InfiniteData<NotificationFeedPage> = {
-    pageParams: [undefined],
-    pages: [
-      page([
-        item({ id: "n-1", updatedAt: "2026-04-21T02:00:00.000Z" }),
-        item({ id: "n-2", updatedAt: "2026-04-21T01:00:00.000Z", readAt: "2026-04-21T01:05:00.000Z", seenAt: "2026-04-21T01:05:00.000Z" }),
-      ], 1),
-    ],
-  };
-
-  const next = markAllNotificationsReadInInfiniteData(data, readAt);
-
-  assert.equal(next?.pages[0]?.unreadCount, 0);
-  assert.equal(next?.pages[0]?.unreadImportantCount, 0);
-  assert.deepEqual(next?.pages[0]?.items.map((entry) => entry.readAt), [
-    readAt,
-    "2026-04-21T01:05:00.000Z",
-  ]);
 });
 
 test("upsertNotificationInInfiniteData derives unreadImportantCount separately from total", () => {

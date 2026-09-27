@@ -143,14 +143,6 @@ function subtreePathPredicate(node: { id: string; path: string; type: string; ta
     return and(taskScopePredicate(node.taskId), or(...predicates) ?? sql`FALSE`) ?? sql`FALSE`;
 }
 
-function activeSubtreeWhere(projectId: string, node: { id: string; path: string; type: string; taskId: string | null }): SQL {
-    return and(
-        eq(projectNodes.projectId, projectId),
-        isNull(projectNodes.deletedAt),
-        subtreePathPredicate(node)
-    ) ?? sql`FALSE`;
-}
-
 async function updateFolderDescendantPaths(
     tx: any,
     projectId: string,
@@ -875,56 +867,6 @@ export async function moveProjectNodes(
         // ponytail: client explorer handles move via Zustand; skip route revalidation. ceiling: single-tab explorer view. upgrade: Realtime broadcast if multi-tab explorer sync is required.
     }
     return result;
-}
-
-export async function trashNode(nodeId: string, projectId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-    const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
-    if (!allowed) throw new Error("Rate limit exceeded");
-    await assertProjectWriteAccess(projectId, user.id);
-
-    await db.transaction(async (tx) => {
-        await assertProjectWriteAccessTx(tx, projectId, user.id);
-        const node = await tx.query.projectNodes.findFirst({
-            where: and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)),
-            columns: { id: true, name: true, path: true, type: true, taskId: true, metadata: true, s3Key: true, deletedAt: true }
-        });
-        if (!node) throw new Error("File not found");
-        if (node.deletedAt) return;
-
-        await assertSubtreeNotLockedByAnotherUser(tx, projectId, node, user.id);
-
-        const isSystemFolder =
-            !!node.metadata && (node.metadata as { isSystem?: unknown }).isSystem === true;
-        if (isSystemFolder) throw new Error("Cannot delete system folder");
-
-        const now = new Date();
-        const affectedRows = await tx.update(projectNodes)
-            .set({ deletedAt: now, deletedBy: user.id, updatedAt: now })
-            .where(activeSubtreeWhere(projectId, node))
-            .returning({ id: projectNodes.id });
-        const affectedIds = affectedRows.map((row) => row.id);
-
-        if (affectedIds.length > 0) {
-            await tx.delete(projectFileIndex).where(inArray(projectFileIndex.nodeId, affectedIds));
-            await tx.delete(projectNodeLocks).where(inArray(projectNodeLocks.nodeId, affectedIds));
-        }
-    });
-
-    await recordNodeEvent(projectId, user.id, nodeId, 'trash', {});
-    await enqueueFileNotificationBestEffort({
-        projectId,
-        actorUserId: user.id,
-        ...actorNotificationSnapshot(user),
-        eventKey: "files.deleted_restored",
-        title: "File moved to trash",
-        body: "A project file or folder was moved to trash.",
-        sourceEventId: `${nodeId}:trash`,
-        entityRefs: { projectId, fileId: nodeId },
-    });
-    // ponytail: client explorer handles deletion via Zustand removeNodeFromCaches; skip route revalidation. ceiling: single-tab explorer view. upgrade: Realtime broadcast if multi-tab explorer sync is required.
 }
 
 export async function restoreNode(nodeId: string, projectId: string) {

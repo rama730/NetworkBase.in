@@ -16,9 +16,6 @@ import type { ProjectNode } from "@/lib/db/schema";
  */
 export const FILES_TAB_SIDEBAR_WIDTH_PX = 240;
 
-/** Inline-search debounce window (design.md § FilesTabSidebar header row). */
-export const FILES_TAB_SIDEBAR_SEARCH_DEBOUNCE_MS = 200;
-
 /**
  * Compute the set of node ids that remain visible when `query` is applied
  * to the project's nodes. A node is visible when:

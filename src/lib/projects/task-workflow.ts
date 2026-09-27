@@ -95,20 +95,6 @@ export const TASK_PRIORITY_PRESENTATION: Record<TaskPriority, TaskPriorityPresen
   },
 };
 
-export const TASK_BOARD_COLUMNS = TASK_WORKFLOW_STATUSES.map((status) => ({
-  id: status,
-  title: TASK_STATUS_PRESENTATION[status].columnTitle,
-  emptyTitle: TASK_STATUS_PRESENTATION[status].emptyTitle,
-  emptyDescription: TASK_STATUS_PRESENTATION[status].emptyDescription,
-  accentClassName: TASK_STATUS_PRESENTATION[status].accentClassName,
-})) as ReadonlyArray<{
-  id: TaskWorkflowStatus;
-  title: string;
-  emptyTitle: string;
-  emptyDescription: string;
-  accentClassName: string;
-}>;
-
 export function isTaskWorkflowStatus(value: string | null | undefined): value is TaskWorkflowStatus {
   return !!value && TASK_WORKFLOW_STATUSES.includes(value as TaskWorkflowStatus);
 }

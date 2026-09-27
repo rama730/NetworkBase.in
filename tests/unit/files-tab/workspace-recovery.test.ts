@@ -198,7 +198,6 @@ test("subsequent task file pages use the query cache, not disposable local state
   assert.match(text, /fileCursor: taskId \? pageParam : undefined/);
   assert.match(text, /getNextPageParam:[\s\S]*?nextFileCursor/);
   assert.match(text, /result.data\?\.pages.flatMap/);
-  assert.doesNotMatch(text, /extraPages|setExtraPages|getTaskFileGroupPage/);
 });
 
 test(

@@ -13,10 +13,3 @@ export function sprintTimelinePersonName(
   return person?.fullName?.trim() || fallback;
 }
 
-export function formatSprintTaskSummary(input: {
-  assignee: SprintPersonName;
-  title: string;
-}) {
-  const assignee = sprintTimelinePersonName(input.assignee, "Unassigned");
-  return `${assignee} · ${input.title}`;
-}

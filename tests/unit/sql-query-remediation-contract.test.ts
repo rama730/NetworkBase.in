@@ -88,7 +88,6 @@ describe("SQL audit query remediations", () => {
     assert.match(helpers, /existencePipeline\.exists/);
     assert.match(helpers, /missing set means "unknown"/);
     assert.match(actions, /applyConnectionPairsToRedis\(accepted, 'add'\)/);
-    assert.doesNotMatch(actions, /syncConnectionsToRedis/);
   });
 
   it("paginates both unified history sources without dropping application pages", () => {

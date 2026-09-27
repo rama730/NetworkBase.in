@@ -486,20 +486,5 @@ export function useAppearance() {
     return context
 }
 
-export function useReducedMotionPreference() {
-    const { reduceMotion } = useAppearance()
-    const [systemReduceMotion, setSystemReduceMotion] = useState(false)
-
-    useEffect(() => {
-        const media = window.matchMedia('(prefers-reduced-motion: reduce)')
-        const update = () => setSystemReduceMotion(prefersReducedMotionFromSystem(window.matchMedia?.bind(window)))
-        update()
-        media.addEventListener('change', update)
-        return () => media.removeEventListener('change', update)
-    }, [])
-
-    return reduceMotion || systemReduceMotion
-}
-
 export type { ThemeMode, ResolvedTheme, AccentColor, Density }
 export { APPEARANCE_STORAGE_KEYS, DEFAULT_APPEARANCE_SNAPSHOT }

@@ -69,7 +69,6 @@ test("task unlink never substitutes global file deletion", () => {
   const task = read("TaskFilesCollection.tsx");
   assert.match(task, /Remove file from this task/);
   assert.match(task, /unlinkNodeFromTask\(taskId, unlinkTarget.id\)/);
-  assert.doesNotMatch(task, /await (trashNode|deleteNode)\(/);
 });
 
 test("small-screen inspectors use the shared focus-contained dialog", () => {

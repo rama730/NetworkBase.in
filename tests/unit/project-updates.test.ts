@@ -5,13 +5,11 @@ import test from "node:test";
 
 import {
     PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES,
-    PROJECT_UPDATE_FILTERS,
     PROJECT_UPDATE_MAX_MEDIA_ITEMS,
     PROJECT_UPDATE_MAX_REFERENCES,
     PROJECT_UPDATE_MEDIA_BUCKET,
     PROJECT_UPDATE_MEDIA_MAX_BYTES,
     PROJECT_UPDATE_SCHEMA_CONTRACT,
-    PROJECT_UPDATE_TYPE_LABELS,
     composeProjectUpdateRoleLabel,
     isProjectUpdateType,
     isSafeProjectUpdateUrl,
@@ -29,24 +27,6 @@ import {
     sanitizeProjectUpdateRoleTitle,
     shouldNotifyProjectUpdateFollowers,
 } from "../../src/lib/projects/updates";
-
-test("project update types and filters expose the locked product labels", () => {
-    assert.equal(PROJECT_UPDATE_TYPE_LABELS.progress, "Progress");
-    assert.equal(PROJECT_UPDATE_TYPE_LABELS.milestone, "Milestone");
-    assert.equal(PROJECT_UPDATE_TYPE_LABELS.release, "Release");
-    assert.equal(PROJECT_UPDATE_TYPE_LABELS.blocker, "Blocker");
-    assert.equal(PROJECT_UPDATE_TYPE_LABELS.decision, "Decision");
-    assert.equal(PROJECT_UPDATE_TYPE_LABELS.collaboration_request, "Collaboration request");
-    assert.equal(PROJECT_UPDATE_TYPE_LABELS.behind_the_scenes, "Behind the scenes");
-    assert.deepEqual(PROJECT_UPDATE_FILTERS.map((filter) => filter.id), [
-        "all",
-        "progress",
-        "milestone",
-        "release",
-        "blocker",
-        "decision",
-    ]);
-});
 
 test("project update normalization fails closed for unknown types and filters", () => {
     assert.equal(isProjectUpdateType("progress"), true);

@@ -108,8 +108,3 @@ export async function getTaskFileGroups(projectId: string, options: { deliverabl
     };
 }
 
-export async function getTaskFileGroupPage(projectId: string, taskId: string, deliverables: boolean, cursor: string, query = "", role?: TaskCollectionRole) {
-    await authorize(projectId);
-    if (!UUID_RE.test(taskId) || !UUID_RE.test(cursor)) throw new Error("Invalid file cursor");
-    return (await loadEntries(projectId, [taskId], deliverables, cursor, query.trim(), role)).get(taskId)!;
-}

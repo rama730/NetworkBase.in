@@ -26,14 +26,6 @@ type CachedSession = { sessionId: string; active: boolean; cachedAt: number };
 const sessionStatusCache = new Map<string, CachedSession>();
 const MAX_SESSION_CACHE_SIZE = 10_000;
 
-function invalidateExtensionSessionCache(tokenHash?: string) {
-  if (tokenHash) {
-    sessionStatusCache.delete(tokenHash);
-  } else {
-    sessionStatusCache.clear();
-  }
-}
-
 export async function GET(request: Request) {
   const limitResponse = await enforceRouteLimit(request, "api:v1:extension:session:status", 60, 60);
   if (limitResponse) return limitResponse;

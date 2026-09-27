@@ -34,11 +34,6 @@ export function sanitizeUsernameInput(value: string): string {
     return normalizeUsername(value).replace(/[^a-z0-9_]/g, '').slice(0, 20)
 }
 
-export function isReservedUsername(username: string): boolean {
-    const normalized = username.trim().normalize('NFC').toLowerCase()
-    return CORE_RESERVED_USERNAMES.includes(normalized as (typeof CORE_RESERVED_USERNAMES)[number])
-}
-
 export function validateUsername(username: string): UsernameValidationResult {
     const normalized = normalizeUsername(username)
 

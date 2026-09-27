@@ -8,7 +8,6 @@ import {
     getMessagePreviewText,
     getStructuredWorkflowActionDescriptors,
     type MessageContextChip,
-    getPrivateFollowUpFromMetadata,
     normalizeStructuredMessagePayload,
     resolveStructuredWorkflowTransition,
     withMessageContextChipsMetadata,
@@ -68,49 +67,6 @@ test('createStructuredMessagePayload rejects empty title or summary after clampi
         title: 'Valid title',
         summary: '   ',
     }), null);
-});
-
-test('message metadata helpers preserve structured previews, chips, and private follow-ups', () => {
-    const contextChips: MessageContextChip[] = [
-        { kind: 'project', id: 'project-1', label: 'Alpha Project', subtitle: null },
-        { kind: 'file', id: 'file-1', label: 'brief.pdf', subtitle: 'docs/brief.pdf' },
-    ];
-
-    const structured = createStructuredMessagePayload({
-        kind: 'rate_share',
-        title: 'Rate',
-        summary: '40 USD / hour',
-        stateSnapshot: { status: 'shared', label: 'Shared' },
-        contextChips,
-    });
-    assert.ok(structured);
-
-    const metadataWithStructured = withStructuredMessageMetadata({}, structured);
-    const metadataWithChips = withMessageContextChipsMetadata(metadataWithStructured, contextChips);
-    const metadataWithFollowUp = withPrivateFollowUpMetadata(metadataWithChips, {
-        workflowItemId: 'workflow-1',
-        status: 'pending',
-        note: 'Review tomorrow morning',
-        dueAt: '2026-04-08T10:00:00.000Z',
-        preview: '40 USD / hour',
-    });
-
-    assert.equal(
-        getMessagePreviewText({
-            content: null,
-            type: 'text',
-            metadata: metadataWithStructured,
-        }),
-        '40 USD / hour (Shared)',
-    );
-    assert.deepEqual(getMessageContextChipsFromMetadata(metadataWithChips), contextChips);
-    assert.deepEqual(getPrivateFollowUpFromMetadata(metadataWithFollowUp), {
-        workflowItemId: 'workflow-1',
-        status: 'pending',
-        note: 'Review tomorrow morning',
-        dueAt: '2026-04-08T10:00:00.000Z',
-        preview: '40 USD / hour',
-    });
 });
 
 test('workflow actions are only exposed to the assignee while pending', () => {

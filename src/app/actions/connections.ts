@@ -28,7 +28,6 @@ import { buildViewerScopedProfileView } from '@/lib/privacy/profile-views';
 import {
     resolvePrivacyRelationship,
     resolvePrivacyRelationships,
-    resolvePrivacyRelationshipsFromProfiles,
 } from '@/lib/privacy/resolver';
 import type {
     ConnectionPrivacySetting,
@@ -140,7 +139,6 @@ export interface ConnectionsFeedInput {
 
 const CONNECTION_REJECTION_REASONS = ['not_interested', 'dont_know', 'spam', 'other'] as const;
 const MAX_REQUESTS_LIMIT = 1000;
-export type ConnectionRejectionReason = (typeof CONNECTION_REJECTION_REASONS)[number];
 
 interface ConnectionsFeedStats {
     totalConnections: number;

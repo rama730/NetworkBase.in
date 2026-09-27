@@ -17,25 +17,6 @@ export type ProjectUpdateVisibility = "public" | "members";
 export type ProjectUpdateReplyPolicy = "logged_in" | "members";
 export type ProjectUpdateFilter = "all" | ProjectUpdateType;
 
-export const PROJECT_UPDATE_TYPE_LABELS: Record<ProjectUpdateType, string> = {
-    progress: "Progress",
-    milestone: "Milestone",
-    release: "Release",
-    blocker: "Blocker",
-    decision: "Decision",
-    collaboration_request: "Collaboration request",
-    behind_the_scenes: "Behind the scenes",
-};
-
-export const PROJECT_UPDATE_FILTERS: Array<{ id: ProjectUpdateFilter; label: string }> = [
-    { id: "all", label: "All" },
-    { id: "progress", label: "Progress" },
-    { id: "milestone", label: "Milestones" },
-    { id: "release", label: "Releases" },
-    { id: "blocker", label: "Blockers" },
-    { id: "decision", label: "Decisions" },
-];
-
 export type ProjectUpdateEntityRefs = {
     taskId?: string | null;
     sprintId?: string | null;

@@ -138,35 +138,3 @@ export function parseMentions(raw: string): ParsedMentions {
     };
 }
 
-/**
- * Convenience wrapper around parseMentions when only the ids are needed. Safe
- * for re-use on both client (composer validation) and server (writing rows
- * into comment_mentions).
- */
-export function extractMentionIds(raw: string): string[] {
-    return parseMentions(raw).mentionIds;
-}
-
-/**
- * Build raw content from an explicit list of segments. Used by the composer
- * when turning its contentEditable DOM into the string that gets shipped to
- * the server. Enforces the same delimiter discipline as buildMentionToken.
- */
-export function serializeSegments(segments: MentionSegment[]): string {
-    let out = "";
-    for (const segment of segments) {
-        if (segment.type === "text") {
-            out += segment.value;
-            continue;
-        }
-        out += buildMentionToken({
-            userId: segment.userId,
-            displayName: segment.displayName,
-        });
-    }
-    return out;
-}
-
-export function isValidUserId(value: string): boolean {
-    return isLooseUuid(value);
-}

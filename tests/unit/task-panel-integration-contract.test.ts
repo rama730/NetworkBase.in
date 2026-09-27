@@ -227,7 +227,6 @@ test("task-file navigation preserves fileId until the file viewer hydrates", () 
   assert.match(files, /usePathname/);
   assert.match(filesRoot, /suspendWrites: Boolean/);
   assert.match(filesRoot, /completeInitialFileResolution/);
-  assert.match(urlSync, /shouldPreserveTaskFileDeepLink/);
   assert.match(urlSync, /suspended: options\.suspendWrites/);
 });
 

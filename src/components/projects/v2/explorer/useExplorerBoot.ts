@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   getProjectNodesWithCounts,
-  getProjectNodes,
   initializeProjectWorkspaceRoot,
 } from "@/app/actions/files/nodes";
 import { filesParentKey, useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";

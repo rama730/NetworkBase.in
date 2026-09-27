@@ -8,12 +8,10 @@ import {
     countUnreadNotifications,
     dismissAllNotifications,
     dismissNotification,
-    markAllNotificationsRead,
     markNotificationRead,
     markNotificationsSeen,
     markNotificationUnread,
     muteNotificationScope,
-    markConversationNotificationsRead,
     readNotificationsPage,
     snoozeNotification,
     toNotificationItem,
@@ -194,56 +192,6 @@ export async function markNotificationUnreadAction(notificationId: string) {
             error: error?.message || String(error),
         });
         return { success: false as const, error: error?.message || "Failed to mark notification unread", item: null };
-    }
-}
-
-export async function markAllNotificationsReadAction() {
-    try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            return { success: false as const, error: "Unauthorized", readAt: null, messageConversationIds: [] as string[] };
-        }
-
-        const readAt = await markAllNotificationsRead(user.id, db);
-        invalidateNotificationUnreadCache(user.id);
-        return {
-            success: true as const,
-            readAt: readAt?.toISOString() ?? null,
-            messageConversationIds: [] as string[],
-        };
-    } catch (error: any) {
-        logger.error("notifications.mark_all_read_failed", {
-            module: "notifications",
-            error: error?.message || String(error),
-        });
-        return {
-            success: false as const,
-            error: error?.message || "Failed to mark all notifications read",
-            readAt: null,
-            messageConversationIds: [] as string[],
-        };
-    }
-}
-
-export async function markConversationMessageNotificationsReadAction(conversationId: string) {
-    try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            return { success: false as const, error: "Unauthorized" };
-        }
-
-        await markConversationNotificationsRead(user.id, conversationId, db);
-        invalidateNotificationUnreadCache(user.id);
-        return { success: true as const };
-    } catch (error: any) {
-        logger.error("notifications.mark_message_burst_conversation_read_failed", {
-            module: "notifications",
-            conversationId,
-            error: error?.message || String(error),
-        });
-        return { success: false as const, error: "Failed to mark message notifications read" };
     }
 }
 

@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  J1_NOTIFICATION_KINDS,
-  classifyNotificationKind,
   importanceForKind,
-  isActionRequiredKind,
 } from "@/lib/notifications/classifier";
 import type { NotificationKind } from "@/lib/notifications/types";
 
@@ -33,27 +30,6 @@ const ALL_KINDS: readonly NotificationKind[] = [
   "project_security_alert",
 ];
 
-test("J1 kind list is exactly the action-required collaborator/task kinds", () => {
-  assert.deepEqual([...J1_NOTIFICATION_KINDS].sort(), [
-    "connection_request_received",
-    "project_file_permission_changed",
-    "project_member_removed",
-    "project_ownership_transferred",
-    "project_security_alert",
-    "task_assigned",
-    "task_comment_mention",
-    "task_file_needs_review",
-    "workflow_assigned",
-  ]);
-});
-
-test("classifyNotificationKind returns 'j1' for every J1 kind and 'j2' for the rest", () => {
-  for (const kind of ALL_KINDS) {
-    const expected = J1_NOTIFICATION_KINDS.includes(kind) ? "j1" : "j2";
-    assert.equal(classifyNotificationKind(kind), expected, `expected ${kind} → ${expected}`);
-  }
-});
-
 test("importanceForKind mirrors J1/J2 split — J1 kinds are 'important', J2 are 'more'", () => {
   assert.equal(importanceForKind("task_assigned"), "important");
   assert.equal(importanceForKind("task_comment_mention"), "important");
@@ -74,9 +50,4 @@ test("importanceForKind mirrors J1/J2 split — J1 kinds are 'important', J2 are
   assert.equal(importanceForKind("task_file_version"), "more");
   assert.equal(importanceForKind("task_file_replaced"), "more");
   assert.equal(importanceForKind("project_role_changed"), "more");
-});
-
-test("isActionRequiredKind is true only for J1", () => {
-  const j1True = ALL_KINDS.filter((k) => isActionRequiredKind(k));
-  assert.deepEqual(j1True.sort(), [...J1_NOTIFICATION_KINDS].sort());
 });
