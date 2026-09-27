@@ -9,7 +9,7 @@ function assertIncludes(source: string, pattern: RegExp, message: string, errors
 
 function main() {
   const root = process.cwd();
-  const middlewarePath = path.join(root, "middleware.ts");
+  const middlewarePath = path.join(root, "src/proxy.ts");
   const nextConfigPath = path.join(root, "next.config.ts");
   const layoutPath = path.join(root, "src/app/layout.tsx");
   const providerPath = path.join(root, "src/components/providers/SecurityRuntimeProvider.tsx");
@@ -23,15 +23,15 @@ function main() {
 
   const errors: string[] = [];
 
-  assertIncludes(middlewareSource, /Content-Security-Policy/, "middleware.ts must set Content-Security-Policy", errors);
+  assertIncludes(middlewareSource, /Content-Security-Policy/, "src/proxy.ts must set Content-Security-Policy", errors);
   if (/Content-Security-Policy/.test(nextConfigSource)) {
-    errors.push("next.config.ts must not define a second Content-Security-Policy; middleware.ts is the single owner");
+    errors.push("next.config.ts must not define a second Content-Security-Policy; src/proxy.ts is the single owner");
   }
   if (/script-src[^\n]*unsafe-inline/.test(middlewareSource)) {
     errors.push("middleware script-src must not allow unsafe-inline");
   }
-  assertIncludes(middlewareSource, /x-nonce/, "middleware.ts must forward a nonce header", errors);
-  assertIncludes(middlewareSource, /CSRF_COOKIE_NAME/, "middleware.ts must issue the CSRF cookie", errors);
+  assertIncludes(middlewareSource, /x-nonce/, "src/proxy.ts must forward a nonce header", errors);
+  assertIncludes(middlewareSource, /CSRF_COOKIE_NAME/, "src/proxy.ts must issue the CSRF cookie", errors);
   assertIncludes(layoutSource, /headers\(\)/, "src/app/layout.tsx must read the CSP nonce from request headers", errors);
   assertIncludes(layoutSource, /SecurityRuntimeProvider/, "src/app/layout.tsx must wrap the app in SecurityRuntimeProvider", errors);
   assertIncludes(layoutSource, /nonce=\{nonce\}/, "src/app/layout.tsx must nonce the inline theme script", errors);
@@ -39,6 +39,10 @@ function main() {
   assertIncludes(providerSource, /window\.fetch = async/, "SecurityRuntimeProvider must patch same-origin browser fetch calls", errors);
   assertIncludes(turnstileSource, /nonce=\{nonce \?\? undefined\}/, "TurnstileWidget must pass the CSP nonce to next/script", errors);
   assertIncludes(middlewareSource, /https:\/\/accounts\.google\.com/, "middleware CSP must permit Google Identity Services", errors);
+  const builtProxyPath = path.join(root, process.env.NEXT_DIST_DIR || ".next", "server/middleware.js");
+  if (fs.existsSync(builtProxyPath)) {
+    assertIncludes(fs.readFileSync(builtProxyPath, "utf8"), /Content-Security-Policy/, "the built proxy must set Content-Security-Policy", errors);
+  }
 
   if (errors.length > 0) {
     console.error("[csp-contract] failed:");
