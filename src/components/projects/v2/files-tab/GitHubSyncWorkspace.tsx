@@ -49,8 +49,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import { createClient } from "@/lib/supabase/client";
-import { subscribeProjectFilesChannel } from "@/lib/realtime/project-files-channel";
 
 const button =
   "inline-flex min-h-10 items-center justify-center gap-2 rounded-[5px] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 py-2 text-sm font-medium text-[var(--text-strong)] transition-[background-color,border-color,color,box-shadow] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]";
@@ -647,20 +645,9 @@ export function GitHubSyncWorkspace({
   const loadRef = useRef(load);
   loadRef.current = load;
 
-  // ponytail: Realtime CDC on github_sync_runs eliminates client polling (0 RPS idle). ceiling: 30s heartbeat fallback. upgrade: adaptive exponential backoff on reconnect.
   useEffect(() => {
     if (!active || !canManage) return;
 
-    const supabase = createClient();
-    const channel = subscribeProjectFilesChannel(supabase, {
-      projectId,
-      scope: "github-sync",
-      onSyncRunChange: () => {
-        void loadRef.current().catch((error) => setError((error as Error).message));
-      },
-    });
-
-    // Fallback slow heartbeat (30s) only while active to safeguard against network edge dropouts
     const heartbeat = setInterval(() => {
       if (document.visibilityState === "visible") {
         void loadRef.current().catch((error) => setError((error as Error).message));
@@ -677,7 +664,6 @@ export function GitHubSyncWorkspace({
     return () => {
       clearInterval(heartbeat);
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      void supabase.removeChannel(channel);
     };
   }, [active, canManage, projectId]);
 

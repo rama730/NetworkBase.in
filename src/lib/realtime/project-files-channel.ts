@@ -11,7 +11,6 @@ export interface ProjectFilesChannelOptions {
     projectId: string
     scope?: string
     onFileLeaseChange?: () => void
-    onSyncRunChange?: () => void
     onStatus?: (status: REALTIME_SUBSCRIBE_STATES) => void
 }
 
@@ -51,7 +50,7 @@ export function subscribeProjectFilesChannel(
     supabase: SupabaseClient,
     options: ProjectFilesChannelOptions,
 ): RealtimeChannel {
-    const { projectId, scope = 'files-root', onFileLeaseChange, onSyncRunChange, onStatus } = options
+    const { projectId, scope = 'files-root', onFileLeaseChange, onStatus } = options
 
     const channelId = `${projectId}:${scope}`
 
@@ -77,15 +76,6 @@ export function subscribeProjectFilesChannel(
             handler: () => onFileLeaseChange?.(),
         },
     ]
-
-    if (onSyncRunChange) {
-        bindings.push({
-            event: '*' as const,
-            table: 'github_sync_runs',
-            filter: `project_id=eq.${projectId}`,
-            handler: () => onSyncRunChange(),
-        })
-    }
 
     const channel = subscribeActiveResource({
         supabase,
