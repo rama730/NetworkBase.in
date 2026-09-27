@@ -112,15 +112,7 @@ export async function detectInstalledLaptopIdesAction(
   }
 
   // In production cloud hosting environments, server container disk contents do not reflect client installations.
-  if (
-    process.env.NODE_ENV === "production" ||
-    process.env.VERCEL ||
-    process.env.RAILWAY_ENVIRONMENT ||
-    process.env.AWS_EXECUTION_ENV ||
-    process.env.FLY_APP_NAME ||
-    process.env.RENDER ||
-    process.env.KUBERNETES_SERVICE_HOST
-  ) {
+  if (process.env.NODE_ENV === "production") {
     return {
       success: true,
       platform: clientPlatform ?? "unknown",

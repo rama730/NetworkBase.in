@@ -28,9 +28,7 @@ test("development launches the web runtime directly and references only live run
   const runtimeSources = [
     devSource,
     read("scripts/run-e2e-with-prod-server.ts"),
-    read("scripts/check-stability-env.ts"),
     read("scripts/check-api-versioning-contract.ts"),
-    read("scripts/run-load-suite.ts"),
   ].join("\n");
 
   assert.doesNotMatch(runtimeSources, /presence:dev|services\/presence|presence-token|PRESENCE_WS|PRESENCE_TOKEN_SECRET|presence-room-fanout/);
@@ -43,12 +41,10 @@ test("development launches the web runtime directly and references only live run
 test("startup runtime avoids redundant remote work", () => {
   const appearanceRoute = read("src/app/api/v1/appearance/route.ts");
   const chatProvider = read("src/components/chat/ChatProvider.tsx");
-  const instrumentation = read("src/instrumentation.ts");
 
   assert.doesNotMatch(appearanceRoute, /__getUserFromAuthServer|freshUser/);
   assert.match(appearanceRoute, /readAppearanceSnapshotFromMetadata\(auth\.user\)/);
   assert.match(chatProvider, /INITIAL_HEARTBEAT_COOLDOWN_MS/);
   assert.match(chatProvider, /heartbeat\(true\)/);
-  assert.match(instrumentation, /OTEL_EXPORTER_OTLP_ENDPOINT\?\.trim\(\)/);
-  assert.doesNotMatch(instrumentation, /http:\/\/localhost:4317/);
+  assert.equal(fs.existsSync(path.join(process.cwd(), "src/instrumentation.ts")), false);
 });

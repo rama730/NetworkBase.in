@@ -1,4 +1,3 @@
-import { recordOtlpMetric } from '@/lib/telemetry/otlp'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -116,7 +115,6 @@ export const logger = {
         }
     },
     metric: (metric: string, payload: Record<string, unknown>) => {
-        recordOtlpMetric(metric, payload)
         emit('info', metric, { ...payload, _type: 'metric' })
     },
 }

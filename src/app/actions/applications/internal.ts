@@ -1,5 +1,6 @@
 'use server';
 
+import { logger } from '@/lib/logger';
 import { db } from '@/lib/db';
 import {
     roleApplications,
@@ -23,7 +24,6 @@ import { revalidatePath } from 'next/cache';
 import { resolveMessageWorkflowActionV2 } from '@/app/actions/messaging/collaboration';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
-import { trackApplicationEvent } from '@/lib/telemetry/otlp';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
 import { toIsoString as toISODate } from '@/lib/utils/date';
 import {
@@ -1419,7 +1419,8 @@ export async function applyToRoleAction(
                     });
 
                     revalidatePath(`/projects/${project.slug || projectId}`);
-                    trackApplicationEvent('apply_submitted', {
+                    logger.metric('applications.apply_submitted', {
+                        module: 'applications',
                         applicationId: existingApp.id,
                         projectId,
                         roleId,
@@ -1507,7 +1508,8 @@ export async function applyToRoleAction(
             const { applicationId: newApplicationId, conversationId } = createdApplication;
 
             revalidatePath(`/projects/${project.slug || projectId}`);
-            trackApplicationEvent('apply_submitted', {
+            logger.metric('applications.apply_submitted', {
+                module: 'applications',
                 applicationId: newApplicationId,
                 projectId,
                 roleId,
@@ -1671,7 +1673,8 @@ export async function acceptApplicationAction(
 
             const slugOrId = application.project?.slug || application.projectId;
             revalidatePath(`/projects/${slugOrId}`);
-            trackApplicationEvent('apply_accepted', {
+            logger.metric('applications.apply_accepted', {
+                module: 'applications',
                 applicationId,
                 projectId: application.projectId,
                 roleId: application.roleId || undefined,
@@ -1826,7 +1829,8 @@ export async function rejectApplicationAction(
 
             const slugOrId = application.project?.slug || application.projectId;
             revalidatePath(`/projects/${slugOrId}`);
-            trackApplicationEvent('apply_rejected', {
+            logger.metric('applications.apply_rejected', {
+                module: 'applications',
                 applicationId,
                 projectId: application.projectId,
                 roleId: application.roleId || undefined,
@@ -1960,7 +1964,8 @@ export async function editPendingApplicationAction(
 
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
-        trackApplicationEvent('apply_edited', {
+        logger.metric('applications.apply_edited', {
+            module: 'applications',
             applicationId: application.id,
             projectId: application.projectId,
             roleId: application.roleId || undefined,
@@ -2065,7 +2070,8 @@ export async function withdrawApplicationAction(
 
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
-        trackApplicationEvent('apply_withdrawn', {
+        logger.metric('applications.apply_withdrawn', {
+            module: 'applications',
             applicationId,
             projectId: application.projectId,
             roleId: application.roleId || undefined,
@@ -2212,7 +2218,8 @@ export async function reopenApplicationAction(
 
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
-        trackApplicationEvent('apply_reopened', {
+        logger.metric('applications.apply_reopened', {
+            module: 'applications',
             applicationId,
             projectId: application.projectId,
             roleId: application.roleId || undefined,
@@ -3445,7 +3452,8 @@ export async function acceptProposedRoleAction(
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
 
-        trackApplicationEvent('apply_accepted', {
+        logger.metric('applications.apply_accepted', {
+            module: 'applications',
             applicationId,
             projectId: application.projectId,
             roleId: updatedProposedRoleId,
@@ -3573,7 +3581,8 @@ export async function declineProposedRoleAction(
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
 
-        trackApplicationEvent('apply_reopened', {
+        logger.metric('applications.apply_reopened', {
+            module: 'applications',
             applicationId,
             projectId: application.projectId,
             roleId: application.roleId || undefined,

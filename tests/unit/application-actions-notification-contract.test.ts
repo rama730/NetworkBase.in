@@ -22,7 +22,7 @@ test('reject application decision notifications are best-effort after persistenc
     const helperEnd = source.indexOf('\nasync function ', helperStart + 1);
     const enqueueBestEffort = source.slice(helperStart, helperEnd);
 
-    assert.match(rejectAction, /trackApplicationEvent\('apply_rejected'/);
+    assert.match(rejectAction, /logger\.metric\('applications\.apply_rejected'/);
     assert.match(rejectAction, /await enqueueApplicationDecisionBestEffort\(\{[\s\S]*status:\s*'rejected'/);
     assert.match(rejectAction, /actorUserId:\s*user\.id/);
     assert.match(rejectAction, /traceId/);

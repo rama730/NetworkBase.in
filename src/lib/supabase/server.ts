@@ -110,12 +110,6 @@ export async function createClient() {
     }
 
     const wrappedGetUser = async () => {
-        if (process.env.MOCK_USER_ID) {
-            return {
-                data: { user: { id: process.env.MOCK_USER_ID } as any },
-                error: null,
-            }
-        }
         if (!hasAnyAuthCookie(cookieStore)) {
             return {
                 data: { user: null },
