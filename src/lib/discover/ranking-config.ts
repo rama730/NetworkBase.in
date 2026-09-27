@@ -1,36 +1,4 @@
-export interface DiscoverRankingWeights {
-    candidateLimit: number;
-    maxSnapshotItems: number;
-    snapshotTtlSeconds: number;
-    trending: {
-        views: number;
-        follows: number;
-        saves: number;
-        recency: number;
-    };
-    quality: {
-        shortDescription: number;
-        coverImage: number;
-        tags: number;
-        skills: number;
-        lifecycle: number;
-    };
-    recommendation: {
-        titleMatch: number;
-        descriptionMatch: number;
-        skillsMatch: number;
-        tagsMatch: number;
-        categoryMatch: number;
-        trendBlend: number;
-        coldStartBlend: number;
-    };
-    diversity: {
-        ownerPenalty: number;
-        categoryPenalty: number;
-    };
-}
-
-const DEFAULT_WEIGHTS: DiscoverRankingWeights = {
+export const DISCOVER_RANKING_WEIGHTS = {
     candidateLimit: 280,
     maxSnapshotItems: 400,
     snapshotTtlSeconds: 180,
@@ -60,55 +28,6 @@ const DEFAULT_WEIGHTS: DiscoverRankingWeights = {
         ownerPenalty: 0.55,
         categoryPenalty: 0.3,
     },
-};
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-
-const mergeWithDefaults = (raw: Partial<DiscoverRankingWeights>): DiscoverRankingWeights => {
-    return {
-        ...DEFAULT_WEIGHTS,
-        ...raw,
-        candidateLimit: clamp(Number(raw.candidateLimit ?? DEFAULT_WEIGHTS.candidateLimit), 80, 1000),
-        maxSnapshotItems: clamp(Number(raw.maxSnapshotItems ?? DEFAULT_WEIGHTS.maxSnapshotItems), 80, 1200),
-        snapshotTtlSeconds: clamp(Number(raw.snapshotTtlSeconds ?? DEFAULT_WEIGHTS.snapshotTtlSeconds), 30, 900),
-        trending: {
-            ...DEFAULT_WEIGHTS.trending,
-            ...(raw.trending || {}),
-        },
-        quality: {
-            ...DEFAULT_WEIGHTS.quality,
-            ...(raw.quality || {}),
-        },
-        recommendation: {
-            ...DEFAULT_WEIGHTS.recommendation,
-            ...(raw.recommendation || {}),
-        },
-        diversity: {
-            ...DEFAULT_WEIGHTS.diversity,
-            ...(raw.diversity || {}),
-        },
-    };
-};
-
-let cachedWeights: DiscoverRankingWeights | null = null;
+} as const;
 
 export const DISCOVER_RANKING_SCHEMA_VERSION = 2;
-
-export function getDiscoverRankingWeights(): DiscoverRankingWeights {
-    if (cachedWeights) return cachedWeights;
-
-    const raw = process.env.HUB_RANKING_WEIGHTS;
-    if (!raw) {
-        cachedWeights = DEFAULT_WEIGHTS;
-        return cachedWeights;
-    }
-
-    try {
-        const parsed = JSON.parse(raw) as Partial<DiscoverRankingWeights>;
-        cachedWeights = mergeWithDefaults(parsed);
-    } catch {
-        cachedWeights = DEFAULT_WEIGHTS;
-    }
-
-    return cachedWeights;
-}
