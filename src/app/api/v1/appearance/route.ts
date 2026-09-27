@@ -69,12 +69,10 @@ export async function GET(request: Request) {
 
     const auth = await requireAuthenticatedUser();
     if (auth.response || !auth.user) {
-        return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+        return jsonSuccess({ userId: null, snapshot: null }, undefined, { headers: APPEARANCE_CACHE_HEADERS });
     }
 
     try {
-        // requireAuthenticatedUser() already verifies the user with Supabase.
-        // ponytail: appearance is non-sensitive; avoid a second remote auth lookup.
         const snapshot = readAppearanceSnapshotFromMetadata(auth.user);
         const etag = `W/"app-${auth.user.id}-${snapshot?.theme ?? 'default'}-${snapshot?.accentColor ?? 'default'}"`;
         const ifNoneMatch = request.headers.get("if-none-match");
