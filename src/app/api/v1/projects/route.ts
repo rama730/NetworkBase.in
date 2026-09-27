@@ -10,7 +10,6 @@ import {
     PUBLIC_PROJECTS_FEED_MAX_LIMIT,
     readPublicProjectsFeedCache,
 } from '@/lib/projects/public-feed-service'
-import { consumeRouteClassLoadShedding } from '@/lib/routing/load-shedding'
 import { logger } from '@/lib/logger'
 import { getTrustedRequestIp } from '@/lib/security/request-ip'
 
@@ -124,46 +123,6 @@ export async function GET(request: Request) {
     const cached = await readPublicProjectsFeedCache(limit, cursor)
     const freshCache = cached.fresh
     const staleCache = cached.stale
-    const loadShedding = await consumeRouteClassLoadShedding('public_cached')
-
-    if (!loadShedding.allowed) {
-        if (staleCache) {
-            logProjectsRequest(request, {
-                requestId,
-                startedAt,
-                status: 200,
-                success: true,
-                source: 'redis',
-                cacheState: 'stale',
-            })
-            return jsonSuccess(
-                {
-                    projects: staleCache.value.projects,
-                    nextCursor: staleCache.value.nextCursor,
-                    source: 'redis-stale',
-                },
-                undefined,
-                {
-                    headers: {
-                        ...cacheHeaders('stale'),
-                        'X-Request-Id': requestId,
-                    },
-                },
-            )
-        }
-
-        logProjectsRequest(request, {
-            requestId,
-            startedAt,
-            status: 503,
-            success: false,
-            source: 'load-shed',
-            cacheState: 'miss',
-            errorCode: 'INTERNAL_ERROR',
-        })
-        return jsonError('Feed temporarily unavailable', 503, 'INTERNAL_ERROR')
-    }
-
     if (freshCache) {
         const firstProject = freshCache.value.projects[0];
         const feedETag = firstProject
