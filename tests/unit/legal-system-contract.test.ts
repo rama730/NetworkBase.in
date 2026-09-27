@@ -48,7 +48,7 @@ test("signup requires affirmative age, terms, EULA, and privacy acknowledgement"
 
 test("existing signed-in accounts must accept the current unexpired versions", () => {
   const layout = read("src/app/(main)/layout.tsx");
-  const requestBoundary = read(existsSync(resolve(root, "proxy.ts")) ? "proxy.ts" : "middleware.ts");
+  const requestBoundary = read("src/proxy.ts");
   const acceptance = read("src/lib/legal/acceptance.ts");
   const page = read("src/app/legal/accept/page.tsx");
 

@@ -272,13 +272,6 @@ export async function updateSession(request: NextRequest, options: UpdateSession
             user = authResolution.user
             onboardingComplete = authResolution.snapshot?.onboardingComplete ?? false
             emailVerified = authResolution.snapshot?.emailVerified ?? false
-            logger.metric('auth.middleware.snapshot.success', {
-                requestId,
-                path: pathname,
-                durationMs: Date.now() - startedAt,
-                routeClass,
-                phase: hardeningPhase,
-            })
         }
     }
 
