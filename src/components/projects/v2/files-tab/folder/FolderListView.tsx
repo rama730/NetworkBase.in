@@ -335,8 +335,6 @@ export function FolderListView({
     getNextPageParam: page => page.nextCursor ?? undefined,
     staleTime: 60_000,
     // ponytail: back off idle polling to 5m to eliminate client-side egress churn. ceiling: 5m polling interval. upgrade: WebSocket Realtime push invalidation for remote lists.
-    refetchInterval: 300_000,
-    refetchIntervalInBackground: false,
   });
   const remoteList = !collection && (!!search || sort !== "name");
   const folder = collection ? { status: collection.loading ? "loading" as const : "ready" as const, children: collection.nodes, retry: () => {}, refreshError: false }

@@ -1,5 +1,6 @@
 "use client";
 
+import { createVisibilityAwareInterval } from "@/lib/utils/visibility";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Github,
@@ -648,23 +649,9 @@ export function GitHubSyncWorkspace({
   useEffect(() => {
     if (!active || !canManage) return;
 
-    const heartbeat = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        void loadRef.current().catch((error) => setError((error as Error).message));
-      }
-    }, 30000);
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void loadRef.current().catch((error) => setError((error as Error).message));
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    return () => {
-      clearInterval(heartbeat);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
+    return createVisibilityAwareInterval(() => {
+      void loadRef.current().catch((error) => setError((error as Error).message));
+    }, 30_000);
   }, [active, canManage, projectId]);
 
   // ponytail: auto-load remote branches on repository selection change. ceiling: 100 branches dropdown. upgrade: virtualized searchable branch combo-box if repositories exceed 100 active branches.

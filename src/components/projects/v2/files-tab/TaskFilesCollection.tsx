@@ -138,8 +138,6 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
     getNextPageParam: (page) => (taskId ? page.groups[0]?.nextFileCursor : page.nextCursor) ?? undefined,
     staleTime: 60_000,
     // ponytail: back off idle polling to 5m to eliminate client-side egress churn. ceiling: 5m polling interval. upgrade: WebSocket Realtime push invalidation for remote lists.
-    refetchInterval: 300_000,
-    refetchIntervalInBackground: false,
   });
 
   const groups = useMemo(
