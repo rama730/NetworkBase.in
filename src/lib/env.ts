@@ -2,7 +2,6 @@ import { z } from 'zod'
 
 const envSchema = z.object({
     DATABASE_URL: z.string().min(1),
-    READ_DATABASE_URL: z.string().url().optional(),
     APP_URL: z.string().url().optional(),
     NEXT_PUBLIC_APP_URL: z.string().url().optional(),
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
@@ -28,11 +27,6 @@ const envSchema = z.object({
     ADMIN_USER_IDS: z.string().optional(),
 
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-    DB_POOL_MAX: z.coerce.number().int().min(1).max(200).optional(),
-    DB_IDLE_TIMEOUT_SECONDS: z.coerce.number().int().min(5).max(600).optional(),
-    DB_CONNECT_TIMEOUT_SECONDS: z.coerce.number().int().min(2).max(60).optional(),
-    DB_PREPARE_STATEMENTS: z.string().optional(),
-    DB_USE_SUPAVISOR_PORT: z.string().optional(),
     SUPABASE_STORAGE_IMAGE_TRANSFORMATIONS_ENABLED: z.string().optional(),
     RATE_LIMIT_MODE: z.enum(['best-effort', 'distributed-only']).optional(),
     EXECUTION_BACKEND_URL: z.string().url().optional(),
