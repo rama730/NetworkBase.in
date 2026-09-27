@@ -1,5 +1,4 @@
 import {
-  enforceRouteLimit,
   getRequestId,
   getSessionIdentifier,
   jsonError,
@@ -31,18 +30,6 @@ function parsePaginationNumber(value: string | null, fallback: number, max: numb
 export async function GET(request: Request) {
   const startedAt = Date.now();
   const requestId = getRequestId(request);
-  const limitResponse = await enforceRouteLimit(request, "api:v1:sessions:get", 120, 60);
-  if (limitResponse) {
-    logApiRoute(request, {
-      requestId,
-      action: "sessions.get",
-      startedAt,
-      success: false,
-      status: 429,
-      errorCode: "RATE_LIMITED",
-    });
-    return limitResponse;
-  }
 
   const auth = await requireAuthenticatedUser();
   if (auth.response) {

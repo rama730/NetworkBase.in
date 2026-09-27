@@ -7,7 +7,7 @@ import { projects } from "@/lib/db/schema";
 import { getProjectAccessById } from "@/lib/data/project-access";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
-import { enforceRouteLimit, jsonError } from "@/app/api/v1/_shared";
+import { jsonError } from "@/app/api/v1/_shared";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 export const runtime = "nodejs";
@@ -23,8 +23,6 @@ export async function GET(
     request: NextRequest,
     context: { params: Promise<{ id: string }> },
 ) {
-    const limitResponse = await enforceRouteLimit(request, "api:v1:projects:image", 60, 60);
-    if (limitResponse) return limitResponse;
 
     const { id: projectId } = await context.params;
     if (!isLooseUuid(projectId)) {

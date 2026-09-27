@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import {
-    enforceRouteLimit,
     jsonError,
     jsonSuccess,
     requireAuthenticatedUser,
@@ -20,13 +19,6 @@ export async function GET(
     request: NextRequest,
     context: { params: Promise<{ id: string }> }
 ) {
-    const rlResponse = await enforceRouteLimit(
-        request,
-        "api:v1:projects:capabilities:get",
-        60,
-        60
-    );
-    if (rlResponse) return rlResponse;
 
     const { user, response } = await requireAuthenticatedUser();
     if (response) return response;

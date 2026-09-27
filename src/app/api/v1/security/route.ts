@@ -1,5 +1,4 @@
 import {
-  enforceRouteLimit,
   getSessionIdentifier,
   getRequestId,
   jsonError,
@@ -20,18 +19,6 @@ import type { SecurityData } from "@/lib/types/settingsTypes";
 export async function GET(request: Request) {
   const startedAt = Date.now();
   const requestId = getRequestId(request);
-  const limitResponse = await enforceRouteLimit(request, "api:v1:security:get", 120, 60);
-  if (limitResponse) {
-    logApiRoute(request, {
-      requestId,
-      action: "security.get",
-      startedAt,
-      success: false,
-      status: 429,
-      errorCode: "RATE_LIMITED",
-    });
-    return limitResponse;
-  }
 
   const auth = await requireAuthenticatedUser();
   if (auth.response) {

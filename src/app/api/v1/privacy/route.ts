@@ -1,5 +1,4 @@
 import {
-  enforceRouteLimit,
   getRequestId,
   jsonError,
   jsonSuccess,
@@ -99,10 +98,6 @@ function formatPrivacyActivityEntry(entry: Awaited<ReturnType<typeof listPrivacy
 export async function GET(request: Request) {
   const startedAt = Date.now();
   const requestId = getRequestId(request);
-  const limitResponse = await enforceRouteLimit(request, "api:v1:privacy:get", 120, 60);
-  if (limitResponse) {
-    return limitResponse;
-  }
 
   const auth = await requireAuthenticatedUser();
   if (auth.response || !auth.user) {

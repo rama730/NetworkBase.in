@@ -66,10 +66,6 @@ async function withAppearanceTimeout<T>(promise: Promise<T>, label: string): Pro
 export async function GET(request: Request) {
     const startedAt = Date.now();
     const requestId = getRequestId(request);
-    const limitResponse = await enforceRouteLimit(request, "api:v1:appearance:get", 120, 60);
-    if (limitResponse) {
-        return limitResponse;
-    }
 
     const auth = await requireAuthenticatedUser();
     if (auth.response || !auth.user) {

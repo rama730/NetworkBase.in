@@ -4,7 +4,7 @@ import { importJobs, importJobFiles } from '@/lib/db/schema';
 import { and, eq, ne, gt, or, asc } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { assertProjectReadAccess } from '@/lib/files/internal-helpers';
-import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
+import { requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
@@ -38,8 +38,6 @@ function encodeStatusCursor(value: { path: string; id: string }) {
  */
 export async function GET(request: NextRequest) {
     try {
-        const limitResponse = await enforceRouteLimit(request, 'api:v1:github:import:status', 300, 60);
-        if (limitResponse) return limitResponse;
 
         const auth = await requireAuthenticatedUser();
         if (auth.response || !auth.user) return auth.response ?? jsonError('Unauthorized', 401, 'UNAUTHORIZED');
