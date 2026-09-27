@@ -283,7 +283,7 @@ export const reconcileProjectFiles = inngest.createFunction(
                         SELECT metadata->>'reconciliationKey' AS key
                         FROM project_node_events
                         WHERE project_id = ${projectId}::uuid
-                          AND metadata->>'reconciliationKey' IN (${sql.join(keys.map((key) => sql`${key}`), sql`, `)})
+                          AND metadata->>'reconciliationKey' = ANY(ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(keys)}::jsonb)))
                     `));
                     const seenKeys = new Set(existingKeys.map((row) => row.key));
                     const newEvents = events.filter((event) => !seenKeys.has(String(event.metadata.reconciliationKey)));

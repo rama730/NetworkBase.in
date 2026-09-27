@@ -170,7 +170,8 @@
     "drizzle/0164_extension_indexes_and_redis_locks.sql",
     "drizzle/0165_messages_performance_and_deadlock_elimination.sql",
     "drizzle/0166_project_recent_activity.sql",
-    "drizzle/0168_realtime_publication_trim.sql"
+    "drizzle/0168_realtime_publication_trim.sql",
+    "drizzle/0169_index_fixes.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
