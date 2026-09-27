@@ -56,10 +56,9 @@ test("private Realtime rollout parser enables only explicit true values", () => 
   }
 });
 
-test("resource retention and partition maintenance are bounded and observable", () => {
+test("resource retention is bounded and observable", () => {
   const retention = read("src/inngest/functions/data-lifecycle-retention.ts");
   const retentionIndexes = read("drizzle/0158_lifecycle_retention_indexes.sql");
-  const partitions = read("src/inngest/functions/database-partition-maintenance.ts");
   const registry = read("src/inngest/registry.ts");
 
   assert.match(retention, /profileReadAuditDays: 30/);
@@ -70,8 +69,6 @@ test("resource retention and partition maintenance are bounded and observable", 
   assert.match(retentionIndexes, /onboarding_events \(created_at, id\)/);
   assert.match(retentionIndexes, /extension_device_session_events \(created_at, id\)/);
   assert.match(registry, /dataLifecycleRetention/);
-  assert.match(partitions, /project_node_events_default/);
-  assert.match(partitions, /defaultRowCount/);
 });
 
 test("account cleanup covers every owned project Storage prefix", () => {

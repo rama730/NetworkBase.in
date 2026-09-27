@@ -173,7 +173,8 @@
     "drizzle/0168_realtime_publication_trim.sql",
     "drizzle/0169_index_fixes.sql",
     "drizzle/0170_rls_security.sql",
-    "drizzle/0171_sql_naming.sql"
+    "drizzle/0171_sql_naming.sql",
+    "drizzle/0173_node_events_single_table.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

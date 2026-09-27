@@ -2997,12 +2997,12 @@ export const projectNodeLocks = pgTable(
 export const projectNodeEvents = pgTable(
   "project_node_events",
   {
-    id: uuid("id").defaultRandom().notNull(),
+    id: uuid("id").primaryKey().defaultRandom(),
     projectId: uuid("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     nodeId: uuid("node_id").references(() => projectNodes.id, {
-      onDelete: "cascade",
+      onDelete: "set null",
     }),
     actorId: uuid("actor_id").references(() => profiles.id, {
       onDelete: "set null",
@@ -3017,12 +3017,12 @@ export const projectNodeEvents = pgTable(
       .notNull(),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.id, t.createdAt] }),
     projectIdx: index("project_node_events_project_idx").on(
       t.projectId,
       t.createdAt,
     ),
     nodeIdx: index("project_node_events_node_idx").on(t.nodeId, t.createdAt),
+    actorIdx: index("project_node_events_actor_id_idx").on(t.actorId),
     seqIdx: uniqueIndex("project_node_events_seq_idx").on(
       t.projectId,
       t.sequenceNumber,
