@@ -417,15 +417,8 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         return redirectWithRequestId(url, requestId, routeClass, supabaseResponse)
     }
 
-    if (pathname === '/') {
-        if (user) {
-            url.pathname = !emailVerified ? '/verify-email' : onboardingComplete ? '/discover' : '/onboarding'
-        } else if (authLookupDegraded && shouldResolveAuth) {
-            return withRequestId(supabaseResponse, requestId, routeClass)
-        } else {
-            url.pathname = '/login'
-        }
-
+    if (pathname === '/' && user) {
+        url.pathname = !emailVerified ? '/verify-email' : onboardingComplete ? '/discover' : '/onboarding'
         return redirectWithRequestId(url, requestId, routeClass, supabaseResponse)
     }
 
