@@ -17,7 +17,6 @@ const envSchema = z.object({
     GITHUB_IMPORT_TOKEN_ENCRYPTION_KEY: z.string().min(1).optional(),
     JOB_REQUEST_SECRET: z.string().min(1).optional(),
     GITHUB_WEBHOOK_SECRET: z.string().min(1).optional(),
-    DOC_COLLABORATION_TOKEN_SECRET: z.string().min(1).optional(),
     NEXT_PUBLIC_YJS_WEBSOCKET_URL: z.string().url().optional(),
     INNGEST_SIGNING_KEY: z.string().min(1).optional(),
     E2E_AUTH_FALLBACK: z.string().optional(),
@@ -59,7 +58,6 @@ function assertProductionSecurityEnv(env: Env) {
         ['GITHUB_IMPORT_TOKEN_ENCRYPTION_KEY', env.GITHUB_IMPORT_TOKEN_ENCRYPTION_KEY],
         ['JOB_REQUEST_SECRET', env.JOB_REQUEST_SECRET],
         ['GITHUB_WEBHOOK_SECRET', env.GITHUB_WEBHOOK_SECRET],
-        ['DOC_COLLABORATION_TOKEN_SECRET', env.DOC_COLLABORATION_TOKEN_SECRET],
         ['INNGEST_EVENT_KEY', env.INNGEST_EVENT_KEY],
         ['INNGEST_SIGNING_KEY', env.INNGEST_SIGNING_KEY],
     ] as const
