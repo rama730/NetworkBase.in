@@ -1,6 +1,9 @@
 'use client';
 
 import { AuthProvider } from '@/components/providers/AuthProvider';
+import { QueryProvider } from '@/components/providers/query-provider';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { User } from '@supabase/supabase-js';
 
 interface AuthRouteProvidersProps {
@@ -11,9 +14,13 @@ interface AuthRouteProvidersProps {
 
 export function AuthRouteProviders({ children, initialUser, initialProfile = null }: AuthRouteProvidersProps) {
   return (
-    <AuthProvider initialUser={initialUser} initialProfile={initialProfile}>
-      {children}
-    </AuthProvider>
+    <QueryProvider>
+      <TooltipProvider>
+        <AuthProvider initialUser={initialUser} initialProfile={initialProfile}>
+          {children}
+        </AuthProvider>
+        <Toaster />
+      </TooltipProvider>
+    </QueryProvider>
   );
 }
-

@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import localFont from "next/font/local";
-import { QueryProvider } from "@/components/providers/query-provider";
 import { SecurityRuntimeProvider } from "@/components/providers/SecurityRuntimeProvider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
-import { Toaster } from "@/components/ui/sonner";
 import { CookieConsentRuntime } from "@/components/privacy/CookieConsentRuntime";
 import { Suspense } from "react";
 import "@/lib/env";
@@ -72,8 +70,6 @@ export const viewport: import("next").Viewport = {
   viewportFit: "cover",
 };
 
-import { TooltipProvider } from "@/components/ui/tooltip";
-
 function ThemeProviders({
   children,
   nonce,
@@ -83,14 +79,9 @@ function ThemeProviders({
 }) {
   return (
     <ThemeProvider nonce={nonce}>
-      <QueryProvider>
-        <TooltipProvider>
-          <RoutePerformanceObserver />
-          {children}
-          <Toaster />
-          <CookieConsentRuntime analyticsAvailable={SHOULD_RENDER_VERCEL_ANALYTICS} />
-        </TooltipProvider>
-      </QueryProvider>
+      <RoutePerformanceObserver />
+      {children}
+      <CookieConsentRuntime analyticsAvailable={SHOULD_RENDER_VERCEL_ANALYTICS} />
     </ThemeProvider>
   );
 }
