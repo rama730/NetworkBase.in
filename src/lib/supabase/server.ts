@@ -1,5 +1,4 @@
 import { createServerClient } from '@supabase/ssr'
-import type { User } from '@supabase/supabase-js'
 import { cookies, headers } from 'next/headers'
 import { resolveAuthSnapshot, type AuthSnapshotResolution } from '@/lib/auth/snapshot'
 import { logger } from '@/lib/logger'
@@ -26,10 +25,6 @@ function hasAnyAuthCookie(
 
 type AuthSnapshotAwareClient = Awaited<ReturnType<typeof createServerClient>> & {
     __resolveAuthSnapshot?: () => Promise<AuthSnapshotResolution>
-    __getUserFromAuthServer?: (jwt?: string) => Promise<{
-        data: { user: User | null }
-        error: { message?: string; status?: number } | null
-    }>
 }
 
 export async function createClient() {
@@ -80,7 +75,6 @@ export async function createClient() {
             },
         }
     )
-    const originalGetUser = client.auth.getUser.bind(client.auth)
 
     let authResolutionPromise: Promise<AuthSnapshotResolution> | null = null
     const resolveClientAuthSnapshot = () => {
@@ -139,7 +133,6 @@ export async function createClient() {
     }
     ;(client.auth as { getUser: typeof wrappedGetUser }).getUser = wrappedGetUser
     ;(client as AuthSnapshotAwareClient).__resolveAuthSnapshot = resolveClientAuthSnapshot
-    ;(client as AuthSnapshotAwareClient).__getUserFromAuthServer = originalGetUser
 
     return client
 }

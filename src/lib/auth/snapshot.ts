@@ -69,13 +69,6 @@ export type AuthSnapshotResolution = {
     error: { name: 'AuthError'; message: string; status: number } | null
 }
 
-type AuthSnapshotAwareClient = SupabaseClient & {
-    __getUserFromAuthServer?: (jwt?: string) => Promise<{
-        data: { user: User | null }
-        error: { message?: string; status?: number } | null
-    }>
-}
-
 type DecodedJwt = {
     header: JwtHeader
     payload: JwtPayload
@@ -150,14 +143,6 @@ function decodeJwt(token: string): DecodedJwt {
         payload,
         signature: decodeBase64UrlToBytes(rawSignature!),
         signingInput: encodeUtf8(`${rawHeader}.${rawPayload}`),
-    }
-}
-
-function tryDecodeJwtPayload(token: string): JwtPayload | null {
-    try {
-        return decodeJwt(token).payload
-    } catch {
-        return null
     }
 }
 
@@ -432,59 +417,6 @@ function authError(message: string, status: number): AuthSnapshotResolution['err
     }
 }
 
-async function readVerifiedUserFromAuthServer(
-    supabase: SupabaseClient,
-    accessToken: string,
-): Promise<{ user: User | null; error: AuthSnapshotResolution['error'] }> {
-    const awareClient = supabase as AuthSnapshotAwareClient
-    const getVerifiedUser = awareClient.__getUserFromAuthServer
-        ?? supabase.auth.getUser.bind(supabase.auth)
-
-    let timeoutId: ReturnType<typeof setTimeout> | null = null
-    try {
-        const response = await Promise.race([
-            getVerifiedUser(accessToken),
-            new Promise<never>((_, reject) => {
-                timeoutId = setTimeout(
-                    () => reject(new Error('Auth server verification timed out')),
-                    AUTH_SNAPSHOT_NETWORK_TIMEOUT_MS,
-                )
-            }),
-        ])
-
-        if (response.error) {
-            return {
-                user: null,
-                error: authError(response.error.message || 'Unable to verify auth session', response.error.status || 401),
-            }
-        }
-        return { user: response.data.user, error: null }
-    } catch (error) {
-        return {
-            user: null,
-            error: authError(error instanceof Error ? error.message : 'Unable to verify auth session', 401),
-        }
-    } finally {
-        if (timeoutId) clearTimeout(timeoutId)
-    }
-}
-
-function buildClaimsFromVerifiedUser(accessToken: string, user: User): JwtPayload {
-    const tokenClaims = tryDecodeJwtPayload(accessToken) ?? {}
-    return {
-        ...tokenClaims,
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-        email_confirmed_at: user.email_confirmed_at,
-        confirmed_at: user.confirmed_at,
-        app_metadata: asRecord(user.app_metadata),
-        user_metadata: asRecord(user.user_metadata),
-    }
-}
-
-
-
 export async function resolveAuthSnapshot(
     supabase: SupabaseClient
 ): Promise<AuthSnapshotResolution> {
@@ -531,27 +463,12 @@ export async function resolveAuthSnapshot(
             user: buildUserFromSnapshot(snapshot),
             error: null,
         }
-    } catch {
-        const verified = await readVerifiedUserFromAuthServer(supabase, session.access_token)
-        if (verified.user) {
-            const snapshot = buildAuthSnapshotFromClaims(
-                buildClaimsFromVerifiedUser(session.access_token, verified.user),
-            )
-            if (snapshot) {
-                return {
-                    session,
-                    snapshot,
-                    user: verified.user,
-                    error: null,
-                }
-            }
-        }
-
+    } catch (error) {
         return {
             session: null,
             snapshot: null,
             user: null,
-            error: verified.error ?? authError('Unable to verify auth session', 401),
+            error: authError(error instanceof Error ? error.message : 'Unable to verify auth session', 401),
         }
     }
 }
