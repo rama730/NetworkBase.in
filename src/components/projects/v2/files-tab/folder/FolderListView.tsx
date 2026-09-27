@@ -53,7 +53,6 @@ import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
 import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
 import { isTextLike as isTextFile } from "../../utils/fileKind";
 import type { ProjectNode } from "@/lib/db/schema";
-import { filesFeatureFlags } from "@/lib/features/files";
 import { cn } from "@/lib/utils";
 import {
   isInternalTaskWorkingFilesNode,
@@ -156,7 +155,6 @@ interface FolderListRowItemProps {
   onCancelEditTaskLabel?: () => void;
   isFavorite: boolean;
   gitChange?: GitChangeStatus | null;
-  gitIntegrationEnabled: boolean;
   taskLinkCount?: number;
   onNavigate: (nodeId: string) => void;
   onToggleFavorite: (nodeId: string) => void;
@@ -182,7 +180,6 @@ const FolderListRowItem = React.memo(function FolderListRowItem({
   onCancelEditTaskLabel,
   isFavorite,
   gitChange,
-  gitIntegrationEnabled,
   taskLinkCount,
   onNavigate,
   onToggleFavorite,
@@ -230,7 +227,6 @@ const FolderListRowItem = React.memo(function FolderListRowItem({
       actions={actions}
       isFavorite={isFavorite}
       gitChange={gitChange}
-      gitIntegrationEnabled={gitIntegrationEnabled}
       taskLinkCount={taskLinkCount}
       onNavigate={onNavigate}
       onToggleFavorite={onToggleFavorite}
@@ -377,10 +373,7 @@ export function FolderListView({
     setSelectedNodeIds(projectId, selected ? [...new Set([...current, id])] : current.filter(value => value !== id));
   }, [projectId, setSelectedNodeIds]);
 
-  // ── Git change lookup — wave4 flag gates rendering entirely ───────
-  const gitIntegrationEnabled = filesFeatureFlags.wave4GitIntegration;
   const gitChangeByNodeId = React.useMemo(() => {
-    if (!gitIntegrationEnabled) return null;
     const map: Record<string, GitChangeStatus> = {};
     for (const entry of gitChangedFiles) {
       if (entry && typeof entry.nodeId === "string") {
@@ -388,7 +381,7 @@ export function FolderListView({
       }
     }
     return map;
-  }, [gitIntegrationEnabled, gitChangedFiles]);
+  }, [gitChangedFiles]);
 
   // ── Operations log + mutations ────────────────────────────────────
   const { recordOperation } = useExplorerOperationLog();
@@ -1155,10 +1148,7 @@ export function FolderListView({
           <div role="rowgroup">
             {sortedChildren.map((node) => {
               const isSystemManaged = isInternalTaskWorkingFilesNode(node);
-              const gitChange =
-                gitIntegrationEnabled && gitChangeByNodeId
-                  ? gitChangeByNodeId[node.id] ?? null
-                  : null;
+              const gitChange = gitChangeByNodeId[node.id] ?? null;
               return (
                 <FolderListRowItem
                   key={node.id}
@@ -1177,7 +1167,6 @@ export function FolderListView({
                   onCancelEditTaskLabel={() => setEditingLabelNodeId(null)}
                   isFavorite={!!favorites[node.id]}
                   gitChange={gitChange}
-                  gitIntegrationEnabled={gitIntegrationEnabled}
                   taskLinkCount={taskLinkCounts[node.id] ?? 0}
                   onNavigate={navigateTo}
                   onToggleFavorite={handleToggleFavorite}

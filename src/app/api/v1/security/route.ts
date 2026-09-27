@@ -8,7 +8,6 @@ import {
 } from "@/app/api/v1/_shared";
 import { logger } from "@/lib/logger";
 import { resolvePasswordCredentialState } from "@/lib/auth/account-identity";
-import { isSecurityHardeningEnabled } from "@/lib/features/security";
 import { getProtectedRecoveryCodes } from "@/lib/services/profile-service";
 import { getLatestPasswordChangeAt, listSecurityActivity } from "@/lib/security/audit";
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
@@ -45,7 +44,6 @@ export async function GET(request: Request) {
   }
 
   try {
-    const securityHardeningEnabled = isSecurityHardeningEnabled(auth.user.id);
     const [
       passwordLastChangedAt,
       mfaFactors,
@@ -58,8 +56,8 @@ export async function GET(request: Request) {
       getLatestPasswordChangeAt(auth.user.id),
       listSecurityMfaFactors(auth.supabase),
       auth.supabase.auth.getSession(),
-      listLoginHistory(auth.user.id, securityHardeningEnabled ? 20 : 10),
-      listSecurityActivity(auth.user.id, securityHardeningEnabled ? 20 : 12),
+      listLoginHistory(auth.user.id, 20),
+      listSecurityActivity(auth.user.id, 20),
       getProtectedRecoveryCodes(auth.user.id, { authorized: true }),
       ((auth.supabase.auth as any)?.mfa?.getAuthenticatorAssuranceLevel?.() ?? Promise.resolve(null)),
     ]);
@@ -72,7 +70,7 @@ export async function GET(request: Request) {
     const sessions = await listActiveSessions(
       auth.user.id,
       currentSessionId,
-      securityHardeningEnabled ? 12 : 8,
+      12,
     );
     const storedRecoveryCodes = recoveryCodesState?.securityRecoveryCodes ?? [];
     const recoveryCodes = verifiedTotpFactors.length === 0 ? {

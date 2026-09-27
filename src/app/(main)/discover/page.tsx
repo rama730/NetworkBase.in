@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import { DiscoverRouteSkeleton } from "@/components/discover/DiscoverRouteSkeleton";
 import DiscoverClient from "@/components/discover/DiscoverClient";
 import { PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS } from "@/constants/discover";
-import { isHardeningDomainEnabled } from "@/lib/features/hardening";
 import { getViewerAuthContext, toClientViewer } from "@/lib/server/viewer-context";
 import { getPublicProjectsFeedPage } from "@/lib/projects/public-feed-service";
 import { mapPublicProjectToDiscoverProject } from "@/lib/projects/public-feed";
@@ -25,8 +24,7 @@ type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 async function ResolvedHub({ searchParams }: { searchParams?: SearchParams }) {
     const viewer = await getViewerAuthContext();
     const { user } = viewer;
-    const dataHardeningEnabled = isHardeningDomainEnabled("dataV1", user?.id ?? null);
-    const initialPageSize = dataHardeningEnabled ? 18 : 24;
+    const initialPageSize = 18;
     // Use the exact suggestion feed that powers /people. A separate “rail-only”
     // filter made the Discovery sidebar empty even when the Network page had
     // eligible people to recommend.

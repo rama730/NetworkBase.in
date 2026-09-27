@@ -3,7 +3,6 @@
 import { MotionConfig } from 'framer-motion'
 import { ThemeProvider as NextThemesProvider, useTheme as useNextTheme } from 'next-themes'
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { isHardeningDomainEnabled } from '@/lib/features/hardening'
 import { logger } from '@/lib/logger'
 import { isProtectedAppRoute } from '@/lib/routing/route-class'
 import {
@@ -86,12 +85,6 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
     const [density, setDensityState] = useState<Density>(DEFAULT_APPEARANCE_SNAPSHOT.density)
     const [reduceMotion, setReduceMotionState] = useState<boolean>(DEFAULT_APPEARANCE_SNAPSHOT.reduceMotion)
     const [viewerId, setViewerId] = useState<string | null>(null)
-    const [shellHardeningEnabled, setShellHardeningEnabled] = useState(
-        isHardeningDomainEnabled('shellV1', null),
-    )
-    const [profileHardeningEnabled, setProfileHardeningEnabled] = useState(
-        isHardeningDomainEnabled('profileV1', null),
-    )
     const [syncState, setSyncState] = useState<AppearanceSyncState>('idle')
     const [lastSyncedAt, setLastSyncedAt] = useState<string | undefined>(undefined)
     const [systemReduceMotion, setSystemReduceMotion] = useState(false)
@@ -138,7 +131,7 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
     }, [persistLocalSnapshot, setNextTheme])
 
     const flushRemoteSync = useCallback(async (reason: string) => {
-        if (!profileHardeningEnabled || !viewerId) return
+        if (!viewerId) return
         if (syncInFlightRef.current) return
 
         const snapshot = pendingSyncRef.current
@@ -181,10 +174,10 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
                 queueMicrotask(() => void flushRemoteSync('queued'))
             }
         }
-    }, [profileHardeningEnabled, viewerId])
+    }, [viewerId])
 
     const queueRemoteSync = useCallback((snapshot: AppearanceSnapshot, reason: string) => {
-        if (!profileHardeningEnabled || !viewerId || !bootstrappedRef.current) return
+        if (!viewerId || !bootstrappedRef.current) return
         if (pendingSyncRef.current && areAppearanceSnapshotsEquivalent(pendingSyncRef.current, snapshot)) {
             return
         }
@@ -202,14 +195,14 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
         syncTimerRef.current = window.setTimeout(() => {
             void flushRemoteSync(reason)
         }, REMOTE_SYNC_DEBOUNCE_MS)
-    }, [flushRemoteSync, profileHardeningEnabled, viewerId])
+    }, [flushRemoteSync, viewerId])
 
     const applyThemeMode = useCallback(async (nextTheme: ThemeMode, allowTransition: boolean) => {
         const startedAt = performance.now()
         const root = document.documentElement
         const transitionSupported = !!(document as Document & { startViewTransition?: (callback: () => void) => { finished: Promise<void> } }).startViewTransition
 
-        if (!allowTransition || !shellHardeningEnabled) {
+        if (!allowTransition) {
             setNextTheme(nextTheme)
             logger.metric('theme.toggle.ms', {
                 mode: nextTheme,
@@ -258,7 +251,7 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
             window.setTimeout(() => root.classList.remove('theme-transition'), 220)
             themeTransitionInFlight = false
         }
-    }, [setNextTheme, shellHardeningEnabled])
+    }, [setNextTheme])
 
     const setThemeWithTransition = useCallback(async (nextThemeInput: ThemeMode) => {
         const nextTheme = normalizeThemeMode(nextThemeInput, theme)
@@ -359,13 +352,9 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
                 const nextUserId = result.userId ?? null
 
                 setViewerId(nextUserId)
-                const nextShellEnabled = isHardeningDomainEnabled('shellV1', nextUserId)
-                const nextProfileEnabled = isHardeningDomainEnabled('profileV1', nextUserId)
-                setShellHardeningEnabled(nextShellEnabled)
-                setProfileHardeningEnabled(nextProfileEnabled)
                 lastSyncedSnapshotRef.current = result.snapshot
 
-                if (!nextUserId || !nextProfileEnabled) {
+                if (!nextUserId) {
                     return
                 }
 
@@ -436,10 +425,10 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
     }, [applySnapshotLocally, persistLocalSnapshot, setNextTheme])
 
     useEffect(() => {
-        if (!bootstrappedRef.current || !profileHardeningEnabled || !viewerId) return
+        if (!bootstrappedRef.current || !viewerId) return
         if (!pendingSyncRef.current) return
         void flushRemoteSync('viewer-ready')
-    }, [flushRemoteSync, profileHardeningEnabled, viewerId])
+    }, [flushRemoteSync, viewerId])
 
     const resetAppearance = useCallback(async () => {
         const snapshot = createAppearanceSnapshot(DEFAULT_APPEARANCE_SNAPSHOT)

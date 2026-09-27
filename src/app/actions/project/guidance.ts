@@ -16,7 +16,6 @@ import {
 import { getAuthUser } from "@/lib/supabase/auth-user";
 import { createNotification } from "@/lib/notifications/service";
 import { resolvePrivacyRelationships } from "@/lib/privacy/resolver";
-import { isProjectGuidanceInvitationEnabled } from "@/lib/features/guidance";
 import { getGuidanceCapacityState } from "@/lib/projects/guidance-capacity";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
@@ -48,7 +47,6 @@ function parseReviewAt(value: string | null | undefined) {
 export async function createProjectInvitationAction(input: CreateInvitationActionInput) {
     const user = await getAuthUser();
     if (!user) return { success: false as const, error: "Not authenticated" };
-    if (!isProjectGuidanceInvitationEnabled()) return { success: false as const, error: "Project invitations are temporarily unavailable" };
     const reviewAt = parseReviewAt(input.reviewAt);
     if (input.reviewAt?.trim() && !reviewAt) return { success: false as const, error: "Invalid review date" };
 

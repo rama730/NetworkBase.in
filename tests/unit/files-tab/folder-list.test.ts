@@ -19,9 +19,8 @@
 //                (covered by the caller-side guard test in
 //                `tests/unit/files-tab/metadata-strip.test.ts`; this file
 //                pins the component-level contract).
-//   * Req 12.1, 12.2, 12.5, 12.6 — Git change badge (M/A/D) only rendered
-//                when `filesFeatureFlags.wave4GitIntegration` is true AND a
-//                status is supplied AND the status is one of the three
+//   * Req 12.1, 12.5, 12.6 — Git change badge (M/A/D) only rendered
+//                when a status is supplied AND the status is one of the three
 //                allowed values; never rendered on folders; no badge when
 //                status is absent.
 //
@@ -498,21 +497,6 @@ describe("FolderListRow — git change badges (Req 12.1, 12.2, 12.5, 12.6)", () 
     );
   });
 
-  it("binds rendering to the `gitIntegrationEnabled` flag (Req 12.1, 12.2)", () => {
-    // The `showGitBadge` predicate gates the entire badge render on the
-    // wave4 flag. Without the flag, no badge ever appears — Req 12.2.
-    assert.match(
-      ROW_SOURCE,
-      /const\s+showGitBadge\s*=\s*\n?\s*gitIntegrationEnabled\s*&&/,
-      "showGitBadge predicate must start with the gitIntegrationEnabled guard",
-    );
-    assert.match(
-      ROW_SOURCE,
-      /\{\s*showGitBadge\s*\?\s*<GitChangeBadge\b/,
-      "GitChangeBadge is rendered only when showGitBadge is true",
-    );
-  });
-
   it("never renders a badge when gitChange is absent (Req 12.5)", () => {
     // `!!gitChange` in the predicate means null / undefined → no badge.
     assert.match(
@@ -530,33 +514,6 @@ describe("FolderListRow — git change badges (Req 12.1, 12.2, 12.5, 12.6)", () 
     );
   });
 
-  it("FolderListView gates the entire badge map behind the wave4 flag (Req 12.2)", () => {
-    // At the view level, `gitIntegrationEnabled = filesFeatureFlags.wave4GitIntegration`
-    // and `gitChangeByNodeId` returns null when the flag is false. This
-    // belt-and-suspenders gate means no downstream consumer can mint a
-    // badge even if the flag value were hot-swapped.
-    assert.match(
-      VIEW_SOURCE,
-      /const\s+gitIntegrationEnabled\s*=\s*filesFeatureFlags\.wave4GitIntegration/,
-      "FolderListView must derive gitIntegrationEnabled from the wave4 feature flag (Req 12.2)",
-    );
-    assert.match(
-      VIEW_SOURCE,
-      /if\s*\(!gitIntegrationEnabled\)\s*return\s+null/,
-      "FolderListView must return a null change-map when the flag is off (Req 12.2)",
-    );
-  });
-
-  it("FolderListView passes `gitChange={null}` to rows when the flag is off", () => {
-    // When gitIntegrationEnabled is false the per-row `gitChange`
-    // resolves to null; the row's showGitBadge predicate (`!!gitChange`)
-    // then short-circuits regardless of any cached status.
-    assert.match(
-      VIEW_SOURCE,
-      /const\s+gitChange\s*=\s*\n?\s*gitIntegrationEnabled\s*&&\s*gitChangeByNodeId\s*\n?\s*\?\s*gitChangeByNodeId\[node\.id\]\s*\?\?\s*null\s*\n?\s*:\s*null/,
-      "FolderListView must resolve gitChange to null whenever the flag is off OR the lookup misses",
-    );
-  });
 });
 
 // ─── Version pill — Req 11.1, 11.2, 11.3, 11.4 ───────────────────────

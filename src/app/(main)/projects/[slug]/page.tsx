@@ -4,7 +4,6 @@ import { cache, Suspense } from 'react';
 import ProjectDashboardClient from '@/components/projects/dashboard/ProjectDashboardClient';
 import { readProjectDetailShell, readProjectSprintDetail } from '@/app/actions/project/_all';
 import ProjectDetailLoading from './loading';
-import { isHardeningDomainEnabled } from '@/lib/features/hardening';
 import { getViewerIdentityContext, toClientViewer } from '@/lib/server/viewer-context';
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata';
 import { buildProjectDetailMetadataInput } from '@/lib/projects/project-detail-metadata';
@@ -138,10 +137,6 @@ async function ResolvedProjectDashboard({
     });
     const sprintResult = canViewSprints && sprintPromise ? await sprintPromise : null;
 
-    const dataHardeningEnabled = isHardeningDomainEnabled('dataV1', user?.id ?? null);
-    const filesHardeningEnabled = isHardeningDomainEnabled('filesV1', user?.id ?? null);
-    const peopleHardeningEnabled = isHardeningDomainEnabled('peopleV1', user?.id ?? null);
-
     return (
         <ProjectDashboardClient
             project={project}
@@ -151,9 +146,9 @@ async function ResolvedProjectDashboard({
             isOwner={capabilities.isOwner}
             isMember={capabilities.isMember}
             initialSprintData={sprintResult && sprintResult.success ? sprintResult.data : null}
-            data-hardening-data={dataHardeningEnabled ? "v1" : "off"}
-            data-hardening-files={filesHardeningEnabled ? "v1" : "off"}
-            data-hardening-people={peopleHardeningEnabled ? "v1" : "off"}
+            data-hardening-data="v1"
+            data-hardening-files="v1"
+            data-hardening-people="v1"
         />
     );
 }
