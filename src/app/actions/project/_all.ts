@@ -191,6 +191,7 @@ import {
   validateProjectSocialLinks,
 } from "@/lib/projects/social-links";
 import { isMissingRelationError } from "@/lib/db/errors";
+import { readProjectDocSettingsAction } from "./doc";
 
 const isMissingColumn = (error: unknown, column: string) => {
   const msg = error instanceof Error ? error.message : String(error);
@@ -11044,4 +11045,19 @@ export async function getProfileProjectsWithOpenRolesAction(
     console.error("Failed to get profile projects with open roles", error);
     return { items: [], nextCursor: null };
   }
+}
+
+export async function readProjectSettingsBootstrapAction(
+  projectId: string,
+  collaborators: ProjectCollaboratorSettingsOptions,
+) {
+  const [collaboratorSettings, fileWorkspace, notifications, docSettings, accessImpact, dangerPreflight] = await Promise.all([
+    getProjectCollaboratorSettingsAction(projectId, collaborators),
+    getProjectFileWorkspaceSettingsAction(projectId),
+    readProjectNotificationSettingsAction(projectId),
+    readProjectDocSettingsAction(projectId),
+    getProjectAccessImpactAction(projectId),
+    getProjectDangerZonePreflightAction(projectId),
+  ]);
+  return { collaboratorSettings, fileWorkspace, notifications, docSettings, accessImpact, dangerPreflight };
 }
