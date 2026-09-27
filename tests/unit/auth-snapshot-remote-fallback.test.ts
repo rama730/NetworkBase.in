@@ -16,8 +16,8 @@ function createUnsignedToken(payload: Record<string, unknown>) {
     ].join('.')
 }
 
-describe('auth snapshot remote fallback', () => {
-    it('falls back to verified auth-server user lookup when symmetric jwt secret is unavailable', async () => {
+describe('auth snapshot verification', () => {
+    it('rejects a token it cannot verify locally without calling the auth server', async () => {
         const previousJwtSecret = process.env.SUPABASE_JWT_SECRET
         Reflect.deleteProperty(process.env, 'SUPABASE_JWT_SECRET')
 
@@ -66,12 +66,10 @@ describe('auth snapshot remote fallback', () => {
                 },
             } as never)
 
-            assert.equal(getUserCalls, 1)
-            assert.equal(resolution.error, null)
-            assert.equal(resolution.user?.id, 'user-remote-1')
-            assert.equal(resolution.snapshot?.emailVerified, true)
-            assert.equal(resolution.snapshot?.onboardingComplete, true)
-            assert.equal(resolution.snapshot?.sessionId, 'session-remote-1')
+            assert.equal(getUserCalls, 0)
+            assert.equal(resolution.user, null)
+            assert.equal(resolution.snapshot, null)
+            assert.equal(resolution.error?.status, 401)
         } finally {
             if (previousJwtSecret === undefined) {
                 Reflect.deleteProperty(process.env, 'SUPABASE_JWT_SECRET')
