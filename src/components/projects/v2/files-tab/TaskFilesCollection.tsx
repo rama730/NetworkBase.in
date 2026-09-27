@@ -233,27 +233,6 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
     }
   }, [sortColumn]);
 
-  // Hover prefetch for sub-50ms instant task drilldown
-  const handlePrefetchTask = useCallback(
-    (targetTaskId: string) => {
-      void queryClient.prefetchInfiniteQuery({
-        queryKey: ["files-task-collections", projectId, view, targetTaskId, "", "all"],
-        queryFn: ({ pageParam }) =>
-          getTaskFileGroups(projectId, {
-            deliverables: view === "deliverables",
-            taskId: targetTaskId,
-            cursor: undefined,
-            fileCursor: pageParam,
-            query: "",
-            role: undefined,
-          }),
-        initialPageParam: undefined,
-        staleTime: 60_000,
-      });
-    },
-    [queryClient, projectId, view],
-  );
-
   const selected = groups.find((group) => group.id === taskId);
   const setTaskTitle = workspace.setTaskTitle;
   useEffect(() => { if (selected?.title) setTaskTitle(selected.title); }, [selected?.title, setTaskTitle]);
@@ -773,7 +752,6 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                         gridTemplateColumns: FOLDER_LIST_GRID_TEMPLATE,
                         minHeight: FOLDER_LIST_ROW_HEIGHT_PX,
                       }}
-                      onMouseEnter={() => handlePrefetchTask(group.id)}
                       onClick={() => selectTask(group.id)}
                       onKeyDown={(e) => {
                         if (e.target !== e.currentTarget) return;
