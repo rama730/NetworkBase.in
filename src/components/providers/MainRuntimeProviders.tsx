@@ -1,12 +1,14 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { usePathname } from 'next/navigation';
 import { NetworkNotificationsProvider } from '@/components/providers/NetworkNotificationsProvider';
 import { MessageAttentionProvider } from '@/components/providers/MessageAttentionProvider';
 import { RealtimeProvider } from '@/components/providers/RealtimeProvider';
-import { ChatPopupV2 } from '@/components/chat/v2/ChatPopupV2';
-import { useMessagesV2UiStore } from '@/stores/messagesV2UiStore';
+
+const ChatPopupV2 = dynamic(
+  () => import('@/components/chat/v2/ChatPopupV2').then((mod) => mod.ChatPopupV2),
+  { ssr: false },
+);
 
 const LazyChatProvider = dynamic(
   () => import('@/components/chat/ChatProvider').then((mod) => mod.ChatProvider),
@@ -20,10 +22,6 @@ interface MainRuntimeProvidersProps {
 export function MainRuntimeProviders({
   children,
 }: MainRuntimeProvidersProps) {
-  const pathname = usePathname();
-  const isMessagesRoute = pathname?.startsWith('/messages') ?? false;
-  const popupOpen = useMessagesV2UiStore((state) => state.popupState === 'open');
-
   return (
     <>
       <RealtimeProvider>
