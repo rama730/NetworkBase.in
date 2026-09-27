@@ -72,6 +72,7 @@ export {
     cancelSprintAction,
     deleteTaskAction,
     getProfileProjectsWithOpenRolesAction,
+    readProjectSettingsBootstrapAction,
 } from './_all';
 
 export { readProjectDocAction, readProjectDocSmartBlockPreviewsAction, readProjectDocSettingsAction, updateProjectDocSettingsAction, listProjectDocsAction, unlinkProjectDocAction } from './doc';

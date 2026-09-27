@@ -88,6 +88,7 @@ import {
     readProjectMemberNotificationSettingsAction,
     readProjectNotificationSettingsAction,
     readProjectDocSettingsAction,
+    readProjectSettingsBootstrapAction,
     removeProjectMemberAction,
     resetProjectMemberNotificationSettingsAction,
     resetProjectNotificationSettingsAction,
@@ -1056,11 +1057,11 @@ export default function ProjectSettingsTab({
                                 : false;
 
     const dangerPreflightLoadedRef = useRef(false);
-    const loadDangerPreflight = useCallback(async (force = false) => {
+    const loadDangerPreflight = useCallback(async (force = false, pending?: ReturnType<typeof getProjectDangerZonePreflightAction>) => {
         if (dangerPreflightLoadedRef.current && !force) return;
         setDangerPreflightLoading(true);
         try {
-            const result = await getProjectDangerZonePreflightAction(projectId);
+            const result = await (pending ?? getProjectDangerZonePreflightAction(projectId));
             if (!result.success) {
                 setDangerPreflight(null);
                 toast.error(result.message);
@@ -1078,11 +1079,11 @@ export default function ProjectSettingsTab({
     }, [projectId]);
 
     const accessImpactLoadedRef = useRef(false);
-    const loadAccessImpact = useCallback(async (force = false) => {
+    const loadAccessImpact = useCallback(async (force = false, pending?: ReturnType<typeof getProjectAccessImpactAction>) => {
         if (accessImpactLoadedRef.current && !force) return;
         setAccessImpactLoading(true);
         try {
-            const result = await getProjectAccessImpactAction(projectId);
+            const result = await (pending ?? getProjectAccessImpactAction(projectId));
             if (!result.success) {
                 setAccessImpact(null);
                 toast.error(result.message);
@@ -1099,7 +1100,7 @@ export default function ProjectSettingsTab({
         }
     }, [projectId]);
 
-    const loadCollaborators = useCallback(async (mode: "initial" | "refresh" | "more" = "initial") => {
+    const loadCollaborators = useCallback(async (mode: "initial" | "refresh" | "more" = "initial", pending?: ReturnType<typeof getProjectCollaboratorSettingsAction>) => {
         const cursor = mode === "more" ? collaboratorDataRef.current?.nextCursor ?? undefined : undefined;
         if (mode === "refresh") {
             setCollaboratorRefreshing(true);
@@ -1115,12 +1116,12 @@ export default function ProjectSettingsTab({
             }
         }
         try {
-            const result = await getProjectCollaboratorSettingsAction(projectId, {
+            const result = await (pending ?? getProjectCollaboratorSettingsAction(projectId, {
                 limit: 40,
                 cursor,
                 query: collaboratorSearch,
                 roleFilter: collaboratorFilter,
-            });
+            }));
             if (!result.success) {
                 setCollaboratorData(null);
                 toast.error(result.message);
@@ -1150,11 +1151,11 @@ export default function ProjectSettingsTab({
     }, [collaboratorFilter, collaboratorSearch, projectId]);
 
     const fileWorkspaceLoadedRef = useRef(false);
-    const loadFileWorkspaceSettings = useCallback(async (force = false) => {
+    const loadFileWorkspaceSettings = useCallback(async (force = false, pending?: ReturnType<typeof getProjectFileWorkspaceSettingsAction>) => {
         if (fileWorkspaceLoadedRef.current && !force) return;
         setFileWorkspaceLoading(true);
         try {
-            const result = await getProjectFileWorkspaceSettingsAction(projectId);
+            const result = await (pending ?? getProjectFileWorkspaceSettingsAction(projectId));
             if (!result.success) {
                 setFileWorkspaceData(null);
                 toast.error(result.message);
@@ -1172,11 +1173,11 @@ export default function ProjectSettingsTab({
     }, [projectId]);
 
     const projectNotificationLoadedRef = useRef(false);
-    const loadProjectNotificationSettings = useCallback(async (force = false) => {
+    const loadProjectNotificationSettings = useCallback(async (force = false, pending?: ReturnType<typeof readProjectNotificationSettingsAction>) => {
         if (projectNotificationLoadedRef.current && !force) return;
         setProjectNotificationLoading(true);
         try {
-            const result = await readProjectNotificationSettingsAction(projectId);
+            const result = await (pending ?? readProjectNotificationSettingsAction(projectId));
             if (!result.success) {
                 setProjectNotificationData(null);
                 toast.error(result.message);
@@ -1195,11 +1196,11 @@ export default function ProjectSettingsTab({
     }, [projectId]);
 
     const readmeLoadedRef = useRef(false);
-    const loadReadmeSettings = useCallback(async (force = false) => {
+    const loadReadmeSettings = useCallback(async (force = false, pending?: ReturnType<typeof readProjectDocSettingsAction>) => {
         if (readmeLoadedRef.current && !force) return;
         setReadmeSettingsLoading(true);
         try {
-            const result = await readProjectDocSettingsAction(projectId);
+            const result = await (pending ?? readProjectDocSettingsAction(projectId));
             if (!result.success) {
                 toast.error(result.error);
                 return;
@@ -1216,15 +1217,22 @@ export default function ProjectSettingsTab({
         }
     }, [projectId]);
 
-    // ponytail: initial parallel eager fetch once on mount; zero scroll re-fetch waterfalls
+    const bootstrappedProjectRef = useRef<string | null>(null);
     useEffect(() => {
-        void loadCollaborators("initial");
-        void loadFileWorkspaceSettings();
-        void loadProjectNotificationSettings();
-        void loadReadmeSettings();
-        void loadAccessImpact();
-        void loadDangerPreflight();
-    }, [loadAccessImpact, loadCollaborators, loadDangerPreflight, loadFileWorkspaceSettings, loadProjectNotificationSettings, loadReadmeSettings]);
+        if (bootstrappedProjectRef.current === projectId) return;
+        bootstrappedProjectRef.current = projectId;
+        const bootstrap = readProjectSettingsBootstrapAction(projectId, {
+            limit: 40,
+            query: collaboratorSearch,
+            roleFilter: collaboratorFilter,
+        });
+        void loadCollaborators("initial", bootstrap.then((data) => data.collaboratorSettings));
+        void loadFileWorkspaceSettings(false, bootstrap.then((data) => data.fileWorkspace));
+        void loadProjectNotificationSettings(false, bootstrap.then((data) => data.notifications));
+        void loadReadmeSettings(false, bootstrap.then((data) => data.docSettings));
+        void loadAccessImpact(false, bootstrap.then((data) => data.accessImpact));
+        void loadDangerPreflight(false, bootstrap.then((data) => data.dangerPreflight));
+    }, [collaboratorFilter, collaboratorSearch, loadAccessImpact, loadCollaborators, loadDangerPreflight, loadFileWorkspaceSettings, loadProjectNotificationSettings, loadReadmeSettings, projectId]);
 
     // Re-fetch collaborators only when search or filter genuinely changes (debounced)
     const initialCollaboratorFilterRef = useRef(false);
