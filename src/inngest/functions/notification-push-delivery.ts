@@ -39,7 +39,6 @@ export const notificationPushDelivery = inngest.createFunction(
     retries: 2,
     concurrency: { limit: 1 },
   },
-  // ponytail: 5-minute interval cuts idle checks by 80% while preserving timely push delivery
   { cron: "*/5 * * * *" },
   async ({ step }) => {
     const result = await step.run("deliver-due-web-push", async () => {
@@ -136,7 +135,7 @@ export const notificationPushDelivery = inngest.createFunction(
       return { scanned: rows.length, delivered, dropped, delayed };
     });
 
-    await step.run("write-heartbeat", async () => {
+    if (result.scanned > 0) await step.run("write-heartbeat", async () => {
       const now = new Date();
       await db.insert(jobHeartbeats)
         .values({

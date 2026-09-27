@@ -6660,10 +6660,7 @@ export async function incrementProjectViewAction(
       return { success: false, error: "Project not found" };
     }
 
-    const writeThroughEnabled =
-      process.env.PROJECT_VIEWS_WRITE_THROUGH === "1" || !redis;
-
-    if (writeThroughEnabled) {
+    if (!redis) {
       const [updated] = await db
         .update(projects)
         .set({ viewCount: sql`${projects.viewCount} + 1` })
@@ -6672,10 +6669,10 @@ export async function incrementProjectViewAction(
 
       return { success: true, viewCount: Number(updated?.viewCount ?? 1) };
     } else {
-      const bufferedVal = await redis!.hincrby("project:views", projectId, 1);
+      const bufferedVal = await redis.hincrby("project:views", projectId, 1);
       const cacheKey = `project:views:base:${projectId}`;
       let dbVal: number;
-      const cached = await redis!.get(cacheKey);
+      const cached = await redis.get(cacheKey);
       if (cached !== null) {
         dbVal = parseInt(cached as string, 10) || 0;
       } else {
@@ -6685,7 +6682,7 @@ export async function incrementProjectViewAction(
           .where(eq(projects.id, projectId))
           .limit(1);
         dbVal = dbRow?.viewCount ?? 0;
-        await redis!.set(cacheKey, dbVal, { ex: 60 });
+        await redis.set(cacheKey, dbVal, { ex: 60 });
       }
       return { success: true, viewCount: dbVal + bufferedVal };
     }
@@ -10875,7 +10872,7 @@ export async function getProjectLiveStatsAction(projectId: string): Promise<{
         }
 
         let liveViewCount = Math.max(0, row.viewCount ?? 0);
-        if (redis && process.env.PROJECT_VIEWS_WRITE_THROUGH !== "1") {
+        if (redis) {
           const bufferedVal = await redis.hget("project:views", projectId);
           if (bufferedVal) {
             liveViewCount += parseInt(bufferedVal as any, 10) || 0;

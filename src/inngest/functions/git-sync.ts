@@ -67,57 +67,39 @@ export const gitPull = inngest.createFunction(
 );
 export const gitSyncRecovery = inngest.createFunction(
   { id: "git-sync-recovery", concurrency: 1 },
-  // ponytail: 15-minute sweep avoids 4 SQL writes every 120s. ceiling: 15-minute cron interval. upgrade: webhook failure triggers if recovery SLA requires <5m.
-  { cron: "*/15 * * * *" },
+  { cron: "0 * * * *" },
   async ({ step }) =>
     step.run("recover-and-dispatch-sync", async () => {
-      await db
-        .update(githubSyncRuns)
-        .set({
-          status: "cancelled",
-          credential: null,
-          stage: "Review expired — compare again",
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(githubSyncRuns.status, "review"),
-            lt(githubSyncRuns.createdAt, new Date(Date.now() - 60 * 60_000)),
-          ),
-        );
+      const [work] = await db.execute<{ pending: boolean }>(sql`
+        SELECT EXISTS (
+          SELECT 1 FROM github_sync_runs
+          WHERE status IN ('review', 'running', 'queued')
+            OR credential IS NOT NULL
+            OR (status IN ('completed', 'cancelled') AND COALESCE(result->>'snapshotsCleaned', 'false') <> 'true')
+        ) AS pending
+      `);
+      if (!work?.pending) return { dispatched: 0 };
+      await db.execute(sql`
+        WITH expired AS (
+          UPDATE github_sync_runs
+          SET status = 'cancelled', credential = NULL, stage = 'Review expired — compare again', updated_at = now()
+          WHERE status = 'review' AND created_at < now() - interval '1 hour'
+          RETURNING id
+        ), interrupted AS (
+          UPDATE github_sync_runs
+          SET status = 'failed', stage = 'Worker interrupted — review and retry',
+            error = 'The worker lease expired. Previously applied files and remote commit identity have been retained.',
+            lease_id = NULL, lease_expires_at = NULL, updated_at = now()
+          WHERE status = 'running' AND lease_expires_at < now()
+          RETURNING id
+        )
+        UPDATE github_sync_runs
+        SET credential = NULL
+        WHERE credential IS NOT NULL
+          AND status IN ('failed', 'needs_review', 'cancelled', 'completed')
+          AND created_at < now() - interval '1 hour'
+      `);
       await cleanupReviewedSyncSnapshots();
-      await db
-        .update(githubSyncRuns)
-        .set({
-          status: "failed",
-          stage: "Worker interrupted — review and retry",
-          error:
-            "The worker lease expired. Previously applied files and remote commit identity have been retained.",
-          leaseId: null,
-          leaseExpiresAt: null,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(githubSyncRuns.status, "running"),
-            lt(githubSyncRuns.leaseExpiresAt, new Date()),
-          ),
-        );
-      await db
-        .update(githubSyncRuns)
-        .set({ credential: null })
-        .where(
-          and(
-            inArray(githubSyncRuns.status, [
-              "review",
-              "failed",
-              "needs_review",
-              "cancelled",
-              "completed",
-            ]),
-            lt(githubSyncRuns.createdAt, new Date(Date.now() - 60 * 60_000)),
-          ),
-        );
       const queued = await db
         .select({
           id: githubSyncRuns.id,
@@ -134,7 +116,6 @@ export const gitSyncRecovery = inngest.createFunction(
         )
         .limit(50);
       if (queued.length > 0) {
-        // Ponytail: Batch dispatch all recovered sync jobs in 1 Inngest network request
         await inngest.send(
           queued.map((run) => {
             const direction = run.manifest?.direction === "push" ? "push" : "pull";
@@ -162,13 +143,13 @@ export const gitSyncRecovery = inngest.createFunction(
 );
 export const uploadIntentCleanup = inngest.createFunction(
   { id: "upload-intent-cleanup", concurrency: 1 },
-  { cron: "*/15 * * * *" },
+  { cron: "0 * * * *" },
   async ({ step }) =>
     step.run("cleanup-expired-intents", cleanupExpiredUploadIntents),
 );
 export const lockCleanup = inngest.createFunction(
   { id: "lock-cleanup" },
-  { cron: "*/15 * * * *" },
+  { cron: "0 * * * *" },
   async () => {
     let deleted = 0;
     for (let batch = 0; batch < 10; batch++) {

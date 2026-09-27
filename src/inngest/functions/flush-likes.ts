@@ -6,7 +6,6 @@ import { eq, inArray, sql } from "drizzle-orm";
 
 export const flushUpdateLikes = inngest.createFunction(
     { id: "flush-project-likes", name: "Flush Project Update Likes from Redis" },
-    // ponytail: 15-minute cron prevents idle external polling churn while ensuring eventual consistency
     { cron: "*/15 * * * *" },
     async ({ step }) => {
         if (!redis) return { skipped: true, reason: "No Redis configured" };
