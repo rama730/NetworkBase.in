@@ -621,11 +621,6 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     window.addEventListener("online", reconcileVisibleFolder);
     document.addEventListener("visibilitychange", onVisibilityChange);
 
-    // ponytail: 5m background reconciliation. ceiling: 5m interval. upgrade: WebSocket Realtime push invalidation for remote lists.
-    const folderReconciliation = window.setInterval(
-      reconcileVisibleFolder,
-      300_000,
-    );
     // ponytail: 30s lock expiry sweep. ceiling: 30s interval. upgrade: WebSocket Realtime push invalidation for remote locks.
     const expirySweep = window.setInterval(() => {
       if (document.hidden) return;
@@ -645,7 +640,6 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       disposed = true;
       if (reconcileTimer) window.clearTimeout(reconcileTimer);
       window.clearInterval(expirySweep);
-      window.clearInterval(folderReconciliation);
       window.removeEventListener("focus", reconcileVisibleFolder);
       window.removeEventListener("project:task-files-changed", onFilesChanged);
       window.removeEventListener("online", reconcileVisibleFolder);

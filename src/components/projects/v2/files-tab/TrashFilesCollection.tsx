@@ -98,8 +98,6 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
     queryFn: ({ pageParam }) => getTrashPage(projectId, debouncedServerQuery, pageParam),
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     staleTime: 60_000,
-    refetchInterval: 300_000,
-    refetchIntervalInBackground: false,
   });
 
   function reconcile() {

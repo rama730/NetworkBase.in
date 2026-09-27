@@ -37,8 +37,6 @@ export function SavedFilesCollection({ projectId }: { projectId: string }) {
     },
     staleTime: 60_000,
     // ponytail: back off idle polling to 5m to eliminate client-side egress churn. ceiling: 5m polling interval. upgrade: WebSocket Realtime push invalidation for remote lists.
-    refetchInterval: 300_000,
-    refetchIntervalInBackground: false,
   });
   const nodes =
     result.data?.filter((node) =>

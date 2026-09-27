@@ -22,12 +22,14 @@ const jetbrainsMono = localFont({
   variable: "--font-jetbrains-mono",
   weight: "100 800",
   display: "swap",
+  preload: false,
 });
 const instrumentSerif = localFont({
   src: "./fonts/InstrumentSerif.ttf",
   variable: "--font-instrument-serif",
   weight: "400",
   display: "swap",
+  preload: false,
 });
 
 const THEME_PREHYDRATE_SCRIPT = buildThemePrehydrateScript();
