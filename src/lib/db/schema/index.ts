@@ -131,7 +131,7 @@ export const statusProjectEnum = pgEnum("status_project", [
   "completed",
   "archived",
 ]);
-export const statusRoleAppEnum = pgEnum("status_role_app", [
+export const statusRoleApplicationEnum = pgEnum("status_role_application", [
   "pending",
   "accepted",
   "rejected",
@@ -541,7 +541,7 @@ export const onboardingSubmissions = pgTable(
       .notNull(),
   },
   (t) => ({
-    userKeyUniqueIdx: uniqueIndex("onboarding_submissions_user_key_uidx").on(
+    userKeyUniqueIdx: uniqueIndex("onboarding_submissions_user_key_unique").on(
       t.userId,
       t.idempotencyKey,
     ),
@@ -619,7 +619,7 @@ export const connections = pgTable(
       t.blockedBy,
       t.blockedAt,
     ),
-    activePairUidx: uniqueIndex("connections_active_pair_uidx").on(
+    activePairUidx: uniqueIndex("connections_active_pair_unique").on(
       sql`LEAST(${t.requesterId}, ${t.addresseeId})`,
       sql`GREATEST(${t.requesterId}, ${t.addresseeId})`,
     ),
@@ -656,7 +656,7 @@ export const connectionSuggestionDismissals = pgTable(
   },
   (t) => ({
     userDismissedUniqueIdx: uniqueIndex(
-      "connection_suggestion_dismissals_user_profile_uidx",
+      "connection_suggestion_dismissals_user_profile_unique",
     ).on(t.userId, t.dismissedProfileId),
     userCreatedIdx: index(
       "connection_suggestion_dismissals_user_created_idx",
@@ -694,7 +694,7 @@ export const connectionSuggestions = pgTable(
   },
   (t) => ({
     userSuggestionUniqueIdx: uniqueIndex(
-      "connection_suggestions_user_suggested_uidx",
+      "connection_suggestions_user_suggested_unique",
     ).on(t.userId, t.suggestedUserId),
     userScoreIdx: index("connection_suggestions_user_score_idx").on(
       t.userId,
@@ -833,7 +833,7 @@ export const projects = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
-    ownerIdx: index("idx_projects_owner").on(t.ownerId),
+    ownerIdx: index("projects_owner_idx").on(t.ownerId),
     conversationIdx: index("projects_conversation_idx").on(t.conversationId),
     // Multi-column indexes for filtering (critical for 1M users)
     statusVisibilityIdx: index("projects_status_visibility_idx").on(
@@ -950,7 +950,7 @@ export const projectMembers = pgTable(
       t.projectId,
       t.userId,
     ),
-    userIdx: index("idx_project_members_user").on(t.userId),
+    userIdx: index("project_members_user_idx").on(t.userId),
     projectJoinedAtIdx: index("project_members_project_joined_at_idx").on(
       t.projectId,
       t.joinedAt.desc(),
@@ -1343,8 +1343,8 @@ export const profileCollaborationSummaries = pgTable(
 // ============================================================================
 // PROJECT MARKDOWNS
 // ============================================================================
-export const projectMarkdowns = pgTable(
-  "project_markdowns",
+export const projectDocs = pgTable(
+  "project_docs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     projectId: uuid("project_id")
@@ -1385,21 +1385,21 @@ export const projectMarkdowns = pgTable(
       .notNull(),
   },
   (t) => ({
-    projectSlugUnique: uniqueIndex("project_markdowns_slug_unique").on(
+    projectSlugUnique: uniqueIndex("project_docs_slug_unique").on(
       t.projectId,
       t.slug,
     ),
-    publishedVersionIdx: index("project_markdowns_published_version_idx").on(
+    publishedVersionIdx: index("project_docs_published_version_idx").on(
       t.publishedVersionId,
     ),
-    linkedNodeIdx: index("project_markdowns_linked_node_idx").on(
+    linkedNodeIdx: index("project_docs_linked_node_idx").on(
       t.linkedNodeId,
     ),
   }),
 );
 
-export const projectMarkdownVersions = pgTable(
-  "project_markdown_versions",
+export const projectDocVersions = pgTable(
+  "project_doc_versions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     projectId: uuid("project_id")
@@ -1407,7 +1407,7 @@ export const projectMarkdownVersions = pgTable(
       .references(() => projects.id, { onDelete: "cascade" }),
     markdownId: uuid("markdown_id")
       .notNull()
-      .references(() => projectMarkdowns.id, { onDelete: "cascade" }),
+      .references(() => projectDocs.id, { onDelete: "cascade" }),
     versionNumber: integer("version_number").notNull(),
     content: text("content").notNull(),
     excerpt: text("excerpt"),
@@ -1432,19 +1432,19 @@ export const projectMarkdownVersions = pgTable(
   },
   (t) => ({
     markdownVersionUnique: uniqueIndex(
-      "project_markdown_versions_markdown_version_unique",
+      "project_doc_versions_markdown_version_unique",
     ).on(t.markdownId, t.versionNumber),
     projectCreatedIdx: index(
-      "project_markdown_versions_project_created_idx",
+      "project_doc_versions_project_created_idx",
     ).on(t.projectId, t.createdAt),
-    projectHashIdx: index("project_markdown_versions_project_hash_idx").on(
+    projectHashIdx: index("project_doc_versions_project_hash_idx").on(
       t.projectId,
       t.contentHash,
     ),
     projectDeletedIdx: index(
-      "project_markdown_versions_project_deleted_idx",
+      "project_doc_versions_project_deleted_idx",
     ).on(t.projectId, t.deletedAt),
-    createdByIdx: index("project_markdown_versions_created_by_idx").on(
+    createdByIdx: index("project_doc_versions_created_by_idx").on(
       t.createdBy,
     ),
   }),
@@ -1517,7 +1517,7 @@ export const roleApplications = pgTable(
       .references(() => profiles.id, { onDelete: "cascade" }), // Denormalized for O(1) creator queries
     message: text("message"), // Application message from user
     conversationId: uuid("conversation_id"), // Link to message thread (nullable)
-    status: statusRoleAppEnum("status").default("pending").notNull(),
+    status: statusRoleApplicationEnum("status").default("pending").notNull(),
     proposedRoleId: uuid("proposed_role_id").references(
       () => projectOpenRoles.id,
       { onDelete: "set null" },
@@ -1577,8 +1577,8 @@ export const roleApplications = pgTable(
       t.projectId,
       t.applicantId,
     ),
-    roleIdIdx: index("idx_role_applications_role_id").on(t.roleId),
-    decisionByIdx: index("idx_role_applications_decision_by").on(t.decisionBy),
+    roleIdIdx: index("role_applications_role_id_idx").on(t.roleId),
+    decisionByIdx: index("role_applications_decision_by_idx").on(t.decisionBy),
     proposedRoleIdx: index("role_applications_proposed_role_idx").on(
       t.proposedRoleId,
     ),
@@ -1656,7 +1656,7 @@ export const projectFollows = pgTable(
       .notNull(),
   },
   (t) => ({
-    userIdx: index("idx_project_follows_user_id").on(t.userId),
+    userIdx: index("project_follows_user_id_idx").on(t.userId),
     uniqueFollow: uniqueIndex("project_follows_unique_idx").on(
       t.projectId,
       t.userId,
@@ -1684,8 +1684,8 @@ export const savedProjects = pgTable(
       .notNull(),
   },
   (t) => ({
-    userIdx: index("idx_saved_projects_user_id").on(t.userId),
-    projectIdx: index("idx_saved_projects_project_id").on(t.projectId),
+    userIdx: index("saved_projects_user_id_idx").on(t.userId),
+    projectIdx: index("saved_projects_project_id_idx").on(t.projectId),
     uniqueSave: uniqueIndex("saved_projects_unique_idx").on(
       t.userId,
       t.projectId,
@@ -2141,7 +2141,7 @@ export const tasks = pgTable(
     workflowColumnIdx: index("tasks_workflow_column_idx").on(
       t.workflowColumnId,
     ),
-    sprintIdx: index("idx_tasks_sprint_id").on(t.sprintId),
+    sprintIdx: index("tasks_sprint_id_idx").on(t.sprintId),
     timelineOriginSprintIdx: index("tasks_timeline_origin_sprint_idx").on(
       t.timelineOriginSprintId,
       t.timelineOriginAt,
@@ -2177,7 +2177,7 @@ export const tasks = pgTable(
       sql`${t.title} gin_trgm_ops`,
     ),
     // Optimization: Creator Index for "My Tasks"
-    creatorIdx: index("idx_tasks_creator_id").on(t.creatorId),
+    creatorIdx: index("tasks_creator_id_idx").on(t.creatorId),
     projectNumberIdx: index("tasks_project_number_idx").on(
       t.projectId,
       t.taskNumber,
@@ -2265,11 +2265,11 @@ export const taskSubtasks = pgTable(
       .notNull(),
   },
   (t) => ({
-    taskPositionIdx: index("idx_task_subtasks_position").on(
+    taskPositionIdx: index("task_subtasks_position_idx").on(
       t.taskId,
       t.position,
     ),
-    taskCompletedIdx: index("idx_task_subtasks_task_completed").on(
+    taskCompletedIdx: index("task_subtasks_task_completed_idx").on(
       t.taskId,
       t.completed,
     ),
@@ -2293,7 +2293,7 @@ export const taskReadReceipts = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.taskId, t.userId] }),
-    userTaskReadIdx: index("idx_task_read_receipts_user_task").on(
+    userTaskReadIdx: index("task_read_receipts_user_task_idx").on(
       t.userId,
       t.taskId,
     ),
@@ -2330,11 +2330,11 @@ export const taskComments = pgTable(
       .notNull(),
   },
   (t) => ({
-    createdAtIdx: index("idx_task_comments_created_at").on(
+    createdAtIdx: index("task_comments_created_at_idx").on(
       t.taskId,
       t.createdAt,
     ),
-    parentCreatedAtIdx: index("idx_task_comments_parent_created_at").on(
+    parentCreatedAtIdx: index("task_comments_parent_created_at_idx").on(
       t.taskId,
       t.parentCommentId,
       t.createdAt,
@@ -2342,9 +2342,9 @@ export const taskComments = pgTable(
     taskCreatedActiveIdx: index("task_comments_task_created_active_idx")
       .on(t.taskId, t.createdAt.desc())
       .where(sql`${t.deletedAt} IS NULL`),
-    parentIdx: index("idx_task_comments_parent_id").on(t.parentCommentId),
-    deletedByIdx: index("idx_task_comments_deleted_by").on(t.deletedBy),
-    userIdx: index("idx_task_comments_user_id").on(t.userId),
+    parentIdx: index("task_comments_parent_id_idx").on(t.parentCommentId),
+    deletedByIdx: index("task_comments_deleted_by_idx").on(t.deletedBy),
+    userIdx: index("task_comments_user_id_idx").on(t.userId),
   }),
 );
 
@@ -2366,8 +2366,8 @@ export const taskCommentLikes = pgTable(
       .notNull(),
   },
   (t) => ({
-    commentIdx: index("idx_task_comment_likes_comment_id").on(t.commentId),
-    userIdx: index("idx_task_comment_likes_user_id").on(t.userId),
+    commentIdx: index("task_comment_likes_comment_id_idx").on(t.commentId),
+    userIdx: index("task_comment_likes_user_id_idx").on(t.userId),
     uniqueLike: uniqueIndex("task_comment_likes_unique").on(
       t.commentId,
       t.userId,
@@ -2664,7 +2664,7 @@ export const projectNodes = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
-    parentIdx: index("idx_project_nodes_parent_id").on(t.parentId),
+    parentIdx: index("project_nodes_parent_id_idx").on(t.parentId),
     projectPathIdx: index("project_nodes_project_path_idx").on(
       t.projectId,
       t.path,
@@ -2699,7 +2699,7 @@ export const projectNodes = pgTable(
       t.syncStatus,
       t.gitHash,
     ),
-    activeParentNameIdx: uniqueIndex("project_nodes_active_parent_name_uidx")
+    activeParentNameIdx: uniqueIndex("project_nodes_active_parent_name_unique")
       .on(
         t.projectId,
         sql`COALESCE(${t.parentId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
@@ -2707,7 +2707,7 @@ export const projectNodes = pgTable(
         sql`COALESCE(${t.taskId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
       )
       .where(sql`${t.deletedAt} IS NULL`),
-    activeProjectPathIdx: uniqueIndex("project_nodes_active_project_path_uidx")
+    activeProjectPathIdx: uniqueIndex("project_nodes_active_project_path_unique")
       .on(
         t.projectId,
         t.path,
@@ -2723,8 +2723,8 @@ export const projectNodes = pgTable(
       "project_nodes_no_self_parent_check",
       sql`${t.parentId} IS NULL OR ${t.parentId} <> ${t.id}`,
     ),
-    createdByIdx: index("idx_project_nodes_created_by").on(t.createdBy),
-    deletedByIdx: index("idx_project_nodes_deleted_by").on(t.deletedBy),
+    createdByIdx: index("project_nodes_created_by_idx").on(t.createdBy),
+    deletedByIdx: index("project_nodes_deleted_by_idx").on(t.deletedBy),
     deletedAtPartialIdx: index("project_nodes_deleted_at_partial_idx")
       .on(t.deletedAt)
       .where(sql`${t.deletedAt} IS NULL`),
@@ -2838,7 +2838,7 @@ export const uploadIntents = pgTable(
       t.projectId,
       t.createdAt,
     ),
-    storageIdx: uniqueIndex("upload_intents_bucket_key_uidx").on(
+    storageIdx: uniqueIndex("upload_intents_bucket_key_unique").on(
       t.bucket,
       t.storageKey,
     ),
@@ -2871,7 +2871,7 @@ export const recoveryCodeRedemptions = pgTable(
       t.redeemedAt,
     ),
     uniqueUserCodeIdx: uniqueIndex(
-      "recovery_code_redemptions_user_code_uidx",
+      "recovery_code_redemptions_user_code_unique",
     ).on(t.userId, t.codeId),
   }),
 );
@@ -2900,17 +2900,17 @@ export const taskNodeLinks = pgTable(
     }),
   },
   (t) => ({
-    taskIdx: index("idx_task_node_links_task_id").on(t.taskId),
+    taskIdx: index("task_node_links_task_id_idx").on(t.taskId),
     taskLinkedAtIdx: index("task_node_links_task_linked_at_idx").on(
       t.taskId,
       t.linkedAt.desc(),
     ),
-    nodeIdx: index("idx_task_node_links_node_id").on(t.nodeId),
+    nodeIdx: index("task_node_links_node_id_idx").on(t.nodeId),
     uniqueLink: uniqueIndex("task_node_links_unique_idx").on(
       t.taskId,
       t.nodeId,
     ),
-    createdByIdx: index("idx_task_node_links_created_by").on(t.createdBy),
+    createdByIdx: index("task_node_links_created_by_idx").on(t.createdBy),
   }),
 );
 
@@ -2933,7 +2933,7 @@ export const projectFileIndex = pgTable(
       .notNull(),
   },
   (t) => ({
-    projectIdx: index("idx_project_file_index_project_id").on(t.projectId),
+    projectIdx: index("project_file_index_project_id_idx").on(t.projectId),
     // Optimization: GIN Index for fast trigram search (Search Optimization)
     // Needs `CREATE EXTENSION IF NOT EXISTS pg_trgm;` in migration
     contentSearchIdx: index("project_file_index_content_search_idx").using(
@@ -2975,7 +2975,7 @@ export const projectNodeLocks = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   },
   (t) => ({
-    projectIdx: index("idx_project_node_locks_project_id").on(t.projectId),
+    projectIdx: index("project_node_locks_project_id_idx").on(t.projectId),
     expiresIdx: index("project_node_locks_expires_idx").on(t.expiresAt),
     projectExpiresIdx: index("project_node_locks_project_expires_idx").on(
       t.projectId,
@@ -3086,7 +3086,7 @@ export const githubContributorIdentities = pgTable("github_contributor_identitie
   email: text("email").notNull(),
   avatarUrl: text("avatar_url"),
   approvedAt: timestamp("approved_at", { withTimezone: true }).defaultNow().notNull(),
-}, t => ({ githubIdx: uniqueIndex("github_contributor_identity_uidx").on(t.githubId) }));
+}, t => ({ githubIdx: uniqueIndex("github_contributor_identity_unique").on(t.githubId) }));
 
 // ============================================================================
 // RELATIONS
@@ -3169,8 +3169,8 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   applications: many(roleApplications),
   profileContributions: many(profileProjectContributions),
   profileContributionStages: many(profileProjectContributionStages),
-  markdowns: many(projectMarkdowns),
-  markdownVersions: many(projectMarkdownVersions),
+  markdowns: many(projectDocs),
+  markdownVersions: many(projectDocVersions),
   conversation: one(conversations, {
     fields: [projects.conversationId],
     references: [conversations.id],
@@ -3287,39 +3287,39 @@ export const profileCollaborationSummariesRelations = relations(
   }),
 );
 
-export const projectMarkdownsRelations = relations(
-  projectMarkdowns,
+export const projectDocsRelations = relations(
+  projectDocs,
   ({ one, many }) => ({
     project: one(projects, {
-      fields: [projectMarkdowns.projectId],
+      fields: [projectDocs.projectId],
       references: [projects.id],
     }),
 
-    publishedVersion: one(projectMarkdownVersions, {
-      fields: [projectMarkdowns.publishedVersionId],
-      references: [projectMarkdownVersions.id],
+    publishedVersion: one(projectDocVersions, {
+      fields: [projectDocs.publishedVersionId],
+      references: [projectDocVersions.id],
     }),
     linkedNode: one(projectNodes, {
-      fields: [projectMarkdowns.linkedNodeId],
+      fields: [projectDocs.linkedNodeId],
       references: [projectNodes.id],
     }),
-    versions: many(projectMarkdownVersions),
+    versions: many(projectDocVersions),
   }),
 );
 
-export const projectMarkdownVersionsRelations = relations(
-  projectMarkdownVersions,
+export const projectDocVersionsRelations = relations(
+  projectDocVersions,
   ({ one, many }) => ({
     project: one(projects, {
-      fields: [projectMarkdownVersions.projectId],
+      fields: [projectDocVersions.projectId],
       references: [projects.id],
     }),
-    markdown: one(projectMarkdowns, {
-      fields: [projectMarkdownVersions.markdownId],
-      references: [projectMarkdowns.id],
+    markdown: one(projectDocs, {
+      fields: [projectDocVersions.markdownId],
+      references: [projectDocs.id],
     }),
     author: one(profiles, {
-      fields: [projectMarkdownVersions.createdBy],
+      fields: [projectDocVersions.createdBy],
       references: [profiles.id],
     }),
   }),
@@ -5780,7 +5780,7 @@ export const projectGitDeltas = pgTable(
       .notNull(),
   },
   (t) => ({
-    uniqueSeq: unique("project_git_deltas_unique_seq").on(
+    uniqueSeq: unique("project_git_deltas_seq_unique").on(
       t.projectId,
       t.targetBranch,
       t.sequenceNumber,

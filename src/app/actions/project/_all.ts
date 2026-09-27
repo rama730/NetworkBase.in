@@ -23,8 +23,8 @@ import {
   taskActivityEvents,
   tags,
   projectTags,
-  projectMarkdowns,
-  projectMarkdownVersions,
+  projectDocs,
+  projectDocVersions,
   projectGuidanceAppointments,
   taskReadReceipts,
   githubSyncConnections,
@@ -1523,20 +1523,20 @@ async function fetchProjectDetailShellData(
         .limit(PROJECT_DETAIL_OPEN_ROLES_PAGE_SIZE + 1),
       db
         .select({
-          publishedVersionId: projectMarkdowns.publishedVersionId,
-          versionNumber: projectMarkdownVersions.versionNumber,
-          excerpt: projectMarkdownVersions.excerpt,
-          createdAt: projectMarkdownVersions.createdAt,
+          publishedVersionId: projectDocs.publishedVersionId,
+          versionNumber: projectDocVersions.versionNumber,
+          excerpt: projectDocVersions.excerpt,
+          createdAt: projectDocVersions.createdAt,
         })
-        .from(projectMarkdowns)
+        .from(projectDocs)
         .leftJoin(
-          projectMarkdownVersions,
-          eq(projectMarkdowns.publishedVersionId, projectMarkdownVersions.id),
+          projectDocVersions,
+          eq(projectDocs.publishedVersionId, projectDocVersions.id),
         )
         .where(
           and(
-            eq(projectMarkdowns.projectId, projectId),
-            eq(projectMarkdowns.slug, "readme"),
+            eq(projectDocs.projectId, projectId),
+            eq(projectDocs.slug, "readme"),
           ),
         )
         .limit(1),
@@ -1735,19 +1735,19 @@ const getPublicProjectDetailMetadata = unstable_cache(
           "public_project_detail_metadata_readme",
           () =>
             db
-              .select({ excerpt: projectMarkdownVersions.excerpt })
-              .from(projectMarkdowns)
+              .select({ excerpt: projectDocVersions.excerpt })
+              .from(projectDocs)
               .leftJoin(
-                projectMarkdownVersions,
+                projectDocVersions,
                 eq(
-                  projectMarkdowns.publishedVersionId,
-                  projectMarkdownVersions.id,
+                  projectDocs.publishedVersionId,
+                  projectDocVersions.id,
                 ),
               )
               .where(
                 and(
-                  eq(projectMarkdowns.projectId, project.id),
-                  eq(projectMarkdowns.slug, "readme"),
+                  eq(projectDocs.projectId, project.id),
+                  eq(projectDocs.slug, "readme"),
                 ),
               )
               .limit(1),
@@ -1836,19 +1836,19 @@ export async function readProjectDetailMetadata(input: {
     const readme = readmeVisible
       ? await retryProjectDetailRead("project_detail_metadata_readme", () =>
           db
-            .select({ excerpt: projectMarkdownVersions.excerpt })
-            .from(projectMarkdowns)
+            .select({ excerpt: projectDocVersions.excerpt })
+            .from(projectDocs)
             .leftJoin(
-              projectMarkdownVersions,
+              projectDocVersions,
               eq(
-                projectMarkdowns.publishedVersionId,
-                projectMarkdownVersions.id,
+                projectDocs.publishedVersionId,
+                projectDocVersions.id,
               ),
             )
             .where(
               and(
-                eq(projectMarkdowns.projectId, project.id),
-                eq(projectMarkdowns.slug, "readme"),
+                eq(projectDocs.projectId, project.id),
+                eq(projectDocs.slug, "readme"),
               ),
             )
             .limit(1),

@@ -172,7 +172,8 @@
     "drizzle/0166_project_recent_activity.sql",
     "drizzle/0168_realtime_publication_trim.sql",
     "drizzle/0169_index_fixes.sql",
-    "drizzle/0170_rls_security.sql"
+    "drizzle/0170_rls_security.sql",
+    "drizzle/0171_sql_naming.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

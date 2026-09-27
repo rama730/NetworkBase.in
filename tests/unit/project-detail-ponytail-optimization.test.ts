@@ -89,7 +89,7 @@ test("Domain D: DocTab loads the document and its list in one request", () => {
   );
 
   assert.match(docTabContent, /const paramDoc = searchParams\?\.get\("doc"\);/);
-  assert.doesNotMatch(docTabContent, /useProjectMarkdowns/);
+  assert.doesNotMatch(docTabContent, /useProjectDocList/);
   assert.match(docTabContent, /useProjectDoc\(projectId, paramDoc \? normalizeProjectDocSlug\(paramDoc\) : null\)/);
 });
 

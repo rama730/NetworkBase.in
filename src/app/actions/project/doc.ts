@@ -11,8 +11,8 @@ import {
     projectMembers,
     projectNodes,
     projectOpenRoles,
-    projectMarkdownVersions,
-    projectMarkdowns,
+    projectDocVersions,
+    projectDocs,
     projectSprints,
     projects,
     tasks,
@@ -101,7 +101,7 @@ function normalizeStoredQualityReport(value: unknown, fallbackContent: string): 
     return buildProjectDocQualityReport(fallbackContent);
 }
 
-function toDocVersion(row: (typeof projectMarkdownVersions.$inferSelect & { createdByName?: string | null }) | null | undefined, displayVersionNumber?: number, coAuthorsData?: { id: string; name: string; avatarUrl: string | null }[]): ProjectDocVersion | null {
+function toDocVersion(row: (typeof projectDocVersions.$inferSelect & { createdByName?: string | null }) | null | undefined, displayVersionNumber?: number, coAuthorsData?: { id: string; name: string; avatarUrl: string | null }[]): ProjectDocVersion | null {
     if (!row) return null;
     const content = normalizeProjectDocContent(row.content);
     const cleanedMetadata = content === row.content ? null : getOrBuildProjectDocPublishMetadata(content);
@@ -159,8 +159,8 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
                 columns: { role: true },
             })
             : Promise.resolve(null),
-        db.query.projectMarkdowns.findMany({
-            where: eq(projectMarkdowns.projectId, projectId),
+        db.query.projectDocs.findMany({
+            where: eq(projectDocs.projectId, projectId),
         }),
     ]);
     if (!project) throw new Error("Project not found");
@@ -219,13 +219,13 @@ async function getDocProjectContext(projectId: string, actorUserId: string | nul
 
 async function getOrCreateMarkdown(projectId: string, userId: string, docSlug: string = "readme", settings: ProjectDocSettings = DEFAULT_PROJECT_DOC_SETTINGS) {
     docSlug = normalizeProjectDocSlug(docSlug);
-    const existing = await db.query.projectMarkdowns.findFirst({
-        where: and(eq(projectMarkdowns.projectId, projectId), eq(projectMarkdowns.slug, docSlug)),
+    const existing = await db.query.projectDocs.findFirst({
+        where: and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, docSlug)),
     });
     if (existing) return existing;
     const filename = docSlug === "readme" ? "README.md" : `${docSlug.toUpperCase()}.md`;
     const [created] = await db
-        .insert(projectMarkdowns)
+        .insert(projectDocs)
         .values({
             projectId,
             slug: docSlug,
@@ -239,8 +239,8 @@ async function getOrCreateMarkdown(projectId: string, userId: string, docSlug: s
 
 async function readPublishedVersion(versionId: string | null | undefined) {
     if (!versionId) return null;
-    return db.query.projectMarkdownVersions.findFirst({
-        where: and(eq(projectMarkdownVersions.id, versionId), isNull(projectMarkdownVersions.deletedAt)),
+    return db.query.projectDocVersions.findFirst({
+        where: and(eq(projectDocVersions.id, versionId), isNull(projectDocVersions.deletedAt)),
     });
 }
 
@@ -556,9 +556,9 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
                 }
             } else {
                 // If it was deleted, detach it
-                await db.update(projectMarkdowns)
+                await db.update(projectDocs)
                     .set({ linkedNodeId: null })
-                    .where(eq(projectMarkdowns.id, context.readme.id));
+                    .where(eq(projectDocs.id, context.readme.id));
             }
         }
 
@@ -867,9 +867,9 @@ export async function updateProjectDocSettingsAction(projectId: string, input: u
         if (!context.permission.canManageSettings) return { success: false as const, error: "You cannot manage settings." };
         const readme = await getOrCreateMarkdown(projectId, userId, docSlug, context.settings);
         const nextSettings = normalizeProjectDocSettings({ ...context.settings, ...parsed });
-        const [updated] = await db.update(projectMarkdowns)
+        const [updated] = await db.update(projectDocs)
             .set({ settings: nextSettings, updatedAt: new Date() })
-            .where(eq(projectMarkdowns.id, readme.id))
+            .where(eq(projectDocs.id, readme.id))
             .returning();
         await recordNodeEvent(projectId, userId, null, "project_readme.settings_updated", { settings: nextSettings });
         revalidateProjectDoc(context.project);
@@ -909,16 +909,16 @@ export async function linkProjectDocAction(projectId: string, nodeId: string, do
 
         // Upsert project readme record with linkedNodeId
         await db.transaction(async (tx) => {
-            const readme = await tx.query.projectMarkdowns.findFirst({
+            const readme = await tx.query.projectDocs.findFirst({
                 where: and(
-                    eq(projectMarkdowns.projectId, projectId),
-                    eq(projectMarkdowns.slug, docSlug)
+                    eq(projectDocs.projectId, projectId),
+                    eq(projectDocs.slug, docSlug)
                 )
             });
 
             if (!readme) {
                 const filename = node.name || (docSlug === "readme" ? "README.md" : `${docSlug.toUpperCase()}.md`);
-                await tx.insert(projectMarkdowns).values({
+                await tx.insert(projectDocs).values({
                     projectId,
                     slug: docSlug,
                     filename,
@@ -926,13 +926,13 @@ export async function linkProjectDocAction(projectId: string, nodeId: string, do
                     settings: context.settings,
                 });
             } else {
-                await tx.update(projectMarkdowns)
+                await tx.update(projectDocs)
                     .set({
                         filename: node.name || readme.filename,
                         linkedNodeId: nodeId,
                         updatedAt: new Date(),
                     })
-                    .where(eq(projectMarkdowns.id, readme.id));
+                    .where(eq(projectDocs.id, readme.id));
             }
         });
 
@@ -954,21 +954,21 @@ export async function unlinkProjectDocAction(projectId: string, docSlug: string 
         }
 
         if (docSlug === "readme") {
-            await db.update(projectMarkdowns)
+            await db.update(projectDocs)
                 .set({
                     linkedNodeId: null,
                     updatedAt: new Date(),
                 })
                 .where(and(
-                    eq(projectMarkdowns.projectId, projectId),
-                    eq(projectMarkdowns.slug, docSlug)
+                    eq(projectDocs.projectId, projectId),
+                    eq(projectDocs.slug, docSlug)
                 ));
         } else {
             if (context.readme) {
-                await db.delete(projectMarkdowns)
+                await db.delete(projectDocs)
                     .where(and(
-                        eq(projectMarkdowns.projectId, projectId),
-                        eq(projectMarkdowns.slug, docSlug)
+                        eq(projectDocs.projectId, projectId),
+                        eq(projectDocs.slug, docSlug)
                     ));
             }
         }
@@ -982,7 +982,7 @@ export async function unlinkProjectDocAction(projectId: string, docSlug: string 
     }
 }
 
-export async function listProjectMarkdownsAction(projectId: string) {
+export async function listProjectDocsAction(projectId: string) {
     try {
         const actorUserId = await getOptionalUserId();
         const base = await loadDocProjectBase(projectId, actorUserId);
@@ -1015,7 +1015,7 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
             if (parsed.publishOnCreate) {
                 const metadata = getOrBuildProjectDocPublishMetadata(starterText);
                 const [newVersion] = await db
-                    .insert(projectMarkdownVersions)
+                    .insert(projectDocVersions)
                     .values({
                         projectId,
                         markdownId: readme.id,
@@ -1029,18 +1029,18 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
                         coAuthors: [],
                         createdBy: userId,
                     })
-                    .returning({ id: projectMarkdownVersions.id });
+                    .returning({ id: projectDocVersions.id });
                 if (newVersion) {
                     publishedVersionId = newVersion.id;
                 }
             }
 
             await db
-                .update(projectMarkdowns)
+                .update(projectDocs)
                 .set({
                     ...(publishedVersionId ? { publishedVersionId } : {}),
                 })
-                .where(eq(projectMarkdowns.id, readme.id));
+                .where(eq(projectDocs.id, readme.id));
         }
 
         revalidateProjectDoc(context.project);
