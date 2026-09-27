@@ -4,7 +4,7 @@ import { FILTER_VIEWS, SORT_OPTIONS, type FilterView } from '@/constants/discove
 import { db } from '@/lib/db';
 import { connections, profiles, projectFollows, projectMembers, projectOpenRoles, projects, roleApplications } from '@/lib/db/schema';
 import { recordDiscoverMetric } from '@/lib/discover/observability';
-import { DISCOVER_RANKING_SCHEMA_VERSION, getDiscoverRankingWeights } from '@/lib/discover/ranking-config';
+import { DISCOVER_RANKING_SCHEMA_VERSION, DISCOVER_RANKING_WEIGHTS } from '@/lib/discover/ranking-config';
 import { buildDiscoverSnapshotKey, getDiscoverSnapshotCached } from '@/lib/discover/snapshot-cache';
 import { logger } from '@/lib/logger';
 import { buildProjectOwnerPresentation } from '@/lib/privacy/presentation';
@@ -254,7 +254,7 @@ const buildSearchRelevanceExpr = (terms: string[]) => {
 };
 
 const buildRecommendationRelevanceExpr = (terms: string[]) => {
-    const weights = getDiscoverRankingWeights();
+    const weights = DISCOVER_RANKING_WEIGHTS;
 
     if (terms.length === 0) {
         return sql<number>`0`;
@@ -379,7 +379,7 @@ const countArrayMatches = (values: string[] | null, terms: string[]) => {
 };
 
 const calculateTrendScore = (candidate: CandidateProject) => {
-    const weights = getDiscoverRankingWeights();
+    const weights = DISCOVER_RANKING_WEIGHTS;
     const views = Math.max(0, candidate.viewCount || 0);
     const follows = Math.max(0, candidate.followersCount || 0);
     const hoursSinceUpdate = Math.max(0, (Date.now() - candidate.updatedAt.getTime()) / (1000 * 60 * 60));
@@ -393,7 +393,7 @@ const calculateTrendScore = (candidate: CandidateProject) => {
 };
 
 const calculateQualityScore = (candidate: CandidateProject) => {
-    const weights = getDiscoverRankingWeights();
+    const weights = DISCOVER_RANKING_WEIGHTS;
     const tagsScore = Math.min(1, (candidate.tags?.length || 0) / 6);
     const skillsScore = Math.min(1, (candidate.skills?.length || 0) / 6);
     const lifecycleScore = Math.min(1, (candidate.lifecycleStages?.length || 0) / 5);
@@ -408,7 +408,7 @@ const calculateQualityScore = (candidate: CandidateProject) => {
 };
 
 const calculateRecommendationScore = (candidate: CandidateProject, terms: string[]) => {
-    const weights = getDiscoverRankingWeights();
+    const weights = DISCOVER_RANKING_WEIGHTS;
     const trendScore = calculateTrendScore(candidate);
     const qualityScore = calculateQualityScore(candidate);
 
@@ -441,7 +441,7 @@ const calculateRecommendationScore = (candidate: CandidateProject, terms: string
 const applyDiversityRerank = (
     entries: Array<{ id: string; score: number; ownerId: string; category: string | null; reasons: string[] }>,
 ) => {
-    const weights = getDiscoverRankingWeights();
+    const weights = DISCOVER_RANKING_WEIGHTS;
     const remaining = [...entries].sort((a, b) => b.score - a.score);
     const reranked: typeof entries = [];
     let lastOwnerId: string | null = null;
@@ -518,7 +518,7 @@ const buildReasonLabels = (input: {
 const fetchSnapshotCandidates = async (
     conditions: SQL<unknown>[],
 ): Promise<CandidateProject[]> => {
-    const weights = getDiscoverRankingWeights();
+    const weights = DISCOVER_RANKING_WEIGHTS;
 
     try {
         return await db
@@ -575,7 +575,7 @@ const getFeedSnapshot = async (
     filters: DiscoverFilters,
     personalizationTerms: string[],
 ) => {
-    const weights = getDiscoverRankingWeights();
+    const weights = DISCOVER_RANKING_WEIGHTS;
     const cacheKey = buildDiscoverSnapshotKey({
         version: DISCOVER_RANKING_SCHEMA_VERSION,
         view,
@@ -1138,7 +1138,7 @@ export const getDiscoverProjects = cache(async (
 
     const conditions = buildBaseConditions(filters, view, viewerId);
 
-    const weights = getDiscoverRankingWeights();
+    const weights = DISCOVER_RANKING_WEIGHTS;
     const trendingScoreExpr = sql<number>`(
         (ln(1 + greatest(coalesce(${projects.viewCount}, 0), 0)) * ${weights.trending.views}) +
         (ln(1 + greatest(coalesce(${projects.followersCount}, 0), 0)) * ${weights.trending.follows}) +
