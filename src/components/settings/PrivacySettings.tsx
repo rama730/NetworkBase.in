@@ -84,15 +84,15 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
   const handleProfileVisibilityChange = (visibility: ProfileVisibilitySetting) => {
     if (visibility === settings?.profileVisibility) return;
     if (visibility === "private" && settings?.profileVisibility !== "private" && typeof window !== "undefined" && !window.confirm("Switch profile visibility to Private? Strangers will only see a locked profile shell.")) return;
-    change("/api/v1/privacy/profile-visibility", { visibility }, "Profile visibility updated");
+    change("/api/v1/privacy", { visibility }, "Profile visibility updated");
   };
   const handleConnectionPrivacyChange = (connectionPrivacy: ConnectionPrivacySetting) => {
     if (connectionPrivacy === settings?.connectionPrivacy) return;
     if (connectionPrivacy === "nobody" && settings?.connectionPrivacy !== "nobody" && typeof window !== "undefined" && !window.confirm("Turn off new connection requests? People will no longer be able to send you new requests.")) return;
-    change("/api/v1/privacy/connection-privacy", { connectionPrivacy }, "Connection request privacy updated");
+    change("/api/v1/privacy", { connectionPrivacy }, "Connection request privacy updated");
   };
   const handleMessagePrivacyChange = (messagePrivacy: MessagePrivacySetting) => {
-    if (messagePrivacy !== settings?.messagePrivacy) change("/api/v1/privacy/message-privacy", { messagePrivacy }, "Messaging privacy updated");
+    if (messagePrivacy !== settings?.messagePrivacy) change("/api/v1/privacy", { messagePrivacy }, "Messaging privacy updated");
   };
   const handleUnblock = (userId: string) => {
     if (typeof window !== "undefined" && !window.confirm("Unblock this account? Future requests and messages will follow your privacy settings.")) return;

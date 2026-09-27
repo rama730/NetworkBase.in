@@ -41,7 +41,7 @@ export function SessionsList({
   const handleLogOutCurrent = async (id: string) => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/v1/sessions/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/v1/sessions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       const contentType = res.headers.get("content-type") || "";
       const json = contentType.includes("application/json") ? await res.json() : null;
       if (!res.ok || json?.success === false) {
@@ -60,7 +60,7 @@ export function SessionsList({
   const handleLogOutOthers = async () => {
     setBusy(true);
     try {
-      const res = await fetch("/api/v1/sessions/others", { method: "DELETE" });
+      const res = await fetch("/api/v1/sessions?scope=others", { method: "DELETE" });
       const contentType = res.headers.get("content-type") || "";
       const json = contentType.includes("application/json") ? await res.json() : null;
       if (!res.ok || json?.success === false) {
