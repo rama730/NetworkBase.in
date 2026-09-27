@@ -1,0 +1,295 @@
+"use client";
+
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
+import { Camera } from "lucide-react";
+import Link from "next/link";
+import { isToday, isAfter, subDays } from "date-fns";
+import { cn } from "@/lib/utils";
+import { formatLastActive } from "@/lib/ui/date-formatting";
+import type { Project } from "@/types/hub";
+
+export function getProjectAvatarUrl(project: Partial<Project> | null | undefined): string | null {
+    if (!project) return null;
+    const raw = project.coverImage ?? (project as any).cover_image ?? (project as any).coverImageUrl ?? (project as any).cover_image_url;
+    if (typeof raw !== "string") return null;
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+
+// Module-level cached date formatters map by locale to support 1M global users without re-creating Intl instances
+const dateFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function getCachedDateFormatter(locale = "en-US"): Intl.DateTimeFormat {
+    let formatter = dateFormatterCache.get(locale);
+    if (!formatter) {
+        formatter = new Intl.DateTimeFormat(locale, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+        });
+        dateFormatterCache.set(locale, formatter);
+    }
+    return formatter;
+}
+
+// Fallback & synchronous default instance
+const projectDateFormatter = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+});
+dateFormatterCache.set("en-US", projectDateFormatter);
+
+export function formatProjectOfflinePresenceLabel(
+    value: string | Date | null | undefined,
+    locale?: string
+): string {
+    if (!value) return "No recent activity";
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return "No recent activity";
+    const targetLocale = locale || (typeof navigator !== "undefined" && navigator.language ? navigator.language : "en-US");
+    const formatter = getCachedDateFormatter(targetLocale);
+    const formattedDate = formatter.format(d);
+    return `Last updated: ${formattedDate}`;
+}
+
+/**
+ * Fine-grained relative recency for active projects (< 7 days)
+ */
+export function formatProjectActivePresenceLabel(value: string | Date | null | undefined): string | null {
+    if (!value) return null;
+    const d = value instanceof Date ? value : new Date(value);
+    const time = d.getTime();
+    if (Number.isNaN(time)) return null;
+
+    const now = Date.now();
+    const diffMs = Math.max(0, now - time);
+    const diffMinutes = Math.floor(diffMs / (60 * 1000));
+
+    if (diffMinutes < 5) return "Active just now";
+    if (diffMinutes < 60) return `Active ${diffMinutes}m ago`;
+
+    const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+    if (diffHours < 24 && isToday(d)) return `Active ${diffHours}h ago`;
+    if (isToday(d)) return "Active today";
+
+    const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+    if (diffDays <= 7 && isAfter(d, subDays(new Date(), 7))) {
+        return diffDays >= 1 ? `Active ${diffDays}d ago` : "Active this week";
+    }
+
+    return null;
+}
+
+export type ProjectPresenceState = "today" | "week" | "offline";
+
+export function getProjectPresenceState(value: string | Date | null | undefined): ProjectPresenceState {
+    const activeState = formatLastActive(value);
+    if (activeState === "Active today") return "today";
+    if (activeState === "Active this week") return "week";
+    return "offline";
+}
+
+/**
+ * Broadcast local project activity without server/database roundtrips (1M users scale)
+ */
+export function broadcastProjectActivity(projectId?: string) {
+    if (typeof window === "undefined") return;
+    const now = new Date().toISOString();
+    window.dispatchEvent(new CustomEvent("nb-project-activity", { detail: { projectId, timestamp: now } }));
+    if (typeof BroadcastChannel !== "undefined") {
+        try {
+            const channel = new BroadcastChannel("nb-project-activity-v1");
+            channel.postMessage({ projectId, timestamp: now });
+            channel.close();
+        } catch {
+            // Ignore restricted cross-origin contexts
+        }
+    }
+}
+
+/**
+ * Broadcast project metadata and cover updates across local windows and tabs (1M users scale)
+ */
+export function broadcastProjectUpdated(projectId: string, update?: { coverImage?: string | null }) {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("nb-project-updated", { detail: { projectId, update } }));
+    if (typeof BroadcastChannel !== "undefined") {
+        try {
+            const channel = new BroadcastChannel("nb-project-updated-v1");
+            channel.postMessage({ projectId, update });
+            channel.close();
+        } catch {
+            // Ignore restricted cross-origin contexts
+        }
+    }
+}
+
+let sharedPresenceChannel: BroadcastChannel | null = null;
+if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
+    try {
+        sharedPresenceChannel = new BroadcastChannel("nb-project-activity-v1");
+        sharedPresenceChannel.onmessage = (msgEvent) => {
+            const data = msgEvent.data;
+            if (data?.projectId) {
+                window.dispatchEvent(new CustomEvent("nb-project-activity", { detail: data }));
+            }
+        };
+    } catch {
+        // Ignore restricted environments
+    }
+}
+
+export function ProjectPresenceDot({
+    lastActiveAt,
+    compact = false,
+    projectId,
+    standalone = false,
+    className,
+}: {
+    lastActiveAt?: string | Date | null;
+    compact?: boolean;
+    projectId?: string;
+    standalone?: boolean;
+    className?: string;
+    recentAction?: string | null;
+}) {
+    const [liveActiveAt, setLiveActiveAt] = useState<string | Date | null | undefined>(lastActiveAt);
+
+    useEffect(() => {
+        setLiveActiveAt(lastActiveAt);
+    }, [lastActiveAt]);
+
+    // Zero-cost real-time presence synchronization across open tabs & local actions
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+
+        const handleLocalActivity = (event: Event) => {
+            const customEvent = event as CustomEvent<{ projectId?: string; timestamp?: string | Date }>;
+            if (!projectId || !customEvent.detail?.projectId || customEvent.detail.projectId === projectId) {
+                setLiveActiveAt(customEvent.detail?.timestamp ?? new Date());
+            }
+        };
+
+        window.addEventListener("nb-project-activity", handleLocalActivity as EventListener);
+        return () => {
+            window.removeEventListener("nb-project-activity", handleLocalActivity as EventListener);
+        };
+    }, [projectId]);
+
+    const activeState = useMemo(() => formatLastActive(liveActiveAt), [liveActiveAt]);
+    const fineGrainedActive = useMemo(() => formatProjectActivePresenceLabel(liveActiveAt), [liveActiveAt]);
+    const label = fineGrainedActive ?? formatProjectOfflinePresenceLabel(liveActiveAt);
+
+    const tone = activeState === "Active today"
+        ? "var(--status-success)"
+        : activeState === "Active this week"
+            ? "var(--status-warning)"
+            : "var(--muted-foreground)";
+
+    const baseClasses = standalone
+        ? "inline-block size-2.5 rounded-full shrink-0 ring-1 ring-black/10 dark:ring-white/15"
+        : cn(
+            compact ? "nb-person-presence-dot nb-person-presence-dot--compact" : "nb-person-presence-dot",
+            "ring-1 ring-black/10 dark:ring-white/15"
+        );
+
+    return (
+        <span
+            data-testid="project-avatar-presence-dot"
+            role="status"
+            className={cn(baseClasses, className)}
+            style={{ backgroundColor: tone }}
+            aria-label={label}
+            title={label}
+        />
+    );
+}
+
+interface ProjectAvatarProps {
+    project: Partial<Project>;
+    size?: "detail" | "card";
+    className?: string;
+    showPresence?: boolean;
+    isOwner?: boolean;
+    slugOrId?: string;
+    priority?: boolean;
+}
+
+export function ProjectAvatar({
+    project,
+    size = "detail",
+    className,
+    showPresence = true,
+    isOwner = false,
+    slugOrId,
+    priority,
+}: ProjectAvatarProps) {
+    const avatarUrl = getProjectAvatarUrl(project);
+    const [imageLoaded, setImageLoaded] = useState(false);
+    const [hasError, setHasError] = useState(false);
+
+    useEffect(() => {
+        setHasError(false);
+        setImageLoaded(false);
+    }, [avatarUrl]);
+
+    if (!avatarUrl || hasError) {
+        return null;
+    }
+
+    const isDetail = size === "detail";
+    const dimensionClasses = isDetail ? "size-[80px] rounded-xl" : "size-11 rounded-md";
+    const imageSize = isDetail ? "80px" : "44px";
+
+    return (
+        <div className="relative inline-flex shrink-0">
+            <div
+                data-testid="project-avatar"
+                data-size={size}
+                className={cn(
+                    "group/avatar relative shrink-0 overflow-hidden border border-border/80 bg-muted/40 ring-1 ring-inset ring-black/5 dark:ring-white/10 shadow-2xs transition-all duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
+                    dimensionClasses,
+                    !isDetail && "group-hover:border-foreground/25 group-hover:shadow-xs",
+                    className
+                )}
+            >
+                <Image
+                    src={avatarUrl}
+                    alt={`${project.title || "Project"} avatar`}
+                    fill
+                    sizes={imageSize}
+                    priority={priority ?? isDetail}
+                    loading={isDetail ? "eager" : "lazy"}
+                    decoding="async"
+                    style={{ objectFit: "cover" }}
+                    className="object-cover transition-opacity duration-150"
+                    onLoad={() => setImageLoaded(true)}
+                    onError={() => setHasError(true)}
+                    unoptimized
+                />
+                {isDetail && isOwner && slugOrId && (
+                    <Link
+                        href={`/projects/${slugOrId}?tab=settings#project-settings-general`}
+                        aria-label="Change project avatar"
+                        title="Change project avatar"
+                        className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 backdrop-blur-[2px] transition-opacity duration-[180ms] hover:opacity-100 focus:opacity-100 focus:outline-none"
+                    >
+                        <Camera className="size-4 text-white drop-shadow-xs" aria-hidden="true" />
+                    </Link>
+                )}
+            </div>
+            {showPresence && (
+                <ProjectPresenceDot
+                    lastActiveAt={project.updatedAt}
+                    compact={!isDetail}
+                    projectId={project.id || project.slug}
+                />
+            )}
+        </div>
+    );
+}
+
+export default ProjectAvatar;
+

@@ -32,15 +32,15 @@ export function SkillChip({
     return (
         <span
             className={cn(
-                'inline-flex min-w-0 max-w-full items-center rounded-lg border font-medium transition-colors',
+                'inline-flex min-w-0 max-w-full items-center rounded-sm border font-medium transition-colors',
                 size === 'sm' && 'gap-1.5 px-2 py-1 text-xs',
-                size === 'md' && 'gap-2 px-2.5 py-1.5 text-sm',
+                size === 'md' && 'gap-1.5 px-2 py-1 text-xs',
                 size === 'lg' && 'gap-2.5 px-3 py-2 text-sm',
-                variant === 'default' && 'border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200',
-                variant === 'subtle' && 'border-transparent bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200',
-                variant === 'required' && 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200',
-                variant === 'preferred' && 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200',
-                selected && 'border-blue-500 ring-2 ring-blue-500/20',
+                variant === 'default' && 'border-border bg-card text-foreground',
+                variant === 'subtle' && 'border-transparent bg-muted text-foreground',
+                variant === 'required' && 'border-primary/30 bg-primary/10 text-primary',
+                variant === 'preferred' && 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                selected && 'border-primary ring-2 ring-primary/20',
                 className,
             )}
             data-skill-key={skill.canonicalKey}
@@ -52,7 +52,7 @@ export function SkillChip({
                 <button
                     type="button"
                     onClick={onRemove}
-                    className="-mr-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-md text-zinc-500 hover:bg-black/5 hover:text-red-600 focus-visible:outline-none   dark:hover:bg-white/10"
+                    className="-mr-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive focus-visible:outline-none"
                     aria-label={`Remove ${name}`}
                 >
                     <X className="h-3.5 w-3.5" aria-hidden="true" />

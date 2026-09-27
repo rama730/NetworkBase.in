@@ -47,8 +47,8 @@ export interface StepTransition {
 }
 
 export const STEP_TRANSITION: StepTransition = {
-  enter: { opacity: 0, transform: 'translateX(12px)' },
-  enterActive: { opacity: 1, transform: 'translateX(0)', transition: 'all 200ms ease-out' },
+  enter: { opacity: 0, transform: 'translateX(4px)' },
+  enterActive: { opacity: 1, transform: 'translateX(0)', transition: 'opacity 100ms cubic-bezier(.2,.8,.3,1), transform 100ms cubic-bezier(.2,.8,.3,1)' },
   exit: { opacity: 1, transform: 'translateX(0)' },
-  exitActive: { opacity: 0, transform: 'translateX(-12px)', transition: 'all 150ms ease-in' },
+  exitActive: { opacity: 0, transform: 'translateX(-4px)', transition: 'opacity 80ms cubic-bezier(.2,.8,.3,1), transform 80ms cubic-bezier(.2,.8,.3,1)' },
 }

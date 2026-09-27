@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db';
 import { projectGitDeltas, projectNodeConflicts, projectNodes, fileVersions, projects } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import { buildProjectFileKey } from '@/lib/storage/project-file-key';
 import { randomUUID, createHash } from 'crypto';
@@ -35,6 +35,7 @@ export async function getPendingDeltasAction(projectId: string, targetBranch: st
                 eq(projectGitDeltas.status, 'pending')
             ),
             orderBy: [projectGitDeltas.sequenceNumber, projectGitDeltas.deltaOrder],
+            limit: 100,
         });
 
         return { success: true, deltas };
@@ -56,22 +57,26 @@ export async function getProjectConflictsAction(projectId: string, targetBranch:
                 eq(projectNodeConflicts.gitBranch, targetBranch),
                 eq(projectNodeConflicts.conflictStatus, 'unresolved')
             ),
+            limit: 100,
         });
 
-        // Resolve paths and names
-        const conflictsWithNodes = await Promise.all(
-            conflicts.map(async (c) => {
-                const node = await db.query.projectNodes.findFirst({
-                    where: eq(projectNodes.id, c.nodeId),
-                    columns: { name: true, path: true },
-                });
-                return {
-                    ...c,
-                    fileName: node?.name || 'unknown',
-                    filePath: node?.path || 'unknown',
-                };
+        // Resolve paths and names in a single batch query (O(1) roundtrips instead of N+1)
+        const nodeIds = [...new Set(conflicts.map((c) => c.nodeId))];
+        const nodes = nodeIds.length > 0
+            ? await db.query.projectNodes.findMany({
+                where: inArray(projectNodes.id, nodeIds),
+                columns: { id: true, name: true, path: true },
             })
-        );
+            : [];
+        const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+        const conflictsWithNodes = conflicts.map((c) => {
+            const node = nodeMap.get(c.nodeId);
+            return {
+                ...c,
+                fileName: node?.name || 'unknown',
+                filePath: node?.path || 'unknown',
+            };
+        });
 
         return { success: true, conflicts: conflictsWithNodes };
     } catch (err: any) {
@@ -96,6 +101,7 @@ export async function resolveConflictAction(
 
         const node = await db.query.projectNodes.findFirst({
             where: eq(projectNodes.id, conflict.nodeId),
+            columns: { id: true, projectId: true, mimeType: true, currentVersion: true },
         });
         if (!node) throw new Error('Node not found');
         await assertGitOwner(node.projectId, user.id);
@@ -119,6 +125,28 @@ export async function resolveConflictAction(
             ttlSeconds: 60,
         });
 
+        let storageKey: string | null = null;
+        let contentHash: string | null = null;
+        let finalBufferSize = 0;
+        if (resolution !== 'keep_mine') {
+            const adminClient = await createAdminClient();
+            storageKey = buildProjectFileKey(conflict.projectId, `conflicts/${conflict.id}-${Date.now()}`);
+            const buf = Buffer.from(finalContent, 'utf8');
+            finalBufferSize = buf.length;
+            const { error: uploadError } = await adminClient.storage
+                .from('project-files')
+                .upload(storageKey, buf, {
+                    contentType: node.mimeType || 'text/plain',
+                    cacheControl: '31536000',
+                });
+
+            if (uploadError) {
+                throw new Error(`Failed to upload resolved content to storage: ${uploadError.message}`);
+            }
+
+            contentHash = computeSha256(finalContent);
+        }
+
         try {
         await db.transaction(async (tx) => {
             await tx
@@ -132,23 +160,7 @@ export async function resolveConflictAction(
                 userId: user.id,
                 credentials: lease,
             });
-            if (resolution !== 'keep_mine') {
-                const adminClient = await createAdminClient();
-                const storageKey = buildProjectFileKey(conflict.projectId, `conflicts/${conflict.id}-${Date.now()}`);
-                
-                // Upload content to S3
-                const { error: uploadError } = await adminClient.storage
-                    .from('project-files')
-                    .upload(storageKey, Buffer.from(finalContent, 'utf8'), {
-                        contentType: node.mimeType || 'text/plain',
-                        cacheControl: '31536000',
-                    });
-
-                if (uploadError) {
-                    throw new Error(`Failed to upload resolved content to storage: ${uploadError.message}`);
-                }
-
-                const contentHash = computeSha256(finalContent);
+            if (resolution !== 'keep_mine' && storageKey && contentHash) {
                 const nextVersion = node.currentVersion + 1;
 
                 // Update node version
@@ -157,7 +169,7 @@ export async function resolveConflictAction(
                     .set({
                         currentVersion: nextVersion,
                         s3Key: storageKey,
-                        size: Buffer.from(finalContent, 'utf8').length,
+                        size: finalBufferSize,
                         gitHash: contentHash,
                         syncStatus: 'merged',
                         updatedAt: new Date(),

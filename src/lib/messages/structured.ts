@@ -479,8 +479,7 @@ export function getMessagePreviewText(params: {
         }
     })();
 
-    // ponytail: media wins over an optional caption so every surface describes
-    // the same message kind without loading the attachment.
+    // ponytail: media wins over an optional caption so every surface describes the same message kind without loading the attachment. ceiling: static media category descriptor. upgrade: inline snippet rendering if attachment metadata provides rich captions.
     if (mediaPreview) {
         return `${params.replyToMessageId ? '↩ ' : ''}${mediaPreview}`;
     }

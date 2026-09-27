@@ -78,7 +78,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
             ref={ref}
             role="toolbar"
             aria-label="Quick reactions"
-            className="msg-reaction-quick-bar fixed z-[130] flex flex-col rounded-2xl border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+            className="msg-reaction-quick-bar fixed z-[130] flex flex-col rounded-lg border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
         >
             <div className="flex items-center gap-1">
                 {QUICK_REACTIONS.map((emoji) => (
@@ -106,7 +106,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                             e.stopPropagation();
                             setShowExtended(true);
                         }}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300 text-sm font-bold border border-dashed border-zinc-200 dark:border-zinc-800"
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300 text-sm font-semibold border border-dashed border-zinc-200 dark:border-zinc-800"
                         aria-label="More reactions"
                     >
                         +
@@ -114,7 +114,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                 )}
             </div>
             {showExtended && (
-                <div className="grid grid-cols-6 gap-1 p-1 border-t border-zinc-100 dark:border-zinc-800 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="grid grid-cols-6 gap-1 p-1 border-t border-zinc-100 dark:border-zinc-800 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-[180ms]">
                     {EXTENDED_REACTIONS.map((emoji) => (
                         <button
                             key={emoji}

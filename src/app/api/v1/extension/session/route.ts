@@ -26,7 +26,7 @@ type CachedSession = { sessionId: string; active: boolean; cachedAt: number };
 const sessionStatusCache = new Map<string, CachedSession>();
 const MAX_SESSION_CACHE_SIZE = 10_000;
 
-export function invalidateExtensionSessionCache(tokenHash?: string) {
+function invalidateExtensionSessionCache(tokenHash?: string) {
   if (tokenHash) {
     sessionStatusCache.delete(tokenHash);
   } else {

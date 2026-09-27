@@ -564,6 +564,20 @@ type AttachmentRowForResolution = {
     height: number | null;
 };
 
+const MESSAGE_ATTACHMENT_PROJECTION = {
+    id: messageAttachments.id,
+    messageId: messageAttachments.messageId,
+    type: messageAttachments.type,
+    storagePath: messageAttachments.storagePath,
+    url: messageAttachments.url,
+    filename: messageAttachments.filename,
+    sizeBytes: messageAttachments.sizeBytes,
+    mimeType: messageAttachments.mimeType,
+    thumbnailUrl: messageAttachments.thumbnailUrl,
+    width: messageAttachments.width,
+    height: messageAttachments.height,
+};
+
 type HydratableMessageRow = {
     id: string;
     conversationId: string;
@@ -609,10 +623,13 @@ async function hydrateConversationMessages(params: {
         viewerId,
         rows.map((message) => message.replyToMessageId).filter(Boolean) as string[],
     );
-    const attachmentListPromise = db
-        .select()
-        .from(messageAttachments)
-        .where(inArray(messageAttachments.messageId, messageIds));
+    const attachmentListPromise = messageIds.length > 0
+        ? db
+            .select(MESSAGE_ATTACHMENT_PROJECTION)
+            .from(messageAttachments)
+            .where(inArray(messageAttachments.messageId, messageIds))
+            .limit(100)
+        : Promise.resolve([]);
     const reactionSummaryMapPromise = getReactionSummaryMap(messageIds, viewerId);
     const privateFollowUpRowsPromise = db
         .select({
@@ -683,7 +700,7 @@ async function hydrateConversationMessages(params: {
     ]);
 
     const senderMap = new Map(senderProfiles.map((sender) => [sender.id, sender]));
-    const attachmentMap = new Map<string, typeof attachmentList>();
+    const attachmentMap = new Map<string, (typeof attachmentList)[number][]>();
     for (const attachment of attachmentList) {
         if (!attachmentMap.has(attachment.messageId)) {
             attachmentMap.set(attachment.messageId, []);
@@ -2007,16 +2024,13 @@ export async function markConversationAsRead(
                         eq(conversationParticipants.userId, user.id)
                     )
                 )
-                .limit(1)
-                .for('update');
+                .limit(1);
 
             if (!membership) {
                 return { ok: false as const, error: 'Not a participant of this conversation' };
             }
 
-            // ponytail: repeated visibility/read observers commonly submit the
-            // same watermark. Once this row is already clear, no database
-            // recount, participant write, or notification write is needed.
+            // ponytail: repeated visibility/read observers commonly submit the same watermark. ceiling: row already marked read with 0 unread. upgrade: record read audit entry if per-read timestamp tracking required.
             if (
                 serverLastReadMessageId
                 && membership.lastReadMessageId === serverLastReadMessageId
@@ -2993,10 +3007,13 @@ export async function getPinnedMessages(
         );
 
         const messageIds = rows.map((row) => row.id);
-        const attachments = await db
-            .select()
-            .from(messageAttachments)
-            .where(inArray(messageAttachments.messageId, messageIds));
+        const attachments = messageIds.length > 0
+            ? await db
+                .select(MESSAGE_ATTACHMENT_PROJECTION)
+                .from(messageAttachments)
+                .where(inArray(messageAttachments.messageId, messageIds))
+                .limit(100)
+            : [];
         const attachmentsByMessage = new Map<string, typeof attachments>();
         for (const attachment of attachments) {
             if (!attachmentsByMessage.has(attachment.messageId)) {
@@ -3556,9 +3573,10 @@ export async function sendMessageWithAttachments(
                 .limit(1);
 
             const existingAttachments = await db
-                .select()
+                .select(MESSAGE_ATTACHMENT_PROJECTION)
                 .from(messageAttachments)
-                .where(eq(messageAttachments.messageId, existing.id));
+                .where(eq(messageAttachments.messageId, existing.id))
+                .limit(20);
             const hydratedExistingAttachments = await hydrateAttachmentUrls(
                 existingAttachments as AttachmentRowForResolution[]
             );
@@ -3689,9 +3707,7 @@ export async function sendMessageWithAttachments(
                     .returning();
             }
 
-            // ponytail: the insert trigger owns text-message ordering, previews,
-            // and unread state. Attachment rows are created after that trigger,
-            // so only attachment messages need this richer preview overwrite.
+            // ponytail: the insert trigger owns text-message ordering, previews, and unread state. ceiling: claimedAttachments.length > 0. upgrade: move attachment preview extraction to SQL trigger if binary uploads become synchronous.
             if (claimedAttachments.length > 0) {
                 await tx
                     .update(conversationParticipants)
@@ -3828,9 +3844,10 @@ export async function sendMessageWithAttachments(
                     .where(eq(profiles.id, viewerId))
                     .limit(1);
                 const existingAttachments = await db
-                    .select()
+                    .select(MESSAGE_ATTACHMENT_PROJECTION)
                     .from(messageAttachments)
-                    .where(eq(messageAttachments.messageId, existing.id));
+                    .where(eq(messageAttachments.messageId, existing.id))
+                    .limit(20);
                 const hydratedExistingAttachments = await hydrateAttachmentUrls(
                     existingAttachments as AttachmentRowForResolution[]
                 );

@@ -28,7 +28,7 @@ import {
   Trash2,
   Upload,
   X,
-  MoreHorizontal, Download, Copy, Info, History, ListTodo, ArrowDownWideNarrow,
+  MoreHorizontal, Download, Copy, Info, History, ListTodo, ArrowDownWideNarrow, BookOpenText, FileUp, Link2, Tag,
 } from "lucide-react";
 
 import {
@@ -43,11 +43,15 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { getProjectNodes } from "@/app/actions/files/nodes";
 import { getProjectFileSignedUrl } from "@/app/actions/files/content";
 import { useFilesWorkspaceView } from "../FilesWorkspaceViews";
 import { FilesWorkspaceMenu, FilesHeaderSlot } from "../FilesWorkspaceHeader";
+import { TaskSearchPicker } from "../picker/TaskSearchPicker";
+import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
+import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
+import { isTextLike as isTextFile } from "../../utils/fileKind";
 import type { ProjectNode } from "@/lib/db/schema";
 import { filesFeatureFlags } from "@/lib/features/files";
 import { cn } from "@/lib/utils";
@@ -82,6 +86,7 @@ import {
   FilesTabUploadModal,
   type FilesTabUploadConfirmResult,
 } from "../upload/FilesTabUploadModal";
+import { validateUploadSelection } from "@/lib/files/upload-validator";
 
 /**
  * Stable empty reference for the git `changedFiles` slice. The store
@@ -121,7 +126,18 @@ export interface FolderListViewProps {
   canEdit: boolean;
   canManageFiles?: boolean;
   className?: string;
-  collection?: { menuItems?: React.ReactNode; nodes: FolderListRowNode[]; loading?: boolean; footer?: React.ReactNode; labels?: Record<string, string>; preserveOrder?: boolean; emptyMessage?: string; onUnlink?: (node: FolderListRowNode) => void };
+  collection?: {
+    menuItems?: React.ReactNode;
+    nodes: FolderListRowNode[];
+    loading?: boolean;
+    footer?: React.ReactNode;
+    labels?: Record<string, string>;
+    taskLabels?: Record<string, string | null>;
+    onTaskLabelChange?: (node: FolderListRowNode, newLabel: string | null) => void;
+    preserveOrder?: boolean;
+    emptyMessage?: string;
+    onUnlink?: (node: FolderListRowNode) => void;
+  };
 }
 
 interface FolderListRowItemProps {
@@ -133,6 +149,11 @@ interface FolderListRowItemProps {
   onSelectionChange?: (nodeId: string, selected: boolean) => void;
   showActions?: boolean;
   subtitle?: string;
+  taskLabel?: string | null;
+  onTaskLabelChange?: (node: FolderListRowNode, newLabel: string | null) => void;
+  isEditingTaskLabel?: boolean;
+  onStartEditTaskLabel?: () => void;
+  onCancelEditTaskLabel?: () => void;
   isFavorite: boolean;
   gitChange?: GitChangeStatus | null;
   gitIntegrationEnabled: boolean;
@@ -154,6 +175,11 @@ const FolderListRowItem = React.memo(function FolderListRowItem({
   onSelectionChange,
   showActions,
   subtitle,
+  taskLabel,
+  onTaskLabelChange,
+  isEditingTaskLabel,
+  onStartEditTaskLabel,
+  onCancelEditTaskLabel,
   isFavorite,
   gitChange,
   gitIntegrationEnabled,
@@ -165,7 +191,7 @@ const FolderListRowItem = React.memo(function FolderListRowItem({
   onDesktopFileDrop,
   renderMenu,
 }: FolderListRowItemProps) {
-  // ponytail: memoize actions per row to prevent breaking React.memo on unchanged rows
+  // ponytail: memoize actions per row to prevent breaking React.memo on unchanged rows. ceiling: per-row actions menu. upgrade: virtualized row action menu if table rows exceed 10,000.
   const actions = React.useMemo(
     () => (
       <DropdownMenu modal={false}>
@@ -173,7 +199,7 @@ const FolderListRowItem = React.memo(function FolderListRowItem({
           <button
             type="button"
             aria-label={`Actions for ${node.name}`}
-            className="flex size-10 items-center justify-center rounded hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-zinc-800"
+            className="flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
           >
             <MoreHorizontal aria-hidden="true" className="size-4" />
           </button>
@@ -196,6 +222,11 @@ const FolderListRowItem = React.memo(function FolderListRowItem({
       onSelectionChange={onSelectionChange}
       showActions={showActions}
       subtitle={subtitle}
+      taskLabel={taskLabel}
+      onTaskLabelChange={onTaskLabelChange}
+      isEditingTaskLabel={isEditingTaskLabel}
+      onStartEditTaskLabel={onStartEditTaskLabel}
+      onCancelEditTaskLabel={onCancelEditTaskLabel}
       actions={actions}
       isFavorite={isFavorite}
       gitChange={gitChange}
@@ -260,6 +291,7 @@ export function FolderListView({
   const canEditCurrentFolder = canEdit && !currentFolderIsSystemManaged;
   const workspace = useFilesWorkspaceView();
   const [selectionMode, setSelectionMode] = React.useState(false);
+  const [editingLabelNodeId, setEditingLabelNodeId] = React.useState<string | null>(null);
   // Search is committed from the dialog, not on every keystroke. Applying it
   // synchronously prevents stale, clickable rows under a new query label.
   const search = workspace?.query ?? "";
@@ -305,8 +337,9 @@ export function FolderListView({
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => getProjectNodes(projectId, folderId, search, 100, pageParam, { sort }),
     getNextPageParam: page => page.nextCursor ?? undefined,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 60_000,
+    // ponytail: back off idle polling to 5m to eliminate client-side egress churn. ceiling: 5m polling interval. upgrade: WebSocket Realtime push invalidation for remote lists.
+    refetchInterval: 300_000,
     refetchIntervalInBackground: false,
   });
   const remoteList = !collection && (!!search || sort !== "name");
@@ -330,7 +363,13 @@ export function FolderListView({
   React.useLayoutEffect(() => {
     if (folder.status === "ready" && scrollRef.current) scrollRef.current.scrollTop = workspace?.scrollOffsets.current.get(scrollKey) ?? 0;
   }, [scrollKey, folder.status, workspace?.scrollOffsets]);
-  const selectedItems = sortedChildren.filter(node => storeSelectedNodeIds.includes(node.id) && !isInternalTaskWorkingFilesNode(node));
+
+  // ponytail: O(1) Set lookup replaces O(N*M) array scans. ceiling: 10,000 files per view. upgrade: TanStack Virtual windowing for >50,000 files.
+  const selectedNodeIdSet = React.useMemo(() => new Set(storeSelectedNodeIds), [storeSelectedNodeIds]);
+  const selectedItems = React.useMemo(
+    () => sortedChildren.filter(node => selectedNodeIdSet.has(node.id) && !isInternalTaskWorkingFilesNode(node)),
+    [sortedChildren, selectedNodeIdSet],
+  );
   React.useEffect(() => { setSelectedNodeIds(projectId, []); setSelectionMode(false); }, [projectId, folderId, search, sort, workspace?.view, workspace?.taskId, collection?.preserveOrder, setSelectedNodeIds]);
   const selectItem = React.useCallback((id: string, selected: boolean) => {
     const current = useFilesWorkspaceStore.getState().byProjectId[projectId]?.selectedNodeIds ?? [];
@@ -425,6 +464,113 @@ export function FolderListView({
   const [isProcessingDrop, setIsProcessingDrop] = React.useState(false);
   const dragCounterRef = React.useRef(0);
 
+  const queryClient = useQueryClient();
+
+  // ── Attach to task state & handler ─────────────────────────────────
+  const [attachTaskNode, setAttachTaskNode] = React.useState<FolderListRowNode | null>(null);
+  const [isAttachingTask, setIsAttachingTask] = React.useState(false);
+
+  const handleAttachTaskSelect = React.useCallback(
+    async (taskId: string, role: TaskFileRole) => {
+      if (!attachTaskNode) return;
+      setIsAttachingTask(true);
+      try {
+        const { linkNodeToTask } = await import("@/app/actions/files/links");
+        await linkNodeToTask(taskId, attachTaskNode.id, { role });
+        toast.success("File attached to task");
+        queryClient.invalidateQueries({ queryKey: ["task-links", projectId, attachTaskNode.id] });
+        queryClient.invalidateQueries({ queryKey: ["task-files", taskId] });
+        setAttachTaskNode(null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to attach file to task";
+        toast.error(msg);
+      } finally {
+        setIsAttachingTask(false);
+      }
+    },
+    [attachTaskNode, projectId, queryClient]
+  );
+
+  // ── Revision upload state & handler ────────────────────────────────
+  const [targetRevisionNode, setTargetRevisionNode] = React.useState<FolderListRowNode | null>(null);
+  const [pendingRevisionFile, setPendingRevisionFile] = React.useState<File | null>(null);
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = React.useState(false);
+
+  const triggerRevisionFileInput = React.useCallback(
+    (node: FolderListRowNode) => {
+      setTargetRevisionNode(node);
+      const fileInputEl = document.createElement("input");
+      fileInputEl.type = "file";
+      fileInputEl.style.display = "none";
+      fileInputEl.onchange = (event) => {
+        const file = (event.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+
+        const extOf = (fn: string) => fn.slice(fn.lastIndexOf(".")).toLowerCase();
+        const expectedExt = extOf(node.name);
+        const uploadedExt = extOf(file.name);
+        if (expectedExt !== uploadedExt) {
+          toast.error(`Extension mismatch: Expected ${expectedExt} but received ${uploadedExt}`);
+          return;
+        }
+
+        setPendingRevisionFile(file);
+        setIsRevisionModalOpen(true);
+      };
+      fileInputEl.click();
+    },
+    [],
+  );
+
+  const handleRevisionOptionSelected = React.useCallback(
+    async (choice: { option: "overwrite" | "commit"; comment?: string }) => {
+      if (!pendingRevisionFile || !targetRevisionNode) return;
+      const file = pendingRevisionFile;
+      const node = targetRevisionNode;
+      setPendingRevisionFile(null);
+
+      try {
+        const [{ saveFileRevision }, { createClient }, { logger }] = await Promise.all([
+          import("@/hooks/useFileVersions"),
+          import("@/lib/supabase/client"),
+          import("@/lib/logger"),
+        ]);
+        const supabaseClient = createClient();
+        const result = await saveFileRevision({
+          projectId,
+          nodeId: node.id,
+          file,
+          mode: choice.option === "commit" ? "new_revision" : "active_revision",
+          comment: choice.comment || (choice.option === "commit" ? "Uploaded via Files Tab" : null),
+          baseVersion: node.currentVersion,
+          supabase: supabaseClient,
+        });
+
+        if (result.success) {
+          toast.success(choice.option === "commit"
+            ? "New revision committed successfully"
+            : "Active revision updated successfully");
+          upsertNodes(projectId, [result.node]);
+          window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
+
+          logger.metric("files_tab.version_replaced", {
+            module: "files-tab",
+            source: "files_tab",
+            projectId,
+            nodeId: node.id,
+            revisionMode: choice.option === "commit" ? "new_revision" : "active_revision",
+            newVersion: result.version.version,
+          });
+        } else {
+          toast.error(result.error || "Failed to save revision");
+        }
+      } catch {
+        toast.error("Failed to save revision");
+      }
+    },
+    [pendingRevisionFile, targetRevisionNode, projectId, upsertNodes]
+  );
+
   const resetDragState = React.useCallback(() => {
     dragCounterRef.current = 0;
     setIsDragActive(false);
@@ -491,11 +637,17 @@ export function FolderListView({
       e.stopPropagation();
       resetDragState();
 
-      const droppedFiles = stripOsJunkFiles(Array.from(e.dataTransfer.files || []));
-      if (droppedFiles.length === 0) return;
+      const rawFiles = Array.from(e.dataTransfer.files || []);
+      const validation = validateUploadSelection(rawFiles, {
+        isFolder: rawFiles.some((f) => f.webkitRelativePath?.includes("/")),
+      });
+      if (!validation.valid) {
+        if (validation.error) toast.error(validation.error);
+        return;
+      }
 
       setTargetDropFolderId(folderId);
-      setPendingUploadFiles(droppedFiles);
+      setPendingUploadFiles(validation.files);
     },
     [canEdit, folderId, resetDragState],
   );
@@ -503,11 +655,17 @@ export function FolderListView({
   // ── Desktop file drop wiring (opens modal with target folder) ──────────
   const handleDesktopFileDrop = React.useCallback(
     (files: File[], targetFolderId: string) => {
-      const cleanFiles = stripOsJunkFiles(files);
-      if (!canEdit || cleanFiles.length === 0) return;
+      if (!canEdit || files.length === 0) return;
       resetDragState();
+      const validation = validateUploadSelection(files, {
+        isFolder: files.some((f) => f.webkitRelativePath?.includes("/")),
+      });
+      if (!validation.valid) {
+        if (validation.error) toast.error(validation.error);
+        return;
+      }
       setTargetDropFolderId(targetFolderId);
-      setPendingUploadFiles(cleanFiles);
+      setPendingUploadFiles(validation.files);
     },
     [canEdit, resetDragState],
   );
@@ -582,6 +740,44 @@ export function FolderListView({
     },
     [pendingUploadFiles, projectId, folderId, targetDropFolderId, uploadFilesDirectly, upsertNodes, loadFolderContent, resetDragState],
   );
+
+  // ── Toolbar Upload actions with rigorous selection validation ─────
+  const triggerFilesPicker = React.useCallback(() => {
+    if (!canEditCurrentFolder) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.onchange = () => {
+      const rawFiles = Array.from(input.files || []);
+      const validation = validateUploadSelection(rawFiles, { isFolder: false });
+      if (!validation.valid) {
+        if (validation.error) toast.error(validation.error);
+        return;
+      }
+      setTargetDropFolderId(folderId);
+      setPendingUploadFiles(validation.files);
+    };
+    input.click();
+  }, [canEditCurrentFolder, folderId]);
+
+  const triggerFolderPicker = React.useCallback(() => {
+    if (!canEditCurrentFolder) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.webkitdirectory = true;
+    input.multiple = true;
+    input.onchange = () => {
+      const rawFiles = Array.from(input.files || []);
+      const validation = validateUploadSelection(rawFiles, { isFolder: true });
+      if (!validation.valid) {
+        if (validation.error) toast.error(validation.error);
+        return;
+      }
+      setTargetDropFolderId(folderId);
+      setPendingUploadFiles(validation.files);
+    };
+    input.click();
+  }, [canEditCurrentFolder, folderId]);
 
   // ── Stable row callbacks ──────────────────────────────────────────
   const handleToggleFavorite = React.useCallback(
@@ -673,9 +869,94 @@ export function FolderListView({
                   </>
                 )}
               </DropdownMenuItem>
-              {menuNode.type === "file" && <DropdownMenuItem onSelect={() => void downloadNode(menuNode)}><Download className="mr-2 size-4" />Download</DropdownMenuItem>}
-              <DropdownMenuItem onSelect={() => void copyLink(menuNode)}><Copy className="mr-2 size-4" />Copy link</DropdownMenuItem>
-              {menuNode.type === "file" && <><DropdownMenuItem onSelect={() => openInspector(menuNode, "details")}><Info className="mr-2 size-4" />Details</DropdownMenuItem><DropdownMenuItem onSelect={() => openInspector(menuNode, "version_history")}><History className="mr-2 size-4" />Versions</DropdownMenuItem>{workspace?.canReadTasks && <DropdownMenuItem onSelect={() => openInspector(menuNode, "linked_tasks")}><ListTodo className="mr-2 size-4" />Linked tasks</DropdownMenuItem>}</>}
+              {menuNode.type === "file" && (
+                <>
+                  <DropdownMenuItem onSelect={() => openInspector(menuNode, "details")}>
+                    <Info className="mr-2 size-4" />
+                    Details
+                  </DropdownMenuItem>
+                  {canEdit && (
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        if (!isTextFile(menuNode)) {
+                          toast.info("This file format cannot be edited inline. Previewing file instead.");
+                        }
+                        handleOpenFromMenu(menuNode);
+                      }}
+                    >
+                      <Pencil className="mr-2 size-4" />
+                      Edit
+                    </DropdownMenuItem>
+                  )}
+                  {canEdit && (
+                    <DropdownMenuItem
+                      onSelect={() => triggerRevisionFileInput(menuNode)}
+                      aria-label="Upload a file revision"
+                    >
+                      <FileUp className="mr-2 size-4" />
+                      Upload revision…
+                    </DropdownMenuItem>
+                  )}
+                  {canEdit && workspace?.canReadTasks && (
+                    <DropdownMenuItem onSelect={() => setAttachTaskNode(menuNode)}>
+                      <ListTodo className="mr-2 size-4" />
+                      Attach task…
+                    </DropdownMenuItem>
+                  )}
+                  {canEdit && (/\.(md|mdx|markdown|txt)$/i.test(menuNode.name) || /^readme(\.|$)/i.test(menuNode.name)) && (
+                    <DropdownMenuItem
+                      onSelect={async () => {
+                        try {
+                          const { normalizeProjectDocSlug } = await import("@/lib/projects/doc");
+                          const { linkProjectDocAction } = await import("@/app/actions/project/doc");
+                          const docSlug = normalizeProjectDocSlug(menuNode.name, "doc");
+                          const res = await linkProjectDocAction(projectId, menuNode.id, docSlug);
+                          if (res?.error) {
+                            toast.error(res.error);
+                          } else {
+                            toast.success("File linked to Doc successfully", {
+                              action: {
+                                label: "View in Docs",
+                                onClick: () => {
+                                  const url = new URL(window.location.href);
+                                  url.searchParams.set("tab", "docs");
+                                  url.searchParams.set("doc", docSlug);
+                                  window.location.href = url.toString();
+                                },
+                              },
+                            });
+                          }
+                        } catch {
+                          toast.error("Failed to link file to Doc");
+                        }
+                      }}
+                    >
+                      <BookOpenText className="mr-2 size-4" />
+                      Use as a doc
+                    </DropdownMenuItem>
+                  )}
+                  {workspace?.canReadTasks && (
+                    <DropdownMenuItem onSelect={() => openInspector(menuNode, "linked_tasks")}>
+                      <Link2 className="mr-2 size-4" />
+                      Link the task
+                    </DropdownMenuItem>
+                  )}
+                  {canEdit && !isInternalTaskWorkingFilesNode(menuNode) && (
+                    <DropdownMenuItem onClick={() => openRename(menuNode)}>
+                      <Pencil className="mr-2 size-4" />
+                      Rename it
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onSelect={() => openInspector(menuNode, "version_history")}>
+                    <History className="mr-2 size-4" />
+                    Versions
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void downloadNode(menuNode)}>
+                    <Download className="mr-2 size-4" />
+                    Download
+                  </DropdownMenuItem>
+                </>
+              )}
               {canEdit && !isInternalTaskWorkingFilesNode(menuNode) && menuNode.type === "folder" && (
                 <>
                   <DropdownMenuItem
@@ -713,14 +994,17 @@ export function FolderListView({
                 </>
               )}
               {canEdit && collection?.onUnlink && <DropdownMenuItem onSelect={() => collection.onUnlink?.(menuNode)}><ListTodo className="mr-2 size-4" />Remove from this task</DropdownMenuItem>}
+              {canEdit && collection?.onTaskLabelChange && <DropdownMenuItem onSelect={() => setEditingLabelNodeId(menuNode.id)}><Tag className="mr-2 size-4" />Edit label…</DropdownMenuItem>}
               {canEdit && !isInternalTaskWorkingFilesNode(menuNode) && (
                 <>
-                  <DropdownMenuItem
-                    onClick={() => openRename(menuNode!)}
-                  >
-                    <Pencil className="w-4 h-4 mr-2" />
-                    Rename
-                  </DropdownMenuItem>
+                  {menuNode.type === "folder" && (
+                    <DropdownMenuItem
+                      onClick={() => openRename(menuNode!)}
+                    >
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Rename
+                    </DropdownMenuItem>
+                  )}
                   {canManageFiles ? (
                     <DropdownMenuItem
                       onClick={() => handleMoveFromMenu(menuNode!)}
@@ -759,6 +1043,8 @@ export function FolderListView({
     canManageFiles,
     handleMoveFromMenu,
     handleDeleteFromMenu,
+    setAttachTaskNode,
+    setTargetRevisionNode,
   ]);
 
   // ── Render ────────────────────────────────────────────────────────
@@ -767,7 +1053,7 @@ export function FolderListView({
       data-testid="files-tab-folder-list-view"
       className={cn(
         styles.container,
-        "flex h-full min-h-0 flex-col overflow-hidden bg-white dark:bg-zinc-950 relative",
+        "flex h-full min-h-0 flex-col overflow-hidden bg-card dark:bg-background relative",
         className,
       )}
       onDragEnter={handleDragEnter}
@@ -775,6 +1061,46 @@ export function FolderListView({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {!selectionMode && !search && canEditCurrentFolder && (!collection || Boolean(workspace?.taskId)) && (
+        <FilesHeaderSlot slot="actions">
+          <div className="flex items-center gap-1.5 mr-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                  aria-label="Upload files or folder"
+                >
+                  <Upload className="size-3.5" aria-hidden="true" />
+                  <span className="hidden sm:inline">Upload</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44 rounded-[8px] border border-border bg-card p-1 shadow-md">
+                <DropdownMenuItem onSelect={triggerFilesPicker} className="rounded-[5px] text-xs">
+                  <Upload className="mr-2 size-3.5" />
+                  Upload files…
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={triggerFolderPicker} className="rounded-[5px] text-xs">
+                  <FolderInput className="mr-2 size-3.5" />
+                  Upload folder…
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {!collection && (
+              <button
+                type="button"
+                onClick={() => openCreateInFolder(folderId, "folder")}
+                className="flex h-8 items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                aria-label="New folder"
+              >
+                <FolderPlus className="size-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">New folder</span>
+              </button>
+            )}
+          </div>
+        </FilesHeaderSlot>
+      )}
       <FilesWorkspaceMenu projectId={projectId} selectionMode={selectionMode}>
         {selectionMode ? <>
           <DropdownMenuItem onSelect={() => setSelectedNodeIds(projectId, sortedChildren.filter(node => !isInternalTaskWorkingFilesNode(node)).slice(0, 200).map(node => node.id))}>Select loaded items (up to 200)</DropdownMenuItem>
@@ -792,15 +1118,15 @@ export function FolderListView({
           {collection?.menuItems}
           {!collection && !search && canEditCurrentFolder && <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => handleUploadToFolder(folderId)}><Upload className="size-4" />Upload files…</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => openFolderUpload(folderId)}><FolderInput className="size-4" />Upload folder…</DropdownMenuItem>
+            <DropdownMenuItem onSelect={triggerFilesPicker}><Upload className="size-4" />Upload files…</DropdownMenuItem>
+            <DropdownMenuItem onSelect={triggerFolderPicker}><FolderInput className="size-4" />Upload folder…</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => openCreateInFolder(folderId, "file")}><FilePlus2 className="size-4" />New file…</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => openCreateInFolder(folderId, "folder")}><FolderPlus className="size-4" />New folder…</DropdownMenuItem>
           </>}
           {canEditCurrentFolder && <><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => { setSelectionMode(true); setSelectedNodeIds(projectId, []); }}>Select items</DropdownMenuItem></>}
         </>}
       </FilesWorkspaceMenu>
-      {selectionMode && <FilesHeaderSlot slot="status"><span role="status">{selectedItems.length} selected</span><button type="button" className="min-h-10 rounded px-2 hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => { setSelectionMode(false); setSelectedNodeIds(projectId, []); }}>Done</button></FilesHeaderSlot>}
+      {selectionMode && <FilesHeaderSlot slot="status"><span role="status">{selectedItems.length} selected</span><button type="button" className="min-h-10 rounded px-2 hover:bg-muted" onClick={() => { setSelectionMode(false); setSelectedNodeIds(projectId, []); }}>Done</button></FilesHeaderSlot>}
       <div role="table" aria-label="File listing" className="flex min-h-0 flex-1 flex-col">
       <FolderListHeader sort={collection?.preserveOrder ? undefined : sort} />
 
@@ -822,7 +1148,7 @@ export function FolderListView({
               }
             />
             {!collection && !search && canEditCurrentFolder ? (
-              <p className="text-sm text-zinc-500">Use the Files actions menu to upload files or create a file or folder.</p>
+              <p className="text-sm text-muted-foreground">Use the toolbar or actions menu to upload files or create a folder.</p>
             ) : null}
           </div>
         ) : (
@@ -840,10 +1166,15 @@ export function FolderListView({
                   node={node}
                   canEdit={canEdit && !isSystemManaged}
                   canMove={canManageFiles && !isSystemManaged}
-                  selected={storeSelectedNodeIds.includes(node.id)}
+                  selected={selectedNodeIdSet.has(node.id)}
                   onSelectionChange={selectionMode ? selectItem : undefined}
                   showActions={true}
                   subtitle={collection?.labels?.[node.id] ?? (search ? (node.path.startsWith("/.system/") ? "Task files" : node.path) : undefined)}
+                  taskLabel={collection?.taskLabels?.[node.id]}
+                  onTaskLabelChange={collection?.onTaskLabelChange ? (n, label) => { setEditingLabelNodeId(null); collection.onTaskLabelChange?.(n, label); } : undefined}
+                  isEditingTaskLabel={editingLabelNodeId === node.id}
+                  onStartEditTaskLabel={() => setEditingLabelNodeId(node.id)}
+                  onCancelEditTaskLabel={() => setEditingLabelNodeId(null)}
                   isFavorite={!!favorites[node.id]}
                   gitChange={gitChange}
                   gitIntegrationEnabled={gitIntegrationEnabled}
@@ -863,7 +1194,7 @@ export function FolderListView({
                   type="button"
                   disabled={isLoadingMore || serverList.isFetchingNextPage}
                   onClick={() => remoteList ? void serverList.fetchNextPage() : void loadMore()}
-                  className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                  className="rounded-[5px] border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:cursor-wait disabled:opacity-60"
                 >
                   {isLoadingMore || serverList.isFetchingNextPage ? "Loading…" : "Load more"}
                 </button>
@@ -950,25 +1281,25 @@ export function FolderListView({
           role="dialog"
           aria-label="Drop files to upload"
           onClick={resetDragState}
-          className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-blue-600/10 backdrop-blur-xs border-2 border-dashed border-blue-500 rounded-lg cursor-pointer transition-all animate-in fade-in-50 duration-150"
+          className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#FCF0EA]/75 dark:bg-[#D14E24]/10 backdrop-blur-xs border-2 border-dashed border-[#D14E24] rounded-[12px] cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] animate-in fade-in-50 duration-[130ms]"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative flex flex-col items-center gap-2 p-6 rounded-2xl bg-white/95 dark:bg-zinc-900/95 shadow-xl border border-blue-200 dark:border-blue-900/50 cursor-default"
+            className="relative flex flex-col items-center gap-2.5 p-6 rounded-[12px] bg-card shadow-xl border border-[#DBD5C8] dark:border-white/10 cursor-default"
           >
             <button
               type="button"
               onClick={resetDragState}
               aria-label="Dismiss drop overlay"
-              className="absolute top-2.5 right-2.5 p-1 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="absolute top-2.5 right-2.5 size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[#F3F0EA] dark:hover:bg-muted transition-colors"
             >
               <X className="size-4" />
             </button>
-            <Upload className="size-8 text-blue-600 dark:text-blue-400 animate-bounce" />
-            <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">
+            <Upload className="size-8 text-[#D14E24] animate-none" />
+            <p className="font-semibold text-sm text-foreground">
               Drop files to upload
             </p>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               Categorize into project files, task references, or file versions
             </p>
           </div>
@@ -996,6 +1327,27 @@ export function FolderListView({
             setTargetDropFolderId(null);
             resetDragState();
           }}
+        />
+      )}
+
+      {/* TaskSearchPicker Dialog for Attach task action */}
+      {attachTaskNode && (
+        <TaskSearchPicker
+          projectId={projectId}
+          isOpen={Boolean(attachTaskNode)}
+          isSaving={isAttachingTask}
+          onClose={() => setAttachTaskNode(null)}
+          onSelect={handleAttachTaskSelect}
+        />
+      )}
+
+      {/* RevisionControlModal for Upload revision action */}
+      {isRevisionModalOpen && targetRevisionNode && (
+        <RevisionControlModal
+          isOpen={isRevisionModalOpen}
+          onOpenChange={setIsRevisionModalOpen}
+          fileName={targetRevisionNode.name}
+          onSelectOption={handleRevisionOptionSelected}
         />
       )}
     </div>

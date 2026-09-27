@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { projectNodes, fileVersions, profiles } from "@/lib/db/schema";
 import type { ProjectNode } from "@/lib/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { parseProjectFileKey } from "@/lib/storage/project-file-key";
@@ -227,7 +227,7 @@ export async function formatProjectFileContent(projectId: string, filename: stri
     const ext = filename.split('.').pop()?.toLowerCase();
 
     if (ext === "sql") {
-        return formatSqlLight(content);
+        return await formatSqlLight(content);
     }
 
     const parser =
@@ -260,43 +260,38 @@ export async function updateProjectFileStats(projectId: string, nodeId: string, 
         await assertProjectWriteAccessTx(tx, projectId, user.id);
         await assertNodeNotLockedByAnotherUser(projectId, nodeId, user.id, tx);
 
-        const [updated] = await tx.update(projectNodes)
-            .set({
-                size: size,
-                updatedAt: new Date()
-            })
-            .where(and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)))
-            .returning();
+        const result = (await tx.execute(sql`
+            WITH updated_node AS (
+                UPDATE project_nodes
+                SET size = ${size}, updated_at = NOW()
+                WHERE id = ${nodeId}::uuid AND project_id = ${projectId}::uuid
+                RETURNING *
+            ),
+            updated_ver AS (
+                UPDATE file_versions fv
+                SET size = ${size}, uploaded_by = ${user.id}::uuid, uploaded_at = NOW()
+                FROM updated_node un
+                WHERE fv.node_id = un.id AND fv.version = COALESCE(un.current_version, 1)
+                RETURNING fv.id
+            )
+            SELECT un.*, p.full_name, p.username, p.avatar_url
+            FROM updated_node un
+            LEFT JOIN profiles p ON p.id = ${user.id}::uuid
+        `)) as unknown as Array<any>;
 
-        if (updated) {
-            const versionNumber = updated.currentVersion ?? 1;
-            await tx.update(fileVersions)
-                .set({
-                    size: size,
-                    uploadedBy: user.id,
-                    uploadedAt: new Date()
-                })
-                .where(and(eq(fileVersions.nodeId, nodeId), eq(fileVersions.version, versionNumber)));
-        }
-
-        return updated;
+        const row = result[0];
+        if (!row) return null;
+        return {
+            ...row,
+            updatedById: user.id,
+            updatedByName: row.full_name ?? null,
+            updatedByUsername: row.username ?? null,
+            updatedByAvatarUrl: row.avatar_url ?? null,
+            versionUpdatedAt: row.updated_at,
+        };
     });
 
-    if (node) {
-        const profile = await db.query.profiles.findFirst({
-            where: eq(profiles.id, user.id),
-            columns: { fullName: true, username: true, avatarUrl: true }
-        });
-        Object.assign(node, {
-            updatedById: user.id,
-            updatedByName: profile?.fullName ?? null,
-            updatedByUsername: profile?.username ?? null,
-            updatedByAvatarUrl: profile?.avatarUrl ?? null,
-            versionUpdatedAt: node.updatedAt,
-        });
-    }
-
-    // ponytail: client handles file content save directly; skip route revalidation
+    // ponytail: client handles file content save directly via Zustand; skip route revalidation. ceiling: single-tab editor. upgrade: Realtime broadcast if multi-tab collaborative editor state sync required.
     return node;
 }
 

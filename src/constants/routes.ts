@@ -4,12 +4,15 @@ export const ROUTES = {
     SIGNUP: '/signup',
     ONBOARDING: '/onboarding',
     WORKSPACE: '/workspace',
-    HUB: '/hub',
-    PEOPLE: '/people',
+    HUB: '/discover',
+    DISCOVER: '/discover',
+    PEOPLE: '/network',
+    NETWORK: '/network',
     MESSAGES: '/messages',
     PROJECTS: '/projects',
     SETTINGS: '/settings',
-    PROFILE: '/profile',
+    PROFILE: '/my-profile',
+    MY_PROFILE: '/my-profile',
 } as const
 
 export const SETTINGS_TABS = [
@@ -19,6 +22,7 @@ export const SETTINGS_TABS = [
     "notifications",
     "appearance",
     "integrations",
+    "privacy-policies",
 ] as const
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number]

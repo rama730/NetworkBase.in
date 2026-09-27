@@ -206,7 +206,7 @@ export async function toggleReaction(
         });
 
         if (pendingNotification) {
-            void emitMessageReactionNotification(pendingNotification).catch((err) => {
+            await emitMessageReactionNotification(pendingNotification).catch((err) => {
                 console.error('Failed to emit reaction notification:', err);
             });
         }

@@ -27,23 +27,23 @@ export function useUploadCollisionDecision() {
   }, []);
   const uploadCollisionDialog = (
     <Dialog open={!!pending} onOpenChange={open => { if (!open) finish("cancel"); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-[460px] rounded-[12px] border border-[#DBD5C8] dark:border-white/10">
         <DialogHeader>
           <DialogTitle>Some names already exist</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs text-zinc-600 dark:text-zinc-400">
             {pending?.copies
               ? "Keep existing items and upload renamed copies, or skip matching names. Nothing will be overwritten."
               : "Existing folders will be reused and matching files skipped. Nothing will be overwritten."}
           </DialogDescription>
         </DialogHeader>
-        <ul className="max-h-40 overflow-y-auto text-sm text-zinc-600 dark:text-zinc-300">
-          {[...(pending?.summary.existingFiles ?? []), ...(pending?.summary.existingFolders ?? [])].slice(0, 20).map(name => <li key={name} className="truncate py-1" title={name}>{name}</li>)}
+        <ul className="max-h-40 overflow-y-auto font-mono text-xs text-zinc-700 dark:text-zinc-300 divide-y divide-[#E8E3D9] dark:divide-white/5 border border-[#DBD5C8] dark:border-white/10 rounded-[5px] px-3">
+          {[...(pending?.summary.existingFiles ?? []), ...(pending?.summary.existingFolders ?? [])].slice(0, 20).map(name => <li key={name} className="truncate py-1.5" title={name}>{name}</li>)}
         </ul>
-        <p className="text-xs text-zinc-500">To revise an existing file, use its “Upload revision” action instead.</p>
-        <DialogFooter className="flex-wrap gap-2">
-          <Button variant="outline" onClick={() => finish("cancel")}>Cancel</Button>
-          <Button variant="outline" onClick={() => finish("skip")}>{pending?.copies ? "Skip existing" : "Continue"}</Button>
-          {pending?.copies && <Button onClick={() => finish("keep_both")}>Keep both</Button>}
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">To revise an existing file, use its “Upload revision” action instead.</p>
+        <DialogFooter className="bg-[#F3F0EA] dark:bg-white/5 border-t border-[#DBD5C8] dark:border-white/10 -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex-wrap gap-2">
+          <Button variant="outline" className="h-[34px] rounded-[5px] text-xs font-medium" onClick={() => finish("cancel")}>Cancel</Button>
+          <Button variant="outline" className="h-[34px] rounded-[5px] text-xs font-medium" onClick={() => finish("skip")}>{pending?.copies ? "Skip existing" : "Continue"}</Button>
+          {pending?.copies && <Button className="h-[34px] rounded-[5px] text-xs font-medium bg-[#D14E24] hover:bg-[#B23F1C] text-white" onClick={() => finish("keep_both")}>Keep both</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>

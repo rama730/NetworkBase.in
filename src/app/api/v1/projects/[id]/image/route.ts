@@ -5,9 +5,9 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projects } from "@/lib/db/schema";
 import { getProjectAccessById } from "@/lib/data/project-access";
-import { logger } from "@/lib/logger";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { enforceRouteLimit, fetchWithBoundedRetry, jsonError } from "@/app/api/v1/_shared";
+import { logger } from "@/lib/logger";
+import { enforceRouteLimit, jsonError } from "@/app/api/v1/_shared";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 export const runtime = "nodejs";
@@ -54,10 +54,16 @@ export async function GET(
     }
 
     const version = coverVersion(project.key);
+    const hasMatchingVersion = request.nextUrl.searchParams.get("v") === version;
     const isPublicRequest = !user && access.canRead;
-    const cacheControl = isPublicRequest
-        ? "public, max-age=300, s-maxage=86400, stale-while-revalidate=3600"
-        : `private, max-age=${PRIVATE_CACHE_SECONDS}, stale-while-revalidate=60`;
+    // ponytail: versioned project avatars are immutable; cache at CDN edge and browser memory
+    const cacheControl = hasMatchingVersion
+        ? (isPublicRequest
+            ? "public, max-age=31536000, s-maxage=31536000, immutable"
+            : "private, max-age=86400, stale-while-revalidate=3600")
+        : (isPublicRequest
+            ? "public, max-age=300, s-maxage=86400, stale-while-revalidate=3600"
+            : `private, max-age=${PRIVATE_CACHE_SECONDS}, stale-while-revalidate=60`);
     if (request.nextUrl.searchParams.get("v") !== version) {
         const canonicalUrl = request.nextUrl.clone();
         canonicalUrl.searchParams.set("v", version);
@@ -78,7 +84,7 @@ export async function GET(
     const admin = await createAdminClient();
     const { data: signedData, error: signError } = await admin.storage
         .from(project.bucket)
-        .createSignedUrl(project.key, 60);
+        .createSignedUrl(project.key, 15 * 60);
 
     if (signError || !signedData?.signedUrl) {
         logger.warn("project.image_route_presign_failed", {
@@ -91,34 +97,16 @@ export async function GET(
         return jsonError("Not found", 404, "NOT_FOUND");
     }
 
-    let res: Response;
-    try {
-        res = await fetchWithBoundedRetry(signedData.signedUrl, {
-            timeoutMs: 4_000,
-            maxAttempts: 2,
-        });
-    } catch (error) {
-        logger.warn("project.image_route_fetch_failed", {
-            module: "projects",
-            projectId,
-            bucket: project.bucket,
-            key: project.key,
-            error: error instanceof Error ? error.message : String(error),
-        });
-        return jsonError("Not found", 404, "NOT_FOUND");
-    }
-    if (!res.ok) {
-        return jsonError("Not found", 404, "NOT_FOUND");
-    }
-
-    return new Response(res.body, {
-        status: 200,
+    // ponytail: redirect directly to Supabase storage to eliminate binary proxying through Railway container
+    const response = new Response(null, {
+        status: 302,
         headers: {
-            "Content-Type": res.headers.get("content-type") || "image/jpeg",
+            Location: signedData.signedUrl,
             "Cache-Control": cacheControl,
             ETag: etag,
             Vary: "Cookie, Authorization",
             "X-Content-Type-Options": "nosniff",
         },
     });
+    return response;
 }

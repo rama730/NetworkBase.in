@@ -27,7 +27,7 @@ const BulkActionBar = memo(function BulkActionBar({
     if (selectedCount === 0) return null;
 
     return (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 px-4 py-3 flex items-center gap-4">
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-white dark:bg-zinc-900 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-700 px-4 py-3 flex items-center gap-4">
             <div className="flex items-center gap-2 pr-4 border-r border-zinc-200 dark:border-zinc-700">
                 <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     {selectedCount} selected

@@ -92,13 +92,12 @@ export function ProjectDocCommandBlock({
             data-readme-highlighted={highlighted || highlightedTargetId === rootEditorTargetId ? "true" : undefined}
             data-readme-highlight-token={highlighted || highlightedTargetId === rootEditorTargetId ? highlightToken ?? undefined : undefined}
             className={cn(
-                "group relative my-4 scroll-mt-28 overflow-hidden rounded-md border border-zinc-200 bg-[#f6f8fa] text-zinc-950 shadow-none outline-none transition-[background-color,border-color,box-shadow] dark:border-zinc-800 dark:bg-[#161b22] dark:text-zinc-100",
-                " ",
-                highlighted && "border-blue-400 bg-blue-50/80 shadow-[0_0_0_5px_rgba(59,130,246,0.22)] dark:border-blue-500/70 dark:bg-blue-500/20",
+                "group relative my-4 scroll-mt-28 overflow-hidden rounded-[5px] border border-border bg-card text-foreground shadow-none outline-none transition-colors",
+                highlighted && "border-primary bg-primary/5 ring-2 ring-primary/20",
             )}
         >
             {language ? (
-                <div className="border-b border-zinc-200 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                <div className="border-b border-border px-4 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground bg-muted/20">
                     {language}
                 </div>
             ) : null}
@@ -108,12 +107,12 @@ export function ProjectDocCommandBlock({
                 data-readme-copy-button="true"
                 title={copied ? "Copied" : "Copy"}
                 aria-label={copied ? "Copied" : "Copy command"}
-                className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 bg-white/90 text-zinc-500 transition hover:text-zinc-950 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-400 dark:hover:text-zinc-50"
+                className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition hover:text-foreground hover:bg-muted"
             >
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
                 <span className="sr-only" aria-live="polite">{copied ? "Copied" : "Copy command"}</span>
             </button>
-            <pre className="whitespace-pre-wrap break-words px-4 py-4 pr-12 font-mono text-sm leading-6 [overflow-wrap:anywhere]">
+            <pre className="whitespace-pre-wrap break-words px-4 py-4 pr-12 font-mono text-[13px] leading-[1.6] [overflow-wrap:anywhere]">
                 <code className="break-words [overflow-wrap:anywhere]">
                     {codeLines.map((line, index) => {
                         const target = lineTargetByStartLine.get(index);
@@ -138,8 +137,8 @@ export function ProjectDocCommandBlock({
                                 data-readme-highlighted={lineHighlighted ? "true" : undefined}
                                 data-readme-highlight-token={lineHighlighted ? highlightToken ?? undefined : undefined}
                                 className={cn(
-                                    "block min-w-0 scroll-mt-32 rounded-sm outline-none [overflow-wrap:anywhere]",
-                                    lineHighlighted && "-mx-1 bg-blue-100/90 px-1 shadow-[0_0_0_3px_rgba(59,130,246,0.2)] dark:bg-blue-500/25",
+                                    "block min-w-0 scroll-mt-32 rounded-[3px] outline-none [overflow-wrap:anywhere]",
+                                    lineHighlighted && "-mx-1 bg-primary/15 px-1 ring-1 ring-primary/20",
                                 )}
                             >
                                 {line || " "}

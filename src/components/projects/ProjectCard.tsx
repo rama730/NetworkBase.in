@@ -1,334 +1,127 @@
-import Link from 'next/link';
-import { memo, useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import {
-    Users,
-    Briefcase,
-    UserPlus,
-    Check, UserCheck,
-    TrendingUp,
-    Sparkles,
-    Clock,
-    ExternalLink,
-    Globe,
-    Eye,
-} from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { Project } from '@/types/hub';
-import { useToggleProjectFollow } from '@/hooks/mutations/useProjectMutations';
-import { ProjectCardViewModel } from '@/lib/view-models/project-card';
-import { UserAvatar } from '@/components/ui/UserAvatar';
-import { buildIdentityPresentation } from '@/lib/ui/identity';
-import { SkillIcon } from '@/components/skills/SkillIcon';
-import { resolveClientSkill } from '@/lib/skills/client';
-import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon';
-import { resolveProjectSocialLinks } from '@/lib/projects/social-links';
+"use client";
 
-const MAX_PROJECT_CARD_SKILL_ICONS = 10;
+import Link from "next/link";
+import { memo, useEffect, useRef, useState } from "react";
+import { Users, UserPlus, UserCheck, BarChart2, ExternalLink, Globe } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import type { Project } from "@/types/hub";
+import type { ProjectCardViewModel } from "@/lib/view-models/project-card";
+import { useToggleProjectFollow } from "@/hooks/mutations/useProjectMutations";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import { SkillIcon } from "@/components/skills/SkillIcon";
+import { resolveClientSkill } from "@/lib/skills/client";
+import { SocialPresenceIcon } from "@/components/profile/SocialPresenceIcon";
+import { resolveProjectSocialLinks } from "@/lib/projects/social-links";
+import ProjectAvatar, { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
+
+const MAX_PROJECT_CARD_SKILL_ICONS = 6;
 
 interface ProjectCardProps {
     project: Project;
-    viewModel: ProjectCardViewModel; // New Prop
+    viewModel: ProjectCardViewModel;
     fromTab?: string;
     viewMode?: string;
     previewMode?: boolean;
     isFollowing?: boolean;
     followersCount?: number;
     onOpenProject?: (projectId: string) => void;
-    disableHoverEffects?: boolean;
 }
 
-export default memo(function ProjectCard({
-    project,
-    viewModel,
-    fromTab = 'projects',
-    viewMode = 'grid',
-    previewMode = false,
-    isFollowing: propIsFollowing,
-    followersCount: propFollowersCount = 0,
-    onOpenProject,
-    disableHoverEffects = false,
-}: ProjectCardProps) {
-    const supabase = createClient();
-    // Removed prefetch hooks as part of architectural optimization
-    const { mutateAsync: toggleFollowMutation } = useToggleProjectFollow();
-    const projectHref = `/projects/${project.slug || project.id}?fromTab=${fromTab}`;
+export default memo(function ProjectCard({ project, viewModel, fromTab = "projects", viewMode = "grid", previewMode = false, isFollowing = false, followersCount: initialFollowers = 0, onOpenProject }: ProjectCardProps) {
+    const { mutateAsync } = useToggleProjectFollow();
+    const [following, setFollowing] = useState(isFollowing);
+    const [followers, setFollowers] = useState(initialFollowers);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const followLock = useRef(false);
+    useEffect(() => { setFollowing(isFollowing); }, [isFollowing]);
+    useEffect(() => { setFollowers(initialFollowers); }, [initialFollowers]);
+    const { techStack, collaborators, totalOpenRoles } = viewModel;
+    const hiddenTechStackCount = Math.max(0, techStack.length - MAX_PROJECT_CARD_SKILL_ICONS);
+    const links = resolveProjectSocialLinks(project.externalLinks, project.githubRepoUrl);
+    const primaryProjectLink = links.find(link => !link.managed) ?? links[0] ?? null;
+    const visibleLinks = primaryProjectLink ? [primaryProjectLink, ...links.filter(link => link !== primaryProjectLink)].slice(0, 4) : [];
+    const href = `/projects/${project.slug || project.id}?fromTab=${encodeURIComponent(fromTab)}`;
+    const compact = viewMode === "list";
 
-    // OPTIMIZATION: Removed Debounce Ref (prefetching removed)
-    // const prefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-    const [followingProject, setFollowingProject] = useState(propIsFollowing ?? false);
-    const [followersCount, setFollowersCount] = useState(propFollowersCount);
-
-    useEffect(() => {
-        if (propIsFollowing !== undefined) setFollowingProject(propIsFollowing);
-    }, [propIsFollowing]);
-
-    useEffect(() => {
-        if (propFollowersCount !== undefined) setFollowersCount(propFollowersCount);
-    }, [propFollowersCount]);
-
-    // VIEW MODEL USAGE: No useMemos or heavy logic here!
-    const { 
-        status, 
-        techStack, 
-        lastActive, 
-        collaborators, 
-        totalOpenRoles, 
-        openRoles 
-    } = viewModel;
-    const rankingReasons = project.rankingReasons || [];
-    const resolvedProjectLinks = resolveProjectSocialLinks(project.externalLinks, project.githubRepoUrl);
-    const primaryProjectLink = resolvedProjectLinks.find((link) => !link.managed) ?? resolvedProjectLinks[0] ?? null;
-    const visibleTechStack = techStack.slice(0, MAX_PROJECT_CARD_SKILL_ICONS);
-    const hiddenTechStackCount = Math.max(0, techStack.length - visibleTechStack.length);
-
-    async function toggleFollow(e: React.MouseEvent) {
-        e.preventDefault();
-        e.stopPropagation();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const nextFollowing = !followingProject;
-        setFollowingProject(nextFollowing);
-        setFollowersCount((prev) => (nextFollowing ? prev + 1 : Math.max(0, prev - 1)));
-
+    async function toggleFollow() {
+        if (followLock.current || previewMode) return;
+        followLock.current = true;
+        setBusy(true);
+        setError(null);
+        const previous = following;
+        const previousCount = followers;
         try {
-            const result = await toggleFollowMutation({
-                projectId: project.id,
-                currentStatus: followingProject,
-                userId: user.id,
-            });
-            if (result?.followersCount !== undefined) {
-                setFollowersCount(result.followersCount);
-            }
+            const { data: { user } } = await createClient().auth.getUser();
+            if (!user) { setError("Sign in to follow this project."); return; }
+            setFollowing(!previous);
+            setFollowers(Math.max(0, previousCount + (previous ? -1 : 1)));
+            const result = await mutateAsync({ projectId: project.id, currentStatus: previous, userId: user.id });
+            if (result?.followersCount !== undefined) setFollowers(result.followersCount);
         } catch {
-            setFollowingProject(!nextFollowing);
-            setFollowersCount((prev) => (!nextFollowing ? prev + 1 : Math.max(0, prev - 1)));
+            setFollowing(previous);
+            setFollowers(previousCount);
+            setError("Could not update follow status. Try again.");
+        } finally {
+            followLock.current = false;
+            setBusy(false);
         }
     }
 
-    if (viewMode === 'list') {
-        return (
-            <div
-                className="group relative bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-lg dark:hover:shadow-black/40 transition-all duration-300 ease-out"
-                data-project-id={project.id}
-                data-testid={`project-card-${project.id}`}
-            >
-                <Link
-                    href={projectHref}
-                    className="absolute inset-0 z-10"
-                    aria-label={`View project ${project.title}`}
-                    onClick={() => onOpenProject?.(project.id)}
-                />
-                
-                {/* Content Container (Row Layout) */}
-                <div className="flex items-center gap-4 h-full relative z-0 pointer-events-none app-density-panel">
-                    <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${status.gradient} shrink-0`} />
-                    
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-primary transition-colors">
-                                {project.title}
-                            </h3>
-                            {totalOpenRoles > 0 && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/10">
-                                    {totalOpenRoles} roles
-                                </span>
-                            )}
-                        </div>
-                        <p className="text-sm text-zinc-500 truncate">{project.shortDescription || project.description}</p>
-                        {rankingReasons.length > 0 && (
-                            <div className="mt-1 flex items-center gap-1.5">
-                                {rankingReasons.slice(0, 1).map((reason) => (
-                                    <span
-                                        key={reason}
-                                        className="inline-flex items-center rounded-full border border-primary/15 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
-                                    >
-                                        {reason}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm text-zinc-500 shrink-0">
-                        <span className="flex items-center gap-1">
-                            <Users className="w-4 h-4" /> {collaborators.length}
-                        </span>
-                        <span className="flex items-center gap-1" data-testid={`project-card-views-${project.id}`}>
-                            <Eye className="w-4 h-4" /> {project.viewCount || 0}
-                        </span>
-                    </div>
+    const avatarUrl = getProjectAvatarUrl(project);
+
+    return <article className="nb-project-card group h-full" data-project-id={project.id} data-testid={`project-card-${project.id}`} data-view={viewMode}>
+        {avatarUrl ? (
+            <div className="flex items-center gap-3">
+                <ProjectAvatar project={project} size="card" />
+                <div className="min-w-0 flex-1">
+                    <h3 className="nb-project-card-title min-w-0">
+                        {previewMode ? project.title : <Link href={href} onClick={() => onOpenProject?.(project.id)} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>}
+                    </h3>
+                    {(project.shortDescription || project.description) && (
+                        <p className={`mt-0.5 text-sm leading-normal text-muted-foreground ${compact ? "line-clamp-1" : "line-clamp-2"}`}>
+                            {project.shortDescription || project.description}
+                        </p>
+                    )}
                 </div>
             </div>
-        );
-    }
-
-    return (
-        <div
-            className={`h-full ${disableHoverEffects ? '' : 'transform transition-all duration-300 hover:-translate-y-1'}`}
-            data-project-id={project.id}
-            data-testid={`project-card-${project.id}`}
-        >
-            <div className={`group relative h-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden flex flex-col ${disableHoverEffects ? '' : 'transition-all duration-300 hover:-translate-y-1 hover:border-primary/20'}`}>
-
-                <div className={previewMode ? 'flex flex-col h-full pointer-events-none' : 'flex flex-col h-full'}>
-                    {!previewMode && (
-                        <Link
-                            href={projectHref}
-                            className="absolute inset-0 z-10"
-                            onClick={() => onOpenProject?.(project.id)}
-                        />
-                    )}
-
-                    {/* Main Content */}
-                    <div className="px-[var(--ui-panel-padding)] pt-[var(--ui-panel-padding)] pb-[var(--ui-panel-padding)] flex-1 flex flex-col">
-                        {/* Title & Tagline & Open Roles */}
-                        <div className="mb-2.5">
-                            <div className="flex items-start justify-between gap-2.5">
-                                <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 truncate leading-snug group-hover:text-primary transition-colors flex-1">
-                                    {project.title}
-                                </h3>
-                                {totalOpenRoles > 0 && (
-                                    <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-[9px] font-bold text-primary border border-primary/10 select-none">
-                                        {totalOpenRoles} {totalOpenRoles === 1 ? 'Open Role' : 'Open Roles'}
-                                    </span>
-                                )}
-                            </div>
-                            {project.shortDescription && (
-                                <p className="text-[13px] font-medium text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
-                                    {project.shortDescription}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Description (2-line clamp) */}
-                        <div className="mb-3 flex-1 min-h-[40px]">
-                            <p className="text-[13px] text-zinc-600 dark:text-zinc-400 line-clamp-2 leading-relaxed">
-                                {project.description || project.shortDescription || 'No description provided.'}
-                            </p>
-                        </div>
-
-                        {/* Ranking Reasons */}
-                        {rankingReasons.length > 0 && (
-                            <div className="mb-3 flex flex-wrap gap-1.5">
-                                {rankingReasons.map((reason) => (
-                                    <span
-                                        key={reason}
-                                        className="inline-flex items-center rounded-full border border-primary/15 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary"
-                                    >
-                                        {reason}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Micro tech stack */}
-                        {techStack.length > 0 && (
-                            <div
-                                className="mt-auto flex flex-nowrap items-center gap-1 overflow-hidden"
-                                title={techStack.join(', ')}
-                                aria-label={`Skills: ${techStack.join(', ')}`}
-                            >
-                                {visibleTechStack.map((techName) => {
-                                    const skill = resolveClientSkill(techName);
-                                    return (
-                                        <span
-                                            key={skill.canonicalKey}
-                                            className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-zinc-700 dark:text-zinc-200"
-                                            title={skill.name}
-                                            role="img"
-                                            aria-label={skill.name}
-                                        >
-                                            <SkillIcon skill={skill} size={16} />
-                                        </span>
-                                    );
-                                })}
-                                {hiddenTechStackCount > 0 && (
-                                    <span
-                                        className="inline-flex h-5 shrink-0 items-center px-1 text-[10px] font-semibold text-zinc-600 dark:text-zinc-300"
-                                        aria-label={`${hiddenTechStackCount} more skills`}
-                                    >
-                                        +{hiddenTechStackCount}
-                                    </span>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Footer - Z-index elevated to ensure buttons are clickable over the absolute Link */}
-                    <div className="relative z-20 mt-auto border-t border-zinc-100 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between px-[var(--ui-panel-padding)] py-2.5">
-                        <div className="flex items-center gap-3">
-                            {/* Avatars */}
-                            <div className="flex items-center -space-x-1.5">
-                                {collaborators.slice(0, 5).map((p, i) => {
-                                    const identity = buildIdentityPresentation(p, { fallbackDisplayName: 'Collaborator' });
-                                    return (
-                                        <UserAvatar
-                                            key={i}
-                                            identity={p}
-                                            size={24}
-                                            sizes="24px"
-                                            title={identity.displayName}
-                                            className="border-2 border-white dark:border-zinc-900"
-                                            fallbackClassName="text-[10px] font-bold text-white"
-                                        />
-                                    );
-                                })}
-                                {collaborators.length > 5 && (
-                                    <div className="w-6 h-6 rounded-full border-2 border-white dark:border-zinc-900 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[9px] font-bold text-zinc-500">
-                                        +{collaborators.length - 5}
-                                    </div>
-                                )}
-                                {collaborators.length === 0 && (
-                                    <div className="w-6 h-6 rounded-full border-2 border-white dark:border-zinc-900 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[10px] font-bold text-zinc-400">
-                                        <Users className="w-3 h-3" />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-1 text-zinc-400">
-                            {!previewMode && resolvedProjectLinks.slice(0, 4).map((link) => (
-                                <a
-                                    key={link.id || link.canonicalKey}
-                                    href={`/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(event) => event.stopPropagation()}
-                                    className="p-1.5 hover:text-zinc-900 hover:bg-white dark:hover:bg-zinc-800 rounded-md transition-colors border border-transparent hover:border-zinc-200 dark:hover:border-zinc-700 shadow-sm"
-                                    aria-label={`Open ${link.customLabel || link.platformLabel}: ${link.accountLabel}`}
-                                    title={`Open ${link.customLabel || link.platformLabel}: ${link.accountLabel}`}
-                                >
-                                    {link.iconKey
-                                        ? <SocialPresenceIcon iconKey={link.iconKey} className="h-3.5 w-3.5" />
-                                        : link.platform === 'website'
-                                            ? <Globe className="h-3.5 w-3.5" aria-hidden />
-                                            : <ExternalLink className="h-3.5 w-3.5" aria-hidden />}
-                                </a>
-                            ))}
-                            {!previewMode && resolvedProjectLinks.length > 0 && (
-                                <div className="w-px h-3.5 bg-zinc-200 dark:bg-zinc-700 mx-1" />
-                            )}
-                            <span className="flex items-center gap-1.5 pl-1 text-[13px] font-semibold text-zinc-500 select-none" data-testid={`project-card-views-${project.id}`} title="Views">
-                                <TrendingUp className="w-3.5 h-3.5" /> {project.viewCount || 0}
-                            </span>
-                            <button
-                                onClick={toggleFollow}
-                                className={`flex items-center gap-1.5 px-1 py-1 transition-colors text-[13px] font-semibold select-none hover:text-zinc-900 dark:hover:text-zinc-100 ${
-                                    followingProject ? 'text-emerald-600' : ''
-                                }`}
-                                title={followingProject ? 'Unfollow' : 'Follow'}
-                                data-testid={`project-card-follow-${project.id}`}
-                            >
-                                {followingProject ? <UserCheck className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
-                                <span>{followersCount}</span>
-                            </button>
-                        </div>
-                    </div>
+        ) : (
+            <>
+                <div className="flex flex-wrap items-start gap-2">
+                    <h3 className="nb-project-card-title min-w-0">
+                        {previewMode ? project.title : <Link href={href} onClick={() => onOpenProject?.(project.id)} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>}
+                    </h3>
                 </div>
+                <p className={`text-sm leading-normal text-muted-foreground ${compact ? "line-clamp-1" : "line-clamp-2"}`}>
+                    {project.shortDescription || project.description || "No description provided."}
+                </p>
+            </>
+        )}
+        {!compact && project.shortDescription && project.description && project.description !== project.shortDescription && <p className="text-sm leading-normal text-muted-foreground line-clamp-2">{project.description}</p>}
+        {(project.rankingReasons?.length ?? 0) > 0 && <div className="flex flex-wrap gap-1.5">{project.rankingReasons?.map(reason => <span className="nb-tag" key={reason}>{reason}</span>)}</div>}
+        {!compact && techStack.length > 0 && <div className="flex flex-wrap gap-1.5" aria-label="Project skills">
+            {techStack.slice(0, MAX_PROJECT_CARD_SKILL_ICONS).map(name => { const skill = resolveClientSkill(name); return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>; })}
+            {hiddenTechStackCount > 0 && <span className="nb-tag" title={techStack.slice(MAX_PROJECT_CARD_SKILL_ICONS).join(", ")}>+{hiddenTechStackCount}</span>}
+        </div>}
+        {totalOpenRoles > 0 && <span className="text-sm text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
+        <div className="nb-project-card-footer">
+            <div className="flex items-center gap-2">
+                <div className="flex -space-x-1.5" aria-label={`${collaborators.length} collaborators`}>
+                    {collaborators.slice(0, 4).map((person, index) => <UserAvatar key={person.username || index} identity={person} size={26} className="border-2 border-card" fallbackClassName="text-[11px]" />)}
+                    {collaborators.length > 4 && <span className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary font-mono text-[11px]">+{collaborators.length - 4}</span>}
+                    {collaborators.length === 0 && <Users size={16} className="text-muted-foreground" aria-hidden="true" />}
+                </div>
+            </div>
+            <div className="relative z-10 flex flex-wrap items-center gap-1">
+                {!previewMode && visibleLinks.map(link => <a key={link.id || link.canonicalKey} href={`/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`} target="_blank" rel="noopener noreferrer" className="nb-icon-button" aria-label={`Open ${link.customLabel || link.platformLabel}: ${link.accountLabel}`}>
+                    {link.iconKey ? <SocialPresenceIcon iconKey={link.iconKey} className="size-3.5" /> : link.platform === "website" ? <Globe size={14} /> : <ExternalLink size={14} />}
+                </a>)}
+                <span className="nb-meta flex items-center gap-1 px-1" title="Views" data-testid={`project-card-views-${project.id}`}><BarChart2 size={14} aria-hidden="true" />{project.viewCount || 0}<span className="sr-only"> views</span></span>
+                <button type="button" disabled={busy || previewMode} aria-busy={busy} aria-pressed={following} aria-label={`${following ? "Unfollow" : "Follow"} ${project.title}, ${followers} followers`} className="nb-icon-button gap-1 px-1 font-mono text-xs disabled:opacity-45" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
+                    {following ? <UserCheck size={14} aria-hidden="true" /> : <UserPlus size={14} aria-hidden="true" />}{followers}
+                </button>
             </div>
         </div>
-    );
+        {error && <p role="alert" className="relative z-10 text-sm text-destructive">{error}</p>}
+    </article>;
 });

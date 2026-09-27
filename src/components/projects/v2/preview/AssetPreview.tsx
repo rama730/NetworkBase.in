@@ -143,11 +143,11 @@ export default function AssetPreview({
     return (
       <div className="h-full w-full relative flex flex-col bg-white dark:bg-zinc-950 overflow-hidden">
         {/* Floating Zoom & Action Controls */}
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-zinc-900/80 dark:bg-zinc-950/85 backdrop-blur px-2 py-1 rounded-lg border border-zinc-200/20 shadow-md text-white">
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-card dark:bg-zinc-950/85 backdrop-blur-none px-2 py-1 rounded-lg border border-zinc-200/20 shadow-md text-white">
           <Button size="sm" variant="ghost" onClick={handleZoomOut} aria-label="Zoom out" disabled={scale <= 0.5} className="h-10 w-10 p-0 text-white hover:text-white hover:bg-white/10 disabled:opacity-40">
             <ZoomOut className="w-3.5 h-3.5" />
           </Button>
-          <span className="text-[10px] w-10 text-center font-medium select-none">{Math.round(scale * 100)}%</span>
+          <span className="text-[11px] w-10 text-center font-medium select-none">{Math.round(scale * 100)}%</span>
           <Button size="sm" variant="ghost" onClick={handleZoomIn} aria-label="Zoom in" disabled={scale >= 5} className="h-10 w-10 p-0 text-white hover:text-white hover:bg-white/10 disabled:opacity-40">
             <ZoomIn className="w-3.5 h-3.5" />
           </Button>
@@ -155,7 +155,7 @@ export default function AssetPreview({
             <RotateCcw className="w-3 h-3" />
           </Button>
           <div className="w-px h-3 bg-white/20 mx-1" />
-          <Button asChild size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-white hover:text-white hover:bg-white/10">
+          <Button asChild size="sm" variant="ghost" className="h-6 px-1.5 text-[11px] text-white hover:text-white hover:bg-white/10">
             <a href={signedUrl} target="_blank" rel="noreferrer">
               <ExternalLink className="w-3 h-3 mr-1" />
               Open
@@ -178,7 +178,7 @@ export default function AssetPreview({
             height={900}
             sizes="(max-width: 768px) 100vw, 80vw"
             loading="lazy"
-            className="max-h-full max-w-full object-contain transition-transform duration-75 ease-out select-none"
+            className="max-h-full max-w-full object-contain transition-transform duration-[80ms] ease-out select-none"
             style={{
               transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
             }}
@@ -224,7 +224,7 @@ export default function AssetPreview({
   return (
     <div className="h-full w-full flex items-center justify-center p-8 text-center bg-white dark:bg-zinc-950">
       <div className="max-w-lg">
-        <div className="mx-auto w-12 h-12 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
+        <div className="mx-auto w-12 h-12 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-3">
           <FileText className="w-6 h-6 text-zinc-500" />
         </div>
         <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{node.name}</div>

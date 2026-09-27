@@ -53,6 +53,8 @@ import { cn } from "@/lib/utils";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
 import { saveFileRevision } from "@/hooks/useFileVersions";
+import { getProjectFileContent } from "@/app/actions/files/content";
+import { listFileVersions } from "@/app/actions/files/versions";
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
 import type { FileLeaseStatus } from "../hooks/useFileLease";
 
@@ -185,10 +187,6 @@ export function TextViewer({
 
     void (async () => {
       try {
-        const [{ getProjectFileContent }, { listFileVersions }] = await Promise.all([
-          import("@/app/actions/files/content"),
-          import("@/app/actions/files/versions"),
-        ]);
         const [text, versions] = await Promise.all([
           getProjectFileContent(projectId, node.id),
           mode === "edit" ? listFileVersions(projectId, node.id) : Promise.resolve([]),
@@ -319,7 +317,7 @@ export function TextViewer({
     return (
       <div
         data-testid="files-tab-text-viewer-loading"
-        className="flex h-full min-h-0 w-full items-center justify-center text-xs text-zinc-500 dark:text-zinc-400"
+        className="flex h-full min-h-0 w-full items-center justify-center text-xs text-muted-foreground"
       >
         Loading…
       </div>
@@ -330,12 +328,12 @@ export function TextViewer({
     return (
       <div
         data-testid="files-tab-text-viewer-error"
-        className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-2 p-4 text-center text-xs text-zinc-600 dark:text-zinc-300"
+        className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-2 p-4 text-center text-xs text-muted-foreground"
       >
-        <p className="font-medium">Failed to load file content</p>
+        <p className="font-medium text-foreground">Failed to load file content</p>
         <Button variant="outline" onClick={() => setLoadAttempt(value => value + 1)}>Retry preview</Button>
         {loadError ? (
-          <p className="max-w-md break-words text-zinc-500 dark:text-zinc-400">
+          <p className="max-w-md break-words text-muted-foreground">
             {loadError}
           </p>
         ) : null}
@@ -351,8 +349,7 @@ export function TextViewer({
         data-testid="files-tab-text-viewer-raw"
         className={cn(
           "h-full min-h-0 w-full overflow-auto whitespace-pre-wrap break-words",
-          "bg-white p-4 font-mono text-xs leading-relaxed text-zinc-900",
-          "dark:bg-zinc-950 dark:text-zinc-100",
+          "bg-background p-4 font-mono text-[13px] leading-[1.55] text-foreground",
         )}
       >
         {savedContent}
@@ -364,7 +361,7 @@ export function TextViewer({
     return (
       <div
         data-testid="files-tab-text-viewer-view"
-        className="flex h-full min-h-0 w-full flex-col bg-white dark:bg-zinc-950"
+        className="flex h-full min-h-0 w-full flex-col bg-background"
       >
         <div className="min-h-0 flex-1">
           <CodeMirrorEditor
@@ -378,7 +375,7 @@ export function TextViewer({
             }
             height="100%"
             width="100%"
-            className="h-full font-mono text-xs"
+            className="h-full font-mono text-[13px] leading-[1.55]"
             basicSetup={{
               lineNumbers: true,
               foldGutter: false,
@@ -410,17 +407,22 @@ export function TextViewer({
       className="flex h-full min-h-0 w-full flex-col"
     >
       <FilesHeaderSlot slot="status"><div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
           {isDirty ? (
             <span
               data-testid="files-tab-text-viewer-dirty"
-              className="max-w-16 truncate rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 sm:max-w-none dark:bg-amber-900/30 dark:text-amber-300"
+              className="max-w-16 truncate rounded-[3px] border border-[#F6E7C2] bg-[#FBF4E2] px-1.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[#9A6B00] sm:max-w-none dark:border-amber-900/40 dark:bg-amber-900/30 dark:text-amber-300"
               title="Unsaved changes"
             >
               Unsaved changes
             </span>
           ) : (
-            <span data-testid="files-tab-text-viewer-clean">Saved</span>
+            <span
+              data-testid="files-tab-text-viewer-clean"
+              className="rounded-[3px] border border-[#DBD5C8] bg-[#F3F0EA] px-1.5 py-0.5 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-[#4C5A61] dark:border-white/10 dark:bg-white/5 dark:text-white/70"
+            >
+              Saved
+            </span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -432,6 +434,7 @@ export function TextViewer({
               onClick={onCancel}
               disabled={isSaving}
               data-testid="files-tab-text-viewer-cancel"
+              className="h-[28px] rounded-[5px] border-[#DBD5C8] px-2.5 text-xs font-medium hover:bg-[#F3F0EA] dark:border-white/10 dark:hover:bg-white/5"
             >
               Cancel
             </Button>
@@ -442,6 +445,7 @@ export function TextViewer({
             onClick={handleSaveClick}
             disabled={!canEdit || !isDirty || isSaving}
             data-testid="files-tab-text-viewer-save"
+            className="h-[28px] rounded-[5px] bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
           >
             {isSaving ? "Saving…" : "Save"}
           </Button>
@@ -483,7 +487,7 @@ export function TextViewer({
           }
           height="100%"
           width="100%"
-          className="h-full"
+          className="h-full font-mono text-[13px] leading-[1.55]"
           // Thinned basicSetup. No language extensions, no search keymap,
           // no lint keymap, no completion — the Edit surface is a plain
           // text editor, not an IDE.
@@ -519,7 +523,7 @@ export function TextViewer({
 
 function EditorLoading(): React.JSX.Element {
   return (
-    <div className="flex h-full min-h-0 w-full items-center justify-center text-xs text-zinc-500 dark:text-zinc-400">
+    <div className="flex h-full min-h-0 w-full items-center justify-center text-xs text-muted-foreground">
       Loading editor…
     </div>
   );

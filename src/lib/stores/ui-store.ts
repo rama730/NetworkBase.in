@@ -70,8 +70,7 @@ export const useUIStore = create<UIState>()((set) => ({
     setMobileMenuOpen: (open) => set({ mobileMenuOpen: open }),
     setTheme: (theme) => set({ theme }),
     setWorkspaceOpen: (open) => set({ isWorkspaceOpen: open }),
-    // ponytail: the launcher always has one predictable destination; callers
-    // that need Requests ask for it explicitly instead of restoring stale UI.
+    // ponytail: the launcher always has one predictable destination; callers that need Requests ask for it explicitly instead of restoring stale UI. ceiling: defaults to tasks tab. upgrade: persist last visited workspace tab per project in local storage.
     openWorkspace: (tab = "tasks") => set({ isWorkspaceOpen: true, workspaceTab: tab }),
     setWorkspaceTab: (tab) => set({ workspaceTab: tab }),
     setWorkspaceTaskHandoff: (handoff) => set({ workspaceTaskHandoff: handoff }),

@@ -111,11 +111,19 @@ export async function getGitHubSyncState(projectId: string) {
     idSchema.parse(projectId);
     const { user, token } = await session();
     const ctx = await resolveSyncContext(projectId, user.id, token);
-    // ponytail: query runs, identity, files count, and team members in parallel
+    // ponytail: parallel query for runs, identity, files count, and team members. ceiling: 4 concurrent DB queries. upgrade: single joined SQL aggregation if workspace dashboard RPS exceeds 10k.
     const [runs, identityRow, filesCountResult, membersResult] =
       await Promise.all([
         db
-          .select()
+          .select({
+            id: githubSyncRuns.id,
+            status: githubSyncRuns.status,
+            stage: githubSyncRuns.stage,
+            error: githubSyncRuns.error,
+            createdAt: githubSyncRuns.createdAt,
+            manifest: githubSyncRuns.manifest,
+            result: githubSyncRuns.result,
+          })
           .from(githubSyncRuns)
           .where(eq(githubSyncRuns.projectId, projectId))
           .orderBy(desc(githubSyncRuns.createdAt))
@@ -191,7 +199,7 @@ export async function getGitHubSyncState(projectId: string) {
 export async function getGitHubSyncContributors(projectId: string) {
   return result(async () => {
     idSchema.parse(projectId);
-    const { user } = await session();
+    const { user, token } = await session();
     const access = await assertProjectFileReadAccess(projectId, user.id);
     if (!access.isOwner && !access.isMember)
       throw new Error(
@@ -499,7 +507,7 @@ export async function executeGitHubSync(projectId: string, runId: string) {
       process.env.NODE_ENV !== "production" ||
       process.env.GITHUB_SYNC_INLINE_FALLBACK?.trim().toLowerCase() === "always"
     ) {
-      // ponytail: local development has no separately reachable worker.
+      // ponytail: inline execution fallback for local development or explicit config. ceiling: non-production local runtime. upgrade: local Inngest dev server if async worker testing required.
       const { runReviewedGitHubSync } =
         await import("@/lib/github/sync-runner");
       await runReviewedGitHubSync(runId, user.id, projectId);
@@ -602,10 +610,57 @@ export async function getGitHubSyncDiff(
   });
 }
 
+// ponytail: fast-path single-file diff by pre-computed SHA avoids full 100k repo comparison. ceiling: diff preview capped at 1MB per file. upgrade: Web Worker streaming diff if larger files require review.
+export async function getSingleFileDiff(
+  projectId: string,
+  params: {
+    repository: string;
+    path: string;
+    storageKey?: string | null;
+    remoteSha?: string | null;
+    baseSha?: string | null;
+    size?: number | null;
+  },
+) {
+  return result(async () => {
+    idSchema.parse(projectId);
+    const { repository, storageKey, remoteSha, baseSha, size } = params;
+    if (typeof size === "number" && size > 1024 * 1024) {
+      return { binary: true, edge: "", github: "", base: "" };
+    }
+
+    const { user, token } = await session();
+    const ctx = await resolveSyncContext(projectId, user.id, token);
+
+    const shouldFetchBase = Boolean(baseSha && ctx.token && baseSha !== remoteSha);
+    const [edge, github, baseBuffer] = await Promise.all([
+      storageKey ? readStoredSyncContent(projectId, storageKey).catch(() => null) : null,
+      remoteSha && ctx.token
+        ? readGitHubBlob(ctx.token, repository, remoteSha).catch(() => null)
+        : null,
+      shouldFetchBase
+        ? readGitHubBlob(ctx.token, repository, baseSha!).catch(() => null)
+        : null,
+    ]);
+    const base = baseSha === remoteSha ? github : baseBuffer;
+    const isOversized = [edge, github, base].some((buffer) => buffer && buffer.length > 1024 * 1024);
+    if (isOversized) {
+      return { binary: true, edge: "", github: "", base: "" };
+    }
+    const binary = [edge, github, base].some((buffer) => buffer?.includes(0));
+    return {
+      binary,
+      edge: binary ? "" : edge?.toString("utf8") || "",
+      github: binary ? "" : github?.toString("utf8") || "",
+      base: binary ? "" : base?.toString("utf8") || "",
+    };
+  });
+}
+
 export async function getHeaderGitHubSyncStatus(projectId: string) {
   return result(async () => {
     idSchema.parse(projectId);
-    const { user } = await session();
+    const { user, token } = await session();
     await assertProjectFileReadAccess(projectId, user.id);
 
     const [connection, latestRun] = await Promise.all([
@@ -629,6 +684,7 @@ export async function getHeaderGitHubSyncStatus(projectId: string) {
     if (!connection) {
       return {
         connected: false,
+        authorized: Boolean(token),
         repository: null as string | null,
         branch: null as string | null,
         hasIncoming: false,
@@ -670,6 +726,10 @@ export async function getHeaderGitHubSyncStatus(projectId: string) {
 
     return {
       connected: true,
+      // A repository connection belongs to the project, while its GitHub token
+      // belongs to the current person. Never surface branch or commit metadata
+      // as ready-to-sync when that person needs to restore GitHub access.
+      authorized: Boolean(token),
       repository: connection.repository.replace(/^https:\/\/github\.com\//, ""),
       branch: connection.branch,
       hasIncoming: Boolean(connection.incomingSha),
@@ -885,4 +945,3 @@ export async function getProjectSyncTasks(projectId: string) {
     }));
   });
 }
-

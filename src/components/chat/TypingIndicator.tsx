@@ -34,7 +34,7 @@ function TypingDots({ size = 'md' }: { size?: 'sm' | 'md' }) {
             />
             <span
                 className={cn(DOT_STYLE_BASE, dotSize, 'bg-zinc-400 dark:bg-zinc-500')}
-                style={{ animation: 'typing-dot 1.4s ease-in-out infinite', animationDelay: '200ms' }}
+                style={{ animation: 'typing-dot 1.4s ease-in-out infinite', animationDelay: '180ms' }}
             />
             <span
                 className={cn(DOT_STYLE_BASE, dotSize, 'bg-zinc-400 dark:bg-zinc-500')}
@@ -63,11 +63,11 @@ export function TypingIndicator({ users, variant = 'chat', className }: TypingIn
 
     return (
         <div className={cn(
-            'mb-2 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 font-normal italic animate-in fade-in duration-200',
+            'mb-2 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 font-normal italic animate-in fade-in duration-[180ms]',
             className,
         )}>
             <TypingDots size="sm" />
-            <span className="animate-pulse">{text}</span>
+            <span className="animate-none">{text}</span>
         </div>
     );
 }

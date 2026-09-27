@@ -1,29 +1,15 @@
 "use client";
 
 // ============================================================================
-// Task Panel Overhaul - Wave 4
-// MentionAutocomplete: floating member picker anchored to the caret.
-//
-// This is a pure presentational component - the owning composer (CommentsTab)
-// tracks the query string, active index, and caret position, and only calls
-// into the autocomplete to render + handle pointer selection.
-//
-// Design notes:
-//   - We render via React portal into <body> so the menu never gets clipped
-//     by the tab panel's scroll container. This also keeps z-index
-//     bookkeeping simple.
-//   - Keyboard navigation (ArrowUp/Down/Enter/Escape) lives in the composer,
-//     because only the composer owns the editable DOM and can decide what
-//     Enter should do when the menu is closed.
-//   - We highlight the first occurrence of the query inside the name /
-//     username so the user can visually confirm the fuzzy match.
+// Task Panel - MentionAutocomplete
+// Floating member picker anchored to the caret in the comment composer.
+// Conforms to NetworkBase drafting-table design tokens and Section 10 precision.
 // ============================================================================
 
 import * as React from "react";
-import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { cn } from "@/lib/utils";
 
 export interface MentionCandidate {
@@ -47,8 +33,9 @@ interface MentionAutocompleteProps {
     onHoverIndex?: (index: number) => void;
 }
 
-const MENU_WIDTH = 320;
+const MENU_WIDTH = 300;
 const MENU_OFFSET_Y = 6;
+const ESTIMATED_MENU_HEIGHT = 260;
 
 function getDisplayName(candidate: MentionCandidate): string {
     return (
@@ -56,11 +43,6 @@ function getDisplayName(candidate: MentionCandidate): string {
         candidate.username?.trim() ||
         "Unnamed user"
     );
-}
-
-function getInitials(candidate: MentionCandidate): string {
-    const source = getDisplayName(candidate);
-    return source.charAt(0).toUpperCase() || "?";
 }
 
 // Case-insensitive first-match highlighter. Returns the string split into
@@ -85,7 +67,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
     return (
         <>
             {before}
-            <mark className="bg-indigo-100 text-indigo-900 rounded-[2px] px-0.5 dark:bg-indigo-900/40 dark:text-indigo-100">
+            <mark className="bg-primary/20 text-primary rounded-[2px] px-0.5">
                 {match}
             </mark>
             {after}
@@ -103,49 +85,37 @@ export function MentionAutocomplete({
     onSelect,
     onHoverIndex,
 }: MentionAutocompleteProps) {
-    // SSR-safe portal target. We lazily pin the document reference inside an
-    // effect so nothing references `document` during the first render.
-    const [portalTarget, setPortalTarget] = React.useState<HTMLElement | null>(
-        null,
-    );
-    React.useEffect(() => {
-        setPortalTarget(typeof document !== "undefined" ? document.body : null);
-    }, []);
+    if (!anchorRect) return null;
 
-    if (!anchorRect || !portalTarget) return null;
-
-    // Clamp the menu inside the viewport so it never slides off the right edge
-    // of a narrow task panel.
-    const viewportWidth =
-        typeof window !== "undefined" ? window.innerWidth : MENU_WIDTH + 16;
-    const maxLeft = Math.max(0, viewportWidth - MENU_WIDTH - 8);
-    const clampedLeft = Math.min(maxLeft, Math.max(8, anchorRect.left));
-    const top = anchorRect.top + anchorRect.height + MENU_OFFSET_Y;
+    const top = anchorRect.top;
+    const left = Math.max(4, anchorRect.left);
 
     const hasResults = candidates.length > 0;
 
-    return createPortal(
+    return (
         <div
             role="listbox"
-            aria-label="Mention teammate"
+            aria-label="Mention teammates"
             data-testid="mention-autocomplete"
             data-composer-portal="true"
-            className="fixed z-[1000] overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
-            style={{ top, left: clampedLeft, width: MENU_WIDTH }}
+            className="absolute z-50 overflow-hidden rounded-[6px] border border-border bg-popover text-popover-foreground shadow-lg animate-in fade-in-0 zoom-in-95 duration-100"
+            style={{ top, left, width: MENU_WIDTH }}
             // Don't let a pointer drag in the menu steal focus from the composer.
             onMouseDown={(event) => event.preventDefault()}
         >
-            <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                <span>Mention teammate</span>
-                {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            <div className="flex items-center justify-between border-b border-border/60 bg-muted/30 px-3 py-1.5">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+                    Mention Teammates
+                </span>
+                {loading ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
             </div>
 
             {error ? (
-                <div className="px-3 py-3 text-xs text-rose-500">{error}</div>
+                <div className="px-3 py-2.5 text-xs text-destructive">{error}</div>
             ) : null}
 
             {!error && !loading && !hasResults ? (
-                <div className="px-3 py-3 text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="px-3 py-2.5 text-xs text-muted-foreground">
                     {query
                         ? `No teammates match "${query}".`
                         : "No teammates found on this project."}
@@ -153,10 +123,17 @@ export function MentionAutocomplete({
             ) : null}
 
             {hasResults ? (
-                <ul className="max-h-60 overflow-y-auto py-1">
+                <ul className="max-h-60 overflow-y-auto p-1">
                     {candidates.map((candidate, index) => {
                         const active = index === activeIndex;
                         const displayName = getDisplayName(candidate);
+
+                        const handleTriggerSelect = (e: React.SyntheticEvent) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onSelect(candidate);
+                        };
+
                         return (
                             <li key={candidate.id}>
                                 <button
@@ -165,50 +142,43 @@ export function MentionAutocomplete({
                                     aria-selected={active}
                                     data-testid="mention-autocomplete-option"
                                     data-mention-candidate-id={candidate.id}
-                                    onMouseDown={(event) => {
-                                        // preventDefault keeps the composer focused;
-                                        // we route through onSelect ourselves.
-                                        event.preventDefault();
-                                        onSelect(candidate);
-                                    }}
+                                    onPointerDown={handleTriggerSelect}
+                                    onMouseDown={handleTriggerSelect}
+                                    onClick={handleTriggerSelect}
                                     onMouseEnter={() => onHoverIndex?.(index)}
                                     className={cn(
-                                        "flex w-full items-center gap-3 px-3 py-2 text-left transition-colors",
+                                        "flex w-full items-center gap-2.5 rounded-[4px] px-2.5 py-1.5 text-left transition-colors",
                                         active
-                                            ? "bg-indigo-50 text-indigo-900 dark:bg-indigo-900/30 dark:text-indigo-100"
-                                            : "text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800/60",
+                                            ? "bg-accent text-accent-foreground font-medium"
+                                            : "text-foreground hover:bg-muted/70",
                                     )}
                                 >
-                                    <Avatar className="h-7 w-7 border border-zinc-200 dark:border-zinc-700">
-                                        <AvatarImage
-                                            src={candidate.avatarUrl || undefined}
-                                            alt={displayName}
-                                        />
-                                        <AvatarFallback className="bg-zinc-200 text-[10px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                                            {getInitials(candidate)}
-                                        </AvatarFallback>
-                                    </Avatar>
+                                    <UserAvatar
+                                        identity={{
+                                            fullName: candidate.fullName,
+                                            username: candidate.username,
+                                            avatarUrl: candidate.avatarUrl,
+                                        }}
+                                        size={24}
+                                        roundedClassName="rounded-[4px] border border-border/60 shrink-0"
+                                    />
                                     <div className="min-w-0 flex-1">
-                                        <div className="truncate text-sm font-medium">
+                                        <div className="truncate text-[12px] font-medium text-foreground leading-tight">
                                             <Highlighted text={displayName} query={query} />
                                         </div>
                                         {candidate.username ? (
-                                            <div className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                                                @
-                                                <Highlighted
-                                                    text={candidate.username}
-                                                    query={query}
-                                                />
+                                            <div className="truncate font-mono text-[10px] text-muted-foreground">
+                                                @<Highlighted text={candidate.username} query={query} />
                                             </div>
                                         ) : null}
                                     </div>
                                     {candidate.role && candidate.role !== "member" ? (
                                         <span
                                             className={cn(
-                                                "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                                                "rounded-[3px] border px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.09em] shrink-0",
                                                 candidate.role === "owner"
-                                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                                                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+                                                    ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                                    : "border-border bg-muted/60 text-muted-foreground",
                                             )}
                                         >
                                             {candidate.role}
@@ -220,8 +190,7 @@ export function MentionAutocomplete({
                     })}
                 </ul>
             ) : null}
-        </div>,
-        portalTarget,
+        </div>
     );
 }
 

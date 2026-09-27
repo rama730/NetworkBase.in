@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProjectSchema, type CreateProjectInput, type OpenRoleInput } from '@/lib/validations/project';
 import { generateSlug, generateProjectId } from '@/lib/utils/project-ids';
@@ -18,7 +18,7 @@ import { buildProjectFileKey } from '@/lib/storage/project-file-key';
 
 export interface WizardContextType {
     openRoles: OpenRoleInput[];
-    setOpenRoles: (roles: OpenRoleInput[]) => void;
+    openRoleIds: string[];
     addRole: () => void;
     updateRole: (index: number, updates: Partial<OpenRoleInput>) => void;
     removeRole: (index: number) => void;
@@ -28,15 +28,16 @@ interface UseCreateProjectWizardProps {
     onClose: () => void;
     onSuccess?: (projectId: string) => void;
     draftId?: string;
+    initialValues?: CreateProjectInput;
+    initialPhase?: WizardPhaseId;
 }
 
 /**
  * useCreateProjectWizard - The master hook for project creation.
  * Pure Optimization: Unified constants, reactive draft management, and scalable logic.
  */
-export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreateProjectWizardProps) {
-    const [phase, setPhase] = useState<WizardPhaseId>(1);
-    const [openRoles, setOpenRoles] = useState<OpenRoleInput[]>([]);
+export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
+    const [phase, setPhase] = useState<WizardPhaseId>(initialPhase);
     const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
     const [uploadProgress, setUploadProgress] = useState<{
         percent: number;
@@ -48,6 +49,15 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
     const [showExitConfirm, setShowExitConfirm] = useState(false);
+    const [phase2ValidationAttempted, setPhase2ValidationAttempted] = useState(false);
+    const [phase3ValidationAttempted, setPhase3ValidationAttempted] = useState(false);
+    const [phase4ValidationAttempted, setPhase4ValidationAttempted] = useState(false);
+    const [phase4LinkComposerPending, setPhase4LinkComposerPending] = useState(false);
+    const [isPhaseTransitioning, setIsPhaseTransitioning] = useState(false);
+    const [isReviewReady, setIsReviewReady] = useState(false);
+    const phaseTransitionRef = useRef(false);
+    const submissionRef = useRef(false);
+    const phaseTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [draftInfo, setDraftInfo] = useState<{
         exists: boolean;
         phase: number;
@@ -58,7 +68,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
     const methods = useForm<CreateProjectInput>({
         resolver: zodResolver(createProjectSchema) as any,
         mode: 'onChange',
-        defaultValues: {
+        defaultValues: initialValues ?? {
             title: '',
             description: '',
             short_description: '',
@@ -71,23 +81,11 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
             lifecycle_stages: [],
             current_stage_index: 0,
             goals: [],
-            application_settings: {
-                allow_applications: true,
-                require_portfolio: false,
-                custom_questions: [],
-                auto_decline_days: 30,
-            },
-            terms: {
-                ip_agreement: 'discuss',
-                license: '',
-                nda_required: 'none',
-                portfolio_showcase_allowed: true,
-                additional_terms: '',
-            },
             creator_role: {
                 role_type: 'lead',
                 title: '',
             },
+            roles: [],
             import_source: { type: 'scratch' },
             external_links: [],
             readme: {
@@ -101,6 +99,15 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
     });
 
     const { getValues, setValue, trigger, formState: { isDirty }, watch, reset } = methods;
+    const {
+        fields: openRoleFields,
+        append: appendOpenRole,
+        remove: removeOpenRole,
+    } = useFieldArray({
+        control: methods.control,
+        name: 'roles',
+    });
+    const openRoles = watch('roles') || [];
 
     // --- Lifecycle Autofill (Phase 3) ---
     const watchedProjectType = watch('project_type');
@@ -173,12 +180,14 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
     });
 
     const [githubFolderEntries, setGithubFolderEntries] = useState<Record<string, GithubPreviewEntry[]>>({});
+    const latestGithubPreviewRequestRef = useRef('');
 
     const importSourceType = watch('import_source.type');
     const watchedRepoUrl = watch('import_source.repoUrl');
     const watchedBranch = watch('import_source.branch');
 
     const resetGithubPreview = useCallback(() => {
+        latestGithubPreviewRequestRef.current = '';
         setGithubPreview({
             status: 'idle',
             repoUrl: '',
@@ -207,14 +216,29 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
         }
     }, [importSourceType, watchedRepoUrl, githubPreview.status, githubPreview.repoUrl, resetGithubPreview]);
 
-    const startGithubRootPreview = useCallback(async (repoUrl: string) => {
+    const startGithubRootPreview = useCallback(async (repoUrl: string, branchOverride?: string | null) => {
         const url = (repoUrl || '').trim();
         if (!url) return;
+        const requestedBranch = branchOverride ?? watchedBranch ?? null;
+        const requestKey = `${url}#${requestedBranch || ''}`;
+        latestGithubPreviewRequestRef.current = requestKey;
 
-        // Avoid duplicating work.
+        // Clear the previous repository before requesting a new manifest so its
+        // files can never be presented under the next repository's identity.
+        setGithubFolderEntries({});
         setGithubPreview((prev) => {
-            if (prev.status === 'loading' && prev.repoUrl === url) return prev;
-            return { ...prev, status: 'loading', repoUrl: url, errorMessage: null };
+            if (
+                prev.status === 'loading'
+                && prev.repoUrl === url
+                && (prev.branch ?? null) === requestedBranch
+            ) return prev;
+            return {
+                status: 'loading',
+                repoUrl: url,
+                branch: requestedBranch,
+                rootEntries: [],
+                errorMessage: null,
+            };
         });
 
         try {
@@ -227,9 +251,10 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
             const preferredInstallationId = (getValues('import_source.metadata') as any)?.githubInstallationId ?? null;
             const res = await fetchGithubImportPreviewRoot({
                 repoUrl: url,
-                branch: watchedBranch || null,
+                branch: requestedBranch,
                 installationId: preferredInstallationId,
             });
+            if (latestGithubPreviewRequestRef.current !== requestKey) return;
             const branch = res.branch || 'main';
 
             // Store branch in form so the import worker uses the same ref.
@@ -251,6 +276,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
                 setValue('import_source.repoUrl', normalizedUrl, { shouldDirty: true });
             }
         } catch (e: any) {
+            if (latestGithubPreviewRequestRef.current !== requestKey) return;
             const message = typeof e?.message === 'string' ? e.message : 'Failed to preview repository.';
             setGithubPreview((prev) => ({
                 ...prev,
@@ -287,9 +313,15 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
                 path: key,
                 installationId: preferredInstallationId,
             });
+            if ((getValues('import_source.repoUrl') || '').trim() !== baseUrl || (getValues('import_source.branch') || branch) !== branch) {
+                return;
+            }
             const entries = res.entries;
             setGithubFolderEntries((prev) => ({ ...prev, [key]: entries }));
         } catch {
+            if ((getValues('import_source.repoUrl') || '').trim() !== baseUrl || (getValues('import_source.branch') || branch) !== branch) {
+                return;
+            }
             // Non-blocking: folder expansion can fail silently; keep UX smooth.
             setGithubFolderEntries((prev) => ({ ...prev, [key]: [] }));
         }
@@ -347,19 +379,25 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
     }, [draftId, reset]);
 
     const saveDraft = useCallback(async (silent = false) => {
-        const { draftStore } = await import('@/lib/storage/draft-store');
-        await draftStore.save(getValues(), phase);
-        setLastSaved(new Date());
-
-        if (silent) return;
-
-        setIsSavingDraft(true);
-        setSaveStatus('saving');
-        // Pure Optimization: Minimal visual delay for confidence
-        await new Promise(r => setTimeout(r, 400));
-        setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 2000);
-        setIsSavingDraft(false);
+        if (!silent) {
+            setIsSavingDraft(true);
+            setSaveStatus('saving');
+        }
+        try {
+            const { draftStore } = await import('@/lib/storage/draft-store');
+            await draftStore.save(getValues(), phase);
+            setLastSaved(new Date());
+            if (!silent) {
+                setSaveStatus('saved');
+                window.setTimeout(() => setSaveStatus('idle'), 2000);
+            }
+        } catch (error) {
+            console.error('[create-project] Failed to save draft', error);
+            setSaveStatus('error');
+            if (!silent) toast.error('Draft could not be saved. Please try again.');
+        } finally {
+            if (!silent) setIsSavingDraft(false);
+        }
     }, [getValues, phase]);
 
     // Auto-Save Optimization (Debounced subscription)
@@ -379,7 +417,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
 
     // --- Role Management ---
     const addRole = useCallback(() => {
-        setOpenRoles(prev => [{
+        appendOpenRole({
             role: '',
             count: 1,
             description: '',
@@ -387,91 +425,144 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
             experience_level: 'any',
             compensation_type: 'unpaid',
             compensation_details: '',
-        }, ...prev]);
-    }, []);
+        }, { shouldFocus: true });
+    }, [appendOpenRole]);
 
     const updateRole = useCallback((index: number, updates: Partial<OpenRoleInput>) => {
-        setOpenRoles(prev => prev.map((r, i) => i === index ? { ...r, ...updates } : r));
-    }, []);
+        const roles = getValues('roles') || [];
+        const currentRole = roles[index];
+        if (!currentRole) return;
+
+        setValue(`roles.${index}` as any, { ...currentRole, ...updates }, { shouldDirty: true, shouldValidate: true });
+    }, [getValues, setValue]);
 
     const removeRole = useCallback((index: number) => {
-        setOpenRoles(prev => prev.filter((_, i) => i !== index));
-    }, []);
+        removeOpenRole(index);
+    }, [removeOpenRole]);
 
     const wizardContext: WizardContextType = useMemo(() => ({
-        openRoles, setOpenRoles, addRole, updateRole, removeRole
-    }), [openRoles, addRole, updateRole, removeRole]);
+        openRoles,
+        openRoleIds: openRoleFields.map((field) => field.id),
+        addRole,
+        updateRole,
+        removeRole,
+    }), [openRoles, openRoleFields, addRole, updateRole, removeRole]);
 
     // Phase is navigation only. Reaching a later step does not make the
     // project dirty, so closing after restoring all values must not prompt.
     // Keep the two non-form inputs that would otherwise be lost in the check.
     const hasUnsavedWizardChanges = isDirty
-        || Boolean(uploadFiles?.length)
-        || openRoles.some((role) => Boolean(role.role?.trim()));
+        || Boolean(uploadFiles?.length);
+
+    useEffect(() => {
+        if (phase !== TOTAL_PHASES) setIsReviewReady(false);
+    }, [phase]);
+
+    useEffect(() => () => {
+        if (phaseTransitionTimerRef.current) clearTimeout(phaseTransitionTimerRef.current);
+    }, []);
 
     // --- Navigation ---
     const handleNext = useCallback(async () => {
+        if (isSubmitting || phaseTransitionRef.current) return;
+
+        phaseTransitionRef.current = true;
+        setIsPhaseTransitioning(true);
         let isValid = false;
-        if (phase === 1) {
-            const importType = getValues('import_source.type') || 'scratch';
-            if (importType === 'github') {
-                const repoUrl = (getValues('import_source.repoUrl') || '').trim();
-                if (!repoUrl) {
-                    toast.error('Please paste a GitHub repository link.');
-                    return;
+        let holdTransitionForReview = false;
+
+        try {
+            if (phase === 1) {
+                const importType = getValues('import_source.type') || 'scratch';
+                if (importType === 'github') {
+                    const repoUrl = (getValues('import_source.repoUrl') || '').trim();
+                    if (!repoUrl) {
+                        toast.error('Please paste a GitHub repository link.');
+                        return;
+                    }
+
+                    const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
+                    const preflightReady = metadata.githubPreflightStatus === 'ok';
+                    if (!preflightReady) {
+                        toast.info('Run GitHub import checks before continuing.');
+                        return;
+                    }
+
+                    const previewReady = githubPreview.status === 'ready' && githubPreview.repoUrl === repoUrl;
+                    if (!previewReady) {
+                        toast.info('Continuing without full preview. Import checks passed.');
+                    }
+                }
+                if (importType === 'upload') {
+                    if (!uploadFiles || uploadFiles.length === 0) {
+                        toast.error('Please select a folder first.');
+                        return;
+                    }
+                    const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
+                    if (metadata.uploadValidationStatus !== 'ok') {
+                        toast.error(String(metadata.uploadValidationError || 'Resolve blocked files before continuing.'));
+                        return;
+                    }
                 }
 
-                const metadata = (getValues('import_source.metadata') || {}) as Record<string, unknown>;
-                const preflightReady = metadata.githubPreflightStatus === 'ok';
-                if (!preflightReady) {
-                    toast.info('Run GitHub import checks before continuing.');
-                    return;
+                isValid = true;
+            } else if (phase === 2) {
+                const fieldsToValidate: Array<'project_type' | 'custom_project_type' | 'title' | 'description'> = ['project_type', 'title', 'description'];
+                if (getValues('project_type') === 'other') {
+                    fieldsToValidate.push('custom_project_type');
                 }
-
-                const previewReady = githubPreview.status === 'ready' && githubPreview.repoUrl === repoUrl;
-                if (!previewReady) {
-                    toast.info('Continuing without full preview. Import checks passed.');
+                setPhase2ValidationAttempted(true);
+                isValid = await trigger(fieldsToValidate, { shouldFocus: true });
+                if (isValid) setPhase2ValidationAttempted(false);
+            } else if (phase === 3) {
+                setPhase3ValidationAttempted(true);
+                isValid = await trigger(['creator_role', 'roles'], { shouldFocus: true });
+                if (isValid) setPhase3ValidationAttempted(false);
+            } else if (phase === 4) {
+                setPhase4ValidationAttempted(true);
+                if (phase4LinkComposerPending) {
+                    toast.error('Finish adding the project link or clear the URL before continuing.');
+                    isValid = false;
+                } else {
+                    isValid = await trigger(['visibility', 'external_links'], { shouldFocus: true });
                 }
+                if (isValid) setPhase4ValidationAttempted(false);
+            } else if (phase === 5) {
+                isValid = true;
             }
-            if (importType === 'upload') {
-                if (!uploadFiles || uploadFiles.length === 0) {
-                    toast.error('Please select a folder first.');
-                    return;
-                }
-            }
 
-            isValid = true;
-        }
-        else if (phase === 2) {
-            const fieldsToValidate: Array<'project_type' | 'custom_project_type' | 'title' | 'description'> = ['project_type', 'title', 'description'];
-            if (getValues('project_type') === 'other') {
-                fieldsToValidate.push('custom_project_type');
+            if (isValid && phase < TOTAL_PHASES) {
+                holdTransitionForReview = phase === TOTAL_PHASES - 1;
+                if (holdTransitionForReview) setIsReviewReady(false);
+                setPhase(prev => (prev + 1) as WizardPhaseId);
             }
-            isValid = await trigger(fieldsToValidate);
-        }
-        else if (phase === 3) {
-            isValid = await trigger('creator_role');
-        }
-        else if (phase === 4) isValid = true;
-        else if (phase === 5) isValid = true;
+        } finally {
+            const releaseTransition = () => {
+                phaseTransitionRef.current = false;
+                setIsPhaseTransitioning(false);
+                phaseTransitionTimerRef.current = null;
+            };
 
-        if (isValid && phase < TOTAL_PHASES) {
-            setPhase(prev => (prev + 1) as WizardPhaseId);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (holdTransitionForReview) {
+                phaseTransitionTimerRef.current = setTimeout(releaseTransition, 350);
+            } else {
+                releaseTransition();
+            }
         }
-    }, [phase, trigger, getValues, githubPreview.repoUrl, githubPreview.status, uploadFiles]);
+    }, [phase, trigger, getValues, githubPreview.repoUrl, githubPreview.status, isSubmitting, phase4LinkComposerPending, uploadFiles]);
 
     const handleBack = useCallback(() => {
+        if (isSubmitting || phaseTransitionRef.current) return;
         if (phase > 1) {
             setPhase(prev => (prev - 1) as WizardPhaseId);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-    }, [phase]);
+    }, [isSubmitting, phase]);
 
     const goToPhase = useCallback((target: WizardPhaseId) => {
+        if (isSubmitting || phaseTransitionRef.current) return;
+        setIsReviewReady(false);
         setPhase(target);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
+    }, [isSubmitting]);
 
     const handleCloseAttempt = useCallback(() => {
         if (hasUnsavedWizardChanges) setShowExitConfirm(true);
@@ -480,13 +571,14 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
 
     // --- Submission ---
     const onSubmit = useCallback(async (data: CreateProjectInput) => {
-        if (phase !== TOTAL_PHASES) return;
+        if (phase !== TOTAL_PHASES || !isReviewReady || phaseTransitionRef.current || submissionRef.current) return;
 
+        submissionRef.current = true;
         setIsSubmitting(true);
         const importType = data.import_source?.type || 'scratch';
         let createdProjectId: string | null = null;
         let uploadSessionContext: { sessionId?: string; manifestHash?: string } | null = null;
-        const resolvedRoles = openRoles.filter((role) => (role.role || '').trim().length > 0);
+        const resolvedRoles = (data.roles || []).filter((role) => (role.role || '').trim().length > 0);
         const readmeIntent = data.readme ?? {
             mode: 'starter' as const,
             sourcePath: null,
@@ -494,6 +586,8 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
             includeRoles: true,
         };
         let readmeApplied = false;
+
+        const uploadMetadata = (data.import_source?.metadata || {}) as Record<string, unknown>;
 
         const applyReadmeSetup = async (projectId: string) => {
             if (readmeApplied) return;
@@ -515,6 +609,15 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
                     roles: resolvedRoles,
                     includeRoles: readmeIntent.includeRoles !== false,
                 });
+                // ponytail: dynamic import keeps doc server action out of initial wizard bundle. ceiling: 1 doc creation per project. upgrade: static import if wizard bundle is consolidated.
+                const { applyCreationIntentAction } = await import('@/app/actions/project/doc');
+                await applyCreationIntentAction(projectId, {
+                    mode: readmeIntent.mode,
+                    sourcePath: readmeIntent.sourcePath || null,
+                    starterContent,
+                    publishOnCreate: readmeIntent.publishOnCreate ?? false,
+                    includeRoles: readmeIntent.includeRoles !== false,
+                });
                 readmeApplied = true;
             } catch (error) {
                 console.warn('[create-project] Doc setup failed', error);
@@ -522,6 +625,15 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
         };
 
         try {
+            if (importType === 'upload') {
+                if (!uploadFiles || uploadFiles.length === 0) {
+                    throw new Error('Please select a folder to upload.');
+                }
+                if (uploadMetadata.uploadValidationStatus !== 'ok') {
+                    throw new Error(String(uploadMetadata.uploadValidationError || 'The selected folder contains blocked files.'));
+                }
+            }
+
             const result = await createProjectAction({
                 ...data,
                 roles: resolvedRoles,
@@ -537,7 +649,6 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
                 if (!uploadFiles || uploadFiles.length === 0) {
                     throw new Error('Please select a folder to upload.');
                 }
-
                 setUploadProgress({ percent: 0, currentFile: '', isUploading: true });
                 toast.info('Uploading your folder in the background…');
 
@@ -591,13 +702,14 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
                     importEventId,
                 });
 
-                // Pre-generate URLs (batch) for performance
-                const batchRes = await getBatchUploadUrls(
-                    meta.map((m) => ({ key: m.key, contentType: m.mimeType, sizeBytes: m.size })),
-                    { sessionId }
-                );
-                if ('error' in batchRes) throw new Error(batchRes.error);
-                const urlMap = batchRes.urls || {};
+                // Keep the server's per-request signing boundary while supporting large folders.
+                const urlMap: Record<string, string> = {};
+                const uploadUrlRequests = meta.map((m) => ({ key: m.key, contentType: m.mimeType, sizeBytes: m.size }));
+                for (let offset = 0; offset < uploadUrlRequests.length; offset += 200) {
+                    const batchRes = await getBatchUploadUrls(uploadUrlRequests.slice(offset, offset + 200), { sessionId });
+                    if ('error' in batchRes) throw new Error(batchRes.error);
+                    Object.assign(urlMap, batchRes.urls || {});
+                }
 
                 const getPresignedUrl = async (key: string, contentType: string, sizeBytes: number) => {
                     const cached = urlMap[key];
@@ -666,13 +778,13 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
                 if (!uploadRes.success) {
                     toast.warning(`Project created. ${uploadRes.failedFiles.length} file(s) failed to upload.`);
                 } else {
-                    toast.success('Project created and folder imported!');
+                    toast.success('Project created and folder imported.');
                 }
             } else {
                 if (createdProjectId) {
                     await applyReadmeSetup(createdProjectId);
                 }
-                toast.success('Project created successfully!');
+                toast.success('Project created.');
             }
 
             if (createdProjectId && !readmeApplied) {
@@ -699,12 +811,15 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId }: UseCreat
             } catch { }
             toast.error(error.message || 'Failed to create project');
         } finally {
+            submissionRef.current = false;
             setIsSubmitting(false);
         }
-    }, [onSuccess, onClose, phase, openRoles, uploadFiles]);
+    }, [onSuccess, onClose, phase, isReviewReady, uploadFiles]);
 
     return {
-        phase, methods, wizardContext, isSubmitting, isSavingDraft,
+        phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
+        phase4LinkComposerPending, setPhase4LinkComposerPending,
+        isPhaseTransitioning, isReviewReady, setIsReviewReady,
         uploadFiles, setUploadFiles, uploadProgress, setUploadProgress,
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
         handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt,

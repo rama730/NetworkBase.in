@@ -43,16 +43,16 @@ export default function RadioCardGroup({
             aria-checked={isSelected}
             onClick={() => onChange(option.value)}
             className={cn(
-              'relative flex items-start gap-3 rounded-[var(--onb-radius-radio-card)] px-4 py-[14px] text-left transition-[border-color,background-color] duration-150',
+              'onb-focusable relative flex min-h-[56px] items-start gap-3 rounded-[var(--onb-radius-radio-card)] px-4 py-[14px] text-left transition-[border-color,background-color,box-shadow] duration-[130ms]',
               'min-h-[44px]',
-              'focus-visible:outline-none   ',
+              'focus-visible:outline-none',
               isSelected
                 ? 'border-2 border-primary bg-primary/5'
                 : 'border border-border bg-card hover:border-primary/40'
             )}
           >
             <div className="flex flex-1 flex-col gap-0.5">
-              <span className="text-[14px] font-medium leading-snug text-foreground">
+              <span className="text-[13px] font-medium leading-snug text-foreground">
                 {option.label}
               </span>
               <span className="text-[13px] font-normal leading-snug text-muted-foreground">
@@ -63,7 +63,7 @@ export default function RadioCardGroup({
             {/* Selection indicator — filled circle with inner dot */}
             <div
               className={cn(
-                'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150',
+                'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-[130ms]',
                 isSelected
                   ? 'border-primary bg-primary'
                   : 'border-border bg-card'
@@ -71,7 +71,7 @@ export default function RadioCardGroup({
               aria-hidden="true"
             >
               {isSelected && (
-                <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
               )}
             </div>
           </button>

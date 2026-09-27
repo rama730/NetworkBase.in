@@ -263,15 +263,15 @@ export function FolderPicker({
       <div key={node.id}>
         <div
           className={cn(
-            "flex items-center gap-1 rounded-md",
-            isSelected && "bg-blue-50 dark:bg-blue-900/20",
+            "flex items-center gap-1 rounded-[3px]",
+            isSelected && "bg-[#F3F0EA] dark:bg-white/10 font-medium",
             reason && "opacity-55",
           )}
           style={{ paddingLeft: `${level * 14 + 8}px` }}
         >
           <button
             type="button"
-            className="inline-flex h-8 w-5 items-center justify-center text-zinc-500"
+            className="inline-flex h-8 w-5 items-center justify-center text-[#4C5A61]"
             onClick={() => void toggle(node)}
             aria-label={isOpen ? "Collapse" : "Expand"}
           >
@@ -311,13 +311,13 @@ export function FolderPicker({
             className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pr-2 text-left text-sm"
           >
             {isOpen ? (
-              <FolderOpen className="h-4 w-4 shrink-0 text-blue-500" />
+              <FolderOpen className="h-4 w-4 shrink-0 text-[#D14E24]" />
             ) : (
-              <Folder className="h-4 w-4 shrink-0 text-blue-500" />
+              <Folder className="h-4 w-4 shrink-0 text-[#D14E24]" />
             )}
             <span className="truncate">{node.name}</span>
             {isSelected ? (
-              <Check className="ml-auto h-4 w-4 shrink-0 text-blue-600" />
+              <Check className="ml-auto h-4 w-4 shrink-0 text-[#D14E24]" />
             ) : null}
           </button>
         </div>
@@ -351,7 +351,7 @@ export function FolderPicker({
                   onClick={() =>
                     void loadPage(node.id, page.nextCursor, true)
                   }
-                  className="py-1.5 text-xs text-blue-600 disabled:opacity-50"
+                  className="py-1.5 text-xs text-[#D14E24] hover:underline disabled:opacity-50"
                   style={{ marginLeft: `${(level + 1) * 14 + 8}px` }}
                 >
                   {page.loading ? "Loading…" : "Load more folders"}
@@ -391,19 +391,19 @@ export function FolderPicker({
   return (
     <div
       className={cn(
-        "flex max-h-[32rem] min-h-64 flex-col overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800",
+        "flex max-h-[32rem] min-h-64 flex-col overflow-hidden rounded-[8px] border border-[#DBD5C8] dark:border-zinc-800",
         className,
       )}
     >
-      <div className="border-b border-zinc-200 p-2 dark:border-zinc-800">
+      <div className="border-b border-[#DBD5C8] p-2 dark:border-zinc-800">
         <label className="relative block">
-          <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
+          <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-[#4C5A61]/70" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search project folders"
             aria-label="Search project folders"
-            className="pl-8"
+            className="pl-8 rounded-[5px] border-[#DBD5C8] focus-visible:ring-[#D14E24]"
           />
         </label>
       </div>
@@ -425,7 +425,7 @@ export function FolderPicker({
                 renderNode(node, 0, index + 1, searchResults.length)
               )}
               {searchNextCursor ? (
-                <button type="button" onClick={() => void loadMoreSearchResults()} className="mx-3 my-2 text-xs text-blue-600">
+                <button type="button" onClick={() => void loadMoreSearchResults()} className="mx-3 my-2 text-xs text-[#D14E24] hover:underline">
                   Load more matches
                 </button>
               ) : null}
@@ -448,9 +448,9 @@ export function FolderPicker({
               aria-disabled={Boolean(rootReason)}
               title={rootReason ?? "Project root"}
               className={cn(
-                "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-900",
+                "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[#F3F0EA]/60 dark:hover:bg-zinc-900 rounded-[3px]",
                 selectedFolderId === null &&
-                  "bg-blue-50 dark:bg-blue-900/20",
+                  "bg-[#F3F0EA] dark:bg-white/10 font-medium",
                 rootReason && "opacity-55",
               )}
               onClick={() => !rootReason && onSelectFolder(null)}
@@ -461,9 +461,9 @@ export function FolderPicker({
                 }
               }}
             >
-              <Folder className="h-4 w-4 text-blue-500" /> Project root
+              <Folder className="h-4 w-4 text-[#D14E24]" /> Project root
               {selectedFolderId === null ? (
-                <Check className="ml-auto h-4 w-4 text-blue-600" />
+                <Check className="ml-auto h-4 w-4 text-[#D14E24]" />
               ) : null}
             </button>
             {rootPage?.loading && rootPage.nodes.length === 0 ? (
@@ -490,7 +490,7 @@ export function FolderPicker({
                 onClick={() =>
                   void loadPage(null, rootPage.nextCursor, true)
                 }
-                className="mx-3 my-2 text-xs text-blue-600 disabled:opacity-50"
+                className="mx-3 my-2 text-xs text-[#D14E24] hover:underline disabled:opacity-50"
               >
                 {rootPage.loading ? "Loading…" : "Load more folders"}
               </button>
@@ -498,16 +498,16 @@ export function FolderPicker({
           </>
         )}
       </div>
-      <div className="border-t border-zinc-200 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-800">
+      <div className="border-t border-[#DBD5C8] px-3 py-2 text-xs text-[#4C5A61] dark:border-zinc-800">
         Destination:{" "}
-        <span className="font-medium text-zinc-800 dark:text-zinc-200">
+        <span className="font-medium text-[#141A1E] dark:text-zinc-200">
           {selectedFolderId === null
             ? "Project root"
             : selectedNode?.path ?? "Select a folder"}
         </span>
       </div>
       {canCreateFolder ? (
-        <div className="border-t border-zinc-200 p-2 dark:border-zinc-800">
+        <div className="border-t border-[#DBD5C8] p-2 dark:border-zinc-800">
           <div className="flex gap-2">
             <Input
               value={newFolderName}
@@ -517,6 +517,7 @@ export function FolderPicker({
               }}
               placeholder="New folder name"
               aria-label="New folder name"
+              className="rounded-[5px] border-[#DBD5C8] focus-visible:ring-[#D14E24]"
             />
             <Button
               type="button"
@@ -527,6 +528,7 @@ export function FolderPicker({
                 Boolean(disabledReason(selectedNode ?? null))
               }
               onClick={() => void createSelectedFolder()}
+              className="h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#F3F0EA] dark:border-zinc-700"
             >
               <Plus className="mr-1 h-4 w-4" /> Create
             </Button>
@@ -564,7 +566,10 @@ export function CreateDialog({
       onOpenChange={(open) => setCreateDialog(open ? createDialog : { open: false })}
     >
       {createDialog.open ? (
-        <DialogContent>
+        <DialogContent
+          className="sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
+          overlayClassName="z-[300] bg-transparent backdrop-blur-none"
+        >
           <DialogHeader>
             <DialogTitle>
               {createDialog.kind === "folder" ? "Create folder" : "Create file"}
@@ -585,16 +590,25 @@ export function CreateDialog({
                 setCreateDialog((d) => (d.open ? { ...d, name: e.target.value } : d))
               }
               onKeyDown={(e) => {
-                if (e.key === "Enter") void confirmCreate();
+                if (e.key === "Enter" && createDialog.name.trim()) void confirmCreate();
               }}
+              className="h-9 rounded-[5px] border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:outline-none"
               autoFocus
             />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialog({ open: false })}>
+          <DialogFooter className="bg-[#F3F0EA] dark:bg-white/5 border-t border-[#DBD5C8] dark:border-white/10 -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCreateDialog({ open: false })}
+              className="h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
+            >
               Cancel
             </Button>
-            <Button onClick={() => void confirmCreate()} disabled={!canEdit}>
+            <Button
+              onClick={() => void confirmCreate()}
+              disabled={!canEdit || !createDialog.name.trim()}
+              className="h-[34px] rounded-[5px] bg-[#D14E24] hover:bg-[#B23F1C] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Create
             </Button>
           </DialogFooter>
@@ -625,7 +639,10 @@ export function RenameDialog({
       }}
     >
       {renameState.nodeId ? (
-        <DialogContent>
+        <DialogContent
+          className="sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
+          overlayClassName="z-[300] bg-transparent backdrop-blur-none"
+        >
           <DialogHeader>
             <DialogTitle>Rename</DialogTitle>
           </DialogHeader>
@@ -635,19 +652,35 @@ export function RenameDialog({
               value={renameState.value}
               onChange={(e) => setRenameState((s) => ({ ...s, value: e.target.value }))}
               onKeyDown={(e) => {
-                if (e.key === "Enter") void confirmRename();
+                if (
+                  e.key === "Enter" &&
+                  renameState.value.trim() &&
+                  renameState.value.trim() !== renameState.original
+                ) {
+                  void confirmRename();
+                }
               }}
+              className="h-9 rounded-[5px] border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/40 focus-visible:outline-none"
               autoFocus
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="bg-[#F3F0EA] dark:bg-white/5 border-t border-[#DBD5C8] dark:border-white/10 -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex items-center justify-end gap-2">
             <Button
               variant="outline"
               onClick={() => setRenameState({ nodeId: null, value: "", original: "" })}
+              className="h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
             >
               Cancel
             </Button>
-            <Button onClick={() => void confirmRename()} disabled={!canEdit}>
+            <Button
+              onClick={() => void confirmRename()}
+              disabled={
+                !canEdit ||
+                !renameState.value.trim() ||
+                renameState.value.trim() === renameState.original
+              }
+              className="h-[34px] rounded-[5px] bg-[#D14E24] hover:bg-[#B23F1C] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Save
             </Button>
           </DialogFooter>
@@ -675,7 +708,10 @@ export function DeleteDialog({
         setDeleteDialog((d) => ({ ...d, open, nodes: open ? d.nodes : [] }))
       }
     >
-      <DialogContent>
+      <DialogContent
+        className="sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
+        overlayClassName="z-[300] bg-transparent backdrop-blur-none"
+      >
         <DialogHeader>
           <DialogTitle>Move to Trash</DialogTitle>
         </DialogHeader>
@@ -688,10 +724,11 @@ export function DeleteDialog({
           </span>{" "}
           to Trash.
         </div>
-        <DialogFooter>
+        <DialogFooter className="bg-[#F3F0EA] dark:bg-white/5 border-t border-[#DBD5C8] dark:border-white/10 -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex items-center justify-end gap-2">
           <Button
             variant="outline"
             onClick={() => setDeleteDialog({ open: false, nodes: [] })}
+            className="h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
           >
             Cancel
           </Button>
@@ -699,6 +736,7 @@ export function DeleteDialog({
             variant="destructive"
             onClick={() => void confirmDelete()}
             disabled={!canEdit}
+            className="h-[34px] rounded-[5px]"
           >
             Move to Trash
           </Button>
@@ -771,8 +809,8 @@ export function MoveDialog({
       }
     >
       <DialogContent
-        className="z-[301] flex max-h-[88vh] flex-col sm:max-w-2xl"
-        overlayClassName="z-[300] bg-zinc-950/60"
+        className="z-[301] flex max-h-[88vh] flex-col sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
+        overlayClassName="z-[300] bg-transparent backdrop-blur-none"
       >
         <DialogHeader>
           <DialogTitle>
@@ -801,7 +839,7 @@ export function MoveDialog({
             sourceNodes={moveDialog.nodes}
             canCreateFolder={canEdit}
             allowTaskWorkingFiles={mode === "publish"}
-            className="h-[min(58vh,32rem)] max-h-none"
+            className="h-[min(58vh,28rem)] max-h-none"
           />
           {invalidReason || moveError ? (
             <p role="alert" className="text-sm text-rose-600">
@@ -809,16 +847,21 @@ export function MoveDialog({
             </p>
           ) : null}
         </div>
-        <DialogFooter>
+        <DialogFooter className="bg-[#F3F0EA] dark:bg-white/5 border-t border-[#DBD5C8] dark:border-white/10 -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex items-center justify-end gap-2">
           <Button
             variant="outline"
             onClick={() =>
               setMoveDialog({ open: false, nodes: [], targetFolderId: null })
             }
+            className="h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
           >
             Cancel
           </Button>
-          <Button onClick={() => void runMove()} disabled={!canEdit || isMoving || Boolean(invalidReason)}>
+          <Button
+            onClick={() => void runMove()}
+            disabled={!canEdit || isMoving || Boolean(invalidReason)}
+            className="h-[34px] rounded-[5px] bg-[#D14E24] hover:bg-[#B23F1C] text-white"
+          >
             {isMoving ? (mode === "publish" ? "Publishing…" : "Moving…") : mode === "publish" ? "Publish" : "Move"}
           </Button>
         </DialogFooter>

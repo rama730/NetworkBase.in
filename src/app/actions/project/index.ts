@@ -1,7 +1,7 @@
 // Module barrel — re-exports from split modules
 // crud: create, update, delete projects
 // members: follow, bookmark, members, project groups
-// queries: tasks, sprints, analytics
+// queries: tasks and sprints
 
 export {
     // CRUD
@@ -58,10 +58,6 @@ export {
     fetchProjectSprintTimelinePageAction,
     getProjectTaskDetailAction,
     markTaskAsReadAction,
-    readProjectAnalyticsOverviewAction,
-    readProjectAnalyticsMembersAction,
-    readProjectMemberAnalyticsAction,
-    readProjectAnalyticsTimelineAction,
     getProjectSyncStatus,
 
     // Task & Sprint CRUD

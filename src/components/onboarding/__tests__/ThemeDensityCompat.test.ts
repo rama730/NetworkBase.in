@@ -211,20 +211,20 @@ describe("Theme and Density Compatibility (Task 9.4, Req 15.2, 15.3)", () => {
 
       // Typography should use rem units (relative to root font size)
       assert.ok(
-        tokens.includes("1.5rem"),
-        "Step title font size should use rem"
+        tokens.includes("1.875rem"),
+        "Step title font size should use the 30px-equivalent rem token"
       );
       assert.ok(
-        tokens.includes("0.875rem"),
-        "Subtitle font size should use rem"
+        tokens.includes(".8125rem"),
+        "Subtitle font size should use the 13px-equivalent rem token"
       );
     });
 
     it("design-specific fixed sizes are intentional (stepper circles, mobile bar)", () => {
       // These are intentional fixed sizes per the design spec:
       // - Stepper circles: 24px (h-6 w-6) — design requirement 2.1
-      // - Mobile progress bar: 48px (h-12) — design requirement 3.1
-      // - Avatar: 64px (h-16 w-16) — design requirement 8.2
+      // - Mobile progress bar: 56px (h-14) — compact progress + readable label
+      // - Avatar: 72px (h-[72px] w-[72px]) — identity step requirement
       // These should NOT use density variables as they are visual design elements,
       // not form controls.
 
@@ -238,10 +238,10 @@ describe("Theme and Density Compatibility (Task 9.4, Req 15.2, 15.3)", () => {
 
       const mobileBar = files.find((f) => f.name === "MobileProgressBar.tsx");
       assert.ok(mobileBar, "MobileProgressBar.tsx should exist");
-      // Mobile bar uses h-12 (48px) — intentional
+      // Mobile bar uses h-14 (56px) — intentional
       assert.ok(
-        mobileBar.content.includes("h-12"),
-        "Mobile progress bar should be 48px (h-12) per design spec"
+        mobileBar.content.includes("h-14"),
+        "Mobile progress bar should be 56px (h-14) for the compact labeled design"
       );
     });
   });

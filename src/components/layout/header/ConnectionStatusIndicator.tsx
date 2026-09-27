@@ -26,7 +26,7 @@ export function ConnectionStatusIndicator() {
             disabled={isOffline}
             onClick={retryRealtime}
             className={cn(
-                "inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed",
+                "inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed",
                 isOffline || isUnavailable
                     ? "border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-400"
                     : "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",

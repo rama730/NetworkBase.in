@@ -1,12 +1,40 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import {
     MESSAGE_ATTENTION_CLEAR_MS,
     mergeMessageAttention,
     type MessageAttentionState,
 } from '@/lib/messages/attention';
+
+let writeTimer: ReturnType<typeof setTimeout> | null = null;
+const debouncedStorage = {
+    getItem: (name: string): string | null => {
+        if (typeof window === 'undefined') return null;
+        try {
+            return localStorage.getItem(name);
+        } catch {
+            return null;
+        }
+    },
+    setItem: (name: string, value: string): void => {
+        if (typeof window === 'undefined') return;
+        if (writeTimer) clearTimeout(writeTimer);
+        writeTimer = setTimeout(() => {
+            try {
+                localStorage.setItem(name, value);
+            } catch {}
+        }, 300);
+    },
+    removeItem: (name: string): void => {
+        if (typeof window === 'undefined') return;
+        if (writeTimer) clearTimeout(writeTimer);
+        try {
+            localStorage.removeItem(name);
+        } catch {}
+    },
+};
 
 type InboxTab = 'chats' | 'applications' | 'projects';
 export type MessagesPopupState = 'closed' | 'open' | 'minimized';
@@ -174,6 +202,7 @@ export const useMessagesV2UiStore = create<MessagesV2UiState>()(
         }),
         {
             name: 'messages-v2-ui',
+            storage: createJSONStorage(() => debouncedStorage),
             version: 3,
             migrate: (persisted: unknown) => {
                 if (!persisted || typeof persisted !== 'object') {

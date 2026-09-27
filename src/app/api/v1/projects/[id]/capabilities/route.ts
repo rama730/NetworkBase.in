@@ -64,5 +64,22 @@ export async function GET(
         canManageSettings: projectMemberCan(role, "manage_settings"),
     };
 
-    return jsonSuccess(capabilities);
+    const etag = `W/"caps-${role}"`;
+    const ifNoneMatch = request.headers.get("if-none-match");
+    if (ifNoneMatch && (ifNoneMatch === etag || ifNoneMatch.includes(etag))) {
+        return new Response(null, {
+            status: 304,
+            headers: {
+                ETag: etag,
+                "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
+            },
+        });
+    }
+
+    return jsonSuccess(capabilities, undefined, {
+        headers: {
+            ETag: etag,
+            "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
+        },
+    });
 }

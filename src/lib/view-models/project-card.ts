@@ -39,23 +39,24 @@ export interface ProjectCardViewModel {
 
 const statusConfig = {
     [PROJECT_STATUS.IDEA]: {
-        label: 'Idea',
+        label: 'Forming',
         bgClass: 'bg-yellow-100 dark:bg-yellow-900/30',
         textClass: 'text-yellow-800 dark:text-yellow-200',
         gradient: 'from-yellow-400 to-orange-500',
     },
     [PROJECT_STATUS.IN_PROGRESS]: {
-        label: 'In Progress',
+        label: 'Building',
         bgClass: 'bg-blue-100 dark:bg-blue-900/30',
         textClass: 'text-blue-800 dark:text-blue-200',
         gradient: 'from-blue-400 to-indigo-500',
     },
     [PROJECT_STATUS.LAUNCHED]: {
-        label: 'Launched',
+        label: 'Shipped',
         bgClass: 'bg-green-100 dark:bg-green-900/30',
         textClass: 'text-green-800 dark:text-green-200',
         gradient: 'from-emerald-400 to-green-500',
     },
+    archived: { label: "Archived", bgClass: "bg-muted", textClass: "text-muted-foreground", gradient: "" },
     // Fallback
     open: {
         label: 'Open',
@@ -115,6 +116,10 @@ export function toProjectCardViewModel(project: Project): ProjectCardViewModel {
             available,
         };
     }).filter((r: any) => r.available > 0);
+
+    if (totalOpenRoles === 0 && typeof extendedProject.openRolesCount === "number" && extendedProject.openRolesCount > 0) {
+        totalOpenRoles = extendedProject.openRolesCount;
+    }
 
     return {
         id: project.id,

@@ -83,25 +83,16 @@ export const messageDataIntegrityAudit = inngest.createFunction(
           ) latest ON true
         ),
         dm_pair_drift AS (
-          SELECT dp.conversation_id
-          FROM dm_pairs dp
-          WHERE (
-            SELECT count(*)
-            FROM conversation_participants cp
-            WHERE cp.conversation_id = dp.conversation_id
-          ) <> 2
-          OR NOT EXISTS (
-            SELECT 1
-            FROM conversation_participants cp
-            WHERE cp.conversation_id = dp.conversation_id
-              AND cp.user_id = dp.user_low
-          )
-          OR NOT EXISTS (
-            SELECT 1
-            FROM conversation_participants cp
-            WHERE cp.conversation_id = dp.conversation_id
-              AND cp.user_id = dp.user_high
-          )
+          SELECT c.id AS conversation_id
+          FROM (
+            SELECT conversation_id, count(*)::int AS cnt
+            FROM conversation_participants
+            GROUP BY conversation_id
+          ) p
+          JOIN conversations c ON c.id = p.conversation_id AND c.type = 'dm'
+          LEFT JOIN dm_pairs dp ON dp.conversation_id = c.id
+          WHERE p.cnt <> 2 OR dp.conversation_id IS NULL
+          LIMIT 100
         )
         SELECT
           (

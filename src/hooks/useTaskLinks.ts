@@ -34,8 +34,9 @@ export function useTaskLinks(projectId: string, nodeId: string): UseTaskLinksRet
       const { getTaskLinksForNode } = await import("@/app/actions/files/links");
       return getTaskLinksForNode(projectId, nodeId);
     },
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 60_000,
+    // ponytail: back off idle polling to 5m to eliminate client-side egress churn. ceiling: 300,000ms idle poll. upgrade: push-based CDC via project channel if real-time task linkage becomes critical.
+    refetchInterval: 300_000,
     refetchIntervalInBackground: false,
   });
   const tasks = result.data ?? EMPTY_TASKS;

@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, Loader2, UserPlus, MessageSquare } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -15,7 +14,7 @@ import { useEnsureDirectConversation } from '@/hooks/useMessagesV2';
 import { logger } from '@/lib/logger';
 import { upsertInboxConversation } from '@/lib/messages/v2-cache';
 import { buildIdentityPresentation } from '@/lib/ui/identity';
-import { cn } from '@/lib/utils';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 interface NewMessageModalV2Props {
     isOpen: boolean;
@@ -252,22 +251,7 @@ export function NewMessageModalV2({
                                     disabled={Boolean(openingUserId)}
                                     className="group flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-zinc-50 disabled:cursor-wait disabled:opacity-60 dark:hover:bg-zinc-800/50"
                                 >
-                                    <div className={cn("h-10 w-10 flex-shrink-0 overflow-hidden rounded-full", identity.avatarUrl ? "bg-zinc-200 dark:bg-zinc-800" : identity.gradientClass)}>
-                                        {identity.avatarUrl ? (
-                                            <Image
-                                                src={identity.avatarUrl}
-                                                alt={identity.alt}
-                                                width={40}
-                                                height={40}
-                                                unoptimized
-                                                className="h-full w-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="flex h-full w-full items-center justify-center text-xs font-medium text-white">
-                                                {identity.initials}
-                                            </div>
-                                        )}
-                                    </div>
+                                    <UserAvatar identity={result} size={40} unoptimized fallbackClassName="text-xs font-medium" />
                                     <div className="min-w-0 flex-1">
                                         <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                             {identity.displayName}

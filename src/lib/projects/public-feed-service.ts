@@ -262,8 +262,10 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
 
     if (redis) {
         try {
-            await redis.sadd('projects:public:feed_keys', cacheKey)
-            await redis.expire('projects:public:feed_keys', 86400)
+            const pipe = redis.pipeline()
+            pipe.sadd('projects:public:feed_keys', cacheKey)
+            pipe.expire('projects:public:feed_keys', 86400)
+            await pipe.exec()
         } catch (error) {
             logger.warn('public-feed.cache_key_tracking_failed', {
                 module: 'public-feed-service',
@@ -284,10 +286,14 @@ export async function invalidatePublicProjectsFeedCache(projectId?: string | nul
             const setKey = 'projects:public:feed_keys'
             const keys = await redis.smembers(setKey)
             if (keys.length > 0) {
-                await redis.del(...keys)
+                const pipe = redis.pipeline()
+                pipe.del(...keys)
+                pipe.del(setKey)
+                await pipe.exec()
                 redisDeleted += keys.length
+            } else {
+                await redis.del(setKey)
             }
-            await redis.del(setKey)
         } catch (error) {
             logger.warn('public-feed.cache_invalidation_failed', {
                 module: 'public-feed-service',

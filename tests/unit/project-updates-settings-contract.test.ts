@@ -1,0 +1,141 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+
+function source(relativePath: string) {
+    return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
+}
+
+test("project updates tab eliminates duplicate header and redundant cards, rendering 1 canonical SettingsCard", () => {
+    const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+
+    // 1. SectionHeader is suppressed on updates tab to avoid duplicate title
+    assert.match(
+        settingsTab,
+        /activeSection !== "updates"/,
+        "SectionHeader must be suppressed on updates tab to avoid duplicate title",
+    );
+
+    // 2. Extract updates section block
+    const updatesBlock =
+        settingsTab.split('id="project-settings-updates"')[1]?.split('id="project-settings-tasks-workflow"')[0] ?? "";
+    assert.ok(updatesBlock.length > 0, "updates settings block must exist in ProjectSettingsTab");
+
+    // 3. Redundant SummaryCard, fragmented split cards, and outer AdvancedDisclosure removed
+    assert.doesNotMatch(
+        updatesBlock,
+        /<SummaryCard/,
+        "Redundant SummaryCard must be removed from updates tab",
+    );
+    assert.doesNotMatch(
+        updatesBlock,
+        /<AdvancedDisclosure/,
+        "Outer AdvancedDisclosure must be removed from updates tab",
+    );
+    assert.doesNotMatch(
+        updatesBlock,
+        /title="Publishing rules"/,
+        "Fragmented Publishing rules card must be consolidated into canonical card",
+    );
+    assert.doesNotMatch(
+        updatesBlock,
+        /title="Follower notifications"/,
+        "Fragmented Follower notifications card must be consolidated into canonical card",
+    );
+
+    // 4. Exactly 1 canonical SettingsCard with title "Project updates"
+    assert.match(
+        updatesBlock,
+        /<SettingsCard[\s\S]*?title="Project updates"/,
+        "Must render canonical Project updates SettingsCard",
+    );
+    const cardMatches = updatesBlock.match(/<SettingsCard/g) || [];
+    assert.equal(
+        cardMatches.length,
+        1,
+        "Must have exactly 1 canonical SettingsCard in updates settings tab",
+    );
+
+    // 5. Genuine configuration options retained; unnecessary feed visibility & distribution removed per design spec
+    assert.match(
+        updatesBlock,
+        /Allow members to post updates/,
+        "Allow members to post updates toggle must be present",
+    );
+    assert.doesNotMatch(
+        updatesBlock,
+        /Feed Visibility &amp; Distribution/,
+        "Feed Visibility & Distribution section must be removed",
+    );
+    assert.doesNotMatch(
+        updatesBlock,
+        /Public Feed Linkage/,
+        "Public Feed Linkage info card must be removed",
+    );
+    assert.doesNotMatch(
+        updatesBlock,
+        /Follower Broadcasts/,
+        "Follower Broadcasts info card must be removed",
+    );
+});
+
+test("project updates settings adhere to NetworkBase drafting-table design tokens and switches", () => {
+    const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+    const updatesBlock =
+        settingsTab.split('id="project-settings-updates"')[1]?.split('id="project-settings-tasks-workflow"')[0] ?? "";
+
+    // 1. Uses canonical SettingsSwitch instead of TogglePill
+    assert.doesNotMatch(
+        updatesBlock,
+        /<TogglePill/,
+        "Must not use non-canonical TogglePill in updates tab",
+    );
+    assert.match(
+        updatesBlock,
+        /<SettingsSwitch/,
+        "Must use canonical SettingsSwitch in updates tab",
+    );
+
+    // 2. Section 10 badge contract applied
+    assert.match(
+        updatesBlock,
+        /rounded-\[3px\][\s\S]*?font-mono text-\[11px\] font-medium uppercase tracking-\[0\.09em\]/,
+        "Must use Section 10 contract for badges in updates tab",
+    );
+
+    // 3. Toggles apply immediately; Save changes and Cancel buttons are absent
+    assert.doesNotMatch(
+        updatesBlock,
+        /Save changes/,
+        "Must not render Save changes button in Project updates card; toggles apply immediately",
+    );
+    assert.doesNotMatch(
+        updatesBlock,
+        /Cancel/,
+        "Must not render Cancel button in Project updates card; toggles apply immediately",
+    );
+    assert.match(
+        updatesBlock,
+        /handleToggleMemberUpdates/,
+        "Must wire handleToggleMemberUpdates for immediate auto-save on toggle",
+    );
+
+    // 4. Zero raw zinc colors
+    assert.doesNotMatch(
+        updatesBlock,
+        /zinc-/,
+        "Must not use raw zinc- utility classes in updates tab",
+    );
+});
+
+test("project dashboard client enforces memberUpdatesEnabled permission for authoring updates", () => {
+    const dashboardClient = source("src/components/projects/dashboard/ProjectDashboardClient.tsx");
+
+    // canCreateUpdates must inspect memberUpdatesEnabled
+    assert.match(
+        dashboardClient,
+        /canCreateUpdates[\s\S]*?memberUpdatesEnabled/,
+        "canCreateUpdates in ProjectDashboardClient must enforce memberUpdatesEnabled permission",
+    );
+});

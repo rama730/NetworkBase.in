@@ -49,30 +49,17 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const probe = (searchParams.get('probe') || 'liveness').toLowerCase()
     const detailed = isAuthenticatedProbe(request)
-    const dbOk = await pingDb()
 
+    // ponytail: liveness returns instant 200 without DB/Redis load. Readiness performs deep dependency checks.
     if (probe !== 'readiness') {
-        if (!dbOk) {
-            logApiRoute(request, {
-                requestId,
-                action: 'health.get',
-                startedAt,
-                status: 503,
-                success: false,
-                errorCode: 'DB_UNAVAILABLE',
-            })
-            return jsonError(
-                detailed ? 'Database unavailable' : 'unavailable',
-                503,
-                detailed ? 'DB_UNAVAILABLE' : 'UNAVAILABLE',
-            )
-        }
         return jsonSuccess(
             detailed
-                ? { status: 'ok', probe: 'liveness', db: dbOk }
+                ? { status: 'ok', probe: 'liveness' }
                 : { status: 'ok' },
         )
     }
+
+    const dbOk = await pingDb()
 
     const redisConfigured = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
     const requireRedisForReadiness = process.env.NODE_ENV === 'production' || redisConfigured

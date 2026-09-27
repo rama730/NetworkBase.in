@@ -49,6 +49,9 @@ const ROUTE_LOAD_SHEDDING_POLICIES: Record<RouteClass, RouteLoadSheddingPolicy> 
     },
 }
 
+// ponytail: short-lived memory cache to coalesce high-frequency checks and eliminate redundant Upstash HTTP roundtrips. ceiling: process local memory map with TTL. upgrade: distributed sliding-window counter if multi-region coordination required.
+const localSheddingCache = new Map<RouteClass, { result: RouteLoadSheddingResult; expiresAt: number }>()
+
 export async function consumeRouteClassLoadShedding(routeClass: RouteClass): Promise<RouteLoadSheddingResult> {
     const policy = ROUTE_LOAD_SHEDDING_POLICIES[routeClass]
 
@@ -63,7 +66,13 @@ export async function consumeRouteClassLoadShedding(routeClass: RouteClass): Pro
         }
     }
 
-    const result = await consumeRateLimitPolicy({
+    const now = Date.now()
+    const cached = localSheddingCache.get(routeClass)
+    if (cached && cached.expiresAt > now) {
+        return cached.result
+    }
+
+    const rateLimitResult = await consumeRateLimitPolicy({
         scope: `load-shed:${routeClass}`,
         burst: policy.burst,
         refillRate: policy.refillRate,
@@ -71,12 +80,18 @@ export async function consumeRouteClassLoadShedding(routeClass: RouteClass): Pro
         failMode: policy.failMode,
     })
 
-    return {
+    const result: RouteLoadSheddingResult = {
         enabled: true,
-        allowed: result.allowed,
-        degraded: result.degraded,
-        resetAt: result.resetAt,
-        remaining: result.remaining,
+        allowed: rateLimitResult.allowed,
+        degraded: rateLimitResult.degraded,
+        resetAt: rateLimitResult.resetAt,
+        remaining: rateLimitResult.remaining,
         policy,
     }
+
+    if (result.allowed && (result.remaining ?? 0) > 20) {
+        localSheddingCache.set(routeClass, { result, expiresAt: now + 500 })
+    }
+
+    return result
 }

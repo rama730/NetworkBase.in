@@ -1,4 +1,4 @@
-import { and, eq, sql, or, inArray } from "drizzle-orm";
+import { and, eq, sql, or, inArray, notInArray } from "drizzle-orm";
 import { inngest } from "../client";
 import { db } from "@/lib/db";
 import {
@@ -41,8 +41,8 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
             return p;
         });
 
-        // 2. Base suggestions on 2nd-degree connections (mutual friends)
-        const suggestions = await step.run("calculate-mutuals", async () => {
+        // 2. Compute mutuals, score, and upsert in a single step to eliminate large cross-step Inngest wire serialization
+        const count = await step.run("compute-and-upsert-suggestions", async () => {
             const myConnections = await db
                 .select({
                     id: sql<string>`CASE 
@@ -57,7 +57,10 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
                 ));
 
             const myConnIds = myConnections.map(c => c.id);
-            if (myConnIds.length === 0) return [];
+            if (myConnIds.length === 0) {
+                await db.delete(connectionSuggestions).where(eq(connectionSuggestions.userId, userId));
+                return 0;
+            }
 
             const result = await db.execute(sql`
                 WITH my_network AS (
@@ -97,14 +100,13 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
                 LIMIT 100
             `);
 
-            return Array.from(result);
-        });
+            const suggestions = Array.from(result);
+            if (suggestions.length === 0) {
+                await db.delete(connectionSuggestions).where(eq(connectionSuggestions.userId, userId));
+                return 0;
+            }
 
-        if (suggestions.length === 0) return { suggestionsCount: 0 };
-
-        // 3. Score and provide reasons (Skill overlap & Role alignment)
-        const scoredSuggestions = await step.run("score-suggestions", async () => {
-            return suggestions.map((s: any) => {
+            const scoredSuggestions = suggestions.map((s: any) => {
                 let score = s.mutual_count * 10;
                 let reason = `${s.mutual_count} mutual connections`;
                 let roleMatched = false;
@@ -141,20 +143,16 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
                     updatedAt: new Date(),
                 };
             });
-        });
 
-        // 4. Batch insert/update suggestions
-        await step.run("upsert-suggestions", async () => {
             // Take top 50 by score
             const topSuggestions = scoredSuggestions
                 .sort((a, b) => b.score - a.score)
-                .slice(0, 50)
-                .map(s => ({
-                    ...s,
-                    updatedAt: new Date(), // Re-create Date object here to avoid Inngest serialization string issue
-                }));
+                .slice(0, 50);
 
-            if (topSuggestions.length === 0) return;
+            if (topSuggestions.length === 0) {
+                await db.delete(connectionSuggestions).where(eq(connectionSuggestions.userId, userId));
+                return 0;
+            }
 
             await db
                 .insert(connectionSuggestions)
@@ -168,8 +166,45 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
                         updatedAt: new Date(),
                     }
                 });
+
+            // Keep this derived cache exact. Otherwise a removed mutual could
+            // remain visible until a later unrelated recommendation refresh.
+            await db
+                .delete(connectionSuggestions)
+                .where(and(
+                    eq(connectionSuggestions.userId, userId),
+                    notInArray(connectionSuggestions.suggestedUserId, topSuggestions.map((item) => item.suggestedUserId)),
+                ));
+
+            return topSuggestions.length;
         });
 
-        return { suggestionsCount: scoredSuggestions.length };
+        return { suggestionsCount: count };
     }
+);
+
+/** Re-score viewers who already saw a candidate after that candidate changes matching data. */
+export const refreshSocialGraphSuggestionsForCandidate = inngest.createFunction(
+    { id: "social-graph-suggestions-for-candidate", retries: 1 },
+    { event: "workspace/connections.refresh_suggestions_for_candidate" },
+    async ({ event, step }) => {
+        const viewerRows = await step.run("find-candidate-suggestion-viewers", () =>
+            db
+                .selectDistinct({ userId: connectionSuggestions.userId })
+                .from(connectionSuggestions)
+                .where(eq(connectionSuggestions.suggestedUserId, event.data.candidateUserId)),
+        );
+        const viewerIds = [...new Set([event.data.candidateUserId, ...viewerRows.map((row) => row.userId)])];
+
+        // ponytail: chunks avoid one oversized event request. ceiling: large
+        // fan-outs are queued serially here; upgrade to a dedicated fan-out
+        // queue if candidate profiles routinely reach tens of thousands of viewers.
+        for (let index = 0; index < viewerIds.length; index += 100) {
+            await inngest.send(viewerIds.slice(index, index + 100).map((userId) => ({
+                name: "workspace/connections.sync_suggestions" as const,
+                data: { userId },
+            })));
+        }
+        return { refreshedViewers: viewerIds.length };
+    },
 );

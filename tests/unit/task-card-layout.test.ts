@@ -6,7 +6,10 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TaskCard } from "../../src/components/projects/v2/tasks/TaskCard";
 
-function renderTask(overrides: Record<string, unknown> = {}) {
+function renderTask(
+  overrides: Record<string, unknown> = {},
+  cardProps: Record<string, unknown> = {},
+) {
   return renderToStaticMarkup(
     React.createElement(TaskCard, {
       task: {
@@ -36,19 +39,33 @@ function renderTask(overrides: Record<string, unknown> = {}) {
         ...overrides,
       },
       activeAssignableMemberIds: new Set(),
+      ...cardProps,
     }),
   );
 }
 
-test("task cards keep their standard dimensions when every badge is present", () => {
+test("task cards omit status badge when showStatus is false (Kanban board) and retain it when true (Workspace panel)", () => {
+  // Kanban board view (showStatus: false)
+  const kanbanHtml = renderTask({}, { showStatus: false });
+  assert.doesNotMatch(kanbanHtml, />To Do<\/span>/);
+  assert.match(kanbanHtml, />High<\/span>/);
+  assert.match(kanbanHtml, /In Review/);
+
+  // Workspace panel / default view (showStatus: true)
+  const workspaceHtml = renderTask();
+  assert.match(workspaceHtml, />To Do<\/span>/);
+  assert.match(workspaceHtml, />High<\/span>/);
+});
+
+test("task cards wrap titles and badges without hiding workflow information", () => {
   const html = renderTask();
 
   assert.match(html, /h-\[128px\]/);
   assert.match(html, /w-full min-w-0/);
   assert.match(html, /overflow-hidden/);
-  assert.match(html, /grid-rows-\[20px_24px_28px\] content-between p-3/);
+  assert.match(html, /grid-rows-\[auto_auto_auto\] gap-3 p-3/);
   assert.match(html, /h-6/);
-  assert.match(html, /truncate text-left text-sm font-semibold leading-5/);
+  assert.match(html, /line-clamp-3 text-left text-sm font-semibold leading-5/);
   assert.doesNotMatch(html, /overflow-x-auto/);
   assert.match(html, /To Do/);
   assert.match(html, /In Review/);
@@ -73,6 +90,23 @@ test("all task columns retain the same base height and width, whether empty or p
 
   assert.match(board, /w-\[300px\] shrink-0/);
   assert.match(board, /p-3 space-y-3 min-h-\[150px\] flex-1 flex flex-col/);
+});
+
+test("kanban drag overlay card matches column inner card width (276px) and never expands to column outer width", () => {
+  const board = fs.readFileSync(
+    path.join(
+      process.cwd(),
+      "src/components/projects/v2/tasks/KanbanBoard.tsx",
+    ),
+    "utf8",
+  );
+
+  // Column width is 300px with p-3 (12px padding each side), so card width is exactly 276px
+  assert.match(board, /w-\[min\(276px,calc\(100vw-2rem\)\)\]/);
+  // Ensure DragOverlay does not have the old expanding 300px card width
+  assert.doesNotMatch(board, /w-\[min\(300px,calc\(100vw-2rem\)\)\]/);
+  // Ensure SortableTaskCard attaches data-task-id for precise subpixel drag measurement
+  assert.match(board, /data-task-id=\{task\.id\}/);
 });
 
 test("priority labels use one red intensity scale", async () => {

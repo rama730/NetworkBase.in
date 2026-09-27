@@ -49,21 +49,7 @@ export async function getSyncPreviewAction(projectId: string): Promise<SyncPrevi
       return { success: false, error: "Unauthorized" };
     }
 
-    const [project] = await db
-      .select({
-        id: projects.id,
-        importSource: projects.importSource,
-        githubLastCommitSha: projects.githubLastCommitSha,
-      })
-      .from(projects)
-      .where(eq(projects.id, projectId))
-      .limit(1);
-
-    if (!project) {
-      return { success: false, error: "Project not found" };
-    }
-
-    const src = project.importSource as any;
+    const src = access.project.importSource as any;
     if (!src || src.type !== "github" || !src.repoUrl) {
       return { success: false, error: "Project is not imported from GitHub" };
     }
@@ -149,7 +135,7 @@ export async function getSyncPreviewAction(projectId: string): Promise<SyncPrevi
         .set({
           syncStatus: "ready",
           githubLastSyncAt: syncedAtDate,
-          githubLastCommitSha: treeData.commitSha || project.githubLastCommitSha,
+          githubLastCommitSha: treeData.commitSha || access.project.githubLastCommitSha,
           importSource: {
             ...src,
             metadata: {

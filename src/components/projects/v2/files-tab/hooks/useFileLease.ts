@@ -38,7 +38,7 @@ export function useFileLease(projectId: string, nodeId: string) {
   }, [publishLock]);
 
   const acquire = React.useCallback(async () => {
-    if (leaseRef.current) return leaseRef.current;
+    if (leaseRef.current && leaseRef.current.nodeId === nodeId) return leaseRef.current;
     setStatus("acquiring");
     setConflict(null);
     try {
@@ -89,7 +89,11 @@ export function useFileLease(projectId: string, nodeId: string) {
   React.useEffect(() => {
     if (!lease) return;
     const delay = 32_000 + Math.floor(Math.random() * 6_000);
-    const timer = window.setInterval(() => void renew().catch(() => null), delay);
+    // ponytail: 32s-38s lease renewal interval skipped when document is hidden. ceiling: 38s renewal interval. upgrade: WebSocket Realtime heartbeat if sub-second lease granularity required.
+    const timer = window.setInterval(() => {
+      if (document.hidden) return;
+      void renew().catch(() => null);
+    }, delay);
     const onFocus = () => void renew().catch(() => null);
     const onVisibility = () => {
       if (document.visibilityState === "visible") onFocus();
@@ -108,9 +112,10 @@ export function useFileLease(projectId: string, nodeId: string) {
       const current = leaseRef.current;
       if (current) {
         void releaseBrowserFileLease(current, { keepalive: true }).catch(() => null);
+        leaseRef.current = null;
       }
     };
-  }, []);
+  }, [projectId, nodeId]);
 
   return { lease, status, conflict, acquire, renew, release };
 }

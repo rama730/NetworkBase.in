@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { readFileSubtree } from "@/lib/files/permanent-delete";
 import { permanentlyDeleteTrashedNode } from "./trash";
-import { profiles, projectFileIndex, projectNodeEvents, projectNodeLocks, projectNodes, taskActivityEvents, taskNodeLinks, tasks } from "@/lib/db/schema";
+import { profiles, projectFileIndex, projectNodeEvents, projectNodeLocks, projectNodes, taskActivityEvents, taskNodeLinks, tasks, uploadIntents } from "@/lib/db/schema";
 import type { ProjectNode } from "@/lib/db/schema";
 import { eq, and, or, isNull, isNotNull, ilike, inArray, sql, gt, ne, type SQL } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -35,6 +35,7 @@ import {
     assertNotMovingIntoDescendant,
     assertNodeNotLockedByAnotherUser,
     recordNodeEvent,
+    recordNodeEventsBatch,
 } from "@/lib/files/internal-helpers";
 import {
     normalizeNodeName,
@@ -82,6 +83,51 @@ async function getParentPath(tx: any, projectId: string, parentId: string | null
     return parent?.path || "";
 }
 
+// PURE OPTIMIZATION (Item 22): Combine parent folder verification, type check, sibling collision check, and path resolution into 1 DB query.
+async function resolveParentAndCheckSibling(
+    tx: any,
+    projectId: string,
+    parentId: string | null,
+    safeName: string,
+    ignoreNodeId?: string,
+): Promise<string> {
+    if (!parentId) {
+        await assertUniqueSiblingName(projectId, null, safeName, tx, ignoreNodeId);
+        return "";
+    }
+
+    const rows = (await tx.execute(sql`
+        SELECT
+            p.id as parent_id,
+            p.type as parent_type,
+            p.path as parent_path,
+            EXISTS(
+                SELECT 1 FROM project_nodes s
+                WHERE s.project_id = ${projectId}::uuid
+                  AND s.parent_id = ${parentId}::uuid
+                  AND s.deleted_at IS NULL
+                  AND lower(s.name) = lower(${safeName})
+                  ${ignoreNodeId ? sql`AND s.id != ${ignoreNodeId}::uuid` : sql``}
+            ) as name_exists
+        FROM project_nodes p
+        WHERE p.id = ${parentId}::uuid
+          AND p.project_id = ${projectId}::uuid
+          AND p.deleted_at IS NULL
+    `)) as Array<{
+        parent_id: string | null;
+        parent_type: string | null;
+        parent_path: string | null;
+        name_exists: boolean;
+    }>;
+
+    const row = Array.from(rows)[0];
+    if (!row) throw new Error("Destination folder not found");
+    if (row.parent_type !== "folder") throw new Error("Destination must be a folder");
+    if (row.name_exists) throw new Error("A file/folder with this name already exists in this location");
+
+    return row.parent_path || "";
+}
+
 function descendantLikePattern(path: string): string {
     return `${escapeLikePattern(path)}/%`;
 }
@@ -96,6 +142,16 @@ function subtreePathPredicate(node: { id: string; path: string; type: string; ta
         predicates.push(sql`${projectNodes.path} LIKE ${descendantLikePattern(node.path)} ESCAPE '\\'`);
     }
     return and(taskScopePredicate(node.taskId), or(...predicates) ?? sql`FALSE`) ?? sql`FALSE`;
+}
+
+function subtreeOrSystemRootPredicate(
+    node: { id: string; path: string; type: string; taskId: string | null },
+    systemRoot: { id: string; path: string; type: string; taskId: string | null } | null,
+): SQL {
+    return or(
+        systemRoot ? subtreePathPredicate(systemRoot) : sql`FALSE`,
+        subtreePathPredicate(node)
+    ) ?? sql`FALSE`;
 }
 
 function activeSubtreeWhere(projectId: string, node: { id: string; path: string; type: string; taskId: string | null }): SQL {
@@ -144,7 +200,7 @@ async function assertSubtreeNotLockedByAnotherUser(
         .limit(1);
 
     if (lock) {
-        throw new Error("A file in this subtree has an active editing lease");
+        throw new Error("This folder or one of its contents is currently locked by another collaborator");
     }
 }
 
@@ -166,9 +222,7 @@ export async function createFolder(
 
     const node = await db.transaction(async (tx) => {
         await assertProjectUploadAccessTx(tx, projectId, user.id);
-        await assertValidParentFolder(projectId, parentId, tx);
-        await assertUniqueSiblingName(projectId, parentId, safeName, tx);
-        const parentPath = await getParentPath(tx, projectId, parentId);
+        const parentPath = await resolveParentAndCheckSibling(tx, projectId, parentId, safeName);
         const nodePath = `${parentPath}/${safeName}`;
 
         const [created] = await tx.insert(projectNodes).values({
@@ -245,9 +299,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
             if (!task) throw new Error("Task not found");
         }
         if (file.taskLink) await assertProjectWriteAccessTx(tx, projectId, user.id);
-        await assertValidParentFolder(projectId, parentId, tx);
-        await assertUniqueSiblingName(projectId, parentId, safeName, tx);
-        const parentPath = await getParentPath(tx, projectId, parentId);
+        const parentPath = await resolveParentAndCheckSibling(tx, projectId, parentId, safeName);
         const nodePath = `${parentPath}/${safeName}`;
 
         const [created] = await tx.insert(projectNodes).values({
@@ -298,6 +350,190 @@ export async function createFileNode(projectId: string, parentId: string | null,
         updatedByAvatarUrl: profile?.avatarUrl ?? null,
         versionUpdatedAt: node.updatedAt,
     };
+}
+
+// ponytail: 2PC batch finalization commits up to 100 files in 1 transaction. ceiling: 100 files per batch RPC. upgrade: chunk into parallel 100-file batches if client exceeds limit.
+export async function finalizeBatchUpload(
+    projectId: string,
+    parentId: string | null,
+    files: Array<{
+        name: string;
+        s3Key: string;
+        size: number;
+        mimeType: string;
+        uploadIntentId?: string;
+    }>,
+) {
+    if (!files.length) return [];
+    if (files.length > 100) throw new Error("Batch upload exceeds maximum of 100 files");
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+    const { allowed } = await consumeRateLimit(`files:${user.id}`, 60, 60);
+    if (!allowed) throw new Error("Rate limit exceeded");
+    await assertProjectUploadAccess(projectId, user.id);
+
+    const intentIds = files
+        .map((f) => f.uploadIntentId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0);
+    const storageKeys = files
+        .map((f) => f.s3Key)
+        .filter((k): k is string => typeof k === "string" && k.length > 0);
+
+    const intentConditions = [];
+    if (intentIds.length > 0) intentConditions.push(inArray(uploadIntents.id, intentIds));
+    if (storageKeys.length > 0) intentConditions.push(inArray(uploadIntents.storageKey, storageKeys));
+
+    // ponytail: single batch query preloads all upload intents (cuts 100 sequential SELECT queries to 1). ceiling: 100 files per batch. upgrade: stream intents in chunks of 100 if batch size increases.
+    const preloadedIntents = intentConditions.length > 0
+        ? await db.query.uploadIntents.findMany({
+            where: and(
+                eq(uploadIntents.userId, user.id),
+                eq(uploadIntents.bucket, "project-files"),
+                intentConditions.length === 1 ? intentConditions[0] : or(...intentConditions),
+            ),
+        })
+        : [];
+    const intentById = new Map(preloadedIntents.map((i) => [i.id, i]));
+    const intentByStorageKey = new Map(preloadedIntents.map((i) => [i.storageKey, i]));
+
+    const validatedFiles = await Promise.all(
+        files.map(async (file) => {
+            const safeName = normalizeNodeName(file.name);
+            assertValidNodeName(safeName);
+
+            const preloaded = (file.uploadIntentId ? intentById.get(file.uploadIntentId) : null)
+                ?? intentByStorageKey.get(file.s3Key)
+                ?? null;
+
+            const finalizedIntent = await finalizeUploadIntent({
+                intentId: file.uploadIntentId,
+                storageKey: file.s3Key,
+                bucket: 'project-files',
+                userId: user.id,
+                projectId,
+                expectedScope: 'project_file',
+                expectedKind: 'file',
+            }, preloaded);
+
+            const parsedKey = parseProjectFileKey(finalizedIntent.storageKey);
+            if (!parsedKey || !isCanonicalProjectFileKey(finalizedIntent.storageKey) || parsedKey.projectId !== projectId) {
+                throw new Error("Invalid file storage key");
+            }
+            const normalizedRelativePath = normalizeAndValidateUploadRelativePath(parsedKey.relativePath);
+            const canonicalS3Key = buildProjectFileKey(projectId, normalizedRelativePath);
+            const normalizedSize = normalizeAndValidateFileSize(finalizedIntent.finalizedSize ?? file.size, PROJECT_UPLOAD_MAX_FILE_BYTES);
+            const normalizedMimeType = normalizeAndValidateMimeType(finalizedIntent.finalizedMimeType ?? file.mimeType);
+
+            return {
+                safeName,
+                canonicalS3Key,
+                normalizedSize,
+                normalizedMimeType,
+            };
+        })
+    );
+
+    const createdNodes = await db.transaction(async (tx) => {
+        await assertProjectUploadAccessTx(tx, projectId, user.id);
+
+        let parentPath = "";
+        if (parentId) {
+            const [parent] = await tx
+                .select({ path: projectNodes.path, type: projectNodes.type })
+                .from(projectNodes)
+                .where(and(eq(projectNodes.id, parentId), eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt)))
+                .limit(1);
+            if (!parent) throw new Error("Parent folder not found");
+            if (parent.type !== "folder") throw new Error("Destination must be a folder");
+            parentPath = parent.path;
+        }
+
+        // Check for existing active sibling names in destination to prevent unique constraint collisions
+        const existingSiblings = await tx
+            .select({ lowerName: sql<string>`lower(${projectNodes.name})` })
+            .from(projectNodes)
+            .where(and(
+                eq(projectNodes.projectId, projectId),
+                parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId),
+                isNull(projectNodes.taskId),
+                isNull(projectNodes.deletedAt)
+            ));
+        const existingSet = new Set(existingSiblings.map((s: { lowerName: string }) => s.lowerName));
+
+        // Deduplicate files by lowercase name within the same batch, taking the latest uploaded entry
+        const uniqueValuesMap = new Map<string, {
+            projectId: string;
+            parentId: string | null;
+            type: 'file';
+            name: string;
+            path: string;
+            s3Key: string;
+            size: number;
+            mimeType: string;
+            createdBy: string;
+        }>();
+        for (const f of validatedFiles) {
+            const lowerName = f.safeName.toLowerCase();
+            if (existingSet.has(lowerName)) {
+                continue;
+            }
+            uniqueValuesMap.set(lowerName, {
+                projectId,
+                parentId,
+                type: 'file' as const,
+                name: f.safeName,
+                path: `${parentPath}/${f.safeName}`,
+                s3Key: f.canonicalS3Key,
+                size: f.normalizedSize,
+                mimeType: f.normalizedMimeType,
+                createdBy: user.id,
+            });
+        }
+        const valuesToInsert = Array.from(uniqueValuesMap.values());
+        if (!valuesToInsert.length) return [];
+
+        const inserted = await tx.insert(projectNodes).values(valuesToInsert).returning();
+        return inserted;
+    });
+
+    const firstNode = createdNodes[0];
+    if (!firstNode) return [];
+
+    await enqueueFileNotificationBestEffort({
+        projectId,
+        actorUserId: user.id,
+        ...actorNotificationSnapshot(user),
+        eventKey: "files.uploaded",
+        title: createdNodes.length === 1 ? `File uploaded: ${firstNode.name}` : `${createdNodes.length} files uploaded`,
+        body: "Files were added to the project workspace.",
+        sourceEventId: firstNode.id,
+        entityRefs: { projectId, fileId: firstNode.id },
+    });
+
+    const profile = await db.query.profiles.findFirst({
+        where: eq(profiles.id, user.id),
+        columns: { fullName: true, username: true, avatarUrl: true },
+    });
+
+    // ponytail: batch record node events in 1 round-trip instead of N sequential calls. ceiling: 100 events per call. upgrade: background queue if multi-thousand batch uploads added.
+    await recordNodeEventsBatch(
+        projectId,
+        user.id,
+        createdNodes.map((node) => node.id),
+        'create_file',
+        { parentId, count: createdNodes.length }
+    ).catch((err) => console.warn('[files] failed to batch record node events', err));
+
+    return createdNodes.map((node) => ({
+        ...node,
+        updatedById: user.id,
+        updatedByName: profile?.fullName ?? null,
+        updatedByUsername: profile?.username ?? null,
+        updatedByAvatarUrl: profile?.avatarUrl ?? null,
+        versionUpdatedAt: node.updatedAt,
+    }));
 }
 
 export type UploadCollisionSummary = {
@@ -437,9 +673,7 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
             !!current.metadata && (current.metadata as { isSystem?: unknown }).isSystem === true;
         if (isSystemFolder) throw new Error("Cannot rename system folder");
 
-        await assertUniqueSiblingName(projectId, current.parentId ?? null, safeName, tx, nodeId);
-
-        const parentPath = await getParentPath(tx, projectId, current.parentId ?? null);
+        const parentPath = await resolveParentAndCheckSibling(tx, projectId, current.parentId ?? null, safeName, nodeId);
         const newPath = `${parentPath}/${safeName}`;
         const oldPath = current.path;
 
@@ -464,7 +698,7 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
         sourceEventId: `${nodeId}:rename:${safeName}`,
         entityRefs: { projectId, fileId: nodeId },
     });
-    // ponytail: client explorer handles rename via Zustand renameNodeInCaches; skip route revalidation
+    // ponytail: client explorer handles rename via Zustand renameNodeInCaches; skip route revalidation. ceiling: single-tab explorer view. upgrade: Realtime broadcast if multi-tab explorer sync is required.
     return node;
 }
 
@@ -649,7 +883,7 @@ export async function moveProjectNodes(
             sourceEventId: operationId,
             entityRefs: { projectId },
         });
-        // ponytail: client explorer handles move via Zustand; skip route revalidation
+        // ponytail: client explorer handles move via Zustand; skip route revalidation. ceiling: single-tab explorer view. upgrade: Realtime broadcast if multi-tab explorer sync is required.
     }
     return result;
 }
@@ -701,7 +935,7 @@ export async function trashNode(nodeId: string, projectId: string) {
         sourceEventId: `${nodeId}:trash`,
         entityRefs: { projectId, fileId: nodeId },
     });
-    // ponytail: client explorer handles deletion via Zustand removeNodeFromCaches; skip route revalidation
+    // ponytail: client explorer handles deletion via Zustand removeNodeFromCaches; skip route revalidation. ceiling: single-tab explorer view. upgrade: Realtime broadcast if multi-tab explorer sync is required.
 }
 
 export async function restoreNode(nodeId: string, projectId: string) {
@@ -759,7 +993,7 @@ export async function restoreNode(nodeId: string, projectId: string) {
         sourceEventId: `${nodeId}:restore`,
         entityRefs: { projectId, fileId: nodeId },
     });
-    // ponytail: client handles trash restore via query invalidation; skip route revalidation
+    // ponytail: client handles trash restore via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation bus if cross-device state sync required.
 }
 
 export async function bulkTrashNodes(nodeIds: string[], projectId: string) {
@@ -848,7 +1082,7 @@ export async function bulkTrashNodes(nodeIds: string[], projectId: string) {
         });
     }
 
-    // ponytail: client handles trash purge via query invalidation; skip route revalidation
+    // ponytail: client handles trash purge via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation bus if cross-device state sync required.
     return result;
 }
 
@@ -959,7 +1193,7 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
         });
     }
 
-    // ponytail: client handles trash restore via query invalidation; skip route revalidation
+    // ponytail: client handles trash restore via query invalidation; skip route revalidation. ceiling: client query invalidation. upgrade: global cache invalidation bus if cross-device state sync required.
     return result;
 }
 
@@ -978,7 +1212,7 @@ export async function getTrashNodes(projectId: string, query?: string) {
     return await db.query.projectNodes.findMany({
         where: whereClause,
         orderBy: (nodes, { desc }) => [desc(nodes.deletedAt)],
-        limit: 500,
+        limit: 100,
     });
 }
 
@@ -993,6 +1227,8 @@ export async function getTrashPage(projectId: string, query = "", cursor?: strin
         .select({
             node: projectNodes,
             deletedByName: sql<string | null>`coalesce(${profiles.fullName}, ${profiles.username}, case when ${projectNodes.deletedBy} is not null then 'Former member' else null end)`,
+            deletedByUsername: profiles.username,
+            deletedByAvatarUrl: profiles.avatarUrl,
         })
         .from(projectNodes)
         .leftJoin(profiles, eq(profiles.id, projectNodes.deletedBy))
@@ -1003,7 +1239,12 @@ export async function getTrashPage(projectId: string, query = "", cursor?: strin
         .limit(101);
     const page = rows.slice(0, 100);
     return {
-        nodes: page.map(({ node, deletedByName }) => ({ ...node, deletedByName })),
+        nodes: page.map(({ node, deletedByName, deletedByUsername, deletedByAvatarUrl }) => ({
+            ...node,
+            deletedByName,
+            deletedByUsername,
+            deletedByAvatarUrl,
+        })),
         nextCursor: rows.length > 100 ? page.at(-1)!.node.id : null,
     };
 }
@@ -1062,12 +1303,32 @@ export async function bulkCreateFolderTree(
         const pathToId = new Map<string, string>();
         // Map: virtual path -> materialized node path (for DB `path` column)
         const pathToNodePath = new Map<string, string>();
+        let targetBaseNodePath = "";
         if (targetParentId) {
             pathToId.set("", targetParentId);
             const parentPath = await getParentPath(tx, projectId, targetParentId);
             pathToNodePath.set("", parentPath);
+            targetBaseNodePath = parentPath;
         } else {
             pathToNodePath.set("", "");
+        }
+
+        // Pre-fetch all folders that may already exist across all depth levels in 1 single query
+        const allPossiblePaths = sortedFolders.map(fp => targetBaseNodePath ? `${targetBaseNodePath}/${fp}` : `/${fp}`);
+        const existingFoldersByPath = new Map<string, { id: string; name: string; parentId: string | null; path: string }>();
+        if (allPossiblePaths.length > 0) {
+            const found = await tx.query.projectNodes.findMany({
+                where: and(
+                    eq(projectNodes.projectId, projectId),
+                    eq(projectNodes.type, 'folder'),
+                    isNull(projectNodes.deletedAt),
+                    inArray(projectNodes.path, allPossiblePaths)
+                ),
+                columns: { id: true, name: true, parentId: true, path: true }
+            });
+            for (const f of found) {
+                existingFoldersByPath.set(f.path, f);
+            }
         }
 
         // 2. Resolve / Create all folders layer by layer (Strict O(Depth) operations)
@@ -1095,45 +1356,14 @@ export async function bulkCreateFolderTree(
                 return { path, safeName, parentId: parentId || null };
             });
 
-            const parentIdsAtDepth = Array.from(new Set(nodesToFindOrCreate.map(n => n.parentId).filter(Boolean))) as string[];
-            const namesAtDepth = Array.from(new Set(nodesToFindOrCreate.map(n => n.safeName)));
-
-            let existingFolders: { id: string, name: string, parentId: string | null, path: string }[] = [];
-
-            if (namesAtDepth.length > 0) {
-                // Find existing folders at this exact depth level
-                const conditions = [
-                    eq(projectNodes.projectId, projectId),
-                    eq(projectNodes.type, 'folder'),
-                    isNull(projectNodes.deletedAt),
-                    inArray(projectNodes.name, namesAtDepth)
-                ];
-
-                if (parentIdsAtDepth.length > 0) {
-                    const hasNullParent = nodesToFindOrCreate.some(n => n.parentId === null);
-                    if (hasNullParent) {
-                        conditions.push(or(inArray(projectNodes.parentId, parentIdsAtDepth), isNull(projectNodes.parentId))!);
-                    } else {
-                        conditions.push(inArray(projectNodes.parentId, parentIdsAtDepth));
-                    }
-                } else {
-                    conditions.push(isNull(projectNodes.parentId));
-                }
-
-                existingFolders = await tx.query.projectNodes.findMany({
-                    where: and(...conditions),
-                    columns: { id: true, name: true, parentId: true, path: true }
-                });
-            }
-
             const newFolderInserts: (typeof projectNodes.$inferInsert)[] = [];
             const newFolderPaths: string[] = [];
 
             for (const node of nodesToFindOrCreate) {
-                const existing = existingFolders.find(e => e.name === node.safeName && e.parentId === node.parentId);
                 const parentVirtualPath = node.path.split('/').slice(0, -1).join('/');
                 const parentNodePath = pathToNodePath.get(parentVirtualPath) || "";
                 const nodePath = `${parentNodePath}/${node.safeName}`;
+                const existing = existingFoldersByPath.get(nodePath);
                 if (existing) {
                     pathToId.set(node.path, existing.id);
                     pathToNodePath.set(node.path, existing.path || nodePath);
@@ -1237,70 +1467,61 @@ export async function getOrCreateTaskSystemFolderAction(projectId: string, taskI
     await assertProjectUploadAccess(projectId, user.id);
 
     return await db.transaction(async (tx) => {
-        // Find or create /.system
-        let systemRoot = await tx.query.projectNodes.findFirst({
-            where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.name, '.system'), isNull(projectNodes.parentId)),
+        const existing = await tx.query.projectNodes.findFirst({
+            where: and(
+                eq(projectNodes.projectId, projectId),
+                eq(projectNodes.path, `/.system/tasks/${taskId}`),
+                isNull(projectNodes.deletedAt)
+            ),
             columns: { id: true }
         });
-        if (!systemRoot) {
-            const [created] = await tx.insert(projectNodes).values({
-                projectId,
-                parentId: null,
-                type: 'folder',
-                name: '.system',
-                path: '/.system',
-                createdBy: user.id,
-                metadata: { isSystem: true }
-            }).onConflictDoNothing().returning({ id: projectNodes.id });
-            systemRoot = created ?? await tx.query.projectNodes.findFirst({
-                where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.name, '.system'), isNull(projectNodes.parentId)),
-                columns: { id: true },
-            });
-        }
+        if (existing) return existing.id;
 
-        // Find or create /.system/tasks
-        let tasksRoot = await tx.query.projectNodes.findFirst({
-            where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.name, 'tasks'), eq(projectNodes.parentId, systemRoot!.id)),
-            columns: { id: true }
-        });
-        if (!tasksRoot) {
-            const [created] = await tx.insert(projectNodes).values({
-                projectId,
-                parentId: systemRoot!.id,
-                type: 'folder',
-                name: 'tasks',
-                path: '/.system/tasks',
-                createdBy: user.id,
-                metadata: { isSystem: true }
-            }).onConflictDoNothing().returning({ id: projectNodes.id });
-            tasksRoot = created ?? await tx.query.projectNodes.findFirst({
-                where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.name, 'tasks'), eq(projectNodes.parentId, systemRoot!.id)),
-                columns: { id: true },
-            });
-        }
+        const result = (await tx.execute(sql`
+            WITH ins_sys AS (
+                INSERT INTO project_nodes (id, project_id, parent_id, type, name, path, created_by, metadata)
+                VALUES (gen_random_uuid(), ${projectId}::uuid, NULL, 'folder', '.system', '/.system', ${user.id}::uuid, '{"isSystem": true}'::jsonb)
+                ON CONFLICT (project_id, parent_id, name) WHERE deleted_at IS NULL
+                DO UPDATE SET updated_at = NOW()
+                RETURNING id
+            ),
+            sys_id AS (
+                SELECT id FROM ins_sys
+                UNION ALL
+                SELECT id FROM project_nodes WHERE project_id = ${projectId}::uuid AND name = '.system' AND parent_id IS NULL AND deleted_at IS NULL
+                LIMIT 1
+            ),
+            ins_tasks AS (
+                INSERT INTO project_nodes (id, project_id, parent_id, type, name, path, created_by, metadata)
+                SELECT gen_random_uuid(), ${projectId}::uuid, sys_id.id, 'folder', 'tasks', '/.system/tasks', ${user.id}::uuid, '{"isSystem": true}'::jsonb
+                FROM sys_id
+                ON CONFLICT (project_id, parent_id, name) WHERE deleted_at IS NULL
+                DO UPDATE SET updated_at = NOW()
+                RETURNING id
+            ),
+            tasks_id AS (
+                SELECT id FROM ins_tasks
+                UNION ALL
+                SELECT pn.id FROM project_nodes pn, sys_id WHERE pn.project_id = ${projectId}::uuid AND pn.name = 'tasks' AND pn.parent_id = sys_id.id AND pn.deleted_at IS NULL
+                LIMIT 1
+            ),
+            ins_task_folder AS (
+                INSERT INTO project_nodes (id, project_id, parent_id, type, name, path, created_by, metadata)
+                SELECT gen_random_uuid(), ${projectId}::uuid, tasks_id.id, 'folder', ${taskId}, ${`/.system/tasks/${taskId}`}, ${user.id}::uuid, '{"isSystem": true}'::jsonb
+                FROM tasks_id
+                ON CONFLICT (project_id, parent_id, name) WHERE deleted_at IS NULL
+                DO UPDATE SET updated_at = NOW()
+                RETURNING id
+            )
+            SELECT id::text FROM ins_task_folder
+            UNION ALL
+            SELECT pn.id::text FROM project_nodes pn, tasks_id WHERE pn.project_id = ${projectId}::uuid AND pn.name = ${taskId} AND pn.parent_id = tasks_id.id AND pn.deleted_at IS NULL
+            LIMIT 1
+        `)) as unknown as Array<{ id: string }>;
 
-        // Find or create /.system/tasks/[taskId]
-        let taskFolder = await tx.query.projectNodes.findFirst({
-            where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.name, taskId), eq(projectNodes.parentId, tasksRoot!.id)),
-            columns: { id: true }
-        });
-        if (!taskFolder) {
-            const [created] = await tx.insert(projectNodes).values({
-                projectId,
-                parentId: tasksRoot!.id,
-                type: 'folder',
-                name: taskId,
-                path: `/.system/tasks/${taskId}`,
-                createdBy: user.id,
-                metadata: { isSystem: true }
-            }).onConflictDoNothing().returning({ id: projectNodes.id });
-            taskFolder = created ?? await tx.query.projectNodes.findFirst({
-                where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.name, taskId), eq(projectNodes.parentId, tasksRoot!.id)),
-                columns: { id: true },
-            });
-        }
-
-        return taskFolder!.id;
+        const createdId = result[0]?.id;
+        if (!createdId) throw new Error("Failed to create task folder");
+        return createdId;
     });
 }
 

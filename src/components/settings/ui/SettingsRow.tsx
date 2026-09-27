@@ -17,16 +17,16 @@ export function SettingsRow({
     return (
         <div
             className={cn(
-                "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
+                "flex min-h-16 flex-col justify-center gap-3 py-3 sm:flex-row sm:items-center sm:justify-between",
                 className
             )}
         >
             <div className="min-w-0">
-                <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <div className="nb-ui-label text-foreground">
                     {title}
                 </div>
                 {description ? (
-                    <div className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                    <div className="nb-compact mt-1 text-muted-foreground">
                         {description}
                     </div>
                 ) : null}

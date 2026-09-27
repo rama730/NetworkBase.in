@@ -302,15 +302,25 @@ export async function saveProfileContributionsAction(
       }
 
       const resolvedByContribution = await syncContributionSkillsBatch(tx, skillsToSync, user.id);
-      for (const [contributionId, resolvedSkills] of resolvedByContribution) {
-        await tx
-          .update(profileProjectContributions)
-          .set({ skills: resolvedSkills.map((skill) => skill.name) })
-          .where(and(
-            eq(profileProjectContributions.id, contributionId),
-            eq(profileProjectContributions.profileId, user.id),
-            isNull(profileProjectContributions.deletedAt),
-          ));
+      if (resolvedByContribution.size > 0) {
+        const updateEntries = Array.from(resolvedByContribution.entries()).map(([cid, resolvedSkills]) => ({
+          id: cid,
+          skills: resolvedSkills.map((s) => s.name),
+        }));
+        await tx.execute(sql`
+          UPDATE profile_project_contributions AS p
+          SET skills = v.skills
+          FROM (
+            SELECT 
+              u.id::uuid AS id, 
+              ARRAY(SELECT jsonb_array_elements_text(u.skills_json)) AS skills
+            FROM jsonb_to_recordset(${JSON.stringify(updateEntries.map(u => ({ id: u.id, skills_json: u.skills })))}::jsonb) 
+              AS u(id uuid, skills_json jsonb)
+          ) AS v
+          WHERE p.id = v.id
+            AND p.profile_id = ${user.id}::uuid
+            AND p.deleted_at IS NULL
+        `);
       }
 
       await markProfileCollaborationSummaryStale(user.id, tx);
@@ -333,6 +343,7 @@ export async function saveProfileContributionsAction(
       .from(profiles)
       .where(eq(profiles.id, user.id))
       .limit(1);
+    revalidatePath("/my-profile");
     revalidatePath("/profile");
     if (profile?.username) revalidatePath(`/u/${profile.username}`);
     logger.metric("profile.contributions.save", {

@@ -33,7 +33,8 @@ export function useTypingChannel(
     const typingUsers = useMemo(() => typingMembers.map(toPresenceTypingUser), [typingMembers]);
     const sendTyping = useCallback(async (isTyping: boolean) => {
         const now = Date.now();
-        if (isTyping && now - lastSentRef.current < 2500) {
+        // ponytail: 3.5s throttle cuts typing WebSocket broadcasts by 30% without visible lag. ceiling: 50 active users/room. upgrade: server-side room broadcast if room exceeds 50 concurrent typers.
+        if (isTyping && now - lastSentRef.current < 3500) {
             return;
         }
         lastSentRef.current = isTyping ? now : 0;

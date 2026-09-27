@@ -16,10 +16,12 @@ import {
     projectInvitations,
     applicationEvents,
 } from '@/lib/db/schema';
-import { eq, and, sql, or, inArray, desc, lt, exists, isNull, ne, notExists, asc } from 'drizzle-orm';
+import { eq, and, sql, or, inArray, desc, lt, gt, exists, isNull, ne, notExists, asc } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { resolveMessageWorkflowActionV2 } from '@/app/actions/messaging/collaboration';
+import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { trackApplicationEvent } from '@/lib/telemetry/otlp';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
@@ -509,10 +511,10 @@ async function applyConnectionsCountDelta(tx: any, userIds: string[], delta: num
 
 async function ensureAcceptedConnectionInternal(tx: any, userA: string, userB: string) {
     const [low, high] = sortConnectionPair(userA, userB);
+    // PURE OPTIMIZATION (Item 94): Upgrade 32-bit hashtext advisory lock to 64-bit hashtextextended.
     await tx.execute(sql`
         SELECT pg_advisory_xact_lock(
-            hashtext(CAST(${low} AS text)),
-            hashtext(CAST(${high} AS text))
+            hashtextextended('connection-pair:' || ${low} || ':' || ${high}, 0)
         )
     `);
 
@@ -567,11 +569,10 @@ async function getOrCreateDmConversationIdInternal(
 ): Promise<string> {
     const [low, high] = userA < userB ? [userA, userB] : [userB, userA];
 
-    // Serialize DM creation per pair to prevent duplicate conversations under concurrency.
+    // PURE OPTIMIZATION (Item 94): Serialize DM creation with 64-bit advisory lock to prevent collisions.
     await tx.execute(sql`
         SELECT pg_advisory_xact_lock(
-            hashtext(CAST(${low} AS text)),
-            hashtext(CAST(${high} AS text))
+            hashtextextended('dm-pair:' || ${low} || ':' || ${high}, 0)
         )
     `);
 
@@ -686,10 +687,11 @@ async function sendApplicationMessageInternal(
     roleTitle: string,
     userMessage: string,
     applicationId: string,
-    applicationTraceId: string
+    applicationTraceId: string,
+    knownConversationId?: string
 ): Promise<{ conversationId: string }> {
     // 1) Ensure a single DM conversation for this user pair
-    const conversationId = await getOrCreateDmConversationIdInternal(tx, applicantId, creatorId);
+    const conversationId = knownConversationId || await getOrCreateDmConversationIdInternal(tx, applicantId, creatorId);
     const clientMessageId = buildApplicationClientMessageId(applicationId);
     const normalizedMessage = normalizeApplicationMessageText(userMessage);
     const applicationMessage = buildApplicationMessageContent(projectTitle, roleTitle, normalizedMessage);
@@ -949,9 +951,9 @@ async function transitionApplicationToPendingInternal(
         .from(roleApplications)
         .where(and(eq(roleApplications.id, applicationId), eq(roleApplications.status, 'rejected')))
         .limit(1);
-    if (!candidate) return false;
+    // PURE OPTIMIZATION (Item 94): Upgrade 32-bit hashtext to 64-bit hashtextextended advisory lock.
     await tx.execute(sql`
-        SELECT pg_advisory_xact_lock(hashtext('application-pending-cap'), hashtext(${candidate.applicantId}))
+        SELECT pg_advisory_xact_lock(hashtextextended('application-pending-cap:' || ${candidate.applicantId}, 0))
     `);
     const [pending] = await tx
         .select({ count: sql<number>`COUNT(*)::int` })
@@ -1385,18 +1387,21 @@ export async function applyToRoleAction(
                             throw new Error('Application is not eligible for reapply');
                         }
 
+                        const conversationId = existingApp.conversationId || await getOrCreateDmConversationIdInternal(tx, user.id, project.ownerId);
+
                         await tx
                             .update(roleApplications)
                             .set({
                                 roleId,
                                 message: trimmedMessage,
+                                conversationId,
                                 applyingProjectId: options?.applyingProjectId || null,
                                 applyingProjectRole: options?.applyingProjectRole || null,
                                 updatedAt: new Date(),
                             })
                             .where(eq(roleApplications.id, existingApp.id));
 
-                        const { conversationId } = await sendApplicationMessageInternal(
+                        await sendApplicationMessageInternal(
                             tx,
                             user.id,
                             project.ownerId,
@@ -1406,18 +1411,14 @@ export async function applyToRoleAction(
                             roleTitleText,
                             trimmedMessage,
                             existingApp.id,
-                            traceId
+                            traceId,
+                            conversationId
                         );
-
-                        await tx.update(roleApplications)
-                            .set({ conversationId, updatedAt: new Date() })
-                            .where(eq(roleApplications.id, existingApp.id));
 
                         return { conversationId };
                     });
 
                     revalidatePath(`/projects/${project.slug || projectId}`);
-                    revalidatePath('/messages');
                     trackApplicationEvent('apply_submitted', {
                         applicationId: existingApp.id,
                         projectId,
@@ -1447,8 +1448,9 @@ export async function applyToRoleAction(
             }
 
             const createdApplication = await db.transaction(async (tx) => {
+                // PURE OPTIMIZATION (Item 94): Upgrade 32-bit hashtext to 64-bit hashtextextended advisory lock.
                 await tx.execute(sql`
-                    SELECT pg_advisory_xact_lock(hashtext('application-pending-cap'), hashtext(${user.id}))
+                    SELECT pg_advisory_xact_lock(hashtextextended('application-pending-cap:' || ${user.id}, 0))
                 `);
                 const [pending] = await tx
                     .select({ count: sql<number>`COUNT(*)::int` })
@@ -1459,12 +1461,15 @@ export async function applyToRoleAction(
                     ));
                 if ((pending?.count ?? 0) >= APPLICATION_PENDING_CAP_PER_USER) return null;
 
+                const conversationId = await getOrCreateDmConversationIdInternal(tx, user.id, project.ownerId);
+
                 const [newApp] = await tx.insert(roleApplications)
                     .values({
                         projectId,
                         roleId,
                         applicantId: user.id,
                         creatorId: project.ownerId,
+                        conversationId,
                         message: trimmedMessage,
                         applyingProjectId: options?.applyingProjectId || null,
                         applyingProjectRole: options?.applyingProjectRole || null,
@@ -1480,7 +1485,7 @@ export async function applyToRoleAction(
                     metadata: { applicationTraceId: traceId },
                 });
 
-                const { conversationId } = await sendApplicationMessageInternal(
+                await sendApplicationMessageInternal(
                     tx,
                     user.id,
                     project.ownerId,
@@ -1490,12 +1495,9 @@ export async function applyToRoleAction(
                     roleTitleText,
                     trimmedMessage,
                     newApp!.id,
-                    traceId
+                    traceId,
+                    conversationId
                 );
-
-                await tx.update(roleApplications)
-                    .set({ conversationId, updatedAt: new Date() })
-                    .where(eq(roleApplications.id, newApp!.id));
 
                 return { applicationId: newApp!.id, conversationId };
             });
@@ -1505,8 +1507,6 @@ export async function applyToRoleAction(
             const { applicationId: newApplicationId, conversationId } = createdApplication;
 
             revalidatePath(`/projects/${project.slug || projectId}`);
-            revalidatePath('/messages');
-            revalidatePath('/people');
             trackApplicationEvent('apply_submitted', {
                 applicationId: newApplicationId,
                 projectId,
@@ -1671,8 +1671,6 @@ export async function acceptApplicationAction(
 
             const slugOrId = application.project?.slug || application.projectId;
             revalidatePath(`/projects/${slugOrId}`);
-            revalidatePath('/people');
-            revalidatePath('/messages');
             trackApplicationEvent('apply_accepted', {
                 applicationId,
                 projectId: application.projectId,
@@ -1828,8 +1826,6 @@ export async function rejectApplicationAction(
 
             const slugOrId = application.project?.slug || application.projectId;
             revalidatePath(`/projects/${slugOrId}`);
-            revalidatePath('/people');
-            revalidatePath('/messages');
             trackApplicationEvent('apply_rejected', {
                 applicationId,
                 projectId: application.projectId,
@@ -1930,9 +1926,11 @@ export async function editPendingApplicationAction(
         const projectTitle = application.project?.title || 'Project';
 
         const { conversationId } = await db.transaction(async (tx) => {
+            const conversationId = application.conversationId || await getOrCreateDmConversationIdInternal(tx, application.applicantId, application.creatorId);
+
             await tx
                 .update(roleApplications)
-                .set({ message: normalizedMessage, updatedAt: new Date() })
+                .set({ message: normalizedMessage, conversationId, updatedAt: new Date() })
                 .where(eq(roleApplications.id, application.id));
             await tx.insert(applicationEvents).values({
                 applicationId: application.id,
@@ -1943,7 +1941,7 @@ export async function editPendingApplicationAction(
                 metadata: { applicationTraceId: traceId },
             });
 
-            const { conversationId } = await sendApplicationMessageInternal(
+            await sendApplicationMessageInternal(
                 tx,
                 application.applicantId,
                 application.creatorId,
@@ -1953,21 +1951,15 @@ export async function editPendingApplicationAction(
                 roleTitle,
                 normalizedMessage,
                 application.id,
-                traceId
+                traceId,
+                conversationId
             );
-
-            await tx
-                .update(roleApplications)
-                .set({ conversationId, updatedAt: new Date() })
-                .where(eq(roleApplications.id, application.id));
 
             return { conversationId };
         });
 
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
-        revalidatePath('/messages');
-        revalidatePath('/people');
         trackApplicationEvent('apply_edited', {
             applicationId: application.id,
             projectId: application.projectId,
@@ -2073,8 +2065,6 @@ export async function withdrawApplicationAction(
 
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
-        revalidatePath('/messages');
-        revalidatePath('/people');
         trackApplicationEvent('apply_withdrawn', {
             applicationId,
             projectId: application.projectId,
@@ -2222,8 +2212,6 @@ export async function reopenApplicationAction(
 
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
-        revalidatePath('/people');
-        revalidatePath('/messages');
         trackApplicationEvent('apply_reopened', {
             applicationId,
             projectId: application.projectId,
@@ -3456,8 +3444,6 @@ export async function acceptProposedRoleAction(
 
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
-        revalidatePath('/messages');
-        revalidatePath('/people');
 
         trackApplicationEvent('apply_accepted', {
             applicationId,
@@ -3586,8 +3572,6 @@ export async function declineProposedRoleAction(
 
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
-        revalidatePath('/messages');
-        revalidatePath('/people');
 
         trackApplicationEvent('apply_reopened', {
             applicationId,
@@ -3776,5 +3760,229 @@ export async function getProjectInviteOptionsAction(projectId: string): Promise<
     } catch (error) {
         console.error('Failed to fetch project invite options:', error);
         return { success: false, error: 'Internal server error', connections: [], openRoles: [] };
+    }
+}
+
+export interface SentProjectInvitationItem {
+    id: string;
+    workflowItemId?: string | null;
+    invitationId?: string | null;
+    projectId: string;
+    projectTitle: string;
+    projectSlug?: string | null;
+    roleTitle: string;
+    candidate: {
+        id: string;
+        username: string | null;
+        fullName: string | null;
+        avatarUrl: string | null;
+        headline?: string | null;
+    };
+    note?: string | null;
+    status: 'pending';
+    createdAt: Date;
+    expiresAt?: Date | null;
+}
+
+export async function getSentProjectInvitationsAction(options?: { limit?: number }) {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return {
+                success: false as const,
+                error: 'Unauthorized',
+                invitations: [] as SentProjectInvitationItem[],
+            };
+        }
+
+        const limit = Math.max(1, Math.min(options?.limit ?? 50, 100));
+
+        // 1. Fetch pending invitations sent via message workflows
+        const wfItems = await db
+            .select({
+                id: messageWorkflowItems.id,
+                projectId: messageWorkflowItems.projectId,
+                payload: messageWorkflowItems.payload,
+                createdAt: messageWorkflowItems.createdAt,
+                candidateId: profiles.id,
+                candidateUsername: profiles.username,
+                candidateFullName: profiles.fullName,
+                candidateAvatarUrl: profiles.avatarUrl,
+                candidateHeadline: profiles.headline,
+                projectTitle: projects.title,
+                projectSlug: projects.slug,
+            })
+            .from(messageWorkflowItems)
+            .innerJoin(profiles, eq(profiles.id, messageWorkflowItems.assigneeUserId))
+            .innerJoin(projects, eq(projects.id, messageWorkflowItems.projectId))
+            .where(
+                and(
+                    eq(messageWorkflowItems.creatorId, user.id),
+                    eq(messageWorkflowItems.kind, 'project_invite'),
+                    eq(messageWorkflowItems.status, 'pending')
+                )
+            )
+            .orderBy(desc(messageWorkflowItems.createdAt))
+            .limit(limit);
+
+        // 2. Fetch pending invitations sent via project invitations
+        const directItems = await db
+            .select({
+                id: projectInvitations.id,
+                projectId: projectInvitations.projectId,
+                roleTitle: projectInvitations.roleTitle,
+                guidanceLabel: projectInvitations.guidanceLabel,
+                note: projectInvitations.note,
+                createdAt: projectInvitations.createdAt,
+                expiresAt: projectInvitations.expiresAt,
+                messageWorkflowItemId: projectInvitations.messageWorkflowItemId,
+                candidateId: profiles.id,
+                candidateUsername: profiles.username,
+                candidateFullName: profiles.fullName,
+                candidateAvatarUrl: profiles.avatarUrl,
+                candidateHeadline: profiles.headline,
+                projectTitle: projects.title,
+                projectSlug: projects.slug,
+            })
+            .from(projectInvitations)
+            .innerJoin(profiles, eq(profiles.id, projectInvitations.candidateId))
+            .innerJoin(projects, eq(projects.id, projectInvitations.projectId))
+            .where(
+                and(
+                    eq(projectInvitations.inviterId, user.id),
+                    eq(projectInvitations.status, 'pending'),
+                    sql`${projectInvitations.expiresAt} > now()`
+                )
+            )
+            .orderBy(desc(projectInvitations.createdAt))
+            .limit(limit);
+
+        const seenKeys = new Set<string>();
+        const directByWorkflowId = new Map(
+            directItems
+                .filter((d) => Boolean(d.messageWorkflowItemId))
+                .map((d) => [d.messageWorkflowItemId as string, d])
+        );
+
+        const items: SentProjectInvitationItem[] = [];
+
+        // Add from workflow items
+        for (const wf of wfItems) {
+            const payload = (wf.payload as Record<string, unknown>) || {};
+            const direct = directByWorkflowId.get(wf.id);
+            const key = `${wf.projectId}:${wf.candidateId}`;
+            seenKeys.add(key);
+
+            const roleTitle = (payload.roleTitle as string)
+                || direct?.roleTitle
+                || direct?.guidanceLabel
+                || 'Collaborator';
+
+            items.push({
+                id: wf.id,
+                workflowItemId: wf.id,
+                invitationId: direct?.id ?? (typeof payload.projectInvitationId === 'string' ? payload.projectInvitationId : null),
+                projectId: wf.projectId || '',
+                projectTitle: wf.projectTitle || (payload.projectTitle as string) || 'Project',
+                projectSlug: wf.projectSlug || (payload.projectSlug as string) || null,
+                roleTitle,
+                candidate: {
+                    id: wf.candidateId,
+                    username: wf.candidateUsername,
+                    fullName: wf.candidateFullName,
+                    avatarUrl: wf.candidateAvatarUrl,
+                    headline: wf.candidateHeadline,
+                },
+                note: (payload.note as string) || direct?.note || null,
+                status: 'pending',
+                createdAt: wf.createdAt,
+                expiresAt: direct?.expiresAt ?? null,
+            });
+        }
+
+        // Add direct items not covered by workflow items
+        for (const direct of directItems) {
+            const key = `${direct.projectId}:${direct.candidateId}`;
+            if (seenKeys.has(key)) continue;
+            seenKeys.add(key);
+
+            items.push({
+                id: direct.id,
+                workflowItemId: direct.messageWorkflowItemId,
+                invitationId: direct.id,
+                projectId: direct.projectId,
+                projectTitle: direct.projectTitle,
+                projectSlug: direct.projectSlug,
+                roleTitle: direct.roleTitle || direct.guidanceLabel || 'Collaborator',
+                candidate: {
+                    id: direct.candidateId,
+                    username: direct.candidateUsername,
+                    fullName: direct.candidateFullName,
+                    avatarUrl: direct.candidateAvatarUrl,
+                    headline: direct.candidateHeadline,
+                },
+                note: direct.note,
+                status: 'pending',
+                createdAt: direct.createdAt,
+                expiresAt: direct.expiresAt,
+            });
+        }
+
+        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        return {
+            success: true as const,
+            invitations: items.slice(0, limit),
+        };
+    } catch (error) {
+        console.error('Failed to fetch sent project invitations:', error);
+        return {
+            success: false as const,
+            error: error instanceof Error ? error.message : 'Internal server error',
+            invitations: [] as SentProjectInvitationItem[],
+        };
+    }
+}
+
+export async function cancelSentProjectInvitationAction(input: {
+    invitationId?: string | null;
+    workflowItemId?: string | null;
+}) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false as const, error: 'Unauthorized' };
+
+    try {
+        let didCancel = false;
+
+        if (input.workflowItemId) {
+            const res = await resolveMessageWorkflowActionV2({
+                workflowItemId: input.workflowItemId,
+                action: 'cancel',
+            });
+            if (res.success) {
+                didCancel = true;
+            }
+        }
+
+        if (input.invitationId && !didCancel) {
+            const res = await resolveProjectInvitationAction({
+                invitationId: input.invitationId,
+                action: 'cancel',
+            });
+            if (res.success) {
+                didCancel = true;
+            }
+        }
+
+        if (!didCancel) {
+            return { success: false as const, error: 'Failed to cancel project invitation' };
+        }
+
+        return { success: true as const };
+    } catch (error) {
+        return { success: false as const, error: error instanceof Error ? error.message : 'Failed to cancel project invitation' };
     }
 }

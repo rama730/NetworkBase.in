@@ -66,7 +66,21 @@ function collectExtraContractFiles(pageFile: string, repoRoot: string): string[]
   const rel = toPosix(path.relative(repoRoot, pageFile));
   const extras: string[] = [];
 
-  if (rel === "src/app/(main)/hub/page.tsx") {
+  const content = readFileIfExists(pageFile);
+  const reexportMatch = content.match(/from\s+['"](\.\.\/[^'"]+)['"]/);
+  if (reexportMatch && reexportMatch[1]) {
+    const importPath = reexportMatch[1];
+    const target = path.resolve(path.dirname(pageFile), importPath + (importPath.endsWith(".tsx") ? "" : ".tsx"));
+    if (fs.existsSync(target)) {
+      extras.push(target);
+      const targetRel = toPosix(path.relative(repoRoot, target));
+      if (targetRel === "src/app/(main)/hub/page.tsx") {
+        extras.push(path.join(repoRoot, "src/components/hub/SimpleHubClient.tsx"));
+      }
+    }
+  }
+
+  if (rel === "src/app/(main)/hub/page.tsx" || rel === "src/app/(main)/discover/page.tsx") {
     extras.push(path.join(repoRoot, "src/components/hub/SimpleHubClient.tsx"));
   }
   if (rel.startsWith("src/app/(main)/settings/")) {

@@ -175,7 +175,7 @@ function sourceTargetProps(
 
 function sourceHighlightClass(highlighted: boolean) {
     return highlighted
-        ? "bg-blue-100/80 shadow-[0_0_0_4px_rgba(59,130,246,0.2)] dark:bg-blue-500/20"
+        ? "bg-primary/10 ring-2 ring-primary/25 shadow-xs"
         : "";
 }
 
@@ -243,18 +243,18 @@ function ProjectDocInlineReferenceChip({
     const content = (
         <>
             {option?.avatarUrl ? (
-                <Image src={option.avatarUrl} alt="" width={16} height={16} sizes="16px" className="h-4 w-4 rounded-full object-cover align-[-0.2rem]" />
+                <Image src={option.avatarUrl} alt="" width={16} height={16} sizes="16px" className="h-4 w-4 rounded-[3px] border border-border object-cover align-[-0.2rem]" />
             ) : isContributor ? (
-                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-500/15 text-[9px] font-bold text-blue-500 align-[-0.2rem]">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-[3px] bg-primary/15 text-[10px] font-mono font-semibold uppercase text-primary align-[-0.2rem]">
                     {label.charAt(0).toUpperCase()}
                 </span>
             ) : null}
-            <span className="font-semibold text-blue-600 dark:text-blue-300">{label}</span>
+            <span className="font-semibold text-foreground transition-colors group-hover:text-primary">{label}</span>
         </>
     );
     const targetHighlight = sourceHighlightProps(targetId, highlightedTargetId, highlightedTargetToken);
     const className = cn(
-        "mx-0.5 inline-flex max-w-full cursor-pointer items-baseline gap-1 rounded-sm align-baseline text-sm leading-[inherit] no-underline outline-none transition-[background-color,box-shadow,color] hover:text-blue-500  ",
+        "group mx-0.5 inline-flex max-w-full cursor-pointer items-baseline gap-1 rounded-[3px] align-baseline text-sm leading-[inherit] no-underline outline-none transition-[background-color,box-shadow,color] hover:text-primary",
         sourceHighlightClass(targetHighlight.highlighted),
     );
     const title = [label, detail].filter(Boolean).join(" · ");
@@ -379,19 +379,19 @@ function readmeMediaClass(kind: ProjectDocImageKind, highlighted: boolean) {
         kind === "badge" && "mx-0.5 my-1 inline-block rounded-none border-0 align-middle shadow-none",
         kind === "icon" && "mx-0.5 my-0 inline-block rounded-none border-0 align-[-0.2rem] shadow-none",
         kind === "logo" && "my-3 inline-block rounded-none border-0 shadow-none",
-        kind === "diagram" && "my-5 block h-auto rounded-md border border-zinc-200 bg-white dark:border-zinc-800",
-        kind === "content" && "my-4 block h-auto rounded-md border border-zinc-200 dark:border-zinc-800",
-        highlighted && "bg-blue-100/80 shadow-[0_0_0_4px_rgba(59,130,246,0.22)] dark:bg-blue-500/20",
+        kind === "diagram" && "my-5 block h-auto rounded-[5px] border border-border bg-card",
+        kind === "content" && "my-4 block h-auto rounded-[5px] border border-border",
+        highlighted && "bg-primary/10 ring-2 ring-primary/20",
     );
 }
 
 function readmeHiddenMediaClass(kind: ProjectDocImageKind, highlighted: boolean) {
     return cn(
-        "text-zinc-500 transition-[background-color,box-shadow] dark:text-zinc-500",
+        "text-muted-foreground transition-[background-color,box-shadow] outline-none",
         (kind === "badge" || kind === "icon")
-            ? "mx-1 inline-flex max-w-full items-center rounded-full border border-dashed border-zinc-300 px-2 py-0.5 text-[11px] leading-4 align-middle dark:border-zinc-700"
-            : "my-3 flex max-w-full items-center rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs leading-5 dark:border-zinc-700",
-        highlighted && "bg-blue-100/80 shadow-[0_0_0_4px_rgba(59,130,246,0.2)] dark:bg-blue-500/20",
+            ? "mx-1 inline-flex max-w-full items-center rounded-[3px] border border-dashed border-border px-2 py-0.5 text-[11px] leading-4 align-middle"
+            : "my-3 flex max-w-full items-center rounded-[5px] border border-dashed border-border px-3 py-2 text-xs leading-5",
+        highlighted && "bg-primary/10 ring-2 ring-primary/20",
     );
 }
 
@@ -576,16 +576,16 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     };
 
     const components = {
-        h1: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h1", children, id, cn("mb-4 scroll-mt-24 border-b border-zinc-200 pb-2 font-semibold dark:border-zinc-800", fidelity === "github" ? "text-[2em] leading-tight" : "text-2xl"), node, props),
-        h2: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h2", children, id, cn("mb-3 mt-7 scroll-mt-24 border-b border-zinc-200 pb-2 font-semibold dark:border-zinc-800", fidelity === "github" ? "text-[1.5em] leading-snug" : "text-xl"), node, props),
-        h3: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h3", children, id, "mb-2 mt-5 scroll-mt-24 text-lg font-semibold", node, props),
-        h4: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h4", children, id, "mb-2 mt-4 scroll-mt-24 text-base font-semibold", node, props),
+        h1: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h1", children, id, cn("mb-5 mt-2 scroll-mt-24 border-b border-border pb-3 font-semibold text-foreground", fidelity === "github" ? "text-[2em] leading-tight" : "text-[26px] sm:text-[30px] leading-[1.2] tracking-[-0.015em]"), node, props),
+        h2: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h2", children, id, cn("mb-4 mt-8 scroll-mt-24 border-b border-border pb-2.5 font-semibold text-foreground", fidelity === "github" ? "text-[1.5em] leading-snug" : "text-[22px] sm:text-[24px] leading-[1.25] tracking-[-0.015em]"), node, props),
+        h3: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h3", children, id, "mb-3 mt-6 scroll-mt-24 text-[18px] sm:text-[20px] font-semibold leading-[1.28] text-foreground", node, props),
+        h4: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h4", children, id, "mb-2 mt-5 scroll-mt-24 text-[16px] sm:text-[17px] font-semibold leading-[1.28] text-foreground", node, props),
         p: ({ node, ...props }: React.HTMLAttributes<HTMLParagraphElement> & { node?: MarkdownAstNode }) => {
             const sourceProps = sourceTargetProps("paragraph", node);
             const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
             return (
                 <p
-                    className={cn("mb-3 rounded-md text-sm leading-6 text-zinc-700 transition-[background-color,box-shadow] dark:text-zinc-300", sourceHighlightClass(targetHighlight.highlighted))}
+                    className={cn("mb-4 rounded-[4px] text-[15px] leading-[1.65] text-foreground/90 transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))}
                     {...sourceProps}
                     {...targetHighlight.attributes}
                     {...props}
@@ -595,17 +595,17 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
         ul: ({ node, ...props }: React.HTMLAttributes<HTMLUListElement> & { node?: MarkdownAstNode }) => {
             const sourceProps = sourceTargetProps("list", node);
             const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
-            return <ul className={cn("mb-3 rounded-md list-disc space-y-1 pl-5 text-sm text-zinc-700 transition-[background-color,box-shadow] dark:text-zinc-300", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes} {...props} />;
+            return <ul className={cn("mb-4 rounded-[4px] list-disc space-y-1.5 pl-5 text-[15px] leading-[1.65] text-foreground/90 transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes} {...props} />;
         },
         ol: ({ node, ...props }: React.HTMLAttributes<HTMLOListElement> & { node?: MarkdownAstNode }) => {
             const sourceProps = sourceTargetProps("list", node);
             const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
-            return <ol className={cn("mb-3 rounded-md list-decimal space-y-1 pl-5 text-sm text-zinc-700 transition-[background-color,box-shadow] dark:text-zinc-300", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes} {...props} />;
+            return <ol className={cn("mb-4 rounded-[4px] list-decimal space-y-1.5 pl-5 text-[15px] leading-[1.65] text-foreground/90 transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes} {...props} />;
         },
         blockquote: ({ node, ...props }: React.HTMLAttributes<HTMLQuoteElement> & { node?: MarkdownAstNode }) => {
             const sourceProps = sourceTargetProps("blockquote", node);
             const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
-            return <blockquote className={cn("my-4 rounded-md border-l-4 border-zinc-300 pl-4 text-sm text-zinc-600 transition-[background-color,box-shadow] dark:border-zinc-700 dark:text-zinc-400", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes} {...props} />;
+            return <blockquote className={cn("my-5 rounded-[4px] border-l-2 border-border pl-4 text-[14px] sm:text-[15px] italic leading-relaxed text-muted-foreground transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes} {...props} />;
         },
         a: ({ href, rel, target, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
             const reference = parseReadmeReferenceHref(typeof href === "string" ? href : null);
@@ -629,7 +629,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                 );
             }
             const safeHref = typeof href === "string" ? sanitizeMarkdownUrl(href, true, false, allowExternalImages) : "";
-            if (!safeHref) return <span className="text-zinc-500">{props.children}</span>;
+            if (!safeHref) return <span className="text-muted-foreground">{props.children}</span>;
             const isExternal = /^https?:\/\//i.test(safeHref);
             const isDocTarget = safeHref.startsWith("#") && safeHref.length > 1;
             return (
@@ -641,7 +641,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                     } : undefined}
                     rel={isExternal ? "noopener noreferrer" : rel}
                     target={isExternal ? "_blank" : target}
-                    className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                    className="font-medium text-primary hover:underline underline-offset-4"
                     {...props}
                 />
             );
@@ -677,8 +677,8 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                         data-readme-highlighted={inlineCommandHighlighted ? "true" : undefined}
                         data-readme-highlight-token={inlineCommandHighlighted ? highlightedTargetToken ?? undefined : undefined}
                         className={cn(
-                            "rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono text-[0.9em] text-zinc-900 outline-none transition-[background-color,box-shadow,color] dark:bg-zinc-800 dark:text-zinc-100",
-                            inlineCommandHighlighted && "bg-blue-100/80 shadow-[0_0_0_4px_rgba(59,130,246,0.22)] dark:bg-blue-500/20",
+                            "rounded-[3px] border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[13px] text-foreground outline-none transition-[background-color,box-shadow,color]",
+                            inlineCommandHighlighted && "bg-primary/15 ring-2 ring-primary/25",
                         )}
                         {...props}
                     >
@@ -774,19 +774,19 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
             const sourceProps = sourceTargetProps("table", node);
             const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
             return (
-                <div className={cn("my-5 overflow-x-auto rounded-md transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes}>
-                    <table className="min-w-full table-fixed border-collapse text-left text-sm" {...props} />
+                <div className={cn("my-6 overflow-x-auto rounded-[8px] border border-border bg-card transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes}>
+                    <table className="min-w-full table-fixed border-collapse text-left text-[13px]" {...props} />
                 </div>
             );
         },
-        th: ({ ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => <th className="border border-zinc-200 bg-zinc-50 px-4 py-3 align-top font-semibold dark:border-zinc-700 dark:bg-zinc-900" {...props} />,
+        th: ({ ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) => <th className="border-b border-border bg-muted/40 px-3.5 py-2.5 font-mono text-[11px] uppercase tracking-[0.05em] text-muted-foreground text-left align-top font-medium" {...props} />,
         td: ({ ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) => (
             <td
-                className="border border-zinc-200 px-5 py-5 align-top text-zinc-700 dark:border-zinc-700 dark:text-zinc-300 [&>p:last-child]:mb-0 [&_blockquote:last-child]:mb-0 [&_img[data-readme-media-kind='badge']]:my-0 [&_img[data-readme-media-kind='icon']]:my-0"
+                className="border-b border-border/60 px-3.5 py-2.5 align-top text-[13px] leading-relaxed text-foreground [&>p:last-child]:mb-0 [&_blockquote:last-child]:mb-0 [&_img[data-readme-media-kind='badge']]:my-0 [&_img[data-readme-media-kind='icon']]:my-0"
                 {...props}
             />
         ),
-        hr: ({ ...props }: React.HTMLAttributes<HTMLHRElement>) => <hr className="my-8 border-zinc-200 dark:border-zinc-800" {...props} />,
+        hr: ({ ...props }: React.HTMLAttributes<HTMLHRElement>) => <hr className="my-8 border-border" {...props} />,
     };
 
     const renderMarkdownWithInlineReferences = (content: string, segmentKey: string, lineOffset: number, charOffset: number) => {
@@ -837,7 +837,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
 
     if (isCircularDocReference) {
         return (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
+            <div className="rounded-[5px] border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
                 Circular reference detected: rendering of &quot;{normalizedDocSlug}&quot; was aborted to prevent infinite loops.
             </div>
         );
@@ -845,12 +845,12 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
 
     return (
         <article
-            className={cn("readme-body min-w-0 text-zinc-950 dark:text-zinc-50", className)}
+            className={cn("readme-body min-w-0 text-foreground", className)}
             data-readme-preview-fidelity={fidelity}
             data-readme-editor-source-targets={onRequestSourcePosition ? "true" : undefined}
             onClickCapture={handleEditorSourceClickCapture}
         >
-            <Suspense fallback={<div className="text-sm text-zinc-500">Rendering document…</div>}>
+            <Suspense fallback={<div className="text-sm text-muted-foreground">Rendering document…</div>}>
                 {segmentRenderPlans.map((plan) => {
                     if (plan.kind === "block") {
                         const previewKey = `${plan.segment.block.kind}:${plan.segment.block.ids.join(",")}:${plan.segment.block.index}`;

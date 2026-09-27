@@ -82,6 +82,18 @@ export async function GET(request: Request) {
         // requireAuthenticatedUser() already verifies the user with Supabase.
         // ponytail: appearance is non-sensitive; avoid a second remote auth lookup.
         const snapshot = readAppearanceSnapshotFromMetadata(auth.user);
+        const etag = `W/"app-${auth.user.id}-${snapshot?.theme ?? 'default'}-${snapshot?.accentColor ?? 'default'}"`;
+        const ifNoneMatch = request.headers.get("if-none-match");
+        if (ifNoneMatch && (ifNoneMatch === etag || ifNoneMatch.includes(etag))) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    ETag: etag,
+                    ...APPEARANCE_CACHE_HEADERS,
+                },
+            });
+        }
+
         logApiRoute(request, {
             requestId,
             action: "appearance.get",
@@ -96,7 +108,7 @@ export async function GET(request: Request) {
                 snapshot,
             },
             undefined,
-            { headers: APPEARANCE_CACHE_HEADERS },
+            { headers: { ...APPEARANCE_CACHE_HEADERS, ETag: etag } },
         );
     } catch (error) {
         logger.error("[api/v1/appearance] failed to load settings", { module: 'api', error: error instanceof Error ? error.message : String(error) });

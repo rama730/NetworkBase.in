@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ExternalLink, Globe, Link2, LockKeyhole, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Globe, Link2, Loader2, LockKeyhole, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { updateProjectExternalLinksAction } from '@/app/actions/project';
@@ -88,7 +88,7 @@ function ProjectLinkAnchor({ projectId, link, className }: { projectId: string; 
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Open ${description}`}
-                    className={cn('inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50', className)}
+                    className={cn('nb-icon-button h-7 w-7 shrink-0 rounded-[5px] text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className /* h-[var(--ui-control-height)] */)}
                 >
                     <ProjectLinkIcon link={link} />
                 </a>
@@ -106,9 +106,9 @@ function ProjectLinkOverflow({ projectId, links, className, labelled = false }: 
                 <button
                     type="button"
                     aria-label={labelled ? `Open ${links.length} project link${links.length === 1 ? '' : 's'}` : `Open ${links.length} more project link${links.length === 1 ? '' : 's'}`}
-                    className={cn('inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50', className)}
+                    className={cn('nb-touch-target inline-flex h-7 shrink-0 items-center gap-1 rounded-[5px] px-1.5 text-xs font-semibold text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}
                 >
-                    {labelled ? <><Link2 className="h-3.5 w-3.5" />Links <span className="text-[10px] text-zinc-400">{links.length}</span></> : `+${links.length}`}
+                    {labelled ? <><Link2 className="h-3.5 w-3.5" />Links <span className="text-[11px] text-muted-foreground">{links.length}</span></> : `+${links.length}`}
                 </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
@@ -118,7 +118,7 @@ function ProjectLinkOverflow({ projectId, links, className, labelled = false }: 
                             <ProjectLinkIcon link={link} />
                             <span className="min-w-0 flex-1">
                                 <span className="block truncate font-medium">{linkTitle(link)}</span>
-                                <span className="block truncate text-xs text-zinc-500">
+                                <span className="block truncate text-xs text-muted-foreground">
                                     {link.accountLabel} · {PROJECT_LINK_PURPOSE_LABELS[link.purpose]}{link.audience === 'members' ? ' · Members only' : ''}
                                 </span>
                             </span>
@@ -142,6 +142,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
     projectType?: string | null;
     disabled?: boolean;
     onPendingChange?: (pending: boolean) => void;
+    commitContext?: 'settings' | 'project-create';
 }>(function ProjectLinkEditorFields({
     links,
     onChange,
@@ -153,6 +154,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
     projectType,
     disabled = false,
     onPendingChange,
+    commitContext = 'settings',
 }, ref) {
     const draft = useMemo(() => hydrateProjectSocialLinks(links, health), [health, links]);
     const saved = useMemo(() => savedLinks === undefined ? null : socialLinkItemsFromStorage(savedLinks), [savedLinks]);
@@ -397,11 +399,8 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                 const label = isCloned ? 'Cloned repository' : 'Connected repository';
                 const badgeText = isCloned ? 'Cloned from GitHub' : 'Managed by integration';
                 const badgeClasses = isCloned
-                    ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
-                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300';
-                const cardBorderClasses = isCloned
-                    ? 'border-zinc-200 bg-zinc-50/70 dark:border-zinc-800 dark:bg-zinc-900/40'
-                    : 'border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/60 dark:bg-emerald-950/20';
+                    ? 'border border-border bg-muted/60 text-muted-foreground'
+                    : 'border border-primary/20 bg-primary/10 text-primary';
                 const subtitle = repo.branch && !isCloned
                     ? `${repo.accountLabel} · ${repo.branch}`
                     : repo.accountLabel;
@@ -411,11 +410,11 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                     <div
                         key={repo.id}
                         data-testid={`project-managed-repo-${repo.id}`}
-                        className={cn('flex min-w-0 items-center gap-3 rounded-xl border px-3 py-2.5', cardBorderClasses)}
+                        className="flex min-w-0 items-center gap-3 rounded-[8px] border border-border bg-card px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
                     >
-                        <ProjectLinkIcon link={repo} className="h-4 w-4" />
+                        <ProjectLinkIcon link={repo} className="h-4 w-4 text-muted-foreground" />
                         <span className="min-w-0 flex-1">
-                            <span className="flex items-center gap-1.5 truncate text-sm font-medium">
+                            <span className="flex items-center gap-1.5 truncate text-sm font-medium text-foreground">
                                 {label}
                                 {isUnavailable ? (
                                     <AlertTriangle
@@ -424,9 +423,9 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                                     />
                                 ) : null}
                             </span>
-                            <span className="block truncate text-xs text-zinc-500">{subtitle}</span>
+                            <span className="block truncate nb-compact text-muted-foreground">{subtitle}</span>
                         </span>
-                        <span className={cn('hidden shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold sm:inline-flex', badgeClasses)}>
+                        <span className={cn('hidden shrink-0 h-5 px-[7px] rounded-[3px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none shrink-0 inline-flex items-center sm:inline-flex', badgeClasses)}>
                             {badgeText}
                         </span>
                     </div>
@@ -437,9 +436,9 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                 <SortableLinkList
                     items={draft}
                     disabled={disabled}
-                    className="min-w-0 max-w-full divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800"
-                    itemClassName="flex min-w-0 max-w-full items-center gap-2 overflow-hidden bg-white px-3 py-2.5 text-sm dark:bg-zinc-950"
-                    handleClassName="-ml-1"
+                    className="min-w-0 max-w-full divide-y divide-border overflow-hidden rounded-[8px] border border-border bg-card"
+                    itemClassName="flex min-w-0 max-w-full items-center gap-2.5 overflow-hidden bg-card px-3.5 py-2.5 text-sm transition-colors hover:bg-muted/30"
+                    handleClassName="-ml-1 text-muted-foreground hover:text-foreground"
                     getItemLabel={(item) => {
                         const link = resolveSocialPresence(item.platform, item.url);
                         return item.label || link?.platformLabel || 'project link';
@@ -454,24 +453,24 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                         const itemPurpose = item.purpose || inferProjectLinkPurpose(link);
                         const staleMetadata = isProjectLinkMetadataStale(item.metadata || health[item.id]);
                         const savedItem = saved?.find((candidate) => candidate.id === item.id);
-                        const draftState = saved
+                        const draftState = commitContext === 'settings' && saved
                             ? !savedItem ? 'New' : !areProjectSocialLinksEqual([savedItem], [item]) ? 'Edited' : null
                             : null;
                         const opaqueName = (link.platform === 'youtube' && ['watch', 'shorts', 'live'].includes(link.accountLabel.toLowerCase()))
                             || (link.platform === 'google-scholar' && ['scholar profile', 'publication'].includes(link.accountLabel.toLowerCase()));
                         return (
                             <>
-                                <span className="shrink-0 text-zinc-500"><ProjectLinkIcon link={link} /></span>
+                                <span className="shrink-0 text-muted-foreground"><ProjectLinkIcon link={link} /></span>
                                 <span className="min-w-0 flex-1">
-                                    <span className="flex items-center gap-1.5 truncate font-medium">{title}{draftState ? <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">{draftState}</span> : null}{duplicateId === item.id ? <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">Already added</span> : null}{unavailable ? <AlertTriangle aria-label="Link is unavailable" className="h-3.5 w-3.5 shrink-0 text-amber-500" /> : null}{item.audience === 'members' ? <LockKeyhole aria-label="Members only" className="h-3.5 w-3.5 shrink-0 text-zinc-400" /> : null}</span>
-                                    <span aria-live="polite" className={cn('flex items-center gap-1 truncate text-xs', opaqueName && !item.destinationLabel && !identifyingIds.has(item.id) ? 'text-amber-600 dark:text-amber-300' : 'text-zinc-500')}>
+                                    <span className="flex items-center gap-1.5 truncate font-medium text-foreground">{title}{draftState ? <span className="inline-flex h-5 items-center rounded-[3px] border border-primary/20 bg-primary/10 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-primary">{draftState}</span> : null}{duplicateId === item.id ? <span className="inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-300">Already added</span> : null}{unavailable ? <AlertTriangle aria-label="Link is unavailable" className="h-3.5 w-3.5 shrink-0 text-amber-500" /> : null}{item.audience === 'members' ? <LockKeyhole aria-label="Members only" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}</span>
+                                    <span aria-live="polite" className={cn('flex items-center gap-1 truncate text-xs', opaqueName && !item.destinationLabel && !identifyingIds.has(item.id) ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground')}>
                                         {identifyingIds.has(item.id) ? <><RefreshCw className="h-3 w-3 shrink-0 animate-spin motion-reduce:animate-none" />Identifying destination…</> : item.destinationLabel || (opaqueName ? 'Name needed — you can add it manually' : link.accountLabel)}
                                     </span>
-                                    <span className="mt-1 inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">{PROJECT_LINK_PURPOSE_LABELS[itemPurpose]}</span>
-                                    {staleMetadata ? <span className="ml-1 mt-1 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">Name check is over 30 days old</span> : null}
+                                    <span className="mt-1 inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground">{PROJECT_LINK_PURPOSE_LABELS[itemPurpose]}</span>
+                                    {staleMetadata ? <span className="ml-1 mt-1 inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-300">Name check is over 30 days old</span> : null}
                                 </span>
-                                <button type="button" disabled={disabled} onClick={() => editItem(item)} className="rounded p-1 text-zinc-500 hover:text-zinc-950 disabled:opacity-30 dark:hover:text-white" aria-label={`Edit ${title}`}><Pencil className="h-4 w-4" /></button>
-                                <button type="button" disabled={disabled} onClick={() => { publishDraft(draftRef.current.filter((row) => row.id !== item.id).map((row, order) => ({ ...row, order }))); if (editingId === item.id) resetComposer(); }} className="rounded p-1 text-zinc-500 hover:text-red-600 disabled:opacity-30" aria-label={`Remove ${title}`}><Trash2 className="h-4 w-4" /></button>
+                                <button type="button" disabled={disabled} onClick={() => editItem(item)} className="nb-icon-button inline-flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border/70 text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground disabled:opacity-40" aria-label={`Edit ${title}`}><Pencil className="h-3.5 w-3.5" /></button>
+                                <button type="button" disabled={disabled} onClick={() => { publishDraft(draftRef.current.filter((row) => row.id !== item.id).map((row, order) => ({ ...row, order }))); if (editingId === item.id) resetComposer(); }} className="nb-icon-button inline-flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border/70 text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive disabled:opacity-40" aria-label={`Remove ${title}`}><Trash2 className="h-3.5 w-3.5" /></button>
                             </>
                         );
                     }}
@@ -479,7 +478,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
             ) : null}
 
             <div
-                className="min-w-0 max-w-full overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 dark:border-zinc-800 dark:bg-zinc-900/40"
+                className="min-w-0 max-w-full overflow-hidden rounded-[8px] border border-border bg-muted/20 p-4 sm:p-5"
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                     const text = event.dataTransfer.getData('text/plain');
@@ -488,9 +487,13 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                     stageText(text);
                 }}
             >
-                <label htmlFor={urlInputId} className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{editingId ? 'Link destination' : draft.length ? 'Add another link' : 'Project link'}</label>
-                <p className="mt-1 text-xs text-zinc-500">Paste or drop one or several URLs. They are staged immediately; Save changes commits everything once.</p>
-                <div className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row">
+                <label htmlFor={urlInputId} className="nb-ui-label block text-foreground">{editingId ? 'Link destination' : draft.length ? 'Add another link' : 'Project link'}</label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                    {commitContext === 'project-create'
+                        ? 'Paste or drop one or several URLs. They are staged immediately and saved when you create the project.'
+                        : 'Paste or drop one or several URLs. They are staged immediately; Save changes commits everything once.'}
+                </p>
+                <div className="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row">
                     <Input
                         id={urlInputId}
                         value={url}
@@ -513,40 +516,40 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                         inputMode="url"
                         autoComplete="url"
                         disabled={disabled}
-                        className="min-w-0 flex-1"
+                        className="h-[34px] min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     />
                 </div>
-                {preview ? <p className="mt-2 break-words text-xs text-zinc-500">Detected: <strong>{preview.platformLabel}</strong> · {effectiveDestinationLabel || preview.accountLabel}</p> : null}
-                {metadataUrl === previewUrl && metadataQuery.data?.description ? <p className="mt-1 line-clamp-2 break-words text-xs text-zinc-500">{metadataQuery.data.description}</p> : null}
+                {preview ? <p className="mt-2.5 break-words text-xs text-muted-foreground">Detected: <strong className="text-foreground">{preview.platformLabel}</strong> · {effectiveDestinationLabel || preview.accountLabel}</p> : null}
+                {metadataUrl === previewUrl && metadataQuery.data?.description ? <p className="mt-1 line-clamp-2 break-words text-xs text-muted-foreground">{metadataQuery.data.description}</p> : null}
                 {preview ? (
-                    <div className="mt-2 flex min-w-0 gap-2">
-                        <Input value={destinationLabel} onChange={(event) => { const value = event.target.value; setDestinationLabel(value); updateEditingItem({ ...(value.trim() ? { destinationLabel: value } : { destinationLabel: undefined }), metadata: { ...(currentEditingItem?.metadata || { health: 'unknown' }), nameSource: 'manual' } }); setError(null); }} maxLength={160} placeholder={metadataPending ? 'Finding the destination name…' : metadataTitle || preview.accountLabel} aria-label="Destination name" disabled={disabled} className="min-w-0 flex-1" />
-                        <Button type="button" variant="outline" size="icon" onClick={() => { if (currentEditingItem) enrichItems([currentEditingItem]); }} disabled={disabled || identifyingIds.has(editingId || '')} aria-label="Refresh destination name"><RefreshCw className={cn('h-4 w-4', identifyingIds.has(editingId || '') && 'animate-spin motion-reduce:animate-none')} /></Button>
+                    <div className="mt-3 flex min-w-0 gap-2">
+                        <Input value={destinationLabel} onChange={(event) => { const value = event.target.value; setDestinationLabel(value); updateEditingItem({ ...(value.trim() ? { destinationLabel: value } : { destinationLabel: undefined }), metadata: { ...(currentEditingItem?.metadata || { health: 'unknown' }), nameSource: 'manual' } }); setError(null); }} maxLength={160} placeholder={metadataPending ? 'Finding the destination name…' : metadataTitle || preview.accountLabel} aria-label="Destination name" disabled={disabled} className="h-[34px] min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
+                        <Button type="button" variant="outline" size="icon" onClick={() => { if (currentEditingItem) enrichItems([currentEditingItem]); }} disabled={disabled || identifyingIds.has(editingId || '')} aria-label="Refresh destination name" className="h-[34px] w-[34px] shrink-0 rounded-[5px] border border-border bg-card text-muted-foreground hover:text-foreground"><RefreshCw className={cn('h-4 w-4', identifyingIds.has(editingId || '') && 'animate-spin motion-reduce:animate-none')} /></Button>
                     </div>
                 ) : null}
-                {isCustomPreview ? <Input value={customLabel} onChange={(event) => { setCustomLabel(event.target.value); updateEditingItem({ label: event.target.value || undefined }); }} maxLength={80} placeholder="Display name (optional, e.g. Live app)" aria-label="Custom link display name" disabled={disabled} className="mt-2" /> : null}
+                {isCustomPreview ? <Input value={customLabel} onChange={(event) => { setCustomLabel(event.target.value); updateEditingItem({ label: event.target.value || undefined }); }} maxLength={80} placeholder="Display name (optional, e.g. Live app)" aria-label="Custom link display name" disabled={disabled} className="mt-3 h-[34px] rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" /> : null}
                 {preview ? (
-                    <div className="mt-2 grid min-w-0 gap-2 sm:grid-cols-2">
-                        <label className="min-w-0 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                    <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+                        <label className="min-w-0 nb-ui-label block text-foreground">
                             Purpose
-                            <select value={effectivePurpose} onChange={(event) => { const value = event.target.value as ProjectLinkPurpose; setPurpose(value); updateEditingItem({ purpose: value }); }} disabled={disabled} className="mt-1 h-10 min-w-0 max-w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-primary dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100">
+                            <select value={effectivePurpose} onChange={(event) => { const value = event.target.value as ProjectLinkPurpose; setPurpose(value); updateEditingItem({ purpose: value }); }} disabled={disabled} className="mt-1.5 h-[34px] min-w-0 max-w-full w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring">
                                 {PROJECT_LINK_PURPOSES.map((value) => <option key={value} value={value}>{PROJECT_LINK_PURPOSE_LABELS[value]}</option>)}
                             </select>
                         </label>
-                        <label className="min-w-0 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                        <label className="min-w-0 nb-ui-label block text-foreground">
                             Visibility
-                            <select value={audience} onChange={(event) => { const value = event.target.value as ProjectLinkAudience; setAudience(value); updateEditingItem({ audience: value }); }} disabled={disabled} className="mt-1 h-10 min-w-0 max-w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-primary dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100">
+                            <select value={audience} onChange={(event) => { const value = event.target.value as ProjectLinkAudience; setAudience(value); updateEditingItem({ audience: value }); }} disabled={disabled} className="mt-1.5 h-[34px] min-w-0 max-w-full w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring">
                                 <option value="public">Public</option>
                                 <option value="members">Project members only</option>
                             </select>
                         </label>
                     </div>
                 ) : null}
-                <p className="mt-2 break-words text-xs leading-5 text-zinc-500">{projectTypeHint} Member-only hides the destination in NetworkBase; it does not change access on the external service.</p>
-                {sensitiveParameters.length ? <p role="alert" className="mt-2 flex items-start gap-1.5 text-xs leading-5 text-amber-700 dark:text-amber-300"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />This URL contains credential-like parameters ({sensitiveParameters.join(', ')}). Confirm it is safe to share before saving.</p> : null}
-                {url.trim() && candidate?.success === false ? <p role="alert" className="mt-2 text-xs text-red-600">{candidate.error}</p> : null}
-                {error ? <p role="alert" className="mt-2 text-xs text-red-600">{error}</p> : null}
-                {editingId ? <Button type="button" variant="ghost" size="sm" onClick={resetComposer} disabled={disabled} className="mt-2"><Plus className="mr-1 h-3.5 w-3.5" />Add another link</Button> : null}
+                <p className="mt-3 break-words text-xs leading-5 text-muted-foreground">{projectTypeHint} Member-only hides the destination in NetworkBase; it does not change access on the external service.</p>
+                {sensitiveParameters.length ? <p role="alert" className="mt-3 flex items-start gap-2 rounded-[5px] border border-amber-500/20 bg-amber-500/10 p-2.5 text-xs leading-5 text-amber-700 dark:text-amber-300"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />This URL contains credential-like parameters ({sensitiveParameters.join(', ')}). Confirm it is safe to share before saving.</p> : null}
+                {url.trim() && candidate?.success === false ? <p role="alert" className="mt-2 text-xs font-medium text-destructive">{candidate.error}</p> : null}
+                {error ? <p role="alert" className="mt-2 text-xs font-medium text-destructive">{error}</p> : null}
+                {editingId ? <Button type="button" variant="outline" size="sm" onClick={resetComposer} disabled={disabled} className="mt-3 h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"><Plus className="mr-1.5 h-3.5 w-3.5" />Add another link</Button> : null}
             </div>
         </div>
     );
@@ -660,7 +663,51 @@ export function ProjectLinksManager({
     );
 
     if (mode === 'inline') {
-        return <div className="space-y-4">{content}<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-zinc-500">{draft.length} {draft.length === 1 ? 'link' : 'links'} · {changeCount + (hasComposerDraft ? 1 : 0)} unsaved{removedCount ? ` · ${removedCount} removed` : ''}</p><Button type="button" onClick={() => void save()} disabled={saving || !hasUnsavedChanges}>{saving ? 'Saving…' : 'Save changes'}</Button></div></div>;
+        return (
+            <div>
+                <div className="space-y-4">
+                    {content}
+                </div>
+                <div className="-mx-6 -mb-6 mt-6 flex flex-col gap-3 border-t border-border bg-muted/10 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="nb-compact text-muted-foreground">
+                        {hasUnsavedChanges
+                            ? `You have unsaved changes in project links (${changeCount + (hasComposerDraft ? 1 : 0)} pending).`
+                            : "All project links are saved."}
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setDraft(baseline);
+                                setHasComposerDraft(false);
+                            }}
+                            disabled={saving || !hasUnsavedChanges}
+                            className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => void save()}
+                            disabled={saving || !hasUnsavedChanges}
+                            className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                        >
+                            {saving ? (
+                                <>
+                                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                                    Saving…
+                                </>
+                            ) : (
+                                'Save changes'
+                            )}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -671,10 +718,19 @@ export function ProjectLinksManager({
                     <DialogDescription>Add the destinations people need. Services and icons are detected from each URL.</DialogDescription>
                 </DialogHeader>
                 {content}
-                <DialogFooter className="sticky -bottom-4 -mx-4 min-w-0 border-t border-zinc-200 bg-white px-4 pb-0 pt-3 dark:border-zinc-800 dark:bg-zinc-950 sm:static sm:m-0 sm:border-0 sm:bg-transparent sm:p-0 dark:sm:bg-transparent">
-                    <p className="mr-auto self-center text-xs text-zinc-500">{draft.length} {draft.length === 1 ? 'link' : 'links'} · {changeCount + (hasComposerDraft ? 1 : 0)} unsaved{removedCount ? ` · ${removedCount} removed` : ''}</p>
-                    <Button type="button" variant="outline" onClick={() => requestOpenChange(false)} disabled={saving}>Cancel</Button>
-                    <Button type="button" onClick={() => void save()} disabled={saving || !hasUnsavedChanges}>{saving ? 'Saving…' : 'Save changes'}</Button>
+                <DialogFooter className="sticky -bottom-4 -mx-4 min-w-0 border-t border-border bg-card px-4 pb-0 pt-3 sm:static sm:m-0 sm:border-0 sm:bg-transparent sm:p-0">
+                    <p className="mr-auto self-center nb-compact text-muted-foreground">{draft.length} {draft.length === 1 ? 'link' : 'links'} · {changeCount + (hasComposerDraft ? 1 : 0)} unsaved{removedCount ? ` · ${removedCount} removed` : ''}</p>
+                    <Button type="button" variant="outline" onClick={() => requestOpenChange(false)} disabled={saving} className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted">Cancel</Button>
+                    <Button type="button" onClick={() => void save()} disabled={saving || !hasUnsavedChanges} className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]">
+                        {saving ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Saving…
+                            </>
+                        ) : (
+                            'Save changes'
+                        )}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -733,8 +789,8 @@ export function ProjectLinkCluster({
                 {canManage ? (
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button type="button" onClick={() => setEditorOpen(true)} aria-label="Manage project links" className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50">
-                                <Plus className="h-4 w-4" />
+                            <button type="button" onClick={() => setEditorOpen(true)} aria-label="Manage project links" className="nb-icon-button h-7 w-7 shrink-0 rounded-[5px] text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                <Plus className="h-4 w-4" aria-hidden="true" />
                             </button>
                         </TooltipTrigger>
                         <TooltipContent side="bottom" sideOffset={6}>{resolved.length ? 'Manage project links' : 'Add project link'}</TooltipContent>

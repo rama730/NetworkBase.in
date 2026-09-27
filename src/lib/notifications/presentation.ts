@@ -210,6 +210,18 @@ export function formatAbsoluteTimestamp(value: string): string | null {
     });
 }
 
+export function formatRelativeTimestamp(value: string): string | null {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (diffSec < 45) return "just now";
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    if (diffSec < 2592000) return `${Math.floor(diffSec / 86400)}d ago`;
+    if (diffSec < 31536000) return `${Math.floor(diffSec / 2592000)}mo ago`;
+    return `${Math.floor(diffSec / 31536000)}y ago`;
+}
+
 export function filterNotifications(items: NotificationItem[], filter: NotificationTrayFilter) {
     if (filter === "unread") return items.filter((item) => !item.seenAt);
     return items;

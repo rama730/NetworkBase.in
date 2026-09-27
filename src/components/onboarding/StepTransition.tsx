@@ -24,8 +24,8 @@ export function prefersReducedMotion(): boolean {
 /**
  * Returns the CSS transform for the enter/exit phases based on direction.
  *
- * - forward: exit left (-12px), enter from right (+12px)
- * - backward: exit right (+12px), enter from left (-12px)
+ * - forward: exit left (-4px), enter from right (+4px)
+ * - backward: exit right (+4px), enter from left (-4px)
  * - section: cross-fade only, no directional movement
  */
 export function getTranslateX(
@@ -34,21 +34,19 @@ export function getTranslateX(
 ): string {
   if (direction === 'section') return 'translateX(0)'
   if (direction === 'forward') {
-    return phase === 'exit' ? 'translateX(-12px)' : 'translateX(12px)'
+    return phase === 'exit' ? 'translateX(-4px)' : 'translateX(4px)'
   }
   // backward
-  return phase === 'exit' ? 'translateX(12px)' : 'translateX(-12px)'
+  return phase === 'exit' ? 'translateX(4px)' : 'translateX(-4px)'
 }
 
-export const EXIT_DURATION = 150
-export const ENTER_DURATION = 200
+export const EXIT_DURATION = 80
+export const ENTER_DURATION = 100
 
 /**
  * StepTransition — Wrapper component that animates step content transitions.
  *
- * Forward navigation: fade out left (150ms), fade in from right (200ms ease-out)
- * Backward navigation: fade out right (150ms), fade in from left (200ms ease-out)
- * Section change: cross-fade only (150ms), no directional movement
+ * Forward navigation: fade/4px shift (180ms); section changes cross-fade only.
  *
  * Uses CSS transforms only (GPU-accelerated, no layout thrash).
  * Respects `prefers-reduced-motion` and `data-reduce-motion` — instant swap when enabled.
@@ -135,7 +133,7 @@ export function StepTransition({ children, step, transitionKey = step, direction
         return {
           opacity: 0,
           transform: getTranslateX(direction, 'exit'),
-          transition: `opacity ${EXIT_DURATION}ms ease-in, transform ${EXIT_DURATION}ms ease-in`,
+          transition: `opacity ${EXIT_DURATION}ms cubic-bezier(.2,.8,.3,1), transform ${EXIT_DURATION}ms cubic-bezier(.2,.8,.3,1)`,
         }
 
       case 'enter-start':
@@ -150,7 +148,7 @@ export function StepTransition({ children, step, transitionKey = step, direction
         return {
           opacity: 1,
           transform: 'translateX(0)',
-          transition: `opacity ${ENTER_DURATION}ms ease-out, transform ${ENTER_DURATION}ms ease-out`,
+          transition: `opacity ${ENTER_DURATION}ms cubic-bezier(.2,.8,.3,1), transform ${ENTER_DURATION}ms cubic-bezier(.2,.8,.3,1)`,
         }
     }
   })()

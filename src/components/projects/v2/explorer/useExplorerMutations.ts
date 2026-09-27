@@ -9,6 +9,7 @@ import {
   bulkRestoreNodes,
   bulkTrashNodes,
   createFileNode,
+  finalizeBatchUpload,
   createFolder,
   renameNode,
   bulkCreateFolderTree,
@@ -22,6 +23,7 @@ import { buildProjectFileKey } from "@/lib/storage/project-file-key";
 import { runWithConcurrency } from "@/lib/utils/concurrency";
 import { FILES_RUNTIME_BUDGETS } from "@/lib/files/runtime-budgets";
 import { planUploadCopyNames, selectUploadFiles } from "@/lib/files/upload-collisions";
+import { validateUploadSelection } from "@/lib/files/upload-validator";
 import { useUploadCollisionDecision } from "./useUploadCollisionDecision";
 import { useFileTransfers } from "../files-tab/FileTransfers";
 
@@ -274,36 +276,42 @@ function resolveFileMimeType(file: File): string {
   // Picker and flat drag/drop uploads share collision, finalization, and retry behavior.
   const uploadFiles = useCallback(async (files: File[], parentId: string | null): Promise<ProjectNode[]> => {
     if (!canEdit || !files.length) return [];
+    const validation = validateUploadSelection(files, { isFolder: false });
+    if (!validation.valid) {
+      showToast(validation.error || "Invalid file selection", "error");
+      return [];
+    }
+    const validatedFiles = validation.files;
     const failed: File[] = [];
     const createdNodes: ProjectNode[] = [];
-    const mutationKey = `upload:${projectId}:${parentId ?? "root"}:${files.map(file => file.name).sort().join(",")}`;
+    const mutationKey = `upload:${projectId}:${parentId ?? "root"}:${validatedFiles.map(file => file.name).sort().join(",")}`;
     let progress: string | number | undefined;
     let transferId: string | undefined;
     try {
       const outcome = await runUniqueMutation(mutationKey, async () => {
-        const collisions = await getUploadCollisionSummary(projectId, parentId, files.map(file => file.name));
+        const collisions = await getUploadCollisionSummary(projectId, parentId, validatedFiles.map(file => file.name));
         const choice = await chooseUploadCollision(collisions, true);
         if (choice === "cancel") return null;
-        let eligible = selectUploadFiles(files, [...collisions.existingFiles, ...collisions.existingFolders]);
+        let eligible = selectUploadFiles(validatedFiles, [...collisions.existingFiles, ...collisions.existingFolders]);
         if (choice === "keep_both") {
           const occupied = [...collisions.existingFiles, ...collisions.existingFolders];
-          let names = planUploadCopyNames(files.map(file => file.name), occupied);
+          let names = planUploadCopyNames(validatedFiles.map(file => file.name), occupied);
           // Resolve suffix collisions against persisted names, not just cached rows.
           for (let attempt = 0; attempt < 20; attempt += 1) {
             const conflicts = await getUploadCollisionSummary(projectId, parentId, names);
             if (!conflicts.existingFiles.length && !conflicts.existingFolders.length) break;
             occupied.push(...conflicts.existingFiles, ...conflicts.existingFolders);
-            names = planUploadCopyNames(files.map(file => file.name), occupied);
+            names = planUploadCopyNames(validatedFiles.map(file => file.name), occupied);
             if (attempt === 19) throw new Error("Too many matching names. Rename the files and try again.");
           }
-          eligible = files.map((file, index) => new File([file], names[index]!, { type: file.type, lastModified: file.lastModified }));
+          eligible = validatedFiles.map((file, index) => new File([file], names[index]!, { type: file.type, lastModified: file.lastModified }));
         }
-        const skipped = files.length - eligible.length;
+        const skipped = validatedFiles.length - eligible.length;
         if (!eligible.length) return skipped;
-        transferId = transferRef.current?.start(files.length === 1 ? files[0]!.name : `${files.length} files`, eligible.length);
+        transferId = transferRef.current?.start(validatedFiles.length === 1 ? validatedFiles[0]!.name : `${validatedFiles.length} files`, eligible.length);
         progress = toast.loading(`Uploading 0 of ${eligible.length} files…`);
         let completed = 0;
-        // ponytail: bounded batches reuse the current presign endpoint; no separate queue service.
+        // ponytail: bounded batches reuse the current presign endpoint; no separate queue service. ceiling: 100 files per presign batch. upgrade: multi-part queue worker if batches exceed 500 files.
         for (let offset = 0; offset < eligible.length; offset += 100) {
           const plans = eligible.slice(offset, offset + 100).map(file => ({
             file, key: buildProjectFileKey(projectId, crypto.randomUUID()),
@@ -316,19 +324,21 @@ function resolveFileMimeType(file: File): string {
             if (transferId) transferRef.current?.update(transferId, { completed, failed: failed.length });
             continue;
           }
+          // ponytail: 2PC batch finalization commits up to 100 files in 1 RPC. ceiling: 100 files. upgrade: chunk into multiple batch requests if dropped count exceeds 100.
+          const successfullyUploadedToS3: Array<{
+            file: File;
+            key: string;
+            contentType: string;
+          }> = [];
+
           await runWithConcurrency(plans, Math.max(1, FILES_RUNTIME_BUDGETS.saveAllConcurrency), async ({ file, key, contentType }) => {
             try {
               const url = batch.urls?.[key];
               if (!url) throw new Error("Upload URL unavailable");
               const response = await fetch(url, { method: "PUT", headers: { "Content-Type": contentType }, body: file });
               if (!response.ok) throw new Error(`Upload failed (${response.status})`);
-              const node = await createFileNode(projectId, parentId, {
-                name: file.name, s3Key: key, size: file.size, mimeType: contentType,
-                uploadIntentId: batch.uploadIntentIds?.[key] ?? undefined,
-              });
-              createdNodes.push(node as ProjectNode);
+              successfullyUploadedToS3.push({ file, key, contentType });
             } catch {
-              // Never delete an object after an ambiguous finalization response: it may already be committed.
               failed.push(file);
             } finally {
               completed += 1;
@@ -336,6 +346,39 @@ function resolveFileMimeType(file: File): string {
               toast.loading(`Uploading ${completed} of ${eligible.length} files…`, { id: progress });
             }
           });
+
+          if (successfullyUploadedToS3.length > 0) {
+            try {
+              const batchNodes = await finalizeBatchUpload(
+                projectId,
+                parentId,
+                successfullyUploadedToS3.map(({ file, key, contentType }) => ({
+                  name: file.name,
+                  s3Key: key,
+                  size: file.size,
+                  mimeType: contentType,
+                  uploadIntentId: batch.uploadIntentIds?.[key] ?? undefined,
+                }))
+              );
+              createdNodes.push(...(batchNodes as ProjectNode[]));
+            } catch {
+              // Resilient fallback to individual commits if batch call encounters an error
+              for (const { file, key, contentType } of successfullyUploadedToS3) {
+                try {
+                  const node = await createFileNode(projectId, parentId, {
+                    name: file.name,
+                    s3Key: key,
+                    size: file.size,
+                    mimeType: contentType,
+                    uploadIntentId: batch.uploadIntentIds?.[key] ?? undefined,
+                  });
+                  createdNodes.push(node as ProjectNode);
+                } catch {
+                  failed.push(file);
+                }
+              }
+            }
+          }
         }
         return skipped;
       });
@@ -379,9 +422,17 @@ function resolveFileMimeType(file: File): string {
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.onchange = () => { void uploadFiles(Array.from(input.files || []), parentId); };
+    input.onchange = () => {
+      const rawFiles = Array.from(input.files || []);
+      const validation = validateUploadSelection(rawFiles, { isFolder: false });
+      if (!validation.valid) {
+        showToast(validation.error || "Invalid file selection", "error");
+        return;
+      }
+      void uploadFiles(validation.files, parentId);
+    };
     input.click();
-  }, [canEdit, uploadFiles]);
+  }, [canEdit, showToast, uploadFiles]);
 
 
   const openRename = useCallback(
@@ -761,9 +812,15 @@ function resolveFileMimeType(file: File): string {
   const uploadFilesDirectly = useCallback(
     async (files: File[], parentId: string | null): Promise<ProjectNode[]> => {
       if (!canEdit || files.length === 0) return [];
-      if (!files.some(file => file.webkitRelativePath?.includes("/"))) return (await uploadFiles(files, parentId)) || [];
+      const validation = validateUploadSelection(files, { isFolder: true });
+      if (!validation.valid) {
+        showToast(validation.error || "Invalid folder selection", "error");
+        return [];
+      }
+      const validatedFiles = validation.files;
+      if (!validatedFiles.some(file => file.webkitRelativePath?.includes("/"))) return (await uploadFiles(validatedFiles, parentId)) || [];
 
-      const mutationKey = `upload-direct:${projectId}:${parentId ?? "root"}:${files
+      const mutationKey = `upload-direct:${projectId}:${parentId ?? "root"}:${validatedFiles
         .map((f) => f.name)
         .sort()
         .join(",")}`;
@@ -772,7 +829,7 @@ function resolveFileMimeType(file: File): string {
       const succeeded = new Set<string>();
       try {
         await runUniqueMutation(mutationKey, async () => {
-          const payloadNodes = files
+          const payloadNodes = validatedFiles
             .map((f) => ({
               path: f.webkitRelativePath || f.name,
               name: f.name,
@@ -820,7 +877,7 @@ function resolveFileMimeType(file: File): string {
           }
 
           const mappingByPath = new Map(mappedFiles.map((entry) => [entry.path, entry]));
-          const uploadNodes = files
+          const uploadNodes = validatedFiles
             .map((file) => {
               const mapping = mappingByPath.get(file.webkitRelativePath || file.name);
               if (!mapping) return null;
@@ -868,7 +925,7 @@ function resolveFileMimeType(file: File): string {
               : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
           showToast(`Uploading ${uploadNodes.length} file(s) in background...`, "info");
-          const retryFiles = () => files.filter(file => {
+          const retryFiles = () => validatedFiles.filter(file => {
             const mapping = mappingByPath.get(file.webkitRelativePath || file.name);
             return mapping && !succeeded.has(mapping.fileId);
           });
@@ -948,7 +1005,7 @@ function resolveFileMimeType(file: File): string {
       } catch (e: unknown) {
         const incomplete = mappedFiles.filter(file => !succeeded.has(file.fileId));
         if (incomplete.length) await bulkTrashNodes(incomplete.map(file => file.fileId), projectId).catch(() => null);
-        if (transferId) transferRef.current?.update(transferId, { status: "error", error: getErrorMessage(e, "Upload failed"), retry: () => void uploadFilesDirectly(files, parentId) });
+        if (transferId) transferRef.current?.update(transferId, { status: "error", error: getErrorMessage(e, "Upload failed"), retry: () => void uploadFilesDirectly(validatedFiles, parentId) });
         showToast(`Upload failed: ${getErrorMessage(e, "Unknown error")}`, "error");
         recordOperation({ label: "Upload failed", status: "error" });
       }
@@ -973,9 +1030,17 @@ function resolveFileMimeType(file: File): string {
     input.type = "file";
     input.webkitdirectory = true;
     input.multiple = true;
-    input.onchange = () => { void uploadFilesDirectly(Array.from(input.files || []), parentId); };
+    input.onchange = () => {
+      const rawFiles = Array.from(input.files || []);
+      const validation = validateUploadSelection(rawFiles, { isFolder: true });
+      if (!validation.valid) {
+        showToast(validation.error || "Invalid folder selection", "error");
+        return;
+      }
+      void uploadFilesDirectly(validation.files, parentId);
+    };
     input.click();
-  }, [canEdit, uploadFilesDirectly]);
+  }, [canEdit, showToast, uploadFilesDirectly]);
 
   return {
     uploadCollisionDialog,

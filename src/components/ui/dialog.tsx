@@ -38,7 +38,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50 duration-200 motion-reduce:animate-none",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/20 backdrop-blur-[0.5px] duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] motion-reduce:animate-none",
         className
       )}
       {...props}
@@ -63,12 +63,13 @@ function DialogContent({
       <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        data-presentation={presentation}
         aria-describedby={undefined}
         className={cn(
-          "bg-background fixed z-50 border shadow-lg outline-none",
+          "bg-card fixed z-[51] border shadow-lg outline-none",
           presentation === "right-drawer"
-            ? "inset-y-0 right-0 flex h-dvh w-full max-w-none flex-col gap-4 rounded-none border-y-0 border-r-0 border-l p-6 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-right-full data-[state=closed]:slide-out-to-right-full duration-200 motion-reduce:animate-none"
-            : "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 top-[50%] left-[50%] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg p-6 duration-200 sm:max-w-lg",
+            ? "inset-y-0 right-0 flex h-dvh w-full max-w-none flex-col gap-4 rounded-none border-y-0 border-r-0 border-l p-6 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-right-full data-[state=closed]:slide-out-to-right-full duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] motion-reduce:animate-none"
+            : "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 top-[50%] left-[50%] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl p-6 duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] sm:max-w-lg",
           className
         )}
         {...props}
@@ -118,7 +119,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg leading-none font-semibold", className)}
+      className={cn("text-[17px] leading-[1.28] font-semibold tracking-[-0.01em]", className)}
       {...props}
     />
   )
@@ -131,7 +132,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-muted-foreground text-[13px] leading-[1.5]", className)}
       {...props}
     />
   )

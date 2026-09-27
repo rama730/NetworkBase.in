@@ -165,6 +165,22 @@ export async function GET(request: Request) {
     }
 
     if (freshCache) {
+        const firstProject = freshCache.value.projects[0];
+        const feedETag = firstProject
+            ? `W/"feed-${firstProject.id}-${firstProject.updated_at || '0'}-${freshCache.value.projects.length}"`
+            : `W/"feed-empty"`;
+        const ifNoneMatch = request.headers.get("if-none-match");
+        if (ifNoneMatch && (ifNoneMatch === feedETag || ifNoneMatch.includes(feedETag))) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    ETag: feedETag,
+                    ...cacheHeaders('fresh'),
+                    'X-Request-Id': requestId,
+                },
+            });
+        }
+
         logProjectsRequest(request, {
             requestId,
             startedAt,
@@ -182,6 +198,7 @@ export async function GET(request: Request) {
             undefined,
             {
                 headers: {
+                    ETag: feedETag,
                     ...cacheHeaders('fresh'),
                     'X-Request-Id': requestId,
                 },
@@ -238,6 +255,22 @@ export async function GET(request: Request) {
     try {
         const payload = await getPublicProjectsFeedPage(limit, cursor)
 
+        const firstProject = payload.projects[0];
+        const feedETag = firstProject
+            ? `W/"feed-${firstProject.id}-${firstProject.updated_at || '0'}-${payload.projects.length}"`
+            : `W/"feed-empty"`;
+        const ifNoneMatch = request.headers.get("if-none-match");
+        if (ifNoneMatch && (ifNoneMatch === feedETag || ifNoneMatch.includes(feedETag))) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    ETag: feedETag,
+                    ...cacheHeaders(payload.cacheState === 'stale' ? 'stale' : 'fresh'),
+                    'X-Request-Id': requestId,
+                },
+            });
+        }
+
         logProjectsRequest(request, {
             requestId,
             startedAt,
@@ -255,6 +288,7 @@ export async function GET(request: Request) {
             undefined,
             {
                 headers: {
+                    ETag: feedETag,
                     ...cacheHeaders(payload.cacheState === 'stale' ? 'stale' : 'fresh'),
                     'X-Request-Id': requestId,
                 },

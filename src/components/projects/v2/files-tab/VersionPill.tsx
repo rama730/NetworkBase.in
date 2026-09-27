@@ -39,9 +39,8 @@ export function VersionPill({ v, className }: VersionPillProps): React.JSX.Eleme
       data-testid="files-tab-version-pill"
       data-version={v}
       className={cn(
-        "inline-flex h-[18px] items-center rounded-full px-1.5 text-[10px] font-semibold uppercase tracking-wide",
-        "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200",
-        "dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-indigo-500/30",
+        "inline-flex h-[18px] items-center rounded-[3px] border border-[#DBD5C8] bg-[#F3F0EA] px-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[#141A1E]",
+        "dark:border-white/10 dark:bg-white/10 dark:text-white",
         className,
       )}
       title={`Version ${v}`}

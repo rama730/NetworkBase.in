@@ -130,7 +130,7 @@ export async function scheduleAccountDeletion(
         }
 
         // Efficiency: Gather all necessary IDs in one round of parallel requests or optimized queries
-        const [affectedConnectionRows, userOwnedProjects, followedProjectRows] = await Promise.all([
+        const [affectedConnectionRows, userOwnedProjects] = await Promise.all([
             db
                 .select({
                     requesterId: connections.requesterId,
@@ -147,10 +147,6 @@ export async function scheduleAccountDeletion(
                 .select({ id: projects.id })
                 .from(projects)
                 .where(eq(projects.ownerId, userId)),
-            db
-                .select({ projectId: projectFollows.projectId })
-                .from(projectFollows)
-                .where(eq(projectFollows.userId, userId))
         ]);
 
         const affectedUserIds = affectedConnectionRows
@@ -200,20 +196,14 @@ export async function scheduleAccountDeletion(
                 )
             );
 
-            // 4. Decrement followersCount on projects the user follows
-            if (followedProjectRows.length > 0) {
-                const followedProjectIds = followedProjectRows.map(r => r.projectId);
-                const CHUNK = 100;
-                for (let i = 0; i < followedProjectIds.length; i += CHUNK) {
-                    const chunk = followedProjectIds.slice(i, i + CHUNK);
-                    await tx
-                        .update(projects)
-                        .set({
-                            followersCount: sql`GREATEST(0, ${projects.followersCount} - 1)`,
-                        })
-                        .where(inArray(projects.id, chunk));
-                }
-            }
+            // 4. Decrement followersCount on projects the user follows in a single set-based query
+            await tx.execute(sql`
+                UPDATE projects
+                SET followers_count = GREATEST(0, followers_count - 1)
+                WHERE id IN (
+                    SELECT project_id FROM project_follows WHERE user_id = ${userId}::uuid
+                )
+            `);
 
             // 5. Delete project follows by user
             await tx.delete(projectFollows).where(eq(projectFollows.userId, userId));
@@ -725,7 +715,7 @@ export async function exportAccountData(): Promise<{
                 isNull(profileProjectContributions.deletedAt),
             ))
             .orderBy(desc(profileProjectContributions.updatedAt), profileContributionSkills.displayOrder)
-            .limit(100_000);
+            .limit(5_000);
 
         const contributionExport = Array.from(contributionRows.reduce((byId, row) => {
             let contribution = byId.get(row.id);
@@ -771,8 +761,6 @@ export async function exportAccountData(): Promise<{
             skills: string[];
         }>()).values());
 
-        await new Promise(resolve => setTimeout(resolve, 10)); // yield to event loop
-
         const userProjects = await readDb
             .select({
                 id: projects.id,
@@ -790,8 +778,6 @@ export async function exportAccountData(): Promise<{
             .where(eq(projects.ownerId, userId))
             .limit(5_000);
 
-        await new Promise(resolve => setTimeout(resolve, 10));
-
         const userConnections = await readDb
             .select({
                 requesterId: connections.requesterId,
@@ -806,9 +792,7 @@ export async function exportAccountData(): Promise<{
                     eq(connections.addresseeId, userId),
                 )
             )
-            .limit(50_000);
-
-        await new Promise(resolve => setTimeout(resolve, 10));
+            .limit(5_000);
 
         const userMessages = await readDb
             .select({
@@ -830,8 +814,6 @@ export async function exportAccountData(): Promise<{
             .orderBy(desc(messages.createdAt))
             .limit(ACCOUNT_EXPORT_MESSAGE_LIMIT);
 
-        await new Promise(resolve => setTimeout(resolve, 10));
-
         const messageCountResult = await readDb
             .select({
                 count: sql<number>`count(distinct ${messages.id})::int`,
@@ -846,8 +828,6 @@ export async function exportAccountData(): Promise<{
             );
         const userMessageCount = messageCountResult[0]?.count ?? 0;
 
-        await new Promise(resolve => setTimeout(resolve, 10));
-
         const userCollections = await readDb
             .select({
                 id: collections.id,
@@ -856,7 +836,7 @@ export async function exportAccountData(): Promise<{
             })
             .from(collections)
             .where(eq(collections.ownerId, userId))
-            .limit(10_000);
+            .limit(1_000);
 
         const userLegalAcceptances = await readDb
             .select({

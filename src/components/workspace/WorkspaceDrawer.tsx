@@ -32,7 +32,7 @@ export default function WorkspaceDrawer() {
   const requestCount = (summary?.success ? summary.requestCount : 0) + pendingConnections;
   const tabs = [
     { id: "tasks" as const, label: "Tasks", icon: ListChecks, count: taskCount },
-    { id: "requests" as const, label: "Requests", icon: Inbox, count: requestCount },
+    { id: "requests" as const, label: "Invitations", icon: Inbox, count: requestCount },
   ];
 
   const onTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -51,30 +51,33 @@ export default function WorkspaceDrawer() {
         id="workspace-drawer"
         presentation="right-drawer"
         showCloseButton={false}
-        overlayClassName="z-[200] bg-zinc-900/40 backdrop-blur-md dark:bg-black/50"
+        overlayClassName="z-[200] bg-black/60 backdrop-blur-none"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+        }}
         onCloseAutoFocus={(event) => {
           const launcher = document.getElementById("workspace-launcher");
           if (!launcher) return;
           event.preventDefault();
           launcher.focus();
         }}
-        className="z-[201] h-full gap-0 border-zinc-200 bg-white p-0 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 lg:w-[40vw] lg:max-w-[42rem]"
+        className="z-[201] h-full w-full max-w-full gap-0 border-border bg-card p-0 text-card-foreground shadow-lg sm:w-[520px] sm:max-w-[520px]"
       >
-        <div className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="flex items-center justify-between px-6 py-4">
+        <div className="flex-shrink-0 border-b border-border">
+          <div className="flex h-14 items-center justify-between px-6">
             <div className="flex items-center gap-2">
-              <DialogTitle className="text-base font-bold text-zinc-900 dark:text-zinc-50">
+              <DialogTitle className="nb-card-title text-[17px] font-semibold text-foreground">
                 Workspace
               </DialogTitle>
               <DialogDescription className="sr-only">
-                Review open work and pending project requests.
+                Review open work and pending invitations.
               </DialogDescription>
             </div>
             <DialogClose
               aria-label="Close workspace"
-              className="min-h-10 min-w-10 rounded-md p-2 text-zinc-500 transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-zinc-800"
+              className="nb-icon-button min-h-8 min-w-8 rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </DialogClose>
           </div>
 
@@ -85,7 +88,6 @@ export default function WorkspaceDrawer() {
             {tabs.map((tab, index) => {
               const Icon = tab.icon;
               const selected = activeTab === tab.id;
-              const needsAttention = tab.count > 0;
               return <button
                 key={tab.id}
                 id={`workspace-${tab.id}-tab`}
@@ -98,25 +100,20 @@ export default function WorkspaceDrawer() {
                 aria-selected={selected}
                 aria-controls={`workspace-${tab.id}-panel`}
                 className={cn(
-                  "flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                  selected ? "border-primary text-primary" : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
+                  "flex min-h-11 items-center gap-2 border-b-2 px-1 pb-1 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                  selected ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Icon className={cn(
-                  "h-4 w-4 transition-colors duration-300",
-                  needsAttention
-                    ? "text-rose-500 drop-shadow-[0_0_3px_rgba(244,63,94,0.3)] dark:text-rose-400"
-                    : selected ? "text-primary" : "",
-                )} />
+                <Icon className="h-4 w-4" aria-hidden="true" />
                 <span>{tab.label}</span>
-                {tab.count > 0 && <span aria-label={tab.id === "tasks" ? `${tab.count} tasks assigned to you` : `${tab.count} pending requests`} className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-100 px-1.5 py-0.5 text-xs font-semibold text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">{tab.count > 99 ? "99+" : tab.count}</span>}
+                {tab.count > 0 && <span aria-label={tab.id === "tasks" ? `${tab.count} tasks assigned to you` : `${tab.count} pending invitations`} className="nb-tab-count">{tab.count > 99 ? "99+" : tab.count}</span>}
               </button>;
             })}
           </div>
         </div>
 
         <div className={cn(
-          "relative flex-1 overflow-y-auto bg-zinc-50/20 px-6 pb-6 pt-2 dark:bg-zinc-950/20",
+          "relative flex-1 overflow-y-auto bg-card px-6 pb-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]",
         )}>
           {activeTab === "tasks" ? (
             <WorkspaceTasksTab isActive={activeTab === "tasks"} />

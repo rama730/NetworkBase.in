@@ -6,10 +6,13 @@ export type {
     ApplicationStatusResult,
 } from './types';
 
+export type { SentProjectInvitationItem } from './internal';
+
 export {
     acceptApplicationAction,
     acceptProposedRoleAction,
     applyToRoleAction,
+    cancelSentProjectInvitationAction,
     declineProposedRoleAction,
     editPendingApplicationAction,
     getApplicationRequestHistory,
@@ -18,6 +21,7 @@ export {
     getInboxApplicationsAction,
     getMyApplicationsAction,
     getProjectInviteOptionsAction,
+    getSentProjectInvitationsAction,
     rejectApplicationAction,
     reopenApplicationAction,
     withdrawApplicationAction,

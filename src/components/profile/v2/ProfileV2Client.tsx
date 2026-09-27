@@ -21,32 +21,96 @@ import { queryKeys } from '@/lib/query-keys';
 // profile navigation does not synchronously evaluate their menus and controls.
 import { AboutCard } from './sections/AboutCard'
 import { ComponentErrorBoundary } from '@/components/ui/ComponentErrorBoundary'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const ProfileHeader = dynamic(
     () => import('./ProfileHeader').then((module) => module.ProfileHeader),
-    { loading: () => <div className="min-h-64 animate-pulse rounded-3xl bg-zinc-200/50 dark:bg-zinc-800/50" /> },
-)
+    {
+        loading: () => (
+            <div aria-hidden="true" className="rounded-lg border border-border bg-card p-6 shadow-none">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex gap-4">
+                        <Skeleton className="size-[72px] shrink-0 rounded-[4px]" />
+                        <div className="min-w-0 flex-1 space-y-2.5 pt-0.5">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Skeleton className="h-7 w-48 rounded-[4px]" />
+                                <Skeleton className="h-4 w-24 rounded-[3px]" />
+                            </div>
+                            <Skeleton className="h-4 w-80 max-w-full rounded-[3px]" />
+                            <div className="flex gap-3 pt-1">
+                                <Skeleton className="h-3.5 w-24 rounded-[3px]" />
+                                <Skeleton className="h-3.5 w-28 rounded-[3px]" />
+                            </div>
+                        </div>
+                    </div>
+                    <Skeleton className="h-9 w-24 rounded-md" />
+                </div>
+            </div>
+        ),
+    },
+);
 const ProfileRightRail = dynamic(
     () => import('./ProfileRightRail').then((module) => module.ProfileRightRail),
-    { loading: () => <div className="min-h-72 animate-pulse rounded-2xl bg-zinc-200/50 dark:bg-zinc-800/50" /> },
-)
-const SkillsCard = dynamic(
-    () => import('./sections/SkillsCard').then((module) => module.SkillsCard),
-    { loading: () => <div className="min-h-40 animate-pulse rounded-2xl bg-zinc-200/50 dark:bg-zinc-800/50" /> },
-)
+    {
+        loading: () => (
+            <div aria-hidden="true" className="space-y-6">
+                <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+                    <Skeleton className="h-4 w-28 rounded-[3px]" />
+                    <div className="flex flex-wrap gap-1.5">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                            <Skeleton key={i} className="h-6 w-16 rounded-[4px]" />
+                        ))}
+                    </div>
+                </div>
+                <div className="rounded-lg border border-border bg-card p-5 space-y-3">
+                    <Skeleton className="h-4 w-24 rounded-[3px]" />
+                    <Skeleton className="h-10 w-full rounded-md" />
+                </div>
+            </div>
+        ),
+    },
+);
 const OpenToRolesCard = dynamic(
     () => import('./sections/OpenToRolesCard').then((module) => module.OpenToRolesCard),
-    { loading: () => <div className="min-h-40 animate-pulse rounded-2xl bg-zinc-200/50 dark:bg-zinc-800/50" /> },
-)
+    {
+        loading: () => (
+            <div aria-hidden="true" className="rounded-lg border border-border bg-card p-5 space-y-3">
+                <Skeleton className="h-5 w-32 rounded-[3px]" />
+                <Skeleton className="h-4 w-3/4 rounded-[3px]" />
+                <div className="flex gap-2 pt-1">
+                    <Skeleton className="h-6 w-20 rounded-[4px]" />
+                    <Skeleton className="h-6 w-24 rounded-[4px]" />
+                </div>
+            </div>
+        ),
+    },
+);
 
 const ProjectContributionsCard = dynamic(
     () => import('./sections/ProjectContributionsCard').then((module) => module.ProjectContributionsCard),
-    { loading: () => <div className="min-h-48 animate-pulse rounded-2xl bg-zinc-200/50 dark:bg-zinc-800/50" /> },
-)
+    {
+        loading: () => (
+            <div aria-hidden="true" className="rounded-lg border border-border bg-card p-5 space-y-3">
+                <Skeleton className="h-5 w-40 rounded-[3px]" />
+                <Skeleton className="h-20 w-full rounded-lg border border-border" />
+            </div>
+        ),
+    },
+);
 const ProjectsGridCard = dynamic(
     () => import('./sections/ProjectsGridCard').then((module) => module.ProjectsGridCard),
-    { loading: () => <div className="min-h-80 animate-pulse rounded-2xl bg-zinc-200/50 dark:bg-zinc-800/50" /> },
-)
+    {
+        loading: () => (
+            <div aria-hidden="true" className="space-y-4">
+                <Skeleton className="h-6 w-28 rounded-[3px]" />
+                <div className="space-y-4">
+                    <Skeleton className="h-32 w-full rounded-lg border border-border" />
+                    <Skeleton className="h-32 w-full rounded-lg border border-border" />
+                </div>
+            </div>
+        ),
+    },
+);
 
 type EditProfileModalComponent = typeof import('@/components/profile/edit/EditProfileModal')['EditProfileModal'];
 type UserConnectionsModalComponent = typeof import('@/components/profile/v2/UserConnectionsModal')['UserConnectionsModal'];
@@ -170,6 +234,8 @@ export function ProfileV2Client({
     const [collaborationSummary, setCollaborationSummary] = useState<ProfileCollaborationSummary>(
         initialCollaborationSummary || EMPTY_COLLABORATION_SUMMARY,
     )
+    const initialSummary = collaborationSummary || EMPTY_COLLABORATION_SUMMARY
+    const overviewProjects = initialSummary.projects ?? []
 
     useEffect(() => {
         setStatus(connectionStatus)
@@ -187,11 +253,16 @@ export function ProfileV2Client({
     const [isLoading, setIsLoading] = useState(false);
 
     const safeProfile = liveProfile as any
-    const initialSummary = collaborationSummary || EMPTY_COLLABORATION_SUMMARY
     const portfolioQuery = useQuery({
         queryKey: profile?.id ? queryKeys.profile.projects(profile.id) : queryKeys.profile.projects('unknown'),
         queryFn: () => fetchProfileProjects(profile.id),
         enabled: Boolean(profile?.id && !lockedShell && (activeTab === 'portfolio' || isEditModalOpen)),
+        initialData: {
+            projects: overviewProjects,
+            total: Number(initialSummary.stats?.visibleProjectsCount ?? overviewProjects.length),
+            hasMore: Number(initialSummary.stats?.visibleProjectsCount ?? overviewProjects.length) > overviewProjects.length,
+        },
+        initialDataUpdatedAt: 0,
         staleTime: 60_000,
         refetchOnWindowFocus: false,
     })
@@ -202,8 +273,7 @@ export function ProfileV2Client({
         staleTime: 30_000,
         refetchOnWindowFocus: false,
     })
-    const portfolioProjects = portfolioQuery.data?.projects ?? []
-    const overviewProjects = initialSummary.projects ?? []
+    const portfolioProjects = portfolioQuery.data?.projects ?? overviewProjects
     const collaborationContributions = initialSummary.contributions ?? []
     const projectOptionsForEditing = portfolioProjects.length ? portfolioProjects : overviewProjects
     const safeStats = useMemo(
@@ -443,13 +513,21 @@ export function ProfileV2Client({
                         role="tabpanel"
                         aria-labelledby="profile-tab-portfolio"
                     >
-                        <ProjectsGridCard
-                            projects={portfolioProjects}
-                            title="Portfolio"
-                            description={portfolioDescription}
-                            isLoading={portfolioQuery.isLoading}
-                            onProjectIntent={prefetchProjectHref}
-                        />
+                        <div className="space-y-4">
+                            {portfolioQuery.isError && (
+                                <div role="alert" className="nb-compact flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--status-danger)] bg-[var(--status-danger-soft)] px-4 py-3">
+                                    <span>Some portfolio projects could not be refreshed. Showing the last available projects.</span>
+                                    <button type="button" className="nb-ui-label text-primary hover:underline" onClick={() => void portfolioQuery.refetch()}>Try again</button>
+                                </div>
+                            )}
+                            <ProjectsGridCard
+                                projects={portfolioProjects}
+                                title="Portfolio"
+                                description={portfolioDescription}
+                                isLoading={portfolioQuery.isLoading && portfolioProjects.length === 0}
+                                onProjectIntent={prefetchProjectHref}
+                            />
+                        </div>
                     </div>
                 )
             default:
@@ -554,10 +632,34 @@ export function ProfileV2Client({
         void loadUserConnectionsModal()
     }, [loadUserConnectionsModal])
 
+    const handleOpenProjects = useCallback(() => {
+        handleTabChange('portfolio')
+    }, [handleTabChange])
+
     const handleOpenApplyModal = useCallback(() => {
         setIsApplyModalOpen(true)
         void loadApplyRoleModal()
     }, [loadApplyRoleModal])
+
+    const handleShareProfile = useCallback(async () => {
+        const shareUrl = window.location.href
+        const shareData: ShareData = {
+            title: safeProfile.fullName || safeProfile.username || 'NetworkBase profile',
+            text: safeProfile.headline || undefined,
+            url: shareUrl,
+        }
+        try {
+            if (typeof navigator.share === 'function') {
+                await navigator.share(shareData)
+                return
+            }
+            await navigator.clipboard.writeText(shareUrl)
+            toast.success('Profile link copied')
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') return
+            toast.error('Could not share this profile')
+        }
+    }, [safeProfile.fullName, safeProfile.headline, safeProfile.username])
 
 
 
@@ -576,11 +678,16 @@ export function ProfileV2Client({
                         isLoadingConnection={isLoading}
                         isBlocking={isBlocking}
                         onEdit={() => openEditModal('general')}
+                        onShare={handleShareProfile}
+                        onAvailabilityEdit={() => openEditModal('skills')}
+                        onConnectionsClick={handleOpenConnections}
+                        onProjectsClick={handleOpenProjects}
                         onConnectPrimary={handleConnectPrimary}
                         onConnectSecondary={handleConnectSecondary}
                         onMessage={() => router.push(`/messages?userId=${safeProfile.id}`)}
                         onToggleBlock={handleToggleBlock}
                         mutualCount={safeStats.mutualCount}
+                        stats={safeStats}
                     />
                 }
                 tabs={lockedShell ? null : (
@@ -595,37 +702,31 @@ export function ProfileV2Client({
                 main={renderMainContent()}
                 mainBottom={renderMainBottom()}
                 highlights={lockedShell ? null : (
-                    <>
-                        <ComponentErrorBoundary fallbackMessage="Failed to load skills.">
-                            <SkillsCard
-                                skills={safeProfile.skills || []}
-                                isOwner={isOwner}
-                                onAdd={isOwner ? () => openEditModal('skills') : undefined}
-                                variant="rail"
-                            />
-                        </ComponentErrorBoundary>
-                        <ComponentErrorBoundary fallbackMessage="Failed to load role preferences.">
-                            <OpenToRolesCard
-                                openTo={safeProfile.openTo}
-                                experienceLevel={safeProfile.experienceLevel}
-                                hoursPerWeek={safeProfile.hoursPerWeek}
-                                isOwner={isOwner}
-                                onEdit={isOwner ? () => openEditModal('skills') : undefined}
-                                onInvite={viewerUser && !isOwner ? handleOpenInvite : undefined}
-                                onInviteIntent={prefetchInviteOptions}
-                                onApply={viewerUser && !isOwner ? handleOpenApplyModal : undefined}
-                                hasOpenRoles={openRolesProjects.length > 0}
-                            />
-                        </ComponentErrorBoundary>
-                    </>
+                    <ComponentErrorBoundary fallbackMessage="Failed to load role preferences.">
+                        <OpenToRolesCard
+                            openTo={safeProfile.openTo}
+                            experienceLevel={safeProfile.experienceLevel}
+                            hoursPerWeek={safeProfile.hoursPerWeek}
+                            isOwner={isOwner}
+                            onEdit={isOwner ? () => openEditModal('skills') : undefined}
+                            onInvite={viewerUser && !isOwner ? handleOpenInvite : undefined}
+                            onInviteIntent={prefetchInviteOptions}
+                            onApply={viewerUser && !isOwner ? handleOpenApplyModal : undefined}
+                            hasOpenRoles={openRolesProjects.length > 0}
+                        />
+                    </ComponentErrorBoundary>
                 )}
                 rail={lockedShell ? null : (
                     <ProfileRightRail
                         profile={safeProfile}
-                        stats={safeStats}
                         isOwner={isOwner}
+                        canMessage={Boolean(
+                            viewerUser
+                            && privacyRelationship.canSendMessage
+                            && !privacyRelationship.blockedByViewer
+                            && !privacyRelationship.blockedByTarget
+                        )}
                         socialLinks={safeProfile.socialLinks || []}
-                        onConnectionsClick={handleOpenConnections}
                         onEditSection={openEditModal}
                     />
                 )}

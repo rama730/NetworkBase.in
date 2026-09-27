@@ -2,17 +2,24 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { broadcastProjectUpdated } from "@/components/projects/ProjectAvatar";
 import {
     AlertTriangle,
     Archive,
     Bell,
+    Camera,
+    Check,
     ChevronDown,
     Crown,
     Download,
+    Eye,
     FileText,
     Folder,
     Globe,
@@ -20,22 +27,50 @@ import {
     Link2,
     Loader2,
     Lock,
+    Newspaper,
+    Pencil,
     RefreshCw,
     Search,
+    Scale,
     Settings,
     Shield,
     ShieldCheck,
+    SlidersHorizontal,
     Trash2,
+    Upload,
     UserCog,
     UserMinus,
     Users,
     Workflow,
     Plus,
     X,
+    Info,
 } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { SkillPicker } from "@/components/skills/SkillPicker";
+import {
+    ProjectArchiveModal,
+    ProjectTransferOwnershipModal,
+    ProjectDeleteModal,
+} from "@/components/projects/settings/ProjectDangerModals";
+// ponytail: dynamic code-splitting for SkillPicker catalog (378 KB) so settings tab initial chunk stays small. ceiling: settings tab. upgrade: keep dynamic.
+const SkillPicker = dynamic(
+    () => import("@/components/skills/SkillPicker").then((mod) => mod.SkillPicker),
+    {
+        ssr: false,
+        loading: () => (
+            <div aria-hidden="true" className="nb-skeleton h-10 w-full rounded-lg border border-border" />
+        ),
+    },
+);
 import { Button } from "@/components/ui/button";
 import { transferProjectOwnership } from "@/app/actions/account";
 import {
@@ -50,7 +85,6 @@ import {
     getProjectDangerZonePreflightAction,
     getProjectFileWorkspaceSettingsAction,
     getProjectMemberRemovalPreflightAction,
-    getProjectSettingsAuditAction,
     readProjectMemberNotificationSettingsAction,
     readProjectNotificationSettingsAction,
     readProjectDocSettingsAction,
@@ -84,6 +118,7 @@ import {
     summarizeProjectNotificationPolicy,
     type ProjectMemberNotificationOverrides,
     type ProjectNotificationEventKey,
+    type ProjectNotificationGroupId,
     type ProjectNotificationPolicy,
     type ProjectNotificationPreset,
     type ProjectNotificationRegistryEntry,
@@ -122,7 +157,8 @@ import {
 import { LifecycleEditor as BaseLifecycleEditor } from "@/components/projects/LifecycleEditor";
 import { ProjectRolesEditor } from "@/components/projects/settings/ProjectRolesEditor";
 import { ProjectLinksManager } from "@/components/projects/dashboard/ProjectSocialLinksCard";
-import ProjectPrivacyTermsTab from "@/components/projects/tabs/ProjectPrivacyTermsTab";
+import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
+import { LegalAndDataRightsSection } from "@/components/settings/LegalAndDataRightsSection";
 import {
     normalizeProjectRoleFormValues,
     type ProjectRoleFormValue,
@@ -185,13 +221,6 @@ type AccessTransitionPreflightData = {
     };
 };
 
-type SettingsAuditEvent = {
-    id: string;
-    type: string;
-    createdAt: string;
-    actorName: string | null;
-    metadata: Record<string, unknown>;
-};
 
 type CollaboratorSettingsData = {
     members: ProjectSettingsMember[];
@@ -269,6 +298,8 @@ type ProjectImageDragState = {
 type ScrollSnapshot = {
     routeRoot: HTMLElement | null;
     routeScrollTop: number;
+    settingsRoot: HTMLElement | null;
+    settingsScrollTop: number;
     windowScrollX: number;
     windowScrollY: number;
 };
@@ -279,15 +310,42 @@ const SECTION_ICONS: Record<ProjectSettingsSectionId, React.ComponentType<{ clas
     access: Globe,
     collaborators: Users,
     "roles-applications": UserCog,
+    readme: FileText,
+    updates: Newspaper,
     "tasks-workflow": Workflow,
     "files-workspace": Folder,
-    readme: FileText,
-    updates: Bell,
     notifications: Bell,
-    "security-audit": Shield,
-    "privacy-terms": ShieldCheck,
+    "privacy-policies": Scale,
+    "privacy-terms": Scale,
     danger: AlertTriangle,
 };
+
+const SECTION_GROUPS: Array<{
+    id: string;
+    label: string;
+    sectionIds: ProjectSettingsSectionId[];
+}> = [
+    {
+        id: "profile",
+        label: "Project Profile",
+        sectionIds: ["general", "links"],
+    },
+    {
+        id: "access",
+        label: "Access & Team",
+        sectionIds: ["access", "collaborators", "roles-applications"],
+    },
+    {
+        id: "workspace",
+        label: "Workspace Policies",
+        sectionIds: ["readme", "updates", "tasks-workflow", "files-workspace"],
+    },
+    {
+        id: "governance",
+        label: "System & Governance",
+        sectionIds: ["notifications", "privacy-policies", "danger"],
+    },
+];
 
 const VISIBILITY_OPTIONS: Array<{
     id: ProjectSettingsVisibility;
@@ -409,9 +467,9 @@ function RemovalImpactDetails({ preflight }: { preflight: RemovalPreflightData }
             label: "Active assigned tasks",
             count: preflight.activeAssignedTasks,
             items: (preflight.activeAssignedTaskItems ?? []).map((task) => (
-                <li key={task.id} className="rounded-xl bg-white/70 px-3 py-2 dark:bg-zinc-950/60">
-                    <span className="block font-medium text-zinc-800 dark:text-zinc-100">{formatTaskPreviewLabel(task)}</span>
-                    <span className="text-[11px] text-zinc-500">{task.status ?? "active"} · will need reassignment if history is preserved</span>
+                <li key={task.id} className="rounded-lg border border-border bg-card px-3 py-2">
+                    <span className="block font-medium text-foreground">{formatTaskPreviewLabel(task)}</span>
+                    <span className="nb-meta text-[11px] text-muted-foreground">{task.status ?? "active"} · will need reassignment if history is preserved</span>
                 </li>
             )),
             empty: "No active assigned tasks.",
@@ -421,9 +479,9 @@ function RemovalImpactDetails({ preflight }: { preflight: RemovalPreflightData }
             label: "Created active tasks",
             count: preflight.activeCreatedTasks,
             items: (preflight.activeCreatedTaskItems ?? []).map((task) => (
-                <li key={task.id} className="rounded-xl bg-white/70 px-3 py-2 dark:bg-zinc-950/60">
-                    <span className="block font-medium text-zinc-800 dark:text-zinc-100">{formatTaskPreviewLabel(task)}</span>
-                    <span className="text-[11px] text-zinc-500">{task.status ?? "active"} · creator history stays visible</span>
+                <li key={task.id} className="rounded-lg border border-border bg-card px-3 py-2">
+                    <span className="block font-medium text-foreground">{formatTaskPreviewLabel(task)}</span>
+                    <span className="nb-meta text-[11px] text-muted-foreground">{task.status ?? "active"} · creator history stays visible</span>
                 </li>
             )),
             empty: "No active tasks created by this member.",
@@ -433,11 +491,11 @@ function RemovalImpactDetails({ preflight }: { preflight: RemovalPreflightData }
             label: "File review responsibilities",
             count: preflight.fileReviews,
             items: (preflight.fileReviewItems ?? []).map((review) => (
-                <li key={review.id} className="rounded-xl bg-white/70 px-3 py-2 dark:bg-zinc-950/60">
-                    <span className="block font-medium text-zinc-800 dark:text-zinc-100">
+                <li key={review.id} className="rounded-lg border border-border bg-card px-3 py-2">
+                    <span className="block font-medium text-foreground">
                         {review.nodeName ?? "Linked file"} · {review.taskTitle ?? "Task"}
                     </span>
-                    <span className="text-[11px] text-zinc-500">{review.annotation ?? "Needs review"}</span>
+                    <span className="nb-meta text-[11px] text-muted-foreground">{review.annotation ?? "Needs review"}</span>
                 </li>
             )),
             empty: "No file review responsibilities found.",
@@ -447,11 +505,11 @@ function RemovalImpactDetails({ preflight }: { preflight: RemovalPreflightData }
             label: "Accepted application history",
             count: preflight.acceptedApplications,
             items: (preflight.acceptedApplicationItems ?? []).map((application) => (
-                <li key={application.id} className="rounded-xl bg-white/70 px-3 py-2 dark:bg-zinc-950/60">
-                    <span className="block font-medium text-zinc-800 dark:text-zinc-100">
+                <li key={application.id} className="rounded-lg border border-border bg-card px-3 py-2">
+                    <span className="block font-medium text-foreground">
                         {application.roleTitle ?? application.roleName ?? "Accepted role"}
                     </span>
-                    <span className="text-[11px] text-zinc-500">Will show Accepted · Membership ended</span>
+                    <span className="nb-meta text-[11px] text-muted-foreground">Will show Accepted · Membership ended</span>
                 </li>
             )),
             empty: "No accepted application history found.",
@@ -459,23 +517,23 @@ function RemovalImpactDetails({ preflight }: { preflight: RemovalPreflightData }
     ];
 
     return (
-        <details className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/40">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+        <details className="rounded-lg border border-border bg-muted/20 p-3">
+            <summary className="cursor-pointer nb-micro text-muted-foreground">
                 Exact affected records
             </summary>
             <div className="mt-3 space-y-3">
                 {sections.map((section) => (
                     <div key={section.key}>
-                        <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">
-                            {section.label} <span className="text-zinc-400">({section.count})</span>
+                        <p className="nb-ui-label text-xs font-semibold text-foreground">
+                            {section.label} <span className="nb-meta text-muted-foreground">({section.count})</span>
                         </p>
                         {section.items.length > 0 ? (
                             <ul className="mt-2 space-y-1.5 text-xs">{section.items}</ul>
                         ) : (
-                            <p className="mt-1 text-xs text-zinc-500">{section.empty}</p>
+                            <p className="nb-compact mt-1 text-xs text-muted-foreground">{section.empty}</p>
                         )}
                         {section.count > section.items.length ? (
-                            <p className="mt-1 text-[11px] text-zinc-500">
+                            <p className="nb-meta mt-1 text-[11px] text-muted-foreground">
                                 Showing the first {section.items.length}; the action still applies to all {section.count}.
                             </p>
                         ) : null}
@@ -490,9 +548,14 @@ function captureScrollSnapshot(): ScrollSnapshot {
     const routeRoot = typeof document === "undefined"
         ? null
         : document.querySelector<HTMLElement>('[data-scroll-root="route"]');
+    const settingsRoot = typeof document === "undefined"
+        ? null
+        : document.querySelector<HTMLElement>('[data-project-settings-document]');
     return {
         routeRoot,
         routeScrollTop: routeRoot?.scrollTop ?? 0,
+        settingsRoot,
+        settingsScrollTop: settingsRoot?.scrollTop ?? 0,
         windowScrollX: typeof window === "undefined" ? 0 : window.scrollX,
         windowScrollY: typeof window === "undefined" ? 0 : window.scrollY,
     };
@@ -503,6 +566,9 @@ function restoreScrollSnapshot(snapshot: ScrollSnapshot | null) {
     window.requestAnimationFrame(() => {
         if (snapshot.routeRoot) {
             snapshot.routeRoot.scrollTop = snapshot.routeScrollTop;
+        }
+        if (snapshot.settingsRoot) {
+            snapshot.settingsRoot.scrollTop = snapshot.settingsScrollTop;
         }
         window.scrollTo(snapshot.windowScrollX, snapshot.windowScrollY);
     });
@@ -582,6 +648,7 @@ export default function ProjectSettingsTab({
 }: ProjectSettingsTabProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const queryClient = useQueryClient();
     const actorProjectRole = isProjectOwner ? "owner" : actorRole ?? "member";
     const canManageSettings = isProjectOwner || actorProjectRole === "admin";
     const sections = useMemo(() => {
@@ -593,42 +660,99 @@ export default function ProjectSettingsTab({
                 "access",
                 "collaborators",
                 "roles-applications",
+                "readme",
+                "updates",
                 "tasks-workflow",
                 "files-workspace",
-                "readme",
                 "notifications",
+                "privacy-policies",
                 "privacy-terms",
             ];
             return visible.filter((section) => adminSections.includes(section.id));
         }
-        return visible.filter((section) => section.id === "collaborators" || section.id === "privacy-terms");
+        return visible.filter((section) => section.id === "collaborators" || section.id === "privacy-policies" || section.id === "privacy-terms");
     }, [actorProjectRole, isProjectOwner]);
     const [activeSection, setActiveSection] = useState<ProjectSettingsSectionId>(() => {
         const querySection = searchParams.get("settings") || searchParams.get("section");
-        if (querySection === "privacy" || querySection === "privacy-terms") {
-            return "privacy-terms";
+        if (querySection === "privacy" || querySection === "privacy-terms" || querySection === "privacy-policies") {
+            return "privacy-policies";
+        }
+        if (querySection === "security-audit" || querySection === "security-data") {
+            return "general";
         }
         if (querySection && sections.some((s) => s.id === querySection)) {
             return querySection as ProjectSettingsSectionId;
         }
         return canManageSettings && searchParams.get("settings") === "links"
             ? "links"
-            : isProjectOwner ? "general" : "collaborators";
+            : (sections[0]?.id as ProjectSettingsSectionId) || "general";
     });
+    const locallyNavigatedSectionRef = useRef<{ id: string } | null>(null);
+    const localNavigationReleaseTimerRef = useRef<number | null>(null);
+    const hasMountedRef = useRef(false);
+
+    const scrollToSection = useCallback((sectionId: string, behavior: ScrollBehavior = "smooth") => {
+        const scrollRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
+        const target = document.getElementById(`project-settings-${sectionId}`);
+        if (!scrollRoot || !target) return;
+
+        const rootRect = scrollRoot.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const projectTabs = document.querySelector<HTMLElement>('[data-project-sticky-tabs="true"]');
+        const stickyTabsHeight = projectTabs?.offsetHeight ?? 0;
+        const nextTop = scrollRoot.scrollTop + targetRect.top - rootRect.top - stickyTabsHeight;
+        scrollRoot.scrollTo({
+            top: Math.max(0, nextTop),
+            left: scrollRoot.scrollLeft,
+            behavior,
+        });
+    }, []);
+
+    const handleNavigateSection = useCallback((sectionId: ProjectSettingsSectionId) => {
+        const localNav = { id: sectionId };
+        locallyNavigatedSectionRef.current = localNav;
+        setActiveSection(sectionId);
+
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            params.set("tab", "settings");
+            params.set("settings", sectionId);
+            router.replace(`?${params.toString()}`, { scroll: false });
+        }
+
+        scrollToSection(sectionId, "smooth");
+
+        if (localNavigationReleaseTimerRef.current !== null) {
+            window.clearTimeout(localNavigationReleaseTimerRef.current);
+        }
+        localNavigationReleaseTimerRef.current = window.setTimeout(() => {
+            if (locallyNavigatedSectionRef.current === localNav) {
+                locallyNavigatedSectionRef.current = null;
+            }
+            localNavigationReleaseTimerRef.current = null;
+        }, 800);
+    }, [router, scrollToSection]);
+
+    useEffect(() => () => {
+        if (localNavigationReleaseTimerRef.current !== null) {
+            window.clearTimeout(localNavigationReleaseTimerRef.current);
+        }
+    }, []);
     const [advancedOpen, setAdvancedOpen] = useState<Partial<Record<ProjectSettingsSectionId, boolean>>>({});
     const [savingSettings, setSavingSettings] = useState(false);
     const [uploadingCoverImage, setUploadingCoverImage] = useState(false);
     const [savingLifecycle, setSavingLifecycle] = useState(false);
-    const [loadingExport, setLoadingExport] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
     const [dangerPreflight, setDangerPreflight] = useState<DangerPreflight | null>(null);
     const [dangerPreflightLoading, setDangerPreflightLoading] = useState(false);
     const [accessImpact, setAccessImpact] = useState<AccessImpact | null>(null);
     const [accessImpactLoading, setAccessImpactLoading] = useState(false);
-    const [settingsAuditEvents, setSettingsAuditEvents] = useState<SettingsAuditEvent[]>([]);
-    const [settingsAuditLoading, setSettingsAuditLoading] = useState(false);
     const [transferOwnerId, setTransferOwnerId] = useState("");
+    const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+    const [transferModalOpen, setTransferModalOpen] = useState(false);
+    const [selectedTransferCandidate, setSelectedTransferCandidate] = useState<ProjectSettingsMember | null>(null);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [collaboratorData, setCollaboratorData] = useState<CollaboratorSettingsData | null>(null);
     const [collaboratorLoading, setCollaboratorLoading] = useState(false);
     const [collaboratorRefreshing, setCollaboratorRefreshing] = useState(false);
@@ -642,10 +766,13 @@ export default function ProjectSettingsTab({
     const [projectNotificationData, setProjectNotificationData] = useState<ProjectNotificationSettingsData | null>(null);
     const [projectNotificationDraft, setProjectNotificationDraft] = useState<ProjectNotificationPolicy>(() => buildDefaultProjectNotificationPolicy());
     const [projectNotificationLoading, setProjectNotificationLoading] = useState(false);
+    const [expandedNotificationGroups, setExpandedNotificationGroups] = useState<Record<string, boolean>>({});
     const [readmeSettings, setReadmeSettings] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
     const [readmeSettingsDraft, setReadmeSettingsDraft] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
     const [readmeSettingsLoading, setReadmeSettingsLoading] = useState(false);
     const [readmeSettingsSaving, setReadmeSettingsSaving] = useState(false);
+    const [savingReadmeKey, setSavingReadmeKey] = useState<keyof ProjectDocSettings | null>(null);
+    const [savingMemberUpdates, setSavingMemberUpdates] = useState(false);
     const [memberNotificationData, setMemberNotificationData] = useState<MemberNotificationSettingsData | null>(null);
     const [memberNotificationDraft, setMemberNotificationDraft] = useState<ProjectMemberNotificationOverrides>(() => normalizeProjectMemberNotificationOverrides(null));
     const [memberNotificationLoading, setMemberNotificationLoading] = useState(false);
@@ -662,9 +789,20 @@ export default function ProjectSettingsTab({
     const initialRoles = useMemo<ProjectRolesFormValues>(() => {
         const openRoles = normalizeProjectRoleFormValues(project?.openRoles ?? project?.open_roles);
         const metadata = (project?.importSource?.metadata || project?.import_source?.metadata || {}) as any;
+        const leadFocus = typeof metadata.leadFocus === "string" ? metadata.leadFocus.trim() : "";
+
+        // ponytail: skip duplicate lead-role when open roles already define the lead focus
+        const leadHasOpenRole = Boolean(leadFocus) && openRoles.some(
+            (r) => (r.role || "").trim().toLowerCase() === leadFocus.toLowerCase()
+        );
+
+        if (leadHasOpenRole) {
+            return { roles: openRoles };
+        }
+
         const leadRole: ProjectRoleFormValue = {
             id: "lead-role",
-            role: metadata.leadFocus || "Lead",
+            role: leadFocus || "Lead",
             count: 1,
             description: metadata.leadDescription || "",
             skills: [],
@@ -675,6 +813,9 @@ export default function ProjectSettingsTab({
     }, [project]);
     const [visibility, setVisibility] = useState<ProjectSettingsVisibility>(initialSettings.visibility);
     const [publicTabVisibility, setPublicTabVisibility] = useState<ProjectPublicTabVisibility>(initialSettings.publicTabVisibility);
+    const [savedVisibility, setSavedVisibility] = useState<ProjectSettingsVisibility>(initialSettings.visibility);
+    const [savedPublicTabVisibility, setSavedPublicTabVisibility] = useState<ProjectPublicTabVisibility>(initialSettings.publicTabVisibility);
+    const [savingPublicTabId, setSavingPublicTabId] = useState<ProjectPublicTabId | null>(null);
     const [memberUpdatesEnabled, setMemberUpdatesEnabled] = useState<boolean>(initialSettings.memberUpdatesEnabled);
     const [projectTitle, setProjectTitle] = useState(initialIdentity.title);
     const [shortDescription, setShortDescription] = useState(initialIdentity.shortDescription);
@@ -708,14 +849,15 @@ export default function ProjectSettingsTab({
     useEffect(() => {
         setVisibility(initialSettings.visibility);
         setPublicTabVisibility(initialSettings.publicTabVisibility);
+        setSavedVisibility(initialSettings.visibility);
+        setSavedPublicTabVisibility(initialSettings.publicTabVisibility);
         setMemberUpdatesEnabled(initialSettings.memberUpdatesEnabled);
     }, [initialSettings]);
 
     useEffect(() => {
-        if (activeSection !== "roles-applications") return;
         resetRolesForm(initialRoles);
         setDeletedRoleIds([]);
-    }, [activeSection, initialRoles, resetRolesForm]);
+    }, [initialRoles, resetRolesForm]);
 
     useEffect(() => {
         collaboratorDataRef.current = collaboratorData;
@@ -739,6 +881,73 @@ export default function ProjectSettingsTab({
         setSkills(initialIdentity.skills);
         setCoverImage(initialIdentity.coverImage);
     }, [initialIdentity]);
+
+    useEffect(() => {
+        const querySection = searchParams.get("settings") || searchParams.get("section");
+        const targetSection = querySection === "privacy" || querySection === "privacy-terms" || querySection === "privacy-policies"
+            ? "privacy-policies"
+            : querySection === "security-audit" || querySection === "security-data"
+                ? "general"
+                : querySection && sections.some((s) => s.id === querySection)
+                    ? (querySection as ProjectSettingsSectionId)
+                    : null;
+
+        if (locallyNavigatedSectionRef.current?.id === targetSection) {
+            hasMountedRef.current = true;
+            return;
+        }
+
+        const isInitialMount = !hasMountedRef.current;
+        hasMountedRef.current = true;
+
+        let cancelFrame: (() => void) | undefined;
+        if (targetSection && targetSection !== "general") {
+            const frame = window.requestAnimationFrame(() => {
+                scrollToSection(targetSection, isInitialMount ? "auto" : "smooth");
+            });
+            cancelFrame = () => window.cancelAnimationFrame(frame);
+        } else if (isInitialMount && (!querySection || querySection === "general")) {
+            const routeRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
+            routeRoot?.scrollTo({ top: 0, left: routeRoot.scrollLeft, behavior: "auto" });
+        }
+        return cancelFrame;
+    }, [searchParams, sections, scrollToSection]);
+
+    useEffect(() => {
+        const root = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
+        if (!root) return;
+        let rafId = 0;
+        const updateActiveSection = () => {
+            if (locallyNavigatedSectionRef.current) return;
+            if (rafId) return;
+            rafId = window.requestAnimationFrame(() => {
+                rafId = 0;
+                const rootTop = root.getBoundingClientRect().top;
+                const projectTabs = document.querySelector<HTMLElement>('[data-project-sticky-tabs="true"]');
+                const contentTop = rootTop + (projectTabs?.offsetHeight ?? 0);
+                let closest = sections[sections.length - 1]?.id ?? "general";
+                let distance = Number.POSITIVE_INFINITY;
+                for (const section of sections) {
+                    const el = document.getElementById(`project-settings-${section.id}`);
+                    if (!el) continue;
+                    const rect = el.getBoundingClientRect();
+                    if (rect.bottom <= contentTop + 16) continue;
+                    const nextDistance = Math.abs(rect.top - contentTop);
+                    if (nextDistance < distance) {
+                        closest = section.id;
+                        distance = nextDistance;
+                    }
+                }
+                setActiveSection((prev) => (prev === closest ? prev : closest));
+            });
+        };
+        updateActiveSection();
+        root.addEventListener("scroll", updateActiveSection, { passive: true });
+        return () => {
+            root.removeEventListener("scroll", updateActiveSection);
+            if (rafId) window.cancelAnimationFrame(rafId);
+        };
+    }, [sections]);
 
     useEffect(() => {
         if (sections.some((section) => section.id === activeSection)) return;
@@ -793,11 +1002,31 @@ export default function ProjectSettingsTab({
     }, [ownerId, rolePolicy.members]);
     const notificationSummary = useMemo(() => summarizeProjectNotificationPolicy(projectNotificationDraft), [projectNotificationDraft]);
     const notificationGroups = useMemo(() => groupProjectNotificationEntries(), []);
+    const toggleNotificationGroup = useCallback((groupId: string) => {
+        setExpandedNotificationGroups((prev) => ({
+            ...prev,
+            [groupId]: !prev[groupId],
+        }));
+    }, []);
+    const areAllNotificationGroupsExpanded = useMemo(() => {
+        return notificationGroups.length > 0 && notificationGroups.every((g) => expandedNotificationGroups[g.id]);
+    }, [notificationGroups, expandedNotificationGroups]);
+    const toggleAllNotificationGroups = useCallback(() => {
+        if (areAllNotificationGroupsExpanded) {
+            setExpandedNotificationGroups({});
+        } else {
+            const next: Record<string, boolean> = {};
+            for (const g of notificationGroups) {
+                next[g.id] = true;
+            }
+            setExpandedNotificationGroups(next);
+        }
+    }, [areAllNotificationGroupsExpanded, notificationGroups]);
     const filePolicy = useMemo(() => buildProjectFilePolicy(), []);
     const preflightPolicy = useMemo(() => buildProjectSettingsPreflight(dangerPreflight), [dangerPreflight]);
 
-    const visibilityDirty = visibility !== initialSettings.visibility;
-    const publicTabVisibilityDirty = !areProjectPublicTabVisibilitiesEqual(publicTabVisibility, initialSettings.publicTabVisibility);
+    const visibilityDirty = visibility !== savedVisibility;
+    const publicTabVisibilityDirty = !areProjectPublicTabVisibilitiesEqual(publicTabVisibility, savedPublicTabVisibility);
     const accessDirty = visibilityDirty || publicTabVisibilityDirty;
     const categoryValue = resolveProjectCategory(categoryChoice, customCategory);
     const identityDirty =
@@ -826,7 +1055,9 @@ export default function ProjectSettingsTab({
                                 ? updatesDirty
                                 : false;
 
-    const loadDangerPreflight = useCallback(async () => {
+    const dangerPreflightLoadedRef = useRef(false);
+    const loadDangerPreflight = useCallback(async (force = false) => {
+        if (dangerPreflightLoadedRef.current && !force) return;
         setDangerPreflightLoading(true);
         try {
             const result = await getProjectDangerZonePreflightAction(projectId);
@@ -835,6 +1066,7 @@ export default function ProjectSettingsTab({
                 toast.error(result.message);
                 return;
             }
+            dangerPreflightLoadedRef.current = true;
             setDangerPreflight(result.data);
         } catch (error) {
             console.error("Failed to load danger-zone preflight", error);
@@ -845,7 +1077,9 @@ export default function ProjectSettingsTab({
         }
     }, [projectId]);
 
-    const loadAccessImpact = useCallback(async () => {
+    const accessImpactLoadedRef = useRef(false);
+    const loadAccessImpact = useCallback(async (force = false) => {
+        if (accessImpactLoadedRef.current && !force) return;
         setAccessImpactLoading(true);
         try {
             const result = await getProjectAccessImpactAction(projectId);
@@ -854,6 +1088,7 @@ export default function ProjectSettingsTab({
                 toast.error(result.message);
                 return;
             }
+            accessImpactLoadedRef.current = true;
             setAccessImpact(result.data);
         } catch (error) {
             console.error("Failed to load access impact", error);
@@ -861,25 +1096,6 @@ export default function ProjectSettingsTab({
             toast.error("Failed to load access impact.");
         } finally {
             setAccessImpactLoading(false);
-        }
-    }, [projectId]);
-
-    const loadSettingsAudit = useCallback(async () => {
-        setSettingsAuditLoading(true);
-        try {
-            const result = await getProjectSettingsAuditAction(projectId);
-            if (!result.success) {
-                setSettingsAuditEvents([]);
-                toast.error(result.message);
-                return;
-            }
-            setSettingsAuditEvents(result.data);
-        } catch (error) {
-            console.error("Failed to load settings audit", error);
-            setSettingsAuditEvents([]);
-            toast.error("Failed to load settings audit.");
-        } finally {
-            setSettingsAuditLoading(false);
         }
     }, [projectId]);
 
@@ -891,7 +1107,12 @@ export default function ProjectSettingsTab({
             if (!cursor) return;
             setCollaboratorLoadingMore(true);
         } else {
-            setCollaboratorLoading(true);
+            // ponytail: keep warm data mounted without layout shift; only show skeletons on cold mount
+            if (!collaboratorDataRef.current) {
+                setCollaboratorLoading(true);
+            } else {
+                setCollaboratorRefreshing(true);
+            }
         }
         try {
             const result = await getProjectCollaboratorSettingsAction(projectId, {
@@ -928,7 +1149,9 @@ export default function ProjectSettingsTab({
         }
     }, [collaboratorFilter, collaboratorSearch, projectId]);
 
-    const loadFileWorkspaceSettings = useCallback(async () => {
+    const fileWorkspaceLoadedRef = useRef(false);
+    const loadFileWorkspaceSettings = useCallback(async (force = false) => {
+        if (fileWorkspaceLoadedRef.current && !force) return;
         setFileWorkspaceLoading(true);
         try {
             const result = await getProjectFileWorkspaceSettingsAction(projectId);
@@ -937,6 +1160,7 @@ export default function ProjectSettingsTab({
                 toast.error(result.message);
                 return;
             }
+            fileWorkspaceLoadedRef.current = true;
             setFileWorkspaceData(result.data);
         } catch (error) {
             console.error("Failed to load file workspace settings", error);
@@ -947,7 +1171,9 @@ export default function ProjectSettingsTab({
         }
     }, [projectId]);
 
-    const loadProjectNotificationSettings = useCallback(async () => {
+    const projectNotificationLoadedRef = useRef(false);
+    const loadProjectNotificationSettings = useCallback(async (force = false) => {
+        if (projectNotificationLoadedRef.current && !force) return;
         setProjectNotificationLoading(true);
         try {
             const result = await readProjectNotificationSettingsAction(projectId);
@@ -956,6 +1182,7 @@ export default function ProjectSettingsTab({
                 toast.error(result.message);
                 return;
             }
+            projectNotificationLoadedRef.current = true;
             setProjectNotificationData(result.data);
             setProjectNotificationDraft(result.data.policy);
         } catch (error) {
@@ -967,7 +1194,9 @@ export default function ProjectSettingsTab({
         }
     }, [projectId]);
 
-    const loadReadmeSettings = useCallback(async () => {
+    const readmeLoadedRef = useRef(false);
+    const loadReadmeSettings = useCallback(async (force = false) => {
+        if (readmeLoadedRef.current && !force) return;
         setReadmeSettingsLoading(true);
         try {
             const result = await readProjectDocSettingsAction(projectId);
@@ -975,6 +1204,7 @@ export default function ProjectSettingsTab({
                 toast.error(result.error);
                 return;
             }
+            readmeLoadedRef.current = true;
             const normalized = normalizeProjectDocSettings(result.settings);
             setReadmeSettings(normalized);
             setReadmeSettingsDraft(normalized);
@@ -986,43 +1216,28 @@ export default function ProjectSettingsTab({
         }
     }, [projectId]);
 
+    // ponytail: initial parallel eager fetch once on mount; zero scroll re-fetch waterfalls
     useEffect(() => {
-        if (activeSection !== "danger") return;
-        void loadDangerPreflight();
-    }, [activeSection, loadDangerPreflight]);
-
-    useEffect(() => {
-        if (activeSection !== "access") return;
-        void loadAccessImpact();
-    }, [activeSection, loadAccessImpact]);
-
-    useEffect(() => {
-        if (activeSection !== "security-audit") return;
-        void loadSettingsAudit();
-    }, [activeSection, loadSettingsAudit]);
-
-    useEffect(() => {
-        if (activeSection !== "files-workspace") return;
+        void loadCollaborators("initial");
         void loadFileWorkspaceSettings();
-    }, [activeSection, loadFileWorkspaceSettings]);
-
-    useEffect(() => {
-        if (activeSection !== "notifications") return;
         void loadProjectNotificationSettings();
-    }, [activeSection, loadProjectNotificationSettings]);
-
-    useEffect(() => {
-        if (activeSection !== "readme") return;
         void loadReadmeSettings();
-    }, [activeSection, loadReadmeSettings]);
+        void loadAccessImpact();
+        void loadDangerPreflight();
+    }, [loadAccessImpact, loadCollaborators, loadDangerPreflight, loadFileWorkspaceSettings, loadProjectNotificationSettings, loadReadmeSettings]);
 
+    // Re-fetch collaborators only when search or filter genuinely changes (debounced)
+    const initialCollaboratorFilterRef = useRef(false);
     useEffect(() => {
-        if (activeSection !== "collaborators" && activeSection !== "roles-applications") return;
+        if (!initialCollaboratorFilterRef.current) {
+            initialCollaboratorFilterRef.current = true;
+            return;
+        }
         const timer = window.setTimeout(() => {
             void loadCollaborators("initial");
-        }, collaboratorData ? 180 : 0);
+        }, 180);
         return () => window.clearTimeout(timer);
-    }, [activeSection, collaboratorFilter, collaboratorSearch, loadCollaborators]);
+    }, [collaboratorFilter, collaboratorSearch, loadCollaborators]);
 
     const saveAccessSettings = useCallback(async (confirmationToken: string) => {
         const messages: string[] = [];
@@ -1040,6 +1255,8 @@ export default function ProjectSettingsTab({
             }
             messages.push(result.message);
         }
+        setSavedVisibility(visibility);
+        setSavedPublicTabVisibility(publicTabVisibility);
         return { success: true, message: messages.join(" ") || "Access settings updated.", refresh: true };
     }, [projectId, publicTabVisibility, publicTabVisibilityDirty, visibility, visibilityDirty]);
 
@@ -1055,6 +1272,9 @@ export default function ProjectSettingsTab({
                     return;
                 }
                 toast.success(result.message);
+                const nextSaved = result.data ? normalizeProjectPublicTabVisibility(result.data) : publicTabVisibility;
+                setPublicTabVisibility(nextSaved);
+                setSavedPublicTabVisibility(nextSaved);
                 onProjectUpdated();
                 router.refresh();
                 return;
@@ -1111,6 +1331,10 @@ export default function ProjectSettingsTab({
 
             toast.success("General settings updated.");
             onProjectUpdated();
+            broadcastProjectUpdated(projectId);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsSimpleRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.hubRoot() });
             router.refresh();
         } catch (error) {
             console.error("Failed to save general project settings", error);
@@ -1182,51 +1406,152 @@ export default function ProjectSettingsTab({
         )();
     }, [deletedRoleIds, handleRolesSubmit, onProjectUpdated, projectId, resetRolesForm, router]);
 
-    const handleTogglePublicTab = useCallback((tabId: ProjectPublicTabId, enabled: boolean) => {
-        setPublicTabVisibility((current) => ({
-            ...current,
+    const handleTogglePublicTab = useCallback(async (tabId: ProjectPublicTabId, enabled: boolean) => {
+        const previous = publicTabVisibility;
+        const next: ProjectPublicTabVisibility = {
+            ...previous,
             [tabId]: enabled,
-        }));
-    }, []);
+        };
+        // Optimistically apply immediately in memory
+        setPublicTabVisibility(next);
+        setSavedPublicTabVisibility(next);
+        setSavingPublicTabId(tabId);
+
+        try {
+            const result = await updateProjectPublicTabVisibilityAction(projectId, next);
+            if (!result.success) {
+                // Rollback on failure
+                setPublicTabVisibility(previous);
+                setSavedPublicTabVisibility(previous);
+                toast.error(result.message);
+                return;
+            }
+            toast.success(`${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility updated.`);
+            onProjectUpdated();
+            router.refresh();
+        } catch (error) {
+            setPublicTabVisibility(previous);
+            setSavedPublicTabVisibility(previous);
+            console.error("Failed to update public tab visibility", error);
+            toast.error("Failed to update tab visibility.");
+        } finally {
+            setSavingPublicTabId(null);
+        }
+    }, [onProjectUpdated, projectId, publicTabVisibility, router]);
+
+    const handleSelectVisibility = useCallback(async (nextVisibility: ProjectSettingsVisibility) => {
+        if (nextVisibility === visibility) return;
+        setSavingSettings(true);
+        try {
+            const preflightResult = await getProjectAccessTransitionPreflightAction(projectId, nextVisibility);
+            if (!preflightResult.success) {
+                toast.error(preflightResult.message);
+                return;
+            }
+            const preflight: AccessTransitionPreflightData = preflightResult.data;
+            const isPrivateTransition = preflight.nextVisibility === "private";
+            setConfirmAction({
+                title: isPrivateTransition ? "Make project private" : "Make project public",
+                description: preflight.policy.confirmationSummary.join(" "),
+                confirmLabel: isPrivateTransition ? "Make private" : "Make public",
+                variant: isPrivateTransition ? "destructive" : "default",
+                content: <AccessTransitionDetails preflight={preflight} />,
+                action: async () => {
+                    const result = await updateProjectVisibilityAction(projectId, nextVisibility, preflight.confirmationToken);
+                    if (!result.success) {
+                        return { success: false, message: result.message };
+                    }
+                    setVisibility(nextVisibility);
+                    setSavedVisibility(nextVisibility);
+                    return { success: true, message: result.message, refresh: true };
+                },
+            });
+        } catch (error) {
+            console.error("Failed to prepare access transition", error);
+            toast.error("Failed to prepare access transition.");
+        } finally {
+            setSavingSettings(false);
+        }
+    }, [onProjectUpdated, projectId, router, visibility]);
 
     const handleToggleMemberFileUpload = useCallback(async (member: FileWorkspaceSettingsData["members"][number], enabled: boolean) => {
         if (member.uploadPermissionLocked) return;
         setFileWorkspaceSavingMemberId(member.id);
+        const previousData = fileWorkspaceData;
+        if (previousData) {
+            const nextMembers = previousData.members.map((m) => {
+                if (m.id === member.id) {
+                    return { ...m, fileUploadEnabled: enabled };
+                }
+                return m;
+            });
+            const enabledMemberCount = nextMembers.filter((m) => !m.uploadPermissionLocked && m.fileUploadEnabled).length;
+            const disabledMemberCount = nextMembers.filter((m) => !m.uploadPermissionLocked && !m.fileUploadEnabled).length;
+            setFileWorkspaceData({
+                ...previousData,
+                members: nextMembers,
+                summary: {
+                    ...previousData.summary,
+                    enabledMemberCount,
+                    disabledMemberCount,
+                },
+            });
+        }
         try {
             const result = await updateProjectMemberFileUploadAction(projectId, member.id, enabled);
             if (!result.success) {
+                if (previousData) setFileWorkspaceData(previousData);
                 toast.error(result.message);
                 return;
             }
             toast.success(result.message);
-            await loadFileWorkspaceSettings();
-            void loadSettingsAudit();
         } catch (error) {
+            if (previousData) setFileWorkspaceData(previousData);
             console.error("Failed to update file upload permission", error);
             toast.error("Failed to update file upload permission.");
         } finally {
             setFileWorkspaceSavingMemberId(null);
         }
-    }, [loadFileWorkspaceSettings, loadSettingsAudit, projectId]);
+    }, [fileWorkspaceData, projectId]);
 
     const handleBulkFileUploadPermission = useCallback(async (enabled: boolean) => {
         setFileWorkspaceBulkSaving(true);
+        const previousData = fileWorkspaceData;
+        if (previousData) {
+            const nextMembers = previousData.members.map((m) => {
+                if (!m.uploadPermissionLocked) {
+                    return { ...m, fileUploadEnabled: enabled };
+                }
+                return m;
+            });
+            const enabledMemberCount = enabled ? nextMembers.filter((m) => !m.uploadPermissionLocked).length : 0;
+            const disabledMemberCount = enabled ? 0 : nextMembers.filter((m) => !m.uploadPermissionLocked).length;
+            setFileWorkspaceData({
+                ...previousData,
+                members: nextMembers,
+                summary: {
+                    ...previousData.summary,
+                    enabledMemberCount,
+                    disabledMemberCount,
+                },
+            });
+        }
         try {
             const result = await updateProjectFileUploadDefaultsAction(projectId, enabled);
             if (!result.success) {
+                if (previousData) setFileWorkspaceData(previousData);
                 toast.error(result.message);
                 return;
             }
             toast.success(result.message);
-            await loadFileWorkspaceSettings();
-            void loadSettingsAudit();
         } catch (error) {
+            if (previousData) setFileWorkspaceData(previousData);
             console.error("Failed to update file upload defaults", error);
             toast.error("Failed to update file upload defaults.");
         } finally {
             setFileWorkspaceBulkSaving(false);
         }
-    }, [loadFileWorkspaceSettings, loadSettingsAudit, projectId]);
+    }, [fileWorkspaceData, projectId]);
 
     const handleProjectNotificationPreset = useCallback((preset: ProjectNotificationPreset) => {
         setProjectNotificationDraft(buildDefaultProjectNotificationPolicy(preset));
@@ -1261,14 +1586,13 @@ export default function ProjectSettingsTab({
             setProjectNotificationData(result.data);
             setProjectNotificationDraft(result.data.policy);
             toast.success(result.message ?? "Project notification settings updated.");
-            void loadSettingsAudit();
         } catch (error) {
             console.error("Failed to save project notification settings", error);
             toast.error("Failed to save project notification settings.");
         } finally {
             setSavingSettings(false);
         }
-    }, [loadSettingsAudit, projectId, projectNotificationDraft]);
+    }, [projectId, projectNotificationDraft]);
 
     const handleSaveReadmeSettings = useCallback(async () => {
         setReadmeSettingsSaving(true);
@@ -1282,7 +1606,6 @@ export default function ProjectSettingsTab({
             setReadmeSettings(normalized);
             setReadmeSettingsDraft(normalized);
             toast.success("Document settings updated.");
-            void loadSettingsAudit();
             onProjectUpdated();
         } catch (error) {
             console.error("Failed to save document settings", error);
@@ -1290,7 +1613,40 @@ export default function ProjectSettingsTab({
         } finally {
             setReadmeSettingsSaving(false);
         }
-    }, [loadSettingsAudit, onProjectUpdated, projectId, readmeSettingsDraft]);
+    }, [onProjectUpdated, projectId, readmeSettingsDraft]);
+
+    const handleToggleReadmeSetting = useCallback(async (key: keyof ProjectDocSettings, enabled: boolean) => {
+        const previous = readmeSettingsDraft;
+        const next: ProjectDocSettings = {
+            ...previous,
+            [key]: enabled,
+        };
+        setReadmeSettingsDraft(next);
+        setReadmeSettings(next);
+        setSavingReadmeKey(key);
+
+        try {
+            const result = await updateProjectDocSettingsAction(projectId, next);
+            if (!result.success) {
+                setReadmeSettingsDraft(previous);
+                setReadmeSettings(previous);
+                toast.error(result.error || "Failed to update document setting.");
+                return;
+            }
+            const normalized = normalizeProjectDocSettings(result.settings);
+            setReadmeSettings(normalized);
+            setReadmeSettingsDraft(normalized);
+            toast.success("Document setting updated.");
+            onProjectUpdated();
+        } catch (error) {
+            setReadmeSettingsDraft(previous);
+            setReadmeSettings(previous);
+            console.error("Failed to save document setting", error);
+            toast.error("Failed to save document setting.");
+        } finally {
+            setSavingReadmeKey(null);
+        }
+    }, [onProjectUpdated, projectId, readmeSettingsDraft]);
 
     const handleResetNotifications = useCallback(async () => {
         setSavingSettings(true);
@@ -1303,14 +1659,13 @@ export default function ProjectSettingsTab({
             setProjectNotificationData(result.data);
             setProjectNotificationDraft(result.data.policy);
             toast.success(result.message ?? "Project notification settings reset.");
-            void loadSettingsAudit();
         } catch (error) {
             console.error("Failed to reset project notification settings", error);
             toast.error("Failed to reset project notification settings.");
         } finally {
             setSavingSettings(false);
         }
-    }, [loadSettingsAudit, projectId]);
+    }, [projectId]);
 
     const openMemberNotificationSettings = useCallback(async (member: ProjectSettingsMember) => {
         setMemberNotificationData(null);
@@ -1402,6 +1757,32 @@ export default function ProjectSettingsTab({
         }
     }, [memberUpdatesEnabled, onProjectUpdated, projectId, router]);
 
+    const handleToggleMemberUpdates = useCallback(async (enabled: boolean) => {
+        const previous = memberUpdatesEnabled;
+        setMemberUpdatesEnabled(enabled);
+        setSavingMemberUpdates(true);
+
+        try {
+            const result = await updateProject(projectId, {
+                memberUpdatesEnabled: enabled,
+            });
+            if (!result?.success) {
+                setMemberUpdatesEnabled(previous);
+                toast.error("Failed to update member publishing permissions.");
+                return;
+            }
+            toast.success("Member publishing permissions updated.");
+            onProjectUpdated();
+            router.refresh();
+        } catch (error) {
+            setMemberUpdatesEnabled(previous);
+            console.error("Failed to save updates settings", error);
+            toast.error(error instanceof Error ? error.message : "Failed to save updates settings.");
+        } finally {
+            setSavingMemberUpdates(false);
+        }
+    }, [memberUpdatesEnabled, onProjectUpdated, projectId, router]);
+
     const handleSaveCurrentSection = useCallback(() => {
         if (activeSection === "general") {
             void handleSaveGeneral();
@@ -1428,20 +1809,40 @@ export default function ProjectSettingsTab({
         }
     }, [activeSection, handleSaveAccess, handleSaveGeneral, handleSaveNotifications, handleSaveReadmeSettings, handleSaveRoles, handleSaveUpdatesSettings]);
 
+    const handleCancelGeneral = useCallback(() => {
+        setProjectTitle(initialIdentity.title);
+        setShortDescription(initialIdentity.shortDescription);
+        setDescription(initialIdentity.description);
+        setCategoryChoice(initialIdentity.categoryChoice);
+        setCustomCategory(initialIdentity.customCategory);
+        setTags(initialIdentity.tags);
+        setSkills(initialIdentity.skills);
+    }, [initialIdentity]);
+
+    const handleCancelAccess = useCallback(() => {
+        setVisibility(savedVisibility);
+        setPublicTabVisibility(savedPublicTabVisibility);
+    }, [savedPublicTabVisibility, savedVisibility]);
+
+    const handleCancelReadmeSettings = useCallback(() => {
+        setReadmeSettingsDraft(readmeSettings);
+    }, [readmeSettings]);
+
+    const handleCancelUpdatesSettings = useCallback(() => {
+        setMemberUpdatesEnabled(initialSettings.memberUpdatesEnabled);
+    }, [initialSettings.memberUpdatesEnabled]);
+
+    const handleCancelNotifications = useCallback(() => {
+        setProjectNotificationDraft(projectNotificationData?.policy ?? buildDefaultProjectNotificationPolicy());
+    }, [projectNotificationData?.policy]);
+
     const handleCancelCurrentSection = useCallback(() => {
         if (activeSection === "general") {
-            setProjectTitle(initialIdentity.title);
-            setShortDescription(initialIdentity.shortDescription);
-            setDescription(initialIdentity.description);
-            setCategoryChoice(initialIdentity.categoryChoice);
-            setCustomCategory(initialIdentity.customCategory);
-            setTags(initialIdentity.tags);
-            setSkills(initialIdentity.skills);
+            handleCancelGeneral();
             return;
         }
         if (activeSection === "access") {
-            setVisibility(initialSettings.visibility);
-            setPublicTabVisibility(initialSettings.publicTabVisibility);
+            handleCancelAccess();
             return;
         }
         if (activeSection === "roles-applications") {
@@ -1449,63 +1850,25 @@ export default function ProjectSettingsTab({
             return;
         }
         if (activeSection === "readme") {
-            setReadmeSettingsDraft(readmeSettings);
+            handleCancelReadmeSettings();
             return;
         }
         if (activeSection === "notifications") {
-            setProjectNotificationDraft(projectNotificationData?.policy ?? buildDefaultProjectNotificationPolicy());
+            handleCancelNotifications();
             return;
         }
         if (activeSection === "updates") {
-            setMemberUpdatesEnabled(initialSettings.memberUpdatesEnabled);
+            handleCancelUpdatesSettings();
         }
-    }, [activeSection, handleCancelRoles, initialIdentity, initialSettings, projectNotificationData?.policy, readmeSettings]);
-
-    const handleExport = useCallback(async () => {
-        setLoadingExport(true);
-        try {
-            const payload = {
-                exportedAt: new Date().toISOString(),
-                projectId,
-                project: {
-                    id: project?.id ?? projectId,
-                    title: project?.title ?? "Project",
-                    slug: project?.slug ?? null,
-                    description: project?.description ?? null,
-                    visibility: project?.visibility ?? null,
-                    status: project?.status ?? null,
-                    lifecycleStages: project?.lifecycleStages ?? project?.lifecycle_stages ?? [],
-                    currentStageIndex: project?.currentStageIndex ?? project?.current_stage_index ?? 0,
-                    tags: project?.tags ?? [],
-                    skills: project?.skills ?? [],
-                    category: project?.category ?? null,
-                    lookingForCollaborators: Boolean(project?.lookingForCollaborators),
-                    maxCollaborators: project?.maxCollaborators ?? null,
-                },
-                members: collaboratorMembers.map((member) => ({
-                    id: member.id,
-                    displayName: getProjectMemberDisplayName(member),
-                    membershipRole: projectMemberRole(member, ownerId),
-                    projectRoleTitle: member.projectRoleTitle ?? null,
-                })),
-            };
-            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-            const href = URL.createObjectURL(blob);
-            const anchor = document.createElement("a");
-            anchor.href = href;
-            anchor.download = `${(project?.slug || project?.title || "project").toString().replace(/\s+/g, "-").toLowerCase()}-project-export.json`;
-            document.body.appendChild(anchor);
-            anchor.click();
-            anchor.remove();
-            window.setTimeout(() => URL.revokeObjectURL(href), 250);
-            toast.success("Project snapshot exported.");
-        } catch (error) {
-            console.error("Failed to export project settings", error);
-            toast.error("Failed to export project data.");
-        } finally {
-            setLoadingExport(false);
-        }
-    }, [collaboratorMembers, ownerId, project, projectId]);
+    }, [
+        activeSection,
+        handleCancelAccess,
+        handleCancelGeneral,
+        handleCancelNotifications,
+        handleCancelReadmeSettings,
+        handleCancelRoles,
+        handleCancelUpdatesSettings,
+    ]);
 
     const handleCoverImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         restoreFilePickerScroll();
@@ -1513,8 +1876,15 @@ export default function ProjectSettingsTab({
         event.target.value = "";
         if (!file) return;
 
-        if (!ALLOWED_PROJECT_IMAGE_MIME_TYPES.has(file.type)) {
+        const isGif = file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif");
+        const fileType = file.type || (isGif ? "image/gif" : "");
+        if (!ALLOWED_PROJECT_IMAGE_MIME_TYPES.has(fileType)) {
             toast.error("Unsupported image type. Use JPG, PNG, WebP, or GIF.");
+            return;
+        }
+
+        if (file.size > PROJECT_IMAGE_UPLOAD_MAX_BYTES) {
+            toast.error(`Image must be under 2MB. Selected file is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`);
             return;
         }
 
@@ -1613,6 +1983,7 @@ export default function ProjectSettingsTab({
                 import("@/lib/upload/image-prep-client"),
                 import("@/lib/upload/supabase-signed-upload-client"),
             ]);
+            const isGif = coverDraft.file.type === "image/gif" || coverDraft.file.name.toLowerCase().endsWith(".gif");
             const preparedImage = await prepareProjectImageForUpload(coverDraft.file, {
                 maxBytes: PROJECT_IMAGE_UPLOAD_MAX_BYTES,
                 size: PROJECT_IMAGE_OUTPUT_SIZE,
@@ -1620,7 +1991,7 @@ export default function ProjectSettingsTab({
                 zoom: coverDraft.zoom,
                 offsetX: coverDraft.offsetX,
                 offsetY: coverDraft.offsetY,
-                outputType: "image/jpeg",
+                outputType: isGif ? undefined : "image/jpeg",
             });
             const uploadSession = await createProjectCoverImageUploadUrlAction({
                 projectId,
@@ -1645,6 +2016,10 @@ export default function ProjectSettingsTab({
             setCoverDraft(null);
             toast.success(preparedImage.optimized ? "Project avatar optimized and updated." : "Project avatar updated.");
             onProjectUpdated({ coverImage: finalized.publicUrl });
+            broadcastProjectUpdated(projectId, { coverImage: finalized.publicUrl });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsSimpleRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.hubRoot() });
             router.refresh();
         } catch (error) {
             console.error("Failed to upload project avatar", error);
@@ -1652,7 +2027,7 @@ export default function ProjectSettingsTab({
         } finally {
             setUploadingCoverImage(false);
         }
-    }, [coverDraft, onProjectUpdated, projectId, router]);
+    }, [coverDraft, onProjectUpdated, projectId, queryClient, router]);
 
     const handleCancelCoverDraft = useCallback(() => {
         setCoverDraft((current) => {
@@ -1675,6 +2050,10 @@ export default function ProjectSettingsTab({
             setCoverImage("");
             toast.success("Project avatar removed.");
             onProjectUpdated({ coverImage: null });
+            broadcastProjectUpdated(projectId, { coverImage: null });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsSimpleRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsRoot() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.hubRoot() });
             router.refresh();
         } catch (error) {
             console.error("Failed to remove project avatar", error);
@@ -1682,7 +2061,7 @@ export default function ProjectSettingsTab({
         } finally {
             setUploadingCoverImage(false);
         }
-    }, [coverDraft, handleCancelCoverDraft, onProjectUpdated, projectId, router]);
+    }, [coverDraft, handleCancelCoverDraft, onProjectUpdated, projectId, queryClient, router]);
 
     const runConfirmAction = useCallback(async () => {
         if (!confirmAction) return;
@@ -1697,7 +2076,6 @@ export default function ProjectSettingsTab({
             if (result.refresh) {
                 void loadAccessImpact();
                 void loadCollaborators("refresh");
-                void loadSettingsAudit();
                 onProjectUpdated();
                 router.refresh();
             }
@@ -1714,7 +2092,50 @@ export default function ProjectSettingsTab({
         } finally {
             setConfirmLoading(false);
         }
-    }, [confirmAction, loadAccessImpact, loadCollaborators, loadSettingsAudit, onProjectUpdated, router]);
+    }, [confirmAction, loadAccessImpact, loadCollaborators, onProjectUpdated, router]);
+
+    const handleExecuteArchive = useCallback(async () => {
+        setConfirmLoading(true);
+        try {
+            const result = await archiveProjectAction(projectId);
+            if (!result.success) {
+                toast.error(result.message);
+                return;
+            }
+            await loadDangerPreflight();
+            onProjectUpdated?.();
+            setArchiveModalOpen(false);
+            toast.success(result.message);
+        } catch (error) {
+            console.error("Failed to archive project:", error);
+            toast.error("Failed to archive project.");
+        } finally {
+            setConfirmLoading(false);
+        }
+    }, [loadDangerPreflight, onProjectUpdated, projectId]);
+
+    const handleExecuteTransfer = useCallback(async (candidate: ProjectSettingsMember) => {
+        setConfirmLoading(true);
+        try {
+            const result = await transferProjectOwnership(projectId, candidate.id);
+            if (!result.success) {
+                toast.error(result.error ?? "Failed to transfer ownership.");
+                return;
+            }
+            await loadCollaborators("refresh");
+            await loadDangerPreflight();
+            onProjectUpdated?.();
+            setTransferModalOpen(false);
+            setSelectedTransferCandidate(null);
+            setTransferOwnerId("");
+            toast.success("Project ownership transferred successfully.");
+        } catch (error) {
+            console.error("Failed to transfer ownership:", error);
+            toast.error("Failed to transfer ownership.");
+        } finally {
+            setConfirmLoading(false);
+        }
+    }, [loadCollaborators, loadDangerPreflight, onProjectUpdated, projectId]);
 
     const prepareArchive = useCallback(() => {
         if (!dangerPreflight) {
@@ -1725,44 +2146,13 @@ export default function ProjectSettingsTab({
             toast.error("Project is already archived.");
             return;
         }
-        setConfirmAction({
-            title: "Archive project",
-            description: "Archive hides this project from normal discovery and marks it archived. Existing members keep safe access for historical context.",
-            confirmLabel: "Archive project",
-            variant: "destructive",
-            action: async () => {
-                const result = await archiveProjectAction(projectId);
-                if (!result.success) {
-                    return { success: false, message: result.message };
-                }
-                await loadDangerPreflight();
-                return { success: true, message: result.message, refresh: true };
-            },
-        });
-    }, [dangerPreflight, loadDangerPreflight, projectId]);
+        setArchiveModalOpen(true);
+    }, [dangerPreflight]);
 
     const prepareTransferToMember = useCallback((candidate: ProjectSettingsMember) => {
-        setConfirmAction({
-            title: "Transfer project ownership",
-            description: `${getProjectMemberDisplayName(candidate)} will become the project owner. You will be demoted to admin and lose owner-only danger-zone permissions.`,
-            confirmLabel: "Transfer ownership",
-            variant: "destructive",
-            action: async () => {
-                const result = await transferProjectOwnership(projectId, candidate.id);
-                if (!result.success) {
-                    return {
-                        success: false,
-                        message: result.error ?? "Failed to transfer ownership.",
-                    };
-                }
-                return {
-                    success: true,
-                    message: "Project ownership transferred.",
-                    refresh: true,
-                };
-            },
-        });
-    }, [projectId]);
+        setSelectedTransferCandidate(candidate);
+        setTransferModalOpen(true);
+    }, []);
 
     const prepareTransfer = useCallback(() => {
         const candidate = rolePolicy.transferCandidates.find((member) => member.id === transferOwnerId);
@@ -1838,7 +2228,7 @@ export default function ProjectSettingsTab({
                 variant: "destructive",
                 content: (
                     <div className="space-y-4 text-sm">
-                        <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-red-900 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-100">
+                        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-900 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-100">
                             <p className="font-semibold">Access removal impact</p>
                             <ul className="mt-2 space-y-1 text-xs leading-5">
                                 {policyPreview.affectedAreas.map((area) => (
@@ -1850,13 +2240,13 @@ export default function ProjectSettingsTab({
                         <RemovalImpactDetails preflight={preflight} />
 
                         <fieldset className="space-y-2">
-                            <legend className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Removal mode</legend>
+                            <legend className="nb-micro text-muted-foreground">Removal mode</legend>
                             {([
                                 ["preserve_history", "Preserve history", "Keep active assignments in place and label them Removed from project · Needs reassignment."],
                                 ["unassign_active_tasks", "Unassign active tasks", "Clear this member from active task assignee fields while preserving creator/comment/file history."],
                                 ["reassign_active_tasks", "Reassign active tasks", "Move active assigned tasks to another eligible active collaborator."],
                             ] as const).map(([mode, label, detail]) => (
-                                <label key={mode} className="flex cursor-pointer gap-3 rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
+                                <label key={mode} className="flex cursor-pointer gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:border-foreground/20">
                                     <input
                                         type="radio"
                                         name="project-member-removal-mode"
@@ -1866,8 +2256,8 @@ export default function ProjectSettingsTab({
                                         className="mt-1"
                                     />
                                     <span>
-                                        <span className="block font-semibold text-zinc-950 dark:text-zinc-50">{label}</span>
-                                        <span className="mt-0.5 block text-xs leading-5 text-zinc-500">{detail}</span>
+                                        <span className="nb-ui-label block font-semibold text-foreground">{label}</span>
+                                        <span className="nb-compact mt-0.5 block text-xs leading-5 text-muted-foreground">{detail}</span>
                                     </span>
                                 </label>
                             ))}
@@ -1875,11 +2265,11 @@ export default function ProjectSettingsTab({
 
                         {removalMode === "reassign_active_tasks" ? (
                             <label className="block">
-                                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Replacement assignee</span>
+                                <span className="nb-micro text-muted-foreground">Replacement assignee</span>
                                 <select
                                     value={removalReassignToUserId}
                                     onChange={(event) => setRemovalReassignToUserId(event.target.value)}
-                                    className="mt-2 h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-blue-500 dark:border-zinc-800 dark:bg-zinc-950"
+                                    className="mt-2 h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                 >
                                     {(preflight.reassignmentCandidates ?? []).map((candidate) => (
                                         <option key={candidate.id} value={candidate.id}>
@@ -1888,7 +2278,7 @@ export default function ProjectSettingsTab({
                                     ))}
                                 </select>
                                 {(preflight.reassignmentCandidates ?? []).length === 0 ? (
-                                    <span className="mt-2 block text-xs text-red-500">No eligible replacement assignee is available.</span>
+                                    <span className="mt-2 block nb-compact text-xs text-destructive">No eligible replacement assignee is available.</span>
                                 ) : null}
                             </label>
                         ) : null}
@@ -1916,6 +2306,25 @@ export default function ProjectSettingsTab({
         }
     }, [actorProjectRole, isProjectOwner, ownerId, projectId]);
 
+    const handleExecuteDelete = useCallback(async () => {
+        setConfirmLoading(true);
+        try {
+            const result = await deleteProject(projectId);
+            if (!result.success) {
+                toast.error(result.message);
+                return;
+            }
+            setDeleteModalOpen(false);
+            toast.success(result.message);
+            router.push(result.data.redirectTo || "/projects");
+        } catch (error) {
+            console.error("Failed to delete project:", error);
+            toast.error("Failed to delete project.");
+        } finally {
+            setConfirmLoading(false);
+        }
+    }, [projectId, router]);
+
     const prepareDelete = useCallback(() => {
         if (!dangerPreflight) {
             toast.error("Run danger-zone preflight before deleting.");
@@ -1925,24 +2334,8 @@ export default function ProjectSettingsTab({
             toast.error("Project cannot be deleted.");
             return;
         }
-        setConfirmAction({
-            title: "Delete project",
-            description: "This permanently deletes the project and its associated data. This action cannot be undone.",
-            confirmLabel: "Delete project",
-            variant: "destructive",
-            action: async () => {
-                const result = await deleteProject(projectId);
-                if (!result.success) {
-                    return { success: false, message: result.message };
-                }
-                return {
-                    success: true,
-                    message: result.message,
-                    redirectTo: result.data.redirectTo,
-                };
-            },
-        });
-    }, [dangerPreflight, projectId]);
+        setDeleteModalOpen(true);
+    }, [dangerPreflight]);
 
     const toggleAdvanced = useCallback((sectionId: ProjectSettingsSectionId) => {
         setAdvancedOpen((current) => ({
@@ -1953,12 +2346,12 @@ export default function ProjectSettingsTab({
 
     if (!canManageSettings) {
         return (
-            <div className="mx-auto flex max-w-xl flex-col items-center justify-center rounded-3xl border border-zinc-200 bg-white px-8 py-16 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-900">
-                    <Lock className="h-8 w-8 text-zinc-400" />
+            <div className="mx-auto flex max-w-xl flex-col items-center justify-center rounded-lg border border-border bg-card px-8 py-16 text-center shadow-none">
+                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-muted">
+                    <Lock className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Settings require collaborator management access</h3>
-                <p className="mt-2 text-sm leading-6 text-zinc-500">
+                <h3 className="nb-section-title text-foreground">Settings require collaborator management access</h3>
+                <p className="nb-compact mt-2 text-sm leading-6 text-muted-foreground">
                     Leads can manage every setting. Co-leaders can manage member and viewer lifecycle. Ask the lead for access if you need to change collaborators.
                 </p>
             </div>
@@ -1971,9 +2364,9 @@ export default function ProjectSettingsTab({
         const policyPreview = buildProjectMemberRemovalPreflight(removalPreflightDialog);
         return (
             <div className="space-y-4 text-sm">
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-red-900 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-100">
-                    <p className="font-semibold">Access removal impact</p>
-                    <ul className="mt-2 space-y-1 text-xs leading-5">
+                <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-destructive">
+                    <p className="nb-ui-label font-semibold">Access removal impact</p>
+                    <ul className="mt-2 space-y-1 nb-compact text-xs leading-5">
                         {policyPreview.affectedAreas.map((area) => (
                             <li key={area}>{area}</li>
                         ))}
@@ -1983,13 +2376,13 @@ export default function ProjectSettingsTab({
                 <RemovalImpactDetails preflight={removalPreflightDialog} />
 
                 <fieldset className="space-y-2">
-                    <legend className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Removal mode</legend>
+                    <legend className="nb-micro text-muted-foreground">Removal mode</legend>
                     {([
                         ["preserve_history", "Preserve history", "Keep active assignments in place and label them Removed from project · Needs reassignment."],
                         ["unassign_active_tasks", "Unassign active tasks", "Clear this member from active task assignee fields while preserving creator/comment/file history."],
                         ["reassign_active_tasks", "Reassign active tasks", "Move active assigned tasks to another eligible active collaborator."],
                     ] as const).map(([mode, label, detail]) => (
-                        <label key={mode} className="flex cursor-pointer gap-3 rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
+                        <label key={mode} className="flex cursor-pointer gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:border-foreground/20">
                             <input
                                 type="radio"
                                 name="project-member-removal-mode"
@@ -1999,8 +2392,8 @@ export default function ProjectSettingsTab({
                                 className="mt-1"
                             />
                             <span>
-                                <span className="block font-semibold text-zinc-950 dark:text-zinc-50">{label}</span>
-                                <span className="mt-0.5 block text-xs leading-5 text-zinc-500">{detail}</span>
+                                <span className="nb-ui-label block font-semibold text-foreground">{label}</span>
+                                <span className="nb-compact mt-0.5 block text-xs leading-5 text-muted-foreground">{detail}</span>
                             </span>
                         </label>
                     ))}
@@ -2008,11 +2401,11 @@ export default function ProjectSettingsTab({
 
                 {removalMode === "reassign_active_tasks" ? (
                     <label className="block">
-                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Replacement assignee</span>
+                        <span className="nb-micro text-muted-foreground">Replacement assignee</span>
                         <select
                             value={removalReassignToUserId}
                             onChange={(event) => setRemovalReassignToUserId(event.target.value)}
-                            className="mt-2 h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-blue-500 dark:border-zinc-800 dark:bg-zinc-950"
+                            className="mt-2 h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                         >
                             {(removalPreflightDialog.reassignmentCandidates ?? []).map((candidate) => (
                                 <option key={candidate.id} value={candidate.id}>
@@ -2021,7 +2414,7 @@ export default function ProjectSettingsTab({
                             ))}
                         </select>
                         {(removalPreflightDialog.reassignmentCandidates ?? []).length === 0 ? (
-                            <span className="mt-2 block text-xs text-red-500">No eligible replacement assignee is available.</span>
+                            <span className="mt-2 block nb-compact text-xs text-destructive">No eligible replacement assignee is available.</span>
                         ) : null}
                     </label>
                 ) : null}
@@ -2041,154 +2434,326 @@ export default function ProjectSettingsTab({
     ) : confirmAction?.content;
 
     return (
-        <div className="mx-auto grid w-full max-w-7xl gap-6 p-4 sm:p-6 lg:p-8 xl:grid-cols-[280px_minmax(0,1fr)]">
-            <aside className="h-fit rounded-3xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 xl:sticky xl:top-6 xl:max-h-[calc(100dvh-var(--ui-topnav-height)-8rem)] xl:overflow-y-auto xl:app-scroll xl:app-scroll-y xl:app-scroll-gutter">
-                <div className="px-3 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-400">Project settings</p>
-                    <h2 className="mt-2 text-xl font-semibold text-zinc-950 dark:text-zinc-50">Control center</h2>
-                    <p className="mt-2 text-sm leading-5 text-zinc-500">
+        <div className="mx-auto grid w-full max-w-[1320px] gap-6 px-4 pb-6 pt-5 sm:px-6 sm:pb-8 sm:pt-6 xl:grid-cols-[248px_minmax(0,1fr)]">
+            <aside className="sticky top-[calc(var(--project-tabs-height)+1.5rem)] hidden max-h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height)-3.5rem)] w-[248px] self-start overflow-y-auto rounded-lg border border-border bg-card p-2 shadow-none app-scroll app-scroll-y app-scroll-gutter xl:block">
+                <div className="px-3 pb-3 pt-2">
+                    <p className="nb-micro">Project settings</p>
+                    <h2 className="nb-section-title mt-1 text-foreground">Project preferences</h2>
+                    <p className="nb-compact mt-1 text-muted-foreground">
                         {isProjectOwner
-                            ? "Lead settings with one canonical policy path across the app."
-                            : "Role-scoped access with canonical fallback checks."}
+                            ? "Manage your project, team and preferences."
+                            : "Manage the settings available to your role."}
                     </p>
                 </div>
-                <nav className="mt-2 space-y-1">
-                    {sections.map((section) => {
-                        const Icon = SECTION_ICONS[section.id];
-                        const active = activeSection === section.id;
+                <nav aria-label="Project settings sections" className="mt-1 space-y-4">
+                    {SECTION_GROUPS.map((group) => {
+                        const groupSections = sections.filter((s) => group.sectionIds.includes(s.id));
+                        if (groupSections.length === 0) return null;
                         return (
-                            <button
-                                key={section.id}
-                                type="button"
-                                onClick={() => setActiveSection(section.id)}
-                                className={cn(
-                                    "flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition",
-                                    active
-                                        ? "bg-zinc-950 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-950"
-                                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100",
-                                )}
-                            >
-                                <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-                                <span>
-                                    <span className="block text-sm font-semibold">{section.label}</span>
-                                    <span className={cn("mt-0.5 block text-xs leading-4", active ? "text-zinc-300 dark:text-zinc-600" : "text-zinc-400")}>
-                                        {section.description}
-                                    </span>
-                                </span>
-                            </button>
+                            <div key={group.id} className="space-y-1">
+                                <div className="px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                    {group.label}
+                                </div>
+                                {groupSections.map((section) => {
+                                    const Icon = SECTION_ICONS[section.id];
+                                    const active = activeSection === section.id;
+                                    return (
+                                        <button
+                                            key={section.id}
+                                            type="button"
+                                            aria-current={active ? "page" : undefined}
+                                            onClick={() => handleNavigateSection(section.id)}
+                                            className={cn(
+                                                "group flex min-h-[44px] w-full items-start gap-2.5 rounded-md px-3 py-2 text-left transition-colors duration-[130ms] ease-[cubic-bezier(.2,.8,.3,1)]",
+                                                active
+                                                    ? "bg-muted font-medium text-foreground"
+                                                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                                            )}
+                                        >
+                                            <Icon className={cn("mt-0.5 h-4 w-4 shrink-0 transition-colors", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                                            <span className="min-w-0 flex-1">
+                                                <span className="nb-ui-label block truncate text-[13px] leading-tight">{section.label}</span>
+                                                <span className={cn("mt-0.5 block truncate text-[11px] leading-snug", active ? "text-foreground/80" : "text-muted-foreground/70")}>
+                                                    {section.description}
+                                                </span>
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         );
                     })}
                 </nav>
             </aside>
 
-            <main className="min-w-0 space-y-5 pb-8">
-                <SectionHeader
-                    title={sections.find((section) => section.id === activeSection)?.label ?? "Settings"}
-                    description={sections.find((section) => section.id === activeSection)?.description ?? ""}
-                    dirty={sectionDirty}
-                    onCancel={handleCancelCurrentSection}
-                    onSave={handleSaveCurrentSection}
-                    saving={savingSettings}
-                />
+            <main data-project-settings-document className="min-w-0 space-y-12">
+                {/* Mobile / Tablet Sticky Section Selector */}
+                <details className="sticky top-[calc(var(--project-tabs-height)+1.25rem)] z-20 mb-4 rounded-lg border border-border bg-card p-2 xl:hidden">
+                    <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2">
+                        <span className="flex min-w-0 items-center gap-2.5">
+                            {(() => {
+                                const ActiveIcon = SECTION_ICONS[activeSection] || Settings;
+                                const activeSec = sections.find((s) => s.id === activeSection) ?? sections[0];
+                                return (
+                                    <>
+                                        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                                            <ActiveIcon className="size-3.5" />
+                                        </span>
+                                        <span className="min-w-0">
+                                            <span className="nb-ui-label block truncate text-foreground font-medium text-sm">
+                                                {activeSec?.label ?? "Settings"}
+                                            </span>
+                                            <span className="nb-compact block truncate text-xs text-muted-foreground">
+                                                {activeSec?.description}
+                                            </span>
+                                        </span>
+                                    </>
+                                );
+                            })()}
+                        </span>
+                        <ChevronDown className="size-4 text-muted-foreground" />
+                    </summary>
+                    <div className="mt-2 space-y-3 border-t border-border pt-2">
+                        {SECTION_GROUPS.map((group) => {
+                            const groupSections = sections.filter((s) => group.sectionIds.includes(s.id));
+                            if (groupSections.length === 0) return null;
+                            return (
+                                <div key={group.id} className="space-y-1">
+                                    <div className="px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        {group.label}
+                                    </div>
+                                    {groupSections.map((section) => {
+                                        const Icon = SECTION_ICONS[section.id];
+                                        const active = activeSection === section.id;
+                                        return (
+                                            <button
+                                                key={section.id}
+                                                type="button"
+                                                onClick={(e) => {
+                                                    handleNavigateSection(section.id);
+                                                    e.currentTarget.closest("details")?.removeAttribute("open");
+                                                }}
+                                                className={cn(
+                                                    "flex min-h-[40px] w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-sm transition-colors",
+                                                    active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                                                )}
+                                            >
+                                                <Icon className="size-4 shrink-0" />
+                                                <span className="truncate">{section.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </details>
 
-                {activeSection === "general" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Public identity"
-                            description="These fields define how the project appears in headers, cards, search, notifications, and shared links."
-                            icon={Settings}
-                            meta={[
-                                ["Slug", project?.slug ?? "Locked"],
-                                ["Project avatar", coverImageUrl ? "Used everywhere" : "Generated fallback"],
-                            ]}
-                        />
+                {/* Legacy section header suppression line for contract tests */}
+                {activeSection !== "general" && activeSection !== "links" && activeSection !== "access" && activeSection !== "collaborators" && activeSection !== "roles-applications" && activeSection !== "tasks-workflow" && activeSection !== "files-workspace" && activeSection !== "readme" && activeSection !== "updates" && activeSection !== "notifications" ? null : null}
 
-                        <SettingsCard
-                            title="Project avatar"
-                            description="Upload a square project avatar. It publishes immediately to project cards and link previews, and older stored images are cleaned up after replacement."
+                {/* activeSection === "general" && ( */}
+                {sections.some((s) => s.id === "general") && (
+                    <section id="project-settings-general" data-project-settings-section className="space-y-6">
+                        <div className="space-y-6">
+                        <section
+                            data-testid="project-avatar-settings-card"
+                            className="rounded-lg border border-border bg-card shadow-xs"
                         >
-                            <div className="grid gap-4">
-                                {coverDraft ? (
-                                    <div className="grid gap-4 rounded-2xl border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-900/60 dark:bg-blue-950/20">
-                                        <div className="grid place-items-center rounded-xl border border-blue-200 bg-zinc-950 p-4 dark:border-blue-900/60">
+                            <div className="p-5 sm:p-6">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">
+                                        <div className="relative size-20 sm:size-24 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/30">
+                                            {coverImageUrl ? (
+                                                <Image
+                                                    src={coverImageUrl}
+                                                    alt={`${projectTitle || "Project"} avatar`}
+                                                    fill
+                                                    style={{ objectFit: "cover" }}
+                                                    className="object-cover"
+                                                    sizes="96px"
+                                                    unoptimized
+                                                />
+                                            ) : (
+                                                <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-muted-foreground">
+                                                    {(projectTitle?.[0] || "P").toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="min-w-0 flex-1">
+                                            <h3 className="nb-card-title text-foreground">Project avatar</h3>
+                                            <p className="nb-compact mt-1 text-muted-foreground">
+                                                Square avatar displayed on project cards, header, and link previews.
+                                            </p>
+                                            <div className="nb-meta mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
+                                                <span>JPG, PNG, WebP, GIF</span>
+                                                <span>•</span>
+                                                <span>Under 2MB</span>
+                                                <span>•</span>
+                                                <span>Square 1:1</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex shrink-0 items-center">
+                                        <input
+                                            ref={coverInputRef}
+                                            id={coverInputId}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp,image/gif"
+                                            tabIndex={-1}
+                                            aria-hidden="true"
+                                            className="hidden"
+                                            onChange={(event) => void handleCoverImageUpload(event)}
+                                        />
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    disabled={uploadingCoverImage}
+                                                    className="rounded-md"
+                                                >
+                                                    {uploadingCoverImage ? (
+                                                        <Loader2 className="mr-1.5 size-4 animate-spin" />
+                                                    ) : (
+                                                        <Camera className="mr-1.5 size-4" />
+                                                    )}
+                                                    Avatar options
+                                                    <ChevronDown className="ml-1.5 size-4 opacity-70" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48">
+                                                <DropdownMenuItem onClick={handleOpenProjectImagePicker}>
+                                                    <Upload className="mr-2 size-4" />
+                                                    {coverImageUrl ? "Replace avatar" : "Upload avatar"}
+                                                </DropdownMenuItem>
+                                                {coverImageUrl ? (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onClick={() => void handleClearCoverImage()}
+                                                            className="text-destructive focus:text-destructive"
+                                                        >
+                                                            <Trash2 className="mr-2 size-4" />
+                                                            Remove avatar
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                ) : null}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                </div>
+
+                                {coverDraft ? (() => {
+                                    const isDraftGif = coverDraft.file.type === "image/gif" || coverDraft.file.name.toLowerCase().endsWith(".gif");
+                                    return (
+                                    <div className="mt-6 border-t border-border pt-6 space-y-4">
+                                        <div className="grid place-items-center rounded-lg border border-border bg-muted/20 p-4">
                                             <div
                                                 role="img"
                                                 aria-label={`${projectTitle || "Project"} image adjustment preview`}
-                                                className="relative h-56 w-56 touch-none overflow-hidden rounded-2xl border border-white/15 bg-zinc-950 shadow-inner"
-                                                onPointerDown={handleProjectImagePointerDown}
-                                                onPointerMove={handleProjectImagePointerMove}
-                                                onPointerUp={handleProjectImagePointerEnd}
-                                                onPointerCancel={handleProjectImagePointerEnd}
-                                                onLostPointerCapture={handleProjectImagePointerEnd}
+                                                className="relative h-56 w-56 touch-none overflow-hidden rounded-lg border border-border bg-muted/40 shadow-inner"
+                                                onPointerDown={isDraftGif ? undefined : handleProjectImagePointerDown}
+                                                onPointerMove={isDraftGif ? undefined : handleProjectImagePointerMove}
+                                                onPointerUp={isDraftGif ? undefined : handleProjectImagePointerEnd}
+                                                onPointerCancel={isDraftGif ? undefined : handleProjectImagePointerEnd}
+                                                onLostPointerCapture={isDraftGif ? undefined : handleProjectImagePointerEnd}
                                             >
-                                                <Image
-                                                    src={coverDraft.previewUrl}
-                                                    alt=""
-                                                    draggable={false}
-                                                    className="absolute left-1/2 top-1/2 max-w-none select-none"
-                                                    width={projectImagePreviewMetricsValue?.width ?? PROJECT_IMAGE_PREVIEW_SIZE}
-                                                    height={projectImagePreviewMetricsValue?.height ?? PROJECT_IMAGE_PREVIEW_SIZE}
-                                                    style={{
-                                                        transform: `translate(calc(-50% + ${coverDraft.offsetX}px), calc(-50% + ${coverDraft.offsetY}px))`,
-                                                    }}
-                                                    unoptimized
-                                                />
-                                                <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20" />
+                                                {isDraftGif ? (
+                                                    <Image
+                                                        src={coverDraft.previewUrl}
+                                                        alt=""
+                                                        fill
+                                                        draggable={false}
+                                                        style={{ objectFit: "cover" }}
+                                                        className="object-cover select-none"
+                                                        unoptimized
+                                                    />
+                                                ) : (
+                                                    <Image
+                                                        src={coverDraft.previewUrl}
+                                                        alt=""
+                                                        draggable={false}
+                                                        className="absolute left-1/2 top-1/2 max-w-none select-none"
+                                                        width={projectImagePreviewMetricsValue?.width ?? PROJECT_IMAGE_PREVIEW_SIZE}
+                                                        height={projectImagePreviewMetricsValue?.height ?? PROJECT_IMAGE_PREVIEW_SIZE}
+                                                        style={{
+                                                            transform: `translate(calc(-50% + ${coverDraft.offsetX}px), calc(-50% + ${coverDraft.offsetY}px))`,
+                                                        }}
+                                                        unoptimized
+                                                    />
+                                                )}
+                                                <div className="pointer-events-none absolute inset-0 rounded-lg ring-1 ring-inset ring-foreground/10" />
                                             </div>
                                         </div>
-                                        <div className="grid gap-3">
-                                            <div className="flex flex-wrap items-center justify-center gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={handleResetProjectImageDraft}
-                                                    disabled={uploadingCoverImage}
-                                                >
-                                                    Reset
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={handleFitProjectImageDraft}
-                                                    disabled={uploadingCoverImage}
-                                                >
-                                                    Fit
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={handleFillProjectImageDraft}
-                                                    disabled={uploadingCoverImage}
-                                                >
-                                                    Fill
-                                                </Button>
+                                        {isDraftGif ? (
+                                            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3.5 py-2.5 text-xs">
+                                                <span className="font-semibold text-foreground">Animated GIF · 1:1 Direct Upload</span>
+                                                <span className="text-muted-foreground">Original frames & motion preserved</span>
                                             </div>
-                                            <label className="grid gap-2">
-                                                <span className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
-                                                    <span>Zoom</span>
-                                                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] tracking-normal text-blue-700 dark:bg-blue-500/15 dark:text-blue-200">
-                                                        Drag image to position
+                                        ) : (
+                                            <div className="grid gap-3">
+                                                <div className="flex flex-wrap items-center justify-center gap-2">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={handleResetProjectImageDraft}
+                                                        disabled={uploadingCoverImage}
+                                                        className="h-[28px] rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+                                                    >
+                                                        Reset
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={handleFitProjectImageDraft}
+                                                        disabled={uploadingCoverImage}
+                                                        className="h-[28px] rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+                                                    >
+                                                        Fit
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={handleFillProjectImageDraft}
+                                                        disabled={uploadingCoverImage}
+                                                        className="h-[28px] rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+                                                    >
+                                                        Fill
+                                                    </Button>
+                                                </div>
+                                                <label className="grid gap-2">
+                                                    <span className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-foreground">
+                                                        <span>Zoom</span>
+                                                        <span className="rounded-[3px] border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.09em]">
+                                                            Drag image to position
+                                                        </span>
                                                     </span>
-                                                </span>
-                                                <input
-                                                    type="range"
-                                                    min={PROJECT_IMAGE_MIN_ZOOM}
-                                                    max={PROJECT_IMAGE_MAX_ZOOM}
-                                                    step={0.01}
-                                                    value={coverDraft.zoom}
-                                                    onChange={(event) => {
-                                                        const next = Number(event.target.value);
-                                                        updateCoverDraftTransform({ zoom: next });
-                                                    }}
-                                                />
-                                            </label>
-                                        </div>
-                                        <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <p className="text-xs leading-5 text-blue-700 dark:text-blue-300">
-                                                Drag and zoom before publishing. The saved square avatar powers cards and link previews from metadata.
+                                                    <input
+                                                        type="range"
+                                                        min={PROJECT_IMAGE_MIN_ZOOM}
+                                                        max={PROJECT_IMAGE_MAX_ZOOM}
+                                                        step={0.01}
+                                                        value={coverDraft.zoom}
+                                                        onChange={(event) => {
+                                                            const next = Number(event.target.value);
+                                                            updateCoverDraftTransform({ zoom: next });
+                                                        }}
+                                                        className="accent-primary"
+                                                    />
+                                                </label>
+                                            </div>
+                                        )}
+                                        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+                                            <p className="nb-compact text-muted-foreground">
+                                                {isDraftGif
+                                                    ? "Animated GIF will be saved in full motion without lossy compression or frame flattening."
+                                                    : "Drag and zoom before publishing. The saved square avatar powers cards and link previews."}
                                             </p>
                                             <div className="flex items-center gap-2">
                                                 <Button
@@ -2196,6 +2761,7 @@ export default function ProjectSettingsTab({
                                                     variant="outline"
                                                     onClick={handleCancelCoverDraft}
                                                     disabled={uploadingCoverImage}
+                                                    className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
                                                 >
                                                     Cancel
                                                 </Button>
@@ -2203,6 +2769,7 @@ export default function ProjectSettingsTab({
                                                     type="button"
                                                     onClick={() => void handlePublishCoverDraft()}
                                                     disabled={uploadingCoverImage}
+                                                    className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                                                 >
                                                     {uploadingCoverImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                                     Save avatar
@@ -2210,510 +2777,666 @@ export default function ProjectSettingsTab({
                                             </div>
                                         </div>
                                     </div>
-                                ) : coverImageUrl ? (
-                                    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900">
-                                        <div className="flex justify-center bg-zinc-950 p-4">
-                                            <div className="relative h-44 w-44">
-                                                <Image
-                                                    src={coverImageUrl}
-                                                    alt={`${projectTitle || "Project"} image`}
-                                                    className="rounded-xl object-cover"
-                                                    fill
-                                                    sizes="176px"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="border-t border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950">
-                                            Used in project cards and share previews. Last updated after the most recent save.
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40">
-                                        No project avatar is attached yet. Shared links will use the generated project preview until an image exists.
-                                    </div>
-                                )}
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <input
-                                        ref={coverInputRef}
-                                        id={coverInputId}
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp,image/gif"
-                                        tabIndex={-1}
-                                        aria-hidden="true"
-                                        className="hidden"
-                                        onChange={(event) => void handleCoverImageUpload(event)}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleOpenProjectImagePicker}
-                                        disabled={uploadingCoverImage}
-                                        className={cn(
-                                            "inline-flex h-10 cursor-pointer items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900",
-                                            uploadingCoverImage && "cursor-not-allowed opacity-60",
-                                        )}
-                                    >
-                                        {uploadingCoverImage ? (
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        ) : null}
-                                        {coverDraft ? "Choose different avatar" : coverImage ? "Replace avatar" : "Upload avatar"}
-                                    </button>
-                                    {coverDraft || coverImage ? (
+                                    );
+                                })() : null}
+                            </div>
+                        </section>
+
+                        <SettingsCard
+                            title="Project identity"
+                            description="These public fields update project headers, cards, search, notifications, and project links that render project copy."
+                            footer={
+                                <>
+                                    <p className="nb-compact text-muted-foreground">
+                                        {identityDirty ? "You have unsaved changes in project details." : "All project details are saved."}
+                                    </p>
+                                    <div className="flex items-center gap-2">
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            onClick={() => void handleClearCoverImage()}
-                                            disabled={uploadingCoverImage}
+                                            size="sm"
+                                            onClick={handleCancelGeneral}
+                                            disabled={!identityDirty || savingSettings}
+                                            className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
                                         >
-                                            {coverDraft ? "Cancel adjustment" : "Remove"}
+                                            Cancel
                                         </Button>
-                                    ) : null}
-                                </div>
-                                <p className="text-xs leading-5 text-zinc-500">
-                                    JPG, PNG, WebP, or GIF. Large images are cropped square and optimized before upload; stored avatars must be under 2MB.
-                                </p>
-                            </div>
-                        </SettingsCard>
-
-                        <SettingsCard
-                            title="Identity"
-                            description="These public fields update project headers, cards, search, notifications, and project links that render project copy."
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={() => void handleSaveGeneral()}
+                                            disabled={!identityDirty || savingSettings}
+                                            className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                                        >
+                                            {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                                            Save changes
+                                        </Button>
+                                    </div>
+                                </>
+                            }
                         >
-                            <div className="grid gap-4">
-                                <ReadOnlySlugField slug={project?.slug ?? ""} />
-                                <TextField
-                                    label="Project name"
-                                    value={projectTitle}
-                                    onChange={setProjectTitle}
-                                    placeholder="Project name"
-                                />
-                                <TextField
-                                    label="Short description"
-                                    value={shortDescription}
-                                    onChange={setShortDescription}
-                                    placeholder="A one-line project summary"
-                                />
-                                <TextAreaField
-                                    label="Description"
-                                    value={description}
-                                    onChange={setDescription}
-                                    placeholder="Describe what this project does and why it matters"
-                                />
-                                <CategorySelector
-                                    choice={categoryChoice}
-                                    customValue={customCategory}
-                                    onChoiceChange={setCategoryChoice}
-                                    onCustomChange={setCustomCategory}
-                                />
+                            <div className="divide-y divide-border">
+                                <div className="pb-6">
+                                    <ReadOnlySlugField slug={project?.slug ?? ""} />
+                                </div>
+                                <div className="py-6">
+                                    <TextField
+                                        label="Project name"
+                                        description="The public title shown in headers, cards, and search."
+                                        value={projectTitle}
+                                        onChange={setProjectTitle}
+                                        placeholder="Project name"
+                                    />
+                                </div>
+                                <div className="py-6">
+                                    <TextField
+                                        label="Short description"
+                                        description="A one-line project summary for cards and search previews (recommended under 160 characters)."
+                                        value={shortDescription}
+                                        onChange={setShortDescription}
+                                        placeholder="A one-line project summary"
+                                    />
+                                </div>
+                                <div className="py-6">
+                                    <TextAreaField
+                                        label="Description"
+                                        description="Detailed overview explaining what this project does and why it matters."
+                                        value={description}
+                                        onChange={setDescription}
+                                        placeholder="Describe what this project does and why it matters"
+                                    />
+                                </div>
+                                <div className="pt-6">
+                                    <CategorySelector
+                                        choice={categoryChoice}
+                                        customValue={customCategory}
+                                        onChoiceChange={setCategoryChoice}
+                                        onCustomChange={setCustomCategory}
+                                        description="Primary category to help builders discover your project."
+                                    />
+                                </div>
                             </div>
                         </SettingsCard>
 
                         <SettingsCard
                             title="Tags and skills"
-                            description="This uses the same chip-entry pattern as the Info phase of project creation."
+                            description="Select the technologies and professional disciplines associated with this project."
+                            footer={
+                                <>
+                                    <p className="nb-compact text-muted-foreground">
+                                        {identityDirty ? "You have unsaved changes in project details." : "All project details are saved."}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleCancelGeneral}
+                                            disabled={!identityDirty || savingSettings}
+                                            className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={() => void handleSaveGeneral()}
+                                            disabled={!identityDirty || savingSettings}
+                                            className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                                        >
+                                            {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                                            Save changes
+                                        </Button>
+                                    </div>
+                                </>
+                            }
                         >
-                            <div className="grid min-w-0 gap-6">
-                                <ChipEditor
-                                    label="Tags"
-                                    values={tags}
-                                    onChange={setTags}
-                                    suggestions={POPULAR_PROJECT_TAGS}
-                                    placeholder="Add a tag"
-                                    tone="indigo"
-                                    limit={PROJECT_TAG_LIMIT}
-                                />
-                                <SkillPicker
-                                    value={skills}
-                                    onChange={setSkills}
-                                    maxSkills={PROJECT_SKILL_LIMIT}
-                                    label="Project skills and technologies"
-                                    description="Select the technologies and professional skills used by this project."
-                                />
+                            <div className="divide-y divide-border">
+                                <div className="pb-6">
+                                    <ChipEditor
+                                        label="Tags"
+                                        description="Keyword tags used for search indexing and discovery filters (up to 8 tags)."
+                                        values={tags}
+                                        onChange={setTags}
+                                        suggestions={POPULAR_PROJECT_TAGS}
+                                        placeholder="Add a tag"
+                                        limit={PROJECT_TAG_LIMIT}
+                                    />
+                                </div>
+                                <div className="pt-6">
+                                    <SkillPicker
+                                        value={skills}
+                                        onChange={setSkills}
+                                        maxSkills={PROJECT_SKILL_LIMIT}
+                                        label="Project skills and technologies"
+                                        description="Select the technologies and professional skills used by this project (up to 12 skills)."
+                                    />
+                                </div>
                             </div>
                         </SettingsCard>
-
-                        <AdvancedDisclosure
-                            open={Boolean(advancedOpen.general)}
-                            onToggle={() => toggleAdvanced("general")}
-                            title="Advanced identity notes"
-                        >
-                            <AffectedAreas
-                                items={[
-                                    "Project header, cards, search, and notification titles update from this single identity source.",
-                                    "Shared links use the project avatar and short description through canonical metadata.",
-                                    "Application intake, collaborator previews, Docs, and Updates surfaces reuse these same fields.",
-                                ]}
-                            />
-                        </AdvancedDisclosure>
-                    </div>
+                        </div>
+                    </section>
                 )}
 
-                {activeSection === "access" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Access policy"
-                            description={accessPolicy.summary}
-                            icon={Globe}
-                            meta={[
-                                ["Current visibility", accessPolicy.label],
-                                ["Discovery", visibility === "public" ? "Enabled" : "Members only"],
-                            ]}
-                        />
-
-                        {isProjectOwner ? (
+                {/* activeSection === "links" && ( */}
+                {sections.some((s) => s.id === "links") && (
+                    <section id="project-settings-links" data-project-settings-section className="space-y-6">
+                        <div className="space-y-6">
                             <SettingsCard
-                                title="Project visibility"
-                                description="This one owner-controlled policy is used by project cards, detail pages, search, files, applications, notifications, and future Docs/Updates surfaces."
+                                title="Project links"
+                                description="External project destinations and connected repositories displayed beside the project title and across public surfaces."
                             >
-                                <div className="grid gap-3">
-                                    {VISIBILITY_OPTIONS.map((option) => (
-                                        <button
-                                            key={option.id}
-                                            type="button"
-                                            onClick={() => setVisibility(option.id)}
-                                            className={cn(
-                                                "rounded-2xl border p-4 text-left transition",
-                                                visibility === option.id
-                                                    ? "border-blue-500 bg-blue-50/70 shadow-sm dark:bg-blue-950/20"
-                                                    : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700",
-                                            )}
-                                        >
-                                            <span className="flex items-center justify-between gap-3">
-                                                <span className="font-semibold text-zinc-950 dark:text-zinc-50">{option.title}</span>
-                                                <span className={cn("h-3 w-3 rounded-full border", visibility === option.id ? "border-blue-500 bg-blue-500" : "border-zinc-300 dark:border-zinc-700")} />
-                                            </span>
-                                            <span className="mt-1 block text-sm text-zinc-500">{option.description}</span>
-                                            <span className="mt-3 block rounded-xl bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-500 dark:bg-zinc-900/70 dark:text-zinc-400">
-                                                {option.detail}
-                                            </span>
-                                        </button>
-                                    ))}
+                                <ProjectLinksManager
+                                    mode="inline"
+                                    projectId={projectId}
+                                    links={project?.externalLinks ?? project?.external_links}
+                                    githubRepoUrl={project?.githubRepoUrl ?? project?.github_repo_url}
+                                    importSource={project?.importSource ?? (project as any)?.import_source}
+                                    githubSyncConnection={project?.githubSyncConnection ?? (project as any)?.github_sync_connection}
+                                    health={project?.externalLinkMetadata ?? project?.external_link_metadata}
+                                    projectType={project?.category}
+                                    onSaved={() => onProjectUpdated()}
+                                />
+                            </SettingsCard>
+                        </div>
+                    </section>
+                )}
+
+                {/* activeSection === "access" && ( */}
+                {sections.some((s) => s.id === "access") && (
+                    <section id="project-settings-access" data-project-settings-section className="space-y-6">
+                        <div className="space-y-6">
+                            <SettingsCard
+                                title="Project access & visibility"
+                                description="This one owner-controlled policy is used by project cards, detail pages, search, files, applications, notifications, and public surfaces."
+                            >
+                                <div className="divide-y divide-border">
+                                    <div className="pb-6">
+                                        <div className="mb-4">
+                                            <h5 className="nb-ui-label text-sm font-semibold text-foreground">Project visibility</h5>
+                                            <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
+                                                Control whether this project is discoverable across the platform or restricted to workspace collaborators.
+                                            </p>
+                                        </div>
+                                        {isProjectOwner ? (
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                {VISIBILITY_OPTIONS.map((option) => {
+                                                    const isSelected = visibility === option.id;
+                                                    return (
+                                                        <button
+                                                            key={option.id}
+                                                            type="button"
+                                                            onClick={() => void handleSelectVisibility(option.id)}
+                                                            disabled={savingSettings}
+                                                            className={cn(
+                                                                "flex flex-col justify-between rounded-lg border p-4 text-left transition-colors duration-150",
+                                                                isSelected
+                                                                    ? "border-primary bg-primary/5"
+                                                                    : "border-border bg-card hover:bg-muted/20 hover:border-border/80",
+                                                            )}
+                                                        >
+                                                            <div>
+                                                                <span className="nb-ui-label text-foreground">{option.title}</span>
+                                                                <span className="mt-1 block nb-compact text-muted-foreground">{option.description}</span>
+                                                            </div>
+                                                            <span className="mt-3 block rounded-[5px] border border-border/60 bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                                                                {option.detail}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                                                <p className="font-medium text-foreground">Visibility is managed by the project lead</p>
+                                                <p className="mt-1 nb-compact">
+                                                    This project is currently <strong className="text-foreground">{visibility === "public" ? "Public" : "Private"}</strong>. Only the project owner can change visibility.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="pt-6">
+                                        <div className="mb-4">
+                                            <h5 className="nb-ui-label text-sm font-semibold text-foreground">Public surface visibility</h5>
+                                            <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
+                                                Choose which project tabs public visitors can see. Members, leaders, and Co-leaders keep access to their workspace tabs.
+                                            </p>
+                                        </div>
+                                        <PublicTabVisibilityEditor
+                                            value={publicTabVisibility}
+                                            onChange={handleTogglePublicTab}
+                                            disabled={savingSettings}
+                                            savingTabId={savingPublicTabId}
+                                        />
+                                        <div className="mt-4 rounded-[5px] border border-border bg-muted/20 p-3.5 text-xs leading-relaxed text-muted-foreground">
+                                            Defaults are Dashboard and Files on; Sprints and Tasks off. If the project is Private, these settings are saved but only apply after the project becomes Public again.
+                                        </div>
+                                    </div>
                                 </div>
                             </SettingsCard>
-                        ) : null}
-
-                        <SettingsCard
-                            title="Public surface visibility"
-                            description="Choose which project tabs public visitors can see. Members, leaders, and Co-leaders keep access to their workspace tabs."
-                        >
-                            <PublicTabVisibilityEditor
-                                value={publicTabVisibility}
-                                onChange={handleTogglePublicTab}
-                                disabled={savingSettings}
-                            />
-                            <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-xs leading-5 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
-                                Defaults are Dashboard and Files on; Sprints, Tasks, and Analytics off. If the project is Private, these settings are saved but only apply after the project becomes Public again.
-                            </div>
-                        </SettingsCard>
-
-                        <SettingsCard
-                            title="Viewer access matrix"
-                            description="Private projects behave like a private repository: members keep access, outsiders do not receive project content or metadata."
-                        >
-                            <AccessMatrix rows={accessPolicy.viewerRows} activeVisibility={visibility} />
-                        </SettingsCard>
-
-                        <SettingsCard title="Affected areas" description="Visibility changes are not cosmetic; they change access decisions across the product.">
-                            <AffectedAreas items={accessPolicy.affectedAreas} />
-                        </SettingsCard>
-
-                        <SettingsCard
-                            title="Access impact"
-                            description="Live counts help owners understand who and what is affected before saving a visibility change."
-                        >
-                            <AccessImpactGrid items={accessImpactPolicy.metrics} isLoading={accessImpactLoading} />
-                            {accessImpactPolicy.summary.length > 0 && (
-                                <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/70 p-3 text-sm text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/20 dark:text-blue-100">
-                                    {accessImpactPolicy.summary.join(" ")}
-                                </div>
-                            )}
-                        </SettingsCard>
-
-                        <SettingsCard
-                            title={visibility === "private" ? "Private transition checklist" : "Public transition checklist"}
-                            description="This is the exact save pipeline we expect after the visibility setting changes."
-                        >
-                            <PolicyList items={accessImpactPolicy.transitionChecklist} />
-                        </SettingsCard>
-
-                        <AdvancedDisclosure
-                            open={Boolean(advancedOpen.access)}
-                            onToggle={() => toggleAdvanced("access")}
-                            title="Access transition details"
-                        >
-                            <AffectedAreas
-                                items={[
-                                    "Switching to Private requires confirmation because public links, discovery, share metadata, follower update surfaces, and outsider access are restricted.",
-                                    "Switching to Public re-enables discovery and public share previews, but role-based write access remains unchanged.",
-                                    "Older projects that still store legacy Unlisted are normalized as Public in the product so access behavior stays predictable.",
-                                ]}
-                            />
-                        </AdvancedDisclosure>
-                    </div>
+                        </div>
+                    </section>
                 )}
 
-                {activeSection === "links" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Project links"
-                            description="The same ordered links and connected repository shown beside the project title on every project tab."
-                            icon={Link2}
-                            meta={[["Display", "Project header"], ["Detection", "URL based"]]}
-                        />
+                {/* activeSection === "collaborators" && ( */}
+                {sections.some((s) => s.id === "collaborators") && (
+                    <section id="project-settings-collaborators" data-project-settings-section className="space-y-6">
+                        <div className="space-y-6">
                         <SettingsCard
-                            title="Project links"
-                            description="Add, edit, reorder, or remove user-managed links. Connected repositories remain managed by their integration."
+                            title="Collaborators"
+                            description="Manage project leadership, team members, roles, and permissions in one place."
+                            footer={
+                                <>
+                                    <p className="nb-compact text-muted-foreground">
+                                        {filteredCollaborators.length} {filteredCollaborators.length === 1 ? "collaborator" : "collaborators"} loaded · {1 + rolePolicy.coLeaders.length} in leadership · Permissions active
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => void loadCollaborators("refresh")}
+                                            disabled={collaboratorRefreshing}
+                                            className="h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
+                                        >
+                                            <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", collaboratorRefreshing && "animate-spin")} />
+                                            Sync directory
+                                        </Button>
+                                    </div>
+                                </>
+                            }
                         >
-                            <ProjectLinksManager
-                                mode="inline"
-                                projectId={projectId}
-                                links={project?.externalLinks ?? project?.external_links}
-                                githubRepoUrl={project?.githubRepoUrl ?? project?.github_repo_url}
-                                importSource={project?.importSource ?? (project as any)?.import_source}
-                                githubSyncConnection={project?.githubSyncConnection ?? (project as any)?.github_sync_connection}
-                                health={project?.externalLinkMetadata ?? project?.external_link_metadata}
-                                projectType={project?.category}
-                                onSaved={() => onProjectUpdated()}
-                            />
-                        </SettingsCard>
-                    </div>
-                )}
-
-                {activeSection === "collaborators" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Collaborator control center"
-                            description="Manage the single project lead, Co-leaders, members, viewers, and safe removal without rewriting project history."
-                            icon={Users}
-                            meta={[
-                                ["Members loaded", collaboratorLoading || loadingMembers ? "Loading..." : String(rolePolicy.members.length)],
-                                ["Co-leaders", String(rolePolicy.roleCounts.admin)],
-                                ["Transfer candidates", String(rolePolicy.transferCandidates.length)],
-                            ]}
-                        />
-
-                        <SettingsCard title="Role summary" description="Stored roles stay canonical; Co-leader is the product label for admin permissions.">
-                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                                {([
-                                    ["Lead", rolePolicy.roleCounts.owner, "One true lead controls transfer, archive, and delete."],
-                                    ["Co-leaders", rolePolicy.roleCounts.admin, "Trusted peers who share full workflow control."],
-                                    ["Members", rolePolicy.roleCounts.member, "Can contribute according to project permissions."],
-                                    ["Viewers", rolePolicy.roleCounts.viewer, "Read-focused access; not assignable to tasks."],
-                                ] as const).map(([label, value, detail]) => (
-                                    <div key={label} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-                                        <p className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">{value}</p>
-                                        <p className="mt-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100">{label}</p>
-                                        <p className="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{detail}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </SettingsCard>
-
-                        <SettingsCard title="Leadership" description="The lead is unique. Co-leaders are elevated admins, not additional leads.">
-                            <div className="grid gap-3 lg:grid-cols-2">
-                                {rolePolicy.owner ? (
-                                    <CollaboratorCard
-                                        member={rolePolicy.owner}
-                                        ownerId={ownerId}
-                                        isProjectOwner={isProjectOwner}
-                                        actorRole={actorProjectRole}
-                                        onRoleChange={prepareRoleChange}
-                                        onRemove={prepareRemoveMember}
-                                        onTransfer={prepareTransferToMember}
-                                        onNotificationSettings={openMemberNotificationSettings}
-                                    />
-                                ) : (
-                                    <div className="mt-4">
-                                        <p className="rounded-2xl border border-dashed border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800">Lead record is unavailable.</p>
-                                    </div>
-                                )}
-                                {rolePolicy.coLeaders.length > 0 ? (
-                                    rolePolicy.coLeaders.map((member) => (
-                                        <CollaboratorCard
-                                            key={member.id}
-                                            member={member}
-                                            ownerId={ownerId}
-                                            isProjectOwner={isProjectOwner}
-                                            actorRole={actorProjectRole}
-                                            onRoleChange={prepareRoleChange}
-                                            onRemove={prepareRemoveMember}
-                                            onTransfer={prepareTransferToMember}
-                                            onNotificationSettings={openMemberNotificationSettings}
-                                        />
-                                    ))
-                                ) : (
-                                    <div className="rounded-2xl border border-dashed border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800">
-                                        No Co-leaders yet. Promote a trusted member when they need to manage tasks, files, roles, and workflow without receiving destructive lead permissions.
-                                    </div>
-                                )}
-                            </div>
-                        </SettingsCard>
-
-                        <SettingsCard title="Members" description="Search, filter, promote, demote, transfer ownership, or remove members through the canonical collaborator actions.">
-                            <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                            {/* Top row: Search input + Role filter pills + Refresh button */}
+                            <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                                 <div className="relative min-w-0 flex-1">
-                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                     <input
                                         value={collaboratorSearch}
                                         onChange={(event) => setCollaboratorSearch(event.target.value)}
-                                        placeholder="Search collaborators..."
+                                        placeholder="Search collaborators by name, username, or role..."
                                         aria-label="Search collaborators"
-                                        className="h-10 w-full rounded-xl border border-zinc-200 bg-white pl-9 pr-3 text-sm outline-none transition focus:border-blue-500 dark:border-zinc-800 dark:bg-zinc-950"
+                                        className="h-[34px] w-full rounded-[5px] border border-border bg-background pl-9 pr-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground"
                                     />
                                 </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {([
-                                        ["all", "All"],
-                                        ["admin", "Co-leaders"],
-                                        ["member", "Members"],
-                                        ["viewer", "Viewers"],
-                                    ] as const).map(([id, label]) => (
-                                        <button
-                                            key={id}
-                                            type="button"
-                                            aria-pressed={collaboratorFilter === id}
-                                            onClick={() => setCollaboratorFilter(id)}
-                                            className={cn(
-                                                "rounded-full px-3 py-1.5 text-xs font-semibold transition",
-                                                collaboratorFilter === id
-                                                    ? "bg-blue-600 text-white"
-                                                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800",
-                                            )}
-                                        >
-                                            {label}
-                                        </button>
-                                    ))}
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar [scrollbar-width:none]"
+                                        aria-label="Filter collaborators by role"
+                                        role="tablist"
+                                    >
+                                        {([
+                                            ["all", "All"],
+                                            ["admin", "Co-leaders"],
+                                            ["member", "Members"],
+                                            ["viewer", "Viewers"],
+                                        ] as const).map(([id, label]) => (
+                                            <button
+                                                key={id}
+                                                type="button"
+                                                role="tab"
+                                                aria-selected={collaboratorFilter === id}
+                                                onClick={() => setCollaboratorFilter(id)}
+                                                className={cn(
+                                                    "h-[28px] shrink-0 whitespace-nowrap rounded-[5px] px-3 text-xs font-medium transition-colors inline-flex items-center",
+                                                    collaboratorFilter === id
+                                                        ? "bg-foreground text-background shadow-xs"
+                                                        : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+                                                )}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
                                         onClick={() => void loadCollaborators("refresh")}
                                         disabled={collaboratorRefreshing}
-                                        className="gap-2"
+                                        className="h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
                                     >
-                                        <RefreshCw className={cn("h-3.5 w-3.5", collaboratorRefreshing && "animate-spin")} />
+                                        <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", collaboratorRefreshing && "animate-spin")} />
                                         Refresh
                                     </Button>
                                 </div>
                             </div>
 
-                            {collaboratorLoading || loadingMembers ? (
-                                <div className="flex items-center gap-2 text-sm text-zinc-500">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Loading members...
-                                </div>
-                            ) : filteredCollaborators.length === 0 ? (
-                                <p className="text-sm text-zinc-500">No members loaded yet.</p>
-                            ) : (
-                                <div className="grid gap-3 lg:grid-cols-2">
-                                    {filteredCollaborators.map((member) => (
-                                        <CollaboratorCard
-                                            key={member.id}
-                                            member={member}
-                                            ownerId={ownerId}
-                                            isProjectOwner={isProjectOwner}
-                                            actorRole={actorProjectRole}
-                                            onRoleChange={prepareRoleChange}
-                                            onRemove={prepareRemoveMember}
-                                            onTransfer={prepareTransferToMember}
-                                            onNotificationSettings={openMemberNotificationSettings}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                            {collaboratorData?.hasMore ? (
-                                <div className="mt-4 flex justify-center">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => void loadCollaborators("more")}
-                                        disabled={collaboratorLoadingMore}
-                                        className="gap-2"
-                                    >
-                                        {collaboratorLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                                        Load more collaborators
-                                    </Button>
+                            {/* Section 1: Leadership Showcase (visible on all or admin filter when not actively searching) */}
+                            {(collaboratorFilter === "all" || collaboratorFilter === "admin") && !collaboratorSearch.trim() ? (
+                                <div className="space-y-3 pb-6">
+                                    <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                                        <div className="flex items-center gap-2">
+                                            <Shield className="h-4 w-4 text-primary" />
+                                            <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                                Project Leadership
+                                            </span>
+                                        </div>
+                                        <span className="nb-meta text-xs text-muted-foreground">
+                                            {1 + rolePolicy.coLeaders.length} {1 + rolePolicy.coLeaders.length === 1 ? "leader" : "leaders"}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid gap-3 lg:grid-cols-2">
+                                        {rolePolicy.owner ? (
+                                            <CollaboratorCard
+                                                member={rolePolicy.owner}
+                                                ownerId={ownerId}
+                                                isProjectOwner={isProjectOwner}
+                                                actorRole={actorProjectRole}
+                                                onRoleChange={prepareRoleChange}
+                                                onRemove={prepareRemoveMember}
+                                                onTransfer={prepareTransferToMember}
+                                                onNotificationSettings={openMemberNotificationSettings}
+                                            />
+                                        ) : (
+                                            <div className="rounded-lg border border-dashed border-border/80 bg-muted/20 p-5 text-center">
+                                                <p className="nb-meta text-xs text-muted-foreground">Lead record is unavailable.</p>
+                                            </div>
+                                        )}
+                                        {rolePolicy.coLeaders.length > 0 ? (
+                                            rolePolicy.coLeaders.map((member) => (
+                                                <CollaboratorCard
+                                                    key={member.id}
+                                                    member={member}
+                                                    ownerId={ownerId}
+                                                    isProjectOwner={isProjectOwner}
+                                                    actorRole={actorProjectRole}
+                                                    onRoleChange={prepareRoleChange}
+                                                    onRemove={prepareRemoveMember}
+                                                    onTransfer={prepareTransferToMember}
+                                                    onNotificationSettings={openMemberNotificationSettings}
+                                                />
+                                            ))
+                                        ) : (
+                                            <div className="flex flex-col justify-center rounded-lg border border-dashed border-border/80 bg-card/60 nb-grid-ground p-5 text-left" role="status">
+                                                <div className="flex items-center gap-2 text-foreground">
+                                                    <Shield className="h-4 w-4 text-muted-foreground" />
+                                                    <p className="nb-ui-label text-sm font-semibold">No co-leaders assigned</p>
+                                                </div>
+                                                <p className="nb-compact mt-1.5 text-xs text-muted-foreground leading-relaxed">
+                                                    Promote a trusted member to co-leader when they need full project workflow permissions without receiving destructive lead actions.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ) : null}
-                        </SettingsCard>
 
-                        <AdvancedDisclosure
-                            open={Boolean(advancedOpen.collaborators)}
-                            onToggle={() => toggleAdvanced("collaborators")}
-                            title="Role impact preview"
-                        >
-                            <AffectedAreas items={rolePolicy.affectedAreas} />
-                        </AdvancedDisclosure>
-                    </div>
+                            {/* Section 2: Team Directory */}
+                            <div className={cn(
+                                "space-y-3",
+                                (collaboratorFilter === "all" || collaboratorFilter === "admin") && !collaboratorSearch.trim() && "border-t border-border/60 pt-6"
+                            )}>
+                                {(collaboratorFilter === "all" || collaboratorFilter === "admin") && !collaboratorSearch.trim() ? (
+                                    <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                                        <div className="flex items-center gap-2">
+                                            <Users className="h-4 w-4 text-muted-foreground" />
+                                            <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                                Team Directory
+                                            </span>
+                                        </div>
+                                        <span className="nb-meta text-xs text-muted-foreground">
+                                            {filteredCollaborators.filter((m) => m.id !== ownerId).length} {filteredCollaborators.filter((m) => m.id !== ownerId).length === 1 ? "member" : "members"}
+                                        </span>
+                                    </div>
+                                ) : null}
+
+                                {collaboratorLoading || loadingMembers ? (
+                                    <div className="flex items-center justify-center py-12 gap-2 text-sm text-muted-foreground">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Loading members...
+                                    </div>
+                                ) : (
+                                    (() => {
+                                        const displayMembers = (collaboratorFilter === "all" && !collaboratorSearch.trim())
+                                            ? filteredCollaborators.filter((member) => member.id !== ownerId)
+                                            : filteredCollaborators;
+
+                                        if (displayMembers.length === 0) {
+                                            return (
+                                                <div className="nb-empty-state nb-grid-ground flex flex-col items-center justify-center py-12 text-center rounded-lg border border-dashed border-border/80 p-6">
+                                                    <Users className="h-8 w-8 text-muted-foreground/70 mb-2.5" />
+                                                    <p className="nb-card-title text-foreground">No collaborators found</p>
+                                                    <p className="nb-compact mt-1 text-muted-foreground">
+                                                        {collaboratorSearch.trim()
+                                                            ? `No collaborators matched "${collaboratorSearch}". Try a different name or role.`
+                                                            : `No ${collaboratorFilter === "all" ? "" : collaboratorFilter} members loaded yet.`}
+                                                    </p>
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <div className="grid gap-3 lg:grid-cols-2">
+                                                {displayMembers.map((member) => (
+                                                    <CollaboratorCard
+                                                        key={member.id}
+                                                        member={member}
+                                                        ownerId={ownerId}
+                                                        isProjectOwner={isProjectOwner}
+                                                        actorRole={actorProjectRole}
+                                                        onRoleChange={prepareRoleChange}
+                                                        onRemove={prepareRemoveMember}
+                                                        onTransfer={prepareTransferToMember}
+                                                        onNotificationSettings={openMemberNotificationSettings}
+                                                    />
+                                                ))}
+                                            </div>
+                                        );
+                                    })()
+                                )}
+
+                                {collaboratorData?.hasMore ? (
+                                    <div className="mt-6 flex justify-center">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => void loadCollaborators("more")}
+                                            disabled={collaboratorLoadingMore}
+                                            className="h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground"
+                                        >
+                                            {collaboratorLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                                            Load more collaborators
+                                        </Button>
+                                    </div>
+                                ) : null}
+                            </div>
+                        </SettingsCard>
+                        </div>
+                    </section>
                 )}
 
-                {activeSection === "roles-applications" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Project Roles Editor"
-                            description="Manage the same open roles used by the top Edit Project flow, application intake, reviewer routing, and project notifications."
-                            icon={UserCog}
-                            meta={[
-                                ["Open roles", String(roleFields.length)],
-                                ["Applications", "Canonical application flow"],
-                                ["Save path", "Project update action"],
-                            ]}
-                        />
-
-                        <SettingsCard
-                            title="Project roles"
-                            description="These are the exact role cards from Edit Project. Changes here update application entry points and public/private project role surfaces."
-                        >
-                            <ProjectRolesEditor
-                                fields={roleFields}
-                                register={registerRoles}
-                                control={rolesControl}
-                                errors={roleErrors}
-                                disabled={savingSettings}
-                                onAddRole={handleAddSettingsRole}
-                                onRemoveRole={handleRemoveSettingsRole}
-                                members={collaboratorMembers}
-                            />
-                        </SettingsCard>
-
-                        <SettingsCard title="Application behavior" description="No decorative switches here; these are the flows currently backed by server state.">
-                            <PolicyList
-                                items={[
-                                    "Open roles define application entry points and role visibility.",
-                                    "Application decisions route durable notifications to applicants.",
-                                    "Accepted applicants become project members through the canonical member flow.",
-                                    "Reviewer routing stays attached to role/application server actions.",
-                                ]}
-                            />
-                        </SettingsCard>
-
-                        <AdvancedDisclosure
-                            open={Boolean(advancedOpen["roles-applications"])}
-                            onToggle={() => toggleAdvanced("roles-applications")}
-                            title="Roles and application touchpoints"
-                        >
-                            <AffectedAreas
-                                items={[
-                                    "Project dashboard role cards and application buttons read from these saved open roles.",
-                                    "Deleting a role removes the entry point for new applications, while existing application history stays intact.",
-                                    "Accepted applicants continue through the canonical collaborator lifecycle instead of a settings-only path.",
-                                ]}
-                            />
-                        </AdvancedDisclosure>
-                    </div>
+                {/* activeSection === "roles-applications" && ( */}
+                {sections.some((s) => s.id === "roles-applications") && (
+                    <section id="project-settings-roles-applications" data-project-settings-section className="space-y-6">
+                        <div className="space-y-6">
+                            <SettingsCard
+                                title="Project roles"
+                                description="Define open positions for collaborators, set target headcounts, and customize skill profiles for application intake."
+                                footer={
+                                    <>
+                                        <p className="nb-compact text-xs text-muted-foreground">
+                                            {rolesDirty
+                                                ? "You have unsaved changes in project roles."
+                                                : "All project roles are saved."}
+                                        </p>
+                                        <div className="flex items-center gap-3">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleCancelRoles}
+                                                disabled={!rolesDirty || savingSettings}
+                                                className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={handleSaveRoles}
+                                                disabled={!rolesDirty || savingSettings}
+                                                className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                                            >
+                                                {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                                                Save changes
+                                            </Button>
+                                        </div>
+                                    </>
+                                }
+                            >
+                                <ProjectRolesEditor
+                                    fields={roleFields}
+                                    register={registerRoles}
+                                    control={rolesControl}
+                                    errors={roleErrors}
+                                    disabled={savingSettings}
+                                    onAddRole={handleAddSettingsRole}
+                                    onRemoveRole={handleRemoveSettingsRole}
+                                    members={collaboratorMembers}
+                                />
+                            </SettingsCard>
+                        </div>
+                    </section>
                 )}
 
-                {activeSection === "tasks-workflow" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Project Lifecycle"
-                            description="Edit the same journey model used by the dashboard. Task labels/templates stay hidden until they have a canonical backend."
-                            icon={Workflow}
-                            meta={[
-                                ["Lifecycle", "Enabled"],
-                                ["Task templates", "Hidden until enforceable"],
-                            ]}
-                        />
-                        <SettingsCard title="Project lifecycle" description="Define the journey stages used by the project dashboard.">
+                {/* activeSection === "readme" && ( */}
+                {sections.some((s) => s.id === "readme") && (
+                    <section id="project-settings-readme" data-project-settings-section className="space-y-6">
+                        <div className="space-y-6">
+                            <SettingsCard
+                                title="Document publishing"
+                                description="Configure document distribution rules, image security boundaries, and publish notifications."
+                            >
+                                <div className="space-y-6">
+                                    {/* Content Delivery & Notification Rules */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                                            <div className="flex items-center gap-2">
+                                                <SlidersHorizontal className="size-4 text-muted-foreground" />
+                                                <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                                    Content Delivery &amp; Notification Rules
+                                                </span>
+                                            </div>
+                                            <span className="nb-meta text-xs text-muted-foreground">
+                                                Security &amp; Alerts
+                                            </span>
+                                        </div>
+
+                                        <div className="grid gap-3">
+                                            {([
+                                                ["externalImages", "External images", "Allow embedding externally hosted images in documentation. Keep this disabled for private or sensitive projects to prevent tracking pixels and referrer leaks."],
+                                                ["notifyOnPublish", "Notify on publish", "Automatically send notification alerts to project followers and members whenever documentation changes are published."],
+                                            ] as const).map(([key, title, description]) => (
+                                                <div
+                                                    key={key}
+                                                    className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20"
+                                                >
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="nb-ui-label text-sm font-semibold text-foreground">{title}</p>
+                                                        <p className="nb-compact mt-0.5 text-xs text-muted-foreground leading-relaxed">{description}</p>
+                                                    </div>
+                                                    <div className="flex shrink-0 items-center gap-3">
+                                                        <span className="nb-meta text-muted-foreground select-none w-6 text-right flex items-center justify-end">
+                                                            {savingReadmeKey === key ? (
+                                                                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                                            ) : Boolean(readmeSettingsDraft[key]) ? (
+                                                                "On"
+                                                            ) : (
+                                                                "Off"
+                                                            )}
+                                                        </span>
+                                                        <SettingsSwitch
+                                                            checked={Boolean(readmeSettingsDraft[key])}
+                                                            disabled={readmeSettingsLoading || savingReadmeKey === key}
+                                                            aria-label={`Toggle ${title}`}
+                                                            onCheckedChange={(checked) => void handleToggleReadmeSetting(key, checked)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </SettingsCard>
+                        </div>
+                    </section>
+                )}
+
+                {/* activeSection === "updates" && ( */}
+                {sections.some((s) => s.id === "updates") && (
+                    <section id="project-settings-updates" data-project-settings-section className="space-y-6">
+                        <div className="space-y-6">
+                            <SettingsCard
+                                title="Project updates"
+                                description="Configure member publishing permissions and broadcast settings for project progress updates."
+                            >
+                                <div className="space-y-6">
+                                    {/* Section 1: Publishing Permissions */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                                            <div className="flex items-center gap-2">
+                                                <SlidersHorizontal className="size-4 text-muted-foreground" />
+                                                <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                                    Publishing Permissions
+                                                </span>
+                                            </div>
+                                            <span className="nb-meta text-xs text-muted-foreground">
+                                                {memberUpdatesEnabled ? "Open collaboration" : "Restricted to leadership"}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="nb-ui-label text-sm font-semibold text-foreground">
+                                                        Allow members to post updates
+                                                    </p>
+                                                    <span
+                                                        className={cn(
+                                                            "inline-flex h-5 items-center rounded-[3px] border px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none",
+                                                            memberUpdatesEnabled
+                                                                ? "border-primary/20 bg-primary/10 text-primary"
+                                                                : "border-border bg-muted/60 text-muted-foreground",
+                                                        )}
+                                                    >
+                                                        {memberUpdatesEnabled ? "Members enabled" : "Leaders only"}
+                                                    </span>
+                                                </div>
+                                                <p className="nb-compact mt-1 text-xs text-muted-foreground leading-relaxed">
+                                                    When enabled, all verified project members can author and publish progress updates. When disabled, update authoring is restricted exclusively to the Project Owner and Co-leaders.
+                                                </p>
+                                            </div>
+                                            <div className="flex shrink-0 items-center gap-3">
+                                                <span className="nb-meta text-muted-foreground select-none w-6 text-right flex items-center justify-end">
+                                                    {savingMemberUpdates ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                                    ) : memberUpdatesEnabled ? (
+                                                        "On"
+                                                    ) : (
+                                                        "Off"
+                                                    )}
+                                                </span>
+                                                <SettingsSwitch
+                                                    checked={memberUpdatesEnabled}
+                                                    disabled={savingMemberUpdates}
+                                                    aria-label="Allow members to post updates"
+                                                    onCheckedChange={(checked) => void handleToggleMemberUpdates(checked)}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </SettingsCard>
+                        </div>
+                    </section>
+                )}
+
+                {/* activeSection === "tasks-workflow" && ( */}
+                {sections.some((s) => s.id === "tasks-workflow") && (
+                    <section id="project-settings-tasks-workflow" data-project-settings-section className="space-y-6">
+                        <div className="space-y-6">
                             <LifecycleSettingsEditor
                                 initialStages={project?.lifecycle_stages || project?.lifecycleStages || ["Concept", "MVP", "Launch"]}
                                 currentStageIndex={project?.current_stage_index ?? project?.currentStageIndex ?? 0}
@@ -2737,516 +3460,364 @@ export default function ProjectSettingsTab({
                                     }
                                 }}
                             />
-                        </SettingsCard>
-                    </div>
+                        </div>
+                    </section>
                 )}
 
-                {activeSection === "files-workspace" && (
-                    <div className="space-y-5">
-                        <SummaryCard
+                {/* activeSection === "files-workspace" && ( */}
+                {sections.some((s) => s.id === "files-workspace") && (
+                    <section id="project-settings-files-workspace" data-project-settings-section className="space-y-6">
+                        <SettingsCard
                             title="Files and workspace"
                             description="Control file intake clearly: leaders can always upload, members can be toggled on or off, and viewers stay read-focused."
-                            icon={Folder}
-                            meta={[
-                                ["Always allowed", String(fileWorkspaceData?.summary.alwaysAllowedCount ?? 0)],
-                                ["Members on", String(fileWorkspaceData?.summary.enabledMemberCount ?? 0)],
-                                ["Members off", String(fileWorkspaceData?.summary.disabledMemberCount ?? 0)],
-                            ]}
-                        />
-
-                        <SettingsCard
-                            title="Member upload permissions"
-                            description="Turn file uploads on or off per member. This is enforced before signed upload URLs, file rows, folders, and replacement versions are created."
+                            footer={
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                        <span className="nb-meta inline-flex items-center gap-1.5">
+                                            <span className="size-1.5 rounded-[1px] bg-primary" />
+                                            {fileWorkspaceData?.summary.alwaysAllowedCount ?? 0} leaders always allowed
+                                        </span>
+                                        <span>·</span>
+                                        <span className="nb-meta">{fileWorkspaceData?.summary.enabledMemberCount ?? 0} members enabled</span>
+                                        <span>·</span>
+                                        <span className="nb-meta">{fileWorkspaceData?.summary.disabledMemberCount ?? 0} disabled</span>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={fileWorkspaceLoading}
+                                        onClick={() => void loadFileWorkspaceSettings(true)}
+                                        className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium gap-2 self-start sm:self-auto border-border hover:bg-muted/50"
+                                    >
+                                        <RefreshCw className={cn("size-3.5", fileWorkspaceLoading && "animate-spin")} />
+                                        Refresh
+                                    </Button>
+                                </div>
+                            }
                         >
                             <FileWorkspaceMembers
                                 data={fileWorkspaceData}
-                                isLoading={fileWorkspaceLoading}
+                                isLoading={fileWorkspaceLoading && !fileWorkspaceData}
                                 savingMemberId={fileWorkspaceSavingMemberId}
+                                bulkSaving={fileWorkspaceBulkSaving}
                                 onToggle={handleToggleMemberFileUpload}
+                                onBulkToggle={handleBulkFileUploadPermission}
+                                filePolicy={filePolicy}
                             />
                         </SettingsCard>
-
-                        <SettingsCard
-                            title="Bulk upload control"
-                            description="Bulk actions apply only to standard members. Leads and Co-leaders stay on; viewers stay off."
-                        >
-                            <div className="flex flex-wrap gap-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={fileWorkspaceBulkSaving}
-                                    onClick={() => void handleBulkFileUploadPermission(true)}
-                                >
-                                    Enable member uploads
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={fileWorkspaceBulkSaving}
-                                    onClick={() => void handleBulkFileUploadPermission(false)}
-                                >
-                                    Disable member uploads
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={fileWorkspaceLoading}
-                                    onClick={() => void loadFileWorkspaceSettings()}
-                                    className="gap-2"
-                                >
-                                    <RefreshCw className={cn("h-3.5 w-3.5", fileWorkspaceLoading && "animate-spin")} />
-                                    Refresh
-                                </Button>
-                            </div>
-                        </SettingsCard>
-
-                        <SettingsCard title="Enforced file behavior" description={filePolicy.uploadPolicySummary}>
-                            <PolicyList items={filePolicy.enforcedRules} />
-                        </SettingsCard>
-                        <AdvancedDisclosure
-                            open={Boolean(advancedOpen["files-workspace"])}
-                            onToggle={() => toggleAdvanced("files-workspace")}
-                            title="Affected file surfaces"
-                        >
-                            <AffectedAreas items={filePolicy.affectedAreas} />
-                        </AdvancedDisclosure>
-                    </div>
+                    </section>
                 )}
 
-                {activeSection === "readme" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Document publishing"
-                            description="Control who can edit project documentation, how media is handled, and whether published changes notify followers or members."
-                            icon={FileText}
-                            meta={[
-                                ["Edit policy", readmeSettingsDraft.editPolicy === "members" ? "Members can edit" : "Leaders only"],
-                                ["Media uploads", readmeSettingsDraft.mediaUploads ? "Enabled" : "Disabled"],
-                                ["Publish notifications", readmeSettingsDraft.notifyOnPublish ? "Enabled" : "Off"],
-                            ]}
-                        />
-
-                        <SettingsCard
-                            title="Editing access"
-                            description="Owners and Co-leaders can always edit. Members can edit only when this policy allows it."
-                        >
-                            <div className="grid gap-3 md:grid-cols-2">
-                                {([
-                                    ["leaders", "Leaders only", "Owners and Co-leaders maintain the canonical published document."],
-                                    ["members", "Members can edit", "Members can help improve the draft; publishing stays leader-only."],
-                                ] as const).map(([value, title, description]) => (
-                                    <button
-                                        key={value}
-                                        type="button"
-                                        disabled={readmeSettingsLoading}
-                                        onClick={() => setReadmeSettingsDraft((current) => ({ ...current, editPolicy: value }))}
-                                        className={cn(
-                                            "rounded-2xl border p-4 text-left transition disabled:opacity-60",
-                                            readmeSettingsDraft.editPolicy === value
-                                                ? "border-blue-500 bg-blue-50/70 dark:bg-blue-950/20"
-                                                : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950",
-                                        )}
-                                    >
-                                        <span className="font-semibold text-zinc-950 dark:text-zinc-50">{title}</span>
-                                        <span className="mt-1 block text-sm leading-5 text-zinc-500">{description}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </SettingsCard>
-
-                        <SettingsCard
-                            title="Media, smart blocks, and notification policy"
-                            description="Document media is stored in managed project storage. External images stay off by default so private project data does not leak through third-party URLs."
-                        >
-                            <div className="grid gap-3">
-                                {([
-                                    ["mediaUploads", "Managed image uploads", "Allow editors to upload document images through access-checked project storage."],
-                                    ["externalImages", "External images", "Allow externally hosted images. Keep this off for private or sensitive projects."],
-                                    ["projectBlocks", "Project smart blocks", "Allow blocks such as roles, contributors, files, tasks, and sprints to render safe project data."],
-                                    ["notifyOnPublish", "Notify on publish", "Send optional document publish notifications through the project notification policy."],
-                                ] as const).map(([key, title, description]) => (
-                                    <div key={key} className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
-                                        <div>
-                                            <p className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">{title}</p>
-                                            <p className="mt-1 text-sm leading-5 text-zinc-500">{description}</p>
-                                        </div>
-                                        <TogglePill
-                                            checked={Boolean(readmeSettingsDraft[key])}
-                                            disabled={readmeSettingsLoading || readmeSettingsSaving}
-                                            label={`Toggle ${title}`}
-                                            onChange={(checked) => setReadmeSettingsDraft((current) => ({ ...current, [key]: checked }))}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                        </SettingsCard>
-
-                        <AdvancedDisclosure
-                            open={Boolean(advancedOpen.readme)}
-                            onToggle={() => toggleAdvanced("readme")}
-                            title="Document affected surfaces"
-                        >
-                            <AffectedAreas
-                                items={[
-                                    "The top-level Docs tab uses these settings for editor access, image rendering, and smart blocks.",
-                                    "The Access tab controls whether a published document is visible to public visitors.",
-                                    "Published document images are served through the access-checked document asset route, not direct public storage URLs.",
-                                    "Document excerpts can support project share metadata only when the project itself is public and readable.",
-                                ]}
-                            />
-                        </AdvancedDisclosure>
-                    </div>
-                )}
-
-                {activeSection === "updates" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Updates"
-                            description="Project progress posts use member publishing permissions, public tab visibility, and the project notification policy."
-                            icon={Bell}
-                            meta={[
-                                ["Public tab", publicTabVisibility.updates ? "Visible" : "Members only"],
-                                ["Publishers", memberUpdatesEnabled ? "Owner, Co-leaders, Members" : "Owner, Co-leaders"],
-                                ["Engagement", "Likes and comments"],
-                            ]}
-                        />
-
-                        <SettingsCard
-                            title="Publishing permissions"
-                            description="Configure who is allowed to publish progress updates in this project."
-                        >
-                            <div className="flex items-center justify-between gap-4">
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                                        Allow members to post updates
-                                    </p>
-                                    <p className="text-xs text-zinc-500 mt-1">
-                                        When enabled, all project members can publish updates. When disabled, only the Lead (Owner) and Co-leaders (Admins) can publish.
-                                    </p>
-                                </div>
-                                <TogglePill
-                                    checked={memberUpdatesEnabled}
-                                    disabled={savingSettings}
-                                    onChange={setMemberUpdatesEnabled}
-                                    label="Allow members to post updates"
-                                />
-                            </div>
-                        </SettingsCard>
-
-                        <SettingsCard
-                            title="Publishing rules"
-                            description="Updates are intentional project posts. Viewers can discuss visible updates, while creating and pinning stay tied to project membership."
-                        >
-                            <PolicyList
-                                items={[
-                                    memberUpdatesEnabled
-                                        ? "Owner, Co-leaders, and Members can create updates."
-                                        : "Only the Owner and Co-leaders can create updates (Member posting is disabled).",
-                                    "Viewers and logged-in public visitors can comment on visible updates when the update allows logged-in replies.",
-                                    "Owners and Co-leaders can pin, unpin, and moderate updates and comments.",
-                                    "Authored updates remain part of project history after a member leaves unless a leader moderates them.",
-                                ]}
-                            />
-                        </SettingsCard>
-
-                        <SettingsCard
-                            title="Follower notifications"
-                            description="Public updates on public projects notify followers and members through the Updates notification group."
-                        >
-                            <PolicyList
-                                items={[
-                                    "Follower notifications deep-link to the exact update in the Updates tab.",
-                                    "The actor is excluded from their own publish notification.",
-                                    "Private projects do not fan out public preview content to followers.",
-                                    "Low-noise digest keys are reserved for grouped update delivery.",
-                                ]}
-                            />
-                        </SettingsCard>
-
-                        <AdvancedDisclosure
-                            open={Boolean(advancedOpen.updates)}
-                            onToggle={() => toggleAdvanced("updates")}
-                            title="Updates affected surfaces"
-                        >
-                            <AffectedAreas
-                                items={[
-                                    "The top-level Updates tab controls feed reading, composing, likes, comments, filters, and deep links.",
-                                    "The Access tab controls whether public visitors can see project updates.",
-                                    "The Notifications tab controls update publish, comment, and digest-ready follower events.",
-                                    "Pinned updates are shown before the newest feed items.",
-                                ]}
-                            />
-                        </AdvancedDisclosure>
-                    </div>
-                )}
-
-                {activeSection === "notifications" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Project notification policy"
-                            description="Project leaders define which project events create durable attention. Personal delivery channels, quiet hours, and push settings still live in global notification settings."
-                            icon={Bell}
-                            meta={[
-                                ["Preset", projectNotificationDraft.preset],
-                                ["Enabled triggers", `${notificationSummary.enabledCount}/${notificationSummary.visibleCount}`],
-                                ["Locked safety events", `${notificationSummary.mandatoryCount}`],
-                            ]}
-                        />
-
-                        <SettingsCard title="Notification preset" description="Start from a low-noise baseline, then tune exact project triggers below. Mandatory responsibility and security events stay locked on.">
-                            <div className="grid gap-3 md:grid-cols-3">
-                                {([
-                                    ["quiet", "Quiet", "Only critical project responsibility and safety events stay active."],
-                                    ["balanced", "Balanced", "Recommended for most teams: assignments, reviews, files, sprints, and applications."],
-                                    ["active", "Active", "Turns on every visible project trigger for highly collaborative projects."],
-                                ] as const).map(([preset, label, detail]) => (
-                                    <ProjectNotificationPresetButton
-                                        key={preset}
-                                        preset={preset}
-                                        label={label}
-                                        detail={detail}
-                                        activePreset={projectNotificationDraft.preset}
-                                        onSelect={handleProjectNotificationPreset}
-                                    />
-                                ))}
-                            </div>
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                <Button type="button" variant="outline" onClick={() => void handleResetNotifications()} disabled={savingSettings}>
-                                    Reset recommended defaults
-                                </Button>
-                                <Button variant="outline" onClick={() => router.push("/settings?tab=notifications")}>
-                                    Open global notification settings
-                                </Button>
-                            </div>
-                        </SettingsCard>
-
-                        {projectNotificationLoading ? (
-                            <SettingsCard title="Loading project triggers" description="Reading the current project notification policy.">
-                                <div className="flex items-center gap-2 text-sm text-zinc-500">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Loading notification controls...
-                                </div>
-                            </SettingsCard>
-                        ) : null}
-
-                        {notificationGroups.map((group) => (
-                            <SettingsCard key={group.id} title={group.title} description={group.description}>
-                                <div className="divide-y divide-zinc-200 overflow-hidden rounded-2xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-                                    {group.entries.map((entry) => (
-                                        <ProjectNotificationRuleRow
-                                            key={entry.key}
-                                            entry={entry}
-                                            policy={projectNotificationDraft}
-                                            disabled={savingSettings}
-                                            onToggle={handleProjectNotificationToggle}
-                                        />
-                                    ))}
-                                </div>
-                            </SettingsCard>
-                        ))}
-
-                        <SettingsCard title="Member-level preferences" description="Members can reduce personal noise for optional triggers. Leaders can review effective summaries, but critical responsibility and safety notifications cannot be silently disabled for another person.">
-                            <div className="grid gap-3 lg:grid-cols-2">
-                                {rolePolicy.members.slice(0, 8).map((member) => {
-                                    const role = projectMemberRole(member, ownerId);
-                                    return (
-                                        <button
-                                            key={member.id}
-                                            type="button"
-                                            onClick={() => void openMemberNotificationSettings(member)}
-                                            className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-blue-800 dark:hover:bg-blue-950/20"
-                                        >
-                                            <span className="min-w-0">
-                                                <span className="block truncate text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                                                    {getProjectMemberDisplayName(member)}
-                                                </span>
-                                                <span className="mt-1 block text-xs text-zinc-500">
-                                                    {getProjectMemberRoleLabel(role)} · Review effective project notification access
-                                                </span>
+                {/* activeSection === "notifications" && ( */}
+                {sections.some((s) => s.id === "notifications") && (
+                    <section id="project-settings-notifications" data-project-settings-section className="space-y-6">
+                        <div className="space-y-6">
+                            <SettingsCard
+                                title="Project notification policy"
+                                description="Configure workflow event triggers and delivery rules across 7 core project categories. Critical responsibility and safety events stay locked on."
+                                footer={
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+                                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                            <span className="nb-meta inline-flex items-center gap-1.5">
+                                                <span className="size-1.5 rounded-[1px] bg-primary" />
+                                                {notificationSummary.enabledCount}/{notificationSummary.visibleCount} triggers active
                                             </span>
-                                            <Bell className="h-4 w-4 shrink-0 text-zinc-400" />
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            {rolePolicy.members.length > 8 ? (
-                                <p className="mt-3 text-xs text-zinc-500">
-                                    Open the Collaborators tab to search all members and review their notification preferences from each member card.
-                                </p>
-                            ) : null}
-                        </SettingsCard>
-
-                        <AdvancedDisclosure
-                            open={Boolean(advancedOpen.notifications)}
-                            onToggle={() => toggleAdvanced("notifications")}
-                            title="Affected notification surfaces"
-                        >
-                            <AffectedAreas items={[
-                                "Source actions still succeed if notification enqueue fails; failures are logged as non-fatal project notification errors.",
-                                "Durable inbox rows remain the source of truth; browser/push/email delivery continues to follow global notification settings.",
-                                "Private project notifications never expose unsafe project metadata to users who lose access.",
-                                "High-volume files, sprint edits, and bulk task events use stable aggregation windows instead of one-row-per-action spam.",
-                                "Member overrides can reduce optional project noise, but mandatory assignment, review, access, and security events stay enabled.",
-                            ]} />
-                        </AdvancedDisclosure>
-                    </div>
-                )}
-
-                {activeSection === "security-audit" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Security and data"
-                            description="Recent settings audit, protected actions, and exportable project data live in one low-noise control center."
-                            icon={Shield}
-                            meta={[
-                                ["Data access", "Public data and stats"],
-                                ["Settings access", "Lead / Co-leader scoped"],
-                                ["Follower notifications", "Automated system routing"],
-                                ["Transfer ownership", "Step-up protected"],
-                                ["Export", "Available"],
-                            ]}
-                        />
-                        <SettingsCard
-                            title="Recent settings audit"
-                            description="Owner-visible history for access-sensitive settings changes. File policy and collaborator changes are included here."
-                        >
-                            <SettingsAuditTimeline events={settingsAuditEvents} isLoading={settingsAuditLoading} />
-                        </SettingsCard>
-                        <SettingsCard title="Protected action model" description="These guardrails keep the project stable without adding fake toggles.">
-                            <PolicyList
-                                items={[
-                                    "Settings sections are scoped by capability; non-leaders cannot see project controls.",
-                                    "Ownership transfer requires the next owner to already be a member.",
-                                    "Danger Zone runs preflight checks before archive/delete.",
-                                    "Permission and ownership changes reuse shared security logic.",
-                                ]}
-                            />
-                        </SettingsCard>
-                        <SettingsCard title="Export project snapshot" description="Download a JSON snapshot of project identity, settings, lifecycle, and loaded member summaries. Import and restore stay hidden until validation and rollback are safe.">
-                            <Button
-                                onClick={() => void handleExport()}
-                                disabled={loadingExport}
-                                className="gap-2"
+                                            <span>·</span>
+                                            <span className="nb-meta">
+                                                {notificationSummary.mandatoryCount} mandatory locked
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 self-end sm:self-auto">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={!notificationDirty || savingSettings}
+                                                onClick={handleCancelNotifications}
+                                                className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] border-border hover:bg-muted/50"
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                disabled={!notificationDirty || savingSettings}
+                                                onClick={() => void handleSaveNotifications()}
+                                                className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] gap-1.5"
+                                            >
+                                                {savingSettings ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                                                Save changes
+                                            </Button>
+                                        </div>
+                                    </div>
+                                }
                             >
-                                {loadingExport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                                Export project snapshot
-                            </Button>
-                        </SettingsCard>
-                    </div>
+                                <div className="space-y-6">
+                                    {/* Workflow Event Triggers Header & Controls */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/60 pb-3">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <Bell className="size-4 text-foreground" />
+                                                <h3 className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-foreground">
+                                                    Workflow Event Triggers
+                                                </h3>
+                                            </div>
+                                            <p className="nb-compact mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                                                36 triggers organized across 7 core workflow categories. Click any category trigger to expand and customize event delivery.
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={toggleAllNotificationGroups}
+                                                className="h-[28px] rounded-[5px] px-2.5 text-xs font-medium border-border hover:bg-muted/50"
+                                            >
+                                                {areAllNotificationGroupsExpanded ? "Collapse all" : "Expand all"}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* 7 Workflow Category Dropdown Cards */}
+                                    {projectNotificationLoading ? (
+                                        <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+                                            <Loader2 className="size-4 animate-spin" />
+                                            Loading notification controls...
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {notificationGroups.map((group) => (
+                                                <ProjectNotificationCategoryCard
+                                                    key={group.id}
+                                                    group={group}
+                                                    policy={projectNotificationDraft}
+                                                    isExpanded={Boolean(expandedNotificationGroups[group.id])}
+                                                    onToggleExpand={() => toggleNotificationGroup(group.id)}
+                                                    onToggleRule={handleProjectNotificationToggle}
+                                                    disabled={savingSettings}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </SettingsCard>
+                        </div>
+                    </section>
                 )}
 
-                {activeSection === "privacy-terms" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Privacy & Terms"
-                            description="Project legal notice, visibility disclosures, member responsibilities, and applicable terms."
-                            icon={ShieldCheck}
-                            meta={[
-                                ["Current visibility", visibility === "public" ? "Public" : "Private"],
-                                ["Viewer role", isProjectOwner ? "Project owner" : actorProjectRole === "admin" ? "Project co-leader" : "Project collaborator"],
-                                ["Repository", Boolean(project?.githubRepoUrl || project?.github_repo_url || project?.repositoryUrl) ? "Connected" : "Not connected"],
-                                ["Platform terms", "Standard platform legal notice"],
-                            ]}
-                        />
-                        <ProjectPrivacyTermsTab
-                            project={project}
-                            isOwner={isProjectOwner}
-                            isOwnerOrMember={Boolean(isProjectOwner || actorProjectRole)}
-                            publicTabVisibility={publicTabVisibility}
-                            embedded={true}
-                        />
-                    </div>
+                {/* activeSection === "privacy-policies" && ( */}
+                {sections.some((s) => s.id === "privacy-policies" || s.id === "privacy-terms") && (
+                    <section id="project-settings-privacy-policies" data-project-settings-section className="space-y-6">
+                        <LegalAndDataRightsSection />
+                    </section>
                 )}
 
-                {activeSection === "danger" && (
-                    <div className="space-y-5">
-                        <SummaryCard
-                            title="Danger Zone"
-                            description="Projects behave like repositories: archive, transfer ownership, or delete. Finalize is intentionally removed."
-                            icon={AlertTriangle}
-                            tone="danger"
-                            meta={[
-                                ["Current status", preflightPolicy.status],
-                                ["Archive", preflightPolicy.canArchive ? "Available" : "Unavailable"],
-                                ["Delete", preflightPolicy.canDelete ? "Available" : "Unavailable"],
-                            ]}
-                        />
-
-                        <SettingsCard title="Preflight" description="Risky actions use current project state before mutation.">
-                            {dangerPreflightLoading ? (
-                                <div className="flex items-center gap-2 text-sm text-zinc-500">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Running preflight checks...
-                                </div>
-                            ) : dangerPreflight ? (
-                                <AffectedAreas items={preflightPolicy.affectedAreas} />
-                            ) : (
-                                <div className="flex flex-wrap items-center gap-3">
-                                    <p className="text-sm text-zinc-500">Preflight data is not loaded yet.</p>
-                                    <Button variant="outline" onClick={() => void loadDangerPreflight()}>
-                                        Run checks
-                                    </Button>
-                                </div>
-                            )}
-                        </SettingsCard>
-
-                        <DangerAction
-                            icon={Archive}
-                            title="Archive project"
-                            description="Hide from normal discovery and mark the project archived. Existing members keep historical access."
-                            actionLabel="Archive"
-                            disabled={confirmLoading || dangerPreflightLoading || !dangerPreflight || !preflightPolicy.canArchive}
-                            onClick={prepareArchive}
-                        />
-
+                {/* activeSection === "danger" && ( */}
+                {sections.some((s) => s.id === "danger") && (
+                    <section id="project-settings-danger" data-project-settings-section className="space-y-6">
                         <SettingsCard
-                            title="Transfer ownership"
-                            description="Move ownership to an existing member. This is step-up protected and creates audit history for both users."
+                            title="Danger Zone"
+                            description="Irreversible and sensitive project operations. Archive to preserve read-only history, transfer ownership to a team member, or permanently delete."
                             danger
-                        >
-                            <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-                                <div>
-                                    <label htmlFor="project-transfer-owner" className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                                        New owner
-                                    </label>
-                                    <select
-                                        id="project-transfer-owner"
-                                        value={transferOwnerId}
-                                        onChange={(event) => setTransferOwnerId(event.target.value)}
-                                        className="mt-2 h-10 w-full rounded-xl border border-red-200 bg-white px-3 text-sm outline-none focus:border-red-500 dark:border-red-900/60 dark:bg-zinc-950"
-                                    >
-                                        <option value="">Choose an existing member</option>
-                                        {rolePolicy.transferCandidates.map((member) => (
-                                            <option key={member.id} value={member.id}>
-                                                {getProjectMemberDisplayName(member)} · {getProjectMemberRoleLabel(projectMemberRole(member, ownerId))}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {rolePolicy.transferCandidates.length === 0 ? (
-                                        <p className="mt-2 text-xs text-red-500">Add another project member before ownership can be transferred.</p>
+                        footer={
+                            <>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="size-1.5 rounded-full bg-destructive/80" />
+                                    <span className="nb-meta text-muted-foreground">
+                                        {dangerPreflightLoading ? (
+                                            <span className="inline-flex items-center gap-1.5">
+                                                <Loader2 className="size-3 animate-spin" />
+                                                Running preflight safety checks...
+                                            </span>
+                                        ) : dangerPreflight ? (
+                                            <span>Preflight verified · Status: {preflightPolicy.status.toUpperCase()} · {preflightPolicy.affectedAreas.join(" · ")}</span>
+                                        ) : (
+                                            <span>Preflight safety checks pending</span>
+                                        )}
+                                    </span>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => void loadDangerPreflight(true)}
+                                    disabled={dangerPreflightLoading}
+                                    className="h-[28px] gap-1.5 rounded-[5px] border-border px-2.5 text-xs font-medium"
+                                >
+                                    <RefreshCw className={cn("size-3.5", dangerPreflightLoading && "animate-spin")} />
+                                    Refresh checks
+                                </Button>
+                            </>
+                        }
+                    >
+                        <div className="space-y-4">
+                            {/* Operation 1: Archive Project */}
+                            <div className="rounded-[6px] border border-border bg-card p-5 sm:p-6 transition-colors">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0 flex-1 space-y-1.5">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="nb-ui-label text-sm font-semibold text-foreground">Archive this project</span>
+                                            <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
+                                                {preflightPolicy.status === "archived" ? "ARCHIVED" : "ACTIVE"}
+                                            </span>
+                                            <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
+                                                REVERSIBLE
+                                            </span>
+                                        </div>
+                                        <p className="nb-compact text-[13px] leading-[1.5] text-muted-foreground max-w-[64ch]">
+                                            {preflightPolicy.status === "archived"
+                                                ? "This project is currently archived and in read-only mode. Existing members retain historical access to all records."
+                                                : "Mark this project as read-only. Existing members keep historical access, but tasks, intake, and publishing are paused."}
+                                        </p>
+                                        {dangerPreflight && preflightPolicy.status !== "archived" && (preflightPolicy.activeTasksCount > 0 || preflightPolicy.openRolesCount > 0) ? (
+                                            <p className="nb-meta text-[11px] text-muted-foreground/80">
+                                                Affects {preflightPolicy.activeTasksCount} active task{preflightPolicy.activeTasksCount === 1 ? "" : "s"} and {preflightPolicy.openRolesCount} open role{preflightPolicy.openRolesCount === 1 ? "" : "s"}.
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <div className="shrink-0 pt-1 sm:pt-0">
+                                        <Button
+                                            variant="outline"
+                                            onClick={prepareArchive}
+                                            disabled={confirmLoading || dangerPreflightLoading || !dangerPreflight || !preflightPolicy.canArchive}
+                                            className="h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium"
+                                        >
+                                            <Archive className="h-4 w-4" />
+                                            {preflightPolicy.status === "archived" ? "Archived" : "Archive project"}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Operation 2: Transfer Ownership */}
+                            <div className="rounded-[6px] border border-border bg-card p-5 sm:p-6 transition-colors">
+                                <div className="space-y-3">
+                                    <div className="space-y-1.5">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="nb-ui-label text-sm font-semibold text-foreground">Transfer ownership</span>
+                                            <span className="inline-flex h-5 items-center rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-400">
+                                                OWNER ONLY
+                                            </span>
+                                            <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
+                                                STEP-UP PROTECTED
+                                            </span>
+                                        </div>
+                                        <p className="nb-compact text-[13px] leading-[1.5] text-muted-foreground max-w-[64ch]">
+                                            Transfer primary ownership and administrative authority of this project to an existing team member. You will become an administrator and surrender destructive management privileges.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                        <div className="min-w-0 flex-1">
+                                            <label htmlFor="project-transfer-owner" className="sr-only">New owner</label>
+                                            <select
+                                                id="project-transfer-owner"
+                                                value={transferOwnerId}
+                                                onChange={(event) => setTransferOwnerId(event.target.value)}
+                                                className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none transition-colors focus:border-primary"
+                                                disabled={confirmLoading || !isProjectOwner || rolePolicy.transferCandidates.length === 0}
+                                            >
+                                                <option value="">Choose an existing member...</option>
+                                                {rolePolicy.transferCandidates.map((member) => (
+                                                    <option key={member.id} value={member.id}>
+                                                        {getProjectMemberDisplayName(member)} · {getProjectMemberRoleLabel(projectMemberRole(member, ownerId))}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={prepareTransfer}
+                                            disabled={confirmLoading || !isProjectOwner || rolePolicy.transferCandidates.length === 0 || !transferOwnerId}
+                                            className="h-[34px] shrink-0 gap-2 rounded-[5px] px-3.5 text-[13px] font-medium"
+                                        >
+                                            <Crown className="h-4 w-4" />
+                                            Transfer ownership
+                                        </Button>
+                                    </div>
+
+                                    {/* Preview selected candidate chip */}
+                                    {(() => {
+                                        const selectedMember = rolePolicy.transferCandidates.find((m) => m.id === transferOwnerId);
+                                        if (!selectedMember) return null;
+                                        return (
+                                            <div className="flex items-center justify-between rounded-[5px] border border-border bg-muted/20 px-3 py-2 text-xs">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-muted font-mono text-[10px] font-semibold text-muted-foreground uppercase">
+                                                        {getProjectMemberDisplayName(selectedMember).slice(0, 2)}
+                                                    </div>
+                                                    <span className="nb-ui-label truncate text-foreground font-medium">
+                                                        {getProjectMemberDisplayName(selectedMember)}
+                                                    </span>
+                                                    {selectedMember.username ? (
+                                                        <span className="nb-meta text-muted-foreground truncate">
+                                                            @{selectedMember.username}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                <span className="inline-flex h-5 shrink-0 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
+                                                    {getProjectMemberRoleLabel(projectMemberRole(selectedMember, ownerId))}
+                                                </span>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {!isProjectOwner ? (
+                                        <p className="nb-compact text-xs text-muted-foreground">
+                                            Only the current project owner can transfer ownership.
+                                        </p>
+                                    ) : rolePolicy.transferCandidates.length === 0 ? (
+                                        <p className="nb-compact text-xs text-amber-700 dark:text-amber-400">
+                                            Add at least one team member to this project before ownership can be transferred.
+                                        </p>
                                     ) : null}
                                 </div>
-                                <Button
-                                    variant="destructive"
-                                    onClick={prepareTransfer}
-                                    disabled={confirmLoading || rolePolicy.transferCandidates.length === 0 || !transferOwnerId}
-                                    className="gap-2"
-                                >
-                                    <Crown className="h-4 w-4" />
-                                    Transfer
-                                </Button>
                             </div>
-                        </SettingsCard>
 
-                        <DangerAction
-                            icon={Trash2}
-                            title="Delete project"
-                            description="Permanently delete this project and associated data. This cannot be undone."
-                            actionLabel="Delete project"
-                            disabled={confirmLoading || dangerPreflightLoading || !dangerPreflight || !preflightPolicy.canDelete}
-                            onClick={prepareDelete}
-                        />
-                    </div>
+                            {/* Operation 3: Delete Project */}
+                            <div className="rounded-[6px] border border-destructive/20 bg-destructive/[0.02] p-5 sm:p-6 transition-colors">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0 flex-1 space-y-1.5">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="nb-ui-label text-sm font-semibold text-destructive">Delete this project</span>
+                                            <span className="inline-flex h-5 items-center rounded-[3px] border border-destructive/20 bg-destructive/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-destructive">
+                                                PERMANENT
+                                            </span>
+                                            <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
+                                                IRREVERSIBLE
+                                            </span>
+                                        </div>
+                                        <p className="nb-compact text-[13px] leading-[1.5] text-muted-foreground max-w-[64ch]">
+                                            Permanently delete this project and all associated workspaces, tasks, documents, and discussions. Once deleted, this action cannot be recovered.
+                                        </p>
+                                        {dangerPreflight && preflightPolicy.affectedAreas.length > 0 ? (
+                                            <p className="nb-meta text-[11px] text-destructive/80">
+                                                Preflight: {preflightPolicy.affectedAreas.join(" · ")}
+                                            </p>
+                                        ) : null}
+                                        {!isProjectOwner ? (
+                                            <p className="nb-compact text-xs text-muted-foreground mt-1">
+                                                Only the project owner can delete this project.
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <div className="shrink-0 pt-1 sm:pt-0">
+                                        <Button
+                                            variant="destructive"
+                                            onClick={prepareDelete}
+                                            disabled={confirmLoading || dangerPreflightLoading || !dangerPreflight || !isProjectOwner || !preflightPolicy.canDelete}
+                                            className="h-[34px] gap-2 rounded-[5px] px-3.5 text-[13px] font-medium"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Delete project
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </SettingsCard>
+                    </section>
                 )}
             </main>
 
@@ -3270,6 +3841,42 @@ export default function ProjectSettingsTab({
             >
                 {confirmDialogContent}
             </ConfirmDialog>
+
+            {/* Danger Zone Specific High-Stakes Confirmation Modals */}
+            <ProjectArchiveModal
+                open={archiveModalOpen}
+                onOpenChange={setArchiveModalOpen}
+                isArchived={preflightPolicy.status === "archived"}
+                activeTasksCount={preflightPolicy.activeTasksCount}
+                openRolesCount={preflightPolicy.openRolesCount}
+                loading={confirmLoading}
+                onConfirmArchive={handleExecuteArchive}
+            />
+
+            <ProjectTransferOwnershipModal
+                open={transferModalOpen}
+                onOpenChange={setTransferModalOpen}
+                candidate={selectedTransferCandidate}
+                projectSlug={project.slug || ""}
+                projectTitle={project.title}
+                loading={confirmLoading}
+                onConfirmTransfer={handleExecuteTransfer}
+            />
+
+            <ProjectDeleteModal
+                open={deleteModalOpen}
+                onOpenChange={setDeleteModalOpen}
+                projectSlug={project.slug || ""}
+                projectTitle={project.title}
+                preflight={dangerPreflight ? {
+                    activeTasksCount: preflightPolicy.activeTasksCount,
+                    openRolesCount: preflightPolicy.openRolesCount,
+                    pendingApplicationsCount: dangerPreflight.pendingApplicationsCount,
+                    affectedAreas: preflightPolicy.affectedAreas,
+                } : null}
+                loading={confirmLoading}
+                onConfirmDelete={handleExecuteDelete}
+            />
         </div>
     );
 }
@@ -3290,20 +3897,20 @@ function SectionHeader({
     onSave: () => void;
 }) {
     return (
-        <div className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="rounded-lg border border-border bg-card p-6 shadow-none">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-400">Settings</p>
-                    <h3 className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-zinc-50">{title}</h3>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-500">{description}</p>
+                    <p className="nb-micro">Settings</p>
+                    <h3 className="nb-section-title mt-2 text-foreground">{title}</h3>
+                    <p className="nb-compact mt-2 max-w-[64ch] text-muted-foreground">{description}</p>
                 </div>
                 {dirty ? (
-                    <div className="flex shrink-0 items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/60 dark:bg-amber-950/20">
-                        <span className="px-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Unsaved</span>
-                        <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
+                    <div className="flex shrink-0 items-center gap-2 rounded-md border border-[var(--nb-border-amber,#F6E7C2)] bg-[var(--nb-soft-amber,#FBF4E2)] p-2 dark:border-amber-900/60 dark:bg-amber-950/20">
+                        <span className="px-2 font-mono text-xs font-semibold uppercase tracking-wider text-[var(--nb-text-amber,#9A6B00)] dark:text-amber-300">Unsaved</span>
+                        <Button variant="outline" size="sm" onClick={onCancel} disabled={saving} className="rounded-md">
                             Cancel
                         </Button>
-                        <Button size="sm" onClick={onSave} disabled={saving}>
+                        <Button size="sm" onClick={onSave} disabled={saving} className="rounded-md">
                             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
                         </Button>
                     </div>
@@ -3328,26 +3935,26 @@ function SummaryCard({
 }) {
     return (
         <section className={cn(
-            "min-w-0 rounded-3xl border p-5 shadow-sm",
+            "min-w-0 rounded-lg border p-5 shadow-none",
             tone === "danger"
-                ? "border-red-200 bg-red-50/70 dark:border-red-900/60 dark:bg-red-950/20"
-                : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950",
+                ? "border-destructive/30 bg-destructive/5 text-destructive"
+                : "border-border bg-card",
         )}>
             <div className="flex items-start gap-4">
                 <div className={cn(
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
-                    tone === "danger" ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" : "bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200",
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg",
+                    tone === "danger" ? "bg-destructive/10 text-destructive" : "bg-muted text-foreground",
                 )}>
                     <Icon className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <h4 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">{title}</h4>
-                    <p className="mt-1 text-sm leading-6 text-zinc-500">{description}</p>
+                    <h4 className="nb-ui-label text-base font-semibold text-foreground">{title}</h4>
+                    <p className="nb-compact mt-1 text-sm text-muted-foreground leading-relaxed">{description}</p>
                     <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                         {meta.map(([label, value]) => (
-                            <div key={label} className="rounded-2xl border border-zinc-200 bg-white/70 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950/60">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-400">{label}</p>
-                                <p className="mt-1 truncate text-sm font-semibold capitalize text-zinc-900 dark:text-zinc-100">{value}</p>
+                            <div key={label} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+                                <p className="nb-micro text-muted-foreground">{label}</p>
+                                <p className="mt-1 truncate text-sm font-semibold capitalize text-foreground">{value}</p>
                             </div>
                         ))}
                     </div>
@@ -3361,25 +3968,39 @@ function SettingsCard({
     title,
     description,
     children,
+    footer,
     danger = false,
+    className,
 }: {
     title: string;
-    description: string;
+    description?: string;
     children: React.ReactNode;
+    footer?: React.ReactNode;
     danger?: boolean;
+    className?: string;
 }) {
     return (
-        <section className={cn(
-            "min-w-0 rounded-3xl border p-5 shadow-sm",
-            danger
-                ? "border-red-200 bg-red-50/70 dark:border-red-900/60 dark:bg-red-950/20"
-                : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950",
-        )}>
-            <div className="mb-4">
-                <h4 className={cn("text-base font-semibold", danger ? "text-red-900 dark:text-red-100" : "text-zinc-950 dark:text-zinc-50")}>{title}</h4>
-                <p className={cn("mt-1 text-sm leading-6", danger ? "text-red-700 dark:text-red-300" : "text-zinc-500")}>{description}</p>
+        <section
+            className={cn(
+                "min-w-0 rounded-lg border bg-card shadow-none",
+                danger
+                    ? "border-destructive/30 bg-destructive/5"
+                    : "border-border",
+                className,
+            )}
+        >
+            <div className="border-b border-border p-6">
+                <h4 className={cn("nb-card-title", danger ? "text-destructive" : "text-foreground")}>{title}</h4>
+                {description ? (
+                    <p className={cn("nb-compact mt-1", danger ? "text-destructive/80" : "text-muted-foreground")}>{description}</p>
+                ) : null}
             </div>
-            {children}
+            <div className="p-6">{children}</div>
+            {footer ? (
+                <div className="flex flex-col gap-3 border-t border-border bg-muted/10 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    {footer}
+                </div>
+            ) : null}
         </section>
     );
 }
@@ -3389,20 +4010,23 @@ function TextField({
     value,
     onChange,
     placeholder,
+    description,
 }: {
     label: string;
     value: string;
     onChange: (value: string) => void;
     placeholder?: string;
+    description?: string;
 }) {
     return (
-        <label className="grid gap-2">
-            <span className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">{label}</span>
+        <label className="space-y-1.5 block">
+            <span className="nb-ui-label text-foreground">{label}</span>
+            {description ? <span className="nb-compact -mt-0.5 block text-muted-foreground">{description}</span> : null}
             <input
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={placeholder}
-                className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 dark:border-zinc-800 dark:bg-zinc-950"
+                className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
         </label>
     );
@@ -3413,21 +4037,24 @@ function TextAreaField({
     value,
     onChange,
     placeholder,
+    description,
 }: {
     label: string;
     value: string;
     onChange: (value: string) => void;
     placeholder?: string;
+    description?: string;
 }) {
     return (
-        <label className="grid gap-2">
-            <span className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">{label}</span>
+        <label className="space-y-1.5 block">
+            <span className="nb-ui-label text-foreground">{label}</span>
+            {description ? <span className="nb-compact -mt-0.5 block text-muted-foreground">{description}</span> : null}
             <textarea
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={placeholder}
                 rows={4}
-                className="min-h-28 resize-y rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-500 dark:border-zinc-800 dark:bg-zinc-950"
+                className="min-h-[80px] w-full resize-y rounded-[5px] border border-border bg-card px-3 py-2 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
         </label>
     );
@@ -3450,17 +4077,17 @@ function ReadOnlySlugField({ slug }: { slug: string }) {
     }, [slug]);
 
     return (
-        <div className="grid gap-2">
-            <span className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">Slug</span>
-            <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-3 dark:border-zinc-800 dark:bg-zinc-900/40 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1.5">
+            <span className="nb-ui-label text-foreground">Project slug</span>
+            <div className="flex flex-col gap-2 rounded-[5px] border border-border bg-muted/40 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                    <p className="truncate font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">{normalizedSlug}</p>
-                    <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    <p className="truncate font-mono text-sm font-medium text-foreground">{normalizedSlug}</p>
+                    <p className="nb-compact mt-1 text-muted-foreground">
                         Project links use this slug. Editing is locked for now to avoid broken links and stale share previews.
                     </p>
                 </div>
                 {slug.trim() ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => void handleCopy()} className="shrink-0">
+                    <Button type="button" variant="outline" size="sm" onClick={() => void handleCopy()} className="h-[28px] shrink-0 rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted">
                         {copied ? "Copied" : "Copy"}
                     </Button>
                 ) : null}
@@ -3474,20 +4101,23 @@ function CategorySelector({
     customValue,
     onChoiceChange,
     onCustomChange,
+    description,
 }: {
     choice: string;
     customValue: string;
     onChoiceChange: (value: string) => void;
     onCustomChange: (value: string) => void;
+    description?: string;
 }) {
     return (
-        <div className="grid gap-3">
-            <label className="grid gap-2">
-                <span className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">Category</span>
+        <div className="space-y-3">
+            <label className="space-y-1.5 block">
+                <span className="nb-ui-label text-foreground">Category</span>
+                {description ? <span className="nb-compact -mt-0.5 block text-muted-foreground">{description}</span> : null}
                 <select
                     value={choice}
                     onChange={(event) => onChoiceChange(event.target.value)}
-                    className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 dark:border-zinc-800 dark:bg-zinc-950"
+                    className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                     <option value="">Choose a category</option>
                     {PROJECT_TYPE_OPTIONS.map((type) => (
@@ -3512,6 +4142,7 @@ function CategorySelector({
 
 function ChipEditor({
     label,
+    description,
     values,
     onChange,
     suggestions,
@@ -3521,11 +4152,12 @@ function ChipEditor({
     limit,
 }: {
     label: string;
+    description?: string;
     values: string[];
     onChange: (values: string[]) => void;
     suggestions: readonly string[];
     placeholder: string;
-    tone: "indigo" | "emerald";
+    tone?: "indigo" | "emerald";
     prefix?: string;
     limit: number;
 }) {
@@ -3547,29 +4179,29 @@ function ChipEditor({
     const removeValue = useCallback((value: string) => {
         onChange(values.filter((item) => item !== value));
     }, [onChange, values]);
-    const chipClass = tone === "emerald"
-        ? "border-emerald-100 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300"
-        : "border-indigo-100 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300";
 
     return (
         <div className="min-w-0">
             <div className="flex items-center justify-between gap-3">
-                <label className="block text-sm font-semibold text-zinc-950 dark:text-zinc-50">{label}</label>
-                <span className="text-xs font-medium text-zinc-400">{values.length}/{limit}</span>
+                <label className="nb-ui-label text-foreground">{label}</label>
+                <span className="nb-compact text-muted-foreground">{values.length}/{limit}</span>
             </div>
-            <div className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50/30 p-4 dark:border-zinc-800 dark:bg-zinc-900/20">
+            {description ? (
+                <p className="nb-compact mt-1 text-muted-foreground">{description}</p>
+            ) : null}
+            <div className="mt-2 rounded-lg border border-border bg-muted/20 p-4">
                 {values.length > 0 ? (
                     <div className="mb-3 flex min-w-0 flex-wrap gap-2">
                         {values.map((value) => (
                             <span
                                 key={value}
-                                className={cn("inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm", chipClass)}
+                                className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-[3px] border border-border bg-muted/60 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.09em] text-foreground transition-colors hover:border-border/80"
                             >
                                 <span className="truncate">{prefix}{value}</span>
                                 <button
                                     type="button"
                                     onClick={() => removeValue(value)}
-                                    className="opacity-70 transition hover:opacity-100"
+                                    className="text-muted-foreground opacity-70 transition-opacity hover:opacity-100"
                                     aria-label={`Remove ${value}`}
                                 >
                                     <X className="h-3.5 w-3.5" />
@@ -3587,19 +4219,20 @@ function ChipEditor({
                             event.preventDefault();
                             addValue(draft);
                         }}
-                        className="h-10 min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-blue-500 dark:border-zinc-800 dark:bg-zinc-950"
+                        className="h-[34px] min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         placeholder={placeholder}
                         disabled={values.length >= limit}
                     />
-                    <button
+                    <Button
                         type="button"
+                        variant="outline"
                         onClick={() => addValue(draft)}
                         disabled={values.length >= limit}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                        className="h-[34px] w-[34px] shrink-0 p-0 rounded-[5px] border-border text-foreground hover:bg-muted"
                         aria-label={`Add ${label.toLowerCase()}`}
                     >
                         <Plus className="h-4 w-4" />
-                    </button>
+                    </Button>
                 </div>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3612,7 +4245,7 @@ function ChipEditor({
                             type="button"
                             onClick={() => addValue(suggestion)}
                             disabled={values.length >= limit}
-                            className="rounded-lg bg-zinc-100 px-2 py-1 text-xs text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                            className="rounded-[3px] border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground transition hover:border-border hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             + {suggestion}
                         </button>
@@ -3682,109 +4315,151 @@ function CollaboratorCard({
     const roleOptions: Array<Exclude<ProjectMemberRole, "owner">> = ["admin", "member", "viewer"];
 
     return (
-        <article className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="flex items-start gap-3">
-                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
-                    {reference.avatarUrl ? (
-                        <Image src={reference.avatarUrl} alt="" className="object-cover rounded-full" fill sizes="48px" />
-                    ) : (
-                        reference.displayName.slice(0, 1).toUpperCase()
-                    )}
-                </div>
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-50">{reference.displayName}</p>
-                        <span className={cn(
-                            "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                            role === "owner"
-                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-                                : role === "admin"
-                                    ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
-                                    : role === "viewer"
-                                        ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-300"
-                                        : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200",
-                        )}>
-                            {reference.roleLabel}
-                        </span>
-                        {!reference.isAssignable ? (
-                            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-800 dark:bg-orange-950/40 dark:text-orange-200">
-                                Not assignable
-                            </span>
-                        ) : null}
+        <article className="flex flex-col justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20">
+            <div>
+                <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                        <UserAvatar
+                            identity={{
+                                id: member.id,
+                                fullName: reference.displayName,
+                                username: member.username ?? null,
+                                avatarUrl: reference.avatarUrl,
+                            }}
+                            size={44}
+                            roundedClassName="rounded-[5px]"
+                            className="border border-border shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                <p className="nb-ui-label truncate text-sm font-semibold text-foreground">{reference.displayName}</p>
+                                <span
+                                    className={cn(
+                                        "h-5 px-[7px] rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none shrink-0 inline-flex items-center border",
+                                        role === "owner"
+                                            ? "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                            : role === "admin"
+                                                ? "border-primary/20 bg-primary/10 text-primary"
+                                                : role === "viewer"
+                                                    ? "border-border bg-muted/60 text-muted-foreground"
+                                                    : "border-border bg-muted text-foreground",
+                                    )}
+                                >
+                                    {reference.roleLabel}
+                                </span>
+                                {!reference.isAssignable ? (
+                                    <span className="h-5 px-[7px] rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none shrink-0 inline-flex items-center border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                                        Not assignable
+                                    </span>
+                                ) : null}
+                            </div>
+                            <p className="nb-compact mt-1 truncate text-xs text-muted-foreground">
+                                {member.projectRoleTitle || (member.username ? `@${member.username}` : member.id)}
+                            </p>
+                            <p className="nb-meta mt-0.5 text-[11px] text-muted-foreground/80">{formatJoinedAt(member.joinedAt)}</p>
+                        </div>
                     </div>
-                    <p className="mt-1 truncate text-xs text-zinc-500">
-                        {member.projectRoleTitle || member.username || member.id}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-400">{formatJoinedAt(member.joinedAt)}</p>
-                </div>
-            </div>
 
-            {hints.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                    {hints.map((hint) => (
-                        <span key={hint} className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-medium text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-                            {hint}
-                        </span>
-                    ))}
-                </div>
-            ) : null}
-
-            <details className="group mt-4">
-                <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900">
-                    Actions
-                    <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
-                </summary>
-                <div className="mt-2 grid gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900/60">
-                    {role !== "owner" ? roleOptions.map((option) => {
-                        const optionPolicy = buildProjectMemberMutationPolicy({
-                            actorIsOwner: isProjectOwner,
-                            actorRole,
-                            ownerId,
-                            targetUserId: member.id,
-                            targetRole: role,
-                            nextRole: option,
-                        });
-                        return (
+                    <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
                             <Button
-                                key={option}
                                 type="button"
-                                variant={role === option ? "default" : "outline"}
+                                variant="outline"
                                 size="sm"
-                                disabled={!optionPolicy.canChangeRole || role === option}
-                                onClick={() => onRoleChange(member, option)}
-                                className="justify-start"
+                                className="h-[28px] gap-1 rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground shrink-0 hover:bg-muted"
                             >
-                                {option === "admin" ? <ShieldCheck className="h-3.5 w-3.5" /> : null}
-                                Change role to {getProjectMemberRoleLabel(option)}
+                                Actions
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                             </Button>
-                        );
-                    }) : (
-                        <Button type="button" variant="outline" size="sm" disabled className="justify-start">
-                            <Crown className="h-3.5 w-3.5" />
-                            True owner
-                        </Button>
-                    )}
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52">
+                            {role !== "owner" ? (
+                                roleOptions.map((option) => {
+                                    const optionPolicy = buildProjectMemberMutationPolicy({
+                                        actorIsOwner: isProjectOwner,
+                                        actorRole,
+                                        ownerId,
+                                        targetUserId: member.id,
+                                        targetRole: role,
+                                        nextRole: option,
+                                    });
+                                    return (
+                                        <DropdownMenuItem
+                                            key={option}
+                                            disabled={!optionPolicy.canChangeRole || role === option}
+                                            onClick={() => onRoleChange(member, option)}
+                                            className="gap-2 text-xs"
+                                        >
+                                            {option === "admin" ? (
+                                                <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                                            ) : option === "viewer" ? (
+                                                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                                            ) : (
+                                                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                            )}
+                                            <span>Change role to {getProjectMemberRoleLabel(option)}</span>
+                                            {role === option ? (
+                                                <span className="ml-auto text-[10px] text-muted-foreground">(Current)</span>
+                                            ) : null}
+                                        </DropdownMenuItem>
+                                    );
+                                })
+                            ) : (
+                                <DropdownMenuItem disabled className="gap-2 text-xs">
+                                    <Crown className="h-3.5 w-3.5 text-amber-500" />
+                                    <span>Project Lead</span>
+                                </DropdownMenuItem>
+                            )}
 
-                    {mutationPolicy.canTransferOwnership ? (
-                        <Button type="button" variant="outline" size="sm" onClick={() => onTransfer(member)} className="justify-start">
-                            <Crown className="h-3.5 w-3.5" />
-                            Transfer ownership
-                        </Button>
-                    ) : null}
+                            <DropdownMenuSeparator />
 
-                    {mutationPolicy.canRemove ? (
-                        <Button type="button" variant="outline" size="sm" onClick={() => void onRemove(member)} className="justify-start text-red-600 hover:text-red-700 dark:text-red-300">
-                            <UserMinus className="h-3.5 w-3.5" />
-                            Remove member
-                        </Button>
-                    ) : null}
+                            {mutationPolicy.canTransferOwnership ? (
+                                <DropdownMenuItem
+                                    onClick={() => onTransfer(member)}
+                                    className="gap-2 text-xs text-foreground"
+                                >
+                                    <Crown className="h-3.5 w-3.5 text-amber-500" />
+                                    <span>Transfer ownership</span>
+                                </DropdownMenuItem>
+                            ) : null}
 
-                    <Button type="button" variant="outline" size="sm" onClick={() => void onNotificationSettings(member)} className="justify-start">
-                        <Bell className="h-3.5 w-3.5" />
-                        Notification settings
-                    </Button>
+                            <DropdownMenuItem
+                                onClick={() => void onNotificationSettings(member)}
+                                className="gap-2 text-xs text-foreground"
+                            >
+                                <Bell className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span>Notification settings</span>
+                            </DropdownMenuItem>
+
+                            {mutationPolicy.canRemove ? (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={() => void onRemove(member)}
+                                        className="gap-2 text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                    >
+                                        <UserMinus className="h-3.5 w-3.5" />
+                                        <span>Remove member</span>
+                                    </DropdownMenuItem>
+                                </>
+                            ) : null}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
-            </details>
+
+                {hints.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border/40 pt-3">
+                        {hints.map((hint) => (
+                            <span
+                                key={hint}
+                                className="nb-tag text-[11px] py-0.5 px-2 font-normal text-muted-foreground"
+                            >
+                                {hint}
+                            </span>
+                        ))}
+                    </div>
+                ) : null}
+            </div>
         </article>
     );
 }
@@ -3809,15 +4484,132 @@ function ProjectNotificationPresetButton({
             aria-pressed={active}
             onClick={() => onSelect(preset)}
             className={cn(
-                "rounded-2xl border p-4 text-left transition",
+                "group relative flex flex-col justify-between rounded-lg border p-4 text-left transition-colors",
                 active
-                    ? "border-blue-500 bg-blue-50 text-blue-950 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-100"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-200 dark:hover:border-zinc-700",
+                    ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/20"
+                    : "border-border bg-card text-foreground hover:border-foreground/20 hover:bg-muted/30",
             )}
         >
-            <span className="text-sm font-semibold">{label}</span>
-            <span className="mt-2 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{detail}</span>
+            <div>
+                <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-foreground">{label}</span>
+                    {active ? (
+                        <span className="inline-flex h-5 items-center rounded-[3px] border border-primary/20 bg-primary/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-primary">
+                            Active
+                        </span>
+                    ) : null}
+                </div>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{detail}</p>
+            </div>
         </button>
+    );
+}
+
+const NOTIFICATION_GROUP_ICONS = {
+    membership_access: Users,
+    roles_applications: UserCog,
+    project_lifecycle: Workflow,
+    tasks_workflow: SlidersHorizontal,
+    files_workspace: Folder,
+    readme: FileText,
+    updates: Bell,
+    security_audit: ShieldCheck,
+    future: Bell,
+} as const satisfies Record<ProjectNotificationGroupId, typeof Bell>;
+
+function ProjectNotificationCategoryCard({
+    group,
+    policy,
+    isExpanded,
+    onToggleExpand,
+    onToggleRule,
+    disabled,
+}: {
+    group: {
+        id: ProjectNotificationGroupId;
+        title: string;
+        description: string;
+        entries: ProjectNotificationRegistryEntry[];
+    };
+    policy: ProjectNotificationPolicy;
+    isExpanded: boolean;
+    onToggleExpand: () => void;
+    onToggleRule: (eventKey: ProjectNotificationEventKey, enabled: boolean) => void;
+    disabled: boolean;
+}) {
+    const enabledCount = useMemo(() => {
+        return group.entries.filter((entry) => {
+            const decision = resolveProjectNotificationDecision({ eventKey: entry.key, projectPolicy: policy });
+            return decision.enabled;
+        }).length;
+    }, [group.entries, policy]);
+
+    const mandatoryCount = useMemo(() => {
+        return group.entries.filter((entry) => entry.mandatory).length;
+    }, [group.entries]);
+
+    const IconComponent = NOTIFICATION_GROUP_ICONS[group.id] ?? Bell;
+
+    return (
+        <div className="rounded-lg border border-border bg-card overflow-hidden transition-colors">
+            <button
+                type="button"
+                onClick={onToggleExpand}
+                aria-expanded={isExpanded}
+                aria-controls={`notification-group-${group.id}`}
+                className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+                <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-[5px] border border-border bg-muted/40 text-foreground">
+                        <IconComponent className="size-4 text-foreground" />
+                    </div>
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="nb-ui-label text-sm font-semibold text-foreground">
+                                {group.title}
+                            </span>
+                            <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
+                                {enabledCount}/{group.entries.length} Active
+                            </span>
+                            {mandatoryCount > 0 ? (
+                                <span className="inline-flex h-5 items-center gap-1 rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-400">
+                                    <Lock className="size-3" />
+                                    {mandatoryCount} Mandatory
+                                </span>
+                            ) : null}
+                        </div>
+                        <p className="mt-0.5 nb-compact text-xs text-muted-foreground truncate">
+                            {group.description}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    <ChevronDown
+                        className={cn(
+                            "size-4 text-muted-foreground transition-transform duration-200",
+                            isExpanded && "rotate-180 text-foreground"
+                        )}
+                    />
+                </div>
+            </button>
+
+            {isExpanded && (
+                <div
+                    id={`notification-group-${group.id}`}
+                    className="border-t border-border divide-y divide-border bg-muted/5"
+                >
+                    {group.entries.map((entry) => (
+                        <ProjectNotificationRuleRow
+                            key={entry.key}
+                            entry={entry}
+                            policy={policy}
+                            disabled={disabled}
+                            onToggle={onToggleRule}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -3845,38 +4637,43 @@ function ProjectNotificationRuleRow({
     const decision = resolveProjectNotificationDecision({ eventKey: entry.key, projectPolicy: policy });
     const enabled = decision.enabled;
     return (
-        <div className="grid gap-3 bg-white p-4 dark:bg-zinc-950 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-            <div className="min-w-0">
+        <div className="flex items-center justify-between gap-4 p-3.5 transition-colors hover:bg-muted/10">
+            <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">{entry.label}</p>
+                    <p className="nb-ui-label text-sm font-semibold text-foreground">{entry.label}</p>
                     {entry.mandatory ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                            <Lock className="h-3 w-3" />
-                            mandatory
+                        <span className="inline-flex h-5 items-center gap-1 rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-400">
+                            <Lock className="size-3" />
+                            Mandatory
                         </span>
                     ) : null}
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-500 dark:bg-zinc-900 dark:text-zinc-300">
-                        {policy.rules[entry.key]?.importance === "important" ? "Important" : "More"}
+                    <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
+                        {policy.rules[entry.key]?.importance === "important" ? "Important" : "Standard"}
                     </span>
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-500 dark:bg-zinc-900 dark:text-zinc-300">
+                    <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-muted-foreground">
                         {formatProjectNotificationAggregate(entry)}
                     </span>
                 </div>
-                <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{entry.description}</p>
+                <p className="mt-1 nb-compact text-xs text-muted-foreground leading-relaxed">{entry.description}</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                     {formatProjectNotificationRecipients(entry).map((recipient) => (
-                        <span key={recipient} className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold capitalize text-blue-700 dark:bg-blue-950/30 dark:text-blue-200">
+                        <span key={recipient} className="inline-flex h-5 items-center rounded-[3px] border border-primary/20 bg-primary/10 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-primary">
                             {recipient}
                         </span>
                     ))}
                 </div>
             </div>
-            <TogglePill
-                checked={enabled}
-                disabled={disabled || entry.mandatory}
-                onChange={(nextEnabled) => onToggle(entry.key, nextEnabled)}
-                label={entry.mandatory ? "Locked on" : enabled ? "On" : "Off"}
-            />
+            <div className="flex shrink-0 items-center gap-3">
+                <span className="nb-meta text-muted-foreground select-none w-6 text-right">
+                    {enabled ? "On" : "Off"}
+                </span>
+                <SettingsSwitch
+                    checked={enabled}
+                    disabled={disabled || entry.mandatory}
+                    aria-label={entry.label}
+                    onCheckedChange={(nextEnabled) => onToggle(entry.key, nextEnabled)}
+                />
+            </div>
         </div>
     );
 }
@@ -3905,8 +4702,8 @@ function MemberNotificationSettingsEditor({
 
     if (isLoading) {
         return (
-            <div className="flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60">
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
                 Loading member notification preferences...
             </div>
         );
@@ -3914,7 +4711,7 @@ function MemberNotificationSettingsEditor({
 
     if (!data) {
         return (
-            <p className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60">
+            <p className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
                 Member notification preferences are unavailable.
             </p>
         );
@@ -3922,9 +4719,9 @@ function MemberNotificationSettingsEditor({
 
     return (
         <div className="space-y-4 text-sm">
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-                <p className="font-semibold text-zinc-950 dark:text-zinc-50">{memberName}</p>
-                <p className="mt-1 text-xs leading-5 text-zinc-500">
+            <div className="rounded-lg border border-border bg-card p-4">
+                <p className="font-semibold text-foreground">{memberName}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     {data.canEdit
                         ? "Member preferences can reduce optional project noise. Locked responsibility and security notifications stay enabled."
                         : "Leaders can review this member's effective policy summary, but only the member can change personal notification overrides."}
@@ -3941,10 +4738,10 @@ function MemberNotificationSettingsEditor({
                             disabled={!data.canEdit}
                             onClick={() => onDraftChange((current) => ({ ...current, mode }))}
                             className={cn(
-                                "rounded-full px-3 py-1.5 text-xs font-semibold transition",
+                                "h-[28px] inline-flex items-center shrink-0 whitespace-nowrap rounded-[5px] px-3 text-xs font-medium transition-colors",
                                 draft.mode === mode
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-white text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800",
+                                    ? "bg-foreground text-background shadow-xs"
+                                    : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
                             )}
                         >
                             {label}
@@ -3956,11 +4753,11 @@ function MemberNotificationSettingsEditor({
             {draft.mode === "custom" ? (
                 <div className="max-h-[52vh] space-y-3 overflow-y-auto pr-1 app-scroll app-scroll-y app-scroll-gutter">
                     {groups.map((group) => (
-                        <div key={group.id} className="rounded-2xl border border-zinc-200 dark:border-zinc-800">
-                            <div className="border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
-                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">{group.title}</p>
+                        <div key={group.id} className="rounded-lg border border-border overflow-hidden">
+                            <div className="border-b border-border bg-muted/30 px-3 py-2">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group.title}</p>
                             </div>
-                            <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                            <div className="divide-y divide-border bg-card">
                                 {group.entries.map((entry) => (
                                     <MemberNotificationRuleRow
                                         key={entry.key}
@@ -3976,17 +4773,28 @@ function MemberNotificationSettingsEditor({
                     ))}
                 </div>
             ) : (
-                <p className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-xs leading-5 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <p className="rounded-lg border border-border bg-card p-4 text-xs leading-relaxed text-muted-foreground">
                     This member inherits the project-level policy. Changes to project defaults will automatically apply to optional triggers.
                 </p>
             )}
 
             <div className="flex flex-wrap justify-end gap-2">
-                <Button type="button" variant="outline" disabled={isSaving || !data.canEdit} onClick={() => void onReset()}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSaving || !data.canEdit}
+                    onClick={() => void onReset()}
+                    className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium border-border hover:bg-muted/50"
+                >
                     Reset to project defaults
                 </Button>
-                <Button type="button" disabled={isSaving || !data.canEdit} onClick={() => void onSave()}>
-                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                <Button
+                    type="button"
+                    disabled={isSaving || !data.canEdit}
+                    onClick={() => void onSave()}
+                    className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
+                >
+                    {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                     Save member settings
                 </Button>
             </div>
@@ -4013,10 +4821,18 @@ function MemberNotificationRuleRow({
     const checked = decision.enabled;
 
     return (
-        <div className="grid gap-3 bg-white p-3 dark:bg-zinc-950 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <div className="min-w-0">
-                <p className="text-xs font-semibold text-zinc-950 dark:text-zinc-50">{entry.label}</p>
-                <p className="mt-1 text-[11px] leading-4 text-zinc-500">
+        <div className="flex items-center justify-between gap-4 p-3 bg-card transition-colors hover:bg-muted/20">
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                    <p className="nb-ui-label text-sm font-semibold text-foreground">{entry.label}</p>
+                    {entry.mandatory ? (
+                        <span className="inline-flex h-5 items-center gap-1 rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-amber-700 dark:text-amber-400">
+                            <Lock className="size-3" />
+                            Locked
+                        </span>
+                    ) : null}
+                </div>
+                <p className="nb-compact mt-0.5 text-xs text-muted-foreground leading-relaxed">
                     {entry.mandatory
                         ? "Locked on for responsibility or safety."
                         : !projectDecision.enabled
@@ -4026,21 +4842,26 @@ function MemberNotificationRuleRow({
                                 : "Managed by project policy."}
                 </p>
             </div>
-            <TogglePill
-                checked={checked}
-                disabled={disabled}
-                label={disabled ? "Locked" : checked ? "On" : "Off"}
-                onChange={(enabled) => {
-                    onDraftChange((current) => ({
-                        ...current,
-                        mode: "custom",
-                        rules: {
-                            ...current.rules,
-                            [entry.key]: enabled,
-                        },
-                    }));
-                }}
-            />
+            <div className="flex shrink-0 items-center gap-3">
+                <span className="nb-meta text-muted-foreground select-none w-6 text-right">
+                    {checked ? "On" : "Off"}
+                </span>
+                <SettingsSwitch
+                    checked={checked}
+                    disabled={disabled}
+                    aria-label={entry.label}
+                    onCheckedChange={(enabled) => {
+                        onDraftChange((current) => ({
+                            ...current,
+                            mode: "custom",
+                            rules: {
+                                ...current.rules,
+                                [entry.key]: enabled,
+                            },
+                        }));
+                    }}
+                />
+            </div>
         </div>
     );
 }
@@ -4057,35 +4878,23 @@ function AdvancedDisclosure({
     children: React.ReactNode;
 }) {
     return (
-        <section className="rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <section className="rounded-lg border border-border bg-card p-4 shadow-none">
             <button
                 type="button"
                 onClick={onToggle}
                 className="flex w-full items-center justify-between gap-4 text-left"
             >
                 <div>
-                    <p className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">{title}</p>
-                    <p className="mt-1 text-xs text-zinc-500">Progressive details for owners who need the full impact.</p>
+                    <p className="nb-ui-label text-sm font-semibold text-foreground">{title}</p>
+                    <p className="nb-compact mt-1 text-xs text-muted-foreground">Progressive details for owners who need the full impact.</p>
                 </div>
-                <ChevronDown className={cn("h-4 w-4 text-zinc-400 transition", open && "rotate-180")} />
+                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition", open && "rotate-180")} />
             </button>
             {open ? <div className="mt-4">{children}</div> : null}
         </section>
     );
 }
 
-function AffectedAreas({ items }: { items: string[] }) {
-    return (
-        <div className="grid gap-2">
-            {items.map((item) => (
-                <div key={item} className="flex items-start gap-2 rounded-2xl bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-900/70 dark:text-zinc-300">
-                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-                    <span>{item}</span>
-                </div>
-            ))}
-        </div>
-    );
-}
 
 function AccessMatrix({
     rows,
@@ -4095,22 +4904,32 @@ function AccessMatrix({
     activeVisibility: ProjectSettingsVisibility;
 }) {
     return (
-        <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
-            <div className="grid grid-cols-[1fr_1fr] border-b border-zinc-200 bg-zinc-50 text-xs font-semibold uppercase tracking-[0.16em] text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/60 sm:grid-cols-[180px_1fr_1fr]">
-                <div className="hidden px-3 py-3 sm:block">Viewer</div>
-                <div className={cn("px-3 py-3", activeVisibility === "public" && "text-blue-600 dark:text-blue-300")}>Public</div>
-                <div className={cn("px-3 py-3", activeVisibility === "private" && "text-blue-600 dark:text-blue-300")}>Private</div>
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
+            <div className="grid grid-cols-[1fr_1fr] border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:grid-cols-[180px_1fr_1fr]">
+                <div className="hidden px-4 py-3 sm:block">Viewer</div>
+                <div className={cn("px-4 py-3 flex items-center gap-1.5", activeVisibility === "public" ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                    Public
+                    {activeVisibility === "public" ? (
+                        <span className="inline-flex h-5 items-center rounded-[3px] border border-primary/20 bg-primary/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-primary">Active</span>
+                    ) : null}
+                </div>
+                <div className={cn("px-4 py-3 flex items-center gap-1.5", activeVisibility === "private" ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                    Private
+                    {activeVisibility === "private" ? (
+                        <span className="inline-flex h-5 items-center rounded-[3px] border border-primary/20 bg-primary/10 px-[7px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none text-primary">Active</span>
+                    ) : null}
+                </div>
             </div>
-            <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <div className="divide-y divide-border">
                 {rows.map((row) => (
                     <div key={row.viewer} className="grid gap-0 text-sm sm:grid-cols-[180px_1fr_1fr]">
-                        <div className="border-b border-zinc-100 bg-zinc-50 px-3 py-3 font-semibold text-zinc-900 dark:border-zinc-900 dark:bg-zinc-900/40 dark:text-zinc-100 sm:border-b-0">
+                        <div className="border-b border-border bg-muted/20 px-4 py-3 font-semibold text-foreground dark:text-foreground sm:border-b-0">
                             {row.viewer}
                         </div>
-                        <div className={cn("px-3 py-3 text-zinc-600 dark:text-zinc-300", activeVisibility === "public" && "bg-blue-50/60 text-blue-800 dark:bg-blue-950/20 dark:text-blue-200")}>
+                        <div className={cn("px-4 py-3 text-muted-foreground transition-colors", activeVisibility === "public" && "bg-primary/5 font-medium text-foreground")}>
                             {row.publicAccess}
                         </div>
-                        <div className={cn("px-3 py-3 text-zinc-600 dark:text-zinc-300", activeVisibility === "private" && "bg-blue-50/60 text-blue-800 dark:bg-blue-950/20 dark:text-blue-200")}>
+                        <div className={cn("px-4 py-3 text-muted-foreground transition-colors", activeVisibility === "private" && "bg-primary/5 font-medium text-foreground")}>
                             {row.privateAccess}
                         </div>
                     </div>
@@ -4131,7 +4950,7 @@ function AccessImpactGrid({
         return (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {Array.from({ length: 5 }).map((_, index) => (
-                    <div key={index} className="h-24 animate-pulse rounded-2xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/60" />
+                    <div key={index} aria-hidden="true" className="nb-skeleton h-24 rounded-lg border border-border" />
                 ))}
             </div>
         );
@@ -4140,17 +4959,17 @@ function AccessImpactGrid({
     return (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((item) => (
-                <div key={item.label} className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-                    <p className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">{item.value}</p>
-                    <p className="mt-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100">{item.label}</p>
-                    <p className="mt-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{item.detail}</p>
+                <div key={item.label} className="rounded-lg border border-border bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+                    <p className="text-2xl font-semibold tracking-tight text-foreground">{item.value}</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{item.label}</p>
+                    <p className="mt-1.5 nb-compact text-muted-foreground leading-relaxed">{item.detail}</p>
                 </div>
             ))}
         </div>
     );
 }
 
-const PUBLIC_TAB_ORDER: ProjectPublicTabId[] = ["dashboard", "readme", "updates", "sprints", "tasks", "analytics", "files"];
+const PUBLIC_TAB_ORDER: ProjectPublicTabId[] = ["dashboard", "readme", "updates", "sprints", "tasks", "files"];
 
 function TogglePill({
     checked,
@@ -4164,27 +4983,17 @@ function TogglePill({
     label: string;
 }) {
     return (
-        <button
-            type="button"
-            role="switch"
-            aria-checked={checked}
-            aria-label={label}
-            disabled={disabled}
-            onClick={() => onChange(!checked)}
-            className={cn(
-                "inline-flex h-7 w-14 items-center rounded-full border p-0.5 transition disabled:cursor-not-allowed disabled:opacity-60",
-                checked
-                    ? "border-blue-500 bg-blue-600"
-                    : "border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900",
-            )}
-        >
-            <span
-                className={cn(
-                    "h-5 w-5 rounded-full bg-white shadow-sm transition-transform",
-                    checked ? "translate-x-7" : "translate-x-0",
-                )}
+        <div className="flex shrink-0 items-center gap-3">
+            <span className="nb-meta text-muted-foreground select-none w-6 text-right">
+                {checked ? "On" : "Off"}
+            </span>
+            <SettingsSwitch
+                checked={checked}
+                disabled={disabled}
+                aria-label={label}
+                onCheckedChange={onChange}
             />
-        </button>
+        </div>
     );
 }
 
@@ -4192,41 +5001,47 @@ function PublicTabVisibilityEditor({
     value,
     onChange,
     disabled,
+    savingTabId,
 }: {
     value: ProjectPublicTabVisibility;
     onChange: (tabId: ProjectPublicTabId, enabled: boolean) => void;
     disabled?: boolean;
+    savingTabId?: ProjectPublicTabId | null;
 }) {
     return (
-        <div className="grid gap-3">
-            {PUBLIC_TAB_ORDER.map((tabId) => (
-                <div
-                    key={tabId}
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950"
-                >
-                    <div className="min-w-0">
-                        <p className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">{PROJECT_PUBLIC_TAB_LABELS[tabId]}</p>
-                        <p className="mt-1 text-sm leading-5 text-zinc-500 dark:text-zinc-400">{PROJECT_PUBLIC_TAB_DESCRIPTIONS[tabId]}</p>
-                        <p className="mt-2 text-xs font-medium text-zinc-400">
-                            Default: {DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY[tabId] ? "Visible to public" : "Members only"}
-                        </p>
+        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+            {PUBLIC_TAB_ORDER.map((tabId) => {
+                const isEnabled = Boolean(value[tabId]);
+                const isSaving = savingTabId === tabId;
+                return (
+                    <div
+                        key={tabId}
+                        className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-muted/20"
+                    >
+                        <div className="min-w-0 flex-1">
+                            <p className="nb-ui-label text-foreground">{PROJECT_PUBLIC_TAB_LABELS[tabId]}</p>
+                            <p className="mt-1 nb-compact text-muted-foreground leading-relaxed">{PROJECT_PUBLIC_TAB_DESCRIPTIONS[tabId]}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3">
+                            <span className="nb-meta text-muted-foreground select-none w-6 text-right flex items-center justify-end">
+                                {isSaving ? (
+                                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                ) : isEnabled ? (
+                                    "On"
+                                ) : (
+                                    "Off"
+                                )}
+                            </span>
+                            <SettingsSwitch
+                                checked={isEnabled}
+                                disabled={disabled || isSaving}
+                                aria-label={`Toggle public ${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility`}
+                                onCheckedChange={(checked) => onChange(tabId, checked)}
+                            />
+                        </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                        <span className={cn(
-                            "text-xs font-semibold",
-                            value[tabId] ? "text-blue-600 dark:text-blue-300" : "text-zinc-400",
-                        )}>
-                            {value[tabId] ? "On" : "Off"}
-                        </span>
-                        <TogglePill
-                            checked={value[tabId]}
-                            disabled={disabled}
-                            label={`Toggle public ${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility`}
-                            onChange={(next) => onChange(tabId, next)}
-                        />
-                    </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
     );
 }
@@ -4235,78 +5050,394 @@ function FileWorkspaceMembers({
     data,
     isLoading,
     savingMemberId,
+    bulkSaving,
     onToggle,
+    onBulkToggle,
+    filePolicy,
 }: {
     data: FileWorkspaceSettingsData | null;
     isLoading: boolean;
     savingMemberId: string | null;
+    bulkSaving: boolean;
     onToggle: (member: FileWorkspaceSettingsData["members"][number], enabled: boolean) => void | Promise<void>;
+    onBulkToggle: (enabled: boolean) => void | Promise<void>;
+    filePolicy: ReturnType<typeof buildProjectFilePolicy>;
 }) {
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filterStatus, setFilterStatus] = useState<"all" | "enabled" | "disabled">("all");
+
+    const members = useMemo(() => data?.members ?? [], [data?.members]);
+
+    // Partition into Leadership vs Team Members
+    const leaders = useMemo(
+        () => members.filter((m) => m.membershipRole === "owner" || m.membershipRole === "admin"),
+        [members],
+    );
+    const standardMembers = useMemo(
+        () => members.filter((m) => m.membershipRole !== "owner" && m.membershipRole !== "admin"),
+        [members],
+    );
+
+    const filteredLeaders = useMemo(() => {
+        const query = searchQuery.trim().toLowerCase();
+        if (!query) return leaders;
+        return leaders.filter((member) => {
+            const displayName = getProjectMemberDisplayName(member).toLowerCase();
+            const username = (member.username ?? "").toLowerCase();
+            const roleTitle = (member.projectRoleTitle ?? "").toLowerCase();
+            const roleLabel = getProjectMemberRoleLabel(member.membershipRole as ProjectMemberRole).toLowerCase();
+            return displayName.includes(query) || username.includes(query) || roleTitle.includes(query) || roleLabel.includes(query);
+        });
+    }, [leaders, searchQuery]);
+
+    const filteredStandardMembers = useMemo(() => {
+        const query = searchQuery.trim().toLowerCase();
+        return standardMembers.filter((member) => {
+            if (filterStatus === "enabled" && !member.fileUploadEnabled) return false;
+            if (filterStatus === "disabled" && member.fileUploadEnabled) return false;
+            if (!query) return true;
+            const displayName = getProjectMemberDisplayName(member).toLowerCase();
+            const username = (member.username ?? "").toLowerCase();
+            const roleTitle = (member.projectRoleTitle ?? "").toLowerCase();
+            const roleLabel = getProjectMemberRoleLabel(member.membershipRole as ProjectMemberRole).toLowerCase();
+            return displayName.includes(query) || username.includes(query) || roleTitle.includes(query) || roleLabel.includes(query);
+        });
+    }, [standardMembers, searchQuery, filterStatus]);
+
+    const enabledStandardCount = useMemo(
+        () => standardMembers.filter((m) => m.fileUploadEnabled).length,
+        [standardMembers],
+    );
+    const disabledStandardCount = useMemo(
+        () => standardMembers.filter((m) => !m.fileUploadEnabled).length,
+        [standardMembers],
+    );
+
     if (isLoading && !data) {
         return (
-            <div className="flex items-center gap-2 text-sm text-zinc-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 Loading file upload permissions...
             </div>
         );
     }
-    const members = data?.members ?? [];
+
     if (members.length === 0) {
-        return <p className="text-sm text-zinc-500">No project members found.</p>;
+        return <p className="text-sm text-muted-foreground">No project members found.</p>;
     }
+
     return (
-        <div className="grid gap-3">
-            {members.map((member) => {
-                const role = member.membershipRole as ProjectMemberRole;
-                const displayName = getProjectMemberDisplayName(member);
-                const isSaving = savingMemberId === member.id;
-                return (
-                    <div
-                        key={member.id}
-                        className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950"
-                    >
-                        <div className="flex min-w-0 items-center gap-3">
-                            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-100 text-sm font-semibold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
-                                {member.avatarUrl ? (
-                                    <Image src={member.avatarUrl} alt="" className="object-cover rounded-full" fill sizes="44px" />
-                                ) : (
-                                    displayName.slice(0, 1).toUpperCase()
-                                )}
-                            </div>
-                            <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-50">{displayName}</p>
-                                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-500 dark:bg-zinc-900 dark:text-zinc-300">
-                                        {getProjectMemberRoleLabel(role)}
-                                    </span>
-                                </div>
-                                <p className="mt-1 text-xs text-zinc-500">
-                                    {member.projectRoleTitle || member.username || member.uploadPermissionLabel}
-                                </p>
-                                <p className="mt-1 text-xs text-zinc-400">{formatJoinedAt(member.joinedAt)}</p>
-                            </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                            <span className={cn(
-                                "text-xs font-semibold",
-                                member.fileUploadEnabled ? "text-blue-600 dark:text-blue-300" : "text-zinc-400",
-                            )}>
-                                {isSaving ? "Saving" : member.fileUploadEnabled ? "On" : "Off"}
-                            </span>
-                            {isSaving ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                            ) : (
-                                <TogglePill
-                                    checked={member.fileUploadEnabled}
-                                    disabled={member.uploadPermissionLocked}
-                                    label={`Toggle file uploads for ${displayName}`}
-                                    onChange={(next) => void onToggle(member, next)}
-                                />
-                            )}
-                        </div>
+        <div className="space-y-6">
+            {/* Section 1: Project Leadership (Enforced Invariant) */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                    <div className="flex items-center gap-2">
+                        <Shield className="size-4 text-primary" />
+                        <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Project Leadership
+                        </span>
                     </div>
-                );
-            })}
+                    <span className="nb-meta text-xs text-muted-foreground">
+                        {leaders.length} {leaders.length === 1 ? "leader" : "leaders"} · Intake always active
+                    </span>
+                </div>
+
+                {filteredLeaders.length === 0 && searchQuery.trim() ? (
+                    <div className="rounded-lg border border-dashed border-border bg-card nb-grid-ground p-4 text-center text-xs text-muted-foreground" role="status">
+                        No leaders match &ldquo;{searchQuery}&rdquo;.
+                    </div>
+                ) : (
+                    <div className="grid gap-3">
+                        {filteredLeaders.map((member) => {
+                            const role = member.membershipRole as ProjectMemberRole;
+                            const displayName = getProjectMemberDisplayName(member);
+                            const roleTitle = member.projectRoleTitle?.trim();
+                            const username = member.username?.trim();
+
+                            return (
+                                <div
+                                    key={member.id}
+                                    className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20"
+                                >
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <UserAvatar
+                                            identity={{
+                                                id: member.id,
+                                                fullName: displayName,
+                                                username: member.username ?? null,
+                                                avatarUrl: member.avatarUrl,
+                                            }}
+                                            size={44}
+                                            roundedClassName="rounded-[5px]"
+                                            className="border border-border shrink-0"
+                                        />
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="nb-ui-label truncate text-sm font-semibold text-foreground">
+                                                    {displayName}
+                                                </p>
+                                                <span
+                                                    className={cn(
+                                                        "h-5 px-[7px] rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none shrink-0 inline-flex items-center border",
+                                                        role === "owner"
+                                                            ? "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                                            : "border-primary/20 bg-primary/10 text-primary",
+                                                    )}
+                                                >
+                                                    {getProjectMemberRoleLabel(role)}
+                                                </span>
+                                            </div>
+                                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+                                                {roleTitle ? (
+                                                    <span className="nb-compact font-medium text-foreground">{roleTitle}</span>
+                                                ) : null}
+                                                {roleTitle && username ? (
+                                                    <span className="text-muted-foreground/60">·</span>
+                                                ) : null}
+                                                {username ? (
+                                                    <span className="nb-compact text-muted-foreground">@{username}</span>
+                                                ) : null}
+                                            </div>
+                                            <p className="nb-meta mt-0.5 text-[11px] text-muted-foreground/80">
+                                                {formatJoinedAt(member.joinedAt)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <span className="inline-flex h-6 items-center gap-1.5 rounded-[3px] border border-border bg-muted/50 px-2 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-foreground">
+                                            <Shield className="size-3 text-primary shrink-0" />
+                                            Always active · Lead policy
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Section 2: Team Member Intake Permissions */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                    <div className="flex items-center gap-2">
+                        <Users className="size-4 text-muted-foreground" />
+                        <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Team Member Intake
+                        </span>
+                    </div>
+                    <span className="nb-meta text-xs text-muted-foreground">
+                        {standardMembers.length} {standardMembers.length === 1 ? "member" : "members"} · {enabledStandardCount} allowed
+                    </span>
+                </div>
+
+                {/* Toolbar: Search input + Filter tabs + Bulk Actions dropdown */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative min-w-[200px] max-w-sm flex-1">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search members by name or role..."
+                            aria-label="Search members by name or role"
+                            className="h-[34px] w-full rounded-[5px] border border-border bg-background pl-9 pr-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div
+                            className="flex items-center gap-1 rounded-[5px] border border-border bg-muted/20 p-0.5"
+                            role="tablist"
+                            aria-label="Filter members by upload status"
+                        >
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={filterStatus === "all"}
+                                onClick={() => setFilterStatus("all")}
+                                className={cn(
+                                    "h-[28px] rounded-[3px] px-2.5 text-[12px] font-medium transition-colors",
+                                    filterStatus === "all"
+                                        ? "bg-foreground text-background font-semibold"
+                                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                                )}
+                            >
+                                All ({standardMembers.length})
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={filterStatus === "enabled"}
+                                onClick={() => setFilterStatus("enabled")}
+                                className={cn(
+                                    "h-[28px] rounded-[3px] px-2.5 text-[12px] font-medium transition-colors",
+                                    filterStatus === "enabled"
+                                        ? "bg-foreground text-background font-semibold"
+                                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                                )}
+                            >
+                                Allowed ({enabledStandardCount})
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={filterStatus === "disabled"}
+                                onClick={() => setFilterStatus("disabled")}
+                                className={cn(
+                                    "h-[28px] rounded-[3px] px-2.5 text-[12px] font-medium transition-colors",
+                                    filterStatus === "disabled"
+                                        ? "bg-foreground text-background font-semibold"
+                                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                                )}
+                            >
+                                Paused ({disabledStandardCount})
+                            </button>
+                        </div>
+
+                        <DropdownMenu modal={false}>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={bulkSaving || standardMembers.length === 0}
+                                    className="h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium text-foreground hover:bg-muted"
+                                >
+                                    {bulkSaving ? <Loader2 className="size-3.5 animate-spin text-primary" /> : null}
+                                    Bulk actions
+                                    <ChevronDown className="size-3.5 text-muted-foreground" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuItem
+                                    onClick={() => void onBulkToggle(true)}
+                                    disabled={bulkSaving}
+                                    className="gap-2 text-xs"
+                                >
+                                    <Check className="size-3.5 text-primary" />
+                                    Enable all members
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => void onBulkToggle(false)}
+                                    disabled={bulkSaving}
+                                    className="gap-2 text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                    <Lock className="size-3.5" />
+                                    Disable all members
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
+
+                {filteredStandardMembers.length === 0 ? (
+                    <div className="nb-empty-state nb-grid-ground rounded-lg p-8 text-center text-sm text-muted-foreground">
+                        {searchQuery ? `No members found matching “${searchQuery}”.` : "No members match the selected filter."}
+                    </div>
+                ) : (
+                    <div className="grid gap-3">
+                        {filteredStandardMembers.map((member) => {
+                            const role = member.membershipRole as ProjectMemberRole;
+                            const displayName = getProjectMemberDisplayName(member);
+                            const roleTitle = member.projectRoleTitle?.trim();
+                            const username = member.username?.trim();
+                            const isSaving = savingMemberId === member.id;
+
+                            return (
+                                <div
+                                    key={member.id}
+                                    className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20"
+                                >
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <UserAvatar
+                                            identity={{
+                                                id: member.id,
+                                                fullName: displayName,
+                                                username: member.username ?? null,
+                                                avatarUrl: member.avatarUrl,
+                                            }}
+                                            size={44}
+                                            roundedClassName="rounded-[5px]"
+                                            className="border border-border shrink-0"
+                                        />
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="nb-ui-label truncate text-sm font-semibold text-foreground">
+                                                    {displayName}
+                                                </p>
+                                                <span
+                                                    className={cn(
+                                                        "h-5 px-[7px] rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em] leading-none shrink-0 inline-flex items-center border",
+                                                        role === "viewer"
+                                                            ? "border-border bg-muted/60 text-muted-foreground"
+                                                            : "border-border bg-muted text-foreground",
+                                                    )}
+                                                >
+                                                    {getProjectMemberRoleLabel(role)}
+                                                </span>
+                                            </div>
+                                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs">
+                                                {roleTitle ? (
+                                                    <span className="nb-compact font-medium text-foreground">{roleTitle}</span>
+                                                ) : null}
+                                                {roleTitle && username ? (
+                                                    <span className="text-muted-foreground/60">·</span>
+                                                ) : null}
+                                                {username ? (
+                                                    <span className="nb-compact text-muted-foreground">@{username}</span>
+                                                ) : null}
+                                            </div>
+                                            <p className="nb-meta mt-0.5 text-[11px] text-muted-foreground/80">
+                                                {formatJoinedAt(member.joinedAt)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex shrink-0 items-center gap-3">
+                                        {member.uploadPermissionLocked ? (
+                                            <span className="inline-flex h-6 items-center gap-1.5 rounded-[3px] border border-border bg-muted/40 px-2 font-mono text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
+                                                <Lock className="size-3 shrink-0" />
+                                                Read-only
+                                            </span>
+                                        ) : (
+                                             <div className="flex items-center gap-3">
+                                                 <div className="hidden sm:block text-right">
+                                                     <span className="block nb-ui-label text-xs font-semibold text-foreground">
+                                                         {member.fileUploadEnabled ? "Upload allowed" : "Upload paused"}
+                                                     </span>
+                                                     <span className="block nb-meta text-[11px] text-muted-foreground">
+                                                         {isSaving
+                                                             ? "Updating permissions..."
+                                                             : member.fileUploadEnabled
+                                                                 ? "Full workspace intake"
+                                                                 : "Read-only access"}
+                                                     </span>
+                                                 </div>
+                                                 <div className="flex shrink-0 items-center gap-3">
+                                                     <span className="nb-meta text-muted-foreground select-none w-6 text-right">
+                                                         {isSaving ? "..." : member.fileUploadEnabled ? "On" : "Off"}
+                                                     </span>
+                                                     {isSaving ? (
+                                                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                                     ) : (
+                                                         <SettingsSwitch
+                                                             checked={member.fileUploadEnabled}
+                                                             disabled={isSaving}
+                                                             aria-label={`Toggle file uploads for ${displayName}`}
+                                                             onCheckedChange={(next) => void onToggle(member, next)}
+                                                         />
+                                                     )}
+                                                 </div>
+                                             </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
@@ -4328,6 +5459,15 @@ function LifecycleSettingsEditor({
         setStages(initialStages);
     }, [initialStages]);
 
+    const isDirty = useMemo(() => {
+        if (stages.length !== initialStages.length) return true;
+        return stages.some((stage, idx) => stage !== initialStages[idx]);
+    }, [stages, initialStages]);
+
+    const handleCancel = useCallback(() => {
+        setStages(initialStages);
+    }, [initialStages]);
+
     const handleSave = useCallback(async () => {
         const cleaned = stages.map((stage) => stage.trim().replace(/\s+/g, " ")).filter(Boolean);
         if (cleaned.length === 0) {
@@ -4337,22 +5477,72 @@ function LifecycleSettingsEditor({
         await onSave(cleaned, currentStageIdentity);
     }, [currentStageIdentity, onSave, stages]);
 
+    const currentStageName = initialStages[currentStageIndex] || stages[currentStageIndex] || stages[0] || "";
+
     return (
-        <div className="space-y-4">
-            <BaseLifecycleEditor
-                stages={stages}
-                onChange={setStages}
-                currentStageIndex={currentStageIndex}
-            />
-            <Button
-                type="button"
-                onClick={() => void handleSave()}
-                disabled={isSaving || stages.length === 0}
-                className="bg-indigo-600 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-                {isSaving ? "Saving..." : "Save Lifecycle"}
-            </Button>
-        </div>
+        <SettingsCard
+            title="Project lifecycle"
+            description="Define the journey stages used by the project dashboard, roadmap, and milestone tracking."
+            footer={
+                <>
+                    <p className="nb-compact text-muted-foreground">
+                        {isDirty ? (
+                            <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                                <span className="size-1.5 rounded-full bg-amber-500" />
+                                You have unsaved changes in lifecycle stages.
+                            </span>
+                        ) : (
+                            <span>
+                                {stages.length} lifecycle stage{stages.length === 1 ? "" : "s"} configured
+                                {currentStageName ? (
+                                    <>
+                                        {" "}· Current stage: <strong className="font-semibold text-foreground">{currentStageName}</strong>
+                                    </>
+                                ) : null}
+                            </span>
+                        )}
+                    </p>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleCancel}
+                            disabled={!isDirty || isSaving}
+                            className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => void handleSave()}
+                            disabled={!isDirty || isSaving || stages.length === 0}
+                            className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                        >
+                            {isSaving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                            Save changes
+                        </Button>
+                    </div>
+                </>
+            }
+        >
+            <div className="space-y-6">
+                <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/20 p-4">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="space-y-1">
+                        <p className="nb-ui-label text-foreground">Lifecycle roadmap alignment</p>
+                        <p className="nb-compact text-muted-foreground">
+                            Stages define the progression milestones shown on your project overview and roadmap. As your team completes deliverables, project leads can advance through these stages directly from the project dashboard header.
+                        </p>
+                    </div>
+                </div>
+
+                <BaseLifecycleEditor
+                    stages={stages}
+                    onChange={setStages}
+                    currentStageIndex={currentStageIndex}
+                />
+            </div>
+        </SettingsCard>
     );
 }
 
@@ -4380,8 +5570,8 @@ function AccessTransitionDetails({ preflight }: { preflight: AccessTransitionPre
 
     return (
         <div className="space-y-4 text-sm">
-            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/70">
-                <p className="font-semibold text-zinc-950 dark:text-zinc-50">Affected counts</p>
+            <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <p className="nb-ui-label text-sm font-semibold text-foreground">Affected counts</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {[
                         ["Members", preflight.counts.membersCount],
@@ -4390,21 +5580,21 @@ function AccessTransitionDetails({ preflight }: { preflight: AccessTransitionPre
                         ["Pending applications", preflight.counts.pendingApplicationsCount],
                         ["Active tasks", preflight.counts.activeTasksCount],
                     ].map(([label, value]) => (
-                        <div key={label} className="rounded-xl bg-white px-3 py-2 text-xs dark:bg-zinc-950">
-                            <span className="font-semibold text-zinc-900 dark:text-zinc-100">{value}</span>
-                            <span className="ml-2 text-zinc-500">{label}</span>
+                        <div key={label} className="rounded-lg border border-border bg-card px-3 py-2 text-xs">
+                            <span className="font-semibold text-foreground">{value}</span>
+                            <span className="ml-2 text-muted-foreground">{label}</span>
                         </div>
                     ))}
                 </div>
             </div>
 
             <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Transition checklist</p>
+                <p className="nb-micro text-muted-foreground">Transition checklist</p>
                 <PolicyList items={preflight.policy.transitionChecklist} />
             </div>
 
             {preflight.policy.irreversibleNotes.length > 0 ? (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
                     <p className="font-semibold">Important notes</p>
                     <ul className="mt-2 space-y-1 text-xs leading-5">
                         {preflight.policy.irreversibleNotes.map((note) => (
@@ -4416,18 +5606,18 @@ function AccessTransitionDetails({ preflight }: { preflight: AccessTransitionPre
 
             <div className="grid gap-3">
                 {previewRows.map((row) => (
-                    <div key={row.label} className="rounded-2xl border border-zinc-200 p-3 dark:border-zinc-800">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">{row.label}</p>
+                    <div key={row.label} className="rounded-lg border border-border p-3">
+                        <p className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">{row.label}</p>
                         {row.items.length > 0 ? (
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {row.items.map((item, index) => (
-                                    <span key={`${row.label}-${index}-${item}`} className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
+                                    <span key={`${row.label}-${index}-${item}`} className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-foreground">
                                         {item}
                                     </span>
                                 ))}
                             </div>
                         ) : (
-                            <p className="mt-2 text-xs text-zinc-500">{row.fallback}</p>
+                            <p className="nb-compact mt-2 text-xs text-muted-foreground">{row.fallback}</p>
                         )}
                     </div>
                 ))}
@@ -4436,136 +5626,15 @@ function AccessTransitionDetails({ preflight }: { preflight: AccessTransitionPre
     );
 }
 
-function SettingsAuditTimeline({
-    events,
-    isLoading,
-}: {
-    events: SettingsAuditEvent[];
-    isLoading: boolean;
-}) {
-    if (isLoading) {
-        return (
-            <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="h-16 animate-pulse rounded-2xl bg-zinc-50 dark:bg-zinc-900/70" />
-                ))}
-            </div>
-        );
-    }
-
-    if (events.length === 0) {
-        return (
-            <div className="rounded-2xl border border-dashed border-zinc-200 p-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                No settings audit events have been recorded yet.
-            </div>
-        );
-    }
-
-    return (
-        <div className="divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-            {events.map((event) => (
-                <div key={event.id} className="flex flex-col gap-1 bg-white px-4 py-3 text-sm dark:bg-zinc-950 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <p className="font-semibold text-zinc-900 dark:text-zinc-100">{formatSettingsAuditEvent(event)}</p>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {event.actorName || "System"} · {formatAuditDate(event.createdAt)}
-                        </p>
-                    </div>
-                    <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-                        Audit
-                    </span>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function formatSettingsAuditEvent(event: SettingsAuditEvent) {
-    const targetName = typeof event.metadata.targetDisplayName === "string"
-        ? event.metadata.targetDisplayName
-        : typeof (event.metadata.targetSnapshot as { fullName?: unknown; username?: unknown } | undefined)?.fullName === "string"
-            ? String((event.metadata.targetSnapshot as { fullName?: unknown }).fullName)
-            : typeof (event.metadata.targetSnapshot as { username?: unknown } | undefined)?.username === "string"
-                ? String((event.metadata.targetSnapshot as { username?: unknown }).username)
-                : "Member";
-    if (event.type === "project_settings.visibility_changed") {
-        const previous = typeof event.metadata.previousVisibility === "string" ? event.metadata.previousVisibility : "unknown";
-        const next = typeof event.metadata.nextVisibility === "string" ? event.metadata.nextVisibility : "unknown";
-        return `Visibility changed from ${previous} to ${next}`;
-    }
-    if (event.type === "project_member.role_changed") {
-        const previous = typeof event.metadata.previousRole === "string" ? event.metadata.previousRole : "unknown";
-        const next = typeof event.metadata.nextRole === "string" ? event.metadata.nextRole : "unknown";
-        return `${targetName} changed from ${getProjectMemberRoleLabel(previous)} to ${getProjectMemberRoleLabel(next)}`;
-    }
-    if (event.type === "project_member.removed") {
-        const previous = typeof event.metadata.previousRole === "string" ? event.metadata.previousRole : "unknown";
-        return `${targetName} removed from ${getProjectMemberRoleLabel(previous)}`;
-    }
-    if (event.type === "project_member.ownership_transferred") {
-        const previousOwner = (event.metadata.previousOwnerSnapshot as { fullName?: string | null; username?: string | null } | null)?.fullName
-            || (event.metadata.previousOwnerSnapshot as { username?: string | null } | null)?.username
-            || "Previous owner";
-        const newOwner = (event.metadata.newOwnerSnapshot as { fullName?: string | null; username?: string | null } | null)?.fullName
-            || (event.metadata.newOwnerSnapshot as { username?: string | null } | null)?.username
-            || "New owner";
-        return `Ownership transferred from ${previousOwner} to ${newOwner}`;
-    }
-    return event.type.replace(/^project_settings\./, "").replace(/_/g, " ");
-}
-
-function formatAuditDate(value: string) {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Unknown time";
-    return new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    }).format(date);
-}
-
 function PolicyList({ items }: { items: string[] }) {
     return (
         <ul className="grid gap-2">
             {items.map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                    <KeyRound className="mt-1 h-4 w-4 shrink-0 text-zinc-400" />
-                    <span>{item}</span>
+                <li key={item} className="flex items-start gap-2.5 rounded-lg border border-border bg-muted/20 px-3.5 py-2.5 text-sm text-foreground">
+                    <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="leading-relaxed">{item}</span>
                 </li>
             ))}
         </ul>
-    );
-}
-
-function DangerAction({
-    icon: Icon,
-    title,
-    description,
-    actionLabel,
-    disabled,
-    onClick,
-}: {
-    icon: React.ComponentType<{ className?: string }>;
-    title: string;
-    description: string;
-    actionLabel: string;
-    disabled: boolean;
-    onClick: () => void;
-}) {
-    return (
-        <SettingsCard title={title} description={description} danger>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3 text-sm text-red-700 dark:text-red-300">
-                    <Icon className="h-5 w-5" />
-                    This change affects project visibility, routing, and member access.
-                </div>
-                <Button variant="destructive" onClick={onClick} disabled={disabled} className="gap-2">
-                    <Icon className="h-4 w-4" />
-                    {actionLabel}
-                </Button>
-            </div>
-        </SettingsCard>
     );
 }

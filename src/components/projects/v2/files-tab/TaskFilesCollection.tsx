@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, FolderOpen, Loader2, Filter } from "lucide-react";
-import { unlinkNodeFromTask } from "@/app/actions/files/links";
+import { ArrowRight, FolderOpen, Filter, MoreHorizontal, Link2, Upload, Search } from "lucide-react";
+import { unlinkNodeFromTask, linkNodeToTask, updateTaskNodeLink } from "@/app/actions/files/links";
+import { extractLabel, composeAnnotation } from "@/lib/projects/task-file-label";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { FolderListRowNode } from "./folder/FolderListRow";
 import { toast } from "sonner";
@@ -13,12 +14,40 @@ import {
   type TaskFileGroup,
 } from "@/app/actions/files/collections";
 import { FolderListView } from "./folder/FolderListView";
-import { FilesWorkspaceMenu } from "./FilesWorkspaceHeader";
-import { DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu";
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import {
+  FilesTabUploadModal,
+  type FilesTabUploadConfirmResult,
+} from "./upload/FilesTabUploadModal";
+import { FilesWorkspaceMenu, FilesHeaderSlot } from "./FilesWorkspaceHeader";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
 import { useFilesTabRole } from "./FilesTabRoleContext";
 import { taskFilesHref } from "@/lib/files/task-navigation";
 import { useFilesWorkspaceView } from "./FilesWorkspaceViews";
 import { formatRelativeTime } from "./folder/format";
+import { FolderListHeader } from "./folder/FolderListHeader";
+import {
+  FolderListLoading,
+  FolderListEmpty,
+  FolderListError,
+} from "./folder/FolderListStates";
+import {
+  FOLDER_LIST_GRID_TEMPLATE,
+  FOLDER_LIST_ROW_HEIGHT_PX,
+} from "./folder/layout";
+import { FileTypeChip } from "./FileTypeChip";
+import styles from "./folder/FolderList.module.css";
+import { cn } from "@/lib/utils";
 
 function deliverableReviewLabel(
   entry: TaskCollectionEntry,
@@ -33,6 +62,22 @@ function deliverableReviewLabel(
   return `Review not recorded${taskReview}`;
 }
 
+function getTaskStatusBadgeClass(status: string) {
+  const norm = status.toLowerCase().replace(/-/g, "_");
+  if (norm === "done" || norm === "completed") {
+    return "bg-[#EDF5F0] text-[#245A41] dark:bg-[#245A41]/20 dark:text-[#EDF5F0]";
+  }
+  if (norm === "in_progress") {
+    return "bg-[#EEF4FD] text-[#2563C9] dark:bg-[#2563C9]/20 dark:text-[#EEF4FD]";
+  }
+  if (norm === "review" || norm === "in_review") {
+    return "bg-[#FCF0EA] text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]";
+  }
+  return "bg-[#F3F0EA] text-[#6B7880] dark:bg-white/10 dark:text-muted-foreground";
+}
+
+type TaskStatusFilter = "all" | "todo" | "in_progress" | "done" | "review";
+
 export function TaskFilesCollection({ projectId }: { projectId: string }) {
   const workspace = useFilesWorkspaceView()!;
   const { taskId, query, view, selectTask } = workspace;
@@ -40,6 +85,20 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
   const role = workspace.fileRole;
   const setRole = workspace.setFileRole;
   const { canEdit, canManageFiles } = useFilesTabRole();
+
+  // Sorting & Filtering state
+  const [sortColumn, setSortColumn] = useState<"name" | "updated" | "size">("updated");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
+  const [inlineQuery, setInlineQuery] = useState("");
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+
+  // Direct upload to task state
+  const [targetUploadTask, setTargetUploadTask] = useState<{ id: string; title: string } | null>(null);
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[] | null>(null);
+  const [isProcessingUpload, setIsProcessingUpload] = useState(false);
+  const directUploadInputRef = useRef<HTMLInputElement>(null);
+
   const [unlinkTarget, setUnlinkTarget] = useState<FolderListRowNode | null>(
     null,
   );
@@ -77,11 +136,124 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
     },
     initialDataUpdatedAt: 0,
     getNextPageParam: (page) => (taskId ? page.groups[0]?.nextFileCursor : page.nextCursor) ?? undefined,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 60_000,
+    // ponytail: back off idle polling to 5m to eliminate client-side egress churn. ceiling: 5m polling interval. upgrade: WebSocket Realtime push invalidation for remote lists.
+    refetchInterval: 300_000,
     refetchIntervalInBackground: false,
   });
-  const groups = Array.from(new Map(result.data?.pages.flatMap(page => page.groups).map(group => [group.id, group]) ?? []).values());
+
+  const groups = useMemo(
+    () => Array.from(new Map(result.data?.pages.flatMap(page => page.groups).map(group => [group.id, group]) ?? []).values()),
+    [result.data?.pages],
+  );
+
+  // Live status counts computed synchronously over groups (0 network latency)
+  const statusCounts = useMemo(() => {
+    let todo = 0;
+    let in_progress = 0;
+    let done = 0;
+    let review = 0;
+    for (const g of groups) {
+      const norm = g.status.toLowerCase().replace(/-/g, "_");
+      if (norm === "todo" || norm === "backlog") todo++;
+      else if (norm === "in_progress") in_progress++;
+      else if (norm === "done" || norm === "completed") done++;
+      if (
+        norm === "review" ||
+        norm === "in_review" ||
+        g.reviewStatus === "pending" ||
+        g.reviewStatus === "rejected"
+      )
+        review++;
+    }
+    return {
+      all: groups.length,
+      todo,
+      in_progress,
+      done,
+      review,
+    };
+  }, [groups]);
+
+  // Filtered and sorted task groups
+  const filteredGroups = useMemo(() => {
+    let list = [...groups];
+
+    if (inlineQuery.trim()) {
+      const q = inlineQuery.trim().toLowerCase();
+      list = list.filter(
+        (g) =>
+          g.title.toLowerCase().includes(q) ||
+          g.entries.some(
+            (e) =>
+              e.node.name.toLowerCase().includes(q) ||
+              (e.annotation && e.annotation.toLowerCase().includes(q)) ||
+              Boolean((e.node as { annotation?: string | null }).annotation?.toLowerCase().includes(q)),
+          ),
+      );
+    }
+
+    if (statusFilter !== "all") {
+      list = list.filter((g) => {
+        const norm = g.status.toLowerCase().replace(/-/g, "_");
+        if (statusFilter === "todo") return norm === "todo" || norm === "backlog";
+        if (statusFilter === "in_progress") return norm === "in_progress";
+        if (statusFilter === "done") return norm === "done" || norm === "completed";
+        if (statusFilter === "review")
+          return norm === "review" || norm === "in_review" || g.reviewStatus === "pending" || g.reviewStatus === "rejected";
+        return true;
+      });
+    }
+
+    list.sort((a, b) => {
+      let diff = 0;
+      if (sortColumn === "name") {
+        diff = a.title.localeCompare(b.title);
+      } else if (sortColumn === "updated") {
+        const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        diff = timeA - timeB;
+      } else if (sortColumn === "size") {
+        const countA = a.deliverables + a.references + a.working;
+        const countB = b.deliverables + b.references + b.working;
+        diff = countA - countB;
+      }
+      return sortDirection === "asc" ? diff : -diff;
+    });
+
+    return list;
+  }, [groups, inlineQuery, statusFilter, sortColumn, sortDirection, view]);
+
+  const handleSort = useCallback((column: "name" | "updated" | "size") => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === "name" ? "asc" : "desc");
+    }
+  }, [sortColumn]);
+
+  // Hover prefetch for sub-50ms instant task drilldown
+  const handlePrefetchTask = useCallback(
+    (targetTaskId: string) => {
+      void queryClient.prefetchInfiniteQuery({
+        queryKey: ["files-task-collections", projectId, view, targetTaskId, "", "all"],
+        queryFn: ({ pageParam }) =>
+          getTaskFileGroups(projectId, {
+            deliverables: view === "deliverables",
+            taskId: targetTaskId,
+            cursor: undefined,
+            fileCursor: pageParam,
+            query: "",
+            role: undefined,
+          }),
+        initialPageParam: undefined,
+        staleTime: 60_000,
+      });
+    },
+    [queryClient, projectId, view],
+  );
+
   const selected = groups.find((group) => group.id === taskId);
   const setTaskTitle = workspace.setTaskTitle;
   useEffect(() => { if (selected?.title) setTaskTitle(selected.title); }, [selected?.title, setTaskTitle]);
@@ -100,12 +272,206 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
     return () =>
       window.removeEventListener("project:task-files-changed", refresh);
   }, [projectId, queryClient]);
-  // ponytail: first and subsequent pages share React Query's cache and retry
-  // lifecycle. Deduplicate by identity when concurrent updates overlap pages.
-  const visibleEntries = Array.from(new Map(
-    result.data?.pages.flatMap(page => page.groups.filter(group => group.id === taskId).flatMap(group => group.entries)).map(entry => [entry.node.id, entry]) ?? [],
-  ).values());
-  const groupScrollRef = useRef<HTMLElement>(null);
+
+  // Keyboard navigation across tasks
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!taskId) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setFocusedIndex((prev) =>
+            prev === null ? 0 : Math.min(filteredGroups.length - 1, prev + 1),
+          );
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setFocusedIndex((prev) =>
+            prev === null ? filteredGroups.length - 1 : Math.max(0, prev - 1),
+          );
+        } else if (e.key === "Enter" && focusedIndex !== null && filteredGroups[focusedIndex]) {
+          e.preventDefault();
+          selectTask(filteredGroups[focusedIndex].id);
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        selectTask(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [taskId, focusedIndex, filteredGroups, selectTask]);
+
+  // Direct upload picker triggers
+  const handleDirectFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setPendingUploadFiles(files);
+    }
+    e.target.value = "";
+  };
+
+  const handleConfirmUpload = async (confirmResult: FilesTabUploadConfirmResult) => {
+    const filesToUpload = confirmResult.files ?? pendingUploadFiles;
+    if (!filesToUpload || filesToUpload.length === 0) return;
+
+    setIsProcessingUpload(true);
+    try {
+      const { buildProjectFileKey } = await import("@/lib/storage/project-file-key");
+      const { getBatchUploadUrls } = await import("@/app/actions/upload");
+      const { finalizeBatchUpload } = await import("@/app/actions/files/mutations");
+
+      const plans = filesToUpload.map((file) => ({
+        file,
+        key: buildProjectFileKey(projectId, crypto.randomUUID()),
+        contentType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+      }));
+
+      const batch = await getBatchUploadUrls(
+        plans.map(({ key, contentType, sizeBytes }) => ({ key, contentType, sizeBytes })),
+      );
+      if ("error" in batch) {
+        throw new Error(batch.error || "Failed to generate upload URLs");
+      }
+
+      await Promise.all(
+        plans.map(async ({ file, key, contentType }) => {
+          const url = batch.urls?.[key];
+          if (!url) throw new Error("Upload URL unavailable");
+          const res = await fetch(url, {
+            method: "PUT",
+            headers: { "Content-Type": contentType },
+            body: file,
+          });
+          if (!res.ok) throw new Error(`Upload failed for ${file.name}`);
+        }),
+      );
+
+      const batchNodes = await finalizeBatchUpload(
+        projectId,
+        confirmResult.targetFolderId ?? null,
+        plans.map(({ file, key, contentType }) => ({
+          name: file.name,
+          s3Key: key,
+          size: file.size,
+          mimeType: contentType,
+          uploadIntentId: batch.uploadIntentIds?.[key] ?? undefined,
+        })),
+      );
+
+      const targetTaskId = confirmResult.taskId ?? targetUploadTask?.id;
+      if (targetTaskId && batchNodes.length > 0) {
+        for (const node of batchNodes) {
+          await linkNodeToTask(targetTaskId, node.id, {
+            role: confirmResult.role,
+            annotation: confirmResult.label,
+          });
+        }
+      }
+
+      toast.success(
+        filesToUpload.length === 1
+          ? `Uploaded ${filesToUpload[0]?.name ?? "file"} to task`
+          : `Uploaded ${filesToUpload.length} files to task`,
+      );
+
+      void queryClient.invalidateQueries({
+        queryKey: ["files-task-collections", projectId],
+      });
+      window.dispatchEvent(
+        new CustomEvent("project:task-files-changed", {
+          detail: { projectId, taskId: targetTaskId },
+        }),
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to upload file to task");
+    } finally {
+      setIsProcessingUpload(false);
+      setPendingUploadFiles(null);
+      setTargetUploadTask(null);
+    }
+  };
+  // ponytail: deduplicate task entries across paginated cache layers. ceiling: React Query page cache. upgrade: normalized entity store if task file counts exceed 5,000.
+  const visibleEntries = React.useMemo(() => {
+    const map = new Map<string, TaskCollectionEntry>();
+    for (const page of result.data?.pages ?? []) {
+      for (const group of page.groups) {
+        if (group.id === taskId) {
+          for (const entry of group.entries) {
+            map.set(entry.node.id, entry);
+          }
+        }
+      }
+    }
+    const list = Array.from(map.values());
+    const order: Record<string, number> = { deliverable: 0, working: 1, reference: 2 };
+    return list.sort((a, b) => (order[a.role] ?? 1) - (order[b.role] ?? 1));
+  }, [result.data?.pages, taskId]);
+
+  const taskLabels = React.useMemo(() => {
+    const map: Record<string, string | null> = {};
+    for (const entry of visibleEntries) {
+      map[entry.node.id] = extractLabel(entry.annotation || (entry.node as { annotation?: string | null }).annotation);
+    }
+    return map;
+  }, [visibleEntries]);
+
+  const handleTaskLabelChange = useCallback(
+    async (node: FolderListRowNode, newLabel: string | null) => {
+      if (!taskId) return;
+      const currentEntry = visibleEntries.find((e) => e.node.id === node.id);
+      const existingAnnotation = currentEntry?.annotation ?? (node as { annotation?: string | null }).annotation ?? null;
+      const nextAnnotation = composeAnnotation(newLabel, existingAnnotation);
+
+      // Optimistic cache update across task collections
+      queryClient.setQueriesData<{ pages: Array<{ groups: TaskFileGroup[] }> }>(
+        { queryKey: ["files-task-collections", projectId] },
+        (oldData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              groups: page.groups.map((group) => {
+                if (group.id !== taskId) return group;
+                return {
+                  ...group,
+                  entries: group.entries.map((entry) => {
+                    if (entry.node.id !== node.id) return entry;
+                    return {
+                      ...entry,
+                      annotation: nextAnnotation,
+                      node: {
+                        ...entry.node,
+                        annotation: nextAnnotation,
+                      },
+                    };
+                  }),
+                };
+              }),
+            })),
+          };
+        },
+      );
+
+      try {
+        await updateTaskNodeLink(taskId, node.id, { annotation: nextAnnotation });
+        toast.success(newLabel ? "Label updated" : "Label removed");
+        window.dispatchEvent(
+          new CustomEvent("project:task-files-changed", {
+            detail: { projectId, taskId },
+          }),
+        );
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update label");
+        void queryClient.invalidateQueries({
+          queryKey: ["files-task-collections", projectId],
+        });
+      }
+    },
+    [taskId, projectId, visibleEntries, queryClient],
+  );
+  const groupScrollRef = useRef<HTMLDivElement>(null);
   const groupScrollKey = `${view}:groups:${query}`;
   React.useLayoutEffect(() => {
     if (!taskId && groupScrollRef.current)
@@ -117,137 +483,527 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
     result.isPending ||
     (taskId && !selected && (result.hasNextPage || result.isFetching));
   const taskMenuItems = taskId ? <>
-    {view !== "deliverables" && <DropdownMenuSub><DropdownMenuSubTrigger><Filter className="size-4" />File role</DropdownMenuSubTrigger><DropdownMenuSubContent><DropdownMenuRadioGroup aria-label="File role" value={role} onValueChange={value => setRole(value as "all" | "reference" | "working")}>
+    <DropdownMenuSub><DropdownMenuSubTrigger><Filter className="size-4" />File role</DropdownMenuSubTrigger><DropdownMenuSubContent><DropdownMenuRadioGroup aria-label="File role" value={role} onValueChange={value => setRole(value as "all" | "deliverable" | "reference" | "working")}>
       <DropdownMenuRadioItem value="all">All files</DropdownMenuRadioItem>
-      <DropdownMenuRadioItem value="reference">References</DropdownMenuRadioItem>
+      <DropdownMenuRadioItem value="deliverable">Deliverables</DropdownMenuRadioItem>
       <DropdownMenuRadioItem value="working">Working files</DropdownMenuRadioItem>
-    </DropdownMenuRadioGroup></DropdownMenuSubContent></DropdownMenuSub>}
+      <DropdownMenuRadioItem value="reference">References</DropdownMenuRadioItem>
+    </DropdownMenuRadioGroup></DropdownMenuSubContent></DropdownMenuSub>
     <DropdownMenuItem asChild><a href={`?tab=tasks&drawerType=task&drawerId=${taskId}&panelTab=files`} onClick={event => { event.currentTarget.href = taskFilesHref(window.location.search, taskId!); }}><ArrowRight className="size-4" />Open task files…</a></DropdownMenuItem>
   </> : null;
   return (
-    <section
-      ref={groupScrollRef}
-      onScroll={(event) => {
-        if (!taskId && !result.isPending)
-          workspace.scrollOffsets.current.set(
-            groupScrollKey,
-            event.currentTarget.scrollTop,
-          );
-      }}
+    <div
       aria-label={view === "deliverables" ? "Deliverables" : "Task files"}
-      className="flex h-full min-h-0 min-w-0 flex-col overflow-y-auto"
+      className={cn(
+        styles.container,
+        "flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card dark:bg-background relative",
+      )}
     >
-      {(!selected || initialLoading) && <FilesWorkspaceMenu projectId={projectId}>{taskMenuItems}</FilesWorkspaceMenu>}
+      <input
+        ref={directUploadInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleDirectFileSelected}
+      />
+
+      {(!selected || initialLoading) && (
+        <FilesWorkspaceMenu projectId={projectId}>
+          {taskMenuItems}
+        </FilesWorkspaceMenu>
+      )}
       {result.isError && (
         <div
           role="alert"
-          className="mb-4 rounded border border-red-300 p-3 text-sm"
+          className="m-4 mb-0 rounded-[5px] border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400"
         >
           {result.error.message}{" "}
-          <button onClick={() => void result.refetch()} className="underline">
+          <button onClick={() => void result.refetch()} className="underline font-medium">
             Retry
           </button>
         </div>
       )}
-      {initialLoading ? (
-        <div role="status" className="flex items-center gap-2 py-8 text-sm">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading task files…
-        </div>
-      ) : result.isError && !result.data ? null : taskId ? (
+      {taskId ? (
         selected ? (
-          <>
-            <div className="min-h-0 flex-1">
-              <FolderListView
-                projectId={projectId}
-                folderId={null}
-                canEdit={canEdit}
-                canManageFiles={canManageFiles}
-                collection={{
-                  preserveOrder: true,
-                  menuItems: taskMenuItems,
-                  onUnlink: canEdit ? setUnlinkTarget : undefined,
-                  nodes: visibleEntries.map((entry) => entry.node),
-                  labels: Object.fromEntries(
-                    visibleEntries.map((entry) => [
-                      entry.node.id,
-                      view === "deliverables"
-                        ? `Deliverable · ${deliverableReviewLabel(entry, selected.reviewStatus)}`
-                        : entry.role === "reference"
-                          ? "Reference"
-                          : "Working file",
-                    ]),
-                  ),
-                  emptyMessage: "No files match these filters.",
-                  footer: result.hasNextPage ? (
-                    <button
-                      type="button"
-                      disabled={result.isFetchingNextPage}
-                      onClick={() => void result.fetchNextPage()}
-                      className="m-3 min-h-10 rounded border px-4"
-                    >
-                      {result.isFetchingNextPage ? "Loading…" : "Load more files"}
-                    </button>
-                  ) : undefined,
-                }}
-              />
-            </div>
-          </>
+          <div className="min-h-0 flex-1">
+            <FolderListView
+              projectId={projectId}
+              folderId={null}
+              canEdit={canEdit}
+              canManageFiles={canManageFiles}
+              collection={{
+                preserveOrder: true,
+                menuItems: taskMenuItems,
+                onUnlink: canEdit ? setUnlinkTarget : undefined,
+                nodes: visibleEntries.map((entry) => entry.node),
+                labels: Object.fromEntries(
+                  visibleEntries.map((entry) => [
+                    entry.node.id,
+                    entry.role === "deliverable" || view === "deliverables"
+                      ? `Deliverable · ${deliverableReviewLabel(entry, selected.reviewStatus)}`
+                      : entry.role === "reference"
+                        ? "Reference"
+                        : "Working file",
+                  ]),
+                ),
+                taskLabels,
+                onTaskLabelChange: canEdit ? handleTaskLabelChange : undefined,
+                emptyMessage: "No files match these filters.",
+                footer: result.hasNextPage ? (
+                  <button
+                    type="button"
+                    disabled={result.isFetchingNextPage}
+                    onClick={() => void result.fetchNextPage()}
+                    className="m-3 min-h-9 rounded-[5px] border border-border px-4 text-xs font-medium hover:bg-[#F3F0EA] dark:hover:bg-muted"
+                  >
+                    {result.isFetchingNextPage ? "Loading…" : "Load more files"}
+                  </button>
+                ) : undefined,
+              }}
+            />
+          </div>
+        ) : initialLoading ? (
+          <div
+            role="table"
+            aria-label="Task files listing"
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <FolderListHeader />
+            <FolderListLoading />
+          </div>
         ) : (
-          <p className="py-8 text-sm text-zinc-500">
-            {search || role !== "all"
-              ? "No files match these filters. Clear the search or choose All files."
-              : "This task has no accessible files in this collection. It may have been removed or its file roles changed."}
-          </p>
+          <div
+            role="table"
+            aria-label="Task files listing"
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <FolderListHeader />
+            <FolderListEmpty
+              message={
+                search || role !== "all"
+                  ? "No files match these filters. Clear the search or choose All files."
+                  : "This task has no accessible files in this collection. It may have been removed or its file roles changed."
+              }
+            />
+          </div>
         )
       ) : (
         <>
-          <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-            {groups.map((group) => (
-              <li key={group.id}>
+          {!taskId && canEdit && (
+            <FilesHeaderSlot slot="actions">
+              <div className="flex items-center gap-1.5 mr-1">
                 <button
                   type="button"
-                  onClick={() => selectTask(group.id)}
-                  className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-zinc-900"
+                  onClick={() => {
+                    const first = groups[0];
+                    if (first) {
+                      setTargetUploadTask({ id: first.id, title: first.title });
+                      directUploadInputRef.current?.click();
+                    } else {
+                      toast.info("Create a task first to attach files to tasks.");
+                    }
+                  }}
+                  className="flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                  aria-label="Upload to task"
                 >
-                  <FolderOpen className="h-5 w-5 shrink-0 text-blue-500" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">
-                      {group.title}
-                    </span>
-                    <span className="text-xs text-zinc-500">
-                      {group.status.replaceAll("_", " ")} ·{" "}
-                      {view === "deliverables"
-                        ? `${group.deliverables} deliverables`
-                        : `${group.references} references · ${group.working} working`}
-                    </span>
-                  </span>
-                  <span className="hidden text-xs text-zinc-500 sm:block">
-                    {group.updatedAt ? formatRelativeTime(group.updatedAt) : ""}
-                  </span>
+                  <Upload className="size-3.5" aria-hidden="true" />
+                  <span className="hidden sm:inline">Upload</span>
                 </button>
-              </li>
-            ))}
-          </ul>
-          {!groups.length && !result.isError && (
-            <p className="py-8 text-sm text-zinc-500">
-              {search
-                ? "No tasks or filenames match your search."
-                : "No accessible files in this collection yet. Add or link files from a task’s Files panel."}
-            </p>
+              </div>
+            </FilesHeaderSlot>
           )}
-          {result.hasNextPage && (
-            <button
-              type="button"
-              onClick={() => void result.fetchNextPage()}
-              disabled={result.isFetchingNextPage}
-              className="mt-4 min-h-10 rounded border px-4"
+
+          <div
+            role="table"
+            aria-label={view === "deliverables" ? "Deliverables listing" : "Task files listing"}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            {/* Status Filter Segmented Control Bar with Live Counts & Search */}
+            <div
+              role="toolbar"
+              aria-label="Task status filters"
+              className="flex flex-wrap items-center justify-between gap-2 border-b border-[#DBD5C8] bg-[#FAF8F5] px-4 py-1.5 dark:border-border dark:bg-card"
             >
-              {result.isFetchingNextPage ? "Loading…" : "Load more tasks"}
-            </button>
-          )}
-        </>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-[11px] font-mono font-medium text-[#6B7880] dark:text-muted-foreground">
+                  Status:
+                </span>
+                {(
+                  [
+                    { id: "all", label: "All" },
+                    { id: "todo", label: "Todo" },
+                    { id: "in_progress", label: "In Progress" },
+                    { id: "done", label: "Done" },
+                    { id: "review", label: "Needs Review" },
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    data-testid={`task-filter-${item.id}`}
+                    onClick={() => setStatusFilter(item.id)}
+                    className={cn(
+                      "inline-flex h-6 items-center gap-1.5 rounded-[3px] px-2 text-[11px] font-mono transition-colors",
+                      statusFilter === item.id
+                        ? "bg-primary font-semibold text-primary-foreground shadow-xs"
+                        : "border border-[#DBD5C8]/70 bg-white text-[#4C5A61] hover:bg-[#E8E3D9] hover:text-[#141A1E] dark:border-border dark:bg-card dark:text-muted-foreground dark:hover:bg-white/10 dark:hover:text-foreground",
+                    )}
+                  >
+                    <span>{item.label}</span>
+                    <span
+                      className={cn(
+                        "text-[10px] tabular-nums",
+                        statusFilter === item.id
+                          ? "text-white/80"
+                          : "text-[#8E9AA1] dark:text-muted-foreground",
+                      )}
+                    >
+                      {statusCounts[item.id]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick inline fuzzy filter for high scale task lists */}
+              <div className="relative flex items-center">
+                <Search className="pointer-events-none absolute left-2 size-3 text-[#6B7880] dark:text-muted-foreground" />
+                <input
+                  type="search"
+                  value={inlineQuery}
+                  onChange={(e) => setInlineQuery(e.target.value)}
+                  placeholder="Filter tasks…"
+                  className="h-6 w-36 rounded-[3px] border border-[#DBD5C8] bg-white pl-6 pr-2 text-[11px] font-mono text-[#141A1E] placeholder:text-[#8E9AA1] focus:border-[#D14E24] focus:outline-none dark:border-border dark:bg-card dark:text-foreground sm:w-48"
+                />
+              </div>
+            </div>
+
+            <FolderListHeader
+              sort={sortColumn}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+            />
+            <div
+              ref={groupScrollRef}
+              onScroll={(event) => {
+                if (!taskId && !result.isPending) {
+                  workspace.scrollOffsets.current.set(
+                    groupScrollKey,
+                    event.currentTarget.scrollTop,
+                  );
+                }
+              }}
+              className="flex-1 min-h-0 overflow-y-auto"
+            >
+              {initialLoading ? (
+                <FolderListLoading />
+              ) : result.isError && !result.data ? (
+                <FolderListError onRetry={() => void result.refetch()} />
+              ) : filteredGroups.length === 0 ? (
+                <FolderListEmpty
+                  message={
+                    search || inlineQuery
+                      ? "No tasks or filenames match your search."
+                      : statusFilter !== "all"
+                        ? "No tasks match the selected status filter."
+                        : "No accessible files in this collection yet. Add or link files from a task’s Files panel."
+                  }
+                />
+              ) : (
+                <div role="rowgroup">
+                  {filteredGroups.map((group, index) => {
+                    const count =
+                      view === "deliverables"
+                        ? group.deliverables
+                        : group.deliverables + group.references + group.working;
+
+                    // Clean role formatting: omit zero roles to avoid clutter
+                    const activeRoleTags: Array<{ key: string; label: string; className: string }> = [];
+                    if (group.deliverables > 0) {
+                      activeRoleTags.push({
+                        key: "d",
+                        label: `${group.deliverables}d`,
+                        className: "font-semibold text-[#B23F1C] dark:text-[#E27D60]",
+                      });
+                    }
+                    if (group.working > 0) {
+                      activeRoleTags.push({
+                        key: "w",
+                        label: `${group.working}w`,
+                        className: "text-[#2563C9] dark:text-[#60A5FA]",
+                      });
+                    }
+                    if (group.references > 0) {
+                      activeRoleTags.push({
+                        key: "r",
+                        label: `${group.references}r`,
+                        className: "text-[#6B7880] dark:text-muted-foreground",
+                      });
+                    }
+
+                    const sizeText =
+                      view === "deliverables"
+                        ? `${group.deliverables} ${group.deliverables === 1 ? "deliverable" : "deliverables"}`
+                        : group.deliverables > 0
+                          ? `${group.deliverables}d · ${group.working}w · ${group.references}r`
+                          : group.working > 0 || group.references > 0
+                            ? `${group.working}w · ${group.references}r`
+                            : "0 files";
+                    const sizeTooltip =
+                      view === "deliverables"
+                        ? `${group.deliverables} deliverables`
+                        : `${group.deliverables} deliverables, ${group.working} working, ${group.references} references (${count} total)`;
+                  const updatedText = group.updatedAt
+                    ? formatRelativeTime(group.updatedAt)
+                    : "—";
+                  const byLabel =
+                    group.entries.find((e) => e.node.updatedByName)?.node
+                      .updatedByName ?? "—";
+                  const avatarUrl =
+                    group.entries.find((e) => e.node.updatedByAvatarUrl)?.node
+                      .updatedByAvatarUrl ?? undefined;
+                  const isFocused = focusedIndex === index;
+
+                  return (
+                    <div
+                      key={group.id}
+                      role="row"
+                      data-testid="files-tab-task-group-row"
+                      data-task-id={group.id}
+                      style={{
+                        gridTemplateColumns: FOLDER_LIST_GRID_TEMPLATE,
+                        minHeight: FOLDER_LIST_ROW_HEIGHT_PX,
+                      }}
+                      onMouseEnter={() => handlePrefetchTask(group.id)}
+                      onClick={() => selectTask(group.id)}
+                      onKeyDown={(e) => {
+                        if (e.target !== e.currentTarget) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          selectTask(group.id);
+                        }
+                      }}
+                      tabIndex={0}
+                      className={cn(
+                        "group grid cursor-pointer items-center gap-x-3 border-b border-[#E8E3D9] px-4 text-sm outline-none transition-colors",
+                        isFocused
+                          ? "bg-[#F3F0EA] dark:bg-white/5 ring-1 ring-inset ring-[#D14E24]/50"
+                          : "hover:bg-[#F3F0EA]/70 focus-visible:bg-[#F3F0EA]/70",
+                        "dark:border-white/10 dark:hover:bg-white/5 dark:focus-visible:bg-white/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#D14E24]",
+                      )}
+                    >
+                      <div
+                        role="cell"
+                        data-column="name"
+                        className="flex min-w-0 items-center gap-2.5"
+                      >
+                        <FileTypeChip
+                          name={group.title}
+                          isFolder={true}
+                          isOpen={false}
+                        />
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <span
+                            data-testid="files-tab-task-group-title"
+                            className="truncate font-semibold text-[#141A1E] dark:text-foreground"
+                            title={group.title}
+                          >
+                            {group.title}
+                          </span>
+                          <span
+                            data-testid="task-group-status-badge"
+                            className={cn(
+                              "shrink-0 inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[10px] font-mono font-medium uppercase tracking-wider",
+                              getTaskStatusBadgeClass(group.status),
+                            )}
+                          >
+                            {group.status.replaceAll("_", " ")}
+                          </span>
+                          {group.reviewStatus === "pending" && (
+                            <span
+                              data-testid="task-group-review-badge"
+                              className="shrink-0 inline-flex items-center gap-1 rounded-[3px] bg-[#FCF0EA] px-1.5 py-0.5 text-[10px] font-mono font-medium text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]"
+                            >
+                              <span className="size-1 rounded-[1px] bg-[#B23F1C]" />
+                              Review pending
+                            </span>
+                          )}
+                          {group.reviewStatus === "rejected" && (
+                            <span
+                              data-testid="task-group-review-badge"
+                              className="shrink-0 inline-flex items-center gap-1 rounded-[3px] bg-[#FCF0EA] px-1.5 py-0.5 text-[10px] font-mono font-medium text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]"
+                            >
+                              <span className="size-1 rounded-[1px] bg-[#B23F1C]" />
+                              Changes requested
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          data-file-mobile-meta
+                          className="sm:hidden truncate text-xs text-[#6B7880] dark:text-muted-foreground"
+                        >
+                          {[
+                            group.status.replaceAll("_", " "),
+                            sizeText,
+                            updatedText !== "—" ? updatedText : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </div>
+
+                      <div
+                        role="cell"
+                        data-column="updated"
+                        className="min-w-0 truncate font-mono text-xs text-[#6B7880] dark:text-muted-foreground"
+                        title={group.updatedAt ?? undefined}
+                      >
+                        {updatedText}
+                      </div>
+
+                      <div
+                        role="cell"
+                        data-column="size"
+                        title={sizeTooltip}
+                        className="min-w-0 text-right font-mono text-xs tabular-nums text-[#6B7880] dark:text-muted-foreground"
+                      >
+                        {view === "deliverables" ? (
+                          sizeText
+                        ) : activeRoleTags.length > 0 ? (
+                          <span className="inline-flex items-center justify-end gap-1">
+                            {activeRoleTags.map((tag, i) => (
+                              <React.Fragment key={tag.key}>
+                                {i > 0 && <span className="text-[#8E9AA1] dark:text-muted-foreground">·</span>}
+                                <span className={tag.className}>{tag.label}</span>
+                              </React.Fragment>
+                            ))}
+                          </span>
+                        ) : (
+                          "0 files"
+                        )}
+                      </div>
+
+                      <div
+                        role="cell"
+                        data-column="by"
+                        className="flex min-w-0 items-center gap-1.5 truncate text-xs text-[#6B7880] dark:text-muted-foreground"
+                        title={byLabel}
+                      >
+                        {byLabel !== "—" && (
+                          <UserAvatar
+                            identity={{
+                              fullName: byLabel,
+                              avatarUrl,
+                            }}
+                            size={18}
+                            roundedClassName="rounded-[3px]"
+                            fallbackClassName="text-[9px] font-mono bg-[#E8E3D9] text-[#141A1E] dark:bg-white/10 dark:text-foreground"
+                          />
+                        )}
+                        <span className="truncate">{byLabel}</span>
+                      </div>
+
+                      <div
+                        role="cell"
+                        data-column="actions"
+                        onClick={(event) => event.stopPropagation()}
+                        className="flex justify-end"
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label={`Actions for ${group.title}`}
+                              className="flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] focus-visible:ring-2 focus-visible:ring-[#D14E24] dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
+                            >
+                              <MoreHorizontal aria-hidden="true" className="size-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem onClick={() => selectTask(group.id)}>
+                              <FolderOpen className="mr-2 size-4 text-[#D14E24]" />
+                              Open task files
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setTargetUploadTask({ id: group.id, title: group.title });
+                                directUploadInputRef.current?.click();
+                              }}
+                            >
+                              <Upload className="mr-2 size-4 text-[#D14E24]" />
+                              Upload file to task…
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <a
+                                href={`?tab=tasks&taskId=${group.id}`}
+                                onClick={(event) => {
+                                  event.currentTarget.href = taskFilesHref(
+                                    window.location.search,
+                                    group.id,
+                                  );
+                                }}
+                              >
+                                <ArrowRight className="mr-2 size-4 text-muted-foreground" />
+                                View in Tasks board
+                              </a>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const url = new URL(window.location.href);
+                                url.searchParams.set("tab", "files");
+                                url.searchParams.set("filesView", view);
+                                url.searchParams.set("taskId", group.id);
+                                void navigator.clipboard.writeText(url.toString());
+                                toast.success("Task link copied to clipboard");
+                              }}
+                            >
+                              <Link2 className="mr-2 size-4 text-muted-foreground" />
+                              Copy link
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {result.hasNextPage && (
+              <div className="p-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void result.fetchNextPage()}
+                  disabled={result.isFetchingNextPage}
+                  className="min-h-9 rounded-[5px] border border-border px-4 text-xs font-medium hover:bg-[#F3F0EA] dark:hover:bg-muted"
+                >
+                  {result.isFetchingNextPage ? "Loading…" : "Load more tasks"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    )}
+
+      {/* Direct upload modal scoped to target task */}
+      {pendingUploadFiles && targetUploadTask && (
+        <FilesTabUploadModal
+          projectId={projectId}
+          isOpen={true}
+          files={pendingUploadFiles}
+          currentFolderId={null}
+          currentFolderName="Project Root"
+          existingFiles={[]}
+          activeTaskId={targetUploadTask.id}
+          activeTaskTitle={targetUploadTask.title}
+          isProcessing={isProcessingUpload}
+          onConfirm={handleConfirmUpload}
+          onCancel={() => {
+            setPendingUploadFiles(null);
+            setTargetUploadTask(null);
+          }}
+        />
       )}
+
       <ConfirmDialog
         open={!!unlinkTarget}
         onOpenChange={(open) => {
@@ -286,6 +1042,6 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
           }
         }}
       />
-    </section>
+    </div>
   );
 }

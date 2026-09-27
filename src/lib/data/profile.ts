@@ -202,14 +202,9 @@ async function getProfileMutualCount(viewerId: string, profileId: string) {
         try {
             const viewerKey = `user:${viewerId}:connections`;
             const profileKey = `user:${profileId}:connections`;
-            const [viewerExists, profileExists] = await Promise.all([
-                redis.exists(viewerKey),
-                redis.exists(profileKey),
-            ]);
-            if (viewerExists && profileExists) {
-                const mutualIds = await redis.sinter(viewerKey, profileKey) as string[];
-                return mutualIds.length;
-            }
+            // Redis SINTER natively returns empty array if either key is missing; 1 roundtrip
+            const mutualIds = (await redis.sinter(viewerKey, profileKey)) as string[];
+            return Array.isArray(mutualIds) ? mutualIds.length : 0;
         } catch (error) {
             logger.warn('[profile.data] mutual redis overlay failed', {
                 module: 'profile',

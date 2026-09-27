@@ -15,6 +15,34 @@ interface DashboardCardProps {
     noPadding?: boolean;
 }
 
+interface DashboardCardHeaderProps {
+    title: string;
+    icon?: LucideIcon;
+    badge?: ReactNode;
+    action?: ReactNode;
+    compact?: boolean;
+}
+
+export function DashboardCardHeader({ title, icon: Icon, badge, action, compact }: DashboardCardHeaderProps) {
+    return (
+        <div className={cn(
+            "flex items-center justify-between gap-3 border-b border-border",
+            compact ? "px-4 py-3" : "px-5 py-4"
+        )}>
+            <div className="flex min-w-0 items-center gap-2">
+                {Icon ? (
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-[5px] bg-muted text-muted-foreground">
+                        <Icon className="nb-section-icon" aria-hidden="true" />
+                    </span>
+                ) : null}
+                <h3 className="nb-card-title min-w-0 text-foreground">{title}</h3>
+                {badge}
+            </div>
+            {action}
+        </div>
+    );
+}
+
 export default function DashboardCard({
     title,
     icon: Icon,
@@ -28,28 +56,12 @@ export default function DashboardCard({
     return (
         <div
             className={cn(
-                "rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm hover:shadow-xl transition-shadow duration-300",
+                "rounded-[8px] border border-border bg-card shadow-none transition-colors",
                 className
             )}
         >
-            <div className={cn(
-                "flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800",
-                compact ? "px-3 py-2.5" : "px-4 py-3"
-            )}>
-                <div className="flex items-center gap-2.5">
-                    {Icon && (
-                        <div className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
-                            <Icon className="w-4 h-4" />
-                        </div>
-                    )}
-                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                        {title}
-                    </h3>
-                    {badge}
-                </div>
-                {action}
-            </div>
-            <div className={cn(noPadding ? "" : compact ? "p-3" : "p-4")}>
+            <DashboardCardHeader title={title} icon={Icon} badge={badge} action={action} compact={compact} />
+            <div className={cn(noPadding ? "" : compact ? "p-3" : "p-5")}>
                 {children}
             </div>
         </div>

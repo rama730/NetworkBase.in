@@ -2,7 +2,7 @@ import type { NotificationPreview } from "@/lib/notifications/types";
 import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications/service";
 import { importanceForKind } from "@/lib/notifications/classifier";
-import { emitNotificationWrite, emitNotificationWrites } from "@/lib/notifications/fanout";
+import { emitNotificationWrite, emitNotificationWrites, enqueueNotificationFanout } from "@/lib/notifications/fanout";
 import { buildMessageSourceHref } from "@/lib/messages/linked-work-server";
 
 type EmitExecutor = Parameters<typeof createNotification>[1];
@@ -90,6 +90,7 @@ export async function emitMessageBurstNotifications(params: {
                 aggregateCount: 1,
             },
         }));
+
     return emitNotificationWrites(writes, executor ?? db);
 }
 
@@ -249,7 +250,7 @@ export async function emitApplicationReceivedNotification(params: {
         importance: importanceForKind("application_received"),
         title: `${params.actorName || "Someone"} applied to ${params.projectTitle || "your project"}`,
         body: params.projectTitle ? `Project: ${params.projectTitle}` : "New application received",
-        href: `/people?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
+        href: `/network?tab=invitations&applicationId=${encodeURIComponent(params.applicationId)}`,
         entityRefs: {
             applicationId: params.applicationId,
             projectId: params.projectId,
@@ -288,7 +289,7 @@ export async function emitApplicationDecisionNotification(params: {
         body: params.projectTitle ? `Project: ${params.projectTitle}` : null,
         href: params.conversationId
             ? `/messages?conversationId=${encodeURIComponent(params.conversationId)}`
-            : `/people?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
+            : `/network?tab=invitations&applicationId=${encodeURIComponent(params.applicationId)}`,
         entityRefs: {
             applicationId: params.applicationId,
             conversationId: params.conversationId ?? null,
@@ -321,7 +322,7 @@ export async function emitConnectionRequestReceivedNotification(params: {
         kind: "connection_request_received",
         importance: importanceForKind("connection_request_received"),
         title: `${params.actorName || "Someone"} sent you a connection request`,
-        href: "/people?tab=requests",
+        href: "/network?tab=invitations",
         entityRefs: {
             connectionId: params.connectionId,
         },
@@ -350,7 +351,7 @@ export async function emitConnectionAcceptedNotification(params: {
         kind: "connection_request_accepted",
         importance: importanceForKind("connection_request_accepted"),
         title: `${params.actorName || "Someone"} accepted your connection request`,
-        href: "/people?tab=requests",
+        href: "/network?tab=invitations",
         entityRefs: {
             connectionId: params.connectionId,
         },

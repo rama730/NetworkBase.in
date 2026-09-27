@@ -5,14 +5,14 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { normalizeAuthNextPath } from '@/lib/auth/redirects';
 import { hasCurrentLegalAcceptance } from '@/lib/legal/acceptance';
-import { getViewerProfileContext } from '@/lib/server/viewer-context';
+import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
 async function ResolvedProviders({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, profile } = await getViewerProfileContext();
+  const { user } = await getViewerAuthContext();
 
   if (user && !(await hasCurrentLegalAcceptance(user.id))) {
     const headerStore = await headers();
@@ -23,7 +23,7 @@ async function ResolvedProviders({
   }
 
   return (
-    <AuthRouteProviders initialUser={user} initialProfile={profile}>
+    <AuthRouteProviders initialUser={user} initialProfile={null}>
       <MainRuntimeProviders>
         <MainLayout>{children}</MainLayout>
       </MainRuntimeProviders>

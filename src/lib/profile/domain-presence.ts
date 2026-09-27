@@ -222,7 +222,7 @@ export const DOMAIN_PRESENCE_RULES: readonly DomainPresenceRule[] = [
     { key: 'protocols', label: 'protocols.io', iconKey: 'health', domains: ['protocols.io'] },
     { key: 'biorxiv', label: 'bioRxiv', iconKey: 'health', domains: ['biorxiv.org'] },
     { key: 'medrxiv', label: 'medRxiv', iconKey: 'health', domains: ['medrxiv.org'] },
-    // ponytail: A path-scoped catalog rule keeps shared publisher hosts out of one-off resolver logic.
+    // ponytail: A path-scoped catalog rule keeps shared publisher hosts out of one-off resolver logic. ceiling: domain pathPrefix filter. upgrade: URL pattern matcher if multi-part query parameters determine profile identity.
     { key: 'heliyon', label: 'Heliyon', iconKey: 'heliyon', domains: ['cell.com'], pathPrefixes: ['/heliyon'] },
     { key: 'osf', label: 'Open Science Framework', iconKey: 'data', domains: ['osf.io'] },
     { key: 'figshare', label: 'figshare', iconKey: 'data', domains: ['figshare.com'] },

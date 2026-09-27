@@ -55,8 +55,16 @@ export function FileVersionCompareView({
         const baseContent = baseRes.content;
         const targetContent = targetRes.content;
 
+        // Yield to event loop to allow UI render cycle to paint loading indicator cleanly
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        if (!active) return;
+
         // Perform line diff computation
         const diffChunks = diffLines(baseContent, targetContent);
+
+        // Yield again before processing large chunks
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        if (!active) return;
 
         interface LineGroup {
           type: "added" | "removed" | "unchanged";
@@ -182,21 +190,21 @@ export function FileVersionCompareView({
 
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 p-8 dark:bg-zinc-900">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-400 dark:text-zinc-500" />
-        <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">Computing comparison changes...</p>
+      <div className="flex flex-1 flex-col items-center justify-center bg-background p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-sm text-muted-foreground">Computing comparison changes...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 p-8 dark:bg-zinc-900">
+      <div className="flex flex-1 flex-col items-center justify-center bg-background p-8">
         <p className="text-sm font-semibold text-red-500">{error}</p>
         <button
           type="button"
           onClick={onClose}
-          className="mt-4 rounded bg-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+          className="mt-4 rounded-[5px] bg-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/80"
         >
           Close Compare Mode
         </button>
@@ -205,30 +213,30 @@ export function FileVersionCompareView({
   }
 
   return (
-    <div className="flex flex-1 flex-col min-h-0 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden shadow-md">
+    <div className="flex flex-1 flex-col min-h-0 bg-card border border-border rounded-[8px] overflow-hidden shadow-sm">
       {/* Compare View Header */}
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-2.5 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 shrink-0">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2.5 bg-[#F3F0EA] dark:bg-card shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wide">Compare Mode</span>
-          <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 font-mono bg-zinc-200 dark:bg-zinc-800 px-1.5 py-0.5 rounded">
+          <span className="font-mono text-[11px] font-semibold text-[#4C5A61] dark:text-muted-foreground uppercase tracking-[0.09em]">Compare Mode</span>
+          <span className="text-xs font-medium text-foreground font-mono bg-background border border-border px-1.5 py-0.5 rounded-[3px]">
             v{baseVersion}
           </span>
-          <ArrowRight className="h-3.5 w-3.5 text-zinc-400" />
-          <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100 font-mono bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200 px-1.5 py-0.5 rounded">
-            v{targetVersion} (Current)
+          <ArrowRight className="h-3.5 w-3.5 text-[#4C5A61]/60" />
+          <span className="text-xs font-semibold text-[#D14E24] dark:text-[#FCF0EA] font-mono bg-[#FCF0EA] dark:bg-[#D14E24]/20 border border-[#D14E24]/30 dark:border-[#D14E24]/50 px-1.5 py-0.5 rounded-[3px]">
+            v{targetVersion}
           </span>
-          <span className="text-xs text-zinc-400 dark:text-zinc-500 font-medium truncate max-w-xs">
+          <span className="text-xs text-muted-foreground font-medium truncate max-w-xs">
             — {fileName}
           </span>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 text-[11px] font-medium">
-            <span className="flex items-center gap-1 text-red-600 dark:text-red-400">
-              <span className="h-2 w-2 rounded-full bg-red-500" /> Removed
+          <div className="flex items-center gap-3 font-mono text-[11px] font-medium">
+            <span className="flex items-center gap-1.5 text-red-700 dark:text-red-400">
+              <span className="inline-flex size-3.5 items-center justify-center rounded-[2px] bg-red-100 dark:bg-red-950/50 text-[10px] font-bold text-red-600 border border-red-200 dark:border-red-900">−</span> Removed
             </span>
-            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" /> Added
+            <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+              <span className="inline-flex size-3.5 items-center justify-center rounded-[2px] bg-emerald-100 dark:bg-emerald-950/50 text-[10px] font-bold text-emerald-600 border border-emerald-200 dark:border-emerald-900">+</span> Added
             </span>
           </div>
 
@@ -236,7 +244,7 @@ export function FileVersionCompareView({
             type="button"
             onClick={onClose}
             aria-label="Close Comparison"
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition-colors"
+            className="rounded-[5px] p-1 text-[#4C5A61] hover:bg-[#DBD5C8]/40 hover:text-foreground dark:hover:bg-muted dark:hover:text-foreground transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -244,12 +252,12 @@ export function FileVersionCompareView({
       </div>
 
       {/* Aligned Columns Grid */}
-      <div className="flex flex-1 min-h-0 divide-x divide-zinc-200 dark:divide-zinc-800 overflow-hidden">
+      <div className="flex flex-1 min-h-0 divide-x divide-border overflow-hidden">
         {/* Left Column (Base Content - vBase) */}
         <div
           ref={leftScrollRef}
           onScroll={handleLeftScroll}
-          className="flex-1 overflow-auto bg-zinc-50/50 dark:bg-zinc-900/10 font-mono text-[11px] leading-6"
+          className="flex-1 overflow-auto bg-background font-mono text-[13px] leading-[1.55]"
         >
           <div className="min-w-max p-4">
             {leftLines.map((line, idx) => (
@@ -258,11 +266,11 @@ export function FileVersionCompareView({
                 className={cn(
                   "flex items-start select-none",
                   line.type === "removed" && "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 font-semibold",
-                  line.type === "empty" && "bg-zinc-100 dark:bg-zinc-900 opacity-30 select-none pointer-events-none"
+                  line.type === "empty" && "bg-muted/30 opacity-30 select-none pointer-events-none"
                 )}
               >
                 {/* Line number */}
-                <div className="w-10 shrink-0 text-right pr-3 text-zinc-400 dark:text-zinc-600 border-r border-zinc-200 dark:border-zinc-800 mr-3">
+                <div className="w-10 shrink-0 text-right pr-3 text-muted-foreground/60 border-r border-border mr-3">
                   {line.lineNumber ?? " "}
                 </div>
                 {/* Content */}
@@ -276,7 +284,7 @@ export function FileVersionCompareView({
         <div
           ref={rightScrollRef}
           onScroll={handleRightScroll}
-          className="flex-1 overflow-auto bg-zinc-50/50 dark:bg-zinc-900/10 font-mono text-[11px] leading-6"
+          className="flex-1 overflow-auto bg-background font-mono text-[13px] leading-[1.55]"
         >
           <div className="min-w-max p-4">
             {rightLines.map((line, idx) => (
@@ -285,11 +293,11 @@ export function FileVersionCompareView({
                 className={cn(
                   "flex items-start select-none",
                   line.type === "added" && "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 font-semibold",
-                  line.type === "empty" && "bg-zinc-100 dark:bg-zinc-900 opacity-30 select-none pointer-events-none"
+                  line.type === "empty" && "bg-muted/30 opacity-30 select-none pointer-events-none"
                 )}
               >
                 {/* Line number */}
-                <div className="w-10 shrink-0 text-right pr-3 text-zinc-400 dark:text-zinc-600 border-r border-zinc-200 dark:border-zinc-800 mr-3">
+                <div className="w-10 shrink-0 text-right pr-3 text-muted-foreground/60 border-r border-border mr-3">
                   {line.lineNumber ?? " "}
                 </div>
                 {/* Content */}

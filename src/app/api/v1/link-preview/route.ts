@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { jsonSuccess, jsonError } from '@/app/api/v1/_envelope';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
@@ -8,6 +9,7 @@ import {
 import { isSafeHttpUrl } from '@/lib/security/urls';
 import { logger } from '@/lib/logger';
 import { normalizeLinkDestinationTitle } from '@/lib/links/destination-title';
+import { getRedisClient } from '@/lib/redis';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,7 +41,10 @@ interface LinkPreviewData {
     contentType: string | null;
 }
 
-const PRIVATE_PREVIEW_CACHE_HEADERS = { 'Cache-Control': 'private, max-age=300' };
+const PUBLIC_PREVIEW_CACHE_HEADERS = {
+    'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400',
+};
+const FALLBACK_PREVIEW_CACHE_HEADERS = { 'Cache-Control': 'private, max-age=300' };
 
 function previewHealth(status: number): LinkPreviewData['health'] {
     if (status === 404 || status === 410) return 'unavailable';
@@ -153,14 +158,33 @@ export async function GET(request: NextRequest) {
             return jsonError('Invalid URL', 400, 'BAD_REQUEST');
         }
 
+        // Redis cache check
+        const redis = getRedisClient();
+        const cacheKey = `link-preview:${createHash('sha256').update(url).digest('hex')}`;
+        if (redis) {
+            try {
+                const cached = await redis.get<LinkPreviewData>(cacheKey);
+                if (cached) {
+                    return jsonSuccess(cached, undefined, {
+                        headers: PUBLIC_PREVIEW_CACHE_HEADERS,
+                    });
+                }
+            } catch {
+                // Fall back to live fetch if Redis fails
+            }
+        }
+
         // YouTube watch URLs contain only the route name (`watch`) locally.
         // oEmbed is the provider-supported, keyless source for the exact video
         // title and is both more stable and cheaper than parsing the full page.
         if (isYouTubeUrl(parsedUrl)) {
             const youtubePreview = await fetchYouTubeOEmbed(url);
             if (youtubePreview) {
+                if (redis) {
+                    redis.set(cacheKey, youtubePreview, { ex: 7 * 24 * 3600 }).catch(() => {});
+                }
                 return jsonSuccess(youtubePreview, undefined, {
-                    headers: PRIVATE_PREVIEW_CACHE_HEADERS,
+                    headers: PUBLIC_PREVIEW_CACHE_HEADERS,
                 });
             }
         }
@@ -192,7 +216,7 @@ export async function GET(request: NextRequest) {
                     checkedAt: new Date().toISOString(),
                     resolvedHost: parsedUrl.hostname,
                     contentType: res.headers.get('content-type'),
-                }, undefined, { headers: PRIVATE_PREVIEW_CACHE_HEADERS });
+                }, undefined, { headers: FALLBACK_PREVIEW_CACHE_HEADERS });
             }
 
             // Only process HTML responses
@@ -209,7 +233,7 @@ export async function GET(request: NextRequest) {
                     checkedAt: new Date().toISOString(),
                     resolvedHost: parsedUrl.hostname,
                     contentType,
-                }, undefined, { headers: PRIVATE_PREVIEW_CACHE_HEADERS });
+                }, undefined, { headers: PUBLIC_PREVIEW_CACHE_HEADERS });
             }
 
             // Read limited amount of HTML
@@ -226,7 +250,7 @@ export async function GET(request: NextRequest) {
                     checkedAt: new Date().toISOString(),
                     resolvedHost: parsedUrl.hostname,
                     contentType,
-                }, undefined, { headers: PRIVATE_PREVIEW_CACHE_HEADERS });
+                }, undefined, { headers: PUBLIC_PREVIEW_CACHE_HEADERS });
             }
 
             const chunks: Uint8Array[] = [];
@@ -261,7 +285,7 @@ export async function GET(request: NextRequest) {
                 checkedAt: new Date().toISOString(),
                 resolvedHost: parsedUrl.hostname,
                 contentType: null,
-            }, undefined, { headers: PRIVATE_PREVIEW_CACHE_HEADERS });
+            }, undefined, { headers: FALLBACK_PREVIEW_CACHE_HEADERS });
         }
 
         // Parse OG tags
@@ -306,10 +330,12 @@ export async function GET(request: NextRequest) {
             contentType: 'text/html',
         };
 
+        if (redis && preview.health === 'active') {
+            redis.set(cacheKey, preview, { ex: 7 * 24 * 3600 }).catch(() => {});
+        }
+
         return jsonSuccess(preview, undefined, {
-            headers: {
-                ...PRIVATE_PREVIEW_CACHE_HEADERS,
-            },
+            headers: PUBLIC_PREVIEW_CACHE_HEADERS,
         });
     } catch (error) {
         console.error('Link preview error:', error);

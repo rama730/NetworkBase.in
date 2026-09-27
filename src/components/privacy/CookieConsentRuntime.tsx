@@ -77,7 +77,7 @@ export function CookieConsentRuntime({ analyticsAvailable }: { analyticsAvailabl
           aria-describedby="cookie-consent-description"
           aria-label="Cookie settings"
           aria-live="polite"
-          className="fixed inset-x-4 bottom-4 z-[70] w-auto rounded-2xl border border-border bg-background p-5 text-foreground shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:inset-x-auto sm:right-5 sm:w-[26rem] dark:shadow-[0_24px_70px_rgba(0,0,0,0.55)]"
+          className="fixed inset-x-4 bottom-4 z-[70] w-auto rounded-lg border border-border bg-background p-5 text-foreground shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:inset-x-auto sm:right-5 sm:w-[26rem] dark:shadow-[0_24px_70px_rgba(0,0,0,0.55)]"
           role="dialog"
         >
           {decision ? (
@@ -175,7 +175,7 @@ function CookiePreferenceEditor({
       </p>
 
       <div className="mt-5 space-y-3">
-        <div className="flex items-start gap-3 rounded-xl border border-border p-3.5">
+        <div className="flex items-start gap-3 rounded-lg border border-border p-3.5">
           <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
@@ -188,7 +188,7 @@ function CookiePreferenceEditor({
           </div>
         </div>
 
-        <div className="flex items-start gap-3 rounded-xl border border-border p-3.5">
+        <div className="flex items-start gap-3 rounded-lg border border-border p-3.5">
           <BarChart3 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
@@ -204,7 +204,7 @@ function CookiePreferenceEditor({
                 onClick={() => onAnalyticsChange(!analyticsChoice)}
               >
                 <span
-                  className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-background shadow-sm transition-transform ${
+                  className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-background shadow-none transition-transform ${
                     analyticsChoice ? "translate-x-[1.25rem]" : "translate-x-0.5"
                   }`}
                 />

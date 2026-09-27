@@ -7,6 +7,7 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context'
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata'
 import { logger } from '@/lib/logger'
 import { buildOwnerProfileTitle, buildProfileMetadataDescription } from '@/lib/profile/display'
+import { ProfileRouteSkeleton } from '@/components/profile/v2/ProfileRouteSkeleton'
 
 // ponytail: metadata derives from the same required profile projection as the page body.
 const readOwnerProfileRoute = cache(async () => {
@@ -31,9 +32,9 @@ export async function generateMetadata() {
     const { user, profileData } = await readOwnerProfileRoute()
     if (!user) {
         return buildRouteMetadata({
-            title: 'Your Profile | NetworkBase',
+            title: 'My Profile | NetworkBase',
             description: 'Your personal profile and presence on NetworkBase.',
-            path: '/profile',
+            path: '/my-profile',
         })
     }
 
@@ -51,7 +52,7 @@ export async function generateMetadata() {
             location: profile?.location,
             bio: profile?.bio,
         }),
-        path: '/profile',
+        path: '/my-profile',
         image: profile?.avatarUrl || undefined,
     })
 }
@@ -66,9 +67,9 @@ async function ResolvedProfile() {
     let content: ReactNode = null
     const fallbackContent = (
         <div className="flex h-full min-h-0 items-center justify-center p-6">
-            <div className="max-w-md rounded-3xl border border-zinc-200 bg-white p-6 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Unable to load your profile</h1>
-                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            <div className="max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-none text-card-foreground">
+                <h1 className="nb-section-title text-foreground">Unable to load your profile</h1>
+                <p className="nb-body mt-2 text-muted-foreground">
                     We couldn&apos;t load your profile data. Please refresh the page or try again later, and contact support if the problem persists.
                 </p>
             </div>
@@ -106,9 +107,9 @@ export default function ProfilePage() {
     return (
         <div
             data-scroll-root="route"
-            className="h-full min-h-0 app-scroll app-scroll-y app-scroll-gutter overscroll-y-contain bg-white dark:bg-zinc-950"
+            className="h-full min-h-0 app-scroll app-scroll-y app-scroll-gutter overscroll-y-contain bg-background text-foreground"
         >
-            <Suspense fallback={<div className="h-full flex items-center justify-center animate-pulse text-zinc-500">Loading profile...</div>}>
+            <Suspense fallback={<ProfileRouteSkeleton />}>
                 <ResolvedProfile />
             </Suspense>
         </div>

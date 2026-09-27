@@ -320,6 +320,8 @@ export default function OnboardingPage() {
     const [isInitializing, setIsInitializing] = useState(false)
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
     const [isDetectingLocation, setIsDetectingLocation] = useState(false)
+    const [avatarStatus, setAvatarStatus] = useState<string | null>(null)
+    const [locationError, setLocationError] = useState<string | null>(null)
     const bootstrapHydratedRef = useRef(false)
     const draftVersionRef = useRef<number>(bootstrap.draft.version)
     const pendingTelemetryRef = useRef<OnboardingEventInput[]>([])
@@ -524,6 +526,7 @@ export default function OnboardingPage() {
 
         setIsUploadingAvatar(true)
         setError(null)
+        setAvatarStatus(null)
 
         try {
             // Show immediate preview using object URL
@@ -554,6 +557,7 @@ export default function OnboardingPage() {
                 }
 
                 updateData({ avatarUrl: finalized.publicUrl })
+                setAvatarStatus('Profile photo uploaded. You can replace it before finishing.')
                 URL.revokeObjectURL(previewUrl)
                 avatarPreviewUrlRef.current = null
             } catch (uploadError) {
@@ -565,6 +569,7 @@ export default function OnboardingPage() {
         } catch (error) {
             console.error('Avatar error:', error)
             setError('We could not upload that photo. Your previous photo is unchanged.')
+            setAvatarStatus(null)
         } finally {
             setIsUploadingAvatar(false)
         }
@@ -704,6 +709,16 @@ export default function OnboardingPage() {
             setTransitionDirection('backward')
             setStep(step - 1)
         }
+    }
+
+    const editOnboardingStep = (targetStep: number) => {
+        if (targetStep < 1 || targetStep > TOTAL_STEPS || isCommittingStep || isLoading) return
+        renderStartedAtRef.current = performance.now()
+        setTransitionDirection(targetStep < step ? 'backward' : 'forward')
+        if (targetStep === 2) {
+            setStep2Section('profile')
+        }
+        setStep(targetStep)
     }
 
     const toggleSkill = useCallback((skill: string) => {
@@ -895,6 +910,17 @@ export default function OnboardingPage() {
         return true
     }
 
+    const proceedReason = () => {
+        if (step === 1) {
+            if (data.fullName.trim().length < 2) return 'Enter your full name to continue.'
+            if (!validateUsername(data.username).valid) return 'Enter a username using 3–20 letters, numbers, underscores, or hyphens.'
+            if (usernameStatus === 'checking') return 'Checking whether this username is available.'
+            if (usernameStatus !== 'valid') return 'Choose an available username to continue.'
+        }
+        if (step === 3 && data.skills.length < 1) return 'Add at least one skill to continue.'
+        return undefined
+    }
+
     const selectedSkills = useMemo(() => new Set(data.skills), [data.skills])
     const selectedInterests = useMemo(() => new Set(data.interests), [data.interests])
     const filledSocialLinks = useMemo(
@@ -925,8 +951,9 @@ export default function OnboardingPage() {
     if (isInitializing) {
         return (
             <OnboardingLayout>
-                <div className="flex items-center justify-center min-h-[50vh]">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <div className="flex min-h-[50vh] items-center justify-center" aria-busy="true">
+                    <span className="sr-only">Loading your saved onboarding draft.</span>
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
                 </div>
             </OnboardingLayout>
         )
@@ -963,12 +990,14 @@ export default function OnboardingPage() {
                     <StepHeader
                         title={currentStepConfig.title}
                         subtitle={currentStepConfig.subtitle}
+                        step={step}
+                        totalSteps={TOTAL_STEPS}
                     />
                 )}
 
                 {/* Step 1: Identity */}
                 {step === 1 && (
-                    <Suspense fallback={<div className="h-96 w-full animate-pulse bg-zinc-50 dark:bg-zinc-900 rounded-xl" />}>
+                    <Suspense fallback={<div role="status" aria-label="Loading identity step" className="nb-skeleton h-96 w-full rounded-[var(--onb-radius-card)]" />}>
                         <Step1Identity
                             fullName={data.fullName}
                             username={data.username}
@@ -978,6 +1007,7 @@ export default function OnboardingPage() {
                             onUsernameChange={(username) => updateData({ username })}
                             onAvatarChange={handleAvatarChange}
                             onUsernameStatusChange={setUsernameStatus}
+                            avatarStatus={avatarStatus}
                         />
                     </Suspense>
                 )}
@@ -985,7 +1015,7 @@ export default function OnboardingPage() {
 
                 {/* Step 2: Profile Details with SectionNav */}
                 {step === 2 && (
-                    <Suspense fallback={<div className="h-96 w-full animate-pulse bg-zinc-50 dark:bg-zinc-900 rounded-xl" />}>
+                    <Suspense fallback={<div role="status" aria-label="Loading details step" className="nb-skeleton h-96 w-full rounded-[var(--onb-radius-card)]" />}>
                         <Step2Details
                             step2Section={step2Section}
                             onSectionChange={(sectionId) => {
@@ -1011,22 +1041,27 @@ export default function OnboardingPage() {
                             website={data.website}
                             onHeadlineChange={(value) => updateData({ headline: value }, 'input')}
                             onBioChange={(value) => updateData({ bio: value }, 'input')}
-                            onLocationChange={(value) => updateData({ location: value }, 'input')}
+                            onLocationChange={(value) => {
+                                setLocationError(null)
+                                updateData({ location: value }, 'input')
+                            }}
                             onWebsiteChange={(value) => updateData({ website: value }, 'input')}
                             isDetectingLocation={isDetectingLocation}
+                            locationError={locationError}
                             onDetectLocation={async () => {
                                 setIsDetectingLocation(true)
                                 setError(null)
+                                setLocationError(null)
                                 try {
                                     const { detectLocation } = await import('@/lib/services/location-service')
                                     const { location, error: locError } = await detectLocation()
                                     if (location) {
                                         updateData({ location: location.formatted }, 'input')
                                     } else if (locError) {
-                                        setError(locError)
+                                        setLocationError(locError)
                                     }
                                 } catch {
-                                    setError('Failed to detect location')
+                                    setLocationError('We could not determine your location. You can enter it manually.')
                                 } finally {
                                     setIsDetectingLocation(false)
                                 }
@@ -1039,7 +1074,7 @@ export default function OnboardingPage() {
 
                 {/* Step 3: Skills & Interests */}
                 {step === 3 && (
-                    <Suspense fallback={<div className="h-96 w-full animate-pulse bg-zinc-50 dark:bg-zinc-900 rounded-xl" />}>
+                    <Suspense fallback={<div role="status" aria-label="Loading skills step" className="nb-skeleton h-96 w-full rounded-[var(--onb-radius-card)]" />}>
                         <Step3Skills
                             interestOptions={INTEREST_SUGGESTIONS.map((i) => ({ value: i, label: i }))}
                             selectedSkills={selectedSkills}
@@ -1052,24 +1087,29 @@ export default function OnboardingPage() {
 
                 {/* Step 4: Privacy & Review */}
                 {step === 4 && (
-                    <Suspense fallback={<div className="h-96 w-full animate-pulse bg-zinc-50 dark:bg-zinc-900 rounded-xl" />}>
+                    <Suspense fallback={<div role="status" aria-label="Loading privacy step" className="nb-skeleton h-96 w-full rounded-[var(--onb-radius-card)]" />}>
                         <Step4Privacy
                             visibility={data.visibility}
                             messagePrivacy={data.messagePrivacy}
                             onVisibilityChange={(value) => updateData({ visibility: value }, 'toggle')}
                             onMessagePrivacyChange={(value) => updateData({ messagePrivacy: value }, 'toggle')}
                             summaryItems={[
-                                { label: '@' + data.username, value: data.fullName },
-                                { label: 'Visibility', value: data.visibility },
-                                { label: 'Messages', value: data.messagePrivacy },
-                                { label: 'Skills', value: `${data.skills.length} selected` },
-                                { label: 'Open to Roles', value: `${data.openTo.length} preferences` },
-                                { label: 'Social links', value: `${filledSocialLinks.length} connected` },
+                                { label: '@' + data.username, value: data.fullName, editLabel: 'Edit identity', onEdit: () => editOnboardingStep(1) },
+                                { label: 'Visibility', value: data.visibility === 'public' ? 'Public' : data.visibility === 'connections' ? 'Connections only' : 'Private', editLabel: 'Edit privacy', onEdit: () => editOnboardingStep(4) },
+                                { label: 'Messages', value: data.messagePrivacy === 'connections' ? 'Connections only' : 'Everyone', editLabel: 'Edit privacy', onEdit: () => editOnboardingStep(4) },
+                                { label: 'Skills', value: `${data.skills.length} selected`, editLabel: 'Edit skills', onEdit: () => editOnboardingStep(3) },
+                                { label: 'Open to Roles', value: `${data.openTo.length} preferences`, editLabel: 'Edit details', onEdit: () => editOnboardingStep(2) },
+                                { label: 'Social links', value: `${filledSocialLinks.length} connected`, editLabel: 'Edit details', onEdit: () => editOnboardingStep(2) },
                             ]}
                             error={error}
                         />
                     </Suspense>
                 )}
+                {error && step !== 4 ? (
+                    <div className="onb-alert-error mt-6" role="alert">
+                        {error}
+                    </div>
+                ) : null}
             </StepTransition>
 
             {/* Step Footer Navigation */}
@@ -1088,6 +1128,8 @@ export default function OnboardingPage() {
                         })()
                         : 'Continue'
                 }
+                disabledReason={proceedReason()}
+                saveStatus={error ? 'Your entries remain available in this browser.' : isCommittingStep || isLoading ? 'Saving your changes.' : 'Changes are saved in this browser.'}
                 onBack={prevStep}
                 onNext={nextStep}
                 onSubmit={handleSubmit}

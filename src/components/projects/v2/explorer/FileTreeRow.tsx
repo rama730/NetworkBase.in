@@ -63,7 +63,7 @@ function InlineRenameInput({
                 onConfirm();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="text-sm bg-white dark:bg-zinc-900 border border-indigo-400 dark:border-indigo-500 rounded px-1 py-0 outline-none ring-1 ring-indigo-300/50 w-full min-w-[60px] mr-auto"
+            className="text-xs font-mono bg-white dark:bg-card border border-[#D14E24] rounded-[3px] px-1.5 py-0.5 outline-none ring-1 ring-[#D14E24]/30 w-full min-w-[60px] mr-auto"
         />
     );
 }
@@ -179,7 +179,7 @@ export const FileTreeRow = React.memo(function FileTreeRow({
             key={i}
             className={cn(
                 "w-4 h-full flex-shrink-0 border-l transition-colors",
-                active ? "border-zinc-300 dark:border-zinc-700" : "border-transparent"
+                active ? "border-[#DBD5C8] dark:border-white/10" : "border-transparent"
             )}
         />
     ));
@@ -196,11 +196,11 @@ export const FileTreeRow = React.memo(function FileTreeRow({
             aria-expanded={isFolder ? (isExpanded ? "true" : "false") : undefined}
             tabIndex={isSelected ? 0 : -1}
             className={cn(
-                "group relative flex items-center h-[22px] [@media(pointer:coarse)]:h-11 min-w-0 cursor-pointer select-none transition-colors pr-2",
+                "group relative flex items-center h-8 [@media(pointer:coarse)]:h-11 min-w-0 cursor-pointer select-none transition-colors pr-2 text-sm",
                 isSelected
-                    ? "bg-indigo-50 dark:bg-indigo-900/20 border-l-2 border-l-indigo-500"
-                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800/50 border-l-2 border-l-transparent",
-                dropHighlight && "ring-2 ring-inset ring-indigo-400 bg-indigo-50/60 dark:bg-indigo-900/30"
+                    ? "bg-[#F3F0EA] dark:bg-white/10 text-[#141A1E] dark:text-foreground font-medium"
+                    : "hover:bg-[#F3F0EA]/60 dark:hover:bg-white/5 text-[#374349] dark:text-muted-foreground",
+                dropHighlight && "ring-1 ring-inset ring-[#D14E24] bg-[#FCF0EA]/75 dark:bg-[#D14E24]/20"
             )}
             style={{ paddingLeft: 0 }} 
             onClick={(e) => {
@@ -263,7 +263,7 @@ export const FileTreeRow = React.memo(function FileTreeRow({
             <div 
                 className={cn(
                     "w-5 h-full flex items-center justify-center shrink-0",
-                    isFolder ? "hover:text-zinc-900 dark:hover:text-zinc-100" : ""
+                    isFolder ? "hover:text-foreground" : ""
                 )}
                 onClick={(e) => {
                     if (isFolder) {
@@ -274,24 +274,24 @@ export const FileTreeRow = React.memo(function FileTreeRow({
             >
                 {isFolder ? (
                     isExpanded ? (
-                        <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+                        <ChevronDown className="w-3.5 h-3.5 text-[#4C5A61] dark:text-muted-foreground" strokeWidth={1.75} />
                     ) : (
-                        <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+                        <ChevronRight className="w-3.5 h-3.5 text-[#4C5A61] dark:text-muted-foreground" strokeWidth={1.75} />
                     )
                 ) : null}
             </div>
  
             {isInSelectionMode && (
-                <div className="mr-2">
+                <div className="mr-2 shrink-0">
                     {isSelectedInMode ? (
-                        <CheckSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                        <CheckSquare className="w-4 h-4 text-[#D14E24]" strokeWidth={1.75} />
                     ) : (
-                        <Square className="w-4 h-4 text-zinc-300 dark:text-zinc-600" />
+                        <Square className="w-4 h-4 text-[#DBD5C8] dark:text-muted-foreground/40" strokeWidth={1.75} />
                     )}
                 </div>
             )}
  
-            <FileIcon name={node.name} mimeType={node.mimeType} isFolder={isFolder} isOpen={isExpanded} className="w-4 h-4 mr-2 flex-shrink-0 text-zinc-500" />
+            <FileIcon name={node.name} mimeType={node.mimeType} isFolder={isFolder} isOpen={isExpanded} className="w-4 h-4 mr-2 flex-shrink-0" />
             
             {isRenaming && onRenameChange && onRenameConfirm && onRenameCancel ? (
                 <InlineRenameInput
@@ -303,12 +303,12 @@ export const FileTreeRow = React.memo(function FileTreeRow({
             ) : (
                 <div className="flex items-center gap-1.5 min-w-0 mr-auto">
                     <span className={cn(
-                        "text-sm whitespace-nowrap overflow-hidden text-ellipsis",
-                        isSelected ? "text-indigo-700 dark:text-indigo-300 font-medium" : "text-zinc-700 dark:text-zinc-300"
+                        "text-[13px] leading-[1.4] whitespace-nowrap overflow-hidden text-ellipsis font-normal",
+                        isSelected ? "text-[#141A1E] dark:text-foreground font-medium" : "text-[#374349] dark:text-muted-foreground"
                     )}>
                         {node.name}
                     </span>
-                    <VersionPill v={node.currentVersion} className="h-4 px-1 text-[9px]" />
+                    <VersionPill v={node.currentVersion} className="h-4 px-1 text-[11px]" />
                 </div>
             )}
  

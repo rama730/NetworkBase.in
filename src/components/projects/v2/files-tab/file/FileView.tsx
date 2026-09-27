@@ -171,7 +171,8 @@ export function FileView({
   const emptyMedia = React.useMemo(() => isEmptyMedia(node, kind), [node, kind]);
   const textLike = kind === "text" || isMd;
 
-  const [compareVersion, setCompareVersion] = React.useState<number | null>(null);
+  const [compareTarget, setCompareTarget] = React.useState<{ base: number; target: number } | null>(null);
+  const compareVersion = compareTarget ? compareTarget.base : null;
   const [restoringActive, setRestoringActive] = React.useState(false);
   const [pendingDropFile, setPendingDropFile] = React.useState<File | null>(null);
   const [isDropModalOpen, setIsDropModalOpen] = React.useState(false);
@@ -573,7 +574,7 @@ export function FileView({
       className={cn(
         "relative flex h-full min-h-0 w-full flex-col",
         isDragActive &&
-          "ring-2 ring-indigo-400 ring-offset-2 ring-offset-white dark:ring-offset-zinc-900",
+          "ring-2 ring-[#D14E24] ring-offset-2 ring-offset-white dark:ring-offset-background",
       )}
       onDragEnter={canEdit ? handleDragEnter : undefined}
       onDragOver={canEdit ? handleDragOver : undefined}
@@ -587,21 +588,21 @@ export function FileView({
           role="dialog"
           aria-label="Drop to save as new version"
           onClick={resetDragState}
-          className="absolute inset-0 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-indigo-400 bg-indigo-50/80 dark:bg-indigo-500/10 cursor-pointer"
+          className="absolute inset-0 z-20 flex items-center justify-center rounded-[12px] border-2 border-dashed border-[#D14E24] bg-[#FCF0EA]/80 dark:bg-[#D14E24]/10 cursor-pointer"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="relative flex flex-col items-center gap-2 p-6 rounded-2xl bg-white/95 dark:bg-zinc-900/95 shadow-xl border border-indigo-200 dark:border-indigo-900/50 cursor-default text-sm font-medium text-indigo-800 dark:text-indigo-200"
+            className="relative flex flex-col items-center gap-2.5 p-6 rounded-[12px] bg-card shadow-xl border border-border cursor-default text-sm font-medium text-foreground"
           >
             <button
               type="button"
               onClick={resetDragState}
               aria-label="Dismiss drop overlay"
-              className="absolute top-2.5 right-2.5 p-1 rounded-full text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="absolute top-2.5 right-2.5 size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
               <X className="size-4" />
             </button>
-            <Upload className="h-8 w-8 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
+            <Upload className="h-8 w-8 text-[#D14E24]" aria-hidden="true" />
             <span>Drop to save as new version</span>
           </div>
         </div>
@@ -665,14 +666,14 @@ export function FileView({
         <div className="flex min-h-0 flex-1">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <ComponentErrorBoundary fallbackMessage="Failed to load preview">
-              {compareVersion !== null ? (
+              {compareTarget !== null ? (
                 <FileVersionCompareView
                   projectId={projectId}
                   nodeId={node.id}
                   fileName={node.name}
-                  baseVersion={compareVersion}
-                  targetVersion={node.currentVersion ?? 1}
-                  onClose={() => setCompareVersion(null)}
+                  baseVersion={compareTarget.base}
+                  targetVersion={compareTarget.target}
+                  onClose={() => setCompareTarget(null)}
                 />
               ) : (
                 renderPreviewRegion({
@@ -719,7 +720,7 @@ export function FileView({
             </FileInspectorContainer>
           )}
 
-          {activeInspectorPanel === "details" && <FileInspectorContainer title="File details" onClose={closeInspectorPanel}><FileInspectorPanelHeader title="Details" closeLabel="Close file details" onClose={closeInspectorPanel} /><dl className="space-y-3 break-words p-4 text-sm">{[["Name", node.name], ["Location", node.path.startsWith("/.system/") ? "Task files" : node.path], ["Type", node.mimeType || "Not recorded"], ["Size", formatBytes(node.size, node.type) || "Not recorded"], ["Version", String(node.currentVersion)], ["Updated by", formatFileActor(node as MetadataStripNode)], ["Modified", formatFileTimestamp((node as MetadataStripNode).versionUpdatedAt ?? node.updatedAt)]].map(([label, value]) => <div key={label}><dt className="text-xs text-zinc-500">{label}</dt><dd>{value}</dd></div>)}</dl></FileInspectorContainer>}
+          {activeInspectorPanel === "details" && <FileInspectorContainer title="File details" onClose={closeInspectorPanel}><FileInspectorPanelHeader title="Details" closeLabel="Close file details" onClose={closeInspectorPanel} /><dl className="space-y-3 break-words p-4 text-sm">{[["Name", node.name], ["Location", node.path.startsWith("/.system/") ? "Task files" : node.path], ["Type", node.mimeType || "Not recorded"], ["Size", formatBytes(node.size, node.type) || "Not recorded"], ["Version", String(node.currentVersion)], ["Updated by", formatFileActor(node as MetadataStripNode)], ["Modified", formatFileTimestamp((node as MetadataStripNode).versionUpdatedAt ?? node.updatedAt)]].map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-foreground">{value}</dd></div>)}</dl></FileInspectorContainer>}
           {/* FileVersionHistoryPanel — collapsible right-side drawer (Req 10.1, 10.2, 10.3) */}
           {isVersionHistoryPanelOpen && (
             <FileInspectorContainer title="Version history" onClose={closeInspectorPanel} testId="files-tab-version-history-drawer">
@@ -731,11 +732,18 @@ export function FileView({
                 currentVersion={node.currentVersion ?? 1}
                 isDeleted={node.deletedAt != null}
                 uploaderNames={uploaderNames}
-                onCompareClick={(version) => { if (!confirmFileNavigation(projectId)) return; leaveEditMode("view"); setCompareVersion(version); }}
+                onCompareClick={(version, target) => {
+                  if (!confirmFileNavigation(projectId)) return;
+                  leaveEditMode("view");
+                  setCompareTarget({
+                    base: version,
+                    target: typeof target === "number" ? target : (node.currentVersion ?? 1),
+                  });
+                }}
                 onVersionChangeStart={() => setRestoringActive(true)}
                 onVersionChanged={() => {
                   setRestoringActive(false);
-                  setCompareVersion(null);
+                  setCompareTarget(null);
                 }}
                 onClose={closeInspectorPanel}
               />
@@ -892,7 +900,7 @@ function PreviewLoading(): React.JSX.Element {
   return (
     <div
       data-testid="files-tab-file-view-loading"
-      className="flex flex-1 items-center justify-center p-8 text-xs text-zinc-500 dark:text-zinc-400"
+      className="flex flex-1 items-center justify-center p-8 text-xs text-muted-foreground"
     >
       Loading preview…
     </div>
@@ -913,16 +921,16 @@ function PreviewError({ message, onRetry }: PreviewErrorProps): React.JSX.Elemen
       role="alert"
       className={cn(
         "flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center",
-        "text-xs text-zinc-600 dark:text-zinc-300",
+        "text-xs text-muted-foreground",
       )}
     >
       <AlertTriangle className="h-6 w-6 text-amber-500" aria-hidden="true" />
-      <button type="button" onClick={onRetry} className="min-h-11 rounded border px-4">Retry preview</button>
-      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+      <button type="button" onClick={onRetry} className="min-h-11 rounded-[5px] border border-border px-4">Retry preview</button>
+      <p className="font-medium text-foreground">
         Failed to load preview
       </p>
       {message ? (
-        <p className="max-w-md break-words text-zinc-500 dark:text-zinc-400">
+        <p className="max-w-md break-words text-muted-foreground">
           {message}
         </p>
       ) : null}
@@ -954,13 +962,13 @@ function EmptyMediaPlaceholder({
     <div
       data-testid="files-tab-file-view-empty-media"
       data-media-kind={kind}
-      className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-xs text-zinc-600 dark:text-zinc-300"
+      className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-xs text-muted-foreground"
     >
-      <Icon className="h-8 w-8 text-zinc-400" aria-hidden="true" />
-      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+      <Icon className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+      <p className="font-medium text-foreground">
         This {label} is empty
       </p>
-      <p className="text-zinc-500 dark:text-zinc-400">
+      <p className="text-muted-foreground">
         The file has a size of 0 bytes, so there is nothing to preview.
       </p>
     </div>
@@ -991,10 +999,10 @@ function BinaryFallback({
       data-testid="files-tab-file-view-binary-fallback"
       className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center"
     >
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
-        <FileQuestion className="h-6 w-6 text-zinc-500" aria-hidden="true" />
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-[8px] bg-muted">
+        <FileQuestion className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
       </div>
-      <div className="max-w-md text-xs text-zinc-500 dark:text-zinc-400">
+      <div className="max-w-md text-xs text-muted-foreground">
         This file type doesn&apos;t have an inline preview. Open it in a new
         tab to view.
       </div>

@@ -54,7 +54,7 @@ Ponytail guided this implementation: reuse the existing file store, React Query,
 - Cleanup records an audit event that survives node deletion. Task/version rows are removed through database relationships; linked documents are disconnected.
 - Existing Inngest infrastructure retries pending roots every five minutes. Failed roots rotate behind other work so one failure does not starve others.
 - Operations are deliberately bounded: at most 500 subtree items and 2,000 stored versions/objects per purge. Larger folders must be handled in smaller groups. Restore batches are also bounded.
-- Deleting in Edge does not delete anything from GitHub.
+- Deleting in NetworkBase does not delete anything from GitHub.
 
 ## Preview and accessibility
 

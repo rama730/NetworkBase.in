@@ -48,12 +48,12 @@ export default function DocTab({
     }
 
     return (
-        <div className="mx-auto max-w-3xl rounded-[2rem] border border-zinc-200 bg-white p-8 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <BookOpenText className="mx-auto h-8 w-8 text-zinc-400" />
-            <p className="mt-4 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+        <div className="nb-empty-state nb-grid-ground py-12" role="status">
+            <BookOpenText className="nb-empty-state-icon" aria-hidden="true" />
+            <p className="nb-card-title mt-4 text-foreground">
                 Document unavailable
             </p>
-            <p className="mt-2 text-sm leading-6 text-zinc-500">
+            <p className="nb-compact mt-2 text-muted-foreground">
                 This project has not published a document that is visible to you.
             </p>
         </div>

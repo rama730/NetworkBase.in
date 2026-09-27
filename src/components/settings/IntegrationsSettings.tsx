@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
+import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
@@ -36,21 +37,22 @@ const PROVIDER_ICONS: Partial<Record<IntegrationsAuthProvider, string>> = {
 function ProviderIcon({ provider }: { provider: IntegrationsAuthProvider }) {
   const src = PROVIDER_ICONS[provider];
   return src
-    ? <Image src={src} alt="" width={32} height={32} unoptimized className="h-8 w-8 rounded-lg object-contain" />
-    : <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800"><Mail className="h-4 w-4" /></span>;
+    ? <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted"><Image src={src} alt="" width={24} height={24} unoptimized className="size-6 object-contain" /></span>
+    : <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><Mail className="size-4" strokeWidth={1.75} /></span>;
 }
 
 function ProviderRow({ provider, linking, onLink }: { provider: AuthConnectionMethod; linking: boolean; onLink: () => void }) {
-  return <div className="flex items-start justify-between gap-4 rounded-xl border p-4">
-    <div className="flex min-w-0 gap-3">
+  const stateLabel = provider.state.split("_").join(" ");
+  return <div className="flex min-h-16 flex-col justify-center gap-3 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-w-0 items-center gap-3">
       <ProviderIcon provider={provider.provider} />
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold">{provider.label}</h3><span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs capitalize dark:bg-zinc-800">{provider.state.replace("_", " ")}</span></div>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{provider.detail}</p>
-        {provider.secondaryDetail ? <p className="mt-1 text-xs text-zinc-500">{provider.secondaryDetail}</p> : null}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><h4 className="nb-ui-label text-foreground">{provider.label}</h4><span className="nb-meta capitalize text-muted-foreground">{stateLabel}</span></div>
+        <p className="nb-compact mt-1 text-muted-foreground">{provider.detail}</p>
+        {provider.secondaryDetail ? <p className="nb-meta mt-1 text-muted-foreground">{provider.secondaryDetail}</p> : null}
       </div>
     </div>
-    {provider.state === "not_linked" && provider.provider !== "email" ? <Button size="sm" variant="outline" onClick={onLink} disabled={linking}>{linking ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Link</Button> : null}
+    {provider.state === "not_linked" && provider.provider !== "email" ? <Button className="self-start sm:self-auto" size="sm" variant="outline" onClick={onLink} disabled={linking}>{linking ? <Loader2 className="size-4 animate-spin" /> : null}Link</Button> : null}
     {provider.state === "not_linked" && provider.provider === "email" ? <Button size="sm" variant="outline" asChild><Link href="/settings?tab=security" prefetch={false}>Set password</Link></Button> : null}
   </div>;
 }
@@ -79,6 +81,29 @@ function formatPlatform(platform: string) {
   return platform;
 }
 
+function ExtensionAppCard() {
+  return (
+    <div className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
+        <Image
+          src="/icon-ink-192.png"
+          alt=""
+          width={48}
+          height={48}
+          className="size-10 shrink-0 rounded-md object-cover"
+        />
+        <div className="min-w-0">
+          <h4 className="nb-ui-label text-foreground">NetworkBase editor extension</h4>
+          <p className="nb-compact mt-1 text-muted-foreground">
+            Open project work in your editor and keep access under your account.
+          </p>
+        </div>
+      </div>
+      <span className="nb-meta shrink-0 text-muted-foreground">Web login or manual token · Revocable sessions</span>
+    </div>
+  );
+}
+
 
 function ExtensionSessionRow({ session, revoking, onRevoke }: { session: ExtensionSessionData; revoking: boolean; onRevoke: () => void }) {
   const isPending = session.clientVersion === "pending" || (!session.editorPlatform && !session.editorName);
@@ -93,47 +118,47 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
     : session.editorName?.trim() || session.deviceName?.trim() || "Editor extension";
 
   return (
-    <div className="flex items-center justify-between gap-4 border-b p-4 last:border-b-0 transition hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
-      <div className="flex min-w-0 items-center gap-4">
+    <div className="flex min-h-16 flex-col justify-center gap-3 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
         {ideIcon ? (
-          <Image src={ideIcon} alt="" width={32} height={32} unoptimized className="h-8 w-8 shrink-0 object-contain" />
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted"><Image src={ideIcon} alt="" width={24} height={24} unoptimized className="size-6 object-contain" /></span>
         ) : isPending ? (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-50 border border-amber-200 text-amber-600 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-400">
-            <KeyRound className="h-4 w-4" />
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <KeyRound className="size-4" strokeWidth={1.75} />
           </span>
         ) : (
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-100 border dark:bg-zinc-900 dark:border-zinc-800">
-            <Code2 className="h-4 w-4 text-zinc-500" />
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <Code2 className="size-4" strokeWidth={1.75} />
           </span>
         )}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-semibold">{title}</p>
+            <p className="truncate nb-ui-label text-foreground">{title}</p>
             {isPending ? (
-              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+              <span className="nb-meta text-muted-foreground">
                 Awaiting connection
               </span>
             ) : platform ? (
-              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              <span className="nb-meta text-muted-foreground">
                 {platform}
               </span>
             ) : null}
           </div>
           {isPending ? (
             <>
-              <p className="truncate text-xs text-zinc-500 mt-1">
+              <p className="nb-compact mt-1 truncate text-muted-foreground">
                 Created {formatDistanceToNow(new Date(session.createdAt), { addSuffix: true })} · Awaiting initial connection from your editor
               </p>
-              <p className="truncate text-[11px] text-zinc-400 mt-0.5">
+              <p className="nb-meta mt-1 truncate text-muted-foreground">
                 Manual fallback token · Paste token into your editor to complete sign-in
               </p>
             </>
           ) : (
             <>
-              <p className="truncate text-xs text-zinc-500 mt-1">
+              <p className="nb-compact mt-1 truncate text-muted-foreground">
                 Active {formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })} · v{session.clientVersion || "unknown"}
               </p>
-              <p className="truncate text-[11px] text-zinc-400 mt-0.5">
+              <p className="nb-meta mt-1 truncate text-muted-foreground">
                 {session.authMethod === "web_login" ? "Web login" : "Manual token"}
                 {session.editorVersion ? ` · ${session.editorVersion}` : ""}
               </p>
@@ -143,19 +168,19 @@ function ExtensionSessionRow({ session, revoking, onRevoke }: { session: Extensi
       </div>
       <Button
         size="sm"
-        variant="ghost"
+        variant="outline"
         onClick={onRevoke}
         disabled={revoking}
-        className="text-zinc-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+        className="self-start sm:self-auto"
       >
-        {revoking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        {revoking ? "Revoking..." : isPending ? "Revoke token" : "Disconnect"}
+        {revoking ? <Loader2 className="size-4 animate-spin" /> : null}
+        {revoking ? "Revoking…" : isPending ? "Revoke token" : "Disconnect"}
       </Button>
     </div>
   );
 }
 
-export default function IntegrationsSettings() {
+export default function IntegrationsSettings({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -198,11 +223,19 @@ export default function IntegrationsSettings() {
     void refetch();
   }, [refetch, router, searchParams]);
 
-  // ponytail: auto-reconcile live connection when manual token has been generated
+  // ponytail: auto-reconcile live connection when manual token has been generated. ceiling: 60s cutoff (20 attempts * 3s). upgrade: WebSocket Realtime push invalidation on token attachment.
   useEffect(() => {
     if (!generatedToken || !showTokenGen) return;
 
+    let attempts = 0;
+    const maxAttempts = 20; // Stop polling after 60 seconds (20 * 3s)
     const interval = setInterval(async () => {
+      if (document.hidden) return;
+      attempts += 1;
+      if (attempts > maxAttempts) {
+        clearInterval(interval);
+        return;
+      }
       const res = await refetchSessions();
       const current = res.data?.sessions || [];
       const newActiveCount = current.filter((s) => s.clientVersion !== "pending" && (s.editorPlatform || s.editorName)).length;
@@ -303,7 +336,7 @@ export default function IntegrationsSettings() {
   const revoke = async (sessionId: string) => {
     setRevoking(sessionId);
 
-    // ponytail: optimistic cache update - immediately remove row for 0ms perceived lag
+    // ponytail: optimistic cache update removes row immediately for 0ms perceived lag. ceiling: optimistic single-row deletion. upgrade: server confirmation rollback if mutation fails.
     const previousSessions = queryClient.getQueryData<ExtensionSessionsData>(queryKeys.settings.extensionSessions());
     if (previousSessions) {
       queryClient.setQueryData<ExtensionSessionsData>(queryKeys.settings.extensionSessions(), {
@@ -337,206 +370,96 @@ export default function IntegrationsSettings() {
   };
 
   return <div className="space-y-6">
-    <SettingsPageHeader title="Integrations" description="Manage sign-in methods, GitHub access, and active editor sessions." />
-    {error ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">{error instanceof Error ? error.message : "Unable to load integrations"}</p> : null}
+    {!embedded ? <SettingsPageHeader title="Integrations" description="Manage sign-in methods, GitHub access, and active editor sessions." /> : null}
+    {error ? <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 nb-compact text-destructive">{error instanceof Error ? error.message : "Unable to load integrations"}</p> : null}
 
     <SettingsSectionCard title="Account connections" description={data?.summary || "Sign-in methods attached to this account."}>
-      {isLoading ? <div className="h-32 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-900" /> : <div className="space-y-3">{data?.authConnections.map((provider) => <ProviderRow key={provider.provider} provider={provider} linking={linking === provider.provider} onLink={() => void linkProvider(provider.provider as "google" | "github")} />)}</div>}
+      {isLoading ? <div aria-hidden="true" className="nb-skeleton h-32 rounded-md" /> : <div>{data?.authConnections.map((provider) => <ProviderRow key={provider.provider} provider={provider} linking={linking === provider.provider} onLink={() => void linkProvider(provider.provider as "google" | "github")} />)}</div>}
     </SettingsSectionCard>
 
     <SettingsSectionCard title="GitHub" description="Repository access is managed from each project; this page only shows account-level status.">
-      <div className="space-y-4">
-        <GitHubCommitAttributionSettings />
-        <div className="rounded-xl border p-4 transition-all">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <Github className="h-8 w-8 shrink-0" />
-            <div>
-              <p className="text-sm font-semibold">{data?.githubService.summary || "GitHub status unavailable"}</p>
-              <p className="mt-1 text-sm text-zinc-500">{data?.githubService.detail}</p>
-              {data?.githubService.githubUsername ? (
-                <a
-                  href={`https://github.com/${data.githubService.githubUsername}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 inline-block text-xs text-primary hover:underline"
-                >
-                  @{data.githubService.githubUsername}
-                </a>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {data?.githubService.recoveryAction === "replace_account" ? (
-              <Button size="sm" onClick={() => setReplacementConfirmOpen(true)} disabled={replacingGithub}>
-                {replacingGithub ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Replace GitHub account
-              </Button>
-            ) : null}
-            {data?.githubService.recoveryAction === "add_fallback_sign_in" ? (
-              <Button size="sm" onClick={() => void linkProvider("google")} disabled={linking === "google"}>
-                {linking === "google" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Link Google first
-              </Button>
-            ) : null}
-            {data?.githubService.usageCount ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setProjectsExpanded((prev) => !prev)}
-                aria-expanded={projectsExpanded}
-                className="gap-1.5"
-              >
-                <Link2 className="h-4 w-4" />
-                <span>Review {data.githubService.usageCount} project{data.githubService.usageCount === 1 ? "" : "s"}</span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${projectsExpanded ? "rotate-180" : ""}`} />
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/">
-                  <Link2 className="h-4 w-4 mr-1.5" />
-                  Browse projects
-                </Link>
-              </Button>
-            )}
+      <div className="flex min-h-16 flex-col gap-4 pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><Github className="size-5" strokeWidth={1.75} /></span>
+          <div className="min-w-0">
+            <p className="nb-ui-label text-foreground">{data?.githubService.summary || "GitHub status unavailable"}</p>
+            <p className="nb-compact mt-1 text-muted-foreground">{data?.githubService.detail}</p>
+            {data?.githubService.githubUsername ? <a href={`https://github.com/${data.githubService.githubUsername}`} target="_blank" rel="noreferrer" className="nb-meta mt-1 inline-block text-primary hover:underline">@{data.githubService.githubUsername}</a> : null}
           </div>
         </div>
-
-        {projectsExpanded && (
-          <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-3">
-            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              <span>Connected & Cloned Projects ({data?.githubService.projects?.length ?? data?.githubService.usageCount ?? 0})</span>
-              <span className="text-[11px] font-normal normal-case text-zinc-400">Direct workspace access</span>
-            </div>
-            <div className="divide-y divide-zinc-200/60 dark:divide-zinc-800/80 rounded-lg border border-zinc-200/80 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/40">
-              {data?.githubService.projects && data.githubService.projects.length > 0 ? (
-                data.githubService.projects.map((project) => {
-                  const isCloned = project.importSource?.type === "github" || Boolean(project.importSource?.repoUrl);
-                  const isSynced = Boolean(project.syncRepository || project.githubRepoUrl);
-                  const repoName = project.syncRepository || project.githubRepoUrl || project.importSource?.repoUrl;
-
-                  return (
-                    <div
-                      key={project.id}
-                      className="flex items-center justify-between gap-3 p-3 transition-colors hover:bg-zinc-100/60 dark:hover:bg-zinc-800/40 first:rounded-t-lg last:rounded-b-lg"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Link
-                            href={`/projects/${project.slug}`}
-                            className="text-sm font-medium text-zinc-900 hover:text-primary dark:text-zinc-100 hover:underline truncate"
-                          >
-                            {project.title}
-                          </Link>
-                          {isCloned && (
-                            <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                              Cloned repository
-                            </span>
-                          )}
-                          {isSynced && (
-                            <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                              GitHub sync
-                            </span>
-                          )}
-                        </div>
-                        {repoName ? (
-                          <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                            <GitBranch className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{repoName}</span>
-                            {project.syncBranch && (
-                              <span className="text-zinc-400 dark:text-zinc-500 font-mono text-[11px]">
-                                ({project.syncBranch})
-                              </span>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <Button variant="ghost" size="sm" asChild className="h-8 shrink-0 px-2.5 text-xs gap-1">
-                        <Link href={`/projects/${project.slug}`}>
-                          <span>Open</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </Link>
-                      </Button>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="p-4 text-center text-xs text-zinc-500">
-                  No connected or cloned projects found. Go to{" "}
-                  <Link
-                    href="/projects"
-                    className="underline hover:text-zinc-700 dark:hover:text-zinc-300"
-                  >
-                    projects
-                  </Link>{" "}
-                  to manage synchronization.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {data?.githubService.recoveryAction === "replace_account" ? <Button variant="outline" size="sm" onClick={() => setReplacementConfirmOpen(true)} disabled={replacingGithub}>{replacingGithub ? <Loader2 className="size-4 animate-spin" /> : null}Replace GitHub account</Button> : null}
+          {data?.githubService.recoveryAction === "add_fallback_sign_in" ? <Button variant="outline" size="sm" onClick={() => void linkProvider("google")} disabled={linking === "google"}>{linking === "google" ? <Loader2 className="size-4 animate-spin" /> : null}Link Google first</Button> : null}
+          {data?.githubService.usageCount ? <Button variant="outline" size="sm" onClick={() => setProjectsExpanded((prev) => !prev)} aria-expanded={projectsExpanded}><Link2 className="size-4" strokeWidth={1.75} />Review {data.githubService.usageCount} project{data.githubService.usageCount === 1 ? "" : "s"}<ChevronDown className={`size-4 transition-transform duration-[130ms] ${projectsExpanded ? "rotate-180" : ""}`} /></Button> : null}
+        </div>
       </div>
-    </div>
-  </SettingsSectionCard>
 
-    <SettingsSectionCard title="IDE & Editor Extensions" description="Manage authorized sessions and manual authentication tokens for all supported editors.">
+      {projectsExpanded ? <div className="border-y border-border py-2">
+        <p className="nb-meta py-2 text-muted-foreground">Connected projects</p>
+        <div className="divide-y divide-border">
+          {data?.githubService.projects?.length ? data.githubService.projects.map((project) => {
+            const repoName = project.syncRepository || project.githubRepoUrl || project.importSource?.repoUrl;
+            const connectionType = project.syncRepository ? "GitHub sync" : "Cloned repository";
+            return <div key={project.id} className="flex min-h-16 items-center justify-between gap-3 py-3">
+              <div className="min-w-0"><div className="flex flex-wrap items-center gap-x-3 gap-y-1"><Link href={`/projects/${project.slug}`} className="nb-ui-label block truncate text-foreground hover:text-primary">{project.title}</Link><span className="nb-meta text-muted-foreground">{connectionType}</span></div>{repoName ? <p className="nb-meta mt-1 flex items-center gap-1.5 truncate text-muted-foreground"><GitBranch className="size-3.5 shrink-0" strokeWidth={1.75} />{repoName}{project.syncBranch ? ` · ${project.syncBranch}` : ""}</p> : null}</div>
+              <Button variant="ghost" size="sm" asChild><Link href={`/projects/${project.slug}`}>Open<ExternalLink className="size-4" strokeWidth={1.75} /></Link></Button>
+            </div>;
+          }) : <p className="nb-compact py-4 text-muted-foreground">No connected projects.</p>}
+        </div>
+      </div> : null}
+
+      <div className="pt-5"><GitHubCommitAttributionSettings /></div>
+    </SettingsSectionCard>
+
+    <SettingsSectionCard title="Editor connections" description="Manage authorized editor sessions and fallback sign-in tokens.">
       <div className="space-y-4">
-        {sessionsLoading && !sessionData ? (
-          <div className="h-24 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-900" />
-        ) : sessionData?.sessions.length ? (
-          <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
-            {activeSessions.length > 0 && (
-              <>
-                <div className="bg-zinc-50/80 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 border-b dark:bg-zinc-900/50">
-                  Active Sessions ({activeSessions.length})
-                </div>
-                {activeSessions.map((session) => (
-                  <ExtensionSessionRow
-                    key={session.id}
-                    session={session}
-                    revoking={revoking === session.id}
-                    onRevoke={() => void revoke(session.id)}
-                  />
-                ))}
-              </>
-            )}
-
-            {pendingSessions.length > 0 && (
-              <>
-                <div className={`bg-zinc-50/80 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400 border-b dark:bg-zinc-900/50 ${activeSessions.length > 0 ? "border-t" : ""}`}>
-                  Pending Tokens ({pendingSessions.length})
-                </div>
-                {pendingSessions.map((session) => (
-                  <ExtensionSessionRow
-                    key={session.id}
-                    session={session}
-                    revoking={revoking === session.id}
-                    onRevoke={() => void revoke(session.id)}
-                  />
-                ))}
-              </>
-            )}
+        <ExtensionAppCard />
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+            <h4 className="nb-ui-label text-foreground">Authorized sessions</h4>
+            <span className="nb-meta text-muted-foreground">
+              {activeSessions.length} active · {pendingSessions.length} pending
+            </span>
           </div>
+        {sessionsLoading && !sessionData ? (
+            <div aria-hidden="true" className="nb-skeleton h-24 rounded-md" />
+        ) : sessionData?.sessions.length ? (
+            <div className="divide-y divide-border border-y border-border">
+              {activeSessions.map((session) => (
+                  <ExtensionSessionRow
+                    key={session.id}
+                    session={session}
+                    revoking={revoking === session.id}
+                    onRevoke={() => void revoke(session.id)}
+                  />
+              ))}
+              {pendingSessions.map((session) => (
+                  <ExtensionSessionRow
+                    key={session.id}
+                    session={session}
+                    revoking={revoking === session.id}
+                    onRevoke={() => void revoke(session.id)}
+                  />
+              ))}
+            </div>
         ) : (
-          <p className="rounded-xl border border-dashed p-6 text-center text-sm text-zinc-500">
+            <p className="rounded-md border border-dashed border-border bg-card nb-grid-ground p-6 text-center nb-compact text-muted-foreground" role="status">
             No active editor sessions.
           </p>
         )}
+        </div>
 
-        <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-900/30">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Manual authentication token</h4>
-              <p className="mt-0.5 text-xs text-zinc-500">Use a fallback token if browser sign-in is blocked in your editor.</p>
-            </div>
-            <Button size="sm" variant={showTokenGen ? "ghost" : "outline"} onClick={() => setShowTokenGen(!showTokenGen)}>
+        <div className="border-t border-border pt-4">
+          <SettingsRow
+            title="Manual authentication token"
+            description="Use a fallback token if browser sign-in is blocked in your editor."
+            right={<Button size="sm" variant="outline" onClick={() => setShowTokenGen(!showTokenGen)}>
               {showTokenGen ? "Cancel" : "Generate token"}
-            </Button>
-          </div>
+            </Button>}
+          />
 
           {showTokenGen && (
-            <div className="mt-4 border-t pt-4 dark:border-zinc-800">
+            <div className="mt-3 rounded-md border border-border bg-muted/50 p-4">
               {!generatedToken ? (
                 <div className="space-y-3">
                   <div className="max-w-xs">
@@ -545,11 +468,11 @@ export default function IntegrationsSettings() {
                       value={deviceLabel}
                       onChange={(e) => setDeviceLabel(e.target.value)}
                       placeholder="Device label (e.g. Workstation, optional)"
-                      className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 nb-compact text-foreground outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring"
                     />
                   </div>
                   <Button size="sm" onClick={() => void handleGenerateToken()} disabled={generatingToken}>
-                    {generatingToken ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+                    {generatingToken ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" strokeWidth={1.75} />}
                     Generate new token
                   </Button>
                 </div>
@@ -560,7 +483,7 @@ export default function IntegrationsSettings() {
                       type="text"
                       readOnly
                       value={generatedToken}
-                      className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-xs text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 nb-meta text-foreground outline-none"
                       onClick={(e) => (e.target as HTMLInputElement).select()}
                     />
                     <Button
@@ -571,7 +494,7 @@ export default function IntegrationsSettings() {
                       }}
                       className="shrink-0"
                     >
-                      <Copy className="mr-2 h-3.5 w-3.5" /> Copy
+                      <Copy className="size-4" strokeWidth={1.75} /> Copy
                     </Button>
                     <Button
                       size="sm"
@@ -581,18 +504,18 @@ export default function IntegrationsSettings() {
                         setShowTokenGen(false);
                         setDeviceLabel("");
                       }}
-                      className="shrink-0 text-xs"
+                      className="shrink-0"
                     >
                       Done
                     </Button>
                   </div>
-                  <div className="flex items-center gap-2 rounded-lg bg-amber-50/80 p-2.5 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/40">
-                    <KeyRound className="h-4 w-4 shrink-0" />
+                  <div className="flex items-start gap-2 rounded-md border border-border bg-background p-3 nb-compact text-muted-foreground">
+                    <KeyRound className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
                     <span>This token is ready. Paste it into your editor&apos;s authentication prompt to complete connection.</span>
                   </div>
                 </div>
               )}
-              <p className="mt-2 text-[11px] text-zinc-500">This token will only be shown once. Paste it into your editor&apos;s authentication prompt.</p>
+              <p className="nb-meta mt-2 text-muted-foreground">This token will only be shown once. Paste it into your editor&apos;s authentication prompt.</p>
             </div>
           )}
         </div>
@@ -607,7 +530,7 @@ export default function IntegrationsSettings() {
             NetworkBase will detach {data?.githubService.githubUsername ? `@${data.githubService.githubUsername}` : "the unavailable account"} and then ask you to choose a new GitHub account.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2 rounded-xl border bg-zinc-50/70 p-4 text-sm text-zinc-600 dark:bg-zinc-950/40 dark:text-zinc-300">
+        <div className="space-y-2 rounded-md border border-border bg-muted/50 p-4 nb-compact text-muted-foreground">
           <p>Project files, repository links, sync history, and past contributor credit stay unchanged.</p>
           <p>Repository access is reviewed per project after the new account is linked.</p>
           <p>Only future commits switch to the new account&apos;s privacy-safe GitHub identity.</p>

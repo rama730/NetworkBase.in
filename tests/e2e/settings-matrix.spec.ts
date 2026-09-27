@@ -57,7 +57,7 @@ test.describe("Settings matrix @critical", () => {
 
     await page.goto("/settings?tab=security");
     await expect(page.getByRole("heading", { name: "Security" })).toBeVisible();
-    await expect(main.getByText("Security Overview").first()).toBeVisible();
+    await expect(main.getByText("Sign-in protection").first()).toBeVisible();
     await expect(page.getByTestId("security-authenticator-section")).toBeVisible();
     await expect(page.getByTestId("security-password-section")).toBeVisible();
     await expect(page.getByTestId("security-active-sessions-section")).toBeVisible();

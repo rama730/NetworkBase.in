@@ -1,6 +1,7 @@
 'use client'
 
 import { type ReactNode } from 'react'
+import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
 import { useAuth } from '@/hooks/useAuth'
 import { isHardeningDomainEnabled } from '@/lib/features/hardening'
@@ -19,10 +20,14 @@ export function MainLayout({ children }: MainLayoutProps) {
             className="h-dvh min-h-0 overflow-hidden bg-background flex flex-col"
             data-hardening-shell={shellHardeningEnabled ? "v1" : "off"}
         >
+            <a href="#main-content" className="nb-skip-link">Skip to content</a>
+            <AppSidebar />
+            <div className="nb-main-frame flex min-h-0 flex-1 flex-col">
             <TopNav />
-            <main className="flex-1 min-h-0 overflow-hidden">
+            <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 min-w-0 overflow-hidden">
                 {children}
             </main>
+            </div>
             <WorkspaceDrawerHost />
         </div>
     )

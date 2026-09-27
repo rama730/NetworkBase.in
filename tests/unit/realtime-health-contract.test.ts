@@ -24,7 +24,7 @@ describe("realtime health contract", () => {
 
     assert.match(nav, /connectionHealth/);
     assert.match(topNav, /ConnectionStatusIndicator/);
-    assert.match(topNav, /item\.href === ROUTES\.PEOPLE \? connectionHealth : undefined/);
+    assert.match(read("src/components/layout/AppSidebar.tsx"), /connectionHealth/);
     assert.match(topNav, /connectionHealth=\{connectionHealth\}/);
     assert.match(indicator, /Live updates are unavailable/);
     assert.match(indicator, /You are offline/);

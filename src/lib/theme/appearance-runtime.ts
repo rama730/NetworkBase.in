@@ -11,45 +11,45 @@ export type AccentPaletteMeta = {
 export const ACCENT_PALETTES: Record<AccentColor, AccentPaletteMeta> = {
     default: {
         id: "default",
-        label: "Purple",
-        description: "Solid purple actions with a light blue selected surface.",
-        solid: "#5b3df5",
-        selectedTint: "#dfe9ff",
+        label: "Clay",
+        description: "Warm clay actions on paper surfaces.",
+        solid: "#C24720",
+        selectedTint: "#F3F0EA",
     },
     orchid: {
         id: "orchid",
         label: "Orchid",
         description: "Solid violet actions with a soft lavender selected surface.",
-        solid: "#7c3aed",
-        selectedTint: "#efe4ff",
+        solid: "#77449B",
+        selectedTint: "color-mix(in srgb, #77449B 7%, #FAF8F4)",
     },
     forest: {
         id: "forest",
         label: "Forest",
         description: "Solid emerald actions with a pale mint selected surface.",
-        solid: "#10b981",
-        selectedTint: "#def8ee",
+        solid: "#2F6B4F",
+        selectedTint: "color-mix(in srgb, #2F6B4F 7%, #FAF8F4)",
     },
     ember: {
         id: "ember",
         label: "Ember",
         description: "Solid orange actions with a soft amber selected surface.",
-        solid: "#f97316",
-        selectedTint: "#fff0d9",
+        solid: "#955B15",
+        selectedTint: "color-mix(in srgb, #955B15 7%, #FAF8F4)",
     },
     rose: {
         id: "rose",
         label: "Rose",
         description: "Solid rose actions with a soft blush selected surface.",
-        solid: "#e11d48",
-        selectedTint: "#ffe1ea",
+        solid: "#A33D59",
+        selectedTint: "color-mix(in srgb, #A33D59 7%, #FAF8F4)",
     },
     lagoon: {
         id: "lagoon",
         label: "Lagoon",
         description: "Solid teal actions with a pale cyan selected surface.",
-        solid: "#0f766e",
-        selectedTint: "#ddf7f6",
+        solid: "#226974",
+        selectedTint: "color-mix(in srgb, #226974 7%, #FAF8F4)",
     },
 };
 
@@ -70,5 +70,5 @@ export const DENSITY_LABELS: Record<Density, { label: string; description: strin
 
 export function getAccentSwatchBackground(accentColor: AccentColor): string {
     const palette = ACCENT_PALETTES[accentColor];
-    return `radial-gradient(circle at 72% 28%, ${palette.selectedTint} 0%, ${palette.selectedTint} 24%, transparent 26%), ${palette.solid}`;
+    return palette.solid;
 }

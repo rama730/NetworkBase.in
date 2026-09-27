@@ -55,7 +55,9 @@ export async function GET(request: Request) {
         const errorCode = status === 429 ? 'RATE_LIMITED' : status === 400 ? 'BAD_REQUEST' : 'DB_ERROR'
         return jsonError(result.message || errorCode, status, errorCode)
     }
-    return jsonSuccess(result)
+    return jsonSuccess(result, undefined, {
+        headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=60" },
+    })
 }
 
 export async function POST(request: Request) {

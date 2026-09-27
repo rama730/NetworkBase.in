@@ -36,43 +36,43 @@ export function ProjectDocReferenceOptionCard({
     const content = (
         <div className="flex min-w-0 items-center gap-2.5">
             {option.avatarUrl ? (
-                <Image src={option.avatarUrl} alt="" width={32} height={32} sizes="32px" className="h-8 w-8 rounded-full object-cover" />
+                <Image src={option.avatarUrl} alt="" width={32} height={32} sizes="32px" className="size-8 rounded-[5px] border border-border object-cover" />
             ) : (
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
-                    <Icon className="h-3.5 w-3.5" />
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-[5px] border border-border bg-muted/50 text-muted-foreground">
+                    <Icon className="size-3.5" />
                 </span>
             )}
             <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                     <p
-                        className={cn("truncate text-xs font-semibold text-zinc-950 dark:text-zinc-50", titlePresentation?.className)}
+                        className={cn("truncate nb-ui-label text-xs font-semibold text-foreground", titlePresentation?.className)}
                         aria-label={titlePresentation?.ariaLabel}
                     >
                         {option.title}
                     </p>
                     {option.status ? (
-                        <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
+                        <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground">
                             {option.status}
                         </span>
                     ) : null}
                 </div>
-                <p className="mt-0.5 truncate text-[11px] leading-4 text-zinc-500">{referenceMeta(option)}</p>
+                <p className="mt-0.5 truncate nb-meta text-[11px] text-muted-foreground">{referenceMeta(option)}</p>
                 {option.badges?.length ? (
                     <div className="mt-1 flex flex-wrap gap-1">
                         {option.badges.slice(0, 3).map((badge) => (
-                            <span key={badge} className="rounded-full border border-zinc-200 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 dark:border-zinc-800">
+                            <span key={badge} className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/40 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground">
                                 {badge}
                             </span>
                         ))}
                     </div>
                 ) : null}
             </div>
-            {selected ? <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-500" /> : null}
+            {selected ? <CheckCircle2 className="size-4 shrink-0 text-primary" /> : null}
         </div>
     );
 
     if (!onSelect) {
-        return <div className="rounded-xl border border-zinc-200 px-2.5 py-2 dark:border-zinc-800">{content}</div>;
+        return <div className="rounded-[5px] border border-border bg-card px-3 py-2">{content}</div>;
     }
 
     return (
@@ -80,10 +80,10 @@ export function ProjectDocReferenceOptionCard({
             type="button"
             onClick={onSelect}
             className={cn(
-                "w-full rounded-xl border px-2.5 py-2 text-left transition",
+                "w-full rounded-[5px] border px-3 py-2 text-left transition-colors",
                 selected
-                    ? "border-blue-400 bg-blue-50/70 dark:border-blue-700 dark:bg-blue-950/30"
-                    : "border-zinc-200 hover:border-blue-300 hover:bg-blue-50/40 dark:border-zinc-800 dark:hover:border-blue-900 dark:hover:bg-blue-950/20",
+                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                    : "border-border bg-card hover:border-foreground/20 hover:bg-muted/40",
             )}
         >
             {content}
@@ -96,24 +96,24 @@ export function ProjectDocSmartBlockPreviewCard({ preview }: { preview: ProjectD
     return (
         <div
             className={cn(
-                "my-3 rounded-2xl border p-3",
+                "my-3 rounded-[8px] border p-4 bg-card transition-colors",
                 preview.safeUnavailable
-                    ? "border-amber-300 bg-amber-50/70 dark:border-amber-900/70 dark:bg-amber-950/20"
-                    : "border-zinc-200 bg-zinc-50/70 dark:border-zinc-800 dark:bg-zinc-950/60",
+                    ? "border-amber-500/30 bg-amber-500/5"
+                    : "border-border hover:border-foreground/20",
             )}
         >
             <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm dark:bg-zinc-900">
-                    <Icon className={cn("h-4 w-4", preview.safeUnavailable ? "text-amber-500" : "text-blue-500")} />
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-[5px] border border-border bg-muted/50">
+                    <Icon className={cn("size-4", preview.safeUnavailable ? "text-amber-500" : "text-primary")} />
                 </span>
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                            <p className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">{preview.title}</p>
-                            <p className="mt-0.5 text-xs leading-5 text-zinc-500">{preview.description}</p>
+                            <p className="nb-ui-label text-sm font-semibold text-foreground">{preview.title}</p>
+                            <p className="nb-compact mt-0.5 text-xs text-muted-foreground">{preview.description}</p>
                         </div>
                         {preview.href && !preview.safeUnavailable ? (
-                            <a href={preview.href} className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-semibold text-zinc-600 hover:text-blue-600 dark:border-zinc-800 dark:text-zinc-300">
+                            <a href={preview.href} className="inline-flex h-[28px] items-center justify-center rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted">
                                 Open
                             </a>
                         ) : null}
@@ -124,7 +124,7 @@ export function ProjectDocSmartBlockPreviewCard({ preview }: { preview: ProjectD
                         </div>
                     ) : null}
                     {preview.unavailableCount > 0 ? (
-                        <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-300">
+                        <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-400">
                             {preview.unavailableCount} referenced item{preview.unavailableCount === 1 ? "" : "s"} unavailable.
                         </p>
                     ) : null}

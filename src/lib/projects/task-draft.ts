@@ -29,6 +29,19 @@ const optionalDate = z
     "Invalid due date",
   );
 
+const optionalStoryPoints = z
+  .union([z.number(), z.string()])
+  .nullish()
+  .transform((val) => {
+    if (val === null || val === undefined || val === "") return null;
+    const num = typeof val === "number" ? val : Number.parseInt(String(val), 10);
+    return Number.isFinite(num) ? num : null;
+  })
+  .refine(
+    (val) => val === null || (Number.isInteger(val) && val >= 0 && val <= 100),
+    "Story points must be between 0 and 100",
+  );
+
 export const taskEditorDraftSchema = z.object({
   title: z
     .string()
@@ -41,6 +54,7 @@ export const taskEditorDraftSchema = z.object({
   priority: taskPriorityEnum.default("medium"),
   assigneeId: optionalUuid,
   dueDate: optionalDate,
+  storyPoints: optionalStoryPoints.optional(),
 });
 
 export type TaskEditorDraft = z.infer<typeof taskEditorDraftSchema>;
@@ -61,6 +75,8 @@ export function buildTaskEditorDraft(input?: {
     assignee_id: string | null;
     dueDate: string | null;
     due_date: string | null;
+    storyPoints: number | null;
+    story_points: number | null;
   }> | null;
 }): TaskEditorDraft {
   const task = input?.task ?? null;
@@ -83,6 +99,12 @@ export function buildTaskEditorDraft(input?: {
       typeof dueDateValue === "string" && dueDateValue
         ? dueDateValue.slice(0, 10)
         : null,
+    storyPoints:
+      typeof task?.storyPoints === "number"
+        ? task.storyPoints
+        : typeof task?.story_points === "number"
+          ? task.story_points
+          : null,
   };
 }
 
@@ -101,6 +123,7 @@ export function buildTaskSubmitPayload(input: {
     priority: input.draft.priority,
     assigneeId: input.draft.assigneeId,
     dueDate: input.draft.dueDate,
+    storyPoints: input.draft.storyPoints ?? null,
     attachmentNodeIds: input.attachments.map((attachment) => attachment.id),
     subtasks: input.subtasks
       .map((subtask) => ({ title: subtask.title.trim(), completed: false }))

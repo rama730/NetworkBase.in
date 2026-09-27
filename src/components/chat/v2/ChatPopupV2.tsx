@@ -109,7 +109,7 @@ export function ChatPopupV2() {
                 onClick={() => setPopupState('open')}
                 onMouseEnter={handleLauncherPrewarm}
                 onFocus={handleLauncherPrewarm}
-                className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full app-accent-solid shadow-lg transition-all hover:scale-105 hover:bg-primary/90"
+                className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full app-accent-solid shadow-lg transition-[color,background-color,border-color,box-shadow,opacity,transform] hover:scale-100 hover:bg-primary/90"
                 aria-label={hasUnreadMessages ? `Open messages, ${unreadCount} unread messages` : 'Open messages'}
             >
                 <MessageSquare className="h-6 w-6" />
@@ -135,8 +135,8 @@ export function ChatPopupV2() {
                     event.stopPropagation();
                     setPopupState('closed');
                 }}
-                className="h-[min(640px,calc(100dvh-5.5rem))] w-[min(400px,calc(100vw-1.5rem))] min-w-0 overflow-hidden rounded-2xl border border-border/70 bg-card ring-1 ring-black/[0.02]"
-                style={{ boxShadow: 'var(--msg-shadow-lg, 0 24px 60px rgba(15,23,42,0.18))', animation: 'message-appear 240ms ease-out' }}
+                className="h-[min(640px,calc(100dvh-5.5rem))] w-[min(400px,calc(100vw-1.5rem))] min-w-0 overflow-hidden rounded-lg border border-border/70 bg-card ring-1 ring-black/[0.02]"
+                style={{ boxShadow: 'var(--msg-shadow-lg, 0 24px 60px rgba(15,23,42,0.18))', animation: 'message-appear 260ms cubic-bezier(.2,.8,.3,1)' }}
             >
                 <PopupMessagesWorkspace mode="popup" />
             </div>

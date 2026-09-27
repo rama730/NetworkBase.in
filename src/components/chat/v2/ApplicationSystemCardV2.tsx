@@ -227,7 +227,7 @@ export function ApplicationSystemCardV2({
 
     if (banner.mode === 'passive') {
         return (
-            <div className="my-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+            <div className="my-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
                 <div className="flex items-start gap-3">
                     <div className="mt-0.5 rounded-full bg-white/70 p-1.5 dark:bg-black/10">
                         <AlertTriangle className="h-4 w-4" />
@@ -251,7 +251,7 @@ export function ApplicationSystemCardV2({
     const isProposed = status === 'proposed';
 
     const currentStyle = {
-        container: 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 shadow-sm',
+        container: 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 shadow-none',
         title: 'text-zinc-900 dark:text-zinc-100',
         text: 'text-zinc-650 dark:text-zinc-400 font-medium',
     };
@@ -305,7 +305,7 @@ export function ApplicationSystemCardV2({
                     : 'Pending';
 
     return (
-        <div className={`my-2 flex flex-col overflow-hidden rounded-xl border ${currentStyle.container}`}>
+        <div className={`my-2 flex flex-col overflow-hidden rounded-lg border ${currentStyle.container}`}>
             <div className="flex items-start gap-4 p-5 pb-4">
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-4">
@@ -330,7 +330,7 @@ export function ApplicationSystemCardV2({
                     )}
                     
                     {messageBody && (
-                        <div className="mt-3.5 rounded-xl border border-zinc-100 bg-zinc-50/50 p-3.5 text-sm text-zinc-650 dark:border-zinc-800/50 dark:bg-zinc-900/20 dark:text-zinc-405 whitespace-pre-wrap leading-relaxed">
+                        <div className="mt-3.5 rounded-lg border border-zinc-100 bg-zinc-50/50 p-3.5 text-sm text-zinc-650 dark:border-zinc-800/50 dark:bg-zinc-900/20 dark:text-zinc-405 whitespace-pre-wrap leading-relaxed">
                             {messageBody}
                         </div>
                     )}
@@ -355,7 +355,7 @@ export function ApplicationSystemCardV2({
             </div>
 
             <div className="flex flex-wrap items-center justify-between border-t border-black/5 dark:border-white/5 bg-black/5 dark:bg-black/20 px-4 py-2.5">
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                     {banner.lastStatusUpdate ? `Updated ${banner.lastStatusUpdate}` : 'Status pending'}
                 </div>
                 <div className="flex items-center gap-2">
@@ -472,7 +472,7 @@ export function ApplicationSystemCardV2({
                         value={editDraft}
                         onChange={(event) => setEditDraft(event.target.value)}
                         rows={6}
-                        className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm outline-none focus:border-primary dark:border-zinc-800 dark:bg-zinc-900"
+                        className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm outline-none focus:border-primary dark:border-zinc-800 dark:bg-zinc-900"
                     />
                     <DialogFooter>
                         <button

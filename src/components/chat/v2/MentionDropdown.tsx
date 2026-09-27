@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import { buildIdentityPresentation } from '@/lib/ui/identity';
-import { cn } from '@/lib/utils';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 
 interface MentionParticipant {
     id: string;
@@ -73,13 +72,7 @@ export function MentionDropdown({ query, participants, onSelect, onClose }: Ment
                             index === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'
                         }`}
                     >
-                        <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full", identity.avatarUrl ? "bg-zinc-200 dark:bg-zinc-700" : identity.gradientClass)}>
-                            {identity.avatarUrl ? (
-                                <Image src={identity.avatarUrl} alt={identity.alt} width={24} height={24} unoptimized className="h-full w-full object-cover" />
-                            ) : (
-                                <span className="text-[10px] font-medium text-white">{identity.initials}</span>
-                            )}
-                        </div>
+                        <UserAvatar identity={participant} size={24} unoptimized fallbackClassName="text-[11px] font-medium" />
                         <div className="min-w-0">
                             <div className="truncate font-medium text-zinc-900 dark:text-zinc-100">{identity.displayName}</div>
                             {identity.usernameLabel && <div className="truncate text-xs text-zinc-500">{identity.usernameLabel}</div>}

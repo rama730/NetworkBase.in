@@ -37,18 +37,20 @@ import type { CurrentLocation } from "./navigation";
 import { useFileTransfers } from "./FileTransfers";
 import { QuickOpenDialog } from "./quick-open/QuickOpenDialog";
 
-// ponytail: portal only the controls, not their state or mutation handlers.
-// Lists and previews retain ownership while sharing one physical header row.
+// ponytail: portal only controls, not state or mutation handlers. ceiling: single shared header slot. upgrade: separate floating toolbar if sub-panels require decoupled toolbars.
 import { FilesHeaderContext, FilesHeaderSlot } from "./FilesHeaderSlot";
 export { FilesHeaderSlot } from "./FilesHeaderSlot";
+import { OpenInIdeButton } from "./OpenInIdeButton";
 
 export function FilesWorkspaceHeader({
   projectId,
+  projectSlug,
   location,
   canOpenGitHub = false,
   children,
 }: {
   projectId: string;
+  projectSlug?: string;
   location: CurrentLocation | null;
   canOpenGitHub?: boolean;
   children: React.ReactNode;
@@ -71,7 +73,7 @@ export function FilesWorkspaceHeader({
     <FilesHeaderContext.Provider value={{ actions, status, canOpenGitHub }}>
       <header
         data-testid="files-workspace-header"
-        className="flex h-12 min-h-12 shrink-0 items-center gap-2 border-b border-zinc-200 bg-white px-2 dark:border-zinc-800 dark:bg-zinc-950"
+        className="flex h-12 min-h-12 shrink-0 items-center gap-2 border-b border-border bg-card px-2"
       >
         {collapsed && (
           <button
@@ -80,7 +82,7 @@ export function FilesWorkspaceHeader({
             aria-label="Show sidebar"
             title="Show sidebar"
             onClick={() => toggleSidebar(projectId)}
-            className="flex size-11 shrink-0 items-center justify-center rounded hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-zinc-800"
+            className="nb-icon-button shrink-0 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
           >
             <PanelLeftOpen className="size-4" aria-hidden="true" />
           </button>
@@ -91,7 +93,7 @@ export function FilesWorkspaceHeader({
             aria-label="Back to search results"
             title="Back to search results"
             onClick={workspace.returnToCollection}
-            className="flex size-11 shrink-0 items-center justify-center rounded hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-zinc-800"
+            className="nb-icon-button shrink-0 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ArrowLeft className="size-4" aria-hidden="true" />
           </button>
@@ -99,7 +101,7 @@ export function FilesWorkspaceHeader({
         {isProject && !isFile && workspace?.query ? (
           <nav
             aria-label="Breadcrumb"
-            className="flex min-w-0 flex-1 items-center gap-2 text-sm"
+            className="nb-ui-label flex min-w-0 flex-1 items-center gap-2"
           >
             <button
               type="button"
@@ -116,7 +118,7 @@ export function FilesWorkspaceHeader({
         ) : (
           <nav
             aria-label="Breadcrumb"
-            className="flex min-w-0 flex-1 items-center gap-2 text-sm"
+            className="nb-ui-label flex min-w-0 flex-1 items-center gap-2"
           >
             {workspace?.taskId || hasLocation ? (
               <button
@@ -159,11 +161,11 @@ export function FilesWorkspaceHeader({
             aria-label={`Clear search: ${workspace.query}`}
             title={`Search: ${workspace.query} — clear`}
             onClick={() => workspace.setQuery("")}
-            className="flex min-h-9 max-w-[25%] min-w-0 items-center gap-1 rounded bg-blue-50 px-2 text-xs text-blue-700 focus-visible:ring-2 dark:bg-blue-500/15 dark:text-blue-300"
+            className="flex min-h-9 max-w-[25%] min-w-0 items-center gap-1 rounded-[3px] border border-[#DBD5C8] bg-[#F3F0EA] px-2 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-[#141A1E] focus-visible:ring-2 focus-visible:ring-[#D14E24] dark:border-white/10 dark:bg-white/5 dark:text-white"
           >
-            <Search className="size-3 shrink-0" aria-hidden="true" />
+            <Search className="size-3 shrink-0 text-[#D14E24]" aria-hidden="true" />
             <span className="truncate">{workspace.query}</span>
-            <X className="size-3 shrink-0" aria-hidden="true" />
+            <X className="size-3 shrink-0 text-[#4C5A61]" aria-hidden="true" />
           </button>
         )}
         {!isFile && workspace?.taskId && workspace.fileRole !== "all" && (
@@ -171,21 +173,29 @@ export function FilesWorkspaceHeader({
             type="button"
             onClick={() => workspace.setFileRole("all")}
             aria-label="Clear file role filter"
-            className="flex min-h-9 shrink-0 items-center gap-1 rounded bg-blue-50 px-2 text-xs text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+            className="flex min-h-9 shrink-0 items-center gap-1 rounded-[3px] border border-[#DBD5C8] bg-[#F3F0EA] px-2 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-[#141A1E] focus-visible:ring-2 focus-visible:ring-[#D14E24] dark:border-white/10 dark:bg-white/5 dark:text-white"
           >
             {workspace.fileRole === "reference" ? "References" : "Working"}
-            <X className="size-3" aria-hidden="true" />
+            <X className="size-3 text-[#4C5A61]" aria-hidden="true" />
           </button>
         )}
         <div
           ref={setStatus}
-          className="flex shrink-0 items-center gap-2 text-xs"
+          className="nb-meta flex shrink-0 items-center gap-2"
         />
-        {canOpenGitHub && (
+        {canOpenGitHub && workspace?.view !== "trash" && (
           <HeaderGitHubSyncButton projectId={projectId} />
         )}
+        {workspace?.view !== "trash" && (
+          <OpenInIdeButton
+            projectId={projectId}
+            projectSlug={projectSlug}
+            location={location}
+            taskId={workspace?.taskId}
+          />
+        )}
         <div ref={setActions} className="flex shrink-0 items-center gap-1" />
-        {!!transfers?.active && <button type="button" onClick={transfers.open} className="min-h-11 shrink-0 rounded px-2 text-xs" aria-label={`Show ${transfers.active} active transfers`}>↑ {transfers.active}</button>}
+        {!!transfers?.active && <button type="button" onClick={transfers.open} className="nb-ui-label min-h-[var(--ui-control-height)] shrink-0 rounded-md px-2" aria-label={`Show ${transfers.active} active transfers`}>↑ {transfers.active}</button>}
       </header>
       {children}
     </FilesHeaderContext.Provider>
@@ -194,6 +204,7 @@ export function FilesWorkspaceHeader({
 
 type HeaderStatus = {
   connected: boolean;
+  authorized: boolean;
   repository: string | null;
   branch: string | null;
   hasIncoming: boolean;
@@ -246,21 +257,22 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
 
   const isGitHubView = workspace?.view === "github";
 
-  if (!status?.connected) {
+  if (!status?.connected || !status.authorized) {
+    const needsAccess = Boolean(status?.connected && !status.authorized);
     return (
       <button
         type="button"
         onClick={() => workspace?.selectView("github")}
-        title="Connect GitHub Repository"
-        aria-label="Connect GitHub Repository"
-        className={`flex min-h-9 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors border ${
+        title={needsAccess ? "Restore GitHub access" : "Connect GitHub Repository"}
+        aria-label={needsAccess ? "Restore GitHub access" : "Connect GitHub Repository"}
+        className={`flex min-h-8 shrink-0 items-center gap-1.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors border ${
           isGitHubView
-            ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
-            : "border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            ? "border-[#2563C9] bg-[#EEF4FD] text-[#1B4BA8] dark:bg-[#1B4BA8]/20 dark:text-[#DCE7F8]"
+            : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
         }`}
       >
         <Github className="size-3.5" aria-hidden="true" />
-        <span className="hidden sm:inline">GitHub</span>
+        <span className="hidden sm:inline">{needsAccess ? "GitHub needs access" : "GitHub"}</span>
       </button>
     );
   }
@@ -292,18 +304,18 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
         type="button"
         onClick={openGitHubSync}
         aria-label={`GitHub sync status for ${repoName}: ${branchName}${shortSha ? ` (commit ${shortSha})` : ""}`}
-        className={`flex min-h-9 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors border ${
+        className={`flex min-h-8 shrink-0 items-center gap-1.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors border ${
           isGitHubView
-            ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+            ? "border-[#2563C9] bg-[#EEF4FD] text-[#1B4BA8] dark:bg-[#1B4BA8]/20 dark:text-[#DCE7F8]"
             : hasIncoming
-            ? "border-amber-400 bg-amber-50 text-amber-800 dark:border-amber-600/40 dark:bg-amber-950/30 dark:text-amber-300"
+            ? "border-[#C08A00] bg-[#FBF4E2] text-[#9A6B00] dark:border-[#C08A00]/40 dark:bg-amber-950/30 dark:text-amber-300"
             : isSyncing
-            ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-600/40 dark:bg-blue-950/30 dark:text-blue-300"
-            : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            ? "border-[#2563C9] bg-[#EEF4FD] text-[#1B4BA8] dark:border-[#2563C9]/40 dark:bg-[#1B4BA8]/20 dark:text-[#DCE7F8]"
+            : "border-border bg-card text-foreground hover:bg-muted"
         }`}
       >
         {isSyncing ? (
-          <Loader2 className="size-3.5 animate-spin text-blue-600 dark:text-blue-400" />
+          <Loader2 className="size-3.5 animate-spin text-[#2563C9] dark:text-[#DCE7F8]" />
         ) : (
           <Github className="size-3.5" aria-hidden="true" />
         )}
@@ -312,51 +324,51 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
         </span>
         {shortSha && !isSyncing && (
           <>
-            <span className="text-zinc-300 dark:text-zinc-600">·</span>
-            <span className="inline-flex items-center gap-1 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span className="text-muted-foreground/50">·</span>
+            <span className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
               <Check className="size-3 text-emerald-600 dark:text-emerald-400" />
               commit {shortSha}
             </span>
           </>
         )}
         {hasIncoming && (
-          <span className="flex size-1.5 rounded-full bg-amber-500 ring-2 ring-white dark:ring-zinc-900 animate-pulse" />
+          <span className="flex size-2 rounded-[2px] bg-[#9A6B00] ring-2 ring-card animate-none" />
         )}
       </button>
 
       {/* Rich Professional Hover Popover (Zero DOM-churn, pure CSS visibility) */}
-      <div className="pointer-events-none absolute right-0 top-full z-50 mt-1.5 w-80 opacity-0 transition-all duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
-        <div className="rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-xl backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/95 space-y-2.5 text-left">
-          <div className="flex items-center justify-between border-b border-zinc-100 pb-2 dark:border-zinc-800">
+      <div className="pointer-events-none absolute right-0 top-full z-50 mt-1.5 w-80 opacity-0 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[130ms] group-hover:pointer-events-auto group-hover:opacity-100">
+        <div className="rounded-[8px] border border-border bg-card p-3 shadow-xl space-y-2.5 text-left">
+          <div className="flex items-center justify-between border-b border-border pb-2">
             <div className="flex items-center gap-1.5 truncate">
-              <Github className="size-3.5 shrink-0 text-zinc-700 dark:text-zinc-300" />
-              <span className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+              <Github className="size-3.5 shrink-0 text-foreground" />
+              <span className="truncate text-xs font-semibold text-foreground">
                 {status.repository}
               </span>
             </div>
             <span
-              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+              className={`shrink-0 rounded-[3px] font-mono text-[11px] font-semibold uppercase tracking-[0.09em] px-1.5 py-0.5 ${
                 isSyncing
-                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                  ? "bg-[#EEF4FD] text-[#1B4BA8] dark:bg-[#1B4BA8]/20 dark:text-[#DCE7F8]"
                   : hasIncoming
-                  ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  ? "bg-[#FBF4E2] text-[#9A6B00] border border-[#F6E7C2] dark:bg-amber-900/30 dark:text-amber-300"
+                  : "bg-[#EDF5F0] text-[#1E7E34] border border-[#CDE5D4] dark:bg-emerald-950/40 dark:text-emerald-300"
               }`}
             >
               {isSyncing ? "Syncing..." : hasIncoming ? "Incoming" : "Synced"}
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-zinc-500">
-            <span className="font-mono text-[10px]">
-              Branch: <strong className="font-semibold text-zinc-800 dark:text-zinc-200">{branchName}</strong>
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span className="font-mono text-[11px]">
+              Branch: <strong className="font-semibold text-foreground">{branchName}</strong>
             </span>
             {shortSha && status.repository && (
               <a
                 href={`https://github.com/${status.repository}/commit/${shortSha}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-blue-600 hover:underline dark:text-blue-400 font-medium"
+                className="inline-flex items-center gap-1 text-[#2563C9] hover:underline dark:text-[#DCE7F8] font-medium"
                 onClick={(e) => e.stopPropagation()}
               >
                 Commit: {shortSha}
@@ -368,7 +380,7 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
           <button
             type="button"
             onClick={openGitHubSync}
-            className="flex w-full items-center justify-between border-t border-zinc-100 pt-2 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline dark:border-zinc-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors cursor-pointer group/link"
+            className="flex w-full items-center justify-between border-t border-border pt-2 text-xs font-medium text-[#2563C9] hover:underline dark:text-[#DCE7F8] transition-colors cursor-pointer group/link"
           >
             <span>Open GitHub Sync workspace</span>
             <span aria-hidden="true" className="transition-transform group-hover/link:translate-x-0.5">&rarr;</span>
@@ -435,7 +447,7 @@ export function FilesWorkspaceMenu({
               }
               title={selectionMode ? "Selected file actions" : "Files actions"}
               data-testid="files-workspace-menu"
-              className="flex size-11 items-center justify-center rounded hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-zinc-800"
+              className="flex size-8 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-[#D14E24]"
             >
               <MoreHorizontal className="size-4" aria-hidden="true" />
             </button>
@@ -545,20 +557,20 @@ export function FilesWorkspaceMenu({
                   maxLength={256}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  className="mt-2 h-11 w-full rounded border bg-transparent px-3 focus-visible:outline-blue-500"
+                  className="mt-2 h-9 w-full rounded-[5px] border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D14E24]"
                 />
               </label>
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={closeSurface}
-                  className="min-h-10 rounded border px-3"
+                  className="h-9 rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="min-h-10 rounded bg-blue-600 px-3 text-white"
+                  className="h-9 rounded-[5px] bg-primary px-3 text-xs font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                 >
                   Show results
                 </button>

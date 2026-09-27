@@ -1,14 +1,17 @@
 {
   "name": "NetworkBase",
   "short_name": "NetworkBase",
-  "description": "Collaborative workspace for building together.",
+  "description": "Discover projects, find collaborators, and build together.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
-  "categories": ["productivity", "social"],
+  "background_color": "#141A1E",
+  "theme_color": "#141A1E",
+  "categories": [
+    "productivity",
+    "social"
+  ],
   "icons": [
     {
       "src": "/favicon.ico",
@@ -16,16 +19,22 @@
       "type": "image/x-icon"
     },
     {
-      "src": "/icon-192.png",
+      "src": "/icon-ink-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icon-ink-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-maskable-512.png",

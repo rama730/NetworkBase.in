@@ -1,183 +1,337 @@
 'use client';
 
-import { useEffect } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { CreateProjectInput } from '@/lib/validations/project';
+import { CreateProjectInput, type OpenRoleInput } from '@/lib/validations/project';
 import { WizardContextType } from '../useCreateProjectWizard';
-import { Plus, Trash2, UserCircle } from 'lucide-react';
+import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { SkillPicker } from '@/components/skills/SkillPicker';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const fieldLabelClass = 'mb-2 block text-[13px] font-medium leading-[1.2] text-foreground';
+const fieldClass = 'h-[var(--ui-control-height-lg)] bg-card text-[15px]';
+const textAreaClass = 'min-h-28 w-full resize-y rounded-md border border-input bg-card px-[var(--ui-control-px)] py-3 text-[15px] leading-[1.5] text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20';
 
 const ROLE_OPTIONS = [
-    'Frontend Developer',
-    'Backend Developer',
-    'Full Stack Developer',
-    'UI/UX Designer',
-    'Product Manager',
-    'DevOps Engineer',
-    'Data Scientist',
-    'Mobile Developer',
-    'QA Engineer',
-    'Technical Writer',
-    'Marketing',
-    'Community Manager',
+    'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'UI/UX Designer',
+    'Product Manager', 'DevOps Engineer', 'Data Scientist', 'Mobile Developer',
+    'QA Engineer', 'Technical Writer', 'Marketing', 'Community Manager',
 ];
+
+const EXPERIENCE_OPTIONS = [
+    { value: 'any', label: 'Any experience level' },
+    { value: 'junior', label: 'Junior' },
+    { value: 'mid', label: 'Mid-level' },
+    { value: 'senior', label: 'Senior' },
+] as const;
+
+const COMPENSATION_OPTIONS = [
+    { value: 'unpaid', label: 'Unpaid / volunteer' },
+    { value: 'equity', label: 'Equity' },
+    { value: 'paid', label: 'Paid' },
+    { value: 'rev_share', label: 'Revenue share' },
+] as const;
 
 interface Phase3TeamRolesProps {
     wizardContext: WizardContextType;
+    showValidationSummary?: boolean;
 }
 
-export default function Phase3TeamRoles({ wizardContext }: Phase3TeamRolesProps) {
-    const { getValues, setValue, watch } = useFormContext<CreateProjectInput>();
-    const { openRoles, addRole, updateRole, removeRole } = wizardContext;
+function FieldError({ id, message }: { id: string; message?: string }) {
+    if (!message) return null;
+    return <p id={id} role="alert" className="mt-1.5 text-[13px] leading-[1.5] text-destructive">{message}</p>;
+}
 
+function FieldLabel({ htmlFor, children, required = false }: { htmlFor: string; children: ReactNode; required?: boolean }) {
+    return <label htmlFor={htmlFor} className={fieldLabelClass}>{children}{required ? <><span aria-hidden="true"> *</span><span className="sr-only"> (required)</span></> : null}</label>;
+}
+
+function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; title: string; description: string; id: string }) {
+    return (
+        <div className="max-w-[65ch]">
+            <p className="nb-micro text-primary">{eyebrow}</p>
+            <h3 id={id} className="nb-card-title mt-1 text-foreground">{title}</h3>
+            <p className="nb-compact mt-1 text-muted-foreground">{description}</p>
+        </div>
+    );
+}
+
+export default function Phase3TeamRoles({ wizardContext, showValidationSummary = false }: Phase3TeamRolesProps) {
+    const { getValues, setValue, watch, formState: { errors } } = useFormContext<CreateProjectInput>();
+    const { openRoles, openRoleIds, addRole, updateRole, removeRole } = wizardContext;
     const creatorRole = watch('creator_role');
     const leadFocus = creatorRole?.title || '';
+    const [roleSuggestionsOpen, setRoleSuggestionsOpen] = useState<Record<string, boolean>>({});
+    const roleErrors = Array.isArray(errors.roles) ? errors.roles : [];
+    const openPositionCount = openRoles.reduce((total, role) => total + role.count, 0);
+    const validationErrors = roleErrors.flatMap((roleError, index) => {
+        const messages = [roleError?.role?.message, roleError?.count?.message].filter((message): message is string => Boolean(message));
+        return messages.map((message) => `Role ${index + 1}: ${message}`);
+    });
 
     useEffect(() => {
         const currentRole = getValues('creator_role');
         if (!currentRole || currentRole.role_type !== 'lead') {
-            setValue(
-                'creator_role',
-                {
-                    role_type: 'lead',
-                    title: currentRole?.title || '',
-                    time_commitment: currentRole?.time_commitment,
-                },
-                { shouldDirty: !!currentRole && currentRole.role_type !== 'lead' }
-            );
+            setValue('creator_role', {
+                role_type: 'lead', title: currentRole?.title || '', time_commitment: currentRole?.time_commitment,
+            }, { shouldDirty: !!currentRole && currentRole.role_type !== 'lead' });
         }
     }, [getValues, setValue]);
 
+    const updateLeadFocus = (title: string) => {
+        setValue('creator_role', {
+            role_type: 'lead', title, time_commitment: creatorRole?.time_commitment,
+        }, { shouldDirty: true, shouldValidate: true });
+    };
+
     return (
-        <div className="space-y-8">
-            {/* Creator's Role */}
-            <div>
-                <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-                    Your Role
-                </h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-                    Project creator is always the lead. Add an optional focus area.
-                </p>
-
-                <div className="mb-4 rounded-xl border border-indigo-200 dark:border-indigo-900/40 bg-indigo-50/60 dark:bg-indigo-900/15 px-4 py-3">
-                    <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">Lead</p>
-                    <p className="text-xs text-indigo-600/80 dark:text-indigo-300/70">
-                        You own direction, decisions, and team alignment.
-                    </p>
-                </div>
-
-                <input
-                    value={leadFocus}
-                    onChange={(e) =>
-                        setValue('creator_role', {
-                            role_type: 'lead',
-                            title: e.target.value,
-                            time_commitment: creatorRole?.time_commitment,
-                        })
-                    }
-                    className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                    placeholder="Lead focus (optional, e.g. Frontend, Product, AI)"
-                    maxLength={80}
-                />
+        <div className="min-w-0 w-full space-y-8 pb-6">
+            <div className="max-w-[65ch]">
+                <p className="nb-micro text-primary">Phase 3 · team</p>
+                <h2 className="nb-section-title mt-1 text-foreground">Build the initial team</h2>
+                <p className="nb-compact mt-1.5 text-muted-foreground">Confirm your lead role, then add only the openings you plan to recruit for now.</p>
             </div>
 
-            {/* Open Roles */}
-            <div>
-                <div className="flex items-center justify-between mb-4">
+            {showValidationSummary && validationErrors.length > 0 ? (
+                <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
+                    <p className="font-semibold">Complete or remove the unfinished roles</p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
+                        {validationErrors.map((message) => <li key={message}>{message}</li>)}
+                    </ul>
+                </div>
+            ) : null}
+
+            <section aria-labelledby="project-lead-heading" className="border-t border-border pt-6">
+                <SectionHeading
+                    id="project-lead-heading"
+                    eyebrow="Leadership"
+                    title="Project lead"
+                    description="You are the project lead. Add a focus area if it helps collaborators understand how you will guide the work."
+                />
+                <div className="mt-5 grid gap-5 border-y border-border py-5 md:grid-cols-[minmax(11rem,0.42fr)_minmax(0,1fr)] md:gap-6">
                     <div>
-                        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                            Open Positions
-                        </h3>
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                            Add roles you&apos;re looking to fill
-                        </p>
+                        <p className="nb-label">Your role</p>
+                        <p className="nb-card-title mt-2 text-foreground">Lead</p>
+                        <p className="nb-compact mt-1 max-w-[34ch] text-muted-foreground">You set direction, make decisions, and align the team.</p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={addRole}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm transition-colors"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Add Role
-                    </button>
+                    <div>
+                        <div className="flex items-end justify-between gap-3">
+                            <FieldLabel htmlFor="create-project-lead-focus">Lead focus</FieldLabel>
+                            <span className="nb-meta mb-2 shrink-0 tabular-nums text-muted-foreground" aria-live="polite">{leadFocus.length}/80</span>
+                        </div>
+                        <Input
+                            id="create-project-lead-focus"
+                            value={leadFocus}
+                            onChange={(event) => updateLeadFocus(event.target.value)}
+                            placeholder="For example, Product, design, or frontend"
+                            maxLength={80}
+                            className={fieldClass}
+                            aria-describedby="create-project-lead-focus-help"
+                        />
+                        <p id="create-project-lead-focus-help" className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">Optional. This appears with your lead role in the project summary.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section aria-labelledby="open-roles-heading" className="border-t border-border pt-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <SectionHeading
+                        id="open-roles-heading"
+                        eyebrow="Open roles"
+                        title="Invite the right collaborators"
+                        description="Openings are optional. Define a role only when you are ready to make it visible to potential contributors."
+                    />
+                    <div className="flex items-center gap-3">
+                        <span className="nb-meta shrink-0 tabular-nums text-muted-foreground" aria-live="polite">
+                            {openRoles.length} {openRoles.length === 1 ? 'role' : 'roles'} · {openPositionCount} {openPositionCount === 1 ? 'opening' : 'openings'}
+                        </span>
+                        <Button type="button" variant="outline" onClick={addRole}><Plus className="size-4" aria-hidden="true" />Add role</Button>
+                    </div>
                 </div>
 
                 {openRoles.length === 0 ? (
-                    <div className="text-center py-12 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-700">
-                        <UserCircle className="w-12 h-12 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
-                        <p className="text-zinc-500 dark:text-zinc-400">No open positions yet</p>
-                        <p className="text-sm text-zinc-400 dark:text-zinc-500 mt-1">
-                            Click &quot;Add Role&quot; to define positions you need to fill
-                        </p>
+                    <div className="mt-5 border-y border-border py-5">
+                        <p className="nb-card-title text-foreground">No openings added</p>
+                        <p className="nb-compact mt-1 max-w-[60ch] text-muted-foreground">You can create the project without recruiting. Add roles here when you know what help the work needs.</p>
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        {openRoles.map((role, index) => (
-                            <div key={index} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                                <div className="flex items-start justify-between mb-3">
-                                    <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                                        Role #{index + 1}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => removeRole(index)}
-                                        className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
+                    <ol className="mt-5 border-t border-border">
+                        {openRoles.map((role, index) => {
+                            const roleError = roleErrors[index];
+                            const roleId = openRoleIds[index] || `role-${index}`;
+                            const roleTitleId = `create-project-role-${roleId}`;
+                            const roleCountId = `create-project-role-count-${roleId}`;
+                            const roleDescriptionId = `create-project-role-description-${roleId}`;
+                            const roleTitleErrorId = `${roleTitleId}-error`;
+                            const roleCountErrorId = `${roleCountId}-error`;
+                            const normalizedRoleTitle = role.role.trim().toLocaleLowerCase();
+                            const duplicateRoleIndex = normalizedRoleTitle
+                                ? openRoles.findIndex((candidate, candidateIndex) => candidateIndex !== index && candidate.role.trim().toLocaleLowerCase() === normalizedRoleTitle)
+                                : -1;
+                            const duplicateRoleMessage = duplicateRoleIndex >= 0 ? `This matches open role ${duplicateRoleIndex + 1}. Use one role per title.` : undefined;
+                            const roleComplete = Boolean(normalizedRoleTitle) && role.count >= 1 && role.count <= 10 && !duplicateRoleMessage;
+                            const experienceLabel = EXPERIENCE_OPTIONS.find((option) => option.value === (role.experience_level || 'any'))?.label;
+                            const compensationLabel = COMPENSATION_OPTIONS.find((option) => option.value === (role.compensation_type || 'unpaid'))?.label;
+                            const optionalDetailSummary = [
+                                role.skills?.length ? `${role.skills.length} ${role.skills.length === 1 ? 'skill' : 'skills'}` : null,
+                                role.experience_level && role.experience_level !== 'any' ? experienceLabel : null,
+                                role.compensation_type && role.compensation_type !== 'unpaid' ? compensationLabel : null,
+                            ].filter((item): item is string => Boolean(item)).join(' · ') || 'Optional details';
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                                            Role Title
-                                        </label>
-                                        <input
-                                            type="text"
-                                            list={`role-options-${index}`}
-                                            value={role.role}
-                                            onChange={(e) => updateRole(index, { role: e.target.value })}
-                                            placeholder="Select or type a role"
-                                            className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                                        />
-                                        <datalist id={`role-options-${index}`}>
-                                            {ROLE_OPTIONS.map((r) => (
-                                                <option key={r} value={r} />
-                                            ))}
-                                        </datalist>
+                            return (
+                                <li key={roleId} className="border-b border-border py-6">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <p className="nb-micro text-muted-foreground">Open role {String(index + 1).padStart(2, '0')}</p>
+                                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                <p className="nb-compact text-muted-foreground">{role.count} {role.count === 1 ? 'position' : 'positions'} available</p>
+                                                {roleComplete ? <span className="rounded-[3px] border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.09em] text-muted-foreground">Required details complete</span> : null}
+                                            </div>
+                                        </div>
+                                        <Button type="button" onClick={() => removeRole(index)} variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" aria-label={`Remove open role ${index + 1}`}>
+                                            <Trash2 className="size-4" aria-hidden="true" />
+                                        </Button>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                                            Positions Available
-                                        </label>
-                                        <input
-                                            type="number"
-                                            min={1}
-                                            max={10}
-                                            value={role.count}
-                                            onChange={(e) => updateRole(index, { count: parseInt(e.target.value) || 1 })}
-                                            className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                                        />
+                                    <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_12rem]">
+                                        <div>
+                                            <FieldLabel htmlFor={roleTitleId} required>Role title</FieldLabel>
+                                            <Input
+                                                id={roleTitleId}
+                                                value={role.role}
+                                                onChange={(event) => updateRole(index, { role: event.target.value })}
+                                                placeholder="For example, Frontend developer"
+                                                className={fieldClass}
+                                                aria-invalid={Boolean(roleError?.role || duplicateRoleMessage)}
+                                                aria-describedby={roleError?.role || duplicateRoleMessage ? roleTitleErrorId : undefined}
+                                                autoFocus={index === openRoles.length - 1 && !role.role}
+                                            />
+                                            <FieldError id={roleTitleErrorId} message={roleError?.role?.message || duplicateRoleMessage} />
+                                            <button
+                                                type="button"
+                                                aria-expanded={Boolean(roleSuggestionsOpen[roleId])}
+                                                aria-controls={`${roleId}-suggestions`}
+                                                onClick={() => setRoleSuggestionsOpen((open) => ({ ...open, [roleId]: !open[roleId] }))}
+                                                className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+                                            >
+                                                Popular roles
+                                                <ChevronDown className={`size-3.5 transition-transform duration-[180ms] ${roleSuggestionsOpen[roleId] ? 'rotate-180' : ''}`} aria-hidden="true" />
+                                            </button>
+                                            {roleSuggestionsOpen[roleId] ? <div id={`${roleId}-suggestions`} className="mt-2 flex flex-wrap gap-1.5" aria-label="Popular role suggestions">
+                                                {ROLE_OPTIONS.slice(0, 6).map((suggestion) => {
+                                                    const usedByAnotherRole = openRoles.some((candidate, candidateIndex) => candidateIndex !== index && candidate.role.trim().toLocaleLowerCase() === suggestion.toLocaleLowerCase());
+                                                    return (
+                                                    <button
+                                                        key={suggestion}
+                                                        type="button"
+                                                        disabled={usedByAnotherRole}
+                                                        onClick={() => {
+                                                            updateRole(index, { role: suggestion });
+                                                            setRoleSuggestionsOpen((open) => ({ ...open, [roleId]: false }));
+                                                        }}
+                                                        className="rounded-[3px] border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.09em] text-muted-foreground transition hover:border-border hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    >{suggestion}</button>
+                                                );
+                                                })}
+                                            </div> : null}
+                                        </div>
+                                        <div>
+                                            <FieldLabel htmlFor={roleCountId} required>Positions</FieldLabel>
+                                            <Input
+                                                id={roleCountId}
+                                                type="number"
+                                                min={1}
+                                                max={10}
+                                                step={1}
+                                                inputMode="numeric"
+                                                value={role.count}
+                                                onChange={(event) => {
+                                                    const parsed = Number.parseInt(event.target.value, 10);
+                                                    updateRole(index, { count: Number.isFinite(parsed) ? Math.min(10, Math.max(1, parsed)) : 1 });
+                                                }}
+                                                className={fieldClass}
+                                                aria-invalid={Boolean(roleError?.count)}
+                                                aria-describedby={roleError?.count ? roleCountErrorId : undefined}
+                                            />
+                                            <p className="mt-1.5 text-[13px] leading-[1.5] text-muted-foreground">One to ten openings.</p>
+                                            <FieldError id={roleCountErrorId} message={roleError?.count?.message} />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <FieldLabel htmlFor={roleDescriptionId}>Role description</FieldLabel>
+                                            <textarea
+                                                id={roleDescriptionId}
+                                                value={role.description || ''}
+                                                onChange={(event) => updateRole(index, { description: event.target.value })}
+                                                rows={3}
+                                                className={textAreaClass}
+                                                placeholder="Describe the work this person will own and the outcome they should help deliver."
+                                            />
+                                        </div>
                                     </div>
 
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                                            Description
-                                        </label>
-                                        <textarea
-                                            value={role.description || ''}
-                                            onChange={(e) => updateRole(index, { description: e.target.value })}
-                                            rows={2}
-                                            className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 resize-none"
-                                            placeholder="What will this person be responsible for?"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                                    <details className="group mt-5 border-t border-border pt-4">
+                                        <summary className="flex min-h-[var(--ui-control-height-lg)] cursor-pointer list-none items-center justify-between gap-4 rounded-md border border-border bg-secondary/55 px-4 py-2.5 text-[13px] font-medium text-foreground transition-[background-color,border-color,box-shadow] duration-[130ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:border-input hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
+                                            <span className="inline-flex min-w-0 items-center gap-2">
+                                                <span>Role requirements and offer</span>
+                                                <span className="nb-meta shrink-0 text-muted-foreground">{optionalDetailSummary}</span>
+                                            </span>
+                                            <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform duration-[180ms] group-open:rotate-180" aria-hidden="true" />
+                                        </summary>
+                                        <div className="mt-5 space-y-5">
+                                            <SkillPicker
+                                                value={role.skills || []}
+                                                onChange={(skills) => updateRole(index, { skills })}
+                                                label="Skills"
+                                                description="Add the skills a contributor will use in this role."
+                                                maxSkills={8}
+                                                compact
+                                                progressive
+                                                placeholder="Search skills for this role"
+                                            />
+                                            <div className="grid gap-5 md:grid-cols-2">
+                                                <div>
+                                                    <FieldLabel htmlFor={`${roleId}-experience`}>Experience level</FieldLabel>
+                                                    <Select value={role.experience_level || 'any'} onValueChange={(experience_level) => updateRole(index, { experience_level: experience_level as OpenRoleInput['experience_level'] })}>
+                                                        <SelectTrigger id={`${roleId}-experience`} className={fieldClass}><SelectValue /></SelectTrigger>
+                                                        <SelectContent>{EXPERIENCE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div>
+                                                    <FieldLabel htmlFor={`${roleId}-compensation`}>Compensation</FieldLabel>
+                                                    <Select value={role.compensation_type || 'unpaid'} onValueChange={(compensation_type) => updateRole(index, { compensation_type: compensation_type as OpenRoleInput['compensation_type'] })}>
+                                                        <SelectTrigger id={`${roleId}-compensation`} className={fieldClass}><SelectValue /></SelectTrigger>
+                                                        <SelectContent>{COMPENSATION_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+                                            {role.compensation_type && role.compensation_type !== 'unpaid' ? (
+                                                <div>
+                                                    <FieldLabel htmlFor={`${roleId}-compensation-details`}>Compensation details</FieldLabel>
+                                                    <Input
+                                                        id={`${roleId}-compensation-details`}
+                                                        value={role.compensation_details || ''}
+                                                        onChange={(event) => updateRole(index, { compensation_details: event.target.value })}
+                                                        placeholder="For example, hourly range, equity range, or revenue-share terms"
+                                                        className={fieldClass}
+                                                    />
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </details>
+                                </li>
+                            );
+                        })}
+                        <li className="py-4">
+                            <Button type="button" variant="link" size="sm" onClick={addRole} className="px-0">
+                                <Plus className="size-3.5" aria-hidden="true" />
+                                Add another role
+                            </Button>
+                        </li>
+                    </ol>
                 )}
-            </div>
+            </section>
         </div>
     );
 }

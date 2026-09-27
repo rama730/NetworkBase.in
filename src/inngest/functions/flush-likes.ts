@@ -2,11 +2,12 @@ import { inngest } from "../client";
 import { redis } from "@/lib/redis";
 import { db } from "@/lib/db";
 import { projectUpdates } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 export const flushUpdateLikes = inngest.createFunction(
     { id: "flush-project-likes", name: "Flush Project Update Likes from Redis" },
-    { cron: "* * * * *" }, // Run every minute for eventual count consistency
+    // ponytail: 15-minute cron prevents idle external polling churn while ensuring eventual consistency
+    { cron: "*/15 * * * *" },
     async ({ step }) => {
         if (!redis) return { skipped: true, reason: "No Redis configured" };
 
@@ -51,31 +52,54 @@ export const flushUpdateLikes = inngest.createFunction(
                 })
                 .filter((entry): entry is { updateId: string; increments: number } => entry !== null);
 
-            const results = await Promise.allSettled(
-                validUpdates.map(async ({ updateId, increments }) => {
-                    if (increments > 0) {
-                        await db.update(projectUpdates)
-                            .set({ likeCount: sql`${projectUpdates.likeCount} + ${increments}`, updatedAt: new Date() })
-                            .where(eq(projectUpdates.id, updateId));
-                    } else if (increments < 0) {
-                        await db.update(projectUpdates)
-                            .set({ likeCount: sql`GREATEST(${projectUpdates.likeCount} - ${Math.abs(increments)}, 0)`, updatedAt: new Date() })
-                            .where(eq(projectUpdates.id, updateId));
-                    }
-                    return updateId;
-                })
-            );
+            const BATCH_SIZE = 200;
+            const failed: Array<{ updateId: string; increments: number; error?: any }> = [];
+            let succeeded = 0;
 
-            const succeeded = results.filter(r => r.status === 'fulfilled').length;
-            const failed = results
-                .map((result, index) => ({ result, index }))
-                .filter(({ result }) => result.status === 'rejected')
-                .map(({ index }) => validUpdates[index]);
+            for (let i = 0; i < validUpdates.length; i += BATCH_SIZE) {
+                const chunk = validUpdates.slice(i, i + BATCH_SIZE);
+                try {
+                    const caseFragments = chunk.map(({ updateId, increments }) => {
+                        if (increments > 0) {
+                            return sql`WHEN ${projectUpdates.id} = ${updateId} THEN ${projectUpdates.likeCount} + ${increments}`;
+                        } else {
+                            return sql`WHEN ${projectUpdates.id} = ${updateId} THEN GREATEST(${projectUpdates.likeCount} - ${Math.abs(increments)}, 0)`;
+                        }
+                    });
+                    const chunkIds = chunk.map(c => c.updateId);
+                    await db.update(projectUpdates)
+                        .set({
+                            likeCount: sql`CASE ${sql.join(caseFragments, sql` `)} ELSE ${projectUpdates.likeCount} END`,
+                            updatedAt: new Date(),
+                        })
+                        .where(inArray(projectUpdates.id, chunkIds));
+                    succeeded += chunk.length;
+                } catch (batchErr) {
+                    // Fallback to item-by-item on chunk error to isolate any problematic row
+                    for (const item of chunk) {
+                        try {
+                            if (item.increments > 0) {
+                                await db.update(projectUpdates)
+                                    .set({ likeCount: sql`${projectUpdates.likeCount} + ${item.increments}`, updatedAt: new Date() })
+                                    .where(eq(projectUpdates.id, item.updateId));
+                            } else if (item.increments < 0) {
+                                await db.update(projectUpdates)
+                                    .set({ likeCount: sql`GREATEST(${projectUpdates.likeCount} - ${Math.abs(item.increments)}, 0)`, updatedAt: new Date() })
+                                    .where(eq(projectUpdates.id, item.updateId));
+                            }
+                            succeeded++;
+                        } catch (singleErr) {
+                            failed.push({ ...item, error: singleErr });
+                        }
+                    }
+                }
+            }
 
             if (failed.length > 0) {
                 console.error("flush-likes: update failed", {
                     failedCount: failed.length,
                     failedUpdateIds: failed.map((f) => f?.updateId).filter(Boolean),
+                    reasons: failed.map((f) => f.error),
                 });
 
                 // Requeue only the failed increments to retry in the next flush

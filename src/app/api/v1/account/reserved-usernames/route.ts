@@ -12,6 +12,15 @@ import { z } from 'zod'
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/
 const CORE_RESERVED_SET = new Set<string>(CORE_RESERVED_USERNAMES)
 
+const postSchema = z.object({
+    username: z.string().min(3).max(20).regex(USERNAME_PATTERN),
+    reason: z.string().trim().max(120).optional(),
+})
+
+const deleteSchema = z.object({
+    username: z.string().min(1),
+})
+
 async function requireAdmin() {
     const auth = await requireAuthenticatedUser()
     const user = auth.user
@@ -42,6 +51,10 @@ export async function GET(request: Request) {
         return jsonError('Rate limit exceeded', 429, 'RATE_LIMITED')
     }
 
+    const { searchParams } = new URL(request.url)
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get('limit') || '100', 10) || 100), 500)
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0)
+
     const rows = await db
         .select({
             username: reservedUsernames.username,
@@ -50,6 +63,8 @@ export async function GET(request: Request) {
         })
         .from(reservedUsernames)
         .orderBy(asc(reservedUsernames.username))
+        .limit(limit)
+        .offset(offset)
 
     logApiRoute(request, {
         requestId,
@@ -109,11 +124,6 @@ export async function POST(request: Request) {
         })
         return jsonError('Malformed JSON', 400, 'BAD_REQUEST')
     }
-
-    const postSchema = z.object({
-        username: z.string().min(3).max(20).regex(USERNAME_PATTERN),
-        reason: z.string().trim().max(120).optional(),
-    });
 
     const parsed = postSchema.safeParse(body);
     if (!parsed.success) {
@@ -202,10 +212,6 @@ export async function DELETE(request: Request) {
         })
         return jsonError('Malformed JSON', 400, 'BAD_REQUEST')
     }
-
-    const deleteSchema = z.object({
-        username: z.string().min(1),
-    });
 
     const parsed = deleteSchema.safeParse(body);
     if (!parsed.success) {

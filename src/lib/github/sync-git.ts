@@ -106,8 +106,7 @@ export async function publishGitSnapshot(input: {
           }
         }
       });
-      // ponytail: the checkout contains only the reviewed repository snapshot;
-      // one native staging pass replaces thousands of git subprocesses.
+      // ponytail: native git add stages reviewed snapshot in one pass. ceiling: OS file descriptor and memory limits on worker container. upgrade: direct tree construction via Git Data API if container storage is constrained.
       await git("add", "--all", "--", ".");
       if (!(await git("status", "--porcelain")))
         throw new Error(
@@ -118,8 +117,7 @@ export async function publishGitSnapshot(input: {
       const sha = await git("rev-parse", "HEAD");
       await input.beforePush(sha, branch);
       // Fast-forward-only; branch protections and concurrent remote changes fail closed.
-      // ponytail: git push exits 0 only upon verified remote ref update;
-      // pruning the redundant ls-remote roundtrip saves 250-450ms of external network latency.
+      // ponytail: git push exits 0 only upon verified remote ref update; pruning redundant ls-remote saves 250-450ms network latency. ceiling: fast-forward pushes only. upgrade: explicit remote ref leasing if concurrent non-fast-forward push queues are introduced.
       await git("push", "origin", `HEAD:refs/heads/${branch}`);
       return { commitSha: sha, branch, pushed: true };
     });

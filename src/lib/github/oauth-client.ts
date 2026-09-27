@@ -46,8 +46,7 @@ export function identityLinkError(error: unknown, provider = "GitHub") {
  */
 export async function startGithubRepositoryAuthorization({
   nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`,
-  // ponytail: one canonical grant covers repository contents and the workflow
-  // files GitHub protects with its separate OAuth scope.
+  // ponytail: canonical grant covers repository contents and workflow files. ceiling: standard OAuth 2.0 scopes. upgrade: GitHub App fine-grained permissions if user OAuth scopes are restricted by org policy.
   scopes = GITHUB_REPOSITORY_SCOPES,
   login,
 }: GithubOAuthOptions = {}) {
@@ -92,8 +91,7 @@ export async function startGithubIdentityLink({
     options: {
       scopes: GITHUB_REPOSITORY_SCOPES,
       queryParams: { prompt: "select_account" },
-      // ponytail: obtain the provider URL first so replacement can detach the
-      // stale identity only after Auth has accepted the link request.
+      // ponytail: obtain provider URL before detaching stale identity. ceiling: browser popup/redirect workflow. upgrade: background OAuth device flow for headless environments.
       skipBrowserRedirect: true,
       redirectTo: buildOAuthRedirectTo(
         resolveAuthBaseUrl(),

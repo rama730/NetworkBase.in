@@ -113,6 +113,8 @@ type FeedPage<T> = {
     viewerSkills?: string[];
 };
 
+export type ConnectionFeedPage<T> = FeedPage<T>;
+
 type FeedErrorPage = {
     success: false;
     error?: string;
@@ -291,9 +293,11 @@ function patchDiscoverAndSuggestionStatus(
 
 function invalidateConnectionsScoped(queryClient: ReturnType<typeof useQueryClient>) {
     void queryClient.invalidateQueries({ queryKey: ['connections', 'feed', 'network'] });
+    void queryClient.invalidateQueries({ queryKey: ['connections', 'feed', 'discover'] });
     void queryClient.invalidateQueries({ queryKey: ['connections', 'feed', 'requests_incoming'] });
     void queryClient.invalidateQueries({ queryKey: ['connections', 'feed', 'requests_sent'] });
     void queryClient.invalidateQueries({ queryKey: ['connections', 'pending-requests'] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending() });
     void queryClient.invalidateQueries({ queryKey: ['connections', 'request-history'] });
     void queryClient.invalidateQueries({ queryKey: ['connections', 'stats'] });
 }
@@ -316,6 +320,7 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
         filters?: DiscoverFilters;
         historyFilters?: HistoryFilters;
         requestSortBy?: 'recent' | 'mutual' | 'oldest';
+        initialPage?: FeedPage<FeedItemByTab[TTab]>;
     },
 ) {
     const limit = options?.limit ?? 20;
@@ -325,6 +330,7 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
     const filters = options?.filters;
     const historyFilters = options?.historyFilters;
     const requestSortBy = options?.requestSortBy;
+    const initialPage = options?.initialPage;
 
     // 2J: Include filters and requestSortBy in queryKey for cache separation
     const filtersKey = filters ? JSON.stringify(filters) : '';
@@ -347,6 +353,9 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
             return normalizeFeedResult(result as FeedPage<FeedItemByTab[TTab]> | FeedErrorPage);
         },
         initialPageParam: undefined as string | undefined,
+        initialData: initialPage
+            ? { pages: [initialPage], pageParams: [undefined] }
+            : undefined,
         getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
         staleTime: tab === 'network' ? 30_000 : 60_000,
         gcTime: 5 * 60_000,
@@ -359,8 +368,13 @@ export function useConnections(limit = 50, search?: string, sortBy?: 'recent' | 
     return useConnectionsFeed('network', { limit, search, sortBy });
 }
 
-export function useSuggestedPeople(limit = 20, search?: string, filters?: DiscoverFilters) {
-    return useConnectionsFeed('discover', { limit, search, filters });
+export function useSuggestedPeople(
+    limit = 20,
+    search?: string,
+    filters?: DiscoverFilters,
+    initialPage?: FeedPage<DiscoverConnectionItem>,
+) {
+    return useConnectionsFeed('discover', { limit, search, filters, initialPage });
 }
 
 function mapIncomingRequest(item: RequestConnectionItem): PendingIncomingRequest {
@@ -559,7 +573,16 @@ export function useConnectionMutations() {
                 connectionId: result.connectionId,
             });
         },
-        onSettled: (_data, _err, vars) => invalidateAll(connectionMutationTargetId(vars)),
+        onSettled: (_data, _err, vars) => {
+            const targetId = connectionMutationTargetId(vars);
+            void queryClient.invalidateQueries({ queryKey: ['connections', 'feed', 'requests_sent'] });
+            void queryClient.invalidateQueries({ queryKey: ['connections', 'pending-requests'] });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending() });
+            void queryClient.invalidateQueries({ queryKey: ['connections', 'stats'] });
+            if (targetId) {
+                void queryClient.invalidateQueries({ queryKey: queryKeys.profile.byTarget(targetId) });
+            }
+        },
     });
 
     const cancelRequest = useMutation({
@@ -572,16 +595,16 @@ export function useConnectionMutations() {
             await cancelConnectionsScoped(queryClient);
             let targetUserId: string | undefined;
             updatePendingRequestQueries(queryClient, (prev) => {
-                const request = prev.sent.find((item) => item.id === id);
-                targetUserId = request?.addresseeId;
+                const request = prev.sent.find((item) => item.id === id || item.addresseeId === id);
+                targetUserId = request?.addresseeId || (id.length === 36 ? id : undefined);
                 return {
                     ...prev,
-                    sent: prev.sent.filter((item) => item.id !== id),
+                    sent: prev.sent.filter((item) => item.id !== id && item.addresseeId !== id),
                 };
             });
 
             patchDiscoverAndSuggestionStatus(queryClient, {
-                userIds: targetUserId ? [targetUserId] : [],
+                userIds: targetUserId ? [targetUserId, id] : [id],
                 connectionIds: [id],
                 status: 'none',
                 canConnect: true,
@@ -597,7 +620,7 @@ export function useConnectionMutations() {
         },
         onSuccess: (result, id, context) => {
             patchDiscoverAndSuggestionStatus(queryClient, {
-                userIds: [result.addresseeId, context?.targetUserId],
+                userIds: [result.addresseeId, context?.targetUserId, id],
                 connectionIds: [result.connectionId, id],
                 status: 'none',
                 canConnect: true,
@@ -605,7 +628,7 @@ export function useConnectionMutations() {
             });
         },
         onError: (_err, _vars, context) => invalidateAll(context?.targetUserId),
-        onSettled: (data, _err, _vars, context) => invalidateAll(data?.addresseeId || context?.targetUserId),
+        onSettled: (data, _err, vars, context) => invalidateAll(data?.addresseeId || context?.targetUserId || (typeof vars === 'string' ? vars : undefined)),
     });
 
     const acceptRequest = useMutation({

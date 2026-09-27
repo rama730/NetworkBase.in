@@ -22,7 +22,7 @@ export function AboutCard({ profile, isOwner, onEdit }: AboutCardProps) {
                     type="button"
                     onClick={onEdit}
                     aria-label="Edit about section"
-                    className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+                    className="p-1.5 rounded-[3px] hover:bg-muted text-muted-foreground transition-colors"
                 >
                     <Pencil className="w-4 h-4" aria-hidden="true" />
                 </button>
@@ -30,19 +30,19 @@ export function AboutCard({ profile, isOwner, onEdit }: AboutCardProps) {
         >
             <div className="px-5 py-4">
                 {hasBio ? (
-                    <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                    <p className="nb-body max-w-[64ch] whitespace-pre-wrap text-foreground/90">
                         {bio}
                     </p>
                 ) : (
                     <div className="text-center py-6">
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                        <p className="nb-body text-muted-foreground">
                             {isOwner ? 'Add a bio to tell others about yourself' : 'No bio added yet'}
                         </p>
                         {isOwner && onEdit ? (
                             <button
                                 type="button"
                                 onClick={onEdit}
-                                className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                                className="nb-ui-label mt-2 text-primary hover:text-primary/80 transition-colors"
                             >
                                 Add Bio
                             </button>

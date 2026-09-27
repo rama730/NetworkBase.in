@@ -66,8 +66,8 @@ function getInputVisualProperties(state: InputState): InputVisualProperties {
       // Req 17.1: 1px border, background fill
       return {
         borderWidth: "1px",
-        borderColor: "hsl(var(--border))",
-        backgroundColor: "hsl(var(--background))",
+        borderColor: "var(--input)",
+        backgroundColor: "var(--card)",
         boxShadow: null,
         pointerEvents: "auto",
         cursor: "auto",
@@ -76,9 +76,9 @@ function getInputVisualProperties(state: InputState): InputVisualProperties {
       // Req 17.2: 2px ring offset using ring token
       return {
         borderWidth: "1px",
-        borderColor: "hsl(var(--ring))",
-        backgroundColor: "hsl(var(--background))",
-        boxShadow: "0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring))",
+        borderColor: "var(--ring)",
+        backgroundColor: "var(--card)",
+        boxShadow: "0 0 0 2px var(--background), 0 0 0 4px var(--ring)",
         pointerEvents: "auto",
         cursor: "auto",
       };
@@ -86,8 +86,8 @@ function getInputVisualProperties(state: InputState): InputVisualProperties {
       // Req 17.3: 1.5px destructive border, destructive/5 background
       return {
         borderWidth: "1.5px",
-        borderColor: "hsl(var(--destructive))",
-        backgroundColor: "hsl(var(--destructive) / 0.05)",
+        borderColor: "var(--destructive)",
+        backgroundColor: "color-mix(in srgb, var(--destructive) 5%, var(--card))",
         boxShadow: null,
         pointerEvents: "auto",
         cursor: "auto",
@@ -96,8 +96,8 @@ function getInputVisualProperties(state: InputState): InputVisualProperties {
       // Req 17.4: border at 50% opacity, muted background
       return {
         borderWidth: "1px",
-        borderColor: "hsl(var(--border) / 0.5)",
-        backgroundColor: "hsl(var(--muted))",
+        borderColor: "color-mix(in srgb, var(--border) 50%, transparent)",
+        backgroundColor: "var(--muted)",
         boxShadow: null,
         pointerEvents: "none",
         cursor: "not-allowed",
@@ -184,8 +184,8 @@ describe("InputStates — Property 13: Input Field State Rendering (Task 8.2)", 
       fc.property(fieldNameArb, (fieldName) => {
         const props = getInputVisualProperties("default");
         assert.ok(
-          props.borderColor.includes("var(--border)"),
-          `Default state for field "${fieldName}" must use --border token`,
+          props.borderColor.includes("var(--input)"),
+          `Default state for field "${fieldName}" must use --input token`,
         );
       }),
       { numRuns: 100 },
@@ -198,8 +198,8 @@ describe("InputStates — Property 13: Input Field State Rendering (Task 8.2)", 
       fc.property(fieldNameArb, (fieldName) => {
         const props = getInputVisualProperties("default");
         assert.ok(
-          props.backgroundColor.includes("var(--background)"),
-          `Default state for field "${fieldName}" must use --background token`,
+          props.backgroundColor.includes("var(--card)"),
+          `Default state for field "${fieldName}" must use --card token`,
         );
       }),
       { numRuns: 100 },
@@ -274,7 +274,7 @@ describe("InputStates — Property 13: Input Field State Rendering (Task 8.2)", 
         const props = getInputVisualProperties("error");
         assert.ok(
           props.backgroundColor.includes("var(--destructive)") &&
-            props.backgroundColor.includes("0.05"),
+            props.backgroundColor.includes("5%"),
           `Error state for field "${fieldName}" must use destructive/5 background`,
         );
       }),
@@ -289,7 +289,7 @@ describe("InputStates — Property 13: Input Field State Rendering (Task 8.2)", 
         const props = getInputVisualProperties("disabled");
         assert.ok(
           props.borderColor.includes("var(--border)") &&
-            props.borderColor.includes("0.5"),
+            props.borderColor.includes("50%"),
           `Disabled state for field "${fieldName}" must use border at 50% opacity`,
         );
       }),
@@ -467,16 +467,16 @@ describe("InputStates — source-level structural contracts (Req 17.1, 17.2, 17.
   it("defines .onb-input with border-color using --border token (Req 17.1)", () => {
     assert.match(
       CSS_SOURCE,
-      /\.onb-input\s*\{[^}]*border-color:\s*hsl\(var\(--border\)\)/,
-      ".onb-input must define border-color using --border token (Req 17.1)",
+      /\.onb-input\s*\{[^}]*border-color:\s*var\(--input\)/,
+      ".onb-input must define border-color using --input token (Req 17.1)",
     );
   });
 
   it("defines .onb-input with background-color using --background token (Req 17.1)", () => {
     assert.match(
       CSS_SOURCE,
-      /\.onb-input\s*\{[^}]*background-color:\s*hsl\(var\(--background\)\)/,
-      ".onb-input must define background-color using --background token (Req 17.1)",
+      /\.onb-input\s*\{[^}]*background-color:\s*var\(--card\)/,
+      ".onb-input must define background-color using --card token (Req 17.1)",
     );
   });
 
@@ -501,7 +501,7 @@ describe("InputStates — source-level structural contracts (Req 17.1, 17.2, 17.
   it("defines .onb-input:focus-visible with border-color using --ring token (Req 17.2)", () => {
     assert.match(
       CSS_SOURCE,
-      /\.onb-input:focus-visible\s*\{[^}]*border-color:\s*hsl\(var\(--ring\)\)/,
+      /\.onb-input:focus-visible\s*\{[^}]*border-color:\s*var\(--ring\)/,
       ".onb-input:focus-visible must set border-color to --ring token (Req 17.2)",
     );
   });
@@ -532,7 +532,7 @@ describe("InputStates — source-level structural contracts (Req 17.1, 17.2, 17.
   it("defines error state with border-color using --destructive token (Req 17.3)", () => {
     assert.match(
       CSS_SOURCE,
-      /\.onb-input\[aria-invalid="true"\][^{]*\{[^}]*border-color:\s*hsl\(var\(--destructive\)\)/,
+      /\.onb-input\[aria-invalid="true"\][^{]*\{[^}]*border-color:\s*var\(--destructive\)/,
       "Error state must define border-color using --destructive token (Req 17.3)",
     );
   });
@@ -540,7 +540,7 @@ describe("InputStates — source-level structural contracts (Req 17.1, 17.2, 17.
   it("defines error state with background-color using --destructive at 5% opacity (Req 17.3)", () => {
     assert.match(
       CSS_SOURCE,
-      /\.onb-input\[aria-invalid="true"\][^{]*\{[^}]*background-color:\s*hsl\(var\(--destructive\)\s*\/\s*0\.05\)/,
+      /\.onb-input\[aria-invalid="true"\][^{]*\{[^}]*background-color:\s*color-mix\(in srgb, var\(--destructive\) 5%, var\(--card\)\)/,
       "Error state must define background-color using --destructive / 0.05 (Req 17.3)",
     );
   });
@@ -550,7 +550,7 @@ describe("InputStates — source-level structural contracts (Req 17.1, 17.2, 17.
   it("defines .onb-input:disabled with border-color at 50% opacity (Req 17.4)", () => {
     assert.match(
       CSS_SOURCE,
-      /\.onb-input:disabled\s*\{[^}]*border-color:\s*hsl\(var\(--border\)\s*\/\s*0\.5\)/,
+      /\.onb-input:disabled\s*\{[^}]*border-color:\s*color-mix\(in srgb, var\(--border\) 50%, transparent\)/,
       ".onb-input:disabled must define border-color at 50% opacity (Req 17.4)",
     );
   });
@@ -558,7 +558,7 @@ describe("InputStates — source-level structural contracts (Req 17.1, 17.2, 17.
   it("defines .onb-input:disabled with background-color using --muted token (Req 17.4)", () => {
     assert.match(
       CSS_SOURCE,
-      /\.onb-input:disabled\s*\{[^}]*background-color:\s*hsl\(var\(--muted\)\)/,
+      /\.onb-input:disabled\s*\{[^}]*background-color:\s*var\(--muted\)/,
       ".onb-input:disabled must define background-color using --muted token (Req 17.4)",
     );
   });

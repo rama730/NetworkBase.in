@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, ArrowRight, Briefcase, Filter, SortAsc } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import { cn } from '@/lib/utils';
 import { buildIdentityPresentation } from '@/lib/ui/identity';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 import { useApplicationsInbox } from '@/hooks/useMessagesV2';
 import { getMyPendingProjectInvitationsAction, resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { InboxListSkeletonV2 } from './MessagesSurfaceSkeletons';
@@ -40,7 +40,7 @@ function StatusBadge({ status }: { status: string | null | undefined }) {
         label: 'Status unavailable',
     };
     return (
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${c.bg} ${c.text}`}>{c.label}</span>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${c.bg} ${c.text}`}>{c.label}</span>
     );
 }
 
@@ -142,7 +142,7 @@ export function ApplicationsListV2({
                             <button
                                 type="button"
                                 className={cn(
-                                    "flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900",
+                                    "flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-none transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900",
                                     statusFilter !== 'all' && "border-primary bg-primary/5 text-primary dark:border-primary dark:text-primary",
                                 )}
                                 aria-label="Filter applications by status"
@@ -168,7 +168,7 @@ export function ApplicationsListV2({
                         <DropdownMenuTrigger asChild>
                             <button
                                 type="button"
-                                className="flex h-9 w-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-none transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900"
                                 aria-label={`Sort applications by ${sortLabels[sortBy].toLowerCase()}`}
                             >
                                 <SortAsc className="h-4 w-4" />
@@ -208,7 +208,7 @@ export function ApplicationsListV2({
                             const inviter = invitation.inviterName || invitation.inviterUsername || 'Project Lead';
                             const busy = resolvingInvitationId === invitation.id;
                             return (
-                                <div key={invitation.id} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+                                <div key={invitation.id} className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/50">
                                     <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{invitation.projectTitle}</p>
                                     <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{inviter} invited you as {label}</p>
                                     {invitation.note ? <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">{invitation.note}</p> : null}
@@ -284,7 +284,7 @@ export function ApplicationsListV2({
                                             ? 'Messaging is unavailable for this application. Open the application details for its current status.'
                                             : undefined}
                                         className={cn(
-                                            'w-full rounded-2xl border border-transparent text-left transition-colors app-density-list-row',
+                                            'w-full rounded-lg border border-transparent text-left transition-colors app-density-list-row',
                                             isPopup ? 'min-h-[78px] px-4 py-3' : 'min-h-[84px] px-4 py-3.5',
                                             application.conversationId
                                                 ? selectedConversationId === application.conversationId
@@ -295,25 +295,7 @@ export function ApplicationsListV2({
                                     >
                                         <div className="flex items-start gap-3">
                                             <div className="relative shrink-0">
-                                                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full app-accent-gradient">
-                                                    {(() => {
-                                                        const appUserIdentity = buildIdentityPresentation(application.displayUser);
-                                                        return appUserIdentity.avatarUrl ? (
-                                                            <Image
-                                                                src={appUserIdentity.avatarUrl}
-                                                                alt={appUserIdentity.alt}
-                                                                width={40}
-                                                                height={40}
-                                                                unoptimized
-                                                                className="h-full w-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <span className={cn("text-xs font-bold text-white", appUserIdentity.gradientClass)}>
-                                                                {appUserIdentity.initials}
-                                                            </span>
-                                                        );
-                                                    })()}
-                                                </div>
+                                                <UserAvatar identity={application.displayUser} size={40} roundedClassName="rounded-full" unoptimized fallbackClassName="text-xs font-semibold" />
                                                 <div className="absolute -bottom-1 -right-1 rounded-full bg-white p-0.5 dark:bg-zinc-900">
                                                     <div className={`flex h-4 w-4 items-center justify-center rounded-full ${
                                                         application.type === 'incoming'
@@ -327,7 +309,7 @@ export function ApplicationsListV2({
                                                 </div>
                                                 {(application.unreadCount ?? 0) > 0 ? (
                                                     <span
-                                                        className="absolute -right-2 -top-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary"
+                                                        className="absolute -right-2 -top-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary"
                                                         aria-label={`${application.unreadCount} new message${application.unreadCount === 1 ? '' : 's'}`}
                                                     >
                                                         New
@@ -370,7 +352,7 @@ export function ApplicationsListV2({
                                                         {application.roleTitle}
                                                     </span>
                                                 </p>
-                                                <p className="mt-0.5 truncate text-[10px] text-zinc-400">
+                                                <p className="mt-0.5 truncate text-[11px] text-zinc-400">
                                                     {application.projectTitle}
                                                 </p>
                                                 {application.coverLetter ? (
@@ -379,7 +361,7 @@ export function ApplicationsListV2({
                                                     </p>
                                                 ) : null}
                                                 {application.decisionReason === 'role_filled' ? (
-                                                    <p className="text-[10px] text-blue-500 dark:text-blue-300">Role filled</p>
+                                                    <p className="text-[11px] text-blue-500 dark:text-blue-300">Role filled</p>
                                                 ) : null}
                                             </div>
                                         </div>

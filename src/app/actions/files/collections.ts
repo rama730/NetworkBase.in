@@ -15,6 +15,7 @@ export type TaskCollectionRole = "reference" | "working" | "deliverable";
 export type TaskCollectionEntry = {
     node: ProjectNodeWithAttribution;
     role: TaskCollectionRole;
+    annotation?: string | null;
     approvedVersion: number | null;
     isCurrentRevisionApproved: boolean;
 };
@@ -41,9 +42,12 @@ async function authorize(projectId: string) {
 
 async function loadEntries(projectId: string, taskIds: string[], deliverables: boolean, after?: string, query = "", role?: TaskCollectionRole) {
     if (!taskIds.length) return new Map<string, { entries: TaskCollectionEntry[]; nextFileCursor: string | null }>();
-    const rows = await db.execute<{ task_id: string; node_id: string; role: TaskCollectionRole; tags: string[]; position: number }>(taskFileEntriesSql(projectId, taskIds, deliverables, after, query, role));
+    const rows = await db.execute<{ task_id: string; node_id: string; role: TaskCollectionRole; tags: string[]; annotation?: string | null; position: number }>(taskFileEntriesSql(projectId, taskIds, deliverables, after, query, role));
+    const nodeIds = rows.map(r => r.node_id);
+    if (!nodeIds.length) return new Map(taskIds.map(taskId => [taskId, { entries: [], nextFileCursor: null }]));
     const nodes = await db.query.projectNodes.findMany({
-        where: and(eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt), inArray(projectNodes.id, rows.map(r => r.node_id))),
+        where: and(eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt), inArray(projectNodes.id, nodeIds)),
+        limit: 100,
     });
     const attribution = await getFileAttributionByNodeId(nodes);
     const byId = new Map(nodes.map(node => [node.id, { ...node, ...attribution.get(node.id) } as ProjectNodeWithAttribution]));
@@ -54,8 +58,12 @@ async function loadEntries(projectId: string, taskIds: string[], deliverables: b
             entries: page.flatMap(row => {
                 const node = byId.get(row.node_id);
                 return node ? [{
-                    node,
+                    node: {
+                        ...node,
+                        annotation: row.annotation ?? (node as { annotation?: string | null }).annotation ?? null,
+                    },
                     role: row.role,
+                    annotation: row.annotation ?? null,
                     approvedVersion: getApprovedTaskFileVersion(row.tags),
                     isCurrentRevisionApproved: isApprovedTaskFileRevision(row.tags, node.currentVersion, node.versionUpdatedAt),
                 }] : [];
@@ -81,11 +89,12 @@ export async function getTaskFileGroups(projectId: string, options: { deliverabl
         FROM tasks t JOIN attachments a ON a.task_id = t.id
         JOIN project_nodes n ON n.id = a.node_id
         LEFT JOIN file_versions fv ON fv.node_id = n.id AND fv.version = n.current_version
-        WHERE ${options.deliverables ? sql`a.role = 'deliverable'` : sql`a.role IN ('working', 'reference')`}
+        WHERE ${options.deliverables ? sql`a.role = 'deliverable'` : sql`a.role IN ('deliverable', 'working', 'reference')`}
+            ${options.role ? sql`AND a.role = ${options.role}` : sql``}
             ${options.taskId ? sql`AND t.id = ${options.taskId}::uuid` : sql``}
             ${options.cursor ? sql`AND t.id > ${options.cursor}::uuid` : sql``}
             GROUP BY t.id, t.title, t.status, t.review_status
-        ${query && !options.taskId ? sql`HAVING bool_or(strpos(lower(t.title), lower(${query})) > 0 OR strpos(lower(n.name), lower(${query})) > 0)` : sql``}
+        ${query && !options.taskId ? sql`HAVING bool_or(strpos(lower(t.title), lower(${query})) > 0 OR strpos(lower(n.name), lower(${query})) > 0 OR strpos(lower(coalesce(a.annotation, '')), lower(${query})) > 0)` : sql``}
         ORDER BY t.id LIMIT 21
     `);
     const page = rows.slice(0, 20);

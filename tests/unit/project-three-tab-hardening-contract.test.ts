@@ -63,8 +63,8 @@ test("files search, navigation, versions, trash, and pagination share owned path
   const quickOpen = read(
     "src/components/projects/v2/files-tab/quick-open/QuickOpenDialog.tsx",
   );
-  const sidebar = read(
-    "src/components/projects/v2/files-tab/FilesTabSidebar.tsx",
+  const trash = read(
+    "src/components/projects/v2/files-tab/TrashFilesCollection.tsx",
   );
   const versions = read(
     "src/components/projects/v2/files-tab/file/FileVersionHistoryPanel.tsx",
@@ -81,13 +81,13 @@ test("files search, navigation, versions, trash, and pagination share owned path
   assert.match(folder, /Load more/);
   assert.match(quickOpen, /import\("@\/app\/actions\/files\/nodes"\)/);
   assert.match(quickOpen, /getProjectNodes\(projectId, null, rawQuery, MAX_RESULTS\)/);
-  assert.match(sidebar, /getTrashNodes/);
-  assert.match(sidebar, /restoreNode/);
+  assert.match(trash, /getTrashPage/);
+  assert.match(trash, /restoreNode/);
   assert.match(versions, /onVersionChangeStart/);
   assert.match(versions, /onVersionChanged/);
   assert.doesNotMatch(versions, /CustomEvent\("file:version-changed/);
   assert.doesNotMatch(fileView, /addEventListener\("file:version-changed/);
-  assert.match(navigate, /setPendingNavigation\(projectId, \{ nodeId \}\)/);
+  assert.match(navigate, /setPendingNavigation\(projectId, \{ nodeId/);
   assert.match(root, /Discard unsaved changes\?/);
   assert.doesNotMatch(navigate, /window\.confirm/);
   assert.doesNotMatch(fileView, /window\.confirm/);

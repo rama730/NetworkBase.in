@@ -129,12 +129,6 @@ export async function fetchWorkspaceTasksAction(
             ],
             // Fetch one extra row so the compact drawer never silently hides work.
             limit: safeLimit + 1,
-            extras: {
-                subtaskCount: sql<number>`(SELECT count(*)::int FROM task_subtasks WHERE task_subtasks.task_id = ${tasks.id})`.as("subtask_count"),
-                completedSubtaskCount: sql<number>`(SELECT count(*)::int FROM task_subtasks WHERE task_subtasks.task_id = ${tasks.id} AND task_subtasks.completed = true)`.as("completed_subtask_count"),
-                fileCount: sql<number>`(SELECT count(*)::int FROM task_node_links JOIN project_nodes ON project_nodes.id = task_node_links.node_id WHERE task_node_links.task_id = ${tasks.id} AND project_nodes.deleted_at IS NULL)`.as("file_count"),
-                commentCount: sql<number>`(SELECT count(*)::int FROM task_comments WHERE task_comments.task_id = ${tasks.id} AND task_comments.deleted_at IS NULL)`.as("comment_count"),
-            },
             with: {
                 project: {
                     columns: { id: true, title: true, key: true, slug: true },
@@ -149,12 +143,85 @@ export async function fetchWorkspaceTasksAction(
         });
 
         const hasMore = taskPage.length > safeLimit;
-        const normalized = taskPage.slice(0, safeLimit).map((task) => ({
-            ...normalizeTaskSurfaceRecord(task),
-            project: task.project,
-            sprint: task.sprint,
-            assignee: task.assignee,
-        }));
+        const page = taskPage.slice(0, safeLimit);
+        const taskIds = page.map((task) => task.id);
+
+        const countMap = new Map<string, { subtaskCount: number; completedSubtaskCount: number; fileCount: number; commentCount: number }>();
+        if (taskIds.length > 0) {
+            // Interpolating a JavaScript array directly into a Drizzle SQL template
+            // produces a PostgreSQL record tuple: ($1, $2, ...). A tuple cannot be
+            // cast to uuid[], which made the workspace drawer fail as soon as it
+            // had tasks to enrich. Build an actual UUID array from typed scalars.
+            const taskIdArray = sql`ARRAY[${sql.join(
+                taskIds.map((taskId) => sql`${taskId}::uuid`),
+                sql`, `,
+            )}]::uuid[]`;
+            const counts = (await db.execute(sql`
+                WITH ids AS (
+                    SELECT unnest(${taskIdArray}) AS id
+                ),
+                st AS (
+                    SELECT task_id, count(*)::int AS subtask_count, count(*) FILTER (WHERE completed = true)::int AS completed_subtask_count
+                    FROM task_subtasks
+                    WHERE task_id = ANY(${taskIdArray})
+                    GROUP BY task_id
+                ),
+                fl AS (
+                    SELECT tnl.task_id, count(*)::int AS file_count
+                    FROM task_node_links tnl
+                    JOIN project_nodes pn ON pn.id = tnl.node_id
+                    WHERE tnl.task_id = ANY(${taskIdArray}) AND pn.deleted_at IS NULL
+                    GROUP BY tnl.task_id
+                ),
+                cm AS (
+                    SELECT task_id, count(*)::int AS comment_count
+                    FROM task_comments
+                    WHERE task_id = ANY(${taskIdArray}) AND deleted_at IS NULL
+                    GROUP BY task_id
+                )
+                SELECT 
+                    ids.id::text AS task_id,
+                    COALESCE(st.subtask_count, 0)::int AS subtask_count,
+                    COALESCE(st.completed_subtask_count, 0)::int AS completed_subtask_count,
+                    COALESCE(fl.file_count, 0)::int AS file_count,
+                    COALESCE(cm.comment_count, 0)::int AS comment_count
+                FROM ids
+                LEFT JOIN st ON st.task_id = ids.id
+                LEFT JOIN fl ON fl.task_id = ids.id
+                LEFT JOIN cm ON cm.task_id = ids.id
+            `)) as unknown as Array<{
+                task_id: string;
+                subtask_count: number;
+                completed_subtask_count: number;
+                file_count: number;
+                comment_count: number;
+            }>;
+
+            for (const c of counts) {
+                countMap.set(c.task_id, {
+                    subtaskCount: Number(c.subtask_count ?? 0),
+                    completedSubtaskCount: Number(c.completed_subtask_count ?? 0),
+                    fileCount: Number(c.file_count ?? 0),
+                    commentCount: Number(c.comment_count ?? 0),
+                });
+            }
+        }
+
+        const normalized = page.map((task) => {
+            const counts = countMap.get(task.id) ?? { subtaskCount: 0, completedSubtaskCount: 0, fileCount: 0, commentCount: 0 };
+            return {
+                ...normalizeTaskSurfaceRecord({
+                    ...task,
+                    subtaskCount: counts.subtaskCount,
+                    completedSubtaskCount: counts.completedSubtaskCount,
+                    fileCount: counts.fileCount,
+                    commentCount: counts.commentCount,
+                }),
+                project: task.project,
+                sprint: task.sprint,
+                assignee: task.assignee,
+            };
+        });
         return { success: true as const, tasks: normalized, hasMore };
     } catch (e) {
         console.error("Workspace tasks fetch failed:", e);

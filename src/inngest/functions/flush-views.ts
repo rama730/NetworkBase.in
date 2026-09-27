@@ -2,11 +2,12 @@ import { inngest } from "../client";
 import { redis } from "@/lib/redis";
 import { db } from "@/lib/db";
 import { projects } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 export const flushProjectViews = inngest.createFunction(
     { id: "flush-project-views", name: "Flush Project Views from Redis" },
-    { cron: "* * * * *" }, // Run every minute for highly consistent eventual view counts
+    // ponytail: 15-minute cron prevents idle external polling churn while ensuring eventual consistency
+    { cron: "*/15 * * * *" },
     async ({ step }) => {
         if (!redis) return { skipped: true, reason: "No Redis configured" };
         const writeThroughEnabled = process.env.PROJECT_VIEWS_WRITE_THROUGH === "1";
@@ -66,29 +67,44 @@ export const flushProjectViews = inngest.createFunction(
                 })
                 .filter((entry): entry is { projectId: string; increments: number } => entry !== null);
 
-            const results = await Promise.allSettled(
-                validUpdates.map(async ({ projectId, increments }) => {
+            const BATCH_SIZE = 200;
+            const failed: Array<{ projectId: string; increments: number; error?: any }> = [];
+            let succeeded = 0;
+
+            for (let i = 0; i < validUpdates.length; i += BATCH_SIZE) {
+                const chunk = validUpdates.slice(i, i + BATCH_SIZE);
+                try {
+                    const caseFragments = chunk.map(
+                        ({ projectId, increments }) =>
+                            sql`WHEN ${projects.id} = ${projectId} THEN ${projects.viewCount} + ${increments}`
+                    );
+                    const chunkIds = chunk.map(c => c.projectId);
                     await db.update(projects)
-                        .set({ viewCount: sql`${projects.viewCount} + ${increments}` })
-                        .where(eq(projects.id, projectId));
-
-                    return projectId;
-                })
-            );
-
-            const succeeded = results.filter(r => r.status === 'fulfilled').length;
-            const failed = results
-                .map((result, index) => ({ result, index }))
-                .filter(({ result }) => result.status === 'rejected')
-                .map(({ index }) => validUpdates[index]);
+                        .set({
+                            viewCount: sql`CASE ${sql.join(caseFragments, sql` `)} ELSE ${projects.viewCount} END`,
+                        })
+                        .where(inArray(projects.id, chunkIds));
+                    succeeded += chunk.length;
+                } catch (batchErr) {
+                    // Fallback to item-by-item on chunk error to isolate any bad row
+                    for (const item of chunk) {
+                        try {
+                            await db.update(projects)
+                                .set({ viewCount: sql`${projects.viewCount} + ${item.increments}` })
+                                .where(eq(projects.id, item.projectId));
+                            succeeded++;
+                        } catch (singleErr) {
+                            failed.push({ ...item, error: singleErr });
+                        }
+                    }
+                }
+            }
 
             if (failed.length > 0) {
                 console.error("flush-views: project view updates failed", {
                     failedCount: failed.length,
                     failedProjectIds: failed.map((f) => f?.projectId).filter(Boolean),
-                    reasons: results
-                        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-                        .map((r) => r.reason),
+                    reasons: failed.map((f) => f.error),
                 });
 
                 // Requeue only the failed increments so they can be retried in the next flush.

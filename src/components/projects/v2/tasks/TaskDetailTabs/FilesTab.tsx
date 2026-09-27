@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectNode } from "@/lib/db/schema";
 import { TaskFilesExplorer } from "@/components/projects/v2/tasks/components/TaskFilesExplorer";
 import { TaskFilesActionMenu } from "@/components/projects/v2/tasks/components/TaskFilesActionMenu";
@@ -21,6 +22,7 @@ import {
   extractFoldersFromDataTransfer,
   type DroppedFolder,
 } from "@/lib/files/folder-drop";
+import { validateUploadSelection } from "@/lib/files/upload-validator";
 import { DropZoneOverlay } from "@/components/ui/drop-zone-overlay";
 
 interface FilesTabProps {
@@ -98,7 +100,12 @@ export default function FilesTab({
   const handleDroppedFiles = useCallback(
     async (files: File[]) => {
       if (!canEdit || files.length === 0) return;
-      setPendingUploadFiles(files);
+      const validation = validateUploadSelection(files, { isFolder: false });
+      if (!validation.valid) {
+        if (validation.error) toast.error(validation.error);
+        return;
+      }
+      setPendingUploadFiles(validation.files);
     },
     [canEdit],
   );
@@ -259,8 +266,8 @@ export default function FilesTab({
 
   return (
     <div className="flex h-full w-full flex-col min-h-0">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <h2 className="text-sm font-semibold text-foreground">
           Files
         </h2>
         <div className="shrink-0">
@@ -279,8 +286,8 @@ export default function FilesTab({
         data-testid="task-files-tab-body"
         data-loading={isLoading ? "true" : "false"}
         className={cn(
-          "relative flex-1 overflow-y-auto px-4 py-4 min-h-0 transition-all duration-200",
-          isDragActive && "bg-indigo-50/30 dark:bg-indigo-500/5",
+          "relative flex-1 overflow-y-auto px-4 py-4 min-h-0 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms]",
+          isDragActive && "bg-primary/5",
         )}
         onDragEnter={handleDropZoneDragEnter}
         onDragOver={handleDropZoneDragOver}
@@ -290,11 +297,25 @@ export default function FilesTab({
         <DropZoneOverlay visible={isDragActive} />
 
         {isLoading ? (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+          <div className="space-y-2 py-1" role="status" aria-label="Loading files">
+            <span className="sr-only">Loading files…</span>
+            {[0, 1, 2].map((idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-3 rounded-[6px] border border-border/70 bg-card p-2.5"
+                aria-hidden="true"
+              >
+                <Skeleton className="size-8 shrink-0 rounded-[4px]" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-1/3 rounded-xs" />
+                  <Skeleton className="h-2.5 w-1/5 rounded-xs" />
+                </div>
+                <Skeleton className="size-6 shrink-0 rounded-[4px]" />
+              </div>
+            ))}
           </div>
         ) : error ? (
-          <div className="flex h-full items-center justify-center text-sm text-red-500">
+          <div className="flex h-full items-center justify-center text-sm text-destructive">
             {error}
           </div>
         ) : !hasAttachments ? (
@@ -328,8 +349,8 @@ export default function FilesTab({
         )}
 
         {(isUploading || isProcessingDrop) ? (
-          <div role="status" aria-live="polite" className="pointer-events-none sticky bottom-3 mx-auto flex w-fit items-center gap-2 rounded-full border border-zinc-200 bg-white/95 px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 dark:text-zinc-200">
-            <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
+          <div role="status" aria-live="polite" className="pointer-events-none sticky bottom-3 mx-auto flex w-fit items-center gap-2 rounded-[5px] border border-border bg-card px-3 py-1.5 font-mono text-xs font-medium text-foreground shadow-2xs">
+            <Loader2 aria-hidden="true" className="size-3.5 animate-spin text-primary" />
             {isUploading ? "Uploading task files…" : "Preparing files…"}
           </div>
         ) : null}
@@ -341,7 +362,13 @@ export default function FilesTab({
           multiple
           onChange={(e) => {
             const files = Array.from(e.target.files || []);
-            if (files.length > 0) void handleDroppedFiles(files);
+            const validation = validateUploadSelection(files, { isFolder: false });
+            if (!validation.valid) {
+              if (validation.error) toast.error(validation.error);
+              e.target.value = "";
+              return;
+            }
+            if (validation.files.length > 0) void handleDroppedFiles(validation.files);
             e.target.value = "";
           }}
         />
@@ -354,10 +381,17 @@ export default function FilesTab({
           webkitdirectory=""
           onChange={(e) => {
             const files = Array.from(e.target.files || []);
-            if (files.length > 0) {
+            const validation = validateUploadSelection(files, { isFolder: true });
+            if (!validation.valid) {
+              if (validation.error) toast.error(validation.error);
+              e.target.value = "";
+              return;
+            }
+            const validFiles = validation.files;
+            if (validFiles.length > 0) {
               const syntheticFolder: DroppedFolder = {
-                name: files[0]?.webkitRelativePath.split("/")[0] || "Folder",
-                files: files.map((f) => ({
+                name: validation.folderName || validFiles[0]?.webkitRelativePath.split("/")[0] || "Folder",
+                files: validFiles.map((f) => ({
                   file: f,
                   relativePath: f.webkitRelativePath
                     .split("/")
@@ -368,7 +402,7 @@ export default function FilesTab({
               if (onUploadFolders) {
                 setPendingUploadFolders([syntheticFolder]);
               } else {
-                setPendingUploadFiles(files);
+                setPendingUploadFiles(validFiles);
               }
             }
             e.target.value = "";

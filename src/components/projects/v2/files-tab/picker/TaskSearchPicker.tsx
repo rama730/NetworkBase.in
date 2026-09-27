@@ -185,7 +185,7 @@ export function TaskSearchPicker({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent
-        className="z-[220] max-w-lg overflow-hidden border-zinc-200 bg-white p-0 dark:border-zinc-800 dark:bg-zinc-900"
+        className="z-[220] max-w-lg overflow-hidden rounded-[12px] border border-[#DBD5C8] bg-white p-0 shadow-lg dark:border-border dark:bg-card"
         showCloseButton={false}
         data-testid="task-search-picker"
       >
@@ -195,8 +195,8 @@ export function TaskSearchPicker({
         </DialogHeader>
 
         {/* Search input */}
-        <div className="flex items-center gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-          <Search className="h-4 w-4 flex-shrink-0 text-zinc-400" />
+        <div className="flex items-center gap-2 border-b border-[#DBD5C8] px-4 py-3 dark:border-border">
+          <Search className="h-4 w-4 flex-shrink-0 text-[#6B7880] dark:text-muted-foreground" />
           <input
             ref={inputRef}
             autoFocus
@@ -207,7 +207,7 @@ export function TaskSearchPicker({
             onKeyDown={onInputKeyDown}
             placeholder="Search tasks by title..."
             aria-label="Search tasks"
-            className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-zinc-400 text-zinc-900 dark:text-zinc-100"
+            className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-[#8E9AA1] text-[#141A1E] dark:text-foreground"
             role="combobox"
             aria-expanded="true"
             aria-controls="task-search-picker-listbox"
@@ -219,20 +219,20 @@ export function TaskSearchPicker({
           />
           <button
             type="button"
-            className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded-[4px] p-1 text-[#6B7880] hover:bg-[#F3F0EA] hover:text-[#141A1E] dark:hover:bg-muted"
             onClick={onClose}
             aria-label="Close"
           >
-            <X className="h-4 w-4 text-zinc-400" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
         <div
-          className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800"
+          className="flex flex-wrap items-center gap-2 border-b border-[#DBD5C8] bg-[#FAF8F4] px-4 py-2.5 dark:border-border dark:bg-card/50"
           role="radiogroup"
           aria-label="File role in the task"
         >
-          <span className="mr-1 text-xs font-medium text-zinc-500">Add as</span>
+          <span className="mr-1 font-mono text-[11px] uppercase tracking-wider text-[#4C5A61]">Add as</span>
           {([
             ["reference", "Reference"],
             ["working", "Working file"],
@@ -241,10 +241,14 @@ export function TaskSearchPicker({
             <label
               key={value}
               className={cn(
-                "inline-flex min-h-9 cursor-pointer items-center rounded-md border px-3 text-xs font-medium transition-colors focus-within:ring-2 focus-within:ring-blue-500",
+                "inline-flex h-7 cursor-pointer items-center rounded-[5px] border px-2.5 font-mono text-[11px] font-medium uppercase tracking-[0.04em] transition-colors outline-none focus-within:outline-none focus-within:ring-0",
                 role === value
-                  ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
-                  : "border-zinc-200 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800",
+                  ? value === "deliverable"
+                    ? "border-[#D8E8DF] bg-[#EDF5F0] text-[#245A41] font-semibold"
+                    : value === "reference"
+                      ? "border-[#DBD5C8] bg-[#F3F0EA] text-[#374349] font-semibold"
+                      : "border-[#DBD5C8] bg-white text-[#141A1E] font-semibold shadow-xs"
+                  : "border-[#DBD5C8] bg-white text-[#4C5A61] hover:bg-[#F3F0EA] dark:border-border dark:bg-card dark:text-muted-foreground dark:hover:bg-muted",
               )}
             >
               <input type="radio" name="task-file-role" value={value} checked={role === value} onChange={() => setRole(value)} disabled={isSaving} className="sr-only" />
@@ -260,31 +264,43 @@ export function TaskSearchPicker({
           role="listbox"
         >
           {error ? (
-            <div role="alert" className="px-4 py-6 text-sm text-zinc-500">
-              Could not load tasks. <button type="button" onClick={() => setRetry(value => value + 1)} className="underline focus-visible:ring-2 focus-visible:ring-blue-500">Try again</button>
+            <div role="alert" className="px-4 py-6 text-sm text-muted-foreground">
+              Could not load tasks. <button type="button" onClick={() => setRetry(value => value + 1)} className="underline outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0">Try again</button>
             </div>
           ) : isLoading || query !== debouncedQuery || isSaving ? (
-            <div role="status" className="flex items-center gap-2 px-4 py-6 text-sm text-zinc-500">
+            <div role="status" className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               {isSaving ? "Attaching file…" : "Searching tasks…"}
             </div>
           ) : showEmpty ? (
-            <div className="px-4 py-6 text-sm text-zinc-500">
-              No tasks found for &quot;{debouncedQuery}&quot;
+            <div className="p-3">
+              <div className="nb-empty-state nb-grid-ground py-6 text-center" role="status">
+                <div className="nb-empty-state-icon-box mb-2">
+                  <CheckSquare className="nb-empty-state-icon" />
+                </div>
+                <h4 className="nb-empty-state-title">No tasks found</h4>
+                <p className="nb-empty-state-desc">No tasks found for &quot;{debouncedQuery}&quot;</p>
+              </div>
             </div>
           ) : results.length === 0 && !isLoading ? (
-            <div className="px-4 py-6 text-sm text-zinc-500">
-              No tasks in this project
+            <div className="p-3">
+              <div className="nb-empty-state nb-grid-ground py-6 text-center" role="status">
+                <div className="nb-empty-state-icon-box mb-2">
+                  <CheckSquare className="nb-empty-state-icon" />
+                </div>
+                <h4 className="nb-empty-state-title">No tasks</h4>
+                <p className="nb-empty-state-desc">No tasks in this project yet.</p>
+              </div>
             </div>
           ) : (
             <>
               {showRecent && (
-                <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Recent tasks
                 </div>
               )}
               {debouncedQuery.length > 0 && results.length > 0 && (
-                <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Search results
                 </div>
               )}
@@ -306,22 +322,22 @@ export function TaskSearchPicker({
                     className={
                       "w-full text-left px-4 py-2.5 flex items-start gap-3 transition-colors " +
                       (isActive
-                        ? "bg-zinc-50 dark:bg-zinc-800"
-                        : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50")
+                        ? "bg-muted"
+                        : "hover:bg-muted/60")
                     }
                     onMouseEnter={() => setActiveIndex(idx)}
                     onClick={() => handleSelect(task.id)}
                     data-testid={`task-search-picker-item-${task.id}`}
                   >
-                    <CheckSquare className="mt-0.5 h-4 w-4 flex-shrink-0 text-zinc-400" />
+                    <CheckSquare className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <div
-                        className={cn("truncate text-sm font-medium text-zinc-900 dark:text-zinc-100", titlePresentation.className)}
+                        className={cn("truncate text-sm font-medium text-foreground", titlePresentation.className)}
                         aria-label={titlePresentation.ariaLabel}
                       >
                         {task.title}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-500">
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                         {taskLabel && (
                           <span className="font-mono">{taskLabel}</span>
                         )}
@@ -329,7 +345,7 @@ export function TaskSearchPicker({
                         <span className="capitalize">{task.status.replace("_", " ")}</span>
                         {task.assigneeName && (
                           <>
-                            <span className="text-zinc-300 dark:text-zinc-600">•</span>
+                            <span className="text-muted-foreground/50">•</span>
                             <span className="truncate">{task.assigneeName}</span>
                           </>
                         )}
@@ -352,17 +368,17 @@ function StatusDot({ status }: { status: string }) {
   const colorClass = useMemo(() => {
     switch (status) {
       case "done":
-        return "bg-emerald-500";
+        return "bg-[#2F6B4F]";
       case "in_progress":
-        return "bg-blue-500";
+        return "bg-[#D14E24]";
       case "blocked":
-        return "bg-red-500";
+        return "bg-[#B3261E]";
       default:
-        return "bg-zinc-400";
+        return "bg-[#8E9AA1]";
     }
   }, [status]);
 
-  return <span className={`inline-block h-2 w-2 rounded-full ${colorClass}`} />;
+  return <span className={`inline-block h-2 w-2 rounded-[2px] ${colorClass}`} />;
 }
 
 export default TaskSearchPicker;

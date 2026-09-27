@@ -8,7 +8,7 @@ function source(relativePath: string) {
 }
 
 test("global message attention is sourced from conversation unread state, not the bell tray", () => {
-    const header = source("src/components/layout/header/TopNav.tsx");
+    const header = source("src/components/layout/AppSidebar.tsx");
     const popup = source("src/components/chat/v2/ChatPopupV2.tsx");
     const provider = source("src/components/providers/MessageAttentionProvider.tsx");
     const notifications = source("src/app/actions/notifications.ts");

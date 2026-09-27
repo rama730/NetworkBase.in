@@ -66,8 +66,8 @@ describe("sprint permissions and summary", () => {
       status: "active",
       endDate: "2026-08-10T00:00:00.000Z",
     } as SprintListItem;
-    const beforeEnd = new Date("2026-08-09T23:59:59.999Z");
-    const atEnd = new Date("2026-08-10T00:00:00.000Z");
+    const beforeEnd = new Date("2026-08-10T23:59:59.998Z");
+    const atEnd = new Date("2026-08-11T00:00:00.000Z");
 
     assert.equal(isSprintReadyToClose(sprint, beforeEnd), false);
     assert.equal(isSprintReadyToClose(sprint, atEnd), true);

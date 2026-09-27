@@ -203,7 +203,7 @@ export function MetadataStrip({
       <div className="sr-only">
         <span
           data-field="name"
-          className="truncate font-medium text-zinc-900 dark:text-zinc-100"
+          className="truncate font-medium text-foreground"
           title={nameLabel(node)}
         >
           {nameLabel(node)}
@@ -244,7 +244,7 @@ export function MetadataStrip({
         {linkedDoc && (
           <>
             <Separator />
-            <span className="font-semibold text-zinc-800 dark:text-zinc-200" data-field="used-as-doc">
+            <span className="font-semibold text-foreground" data-field="used-as-doc">
               Used as a Doc
             </span>
           </>
@@ -257,7 +257,16 @@ export function MetadataStrip({
         ) : null}
       </div>
 
-      {showVersionPill && mode !== "edit" && <FilesHeaderSlot slot="status"><span title={`Version ${currentVersion}`} className="text-zinc-500">v{currentVersion}</span></FilesHeaderSlot>}
+      {showVersionPill && mode !== "edit" && (
+        <FilesHeaderSlot slot="status">
+          <span
+            title={`Version ${currentVersion}`}
+            className="rounded-[3px] border border-[#DBD5C8] bg-[#F3F0EA] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[#4C5A61] dark:border-white/10 dark:bg-white/5 dark:text-white/70"
+          >
+            v{currentVersion}
+          </span>
+        </FilesHeaderSlot>
+      )}
       <FilesHeaderSlot><FileActionsBar
         mode={mode}
         onView={onView}
@@ -285,7 +294,7 @@ function Separator(): React.JSX.Element {
   return (
     <span
       aria-hidden="true"
-      className="select-none text-zinc-300 dark:text-zinc-700"
+      className="select-none text-muted-foreground/40"
     >
       •
     </span>

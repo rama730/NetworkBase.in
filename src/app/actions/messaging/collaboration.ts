@@ -280,8 +280,13 @@ async function hydrateSingleMessage(conversationId: string, messageId: string) {
     return context.success && context.available && context.message ? context.message : null;
 }
 
+type StructuredMessageRow = Pick<
+    typeof messages.$inferSelect,
+    'id' | 'conversationId' | 'senderId' | 'clientMessageId' | 'content' | 'type' | 'metadata' | 'createdAt' | 'editedAt' | 'deletedAt'
+>;
+
 function toStructuredMessageResponse(
-    row: typeof messages.$inferSelect,
+    row: StructuredMessageRow,
     sender: Pick<typeof profiles.$inferSelect, 'id' | 'username' | 'fullName' | 'avatarUrl'> | null,
 ): MessageWithSender {
     return {
@@ -553,7 +558,18 @@ export async function sendStructuredMessageActionV2(params: {
         const clientMessageId = params.clientMessageId?.trim() || null;
         if (clientMessageId) {
             const [existing] = await db
-                .select()
+                .select({
+                    id: messages.id,
+                    conversationId: messages.conversationId,
+                    senderId: messages.senderId,
+                    clientMessageId: messages.clientMessageId,
+                    content: messages.content,
+                    type: messages.type,
+                    metadata: messages.metadata,
+                    createdAt: messages.createdAt,
+                    editedAt: messages.editedAt,
+                    deletedAt: messages.deletedAt,
+                })
                 .from(messages)
                 .where(and(
                     eq(messages.conversationId, conversationId),

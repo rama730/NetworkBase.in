@@ -3,6 +3,7 @@ import {
   jsonSuccess,
   jsonError,
 } from "@/app/api/v1/_shared";
+import crypto from "crypto";
 import { db } from "@/lib/db";
 import {
   projects,
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
         slug: projects.slug,
         description: projects.description,
         currentSequenceNumber: projects.currentSequenceNumber,
+        updatedAt: projects.updatedAt,
       })
       .from(projects)
       .innerJoin(projectMembers, eq(projects.id, projectMembers.projectId))
@@ -53,12 +55,28 @@ export async function GET(request: Request) {
       });
     }
 
-    // ponytail: fast bootstrap summary mode skips expensive window-partition task/file queries
     const url = new URL(request.url);
     const isSummaryMode =
       url.searchParams.get("mode") === "summary" ||
       request.headers.get("x-nb-workspace-mode") === "summary";
 
+    const watermark = userProjects
+      .map((p) => `${p.id}:${p.currentSequenceNumber ?? 0}:${p.updatedAt?.getTime?.() ?? 0}`)
+      .join(",");
+    const workspaceEtag = `W/"ws-${user.id}-${isSummaryMode ? 'sum' : 'full'}-${crypto.createHash("md5").update(watermark).digest("hex")}"`;
+
+    const ifNoneMatch = request.headers.get("if-none-match");
+    if (ifNoneMatch && (ifNoneMatch === workspaceEtag || ifNoneMatch.includes(workspaceEtag))) {
+      return new Response(null, {
+        status: 304,
+        headers: {
+          ETag: workspaceEtag,
+          "Cache-Control": "private, no-cache",
+        },
+      });
+    }
+
+    // ponytail: fast bootstrap summary mode skips expensive window-partition task/file queries
     if (isSummaryMode) {
       const projectTaskCountMap = await getProjectTaskCountMap(projectIds);
       const summaryProjects = userProjects.map((project) => ({
@@ -77,35 +95,40 @@ export async function GET(request: Request) {
           email: user.email,
         },
         projects: summaryProjects,
+      }, undefined, {
+        headers: {
+          ETag: workspaceEtag,
+          "Cache-Control": "private, no-cache",
+        },
       });
     }
 
     const [taskRowsResult, rootNodeIdRowsResult, taskFileCountMap, projectTaskCountMap] =
       await Promise.all([
         db.execute(sql`
-          SELECT * FROM (
-            SELECT ${tasks.id} as id, ${tasks.projectId} as "projectId", ${tasks.title} as title, 
-                   ${tasks.description} as description, ${tasks.status} as status, 
-                   ${tasks.priority} as priority, ${tasks.taskNumber} as "taskNumber", 
-                   ${tasks.updatedAt} as "updatedAt",
-                   row_number() OVER (PARTITION BY ${tasks.projectId} ORDER BY ${tasks.updatedAt} DESC) as rn
-            FROM ${tasks}
-            WHERE ${tasks.projectId} IN (${sql.join(projectIds.map(id => sql`${id}`), sql`, `)}) AND ${tasks.deletedAt} IS NULL
-          ) t WHERE t.rn <= 50
+          SELECT t.*
+          FROM unnest(ARRAY[${sql.join(projectIds.map(id => sql`${id}::uuid`), sql`, `)}]::uuid[]) AS p(id)
+          CROSS JOIN LATERAL (
+            SELECT id, project_id AS "projectId", title, description, status, priority,
+                   task_number AS "taskNumber", updated_at AS "updatedAt"
+            FROM tasks
+            WHERE project_id = p.id AND deleted_at IS NULL
+            ORDER BY updated_at DESC
+            LIMIT 50
+          ) t
         `),
         db.execute(sql`
-          SELECT id FROM (
-            SELECT ${projectNodes.id} AS id,
-                   row_number() OVER (
-                     PARTITION BY ${projectNodes.projectId}
-                     ORDER BY ${projectNodes.type}, ${projectNodes.name}, ${projectNodes.id}
-                   ) AS rn
-            FROM ${projectNodes}
-            WHERE ${projectNodes.projectId} IN (${sql.join(projectIds.map(id => sql`${id}`), sql`, `)})
-              AND ${projectNodes.parentId} IS NULL
-              AND ${projectNodes.deletedAt} IS NULL
-          ) ranked
-          WHERE ranked.rn <= 100
+          SELECT n.id
+          FROM unnest(ARRAY[${sql.join(projectIds.map(id => sql`${id}::uuid`), sql`, `)}]::uuid[]) AS p(id)
+          CROSS JOIN LATERAL (
+            SELECT id
+            FROM project_nodes
+            WHERE project_id = p.id
+              AND parent_id IS NULL
+              AND deleted_at IS NULL
+            ORDER BY type, name, id
+            LIMIT 100
+          ) n
         `),
         getProjectTaskFileCountMap(projectIds),
         getProjectTaskCountMap(projectIds),
@@ -220,6 +243,11 @@ export async function GET(request: Request) {
         email: user.email,
       },
       projects: projectsWithDetails,
+    }, undefined, {
+      headers: {
+        ETag: workspaceEtag,
+        "Cache-Control": "private, no-cache",
+      },
     });
   } catch (error) {
     logger.error(

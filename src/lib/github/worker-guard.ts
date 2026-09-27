@@ -40,66 +40,23 @@ export async function withTenantSyncLock<T>(
     };
   }
 
-  const lockResult = await db.execute<{ locked: boolean }>(sql`
-        SELECT pg_try_advisory_lock(
-            hashtext(${TENANT_LOCK_NAMESPACE}),
-            hashtext(CAST(${tenantId} AS text))
-        ) AS locked
+  // ponytail: transaction-scoped advisory lock (pg_try_advisory_xact_lock) releases automatically on commit/rollback. ceiling: single Postgres primary. upgrade: Redis redlock if multi-region active-active deployment required.
+  return await db.transaction(async (tx) => {
+    const lockResult = await tx.execute<{ locked: boolean }>(sql`
+      SELECT pg_try_advisory_xact_lock(
+        hashtext(${TENANT_LOCK_NAMESPACE}),
+        hashtext(CAST(${tenantId} AS text))
+      ) AS locked
     `);
-  const lockRow = Array.from(lockResult)[0];
-  const lockAcquired = !!lockRow?.locked;
-  if (!lockAcquired) {
-    return { skipped: true, value: null };
-  }
-
-  let taskResult: T | null = null;
-  let taskError: unknown = null;
-
-  try {
-    taskResult = await task();
-  } catch (error) {
-    taskError = error;
-  } finally {
-    let unlockError: unknown = null;
-
-    try {
-      const unlockResult = await db.execute<{
-        pg_advisory_unlock: boolean;
-      }>(sql`
-                SELECT pg_advisory_unlock(
-                    hashtext(${TENANT_LOCK_NAMESPACE}),
-                    hashtext(CAST(${tenantId} AS text))
-                ) AS pg_advisory_unlock
-            `);
-      const unlockRow = Array.from(unlockResult)[0];
-      if (!unlockRow?.pg_advisory_unlock) {
-        unlockError = new Error(
-          `Failed to release advisory lock for tenant ${tenantId}`,
-        );
-        console.error("[github-worker-guard] advisory unlock returned false", {
-          tenantId,
-        });
-      }
-    } catch (error) {
-      unlockError = error;
-      console.error("[github-worker-guard] advisory unlock threw", {
-        tenantId,
-        error,
-      });
+    const lockRow = Array.from(lockResult)[0];
+    const lockAcquired = !!lockRow?.locked;
+    if (!lockAcquired) {
+      return { skipped: true, value: null };
     }
 
-    if (taskError) {
-      throw taskError;
-    }
-    if (unlockError) {
-      throw unlockError;
-    }
-  }
-
-  return {
-    skipped: false,
-    value: taskResult,
-  };
+    const value = await task();
+    return { skipped: false, value };
+  });
 }
 
 export function assertRepositoryWithinBudgets(

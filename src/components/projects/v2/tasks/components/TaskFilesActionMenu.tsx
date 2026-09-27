@@ -39,11 +39,11 @@ export function TaskFilesActionMenu({
         data-testid="task-files-action-menu-trigger"
         title="Add files"
         disabled={isDisabled}
-        className="inline-flex h-9 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+        className="inline-flex h-8 items-center gap-2 rounded-[5px] bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <Upload className="h-4 w-4" />
+        <Upload className="h-3.5 w-3.5" />
         <span>Add files</span>
-        <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+        <ChevronDown className="h-3 w-3 opacity-80" />
       </button>
     ) : (
       <button
@@ -52,7 +52,7 @@ export function TaskFilesActionMenu({
         aria-label="Add files"
         title="Add files"
         disabled={isDisabled}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-600 transition-colors hover:bg-zinc-50 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
@@ -64,7 +64,7 @@ export function TaskFilesActionMenu({
         {trigger ?? defaultTrigger}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="z-[300] w-56">
-        <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-zinc-500">
+        <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           Add task files
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -77,8 +77,8 @@ export function TaskFilesActionMenu({
         >
           <Upload className="mr-2 h-4 w-4" />
           <div className="flex flex-col">
-            <span>Upload file</span>
-            <span className="text-[10px] text-zinc-500">Add a new file from your computer</span>
+            <span className="text-[13px] font-medium text-foreground">Upload file</span>
+            <span className="text-[11px] text-muted-foreground">Add a new file from your computer</span>
           </div>
         </DropdownMenuItem>
         {onPickFolder ? (
@@ -91,8 +91,8 @@ export function TaskFilesActionMenu({
           >
             <FolderPlus className="mr-2 h-4 w-4" />
             <div className="flex flex-col">
-              <span>Upload folder</span>
-              <span className="text-[10px] text-zinc-500">Keep folder structure and resolve placement</span>
+              <span className="text-[13px] font-medium text-foreground">Upload folder</span>
+              <span className="text-[11px] text-muted-foreground">Keep folder structure and resolve placement</span>
             </div>
           </DropdownMenuItem>
         ) : null}
@@ -105,8 +105,8 @@ export function TaskFilesActionMenu({
         >
           <Link2 className="mr-2 h-4 w-4" />
           <div className="flex flex-col">
-            <span>Add task reference</span>
-            <span className="text-[10px] text-zinc-500">Link an existing project file as task input</span>
+            <span className="text-[13px] font-medium text-foreground">Add task reference</span>
+            <span className="text-[11px] text-muted-foreground">Link an existing project file as task input</span>
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>

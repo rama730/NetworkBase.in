@@ -14,9 +14,10 @@ export const workspaceCountersRefresh = inngest.createFunction(
     },
     { event: 'workspace/counters.refresh' },
     async ({ events, step }) => {
-        const userIds = [...new Set(events.map(e => e.data.userId))];
+        const userIds = [...new Set(events.map(e => e.data.userId).filter(Boolean))];
         
         await step.run('refresh-counters', async () => {
+            if (userIds.length === 0) return;
             // Remove from dirty set first to allow new refreshes to be queued
             const redis = getRedisClient();
             if (redis) {

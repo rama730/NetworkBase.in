@@ -15,6 +15,7 @@ describe("identity presentation", () => {
         avatar_url: " https://cdn.example.com/avatar.png ",
       }),
       {
+        id: null,
         fullName: "Ch Rama",
         username: "chrama",
         avatarUrl: "https://cdn.example.com/avatar.png",
@@ -34,14 +35,14 @@ describe("identity presentation", () => {
     assert.equal(result.displayName, "Ch Rama");
     assert.equal(result.usernameLabel, "@chrama");
     assert.equal(result.initials, "CR");
-    assert.match(result.gradientClass, /^from-/);
+    assert.equal(result.gradientClass, "nb-avatar-fallback");
   });
 
   it("uses the configured fallback display name when identity is empty", () => {
     const result = buildIdentityPresentation(null, { fallbackDisplayName: "Collaborator" });
     assert.equal(result.displayName, "Collaborator");
     assert.equal(result.alt, "Collaborator");
-    assert.equal(result.initials, "C");
+    assert.equal(result.initials, "CO");
   });
 
   it("preserves explicit fallback initials for shared avatar stacks", () => {

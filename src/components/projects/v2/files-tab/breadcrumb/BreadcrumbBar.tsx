@@ -333,7 +333,7 @@ export function BreadcrumbBar({
     <div className="flex min-w-0 flex-1 items-center px-1">
       <nav
         aria-label="Breadcrumb"
-        className="flex min-w-0 flex-1 items-center gap-0.5 text-xs text-zinc-600 dark:text-zinc-300 overflow-hidden h-full outline-none"
+        className="flex min-w-0 flex-1 items-center gap-0.5 text-xs text-muted-foreground overflow-hidden h-full outline-none"
         data-testid="files-tab-breadcrumb"
       >
         {layout.kind === "inline"
@@ -379,7 +379,7 @@ function Separator(): React.JSX.Element {
   return (
     <span
       aria-hidden="true"
-      className="mx-0.5 text-zinc-400 dark:text-zinc-600 select-none"
+      className="mx-0.5 text-muted-foreground/60 select-none"
     >
       /
     </span>
@@ -420,7 +420,7 @@ function SegmentContent({
     // Req 3.3: file segment is bold and not clickable.
     return (
       <span
-        className="font-semibold text-zinc-900 dark:text-zinc-100 px-1.5 py-0.5 truncate max-w-[200px]"
+        className="font-semibold text-foreground px-1.5 py-0.5 truncate max-w-[200px]"
         title={segment.name}
       >
         {segment.name}
@@ -435,7 +435,7 @@ function SegmentContent({
       type="button"
       data-breadcrumb-segment-id={dataId}
       onClick={() => onNavigate(isRoot ? null : segment.id)}
-      className="flex items-center gap-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-700 dark:text-zinc-200 transition-colors max-w-[180px] outline-none  "
+      className="flex items-center gap-1 hover:bg-muted px-1.5 py-0.5 rounded-[4px] text-foreground transition-colors max-w-[180px] outline-none"
       title={segment.name}
     >
       {isRoot ? (
@@ -465,7 +465,7 @@ function EllipsisButton({
           // but it navigates to the *hidden* segments via the dropdown, so
           // it carries the literal `__ellipsis__` id rather than a node id.
           data-breadcrumb-segment-id="__ellipsis__"
-          className="flex items-center px-1.5 py-0.5 rounded text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors outline-none  "
+          className="flex items-center px-1.5 py-0.5 rounded-[4px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none"
         >
           <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
         </button>

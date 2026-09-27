@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
 import { importJobs, importJobFiles } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
 import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
@@ -108,19 +108,24 @@ export async function POST(request: NextRequest) {
                 })
                 .where(eq(importJobs.id, jobId));
 
-            // Chunk inserts to prevent SQL limit issues on large batches
-            const chunkSize = 200;
-            for (let i = 0; i < manifestFiles.length; i += chunkSize) {
-                const chunk = manifestFiles.slice(i, i + chunkSize);
-                const values = chunk.map((file) => ({
-                    jobId,
+            if (manifestFiles.length > 0) {
+                // High-performance single multi-row ingestion via jsonb_to_recordset
+                const jsonPayload = JSON.stringify(manifestFiles.map((file) => ({
                     path: file.path,
                     size: file.size,
                     checksum: file.checksum,
-                    status: 'pending',
-                    createdAt: new Date(),
-                }));
-                await tx.insert(importJobFiles).values(values);
+                })));
+                await tx.execute(sql`
+                    INSERT INTO import_job_files (job_id, path, size, checksum, status, created_at)
+                    SELECT 
+                        ${jobId}::uuid,
+                        r.path,
+                        r.size,
+                        r.checksum,
+                        'pending',
+                        now()
+                    FROM jsonb_to_recordset(${jsonPayload}::jsonb) AS r(path text, size bigint, checksum text)
+                `);
             }
         });
 

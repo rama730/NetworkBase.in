@@ -65,7 +65,7 @@ export function SkillList({
                     type="button"
                     onClick={() => setExpanded(true)}
                     className={cn(
-                        "rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 focus-visible:outline-none   dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800",
+                        "rounded-[3px] border border-border bg-card px-2 py-1 text-xs font-mono uppercase tracking-[0.09em] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none",
                         layout === 'grid' && cn('w-full text-center justify-center', colSpanClass)
                     )}
                     aria-label={`Show ${remaining} more skills`}
@@ -77,7 +77,7 @@ export function SkillList({
                     type="button"
                     onClick={() => setExpanded(false)}
                     className={cn(
-                        "rounded-lg px-2.5 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-100 focus-visible:outline-none   dark:text-zinc-300 dark:hover:bg-zinc-800",
+                        "rounded-[3px] border border-border bg-card px-2 py-1 text-xs font-mono uppercase tracking-[0.09em] text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none",
                         layout === 'grid' && cn('w-full text-center justify-center', colSpanClass)
                     )}
                 >

@@ -48,11 +48,11 @@ function VerifyEmailPageInner() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
+        <div className="min-h-dvh flex items-center justify-center bg-background p-4">
             <div className="w-full max-w-md">
-                <Card className="border-0 shadow-xl bg-card/60 backdrop-blur-sm">
+                <Card className="border-0 shadow-xl bg-card backdrop-blur-none">
                     <CardHeader className="space-y-3 text-center">
-                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10 text-primary">
                             <Mail className="h-7 w-7" />
                         </div>
                         <div className="space-y-1">
@@ -134,11 +134,11 @@ function VerifyEmailPageInner() {
 
 function VerifyEmailPageFallback() {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/30 p-4">
+        <div className="min-h-dvh flex items-center justify-center bg-background p-4">
             <div className="w-full max-w-md">
-                <Card className="border-0 shadow-xl bg-card/60 backdrop-blur-sm">
+                <Card className="border-0 shadow-xl bg-card backdrop-blur-none">
                     <CardHeader className="space-y-3 text-center">
-                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10 text-primary">
                             <Loader2 className="h-7 w-7 animate-spin" />
                         </div>
                         <div className="space-y-1">

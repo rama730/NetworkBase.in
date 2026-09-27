@@ -51,7 +51,7 @@ export function ReportMessageDialog({ messageId, isOpen, onClose }: ReportMessag
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-zinc-900">
                 <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Flag className="h-5 w-5 text-red-500" />

@@ -19,7 +19,8 @@ export type SearchContext = {
 export type PeopleSearchScope = "discover" | "network";
 
 export function getPeopleSearchScope(searchParams?: URLSearchParams | null): PeopleSearchScope {
-    return searchParams?.get("tab") === "network" ? "network" : "discover";
+    const tab = searchParams?.get("tab");
+    return tab === "network" || tab === "connections" ? "network" : "discover";
 }
 
 export type SettingsSearchItem = {
@@ -153,8 +154,8 @@ export function removeRecentGlobalSearch(ownerId: string, scope: string, key: st
 }
 
 const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
-    { id: "account", title: "Account", section: "Account", description: "Account status, local app data, and account actions.", href: settingsTabHref("account"), keywords: "profile account status manage", featured: true },
-    { id: "delete-account", title: "Delete account", section: "Account", description: "Review the permanent account deletion controls.", href: settingsTabHref("account"), keywords: "remove erase close danger irreversible" },
+    { id: "account", title: "Account", section: "Account", description: "Review signed-in identity and local application data.", href: settingsTabHref("account"), keywords: "profile account status manage", featured: true },
+    { id: "delete-account", title: "Delete account", section: "Privacy and Policies", description: "Review the permanent account deletion controls.", href: "/settings?tab=privacy-policies#settings-delete-account", keywords: "remove erase close danger irreversible" },
     { id: "security", title: "Security", section: "Security", description: "Protect your account and review sign-in activity.", href: settingsTabHref("security"), keywords: "protect login sign in", featured: true },
     { id: "authenticator", title: "Authenticator app", section: "Security", description: "Configure an authenticator app and 6-digit verification codes.", href: settingsTabHref("security"), keywords: "mfa 2fa two factor otp verification code" },
     { id: "password", title: "Password", section: "Security", description: "Manage your fallback password and password credential.", href: settingsTabHref("security"), keywords: "change reset credential sign in" },
@@ -179,6 +180,7 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     { id: "github", title: "GitHub access", section: "Integrations", description: "Review account-level GitHub repository access status.", href: settingsTabHref("integrations"), keywords: "repository repo source code connect" },
     { id: "editor-sessions", title: "Editor extension sessions", section: "Integrations", description: "Review or disconnect VS Code and other editor sessions.", href: settingsTabHref("integrations"), keywords: "vscode cursor kiro ide extension disconnect revoke active" },
     { id: "manual-token", title: "Manual editor token", section: "Integrations", description: "Generate a fallback token for an editor extension.", href: settingsTabHref("integrations"), keywords: "device authentication login extension" },
+    { id: "privacy-policies", title: "Privacy and Policies", section: "Privacy and Policies", description: "Review legal terms, policies, and account data rights.", href: settingsTabHref("privacy-policies"), keywords: "legal rights terms eula policy data export delete" },
 ] as const;
 
 export function normalizeGlobalSearchQuery(query: string) {
@@ -210,7 +212,7 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
             description: "Search task keys, titles, and descriptions in this project.",
         };
     }
-    if (pathname?.startsWith("/people")) {
+    if (pathname?.startsWith("/network") || pathname?.startsWith("/people")) {
         const scope = getPeopleSearchScope(searchParams);
         return {
             context: "people",
@@ -221,7 +223,7 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
                 : "Search people by name, skills, interests, or location.",
         };
     }
-    if (pathname?.startsWith("/hub")) {
+    if (pathname?.startsWith("/discover") || pathname?.startsWith("/hub")) {
         return {
             context: "hub",
             placeholder: "Search projects...",
@@ -308,8 +310,8 @@ export function buildGlobalSearchHref({
         params.delete("drawerId");
         params.delete("panelTab");
     } else {
-        if (context === "default") targetPath = "/hub";
-        if (context === "people" && params.get("tab") === "requests") params.set("tab", "discover");
+        if (context === "default") targetPath = "/discover";
+        if (context === "people" && (params.get("tab") === "requests" || params.get("tab") === "invitations")) params.set("tab", "suggested");
         params.set("q", value);
         params.delete("tag");
     }

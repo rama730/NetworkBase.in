@@ -346,6 +346,48 @@ export async function syncRoleSkills(
     return resolved
 }
 
+// ponytail: batched role skills sync cuts N sequential DB roundtrips to 1 bulk insert during project creation. ceiling: 50 open roles. upgrade: multi-row batching beyond 50.
+export async function syncRoleSkillsBatch(
+    executor: SkillDbExecutor,
+    entries: readonly { roleId: string; labels: readonly string[] }[],
+    submittedBy?: string | null,
+): Promise<Map<string, ResolvedSkill[]>> {
+    const roleIds = Array.from(new Set(entries.map((entry) => entry.roleId)))
+    if (roleIds.length === 0) return new Map()
+
+    const allLabels = canonicalizeSkillLabels(entries.flatMap((entry) => [...entry.labels]))
+    const resolved = await resolveSkillsForWrite(executor, allLabels, submittedBy)
+    const byCanonicalKey = new Map(resolved.map((skill) => [skill.canonicalKey.toLowerCase(), skill]))
+    const byName = new Map(resolved.map((skill) => [normalizeSkillLookup(skill.name), skill]))
+    const result = new Map<string, ResolvedSkill[]>()
+
+    const rows = entries.flatMap((entry) => {
+        const seen = new Set<string>()
+        const list = canonicalizeSkillLabels(entry.labels).flatMap((label) => {
+            const catalog = findCatalogSkill(label)
+            const identity = catalog?.canonicalKey ?? customIdentity(label).canonicalKey
+            const skill = byCanonicalKey.get(identity.toLowerCase()) ?? byName.get(normalizeSkillLookup(label))
+            if (!skill || seen.has(skill.id)) return []
+            seen.add(skill.id)
+            return [skill]
+        })
+        result.set(entry.roleId, list)
+        return list.map((skill, displayOrder) => ({
+            roleId: entry.roleId,
+            skillId: skill.id,
+            displayOrder,
+            requirement: 'required' as const,
+            updatedAt: new Date(),
+        }))
+    })
+
+    await executor.delete(roleSkills).where(inArray(roleSkills.roleId, roleIds))
+    if (rows.length > 0) {
+        await executor.insert(roleSkills).values(rows)
+    }
+    return result
+}
+
 export async function syncContributionSkills(
     executor: SkillDbExecutor,
     contributionId: string,

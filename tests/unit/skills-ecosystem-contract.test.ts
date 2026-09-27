@@ -79,7 +79,7 @@ describe('skills ecosystem contract', () => {
         assert.match(icon, /curated-google-antigravity/)
         assert.match(source('src/components/skills/SkillChip.tsx'), /SkillIcon/)
         assert.match(source('src/components/skills/SkillChip.tsx'), /resolveClientSkill/)
-        assert.match(source('src/components/projects/ProjectCard.tsx'), /MAX_PROJECT_CARD_SKILL_ICONS = 10/)
+        assert.match(source('src/components/projects/ProjectCard.tsx'), /MAX_PROJECT_CARD_SKILL_ICONS = 6/)
         assert.match(source('src/components/projects/ProjectCard.tsx'), /SkillIcon/)
         assert.match(source('src/components/projects/ProjectCard.tsx'), /resolveClientSkill/)
         assert.match(source('src/components/projects/ProjectCard.tsx'), /\+{hiddenTechStackCount}/)

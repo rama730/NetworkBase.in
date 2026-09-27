@@ -63,9 +63,9 @@ function getButtonLabel(
   step: number,
   totalSteps: number,
   isLoading: boolean,
-): "spinner" | "Complete setup" | "Continue" {
+): "spinner" | "Finish profile" | "Continue" {
   if (isLoading) return "spinner";
-  if (step === totalSteps) return "Complete setup";
+  if (step === totalSteps) return "Finish profile";
   return "Continue";
 }
 

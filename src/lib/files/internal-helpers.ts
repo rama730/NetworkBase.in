@@ -354,11 +354,41 @@ export async function assertNotMovingIntoDescendant(
     projectId: string,
     nodeId: string,
     targetParentId: string | null,
-    tx: { query: typeof db.query } = db
+    tx: any = db
 ) {
-    let cursor = targetParentId;
+    if (!targetParentId) return;
+    if (targetParentId === nodeId) {
+        throw new Error("Cannot move a folder into itself or its descendant");
+    }
+
+    // PURE OPTIMIZATION (Item 24): Single recursive CTE checks entire ancestry chain in 1 round-trip instead of N queries in a loop.
+    const result = (await tx.execute(sql`
+        WITH RECURSIVE ancestors AS (
+            SELECT id, parent_id, 1 AS depth
+            FROM project_nodes
+            WHERE id = ${targetParentId}::uuid
+              AND project_id = ${projectId}::uuid
+              AND deleted_at IS NULL
+            UNION ALL
+            SELECT p.id, p.parent_id, a.depth + 1
+            FROM project_nodes p
+            JOIN ancestors a ON p.id = a.parent_id
+            WHERE p.project_id = ${projectId}::uuid
+              AND p.deleted_at IS NULL
+              AND a.depth < 256
+        )
+        SELECT id, depth FROM ancestors
+    `)) as Array<{ id: string; depth: number }>;
+
+    const ancestry = Array.from(result);
+    if (ancestry.length === 0) {
+        throw new Error("Destination folder not found");
+    }
+
     const visited = new Set<string>();
-    for (let depth = 0; cursor; depth++) {
+    for (const row of ancestry) {
+        const cursor = row.id;
+        const depth = row.depth;
         if (depth >= 256 || visited.has(cursor)) {
             throw new Error("Folder hierarchy is inconsistent; move cancelled");
         }
@@ -366,16 +396,6 @@ export async function assertNotMovingIntoDescendant(
         if (cursor === nodeId) {
             throw new Error("Cannot move a folder into itself or its descendant");
         }
-        const next = await tx.query.projectNodes.findFirst({
-            where: and(
-                eq(projectNodes.id, cursor),
-                eq(projectNodes.projectId, projectId),
-                isNull(projectNodes.deletedAt),
-            ),
-            columns: { parentId: true },
-        });
-        if (!next) throw new Error("Destination folder not found");
-        cursor = next.parentId;
     }
 }
 
@@ -416,6 +436,55 @@ export async function recordNodeEvent(
             .returning();
 
         return { sequenceNumber: project.newSequenceNumber, event };
+    };
+
+    if (clientTx) {
+        return await run(clientTx);
+    }
+    return await db.transaction(async (tx) => {
+        return await run(tx);
+    });
+}
+
+export async function recordNodeEventsBatch(
+    projectId: string,
+    actorId: string | null,
+    nodeIds: (string | null)[],
+    type: string,
+    metadata: Record<string, unknown> = {},
+    clientTx?: DbTransaction
+) {
+    const run = async (tx: any) => {
+        const count = Math.max(1, nodeIds.length);
+        const [project] = await tx
+            .update(projects)
+            .set({
+                currentSequenceNumber: sql`${projects.currentSequenceNumber} + ${count}`
+            })
+            .where(eq(projects.id, projectId))
+            .returning({
+                newSequenceNumber: projects.currentSequenceNumber
+            });
+
+        if (!project) {
+            throw new Error(`Project ${projectId} not found`);
+        }
+
+        const startSeq = Number(project.newSequenceNumber) - count;
+        const now = new Date();
+        const targets = nodeIds.length > 0 ? nodeIds : [null];
+        const values = targets.map((nodeId, idx) => ({
+            projectId,
+            actorId,
+            nodeId,
+            type,
+            sequenceNumber: startSeq + idx + 1,
+            metadata,
+            createdAt: now,
+        }));
+
+        await tx.insert(projectNodeEvents).values(values);
+        return { sequenceNumber: project.newSequenceNumber };
     };
 
     if (clientTx) {

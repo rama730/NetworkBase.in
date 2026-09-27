@@ -21,13 +21,13 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { deleteMessage, editMessage, type MessageWithSender } from '@/app/actions/messaging';
 import { cn } from '@/lib/utils';
 import { Message, MessageAvatar, MessageContent, MessageHeader, MessageFooter, Bubble } from '@/components/ui/message';
+import { UserAvatar } from '@/components/ui/UserAvatar';
 import {
     hideThreadMessageForViewer,
     patchConversationLastMessageFromMessage,
@@ -218,7 +218,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
 
     useEffect(() => {
         if (!showReactionBar && !menuOpen) return;
-        // ponytail: capture catches the virtualized thread scroller without a shared scroll state.
+        // ponytail: capture catches the virtualized thread scroller without a shared scroll state. ceiling: capture scroll event listener. upgrade: attach scroll listener to virtuoso root ref if scoped scrolling required.
         const dismissOverlays = () => {
             setShowReactionBar(false);
             setMenuOpen(false);
@@ -488,7 +488,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
             <div className="my-4 flex w-full justify-center">
                 <span className="flex items-center gap-2 rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-500 dark:border-zinc-800 dark:bg-zinc-800/60 dark:text-zinc-400">
                     {message.content}
-                    <span className="text-[10px] opacity-60">• {format(new Date(message.createdAt), 'p')}</span>
+                    <span className="text-[11px] opacity-60">• {format(new Date(message.createdAt), 'p')}</span>
                 </span>
             </div>
         );
@@ -497,7 +497,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
     if (isDeleted) {
         return (
             <div className={`flex mt-[1px] mb-[1px] w-full ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                <div className="rounded-2xl bg-zinc-100 px-4 py-2 text-sm italic text-zinc-400 dark:bg-zinc-800">
+                <div className="rounded-lg bg-zinc-100 px-4 py-2 text-sm italic text-zinc-400 dark:bg-zinc-800">
                     This message was deleted
                 </div>
             </div>
@@ -519,7 +519,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
             align={isOwn ? 'end' : 'start'}
             className={cn(
                 'relative',
-                isOptimistic && 'animate-[message-appear_250ms_ease-out]'
+                isOptimistic && 'msg-message-enter'
             )}
         >
             <div
@@ -529,33 +529,18 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                 onTouchEnd={handleTouchEnd}
                 style={{
                     transform: swipeOffset !== 0 ? `translateX(${swipeOffset}px)` : undefined,
-                    transition: isSwiping ? 'none' : 'transform 200ms ease-out',
+                    transition: isSwiping ? 'none' : 'transform 180ms cubic-bezier(.2,.8,.3,1)',
                     touchAction: 'pan-y',
                 }}
             >
                 {!isOwn && conversationType !== 'dm' && (
                     <MessageAvatar className="w-8 h-8 select-none">
-                        {!isConsecutiveFromPrev && (() => {
-                            const senderIdentity = buildIdentityPresentation(message.sender);
-                            return senderIdentity.avatarUrl ? (
-                                <Image
-                                    src={senderIdentity.avatarUrl}
-                                    alt={senderIdentity.alt}
-                                    width={32}
-                                    height={32}
-                                    className="h-8 w-8 rounded-full object-cover"
-                                />
-                            ) : (
-                                <div className={cn("h-8 w-8 rounded-full text-white flex items-center justify-center text-xs font-semibold", senderIdentity.gradientClass)}>
-                                    {senderIdentity.initials}
-                                </div>
-                            );
-                        })()}
+                        {!isConsecutiveFromPrev && <UserAvatar identity={message.sender} size={32} fallbackClassName="text-xs font-semibold" />}
                     </MessageAvatar>
                 )}
 
                 <MessageContent
-                    className="transition-[background-color,box-shadow] duration-200"
+                    className="transition-[background-color,box-shadow] duration-[180ms]"
                 >
                         {!isOwn && conversationType !== 'dm' && !isConsecutiveFromPrev && (
                             <MessageHeader className="mb-0.5">
@@ -580,7 +565,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                         : cn(isConsecutiveToNext && 'rounded-bl-sm', isConsecutiveFromPrev && 'rounded-tl-sm')
                                 )}
                             >
-                                <div className="rounded-xl border border-zinc-200 bg-white p-2 dark:border-zinc-700 dark:bg-zinc-900">
+                                <div className="rounded-lg border border-zinc-200 bg-white p-2 dark:border-zinc-700 dark:bg-zinc-900">
                                     <textarea
                                         value={draftContent}
                                         onChange={(event) => setDraftContent(event.target.value)}
@@ -627,7 +612,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                                     type="button"
                                                     onClick={() => onFocusMessage?.(message.replyTo!.id)}
                                                     className={cn(
-                                                        'mb-2 w-full rounded-lg border px-3 py-2 text-left text-xs transition-[background-color,border-color,transform] duration-150 active:translate-y-px',
+                                                        'mb-2 w-full rounded-lg border px-3 py-2 text-left text-xs transition-[background-color,border-color,transform] duration-[130ms] active:translate-y-px',
                                                         isOwn
                                                             ? 'border-white/15 bg-black/10 text-primary-foreground/90 hover:bg-black/15'
                                                             : 'border-zinc-200/90 bg-zinc-50/80 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300 dark:hover:bg-zinc-800',
@@ -646,7 +631,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                                                 {replyPreviewBadge ? (
                                                                     <span
                                                                         className={cn(
-                                                                            'shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-medium',
+                                                                            'shrink-0 rounded-md border px-1.5 py-0.5 text-[11px] font-medium',
                                                                             isOwn
                                                                                 ? 'border-white/15 bg-white/10 text-white/80'
                                                                                 : 'border-zinc-200 bg-white text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400',
@@ -666,7 +651,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
 
                                             {isPinned ? (
                                                 <div className="mb-1 flex items-center gap-2">
-                                                    <span className={`text-[10px] font-bold uppercase ${isOwn ? 'text-white/80' : 'text-amber-600 dark:text-amber-400'}`}>
+                                                    <span className={`text-[11px] font-semibold uppercase ${isOwn ? 'text-white/80' : 'text-amber-600 dark:text-amber-400'}`}>
                                                         Pinned
                                                     </span>
                                                 </div>
@@ -774,7 +759,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                                     {isLast && attachments.length === 0 && reactionSummary.length > 0 && (
                                                         <ReactionPillRow
                                                             reactions={reactionSummary}
-                                                            align={isOwn ? 'start' : 'end'}
+                                                            align={isOwn ? 'end' : 'start'}
                                                             onToggleReaction={handleReaction}
                                                             onShowDetail={() => {}}
                                                         />
@@ -809,7 +794,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                                 isOwn
                                                     ? cn((isLast && isConsecutiveToNext) && 'rounded-br-sm', isFirst && isConsecutiveFromPrev && 'rounded-tr-sm')
                                                     : cn((isLast && isConsecutiveToNext) && 'rounded-bl-sm', isFirst && isConsecutiveFromPrev && 'rounded-tl-sm'),
-                                                'transition-[transform,box-shadow,ring-color] duration-300 ease-out',
+                                                'transition-[transform,box-shadow,ring-color] duration-[260ms] ease-out',
                                                 isFocusedReplyTarget && 'ring-2 ring-zinc-300/90 ring-offset-2 ring-offset-background dark:ring-zinc-600/90'
                                             )}
                                         >
@@ -818,7 +803,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                             {segment.content ? (
                                                 <div className="min-w-0 max-w-full break-words outline-none">
                                                     <div className={cn(
-                                                        "relative overflow-hidden transition-all duration-300 ease-in-out",
+                                                        "relative overflow-hidden transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms] ease-in-out",
                                                         isLongContent ? (isCollapsed ? "max-h-[220px]" : "max-h-[4000px]") : "",
                                                         isLongContent && isCollapsed ? "[mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)]" : ""
                                                     )}>
@@ -843,14 +828,14 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                                         >
                                                             {isCollapsed ? "Show more" : "Show less"}
                                                             <ChevronDown className={cn(
-                                                                "h-4 w-4 transition-transform duration-200",
+                                                                "h-4 w-4 transition-transform duration-[180ms]",
                                                                 !isCollapsed && "rotate-180"
                                                             )} />
                                                         </button>
                                                     )}
 
                                                     {isLast && hasInlineTimestamp && showTimestamp && (
-                                                        <span className={cn("float-right mt-1.5 ml-2 shrink-0 select-none text-[10px] flex items-center gap-0.5 font-medium", isOwn ? "text-primary-foreground/60" : "text-muted-foreground")}>
+                                                        <span className={cn("float-right mt-1.5 ml-2 shrink-0 select-none text-[11px] flex items-center gap-0.5 font-medium", isOwn ? "text-primary-foreground/60" : "text-muted-foreground")}>
                                                             {format(new Date(message.createdAt), 'p')}
                                                             {message.editedAt ? <span className="opacity-75">(edited)</span> : null}
                                                              <DeliveryIndicator deliveryState={deliveryState} className={cn("h-3 w-3", isOwn ? "text-primary-foreground/70" : "text-muted-foreground")} />
@@ -863,7 +848,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                             {isLast && attachments.length === 0 && reactionSummary.length > 0 && (
                                                 <ReactionPillRow
                                                     reactions={reactionSummary}
-                                                    align={isOwn ? 'start' : 'end'}
+                                                    align={isOwn ? 'end' : 'start'}
                                                     onToggleReaction={handleReaction}
                                                     onShowDetail={() => {}}
                                                 />
@@ -887,7 +872,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                 {reactionSummary.length > 0 && (
                                     <ReactionPillRow
                                         reactions={reactionSummary}
-                                        align={isOwn ? 'start' : 'end'}
+                                        align={isOwn ? 'end' : 'start'}
                                         onToggleReaction={handleReaction}
                                         onShowDetail={() => {}}
                                     />
@@ -931,19 +916,19 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                         <>
                             <DeliveryIndicator deliveryState={deliveryState} />
                             {deliveryState && (
-                                <span className="text-[10px] capitalize text-zinc-400 dark:text-zinc-500">{deliveryState}</span>
+                                <span className="text-[11px] capitalize text-zinc-400 dark:text-zinc-500">{deliveryState}</span>
                             )}
                         </>
                     )
                 ) : null}
-                {message.editedAt && !hasInlineTimestamp ? <span className="text-[10px] text-zinc-400 dark:text-zinc-500">(edited)</span> : null}
+                {message.editedAt && !hasInlineTimestamp ? <span className="text-[11px] text-zinc-400 dark:text-zinc-500">(edited)</span> : null}
             </MessageFooter>
         )}
     </MessageContent>
 
                 <div
                     className={cn(
-                        'flex items-center gap-1 transition-opacity duration-200 shrink-0 pb-1 z-20',
+                        'flex items-center gap-1 transition-opacity duration-[180ms] shrink-0 pb-1 z-20',
                         showReactionBar || menuOpen
                             ? 'pointer-events-auto opacity-100'
                             : 'pointer-events-none opacity-0 focus-within:pointer-events-auto focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
@@ -958,7 +943,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                 event.stopPropagation();
                                 setShowReactionBar((prev) => !prev);
                             }}
-                            className="rounded-full bg-background/90 p-1 text-zinc-400 shadow-sm ring-1 ring-border/60 backdrop-blur transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-950/90 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                            className="rounded-full bg-background/90 p-1 text-zinc-400 shadow-none ring-1 ring-border/60 backdrop-blur-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-950/90 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                             aria-label="Add reaction"
                         >
                             <SmilePlus className="h-4 w-4" />
@@ -978,7 +963,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                         <DropdownMenuTrigger asChild>
                             <button
                                 type="button"
-                                className="rounded-full bg-background/90 p-1 text-zinc-400 shadow-sm ring-1 ring-border/60 backdrop-blur transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-950/90 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                                className="rounded-full bg-background/90 p-1 text-zinc-400 shadow-none ring-1 ring-border/60 backdrop-blur-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-950/90 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                                 aria-label="Message actions"
                                 disabled={isActionLoading}
                             >
@@ -1049,7 +1034,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
             {swipeOffset !== 0 && (
                 <div
                     className={cn(
-                        'pointer-events-none absolute top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 transition-all duration-100 dark:bg-zinc-800',
+                        'pointer-events-none absolute top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[80ms] dark:bg-zinc-800',
                         isOwn ? 'left-3' : 'right-3',
                     )}
                     style={{
@@ -1075,14 +1060,26 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
     if (prev.surface !== next.surface) return false;
     if (prev.isLatestMessage !== next.isLatestMessage) return false;
     if (prev.linkedWork !== next.linkedWork) return false;
-    if (prev.message.attachments !== next.message.attachments) return false;
+
+    if (prev.message.attachments !== next.message.attachments) {
+        const prevAtt = prev.message.attachments || [];
+        const nextAtt = next.message.attachments || [];
+        if (prevAtt.length !== nextAtt.length) return false;
+        for (let i = 0; i < prevAtt.length; i++) {
+            if (prevAtt[i]?.id !== nextAtt[i]?.id) return false;
+        }
+    }
 
     // Semantic metadata comparison: avoid re-rendering entire bubble when unrelated
     // object references in metadata change, only check visual presentation fields.
     const prevMeta = prev.message.metadata as Record<string, unknown> | undefined;
     const nextMeta = next.message.metadata as Record<string, unknown> | undefined;
     if (prevMeta?.deliveryState !== nextMeta?.deliveryState) return false;
-    if (prevMeta?.reactionSummary !== nextMeta?.reactionSummary) return false;
+    if (prevMeta?.reactionSummary !== nextMeta?.reactionSummary) {
+        if (JSON.stringify(prevMeta?.reactionSummary) !== JSON.stringify(nextMeta?.reactionSummary)) {
+            return false;
+        }
+    }
     if (prevMeta?.structured !== nextMeta?.structured) return false;
     if (prevMeta?.replyPreview !== nextMeta?.replyPreview) return false;
 
@@ -1094,7 +1091,7 @@ export function DeliveryIndicator({ deliveryState, className }: { deliveryState?
     if (deliveryState === 'sending') {
         return (
             <SendHorizonal
-                className={cn("h-3 w-3 text-zinc-400 animate-pulse", className)}
+                className={cn("h-3 w-3 text-zinc-400 animate-none", className)}
             />
         );
     }

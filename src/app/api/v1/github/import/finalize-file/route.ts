@@ -49,20 +49,28 @@ export async function POST(request: NextRequest) {
 
         const { jobId, path: filePath, uploadIntentId } = parsed.data;
 
-        // 1. Fetch import job
-        const job = await db.query.importJobs.findFirst({
-            where: and(eq(importJobs.id, jobId), eq(importJobs.status, 'importing')),
-        });
+        // 1. Fetch import job, upload intent, and job file in parallel
+        const [job, intent, jobFile] = await Promise.all([
+            db.query.importJobs.findFirst({
+                where: and(eq(importJobs.id, jobId), eq(importJobs.status, 'importing')),
+            }),
+            db.query.uploadIntents.findFirst({
+                where: and(eq(uploadIntents.id, uploadIntentId), eq(uploadIntents.status, 'pending')),
+            }),
+            db.query.importJobFiles.findFirst({
+                where: and(
+                    eq(importJobFiles.jobId, jobId),
+                    eq(importJobFiles.path, filePath)
+                ),
+            }),
+        ]);
+
         if (!job) {
             return jsonError('Active import job not found', 404, 'NOT_FOUND');
         }
 
         await assertProjectWriteAccess(job.projectId, user.id);
 
-        // 2. Fetch upload intent
-        const intent = await db.query.uploadIntents.findFirst({
-            where: and(eq(uploadIntents.id, uploadIntentId), eq(uploadIntents.status, 'pending')),
-        });
         if (!intent) {
             return jsonError('Pending upload intent not found', 404, 'NOT_FOUND');
         }
@@ -70,13 +78,6 @@ export async function POST(request: NextRequest) {
             return jsonError('Forbidden', 403, 'FORBIDDEN');
         }
 
-        // 3. Fetch import job file record
-        const jobFile = await db.query.importJobFiles.findFirst({
-            where: and(
-                eq(importJobFiles.jobId, jobId),
-                eq(importJobFiles.path, filePath)
-            ),
-        });
         if (!jobFile) {
             return jsonError('File path not registered in job manifest', 404, 'NOT_FOUND');
         }
@@ -201,33 +202,23 @@ export async function POST(request: NextRequest) {
                 })
                 .where(eq(importJobFiles.id, jobFile.id));
 
-            // Increment processedFiles in import job
-            const updatedJob = await tx
+            // Increment processedFiles and conditionally complete import job in 1 atomic update
+            const nextProcessed = job.processedFiles + 1;
+            const isComplete = nextProcessed >= job.totalFiles;
+            await tx
                 .update(importJobs)
                 .set({
-                    processedFiles: job.processedFiles + 1,
+                    processedFiles: nextProcessed,
+                    ...(isComplete ? { status: 'completed' } : {}),
                     updatedAt: new Date(),
                 })
-                .where(eq(importJobs.id, jobId))
-                .returning();
-
-            // If job is finished, update status
-            const currentProcessed = updatedJob[0]?.processedFiles || (job.processedFiles + 1);
-            if (currentProcessed >= job.totalFiles) {
-                await tx
-                    .update(importJobs)
-                    .set({
-                        status: 'completed',
-                        updatedAt: new Date(),
-                    })
-                    .where(eq(importJobs.id, jobId));
-            }
+                .where(eq(importJobs.id, jobId));
 
             // Record node event
             const eventType = existingNode ? 'file_write' : 'file_create';
             await recordNodeEvent(job.projectId, user.id, nodeId, eventType, { version: nextVersion }, tx);
 
-            return { nodeId, nextVersion, isComplete: currentProcessed >= job.totalFiles };
+            return { nodeId, nextVersion, isComplete };
         });
 
         return jsonSuccess({

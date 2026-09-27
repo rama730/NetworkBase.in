@@ -73,6 +73,20 @@ export async function GET(request: NextRequest) {
 
         await assertProjectReadAccess(job.projectId, user.id);
 
+        const etag = !cursor
+            ? `W/"${job.id}-${job.status}-${job.processedFiles}-${job.totalFiles}-${job.updatedAt ? new Date(job.updatedAt).getTime() : 0}"`
+            : null;
+
+        if (etag && request.headers.get("if-none-match") === etag) {
+            return new Response(null, {
+                status: 304,
+                headers: {
+                    ETag: etag,
+                    "Cache-Control": "private, no-cache",
+                },
+            });
+        }
+
         const rows = await db.query.importJobFiles.findMany({
             where: and(
                 eq(importJobFiles.jobId, job.id),
@@ -114,7 +128,7 @@ export async function GET(request: NextRequest) {
             incompleteFiles: files.map(({ id: _id, ...file }) => file),
             nextCursor,
             hasMore,
-        });
+        }, undefined, etag ? { headers: { ETag: etag, "Cache-Control": "private, no-cache" } } : undefined);
     } catch (error) {
         logger.error('[github-import-status] failed', {
             error: error instanceof Error ? error.message : String(error),

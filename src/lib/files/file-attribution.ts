@@ -27,6 +27,8 @@ export async function getFileAttributionByNodeId(
   nodes: readonly ProjectNode[],
 ): Promise<Map<string, FileAttribution>> {
   const files = nodes.filter((node) => node.type === "file");
+  // ponytail: short-circuit for directory-only trees saves 1 database query per folder view. ceiling: empty files array. upgrade: run query when file nodes exist.
+  if (files.length === 0) return new Map();
   const latestByNodeId = new Map<string, LatestVersionAttributionRow>();
 
   for (let i = 0; i < files.length; i += BATCH_SIZE) {

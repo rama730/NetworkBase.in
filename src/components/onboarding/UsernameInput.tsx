@@ -12,6 +12,8 @@ interface UsernameInputProps {
     onChange: (value: string) => void
     fullName?: string
     disabled?: boolean
+    /** Disable availability and suggestion requests for local-only previews. */
+    allowRemoteChecks?: boolean
     onStatusChange?: (status: UsernameAvailabilityStatus) => void
 }
 
@@ -41,11 +43,11 @@ function generateSuggestions(fullName: string): string[] {
     return suggestions.slice(0, 3)
 }
 
-export default function UsernameInput({ value, onChange, fullName, disabled, onStatusChange }: UsernameInputProps) {
+export default function UsernameInput({ value, onChange, fullName, disabled, allowRemoteChecks = true, onStatusChange }: UsernameInputProps) {
     const [suggestions, setSuggestions] = useState<string[]>([])
     const [showSuggestions, setShowSuggestions] = useState(false)
     const suggestionsRequestIdRef = useRef(0)
-    const { status, message } = useUsernameAvailability({ value, enabled: !disabled })
+    const { status, message } = useUsernameAvailability({ value, enabled: !disabled && allowRemoteChecks })
 
     useEffect(() => {
         onStatusChange?.(status)
@@ -53,7 +55,7 @@ export default function UsernameInput({ value, onChange, fullName, disabled, onS
 
     // Generate suggestions from name (backend conflict-aware + local fallback).
     useEffect(() => {
-        if (!fullName || value) {
+        if (!allowRemoteChecks || !fullName || value) {
             if (!fullName) {
                 setSuggestions([])
                 setShowSuggestions(false)
@@ -90,7 +92,7 @@ export default function UsernameInput({ value, onChange, fullName, disabled, onS
         return () => {
             cancelled = true
         }
-    }, [fullName, value])
+    }, [allowRemoteChecks, fullName, value])
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newValue = sanitizeUsernameInput(e.target.value)
@@ -104,13 +106,14 @@ export default function UsernameInput({ value, onChange, fullName, disabled, onS
     }
 
     return (
-        <div className="space-y-2">
-            <label htmlFor="username" className="text-sm font-medium">
-                Username <span className="text-destructive">*</span>
+        <div className="onb-field">
+            <label htmlFor="username" className="onb-field-label">
+                Username <span className="onb-required">*</span>
             </label>
+            <p id="username-rules" className="onb-field-hint">3–20 characters. Use letters, numbers, underscores, or hyphens.</p>
 
             <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-[13px] text-muted-foreground">
                     @
                 </span>
                 <Input
@@ -121,15 +124,17 @@ export default function UsernameInput({ value, onChange, fullName, disabled, onS
                     disabled={disabled}
                     placeholder="yourname"
                     className={cn(
-                        "pl-8 pr-10 transition-all duration-200 onb-input",
-                        status === 'valid' && 'border-chart-2 ring-1 ring-chart-2/20',
-                        status === 'invalid' && 'border-destructive ring-1 ring-destructive/20'
+                        "onb-input pl-8 pr-10",
+                        status === 'valid' && 'border-chart-3',
+                        status === 'invalid' && 'onb-input--error'
                     )}
+                    aria-invalid={status === 'invalid'}
+                    aria-describedby={message ? 'username-status' : 'username-rules'}
                     maxLength={20}
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                     {status === 'checking' && <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />}
-                    {status === 'valid' && <Check className="w-4 h-4 text-chart-2" />}
+                    {status === 'valid' && <Check className="w-4 h-4 text-chart-3" />}
                     {status === 'invalid' && <X className="w-4 h-4 text-destructive" />}
                     {status === 'error' && <X className="w-4 h-4 text-chart-5" />}
                 </div>
@@ -137,13 +142,13 @@ export default function UsernameInput({ value, onChange, fullName, disabled, onS
 
             {/* Status Message */}
             {message && (
-                <p className={cn(
-                    "text-sm",
+                <p id="username-status" className={cn(
+                    "onb-field-status",
                     status === 'checking' && 'text-muted-foreground',
-                    status === 'valid' && 'text-chart-2',
+                    status === 'valid' && 'text-chart-3',
                     status === 'invalid' && 'text-destructive',
-                    status === 'error' && 'text-chart-5'
-                )}>
+                    status === 'error' && 'text-destructive'
+                )} role={status === 'invalid' || status === 'error' ? 'alert' : 'status'} aria-live="polite">
                     {message}
                 </p>
             )}
@@ -151,14 +156,14 @@ export default function UsernameInput({ value, onChange, fullName, disabled, onS
             {/* Suggestions */}
             {showSuggestions && suggestions.length > 0 && (
                 <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">Suggestions:</p>
+                    <p className="onb-section-kicker">Available suggestions</p>
                     <div className="flex flex-wrap gap-2">
                         {suggestions.map((suggestion) => (
                             <button
                                 key={suggestion}
                                 type="button"
                                 onClick={() => selectSuggestion(suggestion)}
-                                className="px-3 py-1.5 text-sm rounded-lg bg-muted text-foreground hover:bg-primary/10 hover:text-primary transition-colors min-h-[44px] sm:min-h-0 focus-visible:outline-none   "
+                                className="onb-focusable min-h-[44px] rounded-full border border-border bg-card px-3 py-1.5 text-[13px] text-foreground transition-colors hover:border-foreground/40 hover:bg-muted sm:min-h-0"
                             >
                                 @{suggestion}
                             </button>
@@ -168,7 +173,7 @@ export default function UsernameInput({ value, onChange, fullName, disabled, onS
             )}
 
             {/* Character count */}
-            <p className="text-xs text-muted-foreground">
+            <p className="font-mono text-[12px] text-muted-foreground">
                 {value.length}/20 characters
             </p>
         </div>

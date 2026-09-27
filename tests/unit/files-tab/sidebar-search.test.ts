@@ -14,7 +14,7 @@
 //   3. Collapse toggle calls `useFilesWorkspaceStore.getState().toggleSidebar(projectId)`
 //      and the resulting `ui.sidebarCollapsed` boolean flips per project
 //      (Req 2.4, 2.5) without bleeding across projects.
-//   4. The expanded sidebar width constant is always 280px (Req 2.6,
+//   4. The expanded sidebar width constant is always 240px (Req 2.6,
 //      Req 15.14) — enforced by the exported constant so runtime CSS
 //      and tests share a single source of truth.
 //
@@ -364,14 +364,14 @@ describe("sidebar collapse toggle — `toggleSidebar(projectId)` flips `ui.sideb
   });
 });
 
-// ─── 4. Expanded sidebar width is always 280px (Req 2.6, 15.14) ─────
+// ─── 4. Expanded sidebar width is always 240px (Req 2.6, 15.14) ─────
 
-describe("sidebar width — expanded aside is always 280px (Req 2.6, 15.14)", () => {
-  it("exports `FILES_TAB_SIDEBAR_WIDTH_PX === 280`", () => {
+describe("sidebar width — expanded aside is always 240px (Req 2.6, 15.14)", () => {
+  it("exports `FILES_TAB_SIDEBAR_WIDTH_PX === 240`", () => {
     assert.equal(
       FILES_TAB_SIDEBAR_WIDTH_PX,
-      280,
-      "Req 2.6 and Req 15.14 both require a 280px fixed sidebar width",
+      240,
+      "Req 2.6 and Req 15.14 both require a 240px fixed sidebar width",
     );
   });
 

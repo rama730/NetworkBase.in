@@ -7,7 +7,7 @@ import { Markdown } from "tiptap-markdown";
 import Link from "@tiptap/extension-link";
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { FileText, Paperclip, Timer } from "lucide-react";
+import { ListTodo, Paperclip, Timer } from "lucide-react";
 
 import type { ProjectUpdateContextKind } from "@/lib/projects/updates";
 
@@ -145,7 +145,7 @@ export function ProjectUpdateRichTextEditor({
                 openOnClick: false,
                 autolink: false,
                 HTMLAttributes: {
-                    class: "text-blue-600 dark:text-blue-400 font-semibold no-underline hover:underline cursor-pointer",
+                    class: "text-primary font-semibold no-underline hover:underline cursor-pointer",
                 },
             }),
             ReferenceLinkBackspaceExtension,
@@ -182,7 +182,7 @@ export function ProjectUpdateRichTextEditor({
         },
         editorProps: {
             attributes: {
-                class: "prose prose-zinc dark:prose-invert max-w-none focus:outline-none placeholder-zinc-400 dark:placeholder-zinc-600 min-h-28 text-lg",
+                class: "prose max-w-none outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 min-h-24 text-[15px] leading-[1.6] text-foreground",
             },
         },
     });
@@ -235,46 +235,46 @@ export function ProjectUpdateRichTextEditor({
         >
             {editor ? <EditorContent editor={editor} /> : null}
             {!editor?.getText() ? (
-                <div className="pointer-events-none absolute left-0 top-0 text-lg text-zinc-400 dark:text-zinc-600">
+                <div className="pointer-events-none absolute left-0 top-0 text-[15px] leading-[1.6] text-muted-foreground">
                     {placeholder}
                 </div>
             ) : null}
 
             {slashMenuOpen && slashMenuCoords ? (
                 <div
-                    className="absolute z-10 w-48 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+                    className="absolute z-10 w-48 overflow-hidden rounded-[5px] border border-border bg-popover text-popover-foreground shadow-md"
                     style={{ top: slashMenuCoords.top, left: Math.min(slashMenuCoords.left, 500) }}
                 >
-                    <div className="px-3 py-2 text-xs font-semibold text-zinc-500">Add Context</div>
+                    <div className="border-b border-border px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Add Context</div>
                     <button
                         type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
                         onClick={(event) => {
                             event.stopPropagation();
                             runCommand("task");
                         }}
                     >
-                        <FileText className="h-4 w-4" /> Link Task
+                        <ListTodo className="h-4 w-4 text-muted-foreground" /> Link Task
                     </button>
                     <button
                         type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
                         onClick={(event) => {
                             event.stopPropagation();
                             runCommand("sprint");
                         }}
                     >
-                        <Timer className="h-4 w-4" /> Link Sprint
+                        <Timer className="h-4 w-4 text-muted-foreground" /> Link Sprint
                     </button>
                     <button
                         type="button"
-                        className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
                         onClick={(event) => {
                             event.stopPropagation();
                             runCommand("file");
                         }}
                     >
-                        <Paperclip className="h-4 w-4" /> Link File
+                        <Paperclip className="h-4 w-4 text-muted-foreground" /> Link File
                     </button>
                 </div>
             ) : null}

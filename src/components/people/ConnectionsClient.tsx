@@ -1,27 +1,45 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useState, type HTMLAttributes } from "react";
 import Link from "next/link";
-import { Ban, Check, ChevronDown, Loader2, MapPin, MessageSquare, UserCheck, UserMinus, Users } from "lucide-react";
-import { Virtuoso } from "react-virtuoso";
+import { Ban, Check, ChevronDown, Loader2, MessageSquare, UserMinus, Users } from "lucide-react";
+import { VirtuosoGrid } from "react-virtuoso";
 import { toast } from "sonner";
+import { useDebounce } from "use-debounce";
+
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SkillIcon } from "@/components/skills";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useConnectionMutations, useConnections, type NetworkConnectionItem } from "@/hooks/useConnections";
 import { profileHref } from "@/lib/routing/identifiers";
+import { resolveClientSkill } from "@/lib/skills/client";
+import { formatLastActive } from "@/lib/ui/date-formatting";
 import { formatDistanceToNow } from "date-fns";
-import { useDebounce } from "use-debounce";
 
-type SortOption = "recent" | "name" | "oldest";
+const GridList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
+    <div {...props} ref={ref} className="grid grid-cols-1 gap-[14px] pb-8 sm:grid-cols-2" />
+));
+GridList.displayName = "ConnectionsGrid";
 
-export default function ConnectionsClient({
-    searchQuery,
-}: {
-    searchQuery: string;
-}) {
+const GridItem = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
+    <div {...props} ref={ref} className="h-[158px]" />
+));
+GridItem.displayName = "ConnectionItem";
+
+function PresenceDot({ lastActiveAt }: { lastActiveAt?: string | null }) {
+    const activeLabel = formatLastActive(lastActiveAt);
+    const tone = activeLabel === "Active today"
+        ? "bg-[var(--status-success)]"
+        : activeLabel === "Active this week"
+            ? "bg-amber-500"
+            : "bg-zinc-300 dark:bg-zinc-600";
+    return <span className={`absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-card ${tone}`} title={activeLabel ?? "Offline"} />;
+}
+
+export default function ConnectionsClient({ searchQuery }: { searchQuery: string }) {
     const [debouncedSearch] = useDebounce(searchQuery, 300);
-    const [sortBy, setSortBy] = useState<SortOption>("recent");
     const [routeScrollParent, setRouteScrollParent] = useState<HTMLElement | null>(() =>
         typeof document === "undefined" ? null : document.querySelector<HTMLElement>("[data-scroll-root=\"route\"]"),
     );
@@ -30,93 +48,136 @@ export default function ConnectionsClient({
         setRouteScrollParent(document.querySelector<HTMLElement>("[data-scroll-root=\"route\"]"));
     }, []);
 
-    const {
-        data: connectionsData,
-        isLoading: connectionsLoading,
-        fetchNextPage,
-        hasNextPage,
-        isFetchingNextPage,
-    } = useConnections(50, debouncedSearch, sortBy);
+    const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useConnections(50, debouncedSearch || undefined, "recent");
     const { disconnect, blockProfile } = useConnectionMutations();
-
     const connections = useMemo(
-        () => (connectionsData?.pages.flatMap((page) => page.items) ?? []).filter((item) => Boolean(item.otherUser)),
-        [connectionsData],
+        () => (data?.pages.flatMap((page) => page.items) ?? []).filter((item) => Boolean(item.otherUser)),
+        [data],
     );
-    const totalConnections = connectionsData?.pages[0]?.stats.totalConnections ?? 0;
-    const isInitialLoading = connectionsLoading && !connectionsData;
 
-    const handleDisconnect = useCallback((connectionId: string) => {
-        const request = disconnect.mutateAsync(connectionId).then(() => undefined);
-        void toast.promise(request, {
+    const handleDisconnect = useCallback(async (connectionId: string) => {
+        await toast.promise(disconnect.mutateAsync(connectionId), {
             loading: "Disconnecting...",
-            success: "Disconnected",
-            error: (error) => error instanceof Error ? error.message : "Failed to disconnect",
+            success: "Connection removed",
+            error: (error) => error instanceof Error ? error.message : "Failed to remove connection",
         });
-        return request;
     }, [disconnect]);
 
-    const handleBlock = useCallback((userId: string) => {
-        const request = blockProfile.mutateAsync(userId).then(() => undefined);
-        void toast.promise(request, {
+    const handleBlock = useCallback(async (userId: string) => {
+        await toast.promise(blockProfile.mutateAsync(userId), {
             loading: "Blocking profile...",
             success: "Profile blocked",
             error: (error) => error instanceof Error ? error.message : "Failed to block profile",
         });
-        return request;
     }, [blockProfile]);
 
-    return <div className="max-w-4xl mx-auto">
-        <Stat icon={UserCheck} label="Connections" value={totalConnections} />
+    if (isLoading && !data) {
+        return (
+            <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2" aria-label="Loading connections">
+                <span className="sr-only" role="status">Loading connections…</span>
+                {[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-[158px] rounded-lg border border-border" />)}
+            </div>
+        );
+    }
 
-        <div className="mb-4 flex justify-end">
-            <select
-                value={sortBy}
-                onChange={(event) => setSortBy(event.target.value as SortOption)}
-                aria-label="Sort connections"
-                className="cursor-pointer appearance-none rounded-2xl border border-zinc-200/60 bg-white/80 px-4 py-3 text-sm font-medium text-zinc-700 backdrop-blur-xl transition-all   dark:border-white/10 dark:bg-zinc-900/80 dark:text-zinc-300"
-            >
-                <option value="recent">Recently Connected</option>
-                <option value="name">Alphabetical</option>
-                <option value="oldest">Oldest First</option>
-            </select>
-        </div>
+    if (connections.length === 0) {
+        return (
+            <EmptyState
+                icon={Users}
+                title={debouncedSearch ? "No connections match your search." : "Your connections live here"}
+                description={debouncedSearch ? "Try a different name, skill, or location." : "People you connect with will appear here."}
+                action={!debouncedSearch ? <Link href="/network?tab=suggested" className="text-sm font-medium text-primary hover:underline">Find people to connect with</Link> : undefined}
+            />
+        );
+    }
 
-        {debouncedSearch && connections.length > 0 ? <p className="mb-2 ml-1 text-xs text-zinc-500">{connections.length} connection{connections.length === 1 ? "" : "s"} found</p> : null}
-
-        {isInitialLoading ? <div className="space-y-3 animate-pulse">{[1, 2, 3, 4, 5].map((item) => <div key={item} className="h-[72px] rounded-2xl bg-zinc-200/50 dark:bg-zinc-800/50" />)}</div> : connections.length === 0 ? <EmptyState
-            icon={Users}
-            title={searchQuery ? "No connections match your search." : "No connections yet."}
-            action={!searchQuery ? <Link href="/people?tab=discover" className="text-primary hover:underline text-sm">Discover people to connect with</Link> : undefined}
-        /> : <div style={{ minHeight: 400 }}>
-            <Virtuoso
+    return (
+        <div style={{ minHeight: 400 }}>
+            <VirtuosoGrid
                 customScrollParent={routeScrollParent ?? undefined}
                 increaseViewportBy={600}
                 data={connections}
-                endReached={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
-                itemContent={(_, connection) => <NetworkRow connection={connection} onDisconnect={handleDisconnect} onBlock={handleBlock} />}
-                components={{ Footer: () => isFetchingNextPage ? <div className="flex justify-center py-6"><Loader2 className="w-6 h-6 animate-spin text-zinc-400" /></div> : null }}
+                computeItemKey={(_, connection) => connection.id}
+                endReached={() => {
+                    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+                }}
+                components={{
+                    List: GridList,
+                    Item: GridItem,
+                    Footer: () => isFetchingNextPage ? (
+                        <div className="col-span-full flex justify-center py-6"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="Loading more connections" /></div>
+                    ) : null,
+                }}
+                itemContent={(_, connection) => (
+                    <ConnectionCard
+                        connection={connection}
+                        onDisconnect={handleDisconnect}
+                        onBlock={handleBlock}
+                    />
+                )}
             />
-        </div>}
-    </div>;
+        </div>
+    );
 }
 
-function NetworkRow({ connection, onDisconnect, onBlock }: { connection: NetworkConnectionItem; onDisconnect: (id: string) => Promise<void>; onBlock: (id: string) => Promise<void> }) {
+function ConnectionCard({
+    connection,
+    onDisconnect,
+    onBlock,
+}: {
+    connection: NetworkConnectionItem;
+    onDisconnect: (id: string) => Promise<void>;
+    onBlock: (id: string) => Promise<void>;
+}) {
     const user = connection.otherUser;
     if (!user) return null;
-    const name = user.fullName || user.username || "User";
-    return <div className="mb-3 flex items-center gap-4 rounded-2xl border border-zinc-200/60 bg-white/80 p-4 backdrop-blur-xl transition-colors hover:border-zinc-300 dark:border-white/5 dark:bg-zinc-900/80 dark:hover:border-zinc-700">
-        <Link href={profileHref(user)}><UserAvatar identity={user} size={40} /></Link>
-        <Link href={profileHref(user)} className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold text-zinc-900 hover:text-primary dark:text-zinc-100">{name}</h3>{user.headline ? <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">{user.headline}</p> : null}{user.location ? <p className="mt-0.5 flex items-center gap-1 text-[11px] text-zinc-400"><MapPin className="h-3 w-3" />{user.location}</p> : null}</Link>
-        <p className="hidden text-xs text-zinc-400 sm:block">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>
-        {user.canSendMessage ? <Link href={`/messages?userId=${user.id}`} className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/20 dark:text-sky-200"><MessageSquare className="h-3.5 w-3.5" />Message</Link> : null}
-        <DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800 hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/20 dark:text-sky-200" aria-label={`Open connection actions for ${name}`}><Check className="h-3.5 w-3.5" />Connected<ChevronDown className="h-3.5 w-3.5" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => void onDisconnect(connection.id)} variant="destructive"><UserMinus className="h-4 w-4" />Disconnect</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => void onBlock(user.id)} variant="destructive"><Ban className="h-4 w-4" />Block profile</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
-    </div>;
-}
+    const displayName = user.fullName || user.username || "NetworkBase member";
+    const skills = (user.skills ?? []).slice(0, 2);
 
-function Stat({ icon: Icon, label, value }: { icon: typeof UserCheck; label: string; value: number }) {
-    return <div className="mb-6 flex items-center gap-3 rounded-2xl border border-zinc-200/60 bg-white/80 px-4 py-3 backdrop-blur-xl dark:border-white/5 dark:bg-zinc-900/80">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary/15"><Icon className="w-4 h-4" /></div>
-        <div><div className="text-xl font-bold leading-tight text-zinc-900 dark:text-zinc-100">{value}</div><div className="text-[11px] font-medium text-zinc-500">{label}</div></div>
-    </div>;
+    return (
+        <article className="flex h-full min-h-[158px] items-center gap-3.5 rounded-lg border border-border bg-card p-4 transition-colors hover:border-input">
+            <Link href={profileHref(user)} className="relative shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <UserAvatar identity={user} size={54} fallbackClassName="text-lg font-semibold" />
+                <PresenceDot lastActiveAt={user.lastActiveAt} />
+            </Link>
+
+            <Link href={profileHref(user)} className="min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <h3 className="nb-card-title break-words text-foreground">{displayName}</h3>
+                    {user.location ? <span className="nb-meta min-w-0 break-words">{user.location}</span> : null}
+                </div>
+                {user.headline ? <p className="mt-1 truncate text-sm text-muted-foreground">{user.headline}</p> : <p className="mt-1 text-sm text-muted-foreground">NetworkBase member</p>}
+                {skills.length ? <div className="mt-2 flex flex-wrap gap-1.5">{skills.map((skillName) => {
+                    const skill = resolveClientSkill(skillName);
+                    return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
+                })}</div> : null}
+                <p className="nb-meta mt-2">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>
+            </Link>
+
+            <div className="flex shrink-0 items-center">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm font-medium text-foreground hover:bg-muted" aria-label={`Connection actions for ${displayName}`}>
+                            <Check className="size-4 text-[var(--status-success)]" aria-hidden="true" />
+                            <span className="hidden lg:inline">Connected</span>
+                            <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        {user.canSendMessage ? (
+                            <>
+                                <DropdownMenuItem asChild>
+                                    <Link href={`/messages?userId=${user.id}`}><MessageSquare className="size-4" />Message</Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                            </>
+                        ) : null}
+                        <DropdownMenuItem onClick={() => void onDisconnect(connection.id)} variant="destructive"><UserMinus className="size-4" />Disconnect</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => void onBlock(user.id)} variant="destructive"><Ban className="size-4" />Block profile</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+        </article>
+    );
 }

@@ -4,12 +4,12 @@
 
 **Audit date:** 2026-07-21  
 **Target:** HeroUI React v3.2.2, source revision `4af1230b97616f4c48b59f9716412ca883ddd9cf` (`v3` branch)  
-**Application:** `nb-s3` / Edge (Next.js 16, React 19.2, Tailwind CSS 4)  
+**Application:** `nb-s3` / NetworkBase (Next.js 16, React 19.2, Tailwind CSS 4)  
 **Disposition:** adopt HeroUI as the visual and interaction reference, but do **not** import its default theme globally or bulk-replace primitives.
 
 ## Executive decision
 
-HeroUI is a strong fit for Edge: it is React 19/Tailwind 4 compatible, uses React Aria for keyboard and assistive-technology behaviour, is tree-shakable, and its default visual language is close to the product direction: quiet neutral surfaces, compact controls, controlled elevation, soft status colours, and polished motion. The library documents 71 public, top-level components in v3.2.2; all are accounted for below. HeroUI’s own introduction confirms the React Aria/Tailwind 4 foundation, accessibility focus, and customization model. [HeroUI introduction](https://heroui.com/en/docs/react/getting-started) · [component catalogue](https://heroui.com/en/docs/react/components)
+HeroUI is a strong fit for NetworkBase: it is React 19/Tailwind 4 compatible, uses React Aria for keyboard and assistive-technology behaviour, is tree-shakable, and its default visual language is close to the product direction: quiet neutral surfaces, compact controls, controlled elevation, soft status colours, and polished motion. The library documents 71 public, top-level components in v3.2.2; all are accounted for below. HeroUI’s own introduction confirms the React Aria/Tailwind 4 foundation, accessibility focus, and customization model. [HeroUI introduction](https://heroui.com/en/docs/react/getting-started) · [component catalogue](https://heroui.com/en/docs/react/components)
 
 The application is compatible, but not ready for a drop-in swap:
 
@@ -43,24 +43,24 @@ HeroUI’s quick start proposes importing `@heroui/styles` after Tailwind. That 
 Use this progression instead:
 
 1. **Pilot with selective source CSS only.** Import HeroUI base/shared theme plumbing and the individual component CSS required by the pilot. Do not import `@heroui/styles` or `@heroui/styles/themes/default` globally.
-2. **Create a local HeroUI adapter scope.** Preserve aliases to the existing Edge values before assigning HeroUI semantic variables inside the migrated component subtree. Do not place legacy `bg-muted` or `bg-accent` elements inside that scope until migrated—the words have different meanings.
+2. **Create a local HeroUI adapter scope.** Preserve aliases to the existing NetworkBase values before assigning HeroUI semantic variables inside the migrated component subtree. Do not place legacy `bg-muted` or `bg-accent` elements inside that scope until migrated—the words have different meanings.
 3. **Migrate local primitives and feature surfaces.** A HeroUI component must own its whole interaction root. Do not wrap a Radix Dialog/Tabs/Select inside its HeroUI equivalent or mix their state/focus contracts.
 4. **Perform the global token migration only after all high-traffic surfaces are converted.** This is the point at which importing the default HeroUI theme can be evaluated; it is not a first-step optimization.
 
-The source-faithful selective path is supported by HeroUI’s documented base, shared theme, and per-component CSS export paths. The complete default theme is optional, not mandatory. Its semantic-token model is sound—accent, default, success, warning, danger, surface, overlay, field and separator roles—but those roles must be translated before Edge gives it global ownership. [HeroUI colors](https://heroui.com/en/docs/react/getting-started/colors)
+The source-faithful selective path is supported by HeroUI’s documented base, shared theme, and per-component CSS export paths. The complete default theme is optional, not mandatory. Its semantic-token model is sound—accent, default, success, warning, danger, surface, overlay, field and separator roles—but those roles must be translated before NetworkBase gives it global ownership. [HeroUI colors](https://heroui.com/en/docs/react/getting-started/colors)
 
 ### Required token translation
 
-| HeroUI role | Edge source during pilot | Final rule |
+| HeroUI role | NetworkBase source during pilot | Final rule |
 |---|---|---|
-| `--background`, `--foreground` | existing app background/foreground | Keep Edge values initially; migrate all app utilities to HeroUI semantics before changing globals. |
+| `--background`, `--foreground` | existing app background/foreground | Keep NetworkBase values initially; migrate all app utilities to HeroUI semantics before changing globals. |
 | `--surface`, `--surface-foreground` | `--card`, `--card-foreground` | Cards, panels, accordions and drawers use surface, never direct zinc fills. |
 | `--overlay`, `--overlay-foreground` | `--popover`, `--popover-foreground` | Menus, modal, tooltip and command palette use overlay elevation. |
-| `--accent`, `--accent-foreground` | `--primary`, `--primary-foreground` | HeroUI’s accent is the solid Edge action colour; it must not inherit Edge’s current selected-surface accent. |
-| `--muted` | `--muted-foreground` | HeroUI muted is text; preserve the Edge muted surface under a renamed/app-owned alias during migration. |
-| `--surface-secondary`, `--surface-tertiary` | Edge muted/background mixtures | Use for inset panels and skeleton bases; no raw `zinc-*`. |
+| `--accent`, `--accent-foreground` | `--primary`, `--primary-foreground` | HeroUI’s accent is the solid NetworkBase action colour; it must not inherit NetworkBase’s current selected-surface accent. |
+| `--muted` | `--muted-foreground` | HeroUI muted is text; preserve the NetworkBase muted surface under a renamed/app-owned alias during migration. |
+| `--surface-secondary`, `--surface-tertiary` | NetworkBase muted/background mixtures | Use for inset panels and skeleton bases; no raw `zinc-*`. |
 | `--default`, status/soft values | derive from current neutral/status tokens with `color-mix()` | One source of truth for hover, focus and soft fills in both themes. |
-| `--field-*`, `--focus`, `--separator` | Edge input/ring/border values | Normalize every input’s hover, focus, invalid and disabled states. |
+| `--field-*`, `--focus`, `--separator` | NetworkBase input/ring/border values | Normalize every input’s hover, focus, invalid and disabled states. |
 | `--radius` | existing `0.625rem` in phase 1 | Do not silently reset to HeroUI’s default `0.5rem`; approve a global radius change separately. |
 
 ## Application integration map
@@ -150,7 +150,7 @@ The source-faithful selective path is supported by HeroUI’s documented base, s
 | Table | **Pilot.** Admin notifications and folder list mode; document renderer retains semantic HTML table output. | Do not replace Kanban, virtual chat, explorer tree or rich-text document tables with Table. |
 | Tabs | **Adopt.** Profile, settings, workspace/task details, project tabs and editor mode controls. | Replace each Radix Tabs root atomically; preserve URL state/lazy data and test roving keyboard focus. |
 | TagGroup | **Pilot.** Editable skills, task labels, selected recipients/filters. | Use only where add/remove keyboard semantics improve the existing Chip collection. |
-| Typography | **Adopt first.** Auth/onboarding/settings/hub and reusable card text; later project surfaces. | Define the Edge type scale once, then eliminate hand-set text sizing/weights from migrated surfaces. |
+| Typography | **Adopt first.** Auth/onboarding/settings/hub and reusable card text; later project surfaces. | Define the NetworkBase type scale once, then eliminate hand-set text sizing/weights from migrated surfaces. |
 | TextField | **Adopt through Form.** Conventional labeled inputs with validation. | Do not combine with Input unless the needed compound API is clear; choose one field convention. |
 | TextArea | **Adopt.** Project updates, comments, settings free text and simple composer fields. | Keep the bespoke message/doc rich composer internals. |
 | TimeField | **Defer.** No confirmed time-of-day product field. | Add only with time-zone and server-domain requirements. |
@@ -221,13 +221,13 @@ Implement one shared `AppSkeleton` facade backed by HeroUI Skeleton after the se
 - Colour editing components, standalone calendar, time fields, generic slider, or a new toast mechanism.
 - A wrapper library around every HeroUI component before a second genuine application use appears.
 - A wholesale rewrite of chat, file explorer, rich-text editor, realtime providers, React Query, React Hook Form, Zod or domain actions. HeroUI is the interface layer, not a replacement for product logic.
-- Full default-theme import before Edge’s conflicting generic variables are retired or renamed.
+- Full default-theme import before NetworkBase’s conflicting generic variables are retired or renamed.
 
 ### Strengths to preserve
 
 - Accessible React Aria controls, structured compound components, BEM slots, `data-*` state styling, Tailwind 4 compatibility and package-level tree shaking.
 - Strong default surface/overlay distinction, restrained shadows, semantic status colours, focus treatment, button pending support, composite tables, and the source-accurate shimmer implementation.
-- Existing Edge strengths: persisted density/accent/reduced-motion settings, SSR theme prehydration, native scrolling control, Sonner integration, realtime loading boundaries, and specialized workspace/editor interaction models.
+- Existing NetworkBase strengths: persisted density/accent/reduced-motion settings, SSR theme prehydration, native scrolling control, Sonner integration, realtime loading boundaries, and specialized workspace/editor interaction models.
 
 ### Risks and weak fits
 
@@ -249,7 +249,7 @@ Implement one shared `AppSkeleton` facade backed by HeroUI Skeleton after the se
 | 3 — overlays/navigation | Dropdown, Modal/AlertDialog, Drawer, Tabs, Breadcrumbs, SearchField. | Escape, outside click, focus return, nested portal and mobile tests pass. |
 | 4 — product workflows | Hub, people/profile, settings/onboarding, then task/file/editor chrome. | Domain actions, realtime, drag/drop, deep links and rich editor behaviour remain unchanged. |
 | 5 — data/input specialists | Table, ComboBox/ListBox, date controls, pagination and meter/progress. | Collection performance, locale/time-zone, sorting/filtering and screen-reader checks pass. |
-| 6 — converge | Decide whether Edge can fully own HeroUI global tokens/default theme; delete superseded local primitive styles only after replacement coverage. | Visual parity matrix and full test/release gate pass; no double primitive systems remain on migrated routes. |
+| 6 — converge | Decide whether NetworkBase can fully own HeroUI global tokens/default theme; delete superseded local primitive styles only after replacement coverage. | Visual parity matrix and full test/release gate pass; no double primitive systems remain on migrated routes. |
 
 ## Ponytail full-audit findings
 
@@ -263,4 +263,4 @@ Implement one shared `AppSkeleton` facade backed by HeroUI Skeleton after the se
 
 ## Audit conclusion
 
-Adopt HeroUI v3.2.2 as the reference design system and source for migrated primitives. Begin with a scoped, source-faithful shimmer Skeleton plus foundation tokens—not a root stylesheet import. The highest-return first target is the shared loading language, followed by auth/onboarding/hub primitives; the highest-risk late targets are workspace overlays, date controls, collection controls, and the rich document/file surfaces. This approach produces a genuinely consistent HeroUI visual system while preserving the specialized behaviours that make Edge a collaboration product rather than a generic dashboard.
+Adopt HeroUI v3.2.2 as the reference design system and source for migrated primitives. Begin with a scoped, source-faithful shimmer Skeleton plus foundation tokens—not a root stylesheet import. The highest-return first target is the shared loading language, followed by auth/onboarding/hub primitives; the highest-risk late targets are workspace overlays, date controls, collection controls, and the rich document/file surfaces. This approach produces a genuinely consistent HeroUI visual system while preserving the specialized behaviours that make NetworkBase a collaboration product rather than a generic dashboard.

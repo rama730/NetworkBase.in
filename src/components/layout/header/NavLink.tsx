@@ -48,7 +48,7 @@ export default function NavLink({ href, icon: Icon, label, isActive, alertState,
             }}
             className={`
                 relative flex items-center gap-2 rounded-lg text-sm font-medium app-density-nav-item
-                transition-all duration-200
+                transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms]
                 ${isActive
                     ? 'app-selected-surface'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800'
@@ -58,7 +58,7 @@ export default function NavLink({ href, icon: Icon, label, isActive, alertState,
         >
             <Icon
                 className={cn(
-                    "w-4 h-4 transition-all duration-300",
+                    "w-4 h-4 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms]",
                     connectionHealth === "offline" || connectionHealth === "unavailable"
                         ? "text-rose-500 dark:text-rose-400"
                         : connectionHealth === "reconnecting"

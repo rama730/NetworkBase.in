@@ -34,7 +34,7 @@ export function ComposerAttachmentsPanel({
                     return (
                         <div
                             key={attachment.id}
-                            className="group relative flex-none h-16 w-16 overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 transition-all select-none"
+                            className="group relative flex-none h-16 w-16 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 transition-[color,background-color,border-color,box-shadow,opacity,transform] select-none"
                             title={attachment.file.name}
                         >
                             {/* PREVIEW */}
@@ -72,7 +72,7 @@ export function ComposerAttachmentsPanel({
                                             <circle
                                                 cx="18" cy="18" r="16"
                                                 fill="none"
-                                                className="stroke-white transition-all duration-150"
+                                                className="stroke-white transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[130ms]"
                                                 strokeWidth="3"
                                                 strokeDasharray="100"
                                                 strokeDashoffset={100 - (attachment.progress || 0)}
@@ -103,7 +103,7 @@ export function ComposerAttachmentsPanel({
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); onRemoveAttachment(attachment.id); }}
                                 className={cn(
-                                    "absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white shadow-sm ring-1 ring-white/20 backdrop-blur-sm transition-all hover:bg-black/80",
+                                    "absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white shadow-none ring-1 ring-white/20 backdrop-blur-none transition-[color,background-color,border-color,box-shadow,opacity,transform] hover:bg-black/80",
                                     "opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100",
                                     (attachment.status === 'uploading' || attachment.status === 'failed') && "opacity-100 scale-100" // Always show X if uploading/failed so they can cancel
                                 )}

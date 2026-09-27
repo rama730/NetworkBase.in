@@ -43,6 +43,21 @@ export function WorkspaceDrawerHost() {
         }
     }, [drawerDeepLink, isDeepLinked, pathname, requestedTab, router, searchParams, setWorkspaceOpen, setWorkspaceTab, workspaceDeepLink]);
 
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "j") {
+                const target = event.target as HTMLElement | null;
+                const isInput = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
+                if (!isInput) {
+                    event.preventDefault();
+                    setWorkspaceOpen(!isOpen);
+                }
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isOpen, setWorkspaceOpen]);
+
     // ponytail: keep the lazily loaded host after its first open so Radix can
     // play the closed-state animation instead of being unmounted immediately.
     return hasMounted ? <WorkspaceDrawer /> : null;

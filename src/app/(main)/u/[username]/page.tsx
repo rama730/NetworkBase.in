@@ -8,6 +8,7 @@ import { buildRouteMetadata, DEFAULT_ROUTE_OG_IMAGE } from '@/lib/metadata/route
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 import { buildProfileMetadataDescription, buildPublicProfileTitle } from '@/lib/profile/display';
 import { getProfileProjectsWithOpenRolesAction } from '@/app/actions/project';
+import { ProfileRouteSkeleton } from '@/components/profile/v2/ProfileRouteSkeleton';
 
 export const dynamicParams = true; // Allow new profiles to be generated on demand
 
@@ -111,9 +112,9 @@ export default function PublicProfilePage({
     return (
         <div
             data-scroll-root="route"
-            className="h-full min-h-0 overflow-hidden app-scroll app-scroll-y app-scroll-gutter bg-zinc-50 dark:bg-black"
+            className="h-full min-h-0 overflow-hidden app-scroll app-scroll-y app-scroll-gutter bg-background text-foreground"
         >
-            <Suspense fallback={<div className="h-full flex items-center justify-center animate-pulse text-zinc-500">Loading profile...</div>}>
+            <Suspense fallback={<ProfileRouteSkeleton />}>
                 <ResolvedPublicProfile params={params} />
             </Suspense>
         </div>

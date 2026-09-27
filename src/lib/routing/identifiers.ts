@@ -19,5 +19,5 @@ export function profileHref(profile: ProfileLike): string {
         // Fallback for ID-only, though ideally we should have username
         return `/u/${profile.id}`;
     }
-    return '/profile'; // My profile fallback
+    return '/my-profile'; // My profile fallback
 }

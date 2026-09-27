@@ -1,8 +1,9 @@
 "use client";
 
-import { memo, useEffect, useRef } from "react";
+import { memo, useLayoutEffect, useRef } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DashboardCardHeader } from "./DashboardCard";
 import { getStageCompletionTooltip } from "@/lib/projects/journey-completion";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
@@ -13,6 +14,7 @@ interface JourneyTimelineProps {
     onAdvanceStage?: () => void;
     onRedoStage?: () => void;
     stageCompletionDates?: Record<string, string>;
+    layout?: "horizontal" | "rail";
 }
 
 export const JOURNEY_VISIBLE_STAGE_COUNT = 5;
@@ -33,6 +35,22 @@ export function getJourneyStageWindow(stageCount: number, currentStageIndex: num
     };
 }
 
+export function getJourneyCenteredScrollLeft({
+    itemOffsetLeft,
+    itemWidth,
+    containerWidth,
+    scrollWidth,
+}: {
+    itemOffsetLeft: number;
+    itemWidth: number;
+    containerWidth: number;
+    scrollWidth: number;
+}) {
+    const centered = itemOffsetLeft - Math.max(0, containerWidth - itemWidth) / 2;
+    const maxScrollLeft = Math.max(0, scrollWidth - containerWidth);
+    return Math.min(maxScrollLeft, Math.max(0, centered));
+}
+
 export { getStageCompletionTooltip } from "@/lib/projects/journey-completion";
 
 export const JourneyTimeline = memo(function JourneyTimeline({
@@ -42,6 +60,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
     onAdvanceStage,
     onRedoStage,
     stageCompletionDates = {},
+    layout = "horizontal",
 }: JourneyTimelineProps) {
     const lastIndex = Math.max(0, stages.length - 1);
     const stageWindow = getJourneyStageWindow(stages.length, currentStageIndex);
@@ -50,39 +69,175 @@ export const JourneyTimeline = memo(function JourneyTimeline({
     const timelineWidth = stages.length > JOURNEY_VISIBLE_STAGE_COUNT ? `${(stages.length / JOURNEY_VISIBLE_STAGE_COUNT) * 100}%` : undefined;
     const timelineMinWidth = stages.length > JOURNEY_VISIBLE_STAGE_COUNT ? `${stages.length * 7}rem` : undefined;
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
 
-        if (stages.length <= JOURNEY_VISIBLE_STAGE_COUNT) {
-            if (container.scrollLeft !== 0) container.scrollLeft = 0;
-            return;
-        }
+        const alignCurrentStage = () => {
+            const currentStage = container.querySelector<HTMLElement>(`[data-stage-index="${safeCurrentStageIndex}"]`);
+            if (!currentStage) return;
 
-        const firstVisibleStage = container.querySelector<HTMLElement>(`[data-stage-index="${stageWindow.start}"]`);
-        if (firstVisibleStage && container.scrollLeft !== firstVisibleStage.offsetLeft) {
-            container.scrollLeft = firstVisibleStage.offsetLeft;
-        }
-    }, [stageWindow.start, stages.length]);
+            const nextScrollLeft = getJourneyCenteredScrollLeft({
+                itemOffsetLeft: currentStage.offsetLeft,
+                itemWidth: currentStage.offsetWidth,
+                containerWidth: container.clientWidth,
+                scrollWidth: container.scrollWidth,
+            });
+            if (Math.abs(container.scrollLeft - nextScrollLeft) > 1) {
+                container.scrollLeft = nextScrollLeft;
+            }
+        };
+
+        alignCurrentStage();
+        const observer = typeof ResizeObserver === "undefined"
+            ? null
+            : new ResizeObserver(() => {
+                window.requestAnimationFrame(alignCurrentStage);
+            });
+        observer?.observe(container);
+
+        return () => observer?.disconnect();
+    }, [layout, safeCurrentStageIndex, stages.length]);
+
+    if (layout === "rail") {
+        return (
+            <section className="isolate overflow-hidden rounded-[8px] border border-border bg-card shadow-none">
+                <TooltipPrimitive.Provider>
+                    <DashboardCardHeader
+                        title="Journey"
+                        icon={CheckCircle}
+                        compact
+                        action={isCreator ? (
+                            <div className="flex items-center gap-1.5">
+                                {onRedoStage ? (
+                                    <button
+                                        type="button"
+                                        onClick={onRedoStage}
+                                        disabled={safeCurrentStageIndex === 0}
+                                        className="flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                                        aria-label="Return to previous stage"
+                                        title="Previous stage"
+                                    >
+                                        <ArrowLeft className="size-3.5" />
+                                    </button>
+                                ) : null}
+                                {onAdvanceStage ? (
+                                    <button
+                                        type="button"
+                                        onClick={onAdvanceStage}
+                                        disabled={safeCurrentStageIndex >= lastIndex}
+                                        className="flex h-[28px] w-[28px] items-center justify-center rounded-[5px] bg-primary text-primary-foreground transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                                        aria-label="Advance to next stage"
+                                        title="Next stage"
+                                    >
+                                        <ArrowRight className="size-3.5" />
+                                    </button>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    />
+                    <div className="px-4 py-4">
+                        <div
+                            ref={scrollContainerRef}
+                            className="app-scroll app-scroll-x app-scroll-hidden overflow-x-auto pb-2 select-none"
+                            aria-label="Project journey stages"
+                        >
+                            <div
+                                className="relative grid min-w-full gap-0"
+                                style={{
+                                    gridTemplateColumns: `repeat(${Math.max(1, stages.length)}, minmax(7rem, 1fr))`,
+                                    width: timelineWidth,
+                                    minWidth: timelineMinWidth,
+                                }}
+                            >
+                            {stages.map((stage, index) => {
+                                const isCompleted = index < safeCurrentStageIndex;
+                                const isCurrent = index === safeCurrentStageIndex;
+                                const hasPrevious = index > 0;
+                                const hasNext = index < lastIndex;
+                                const stageItem = (
+                                    <div key={`${stage}-${index}`} data-stage-index={index} className="relative z-[1] flex min-w-0 flex-col items-center gap-2 py-0.5 text-center">
+                                        {hasPrevious ? (
+                                            <span
+                                                aria-hidden="true"
+                                                className={cn(
+                                                    "absolute left-0 right-1/2 top-[13px] z-0 h-0.5",
+                                                    index < safeCurrentStageIndex
+                                                        ? "bg-[var(--status-success,#2F6B4F)]"
+                                                        : index === safeCurrentStageIndex
+                                                            ? "bg-primary"
+                                                            : "bg-border",
+                                                )}
+                                            />
+                                        ) : null}
+                                        {hasNext ? (
+                                            <span
+                                                aria-hidden="true"
+                                                className={cn(
+                                                    "absolute left-1/2 right-0 top-[13px] z-0 h-0.5",
+                                                    index < safeCurrentStageIndex - 1
+                                                        ? "bg-[var(--status-success,#2F6B4F)]"
+                                                        : index < safeCurrentStageIndex
+                                                            ? "bg-primary"
+                                                            : "bg-border",
+                                                )}
+                                            />
+                                        ) : null}
+                                        <span className={cn(
+                                            "relative z-[1] flex size-5 items-center justify-center rounded-[3px] border-[2px] bg-card",
+                                            isCompleted
+                                                ? "border-[var(--status-success,#2F6B4F)] bg-[var(--status-success,#2F6B4F)] text-white"
+                                                : isCurrent
+                                                    ? "border-primary text-primary"
+                                                    : "border-border text-muted-foreground",
+                                        )}>
+                                            {isCompleted ? <Check className="size-3 stroke-[2.5]" /> : isCurrent ? <span className="size-1.5 rounded-[2px] bg-primary" /> : null}
+                                        </span>
+                                        <p className={cn(
+                                            "w-full truncate px-2 text-xs font-medium",
+                                            isCurrent ? "font-semibold text-primary" : isCompleted ? "text-foreground" : "text-muted-foreground",
+                                        )}>
+                                            {stage}
+                                        </p>
+                                        {isCurrent ? <span className="nb-micro uppercase tracking-[0.09em] text-primary">Current</span> : null}
+                                    </div>
+                                );
+
+                                return isCompleted ? (
+                                    <TooltipPrimitive.Root key={`${stage}-${index}`} delayDuration={150}>
+                                        <TooltipPrimitive.Trigger asChild>{stageItem}</TooltipPrimitive.Trigger>
+                                        <TooltipPrimitive.Content className="z-[51] rounded-[3px] bg-foreground px-2 py-1 text-[11px] font-mono leading-[1.2] text-background shadow-none">
+                                            {getStageCompletionTooltip(stageCompletionDates[String(index)])}
+                                        </TooltipPrimitive.Content>
+                                    </TooltipPrimitive.Root>
+                                ) : stageItem;
+                            })}
+                            </div>
+                        </div>
+                    </div>
+                </TooltipPrimitive.Provider>
+            </section>
+        );
+    }
 
     return (
-        <section className="mb-2 rounded-xl border border-zinc-100 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <section className="isolate mb-2 rounded-[8px] border border-border bg-card p-5 shadow-none">
             <TooltipPrimitive.Provider>
                 <div className="mb-4 flex items-center justify-between">
-                    <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                            <CheckCircle className="h-3 w-3 text-zinc-500" />
+                    <h3 className="nb-card-title flex items-center gap-2 text-foreground">
+                        <span className="flex size-7 items-center justify-center rounded-[5px] bg-muted text-muted-foreground">
+                            <CheckCircle className="nb-section-icon" />
                         </span>
                         Journey
                     </h3>
                     {isCreator ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                             {onRedoStage ? (
                                 <button
                                     type="button"
                                     onClick={onRedoStage}
                                     disabled={safeCurrentStageIndex === 0}
-                                    className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1 text-[10px] font-semibold text-zinc-650 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                    className="flex h-[28px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                     <ArrowLeft className="h-3 w-3" />
                                     Redo
@@ -93,7 +248,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                     type="button"
                                     onClick={onAdvanceStage}
                                     disabled={safeCurrentStageIndex >= lastIndex}
-                                    className="app-accent-solid flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-semibold transition-[background-color,box-shadow] hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="flex h-[28px] items-center gap-1.5 rounded-[5px] bg-primary px-2.5 text-[11px] font-medium text-primary-foreground transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                     Advance
                                     <ArrowRight className="h-3 w-3" />
@@ -118,15 +273,17 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                             const hasPrevious = index > 0;
                             const hasNext = index < lastIndex;
                             const stageItem = (
-                                <div key={index} data-stage-index={index} className="relative z-10 flex min-w-0 flex-col items-center gap-2 py-0.5 text-center">
+                                <div key={index} data-stage-index={index} className="relative z-[1] flex min-w-0 flex-col items-center gap-2 py-0.5 text-center">
                                     {hasPrevious ? (
                                         <span
                                             aria-hidden="true"
                                             className={cn(
                                                 "absolute left-0 right-1/2 top-[13px] z-0 h-0.5 transition-colors",
-                                                index <= safeCurrentStageIndex
-                                                    ? "bg-primary"
-                                                    : "bg-zinc-200 dark:bg-zinc-800",
+                                                index < safeCurrentStageIndex
+                                                    ? "bg-[var(--status-success,#2F6B4F)]"
+                                                    : index === safeCurrentStageIndex
+                                                        ? "bg-primary"
+                                                        : "bg-border",
                                             )}
                                         />
                                     ) : null}
@@ -135,47 +292,50 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                             aria-hidden="true"
                                             className={cn(
                                                 "absolute left-1/2 right-0 top-[13px] z-0 h-0.5 transition-colors",
-                                                index < safeCurrentStageIndex
-                                                    ? "bg-primary"
-                                                    : "bg-zinc-200 dark:bg-zinc-800",
+                                                index < safeCurrentStageIndex - 1
+                                                    ? "bg-[var(--status-success,#2F6B4F)]"
+                                                    : index < safeCurrentStageIndex
+                                                        ? "bg-primary"
+                                                        : "bg-border",
                                             )}
                                         />
                                     ) : null}
                                     <div
                                         className={cn(
-                                            "relative z-10 flex h-6 w-6 items-center justify-center rounded-full border-[3px] bg-white transition-colors dark:bg-zinc-900",
+                                            "relative z-[1] flex size-5 items-center justify-center rounded-[3px] border-[2px] bg-card transition-colors",
                                             isCompleted
-                                                ? "border-primary bg-primary text-white dark:bg-primary"
+                                                ? "border-[var(--status-success,#2F6B4F)] bg-[var(--status-success,#2F6B4F)] text-white"
                                                 : isCurrent
                                                     ? "border-primary"
-                                                    : "border-zinc-300 dark:border-zinc-700",
+                                                    : "border-border",
                                         )}
                                     >
                                         {isCompleted ? (
-                                            <Check className="h-3.5 w-3.5 text-white" />
+                                            <Check className="size-3 stroke-[2.5] text-white" />
                                         ) : isCurrent ? (
-                                            <div className="h-2 w-2 rounded-full bg-primary motion-safe:animate-pulse motion-reduce:animate-none" />
+                                            <div className="size-1.5 rounded-[2px] bg-primary" />
                                         ) : null}
                                     </div>
                                     <p
                                         className={cn(
-                                            "w-full truncate px-2 text-xs font-semibold",
+                                            "w-full truncate px-2 text-xs font-medium",
                                             isCompleted
-                                                ? "font-medium text-zinc-700 dark:text-zinc-350"
+                                                ? "text-foreground"
                                                 : isCurrent
-                                                    ? "text-primary"
-                                                    : "text-zinc-400 dark:text-zinc-600",
+                                                    ? "font-semibold text-primary"
+                                                    : "text-muted-foreground",
                                         )}
                                     >
                                         {stage}
                                     </p>
+                                    {isCurrent ? <span className="nb-micro uppercase tracking-[0.09em] text-primary">Current</span> : null}
                                 </div>
                             );
 
                             return isCompleted ? (
                                 <TooltipPrimitive.Root key={index} delayDuration={150}>
                                     <TooltipPrimitive.Trigger asChild>{stageItem}</TooltipPrimitive.Trigger>
-                                    <TooltipPrimitive.Content className="z-50 rounded bg-zinc-900 px-2 py-1 text-[10px] text-white shadow-md">
+                                    <TooltipPrimitive.Content className="z-50 rounded-[3px] bg-foreground px-2 py-1 text-[11px] font-mono text-background shadow-none">
                                         {getStageCompletionTooltip(stageCompletionDates[String(index)])}
                                     </TooltipPrimitive.Content>
                                 </TooltipPrimitive.Root>

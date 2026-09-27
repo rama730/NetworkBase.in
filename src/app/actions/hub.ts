@@ -94,7 +94,7 @@ export async function fetchHubProjectsAction(
         const normalizedFilters: HubFilters = {
             status: filters.status || 'all',
             type: filters.type || 'all',
-            tech: Array.isArray(filters.tech) ? filters.tech : [],
+            tech: Array.isArray(filters.tech) ? Array.from(new Set(filters.tech)).sort() : [],
             sort: filters.sort || 'newest',
             search: normalizedSearch || undefined,
             includedIds: filters.includedIds?.length

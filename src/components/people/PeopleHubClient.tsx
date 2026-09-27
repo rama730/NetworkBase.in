@@ -1,84 +1,115 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles, Share2, SendHorizontal } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { normalizeSearchQuery } from "@/lib/search/query";
+import { Search, X } from "lucide-react";
+import { useDebounce } from "use-debounce";
 
 import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
-import type { IncomingApplication, MyApplication } from "@/components/people/ProjectApplicationsSection";
+import { PersonCardSkeleton } from "@/components/people/PersonCardSkeleton";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useSuggestedPeople } from "@/hooks/useConnections";
 import { usePeopleNotifications } from "@/hooks/usePeopleNotifications";
+import { normalizeSearchQuery } from "@/lib/search/query";
+import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 
-type TabKey = "discover" | "network" | "requests";
+type TabKey = "suggested" | "invitations" | "connections";
 
-const TabLoading = () => <div className="min-h-[400px] animate-pulse rounded-2xl bg-zinc-200/50 dark:bg-zinc-800/50" />;
-// ponytail: only compile and hydrate the selected People surface.
+function normalizeTabKey(param: string): TabKey {
+    const lower = param.toLowerCase();
+    if (lower === "invitations" || lower === "requests") return "invitations";
+    if (lower === "connections" || lower === "network") return "connections";
+    return "suggested";
+}
+
+const TabLoading = () => (
+    <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2" role="status" aria-label="Loading tab content">
+        <span className="sr-only">Loading tab content…</span>
+        {[1, 2, 3, 4].map((item) => (
+            <PersonCardSkeleton key={item} />
+        ))}
+    </div>
+);
+
 const loadPeopleClient = () => import("@/components/people/PeopleClient");
 const loadConnectionsClient = () => import("@/components/people/ConnectionsClient");
-const loadRequestsTab = () => import("@/components/people/RequestsTab");
+const loadInvitationsClient = () => import("@/components/people/InvitationsClient");
 const PeopleClient = dynamic(loadPeopleClient, { ssr: false, loading: TabLoading });
 const ConnectionsClient = dynamic(loadConnectionsClient, { ssr: false, loading: TabLoading });
-const RequestsTab = dynamic(loadRequestsTab, { ssr: false, loading: TabLoading });
+const InvitationsClient = dynamic(loadInvitationsClient, { ssr: false, loading: TabLoading });
 
 const preloadTab = (tab: TabKey) => {
-    if (tab === "discover") void loadPeopleClient();
-    else if (tab === "network") void loadConnectionsClient();
-    else void loadRequestsTab();
+    if (tab === "suggested") void loadPeopleClient();
+    else if (tab === "invitations") void loadInvitationsClient();
+    else void loadConnectionsClient();
 };
 
 interface PeopleHubClientProps {
     initialUser: { id?: string | null } | null;
-    initialApplications?: { my: MyApplication[]; incoming: IncomingApplication[] };
 }
 
 const TAB_CONFIG: Array<{
     key: TabKey;
     label: string;
-    icon: typeof Sparkles;
     requiresAuth: boolean;
 }> = [
-        { key: "discover", label: "Discover", icon: Sparkles, requiresAuth: false },
-        { key: "network", label: "Network", icon: Share2, requiresAuth: true },
-        { key: "requests", label: "Requests", icon: SendHorizontal, requiresAuth: true },
-    ];
+    { key: "suggested", label: "Suggested", requiresAuth: false },
+    { key: "invitations", label: "Invitations", requiresAuth: true },
+    { key: "connections", label: "Connections", requiresAuth: true },
+];
 
 export default function PeopleHubClient({
     initialUser,
-    initialApplications,
 }: PeopleHubClientProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { totalPending } = usePeopleNotifications();
-
-    const isAuthed = !!initialUser?.id;
+    const { pendingConnections, pendingInvites } = usePeopleNotifications();
+    const isAuthed = Boolean(initialUser?.id);
     const tabParam = (searchParams?.get("tab") || "").toLowerCase();
     const routeQuery = normalizeSearchQuery(searchParams?.get("q"));
-    const defaultTab: TabKey = "discover";
+    const [searchValue, setSearchValue] = useState(routeQuery);
+    const [debouncedSearchValue] = useDebounce(searchValue, 300);
 
-    const getInitialTab = (): TabKey => {
-        if (TAB_CONFIG.some((tab) => tab.key === tabParam)) {
-            return tabParam as TabKey;
-        }
-        return defaultTab;
-    };
-
-    const activeTab = getInitialTab();
+    const activeTab: TabKey = normalizeTabKey(tabParam);
 
     const visibleTabs = useMemo(
-        () => TAB_CONFIG.filter((t) => (t.requiresAuth ? isAuthed : true)),
-        [isAuthed]
+        () => TAB_CONFIG.filter((tab) => (tab.requiresAuth ? isAuthed : true)),
+        [isAuthed],
     );
+
+    const suggestedQuery = useSuggestedPeople(20, routeQuery || undefined);
+    const suggestedCount = useMemo(
+        () => suggestedQuery.data?.pages.flatMap((page) => page.items).length ?? 0,
+        [suggestedQuery.data?.pages],
+    );
+    const connectionCount = suggestedQuery.data?.pages[0]?.stats?.totalConnections ?? 0;
+
+    useEffect(() => {
+        setSearchValue(routeQuery);
+    }, [routeQuery]);
+
+    useEffect(() => {
+        const nextQuery = normalizeSearchQuery(debouncedSearchValue);
+        if (nextQuery === routeQuery) return;
+        const params = new URLSearchParams(searchParams?.toString() || "");
+        if (nextQuery) params.set("q", nextQuery);
+        else params.delete("q");
+        router.replace(`${ROUTES.NETWORK}${params.size ? `?${params.toString()}` : ""}`, { scroll: false });
+    }, [debouncedSearchValue, routeQuery, router, searchParams]);
+
+    function tabCount(tab: TabKey) {
+        if (tab === "suggested") return suggestedCount;
+        if (tab === "invitations") return pendingConnections + pendingInvites;
+        return connectionCount;
+    }
 
     function navigateTab(next: TabKey) {
         if (next === activeTab) return;
         const params = new URLSearchParams(searchParams?.toString() || "");
         params.set("tab", next);
-        if (next === "requests") {
-            params.delete("q");
-        }
-        router.push(`/people?${params.toString()}`);
+        router.push(`${ROUTES.NETWORK}?${params.toString()}`, { scroll: false });
     }
 
     function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -97,81 +128,90 @@ export default function PeopleHubClient({
     }
 
     return (
-        <div className="bg-zinc-50 dark:bg-black h-full min-h-0">
-            {/* Sticky Tabs Header — single card with buttons */}
-            <div className="sticky top-0 z-30 pt-2 pb-3">
-                <div className="flex justify-center">
-                    <div className="inline-flex items-center p-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-sm" role="tablist" aria-label="People sections">
-                        {visibleTabs.map((t, index) => {
-                            const Icon = t.icon;
-                            const selected = activeTab === t.key;
-                            const isRequestsAlert = t.key === "requests" && totalPending > 0 && !selected;
+        <div className="min-h-full bg-background">
+            <div className="mx-auto w-full max-w-[1000px] px-4 py-8 sm:px-6">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="min-w-0">
+                        <h1 className="nb-page-title">Network</h1>
+                        <p className="nb-body mt-1 text-muted-foreground">
+                            People you&apos;ve worked with, and people worth working with.
+                        </p>
+                    </div>
 
-                            return (
-                                <button
-                                    key={t.key}
-                                    id={`people-tab-${t.key}`}
-                                    type="button"
-                                    onClick={() => navigateTab(t.key)}
-                                    onMouseEnter={() => preloadTab(t.key)}
-                                    onFocus={() => preloadTab(t.key)}
-                                    onKeyDown={(event) => handleTabKeyDown(event, index)}
-                                    role="tab"
-                                    aria-selected={selected}
-                                    tabIndex={selected ? 0 : -1}
-                                    className={cn(
-                                        "relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap",
-                                        selected
-                                            ? "text-zinc-900 dark:text-white"
-                                            : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
-                                    )}
-                                    aria-current={selected ? "page" : undefined}
-                                >
-                                    {selected && (
-                                        <span className="absolute inset-0 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200/60 transition-colors dark:bg-zinc-700 dark:ring-zinc-600/40" />
-                                    )}
-                                    <span className="relative z-10 flex items-center gap-2">
-                                        <Icon className={cn(
-                                            "w-4 h-4 transition-colors duration-300",
-                                            selected ? "text-primary" : "",
-                                            isRequestsAlert ? "text-rose-500 dark:text-rose-400 drop-shadow-[0_0_3px_rgba(244,63,94,0.3)]" : ""
-                                        )} />
-                                        <span>{t.label}</span>
-                                    </span>
-                                </button>
-                            );
-                        })}
+                    <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
+                    <div className="relative min-w-0 flex-1 sm:w-60">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                        <input
+                            type="search"
+                            value={searchValue}
+                            onChange={(event) => setSearchValue(event.target.value)}
+                            placeholder="Search your network"
+                            aria-label="Search your network"
+                            className="h-[var(--ui-control-height-lg)] w-full rounded-md border border-input bg-card pl-9 pr-9 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30"
+                        />
+                        {searchValue ? (
+                            <button
+                                type="button"
+                                onClick={() => setSearchValue("")}
+                                className="nb-icon-button absolute right-1.5 top-1/2 -translate-y-1/2"
+                                aria-label="Clear network search"
+                            >
+                                <X className="size-4" aria-hidden="true" />
+                            </button>
+                        ) : null}
+                    </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                {activeTab === "discover" && (
-                    <ComponentErrorBoundary fallbackMessage="Failed to load discover tab.">
-                        <PeopleClient
-                            initialUser={initialUser}
-                            searchQuery={routeQuery}
-                        />
-                    </ComponentErrorBoundary>
-                )}
+                <div className="mt-6 flex items-stretch gap-2 overflow-x-auto border-b border-border" role="tablist" aria-label="Network sections">
+                    {visibleTabs.map((tab, index) => {
+                        const selected = activeTab === tab.key;
+                        return (
+                            <button
+                                key={tab.key}
+                                id={`people-tab-${tab.key}`}
+                                type="button"
+                                role="tab"
+                                aria-selected={selected}
+                                aria-current={selected ? "page" : undefined}
+                                aria-controls={`people-panel-${tab.key}`}
+                                tabIndex={selected ? 0 : -1}
+                                onClick={() => navigateTab(tab.key)}
+                                onMouseEnter={() => preloadTab(tab.key)}
+                                onFocus={() => preloadTab(tab.key)}
+                                onKeyDown={(event) => handleTabKeyDown(event, index)}
+                                className={cn(
+                                    "nb-ui-label relative inline-flex shrink-0 items-center gap-2 px-2 pb-3 transition-colors",
+                                    selected ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                                )}
+                            >
+                                {tab.label}
+                                <span className="nb-meta">{tabCount(tab.key)}</span>
+                                {selected ? <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" aria-hidden="true" /> : null}
+                            </button>
+                        );
+                    })}
+                </div>
 
-                {activeTab === "network" && (
-                    <ComponentErrorBoundary fallbackMessage="Failed to load network tab.">
-                        <ConnectionsClient
-                            searchQuery={routeQuery}
-                        />
-                    </ComponentErrorBoundary>
-                )}
+                <div id={`people-panel-${activeTab}`} role="tabpanel" aria-labelledby={`people-tab-${activeTab}`} className="pt-5">
+                    {activeTab === "suggested" ? (
+                        <ComponentErrorBoundary fallbackMessage="Failed to load suggested people.">
+                            <PeopleClient initialUser={initialUser} searchQuery={routeQuery} />
+                        </ComponentErrorBoundary>
+                    ) : null}
 
-                {activeTab === "requests" && (
-                    <ComponentErrorBoundary fallbackMessage="Failed to load requests tab.">
-                        <RequestsTab
-                            initialUser={initialUser}
-                            initialApplications={initialApplications}
-                        />
-                    </ComponentErrorBoundary>
-                )}
+                    {activeTab === "invitations" ? (
+                        <ComponentErrorBoundary fallbackMessage="Failed to load invitations.">
+                            <InvitationsClient initialUser={initialUser} searchQuery={routeQuery} />
+                        </ComponentErrorBoundary>
+                    ) : null}
+
+                    {activeTab === "connections" ? (
+                        <ComponentErrorBoundary fallbackMessage="Failed to load connections.">
+                            <ConnectionsClient searchQuery={routeQuery} />
+                        </ComponentErrorBoundary>
+                    ) : null}
+                </div>
             </div>
         </div>
     );

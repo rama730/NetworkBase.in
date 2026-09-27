@@ -53,7 +53,7 @@ test("Doc permissions keep public, private, and editor access separated", () => 
     const publicPermission = resolveProjectDocPermission({
         actorUserId: null,
         projectVisibility: "public",
-        publicTabVisibility: { dashboard: true, readme: true, updates: true, files: true, sprints: false, tasks: false, analytics: false },
+        publicTabVisibility: { dashboard: true, readme: true, updates: true, files: true, sprints: false, tasks: false },
         hasPublishedReadme: true,
     });
     assert.equal(publicPermission.canReadPublished, true);
@@ -62,7 +62,7 @@ test("Doc permissions keep public, private, and editor access separated", () => 
     const privateOutsider = resolveProjectDocPermission({
         actorUserId: "user-1",
         projectVisibility: "private",
-        publicTabVisibility: { dashboard: true, readme: true, updates: true, files: true, sprints: false, tasks: false, analytics: false },
+        publicTabVisibility: { dashboard: true, readme: true, updates: true, files: true, sprints: false, tasks: false },
         hasPublishedReadme: true,
     });
     assert.equal(privateOutsider.canReadPublished, false);
@@ -974,27 +974,16 @@ test("Doc right rail source controls scroll, active state, and target highlighti
     assert.doesNotMatch(viewer, /scrollIntoView/, "Doc target reveal should not rely on browser default scrollIntoView offsets");
     assert.match(viewer, /type ReadmeTargetFlash/, "viewer should keep body flash state tokenized");
     assert.match(viewer, /highlightTokenRef/, "repeated clicks should get a fresh highlight token");
-    assert.match(viewer, /handleRailAction/, "viewer should execute normalized rail actions");
-    assert.match(viewer, /railActions=\{railActions\}/, "viewer should pass preview-enriched normalized rail actions to the rail");
-    assert.match(viewer, /recommendedAction=\{recommendedAction\}/, "viewer should pass the enriched model-owned recommended action");
-    assert.match(viewer, /const \[railState, setRailState\] = useState<ReadmeRailUiState>\(\{ openTab: null, selectedActionId: null \}\)/, "viewer should keep right-rail tabs closed by default");
-    assert.match(viewer, /actionByTargetId/, "viewer should map URL hash targets back to the rail action");
-    assert.match(viewer, /setRailState\(\{ openTab: action\.railTab, selectedActionId: action\.id \}\)/, "deep links should open the matching rail tab and row");
-    assert.match(viewer, /previewLoading: readmePreviewsQuery\.isLoading/, "reference actions should expose preview loading state");
-    assert.match(viewer, /previewError: readmePreviewsQuery\.isError/, "reference actions should expose preview error state");
-    assert.match(viewer, /README_RAIL_MEMORY_VERSION/, "Doc rail reveal memory should be versioned");
-    assert.match(viewer, /window\.sessionStorage\.getItem\(readmeRailMemoryKey\)/, "Doc rail should restore same-session reveal context");
-    assert.match(viewer, /window\.sessionStorage\.setItem\(readmeRailMemoryKey/, "Doc rail should remember the last selected tab and row for the Doc version");
-    assert.match(viewer, /targetSignature/, "Doc rail memory should be invalidated when the Doc target registry changes");
+    assert.doesNotMatch(viewer, /ProjectDocQuickConsole/, "viewer should not render unnecessary right rail");
+    assert.doesNotMatch(viewer, /<aside>/, "viewer should not render aside rail element");
     assert.match(viewer, /handleReadmeMediaLoad/, "Doc media loads should correct the selected target position after layout shifts");
     assert.match(viewer, /mediaCorrectionFrameRef/, "Doc media correction should be animation-frame throttled");
     assert.match(viewer, /lastRevealTargetIdRef/, "Doc media correction should reuse the last manually revealed target");
     assert.match(viewer, /onMediaLoad=\{handleReadmeMediaLoad\}/, "renderer image loads should feed back into centered target reveal");
     assert.match(viewer, /targetRetryTimerRef/, "target reveal should retry when markdown targets are still rendering");
-    assert.match(viewer, /revealTarget\(options\?\.retries \?\? 20\)/, "controlled outline and command clicks should retry target lookup");
-    assert.match(viewer, /defer\?: boolean/, "rail-triggered target reveal should be deferrable until layout has settled");
-    assert.match(viewer, /requestAnimationFrame\(\(\) =>/, "rail-triggered target reveal should wait for animation-frame layout stabilization");
-    assert.match(viewer, /defer: true/, "right rail clicks should use deferred centered reveal");
+    assert.match(viewer, /revealTarget\(options\?\.retries \?\? 20\)/, "controlled clicks should retry target lookup");
+    assert.match(viewer, /defer\?: boolean/, "target reveal should be deferrable until layout has settled");
+    assert.match(viewer, /requestAnimationFrame\(\(\) =>/, "target reveal should wait for animation-frame layout stabilization");
     assert.match(viewer, /cancelAnimationFrame\(scrollFrameRef\.current\)/, "pending deferred reveals should be cancelable");
     assert.match(viewer, /retry:\s*false/, "hash retry loop should avoid scheduling duplicate target retries");
     assert.match(viewer, /decodeReadmeHashTarget\(window\.location\.hash\)/, "viewer should resolve hash targets after async render");
@@ -1053,7 +1042,7 @@ test("Doc right rail source controls scroll, active state, and target highlighti
     assert.match(rail, /previewLoading/, "project links should expose loading state while route previews resolve");
     assert.match(rail, /previewError/, "project links should expose preview errors instead of silently losing open links");
     assert.match(rail, /data-readme-preview-state/, "project links should expose loading, missing, and error preview states");
-    assert.match(rail, /animate-pulse/, "project-link loading should render a lightweight skeleton state");
+    assert.match(rail, /nb-skeleton/, "project-link loading should render the shared skeleton state");
     assert.match(rail, /Private or missing project link/, "project links should explain private or missing route targets");
     assert.match(rail, /Copy and show/, "quick command cards should copy and highlight from the main press target");
     assert.match(rail, /briefItems/, "Doc brief should render structured model-owned brief facts");

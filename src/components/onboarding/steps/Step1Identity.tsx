@@ -18,14 +18,16 @@ export interface Step1IdentityProps {
   onUsernameChange: (value: string) => void
   onAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   onUsernameStatusChange: (status: UsernameAvailabilityStatus) => void
+  allowRemoteUsernameChecks?: boolean
+  avatarStatus?: string | null
 }
 
 /**
  * Step 1 — Identity layout (redesigned).
  *
  * Visual changes from the original:
- * - Avatar: 64px, compact inline row (not stacked), 2px ring using `border` color
- * - "Change photo" action beside avatar
+ * - Avatar: 72px, compact inline row (not stacked), with the shared fallback
+ * - Contextual upload or replacement action beside avatar
  * - Username field with `@` prefix indicator inside input
  * - Pre-fill hints in neutral `muted-foreground` at 12px (no green, no icon)
  * - No emoji in headings, left-aligned everything
@@ -40,64 +42,76 @@ export function Step1Identity({
   onUsernameChange,
   onAvatarChange,
   onUsernameStatusChange,
+  allowRemoteUsernameChecks = true,
+  avatarStatus,
 }: Step1IdentityProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const initials = fullName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((name) => name[0])
+    .join('')
+    .toUpperCase() || 'U'
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Avatar row: inline on desktop, centered on mobile */}
       <div
         className={cn(
           'flex items-center gap-4',
-          'max-md:flex-col max-md:items-center'
+          'max-md:flex-col max-md:items-start'
         )}
       >
-        <Avatar className="h-16 w-16 ring-2 ring-border">
+        <Avatar className="h-[72px] w-[72px] rounded-[var(--onb-radius-avatar)] border border-border">
           <AvatarImage src={avatarUrl} alt={fullName || 'Profile photo'} />
-          <AvatarFallback className="text-lg bg-muted text-muted-foreground">
-            {fullName.slice(0, 2).toUpperCase() || 'U'}
+          <AvatarFallback identityKey={username || fullName} className="rounded-[var(--onb-radius-avatar)] bg-muted text-lg text-muted-foreground">
+            {initials}
           </AvatarFallback>
         </Avatar>
 
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={onAvatarChange}
-          accept="image/*"
-          className="hidden"
-          aria-label="Upload profile photo"
-        />
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploadingAvatar}
-          className="min-h-[44px] md:min-h-0"
-        >
-          {isUploadingAvatar ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : null}
-          {isUploadingAvatar ? 'Uploading...' : 'Change photo'}
-        </Button>
+        <div className="flex flex-col items-start gap-2">
+          <p className="onb-section-kicker">Profile photo</p>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={onAvatarChange}
+            accept="image/*"
+            className="hidden"
+            aria-label="Upload profile photo"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingAvatar}
+            className="onb-focusable min-h-[44px] md:min-h-0"
+          >
+            {isUploadingAvatar ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isUploadingAvatar ? 'Uploading photo' : avatarUrl ? 'Replace photo' : 'Upload photo'}
+          </Button>
+          <p className="onb-field-hint">Optional. You can change this later.</p>
+          {avatarStatus ? <p className="onb-field-status" role="status" aria-live="polite">{avatarStatus}</p> : null}
+        </div>
       </div>
 
       {/* Full Name field */}
-      <div className="space-y-2">
-        <label htmlFor="fullName" className="text-sm font-medium leading-none">
-          Full name <span className="text-destructive">*</span>
+      <div className="onb-field">
+        <label htmlFor="fullName" className="onb-field-label">
+          Full name <span className="onb-required">*</span>
         </label>
         <Input
           id="fullName"
           placeholder="John Doe"
           value={fullName}
           onChange={(e) => onFullNameChange(e.target.value)}
+          className="onb-input"
+          aria-describedby="full-name-hint"
         />
-        {avatarUrl && (
-          <p className="text-[12px] leading-[1.5] text-muted-foreground">
-            Pre-filled from your account
-          </p>
-        )}
+        <p id="full-name-hint" className="onb-field-hint">
+          {avatarUrl ? 'Pre-filled from your account. Use the name you want collaborators to see.' : 'Use the name you want collaborators to see.'}
+        </p>
       </div>
 
       {/* Username field */}
@@ -105,6 +119,7 @@ export function Step1Identity({
         value={username}
         onChange={onUsernameChange}
         fullName={fullName}
+        allowRemoteChecks={allowRemoteUsernameChecks}
         onStatusChange={onUsernameStatusChange}
       />
     </div>

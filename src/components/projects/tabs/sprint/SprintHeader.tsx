@@ -56,17 +56,17 @@ export function SprintHeader({
     (permissions.canWrite && sprint.status !== "archived");
 
   return (
-    <header className="mb-8 flex items-start justify-between gap-4 border-b border-zinc-200 pb-5 dark:border-zinc-800">
+    <header className="mb-8 flex items-start justify-between gap-4 border-b border-border pb-5">
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <h2 className="text-xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
+              <h2 className="nb-section-title text-foreground">
                 {sprint.name}
               </h2>
-              {goal ? <span className="text-zinc-400">—</span> : null}
+              {goal ? <span className="text-muted-foreground">—</span> : null}
               {goal ? (
-                <p className="text-base text-zinc-600 dark:text-zinc-300">
+                <p className="nb-body text-muted-foreground">
                   {goal}
                 </p>
               ) : null}
@@ -75,52 +75,64 @@ export function SprintHeader({
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <span
                 className={cn(
-                  "inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                  "nb-status rounded-[3px] font-mono text-[11px] font-medium uppercase tracking-[0.09em]",
                   status.toneClassName,
                 )}
               >
                 {status.label}
               </span>
               {sprint.startDate || sprint.endDate ? (
-                <span className="text-sm text-zinc-500">
+                <span className="font-mono text-xs text-muted-foreground">
                   {formatSprintDateRange(sprint.startDate, sprint.endDate)}
                 </span>
               ) : null}
               {computedStatus === "planning" ? (
-                <span className="text-xs text-zinc-500">
+                <span className="font-mono text-xs text-muted-foreground">
                   Starts automatically on schedule
                 </span>
               ) : computedStatus === "completed" && completedAt ? (
-                <span className="text-xs text-zinc-500">
+                <span className="font-mono text-xs text-muted-foreground">
                   Completed {formatSprintTimelineStamp(completedAt)}
                 </span>
               ) : readyToClose ? (
-                <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                <span className="nb-status nb-sprint-tone-warning">
                   Close-out required
                 </span>
               ) : null}
             </div>
 
             {description ? (
-              <p className="mt-2 line-clamp-2 max-w-3xl text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+              <p className="nb-compact mt-2 line-clamp-2 max-w-3xl text-muted-foreground">
                 {description}
               </p>
             ) : null}
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <span className="text-sm font-semibold tracking-wide text-zinc-400 uppercase">
+            <span className="nb-micro font-mono text-xs font-medium uppercase tracking-[0.09em] text-muted-foreground">
               {sprint.code}
             </span>
 
             {permissions.canWrite || canOpenMenu ? (
               <div className="flex shrink-0 items-center gap-2">
-                {permissions.canWrite && computedStatus === "planning" ? (
+                {permissions.canComplete && readyToClose ? (
+                  <button
+                    type="button"
+                    onClick={onComplete}
+                    disabled={isMutatingLifecycle}
+                    className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-primary bg-primary px-3 text-primary-foreground transition-[background-color,border-color,transform] duration-150 hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:translate-y-px active:border-[var(--primary-active)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5" />
+                    Close sprint
+                  </button>
+                ) : null}
+
+                {permissions.canWrite && sprint.status !== "archived" ? (
                   <button
                     type="button"
                     onClick={onEdit}
                     disabled={isMutatingLifecycle}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                    className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-foreground transition-[background-color,border-color,transform] duration-150 hover:border-input hover:bg-muted active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Pencil aria-hidden="true" className="h-3.5 w-3.5" />
                     Edit
@@ -134,11 +146,7 @@ export function SprintHeader({
                         type="button"
                         aria-label="Sprint lifecycle options"
                         disabled={isMutatingLifecycle}
-                        className={cn(
-                          "inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 text-zinc-600 hover:bg-zinc-50",
-                          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50",
-                          "dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900",
-                        )}
+                        className="nb-touch-target inline-flex h-[34px] w-[34px] items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-[background-color,border-color,transform] duration-150 hover:border-input hover:bg-muted hover:text-foreground active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <MoreHorizontal
                           aria-hidden="true"
@@ -165,7 +173,7 @@ export function SprintHeader({
                       (computedStatus === "planning" ||
                         computedStatus === "active") ? (
                         <DropdownMenuItem
-                          className="text-red-600 focus:text-red-600"
+                          className="text-destructive focus:text-destructive"
                           onSelect={onCancel}
                         >
                           <XCircle aria-hidden="true" className="h-4 w-4" />

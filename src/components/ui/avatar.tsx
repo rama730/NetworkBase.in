@@ -3,6 +3,7 @@
 import * as React from "react"
 import * as AvatarPrimitive from "@radix-ui/react-avatar"
 
+import { getPersonAvatarTone, PERSON_AVATAR_TONE_STYLES } from "@/lib/ui/avatar"
 import { cn } from "@/lib/utils"
 
 function Avatar({
@@ -13,7 +14,7 @@ function Avatar({
     <AvatarPrimitive.Root
       data-slot="avatar"
       className={cn(
-        "relative flex size-8 shrink-0 overflow-hidden rounded-full",
+        "relative flex size-[34px] shrink-0 overflow-hidden rounded-md",
         className
       )}
       {...props}
@@ -36,13 +37,18 @@ function AvatarImage({
 
 function AvatarFallback({
   className,
+  identityKey,
+  style,
   ...props
-}: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
+}: React.ComponentProps<typeof AvatarPrimitive.Fallback> & { identityKey?: string }) {
+  const tone = getPersonAvatarTone(identityKey ?? (typeof props.children === "string" ? props.children : "User"))
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
+      data-avatar-tone={tone}
+      style={{ ...PERSON_AVATAR_TONE_STYLES[tone], ...style }}
       className={cn(
-        "bg-muted flex size-full items-center justify-center rounded-full",
+        "bg-muted flex size-full items-center justify-center rounded-md",
         className
       )}
       {...props}

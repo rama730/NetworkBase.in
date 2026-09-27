@@ -231,8 +231,8 @@ export function MessageComposerV2({
     }, [conversationId, draft, setDraft]);
 
     return (
-        <div className={`pointer-events-none absolute inset-x-0 bottom-0 z-20 mx-auto w-full min-w-[320px] ${
-            isPopup ? 'px-3 py-3 max-w-[95%]' : 'px-5 py-4 max-w-[50%]'
+        <div className={`nb-message-composer pointer-events-none relative z-20 mx-auto w-full min-w-0 ${
+            isPopup ? 'px-3 py-3' : 'px-4 py-4 max-w-[760px]'
         }`}>
             {workflowNotice ? (
                 <ComposerWorkflowNotice
@@ -259,7 +259,7 @@ export function MessageComposerV2({
             />
 
             {codeSnippetPreview ? (
-                <div className="pointer-events-auto mb-2 flex min-w-0 items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50/95 px-3 py-2 text-xs text-zinc-600 shadow-sm backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-300">
+                <div className="pointer-events-auto mb-2 flex min-w-0 items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50/95 px-3 py-2 text-xs text-zinc-600 shadow-none backdrop-blur-none dark:border-zinc-800 dark:bg-zinc-900/95 dark:text-zinc-300">
                     <Code2 className="h-3.5 w-3.5 shrink-0 text-primary" />
                     <span className="min-w-0 truncate font-semibold">
                         {codeSnippetPreview.language || 'code'}
@@ -293,7 +293,7 @@ export function MessageComposerV2({
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={!canSend}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100/80 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800/80 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 mb-0.5"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-zinc-100/80 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-800/80 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 mb-0.5"
                         aria-label="Add attachment"
                     >
                         <Paperclip className="h-4 w-4" />
@@ -343,14 +343,14 @@ export function MessageComposerV2({
                         rows={1}
                         style={{ fieldSizing: 'content' } as React.CSSProperties}
                         className={cn(
-                            "max-h-[160px] min-h-[44px] flex-1 resize-none overflow-hidden border border-zinc-200 focus:border-zinc-300 dark:border-zinc-850 dark:focus:border-zinc-750 bg-white/60 dark:bg-zinc-950/60 backdrop-blur-md px-4 py-3 text-sm outline-none transition-all duration-200 data-[overflowing=true]:overflow-y-auto rounded-2xl app-scroll shadow-sm"
+                            "max-h-[160px] min-h-[44px] flex-1 resize-none overflow-hidden border border-zinc-200 focus:border-zinc-300 dark:border-zinc-850 dark:focus:border-zinc-750 bg-white/60 dark:bg-zinc-950/60 backdrop-blur-none px-4 py-3 text-sm outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms] data-[overflowing=true]:overflow-y-auto rounded-lg app-scroll shadow-none"
                         )}
                     />
                     <button
                         type="button"
                         onClick={() => void handleSend()}
                         disabled={!canSubmit || isSending || hasUploadingAttachments}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full app-accent-solid disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md app-accent-solid disabled:cursor-not-allowed disabled:opacity-50"
                         aria-label={hasUploadingAttachments ? 'Uploading attachments' : 'Send message'}
                     >
                         {hasUploadingAttachments || (isSending && (hasSendableContent || hasUploadingAttachments)) ? (
@@ -358,13 +358,13 @@ export function MessageComposerV2({
                         ) : (
                             <SendHorizonal
                                 className="h-4 w-4"
-                                style={sendAnimating ? { animation: 'send-fly 300ms ease-out forwards' } : undefined}
+                                style={sendAnimating ? { animation: 'send-fly 260ms cubic-bezier(.2,.8,.3,1) forwards' } : undefined}
                             />
                         )}
                     </button>
                 </div>
                 {preparedDraftLength > MAX_MESSAGE_LENGTH * 0.8 ? (
-                    <span className={`absolute bottom-1 right-14 text-[10px] ${
+                    <span className={`absolute bottom-1 right-14 text-[11px] ${
                         preparedDraftLength > MAX_MESSAGE_LENGTH
                             ? 'font-semibold text-red-500'
                             : preparedDraftLength > MAX_MESSAGE_LENGTH * 0.95

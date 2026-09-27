@@ -1,6 +1,16 @@
+import { Skeleton } from "@/components/ui/skeleton";
+
 export function SkeletonFiles() {
-  return <div role="status" aria-label="Loading files" aria-busy="true" className="flex h-full min-h-0 w-full overflow-hidden bg-white dark:bg-zinc-950">
-    <aside className="hidden w-[280px] shrink-0 border-r border-zinc-200 p-3 md:block dark:border-zinc-800"><div className="mb-5 h-6 w-20 animate-pulse rounded bg-zinc-200 motion-reduce:animate-none dark:bg-zinc-800" />{Array.from({ length: 6 }, (_, i) => <div key={i} className="mb-2 flex h-11 items-center gap-3 px-3"><div className="size-4 animate-pulse rounded bg-zinc-200 motion-reduce:animate-none dark:bg-zinc-800" /><div className="h-4 w-28 animate-pulse rounded bg-zinc-200 motion-reduce:animate-none dark:bg-zinc-800" /></div>)}</aside>
-    <div className="flex min-w-0 flex-1 flex-col"><div className="flex h-12 shrink-0 items-center justify-between border-b px-4"><div className="h-5 w-24 animate-pulse rounded bg-zinc-200 motion-reduce:animate-none dark:bg-zinc-800" /><div className="h-8 w-40 animate-pulse rounded bg-zinc-200 motion-reduce:animate-none dark:bg-zinc-800" /></div><div className="h-11 shrink-0 border-b bg-zinc-50 dark:bg-zinc-900" />{Array.from({ length: 10 }, (_, i) => <div key={i} className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-100 px-4 dark:border-zinc-800"><div className="size-4 animate-pulse rounded bg-zinc-200 motion-reduce:animate-none dark:bg-zinc-800" /><div className="h-4 w-1/3 animate-pulse rounded bg-zinc-200 motion-reduce:animate-none dark:bg-zinc-800" /><div className="ml-auto hidden h-3 w-24 animate-pulse rounded bg-zinc-200 motion-reduce:animate-none sm:block dark:bg-zinc-800" /></div>)}</div>
+  return <div role="status" aria-label="Loading files" aria-busy="true" className="flex h-full min-h-0 w-full overflow-hidden bg-background">
+    <span className="sr-only">Loading files…</span>
+    <aside aria-hidden="true" className="hidden w-[280px] shrink-0 border-r border-border p-3 md:block">
+      <Skeleton className="mb-5 h-6 w-20 rounded" />
+      {Array.from({ length: 6 }, (_, i) => <div key={i} className="mb-2 flex h-11 items-center gap-3 px-3"><Skeleton className="size-4 rounded" /><Skeleton className="h-4 w-28 rounded" /></div>)}
+    </aside>
+    <div aria-hidden="true" className="flex min-w-0 flex-1 flex-col">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4"><Skeleton className="h-5 w-24 rounded" /><Skeleton className="h-8 w-40 rounded" /></div>
+      <div className="h-11 shrink-0 border-b border-border bg-muted/30" />
+      {Array.from({ length: 10 }, (_, i) => <div key={i} className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4"><Skeleton className="size-4 rounded" /><Skeleton className="h-4 w-1/3 rounded" /><Skeleton className="ml-auto hidden h-3 w-24 rounded sm:block" /></div>)}
+    </div>
   </div>;
 }

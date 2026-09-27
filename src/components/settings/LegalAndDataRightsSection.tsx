@@ -4,22 +4,34 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Database, ExternalLink, FileText, Loader2, Scale, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { LEGAL_EFFECTIVE_DATE, LEGAL_VERSIONS } from "@/lib/legal/versions";
 
-type AcceptanceState = {
+ type AcceptanceState = {
   current: boolean;
   latest: { acceptedAt: string; termsVersion: string; eulaVersion: string; privacyNoticeVersion: string } | null;
 };
 
 const documents = [
-  { href: "/privacy", title: "Privacy Policy", description: "What data NetworkBase uses, why, retention periods, sharing, and your rights." },
-  { href: "/terms", title: "Terms of Service", description: "The rules that govern accounts, projects, collaboration, content, and the service." },
-  { href: "/eula", title: "End User Licence Agreement", description: "The licence and restrictions for the web application, extension, and related software." },
-  { href: "/acceptable-use", title: "Acceptable Use Policy", description: "Prohibited content and conduct, enforcement, and how to report abuse." },
-  { href: "/cookies", title: "Cookies & Local Storage", description: "Required authentication storage and any optional analytics storage." },
-  { href: "/subprocessors", title: "Service Providers", description: "The providers that may process data to operate NetworkBase." },
+  { href: "/privacy", title: "Privacy Policy", description: "Data use, retention, sharing, and your rights." },
+  { href: "/terms", title: "Terms of Service", description: "Rules for accounts, projects, content, and collaboration." },
+  { href: "/eula", title: "End User Licence Agreement", description: "Licence terms for the application and related software." },
+  { href: "/acceptable-use", title: "Acceptable Use Policy", description: "Prohibited conduct, enforcement, and abuse reports." },
+  { href: "/cookies", title: "Cookies & Local Storage", description: "Required authentication and optional analytics storage." },
+  { href: "/subprocessors", title: "Service Providers", description: "Providers that process data to operate NetworkBase." },
 ] as const;
+
+const dataRights = [
+  { href: "/settings?tab=privacy-policies#settings-delete-account", title: "Export or delete", description: "Download account data or begin deletion.", icon: Database },
+  { href: "/settings?tab=integrations", title: "Connected services", description: "Review and disconnect external services.", icon: FileText },
+  { href: "/settings?tab=security", title: "Account security", description: "Review sessions and security activity.", icon: ShieldCheck },
+] as const;
+
+function SubsectionHeading({ title, description }: { title: string; description: string }) {
+  return <div><h4 className="nb-ui-label text-foreground">{title}</h4><p className="nb-compact mt-1 text-muted-foreground">{description}</p></div>;
+}
 
 export function LegalAndDataRightsSection() {
   const [state, setState] = useState<AcceptanceState | null>(null);
@@ -30,11 +42,7 @@ export function LegalAndDataRightsSection() {
   useEffect(() => {
     let active = true;
     fetch("/api/v1/legal/acceptance", { cache: "no-store" })
-      .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok || payload?.success === false) throw new Error("Acceptance status unavailable");
-        return payload.data as AcceptanceState;
-      })
+      .then(async (response) => { const payload = await response.json(); if (!response.ok || payload?.success === false) throw new Error("Acceptance status unavailable"); return payload.data as AcceptanceState; })
       .then((next) => { if (active) setState(next); })
       .catch(() => { if (active) setState(null); })
       .finally(() => { if (active) setLoading(false); });
@@ -45,76 +53,30 @@ export function LegalAndDataRightsSection() {
     if (!confirmed) return;
     setAccepting(true);
     try {
-      const response = await fetch("/api/v1/legal/acceptance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accepted: true, context: "settings" }),
-      });
+      const response = await fetch("/api/v1/legal/acceptance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accepted: true, context: "settings" }) });
       const payload = await response.json().catch(() => null);
       if (!response.ok || payload?.success === false) throw new Error(payload?.error || "Could not save acceptance");
       const refreshed = await fetch("/api/v1/legal/acceptance", { cache: "no-store" }).then((result) => result.json());
       setState(refreshed.data as AcceptanceState);
       toast.success("Your legal acceptance was recorded");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save acceptance");
-    } finally {
-      setAccepting(false);
-    }
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not save acceptance"); } finally { setAccepting(false); }
   }
 
-  return (
-    <>
-      <SettingsSectionCard title="Legal documents" description={`Current versions — effective ${LEGAL_EFFECTIVE_DATE}.`}>
-        <div className="grid gap-3 md:grid-cols-2">
-          {documents.map((document) => (
-            <Link key={document.href} href={document.href} target="_blank" className="group rounded-2xl border border-zinc-200 bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-indigo-700">
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">{document.title}</span>
-                <ExternalLink className="h-4 w-4 text-zinc-400 transition group-hover:text-indigo-500" aria-hidden="true" />
-              </div>
-              <p className="mt-2 text-sm leading-5 text-zinc-600 dark:text-zinc-400">{document.description}</p>
-            </Link>
-          ))}
-        </div>
-        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium">
-          <Link className="text-indigo-600 hover:underline dark:text-indigo-300" href="/copyright" target="_blank">Copyright & IP complaints</Link>
-          <Link className="text-indigo-600 hover:underline dark:text-indigo-300" href="/privacy#changes" target="_blank">Privacy contact</Link>
-          <Link className="text-indigo-600 hover:underline dark:text-indigo-300" href="/grievances" target="_blank">Grievance contact</Link>
-        </div>
-      </SettingsSectionCard>
+  return <SettingsSectionCard title="Policies and account rights" description={`Review current documents, acceptance, and account data controls. Effective ${LEGAL_EFFECTIVE_DATE}.`}>
+    <SubsectionHeading title="Legal documents" description="The current policies that govern your account and use of NetworkBase." />
+    <div className="mt-3 grid gap-x-6 md:grid-cols-2">
+      {documents.map((document) => <Link key={document.href} href={document.href} target="_blank" className="group flex min-h-16 items-center justify-between gap-3 border-b border-border py-3 last:border-b-0 md:[&:nth-last-child(-n+2)]:border-b-0"><span><span className="block nb-ui-label text-foreground group-hover:text-primary">{document.title}</span><span className="block nb-compact mt-1 text-muted-foreground">{document.description}</span></span><ExternalLink className="size-4 shrink-0 text-muted-foreground group-hover:text-primary" strokeWidth={1.75} /></Link>)}
+    </div>
+    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 nb-compact font-medium"><Link className="text-primary hover:underline" href="/copyright" target="_blank">Copyright & IP</Link><Link className="text-primary hover:underline" href="/privacy#changes" target="_blank">Privacy contact</Link><Link className="text-primary hover:underline" href="/grievances" target="_blank">Grievance contact</Link></div>
 
-      <SettingsSectionCard title="Terms acceptance" description="NetworkBase keeps a limited record of affirmative acceptance so both you and the service can identify the terms that applied.">
-        {loading ? (
-          <div className="flex items-center gap-2 text-sm text-zinc-500"><Loader2 className="h-4 w-4 animate-spin" /> Checking your status…</div>
-        ) : state?.current ? (
-          <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-            <div>
-              <div className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Current Terms and EULA accepted</div>
-              <p className="mt-1 text-sm text-emerald-800/80 dark:text-emerald-200/80">Recorded {state.latest?.acceptedAt ? new Date(state.latest.acceptedAt).toLocaleString() : "for this account"}. Privacy Policy acknowledgement is recorded as a notice, not consent to unnecessary processing.</p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20">
-            <p className="text-sm leading-6 text-amber-950 dark:text-amber-100">We do not have a record that this account accepted the current Terms of Service ({LEGAL_VERSIONS.terms}) and EULA ({LEGAL_VERSIONS.eula}).</p>
-            <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-800 dark:text-zinc-200">
-              <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 h-4 w-4 rounded border-zinc-300 text-indigo-600" />
-              <span>I am at least 18 years old, accept the <Link href="/terms" target="_blank" className="font-semibold text-indigo-600 hover:underline">Terms of Service</Link> and <Link href="/eula" target="_blank" className="font-semibold text-indigo-600 hover:underline">EULA</Link>, and acknowledge the <Link href="/privacy" target="_blank" className="font-semibold text-indigo-600 hover:underline">Privacy Policy</Link>.</span>
-            </label>
-            <button type="button" disabled={!confirmed || accepting} onClick={() => void acceptCurrentTerms()} className="inline-flex items-center justify-center rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-zinc-950">
-              {accepting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Scale className="mr-2 h-4 w-4" />} Accept current terms
-            </button>
-          </div>
-        )}
-      </SettingsSectionCard>
+    <div className="my-6 border-t border-border" />
+    <SubsectionHeading title="Terms acceptance" description="Identify the terms currently associated with this account." />
+    {loading ? <p className="mt-3 flex items-center gap-2 nb-compact text-muted-foreground"><Loader2 className="size-4 animate-spin" />Checking your status…</p> : state?.current ? <div className="mt-3 flex min-h-16 items-start gap-3 rounded-md border border-border bg-muted/50 p-4"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" strokeWidth={1.75} /><div><p className="nb-ui-label text-foreground">Current Terms and EULA accepted</p><p className="nb-compact mt-1 text-muted-foreground">Recorded {state.latest?.acceptedAt ? new Date(state.latest.acceptedAt).toLocaleString() : "for this account"}. Privacy Policy acknowledgement is recorded as notice.</p></div></div> : <div className="mt-3 space-y-4 rounded-md border border-border bg-muted/50 p-4"><p className="nb-compact text-foreground">This account has not accepted the current Terms of Service ({LEGAL_VERSIONS.terms}) and EULA ({LEGAL_VERSIONS.eula}).</p><label className="flex cursor-pointer items-start gap-3 nb-compact text-foreground"><Checkbox checked={confirmed} onCheckedChange={(value) => setConfirmed(value === true)} className="mt-0.5" /><span>I am at least 18 years old, accept the <Link href="/terms" target="_blank" className="font-medium text-primary hover:underline">Terms of Service</Link> and <Link href="/eula" target="_blank" className="font-medium text-primary hover:underline">EULA</Link>, and acknowledge the <Link href="/privacy" target="_blank" className="font-medium text-primary hover:underline">Privacy Policy</Link>.</span></label><Button type="button" disabled={!confirmed || accepting} onClick={() => void acceptCurrentTerms()}>{accepting ? <Loader2 className="size-4 animate-spin" /> : <Scale className="size-4" strokeWidth={1.75} />}Accept current terms</Button></div>}
 
-      <SettingsSectionCard title="Your data rights" description="Practical controls for access, portability, correction, deletion, and third-party connections.">
-        <div className="grid gap-3 md:grid-cols-3">
-          <Link href="/settings?tab=account" className="rounded-2xl border border-zinc-200 p-4 hover:border-indigo-300 dark:border-zinc-800 dark:hover:border-indigo-700"><Database className="h-5 w-5 text-indigo-500" /><div className="mt-3 text-sm font-semibold">Export or delete</div><p className="mt-1 text-xs leading-5 text-zinc-500">Download account data or begin the deletion process.</p></Link>
-          <Link href="/settings?tab=integrations" className="rounded-2xl border border-zinc-200 p-4 hover:border-indigo-300 dark:border-zinc-800 dark:hover:border-indigo-700"><FileText className="h-5 w-5 text-indigo-500" /><div className="mt-3 text-sm font-semibold">Connected services</div><p className="mt-1 text-xs leading-5 text-zinc-500">Review and disconnect GitHub or other integrations.</p></Link>
-          <Link href="/settings?tab=security" className="rounded-2xl border border-zinc-200 p-4 hover:border-indigo-300 dark:border-zinc-800 dark:hover:border-indigo-700"><ShieldCheck className="h-5 w-5 text-indigo-500" /><div className="mt-3 text-sm font-semibold">Account security</div><p className="mt-1 text-xs leading-5 text-zinc-500">Review sessions and security activity.</p></Link>
-        </div>
-      </SettingsSectionCard>
-    </>
-  );
+    <div className="my-6 border-t border-border" />
+    <SubsectionHeading title="Your data rights" description="Open the controls for access, portability, deletion, and connected services." />
+    <div className="mt-3 divide-y divide-border">
+      {dataRights.map(({ href, title, description, icon: Icon }) => <Link key={href} href={href} className="group flex min-h-16 items-center gap-3 py-3"><span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-hover:text-primary"><Icon className="size-4" strokeWidth={1.75} /></span><span><span className="block nb-ui-label text-foreground group-hover:text-primary">{title}</span><span className="block nb-compact mt-1 text-muted-foreground">{description}</span></span></Link>)}
+    </div>
+  </SettingsSectionCard>;
 }

@@ -33,14 +33,14 @@ export function FileInspectorPanelHeader({
   }, [onClose]);
 
   return (
-    <div className="flex shrink-0 items-start justify-between gap-2 border-b border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
+    <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-3 py-2.5">
       <div className="min-w-0">
-        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {icon}
           <span>{title}</span>
         </h3>
         {subtitle ? (
-          <div className="mt-0.5 min-w-0 text-[11px] text-zinc-400 dark:text-zinc-500">
+          <div className="mt-0.5 min-w-0 text-[11px] text-muted-foreground">
             {subtitle}
           </div>
         ) : null}
@@ -50,7 +50,7 @@ export function FileInspectorPanelHeader({
         onClick={onClose}
         aria-label={closeLabel}
         data-testid={closeTestId}
-        className="-mr-1 -mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-blue-500  dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        className="-mr-1 -mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-[#D14E24]"
       >
         <X className="h-4 w-4" aria-hidden="true" />
       </button>

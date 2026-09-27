@@ -142,7 +142,27 @@ export interface FilesTabRootProps {
   initialOpenFileId?: string | null;
 }
 
-const FILES_WORKSPACE_SCROLL_EVENT = "project:files-workspace-scroll";
+function findVerticalScrollPane(target: EventTarget | null, boundary: HTMLElement) {
+  let element = target instanceof HTMLElement ? target : null;
+  while (element && element !== boundary) {
+    const overflowY = window.getComputedStyle(element).overflowY;
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      element.scrollHeight > element.clientHeight
+    ) {
+      return element;
+    }
+    element = element.parentElement;
+  }
+  return null;
+}
+
+function getFilesRouteScrollContext(workspaceRoot: HTMLElement) {
+  const routeRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
+  const projectLayout = workspaceRoot.closest<HTMLElement>('[data-project-identity-height]');
+  const headerScrollRange = Number(projectLayout?.dataset.projectIdentityHeight ?? 0);
+  return { routeRoot, headerScrollRange };
+}
 
 // ─── Component ───────────────────────────────────────────────────────
 
@@ -546,6 +566,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     let disposed = false;
 
     const reconcileLocks = () => {
+      if (disposed) return;
       if (reconcileTimer) window.clearTimeout(reconcileTimer);
       reconcileTimer = window.setTimeout(() => {
         void fetchProjectFileLeases(projectId)
@@ -556,20 +577,21 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       }, 100);
     };
 
-    const channel = subscribeProjectFilesChannel(supabase, {
-      projectId,
-      onFileLeaseChange: reconcileLocks,
-      onStatus: (status) => {
-        if (status === "SUBSCRIBED") reconcileLocks();
-      },
-    });
-
     const reconcileVisibleFolder = () => {
       if (disposed || document.visibilityState !== "visible") return;
       void loadFolderContent(visibleFolderId, "refresh").catch((error) => {
         console.warn("[files-tab] failed to reconcile visible folder", error);
       });
     };
+
+    const channel = subscribeProjectFilesChannel(supabase, {
+      projectId,
+      scope: "files-root",
+      onFileLeaseChange: reconcileLocks,
+      onStatus: (status) => {
+        if (status === "SUBSCRIBED") reconcileLocks();
+      },
+    });
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") reconcileVisibleFolder();
     };
@@ -599,11 +621,14 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     window.addEventListener("online", reconcileVisibleFolder);
     document.addEventListener("visibilitychange", onVisibilityChange);
 
+    // ponytail: 5m background reconciliation. ceiling: 5m interval. upgrade: WebSocket Realtime push invalidation for remote lists.
     const folderReconciliation = window.setInterval(
       reconcileVisibleFolder,
-      60_000,
+      300_000,
     );
+    // ponytail: 30s lock expiry sweep. ceiling: 30s interval. upgrade: WebSocket Realtime push invalidation for remote locks.
     const expirySweep = window.setInterval(() => {
+      if (document.hidden) return;
       const current =
         useFilesWorkspaceStore.getState().byProjectId[projectId]
           ?.locksByNodeId ?? {};
@@ -614,7 +639,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
           locks.filter((lock) => lock.expiresAt > Date.now()),
         );
       }
-    }, 5_000);
+    }, 30_000);
 
     return () => {
       disposed = true;
@@ -639,6 +664,9 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
   // ── 9. Quick Open state + ⌘P / Ctrl+P toggle (Req 9.1) ────────────
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
   const [quickOpenQuery, setQuickOpenQuery] = useState("");
+  const workspaceRootRef = useRef<HTMLDivElement>(null);
+  const paneScrollPositionsRef = useRef(new WeakMap<HTMLElement, number>());
+  const touchScrollRef = useRef<{ y: number; pane: HTMLElement | null } | null>(null);
 
   const handleQuickOpenChange = useCallback((next: boolean) => {
     setQuickOpenOpen(next);
@@ -650,14 +678,125 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
 
-      window.dispatchEvent(
-        new CustomEvent(FILES_WORKSPACE_SCROLL_EVENT, {
-          detail: { projectId, scrollTop: target.scrollTop },
-        }),
-      );
+      const currentScrollTop = target.scrollTop;
+      const previousScrollTop = paneScrollPositionsRef.current.get(target) ?? 0;
+      paneScrollPositionsRef.current.set(target, currentScrollTop);
+
+      const { routeRoot, headerScrollRange } = getFilesRouteScrollContext(event.currentTarget);
+      const paneDelta = currentScrollTop - previousScrollTop;
+      if (!routeRoot || paneDelta <= 0 || routeRoot.scrollTop >= headerScrollRange) return;
+
+      // Files panes remain independently scrollable, but the project route
+      // consumes the opening part of a downward gesture. This matches the
+      // progressive header movement used by Dashboard and Settings instead
+      // of toggling the entire header after a small threshold.
+      const routeDelta = Math.min(paneDelta, headerScrollRange - routeRoot.scrollTop);
+      routeRoot.scrollTop += routeDelta;
+      target.scrollTop = currentScrollTop - routeDelta;
+      paneScrollPositionsRef.current.set(target, target.scrollTop);
     },
-    [projectId],
+    [],
   );
+
+  const handleWorkspaceWheel = useCallback(
+    (event: WheelEvent) => {
+      if (event.ctrlKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+      const workspaceRoot = workspaceRootRef.current;
+      if (!workspaceRoot) return;
+      const { routeRoot, headerScrollRange } = getFilesRouteScrollContext(workspaceRoot);
+      if (!routeRoot || headerScrollRange <= 0) return;
+
+      const scrollPane = findVerticalScrollPane(event.target, workspaceRoot);
+      const shouldMoveHeaderDown = event.deltaY > 0 && routeRoot.scrollTop < headerScrollRange;
+      const shouldRevealHeader =
+        event.deltaY < 0 &&
+        routeRoot.scrollTop > 0 &&
+        (!scrollPane || scrollPane.scrollTop <= 0);
+      if (!shouldMoveHeaderDown && !shouldRevealHeader) return;
+
+      event.preventDefault();
+      const nextRouteTop = Math.max(
+        0,
+        Math.min(headerScrollRange, routeRoot.scrollTop + event.deltaY),
+      );
+      const consumedDelta = nextRouteTop - routeRoot.scrollTop;
+      routeRoot.scrollTop = nextRouteTop;
+
+      const remainingDelta = event.deltaY - consumedDelta;
+      if (remainingDelta > 0 && scrollPane) {
+        scrollPane.scrollTop += remainingDelta;
+        paneScrollPositionsRef.current.set(scrollPane, scrollPane.scrollTop);
+      }
+    },
+    [],
+  );
+
+  const handleWorkspaceTouchStart = useCallback(
+    (event: TouchEvent) => {
+      const touch = event.touches[0];
+      const workspaceRoot = workspaceRootRef.current;
+      if (!touch || !workspaceRoot) return;
+      touchScrollRef.current = {
+        y: touch.clientY,
+        pane: findVerticalScrollPane(event.target, workspaceRoot),
+      };
+    },
+    [],
+  );
+
+  const handleWorkspaceTouchMove = useCallback(
+    (event: TouchEvent) => {
+      const touch = event.touches[0];
+      const touchState = touchScrollRef.current;
+      const workspaceRoot = workspaceRootRef.current;
+      if (!touch || !touchState || !workspaceRoot) return;
+
+      const deltaY = touchState.y - touch.clientY;
+      touchState.y = touch.clientY;
+      if (Math.abs(deltaY) < 0.5) return;
+
+      const { routeRoot, headerScrollRange } = getFilesRouteScrollContext(workspaceRoot);
+      if (!routeRoot || headerScrollRange <= 0) return;
+
+      const shouldMoveHeaderDown = deltaY > 0 && routeRoot.scrollTop < headerScrollRange;
+      const shouldRevealHeader =
+        deltaY < 0 &&
+        routeRoot.scrollTop > 0 &&
+        (!touchState.pane || touchState.pane.scrollTop <= 0);
+      if (!shouldMoveHeaderDown && !shouldRevealHeader) return;
+
+      event.preventDefault();
+      const nextRouteTop = Math.max(
+        0,
+        Math.min(headerScrollRange, routeRoot.scrollTop + deltaY),
+      );
+      const consumedDelta = nextRouteTop - routeRoot.scrollTop;
+      routeRoot.scrollTop = nextRouteTop;
+
+      const remainingDelta = deltaY - consumedDelta;
+      if (remainingDelta > 0 && touchState.pane) {
+        touchState.pane.scrollTop += remainingDelta;
+        paneScrollPositionsRef.current.set(touchState.pane, touchState.pane.scrollTop);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const workspaceRoot = workspaceRootRef.current;
+    if (!workspaceRoot) return;
+
+    workspaceRoot.addEventListener("wheel", handleWorkspaceWheel, { passive: false, capture: true });
+    workspaceRoot.addEventListener("touchstart", handleWorkspaceTouchStart, { passive: true, capture: true });
+    workspaceRoot.addEventListener("touchmove", handleWorkspaceTouchMove, { passive: false, capture: true });
+
+    return () => {
+      workspaceRoot.removeEventListener("wheel", handleWorkspaceWheel, { capture: true });
+      workspaceRoot.removeEventListener("touchstart", handleWorkspaceTouchStart, { capture: true });
+      workspaceRoot.removeEventListener("touchmove", handleWorkspaceTouchMove, { capture: true });
+    };
+  }, [handleWorkspaceTouchMove, handleWorkspaceTouchStart, handleWorkspaceWheel]);
 
   // Use a ref so the listener identity stays stable across renders; the
   // ref carries the freshest `open` value without re-binding the handler.
@@ -723,6 +862,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
             githubAccessResolved={githubAccessResolved}
           >
             <div
+              ref={workspaceRootRef}
               data-testid="files-tab-root"
               data-startup-stage={stage}
               onScrollCapture={handleWorkspaceScroll}

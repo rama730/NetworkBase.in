@@ -76,15 +76,17 @@ test("grievance contact falls back to the monitored privacy mailbox", () => {
 });
 
 test("settings and project detail expose contextual legal controls", () => {
-  assert.match(read("src/components/settings/PrivacySettings.tsx"), /LegalAndDataRightsSection/);
+  const settingsDocument = read("src/components/settings/SettingsDocument.tsx");
+  assert.match(settingsDocument, /LegalAndDataRightsSection/);
+  assert.ok(settingsDocument.indexOf('id="settings-privacy-policies"') > settingsDocument.indexOf('id="settings-integrations"'));
   const layout = read("src/components/projects/dashboard/ProjectLayout.tsx");
   assert.doesNotMatch(layout, /id: "privacy", label: "Privacy & terms"/);
   const settings = read("src/components/projects/tabs/ProjectSettingsTab.tsx");
-  assert.match(settings, /"privacy-terms": ShieldCheck/);
-  assert.ok(settings.indexOf('activeSection === "privacy-terms"') > settings.indexOf('activeSection === "security-audit"'));
-  assert.match(settings, /ProjectPrivacyTermsTab/);
+  assert.match(settings, /"privacy-policies": Scale/);
+  assert.match(settings, /LegalAndDataRightsSection/);
   const policies = read("src/lib/projects/settings-policies.ts");
-  assert.ok(policies.indexOf('"privacy-terms"') > policies.indexOf('"security-audit"'));
+  assert.ok(policies.indexOf('"privacy-policies"') > policies.indexOf('"notifications"'));
+  assert.ok(policies.indexOf('"danger"') > policies.indexOf('"privacy-policies"'));
 });
 
 test("retention jobs expire legal evidence and anonymize deletion records", () => {

@@ -465,7 +465,7 @@ test("updates feed and detail render context references and actual images", () =
     assert.match(rendererSource, /setViewerMedia\(item\)/);
     assert.equal(rendererSource.includes("href={item.url}"), false);
     assert.match(rendererSource, /isProjectUpdateVideoMedia\(item\)/);
-    assert.match(rendererSource, /inline-flex min-w-0 items-center text-sm font-medium text-blue-600/);
+    assert.match(rendererSource, /inline-flex min-w-0 items-center font-mono text-xs text-foreground/);
     assert.equal(rendererSource.includes("rounded-xl border border-zinc-200 px-3 py-2"), false);
     assert.match(rendererSource, /mt-2 space-y-2/);
     assert.match(mediaFrameSource, /data-project-update-media-frame="true"/);
@@ -491,7 +491,7 @@ test("updates feed and detail render context references and actual images", () =
     assert.match(cardSource, /<ProjectUpdateContent/);
     assert.match(detailSource, /<ProjectUpdateContent/);
     assert.match(cardSource, /<UpdateContextAndMedia update=\{update\} \/>/);
-    assert.match(cardSource, /border-b border-zinc-200 px-1 py-3/);
+    assert.match(cardSource, /border-b border-border\/80 px-1 py-3/);
     assert.match(tabSource, /const UPDATE_CARD_CONTROL_SELECTOR/);
     assert.match(tabSource, /const control = target\.closest\(UPDATE_CARD_CONTROL_SELECTOR\)/);
     assert.match(tabSource, /control && control !== card/);
@@ -499,19 +499,19 @@ test("updates feed and detail render context references and actual images", () =
     assert.match(cardSource, /tabIndex=\{isEditing \? -1 : 0\}/);
     assert.match(cardSource, /isEditing \|\| event\.defaultPrevented \|\| isUpdateCardControl\(event\.target, event\.currentTarget\)/);
     assert.match(cardSource, /onOpenDetail\(update\.id\)/);
-    assert.match(cardSource, /!isEditing && "cursor-pointer hover:bg-zinc-50\/70/);
-    assert.match(cardSource, /size=\{40\}/);
-    assert.match(cardSource, /gap-x-1\.5 gap-y-0\.5 text-\[15px\] leading-5/);
+    assert.match(cardSource, /!isEditing && "cursor-pointer hover:bg-muted\/30/);
+    assert.match(cardSource, /size=\{34\}/);
+    assert.match(cardSource, /gap-x-1\.5 gap-y-0\.5 text-sm leading-5/);
     assert.match(cardSource, /className="mt-1 block w-full whitespace-pre-wrap/);
     assert.doesNotMatch(cardSource, /<div\s+role="button"/);
-    assert.match(cardSource, /text-\[15px\] leading-5 text-zinc-800/);
-    assert.match(cardSource, /mt-2 flex items-center gap-6 text-sm leading-5 text-zinc-500/);
-    assert.match(detailSource, /<UpdateContextAndMedia update=\{update\} \/>/);
+    assert.match(cardSource, /text-\[15px\] leading-relaxed text-foreground\/90/);
+    assert.match(cardSource, /mt-2\.5 flex items-center gap-2 font-mono text-xs text-muted-foreground/);
+    assert.match(detailSource, /<UpdateContextAndMedia update=\{update\} compact \/>/);
     assert.match(detailSource, /py-4 pr-1/);
-    assert.match(detailSource, /border-b border-zinc-200 pb-4/);
-    assert.match(detailSource, /size=\{40\}/);
-    assert.match(detailSource, /mt-1 whitespace-pre-wrap break-words text-\[15px\] leading-5/);
-    assert.match(detailSource, /mt-2 flex items-center gap-6 text-sm leading-5 text-zinc-500/);
+    assert.match(detailSource, /border-b border-border pb-4/);
+    assert.match(detailSource, /size=\{34\}/);
+    assert.match(detailSource, /mt-1 whitespace-pre-wrap break-words text-\[15px\] leading-relaxed/);
+    assert.match(detailSource, /mt-2\.5 flex items-center gap-4 font-mono text-xs text-muted-foreground/);
     assert.equal(cardSource.includes("Object.entries(update.context"), false);
     assert.equal(cardSource.includes("Object.values(update.context"), false);
 });
@@ -528,28 +528,28 @@ test("project update comments and replies use the compact feed conversation layo
     const commentRowSource = tabSource.slice(commentRowStart, updateCommentsStart);
     const updateCommentsSource = tabSource.slice(updateCommentsStart, updateCardStart);
 
-    assert.match(commentRowSource, /relative flex gap-2\.5 rounded-md px-1 py-1/);
+    assert.match(commentRowSource, /relative flex gap-2\.5 rounded-\[5px\] px-1/);
     assert.match(tabSource, /function ThreadAvatarRail/);
     assert.match(tabSource, /function ThreadRailBridge/);
     assert.match(commentRowSource, /<ThreadAvatarRail incoming=\{!isFirst\} outgoing=\{!isLast\}>/);
     assert.equal(tabSource.includes("-z-10 left-[15px]"), false);
     assert.match(commentRowSource, /flex flex-wrap items-baseline gap-x-1\.5 gap-y-0\.5 text-\[13px\] leading-4/);
-    assert.match(commentRowSource, /mt-0\.5 whitespace-pre-wrap break-words text-\[14px\] leading-5/);
-    assert.match(commentRowSource, /mt-0\.5 flex items-center gap-4 text-xs font-medium leading-4/);
-    assert.match(commentRowSource, /mt-1\.5 flex gap-2/);
+    assert.match(commentRowSource, /mt-1 whitespace-pre-wrap break-words text-\[13px\] leading-/);
+    assert.match(commentRowSource, /mt-2 flex items-center gap-2/);
+    assert.match(commentRowSource, /mt-2\.5 rounded-\[6px\] border border-border/);
     assert.match(commentRowSource, /size=\{24\}/);
     assert.equal(commentRowSource.includes("rounded-2xl bg-zinc-50 px-3 py-2"), false);
     assert.equal(commentRowSource.includes("mt-1 whitespace-pre-wrap break-words text-sm"), false);
 
-    assert.match(updateCommentsSource, /rounded-md transition-colors duration-200/);
-    assert.match(updateCommentsSource, /bg-blue-50\/60 px-2 py-1 dark:bg-blue-950\/20/);
+    assert.match(updateCommentsSource, /rounded-\[5px\] transition-colors duration-\[180ms\]/);
+    assert.match(updateCommentsSource, /bg-muted\/30 px-2 py-1/);
     assert.match(updateCommentsSource, /mt-2 flex min-h-0 flex-col border-t/);
     assert.match(updateCommentsSource, /min-h-0 flex-1 space-y-0\.5 overflow-y-auto/);
     assert.match(updateCommentsSource, /mb-1\.5 mt-1\.5 flex shrink-0 gap-2 pl-10/);
     assert.match(updateCommentsSource, /mb-2 flex shrink-0 gap-2/);
     assert.match(updateCommentsSource, /size=\{28\}/);
-    assert.match(updateCommentsSource, /h-9 min-w-0 flex-1/);
-    assert.match(updateCommentsSource, /h-9 shrink-0 animate-pulse rounded-full/);
+    assert.match(updateCommentsSource, /h-8 min-w-0 flex-1/);
+    assert.match(updateCommentsSource, /h-8 shrink-0 animate-none rounded-\[5px\]/);
     assert.match(updateCommentsSource, /min-h-0 flex-1 space-y-1\.5 overflow-y-auto/);
     assert.equal(updateCommentsSource.includes("rounded-2xl bg-zinc-50 px-3 py-2"), false);
     assert.equal(updateCommentsSource.includes("mt-1 whitespace-pre-wrap break-words text-sm"), false);
@@ -592,7 +592,7 @@ test("project update file mentions survive the dashboard and Files V3 handoff", 
     assert.match(tabsRegistrySource, /files-tab\/FilesTabRoot/);
     assert.match(filesRootSource, /initialOpenFileId\?: string \| null/);
     assert.match(filesRootSource, /const navigateToInitialFile = useNavigateTo\(projectId\)/);
-    assert.match(filesRootSource, /getNodeMetadataBatch\(projectId, \[initialOpenFileId\], \{ includeBreadcrumbs: true \}\)/);
+    assert.match(filesRootSource, /getNodeMetadataBatch\(projectId, \[initialOpenFileId\], \{\s*includeBreadcrumbs: true,?\s*\}\)/);
     assert.match(filesRootSource, /upsertNodes\(projectId, result\.data\.nodes\)/);
     assert.match(filesRootSource, /handledInitialFileIdRef/);
     assert.match(filesRootSource, /nodesById\[initialOpenFileId\]\?\.type === "file"/);
@@ -614,13 +614,14 @@ test("project update task mentions keep retrying until the task panel opens", ()
     );
 });
 
-test("updates tab right rail consumes the full remaining desktop width", () => {
+test("updates tab balances the feed with a bounded responsive supporting rail", () => {
     const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const layoutSource = readFileSync(path.join(process.cwd(), "src/components/projects/dashboard/ProjectLayout.tsx"), "utf8");
 
-    assert.match(tabSource, /xl:grid-cols-\[minmax\(0,760px\)_minmax\(0,1fr\)\]/);
-    assert.match(tabSource, /2xl:grid-cols-\[minmax\(0,820px\)_minmax\(0,1fr\)\]/);
-    assert.match(tabSource, /hidden w-full min-w-0 self-stretch xl:block/);
-    assert.match(tabSource, /sticky top-4 .* w-full overflow-y-auto/);
-    assert.equal(tabSource.includes("minmax(320px,420px)"), false);
-    assert.equal(tabSource.includes("_420px"), false);
+    assert.match(tabSource, /xl:grid-cols-\[minmax\(0,1fr\)_440px\]/);
+    assert.match(tabSource, /gap-8/);
+    assert.match(tabSource, /hidden w-full min-w-0 xl:block xl:w-\[440px\] shrink-0 border-l border-border pl-6/);
+    assert.match(tabSource, /sticky top-\[calc\(var\(--project-tabs-height,42px\)\+1rem\)\]/);
+    assert.equal(tabSource.includes("_300px"), false);
+    assert.match(layoutSource, /isUpdatesTab\s*\n\s*\? "w-full p-4 sm:py-5 sm:pl-5 sm:pr-6"/);
 });

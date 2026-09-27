@@ -77,24 +77,24 @@ const shortenRoleLabel = (label: string) => (label || "").trim() || "Team Member
 const AvatarRow = memo(function AvatarRow({ avatar }: { avatar: AvatarEntry }) {
     const content = (
         <>
-            <Avatar className="size-9 shrink-0 border border-zinc-200 dark:border-zinc-800">
-                <AvatarImage src={avatar.src ?? undefined} />
-                <AvatarFallback className="bg-zinc-100 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+            <Avatar className="size-[34px] shrink-0 rounded-[5px] border border-border">
+                <AvatarImage src={avatar.src ?? undefined} className="rounded-[5px] object-cover" />
+                <AvatarFallback identityKey={avatar.id} className="rounded-[5px] bg-muted text-[11px] font-mono font-medium text-muted-foreground">
                     {avatar.fallback}
                 </AvatarFallback>
             </Avatar>
             <div className="flex min-w-0 flex-grow items-center gap-2 text-sm">
-                <span className="shrink-0 font-semibold text-zinc-850 transition-colors group-hover:text-primary dark:text-zinc-200">
+                <span className="shrink-0 font-medium text-foreground transition-colors group-hover:text-primary">
                     {avatar.name}
                 </span>
-                <span className="shrink-0 text-zinc-400 select-none dark:text-zinc-500">·</span>
-                <span className="truncate text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="shrink-0 text-muted-foreground/50 select-none">·</span>
+                <span className="truncate text-xs font-normal text-muted-foreground">
                     {avatar.role}
                 </span>
             </div>
         </>
     );
-    const className = "group flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-all duration-150 hover:bg-zinc-50 focus-visible:bg-zinc-50 focus-visible:outline-none   dark:hover:bg-zinc-800/40 dark:focus-visible:bg-zinc-800/40";
+    const className = "group flex w-full items-center gap-2.5 rounded-[5px] px-2 py-1.5 text-left transition-[background-color,color] duration-[130ms] hover:bg-muted focus-visible:bg-muted focus-visible:outline-none";
 
     if (!avatar.username) {
         return <div className={className}>{content}</div>;
@@ -201,7 +201,7 @@ const TeamCard = memo(function TeamCard({
             : [];
 
         return [...ownerEntry, ...guidanceEntry, ...collaborators];
-    }, [guidance, leadFocus, members, project?.owner?.id, project?.owner?.username, project?.owner?.displayName, project?.owner?.avatarUrl]);
+    }, [guidance, leadFocus, members, project]);
 
     const showMoreCount = avatars.length - 5;
 
@@ -215,9 +215,9 @@ const TeamCard = memo(function TeamCard({
                 <button
                     type="button"
                     onClick={onInvite}
-                    className="flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-primary opacity-65 transition-all hover:bg-primary/10 hover:opacity-100"
+                    className="inline-flex h-[28px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                 >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-3.5 w-3.5 text-primary" />
                     Invite
                 </button>
             ) : null}
@@ -228,20 +228,21 @@ const TeamCard = memo(function TeamCard({
                         <div className="space-y-1">
                             {Array.from({ length: 5 }).map((_, idx) => (
                                 <div key={idx} className="flex items-center gap-2.5 px-2 py-1.5">
-                                    <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-800/60" />
+                                    <div aria-hidden="true" className="nb-skeleton h-[34px] w-[34px] shrink-0 rounded-[5px]" />
                                     <div className="flex min-w-0 flex-grow items-center gap-2">
-                                        <div className="h-3.5 w-20 shrink-0 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800/60" />
-                                        <span className="shrink-0 text-zinc-300 select-none dark:text-zinc-800/40">·</span>
-                                        <div className="h-3 w-28 animate-pulse truncate rounded bg-zinc-200 dark:bg-zinc-800/60" />
+                                        <div aria-hidden="true" className="nb-skeleton h-3.5 w-20 shrink-0 rounded-[3px]" />
+                                        <span className="shrink-0 text-muted-foreground/40 select-none">·</span>
+                                        <div aria-hidden="true" className="nb-skeleton h-3 w-28 truncate rounded-[3px]" />
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
                 ) : avatars.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 py-4">
-                        <Users className="h-8 w-8 text-zinc-300 dark:text-zinc-700" />
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">No team members yet</p>
+                    <div className="nb-empty-state nb-grid-ground my-1 py-6 text-center">
+                        <Users className="nb-empty-state-icon mx-auto mb-2" />
+                        <p className="nb-card-title text-foreground">No team members yet</p>
+                        <p className="nb-compact mt-1 text-muted-foreground">Invite collaborators to join your project team.</p>
                     </div>
                 ) : (
                     <div className="max-h-[260px] overflow-y-auto pr-1">
@@ -254,8 +255,8 @@ const TeamCard = memo(function TeamCard({
                 )}
 
                 {showMoreCount > 0 ? (
-                    <div className="mt-1.5 flex justify-center border-t border-zinc-100 pt-1.5 dark:border-zinc-800/60">
-                        <span className="px-2.5 py-1 text-[11px] font-bold text-primary">
+                    <div className="mt-1.5 flex justify-center border-t border-border pt-1.5">
+                        <span className="px-2.5 py-1 text-[11px] font-semibold text-primary">
                             + {showMoreCount} more {showMoreCount === 1 ? "member" : "members"}
                         </span>
                     </div>

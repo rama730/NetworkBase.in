@@ -1,0 +1,173 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { PanelLeftClose, PanelLeftOpen, UserRound } from "lucide-react";
+import { BrandMark } from "@/components/brand/BrandMark";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isMainNavRouteActive } from "./header/nav-items";
+import { ROUTES } from "@/constants/routes";
+import { useAuth } from "@/lib/hooks/use-auth";
+import { useMessageAttention } from "@/components/providers/MessageAttentionProvider";
+import { usePeopleNotifications } from "@/hooks/usePeopleNotifications";
+import { useRealtime } from "@/components/providers/RealtimeProvider";
+import WorkspaceIndicator from "./header/WorkspaceIndicator";
+import { queryKeys } from "@/lib/query-keys";
+import { useUIStore } from "@/lib/stores/ui-store";
+
+type SidebarProject = {
+    id: string;
+    title: string;
+    href: string;
+};
+
+type SidebarProjectsEnvelope = {
+    success?: boolean;
+    data?: { projects?: SidebarProject[] };
+    message?: string;
+};
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "networkbase:sidebar-collapsed";
+function readSidebarCollapsedPreference() {
+    try {
+        return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function writeSidebarCollapsedPreference(collapsed: boolean) {
+    try {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
+    } catch {
+        // The sidebar remains usable when browser storage is unavailable.
+    }
+}
+
+async function fetchSidebarProjects(profileId: string): Promise<SidebarProject[]> {
+    const response = await fetch(`/api/v1/profiles/${encodeURIComponent(profileId)}/projects?limit=12`, {
+        credentials: "include",
+        headers: { accept: "application/json" },
+    });
+    const body = await response.json().catch(() => null) as SidebarProjectsEnvelope | null;
+    if (!response.ok || body?.success === false) {
+        throw new Error(body?.message || "Unable to load projects");
+    }
+    return (body?.data?.projects ?? []).filter((project) => project.id && project.title && project.href);
+}
+
+export function AppSidebar() {
+    const pathname = usePathname();
+    const { profile, isAuthenticated } = useAuth();
+    const messageAttention = useMessageAttention();
+    const { connectionHealth } = useRealtime();
+    const people = usePeopleNotifications();
+    const profileId = profile?.id ?? null;
+    const projectsQuery = useQuery({
+        queryKey: queryKeys.profile.sidebarProjects(profileId ?? "unknown"),
+        queryFn: () => fetchSidebarProjects(profileId!),
+        enabled: Boolean(isAuthenticated && profileId),
+        staleTime: 60_000,
+        refetchOnWindowFocus: false,
+    });
+    const projects = projectsQuery.data ?? [];
+    const settingsActive = isMainNavRouteActive(pathname, SETTINGS_NAV_ITEM.href);
+    const collapsed = useUIStore((state) => state.sidebarCollapsed);
+    const setSidebarCollapsed = useUIStore((state) => state.setSidebarCollapsed);
+    const [preferenceReady, setPreferenceReady] = useState(false);
+
+    useEffect(() => {
+        const stored = readSidebarCollapsedPreference();
+        const defaultCollapsed = window.matchMedia("(min-width: 768px) and (max-width: 1023px)").matches;
+        setSidebarCollapsed(stored === "true" ? true : stored === "false" ? false : defaultCollapsed);
+        setPreferenceReady(true);
+
+        const syncPreference = (event: StorageEvent) => {
+            if (event.key !== SIDEBAR_COLLAPSED_STORAGE_KEY) return;
+            setSidebarCollapsed(event.newValue === "true");
+        };
+        window.addEventListener("storage", syncPreference);
+        return () => window.removeEventListener("storage", syncPreference);
+    }, [setSidebarCollapsed]);
+
+    const toggleCollapsed = () => {
+        const next = !collapsed;
+        setSidebarCollapsed(next);
+        writeSidebarCollapsedPreference(next);
+        setPreferenceReady(true);
+    };
+
+    return (
+        <aside
+            className="nb-sidebar"
+            id="application-sidebar"
+            aria-label="Application sidebar"
+            data-collapsed={preferenceReady ? String(collapsed) : undefined}
+        >
+            <div className="nb-sidebar-brand">
+                <Link
+                    href={ROUTES.DISCOVER}
+                    prefetch={false}
+                    className="nb-wordmark nb-sidebar-wordmark"
+                    aria-label="NetworkBase home"
+                >
+                    {collapsed ? <BrandMark variant="dot" size={19} label="NetworkBase" /> : <BrandMark size={19} />}
+                </Link>
+            </div>
+            <div className="nb-sidebar-body">
+                <div className="nb-sidebar-scroll app-scroll app-scroll-y min-h-0 flex-1 space-y-5 pr-1">
+                    <nav id="application-sidebar-navigation" aria-label="Main navigation" className="space-y-1">
+                        {MAIN_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+                            const active = isMainNavRouteActive(pathname, href);
+                            const count = href === ROUTES.MESSAGES ? messageAttention.unreadCount : href === ROUTES.NETWORK ? people.totalPending : 0;
+                            return <Link key={href} href={href} prefetch={false} className="nb-nav-link" aria-label={label} title={label} aria-current={active ? "page" : undefined}>
+                                <Icon size={16} aria-hidden="true" /><span className="nb-sidebar-label">{label}</span>
+                                {href === ROUTES.MESSAGES && messageAttention.hasUnreadMessages && count === 0 && <span className="size-1.5 rounded-full bg-primary" aria-label="Unread messages" />}
+                                {href === ROUTES.NETWORK && connectionHealth !== "healthy" && <span className="sr-only">Connection {connectionHealth}</span>}
+                                {count > 0 && <span className="nb-nav-count" aria-label={`${count} unread items`}>{count > 99 ? "99+" : count}</span>}
+                            </Link>;
+                        })}
+                        <Link href={ROUTES.MY_PROFILE} prefetch={false} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={pathname === ROUTES.MY_PROFILE || pathname === "/profile" ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>
+                        {isAuthenticated && <WorkspaceIndicator />}
+                    </nav>
+                    {isAuthenticated && <section className="nb-sidebar-workspace space-y-2" aria-labelledby="sidebar-workspace-heading">
+                        <h2 id="sidebar-workspace-heading" className="nb-micro px-2">Workspaces</h2>
+                        <div className="space-y-1" aria-label="Your projects" aria-busy={projectsQuery.isLoading}>
+                            {projectsQuery.isLoading && <><span className="sr-only" role="status">Loading workspaces…</span>{[1, 2, 3].map((key) => <Skeleton key={key} className="mx-2 h-8 rounded" />)}</>}
+                            {projects.map((project) => {
+                                const active = pathname === project.href || pathname?.startsWith(`${project.href}/`);
+                                return <Link key={project.id} href={project.href} prefetch={false} className="nb-nav-link" title={project.title} aria-current={active ? "page" : undefined}>
+                                    <span className="nb-sidebar-label truncate">{project.title}</span>
+                                </Link>;
+                            })}
+                            {!projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No projects yet</p>}
+                            {projectsQuery.isError && <p className="px-2 py-1 text-xs text-muted-foreground">Projects unavailable</p>}
+                        </div>
+                    </section>}
+                </div>
+                <nav
+                    aria-label="Settings and sidebar controls"
+                    className="nb-sidebar-footer"
+                    data-layout={preferenceReady ? (collapsed ? "stacked" : "inline") : undefined}
+                >
+                    <Link href={SETTINGS_NAV_ITEM.href} prefetch={false} className="nb-nav-link" aria-label={SETTINGS_NAV_ITEM.label} title={SETTINGS_NAV_ITEM.label} aria-current={settingsActive ? "page" : undefined}>
+                        <SETTINGS_NAV_ITEM.icon size={16} aria-hidden="true" /><span className="nb-sidebar-label">{SETTINGS_NAV_ITEM.label}</span>
+                    </Link>
+                    <button
+                        type="button"
+                        className="nb-nav-link nb-sidebar-toggle"
+                        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                        aria-controls="application-sidebar-navigation"
+                        aria-expanded={!collapsed}
+                        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                        onClick={toggleCollapsed}
+                    >
+                        {collapsed ? <PanelLeftOpen size={16} aria-hidden="true" /> : <PanelLeftClose size={16} aria-hidden="true" />}
+                    </button>
+                </nav>
+            </div>
+        </aside>
+    );
+}

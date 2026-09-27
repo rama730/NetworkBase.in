@@ -75,16 +75,16 @@ export function FileTransfersProvider({
             items.
           </DialogDescription>
           {!jobs.length && (
-            <p className="py-6 text-sm text-zinc-500">
+            <p className="py-6 text-sm text-muted-foreground">
               No transfers in this session.
             </p>
           )}
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          <ul className="divide-y divide-border">
             {jobs.map((job) => (
               <li key={job.id} className="space-y-2 py-3 text-sm">
                 <p className="break-words font-medium">{job.label}</p>
                 <progress
-                  className="h-2 w-full"
+                  className="h-2 w-full rounded-[2px]"
                   value={job.completed}
                   max={Math.max(1, job.total)}
                   aria-label={`Upload progress: ${job.label}`}
@@ -119,7 +119,7 @@ export function FileTransfersProvider({
                     )}
                     <button
                       type="button"
-                      className="min-h-11 rounded px-3 text-zinc-500"
+                      className="min-h-11 rounded px-3 text-muted-foreground"
                       onClick={() =>
                         setJobs((current) =>
                           current.filter((item) => item.id !== job.id),

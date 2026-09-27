@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { GITHUB_SYNC_LIMITS } from "./sync-limits";
 
 export { GITHUB_SYNC_LIMITS as SYNC_LIMITS } from "./sync-limits";
@@ -100,6 +99,8 @@ export interface SyncRunView {
 }
 
 export function contentHashes(content: Buffer) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createHash } = require("crypto") as typeof import("crypto");
   return {
     hash: createHash("sha256").update(content).digest("hex"),
     blobSha: createHash("sha1")

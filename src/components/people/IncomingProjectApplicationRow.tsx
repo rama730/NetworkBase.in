@@ -51,7 +51,7 @@ export function IncomingProjectApplicationRow({
     : null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-zinc-200/60 bg-white/80 p-4 backdrop-blur-xl sm:flex-row sm:items-start dark:border-white/5 dark:bg-zinc-900/80">
+    <div className="flex flex-col gap-3 rounded-[8px] border border-border bg-card p-4 transition-colors hover:border-border/80 sm:flex-row sm:items-start">
       <Link href={profileHref(actor)} className="w-fit">
         <UserAvatar identity={actor} size={40} />
       </Link>
@@ -59,19 +59,19 @@ export function IncomingProjectApplicationRow({
         <div className="flex flex-wrap items-center gap-1.5">
           <Link
             href={profileHref(actor)}
-            className="truncate text-sm font-semibold text-zinc-900 transition-colors hover:text-primary dark:text-zinc-100"
+            className="truncate text-sm font-semibold text-foreground transition-colors hover:text-primary"
           >
             {actorName}
           </Link>
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs text-muted-foreground">
             {app.isWorkflowItem ? "invited you to join as" : "applied for"}
           </span>
           <span className="truncate text-xs font-medium text-primary">{app.roleTitle}</span>
-          <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+          <span className="rounded-[3px] bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
             {sourceLabel}
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-400">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <Link href={projectHref} className="truncate hover:text-primary">
             {app.projectTitle}
           </Link>

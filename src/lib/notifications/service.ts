@@ -184,11 +184,15 @@ function logEmission(payload: {
     });
 }
 
+export type CreateNotificationResult =
+    | { notification: null; skipped: true }
+    | { notification: typeof userNotifications.$inferSelect | null; skipped: false };
+
 export async function createNotification(
     input: CreateNotificationInput,
     executor?: NotificationWriteExecutor,
     preloadedPreferenceMap?: Map<string, NotificationPreferences>,
-) {
+): Promise<CreateNotificationResult> {
     const start = Date.now();
     const importance = input.importance ?? "more";
     const hasActor = Boolean(input.actorUserId);
@@ -257,11 +261,16 @@ export async function createNotification(
             aggregate_count: inserted[0].aggregateCount ?? 1,
             delayed_reason: check.delayReason ?? undefined,
         });
-        return { notification: inserted[0], skipped: false as const };
+        return { notification: inserted[0]!, skipped: false as const };
     }
 
     const [existing] = await tx
-        .select()
+        .select({
+            id: userNotifications.id,
+            aggregateCount: userNotifications.aggregateCount,
+            userId: userNotifications.userId,
+            dedupeKey: userNotifications.dedupeKey,
+        })
         .from(userNotifications)
         .where(
             and(
@@ -281,7 +290,10 @@ export async function createNotification(
         duration_ms: Date.now() - start,
         aggregate_count: existing?.aggregateCount ?? undefined,
     });
-    return { notification: existing ?? null, skipped: false as const };
+    if (!existing) {
+        return { notification: null, skipped: true as const };
+    }
+    return { notification: existing as unknown as typeof userNotifications.$inferSelect, skipped: false as const };
 }
 
 export async function upsertAggregatedNotification(
@@ -652,6 +664,24 @@ export async function dismissNotification(
     return row ?? null;
 }
 
+export async function dismissAllNotifications(
+    userId: string,
+    executor?: NotificationWriteExecutor,
+) {
+    const tx = getExecutor(executor);
+    const dismissedAt = new Date();
+    const dismissedAtIso = dismissedAt.toISOString();
+    await tx
+        .update(userNotifications)
+        .set({
+            dismissedAt,
+            readAt: sql`COALESCE(${userNotifications.readAt}, ${dismissedAtIso}::timestamptz)`,
+            seenAt: sql`COALESCE(${userNotifications.seenAt}, ${dismissedAtIso}::timestamptz)`,
+            updatedAt: dismissedAt,
+        })
+        .where(and(eq(userNotifications.userId, userId), isNull(userNotifications.dismissedAt)));
+}
+
 export async function pauseNotifications(
     userId: string,
     pausedUntil: string | null,
@@ -713,7 +743,27 @@ export async function readNotificationsPage(
 
     const now = new Date();
     const rows = await tx
-        .select()
+        .select({
+            id: userNotifications.id,
+            userId: userNotifications.userId,
+            actorUserId: userNotifications.actorUserId,
+            kind: userNotifications.kind,
+            importance: userNotifications.importance,
+            title: userNotifications.title,
+            body: userNotifications.body,
+            href: userNotifications.href,
+            entityRefs: userNotifications.entityRefs,
+            preview: userNotifications.preview,
+            dedupeKey: userNotifications.dedupeKey,
+            aggregateCount: userNotifications.aggregateCount,
+            readAt: userNotifications.readAt,
+            seenAt: userNotifications.seenAt,
+            dismissedAt: userNotifications.dismissedAt,
+            snoozedUntil: userNotifications.snoozedUntil,
+            createdAt: userNotifications.createdAt,
+            activityAt: userNotifications.activityAt,
+            updatedAt: userNotifications.updatedAt,
+        })
         .from(userNotifications)
         .where(
             and(

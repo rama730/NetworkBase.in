@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
 import { get as getIdb, set as setIdb } from "idb-keyval";
 
@@ -27,12 +27,15 @@ type GlobalSearchPreviewBase = {
 export type GlobalSearchProjectPreview = GlobalSearchPreviewBase & {
     kind: "project";
     username: string | null;
+    status?: string | null;
     skills: string[];
     openRolesCount: number;
     followersCount: number;
     viewCount: number;
     connectedFriends: Array<{ name: string; role: string }>;
     additionalConnectedFriendsCount: number;
+    coverImage?: string | null;
+    updatedAt?: string | null;
 };
 
 export type GlobalSearchProfilePreview = GlobalSearchPreviewBase & {
@@ -102,6 +105,9 @@ export function isGlobalSearchPreview(value: unknown): value is GlobalSearchPrev
     }
     if (preview.kind === "project") {
         return isNullableString(preview.username)
+            && (preview.status === undefined || isNullableString(preview.status))
+            && (preview.coverImage === undefined || isNullableString(preview.coverImage))
+            && (preview.updatedAt === undefined || isNullableString(preview.updatedAt))
             && Array.isArray(preview.skills) && preview.skills.every((skill) => typeof skill === "string")
             && [preview.openRolesCount, preview.followersCount, preview.viewCount, preview.additionalConnectedFriendsCount].every(Number.isFinite)
             && Array.isArray(preview.connectedFriends)
@@ -162,12 +168,15 @@ async function fetchProjectPreviews(query: string): Promise<GlobalSearchPreview[
         subtitle: project.shortDescription || project.description || project.owner?.displayName || project.owner?.fullName || "Project",
         href: `/projects/${project.slug || project.id}?fromTab=projects`,
         username: project.owner?.username ?? null,
+        status: project.status ?? null,
         skills: project.skills || [],
         openRolesCount: (project.openRoles || []).reduce((count, role) => count + Math.max(0, role.count - role.filled), 0),
         followersCount: Math.max(0, project.followersCount ?? 0),
         viewCount: Math.max(0, project.viewCount ?? 0),
         connectedFriends: project.connectedFriends ?? [],
         additionalConnectedFriendsCount: Math.max(0, project.additionalConnectedFriendsCount ?? 0),
+        coverImage: project.coverImage ?? null,
+        updatedAt: project.updatedAt ?? null,
         matchReason: textIncludes(project.title, query)
             ? "Matched project title"
             : matchedSkill
@@ -319,7 +328,6 @@ export function useGlobalSearchPreviews({
     projectIdentifier?: string | null;
     peopleScope?: PeopleSearchScope;
 }) {
-    const queryClient = useQueryClient();
     const [debouncedQuery] = useDebounce(
         normalizeGlobalSearchQuery(query),
         query.trim().length <= 3 ? 450 : 250,
@@ -334,28 +342,6 @@ export function useGlobalSearchPreviews({
         const timeout = window.setTimeout(() => setCooldownUntil(0), remaining);
         return () => window.clearTimeout(timeout);
     }, [cooldownUntil]);
-
-    useEffect(() => {
-        if (!enabled || debouncedQuery.length < 2) return;
-        const otherContexts = (["hub", "people", "project"] as const).filter((c) => c !== previewContext);
-        otherContexts.forEach((ctx) => {
-            if (ctx === "project" && !projectIdentifier) return;
-            void queryClient.prefetchQuery({
-                queryKey: queryKeys.globalSearch.preview(
-                    ctx,
-                    peopleScope,
-                    projectIdentifier ?? null,
-                    debouncedQuery.toLowerCase(),
-                ),
-                queryFn: () => ctx === "people"
-                    ? fetchProfilePreviews(debouncedQuery, peopleScope)
-                    : ctx === "project" && projectIdentifier
-                        ? fetchProjectContextPreviews(projectIdentifier, debouncedQuery)
-                        : fetchProjectPreviews(debouncedQuery),
-                staleTime: ctx === "hub" ? 60_000 : ctx === "people" ? 30_000 : 15_000,
-            });
-        });
-    }, [debouncedQuery, enabled, previewContext, peopleScope, projectIdentifier, queryClient]);
 
     const queryResult = useQuery({
         queryKey: queryKeys.globalSearch.preview(

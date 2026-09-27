@@ -93,8 +93,8 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
     data: { type: "Task", task },
     disabled: !canDrag,
     transition: {
-      duration: 300,
-      easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+      duration: 180,
+      easing: "cubic-bezier(0.2, 0.8, 0.3, 1)",
     },
   });
 
@@ -102,7 +102,7 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
     transform: CSS.Transform.toString(transform),
     transition: isDragging
       ? undefined
-      : (transition ?? "transform 300ms cubic-bezier(0.18, 0.67, 0.6, 1.22)"),
+      : (transition ?? "transform 180ms cubic-bezier(.2,.8,.3,1)"),
   };
 
   if (isDragging) {
@@ -113,9 +113,9 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
         className="relative touch-manipulation"
       >
         <div className="invisible">
-          <TaskCard task={task} />
+          <TaskCard task={task} showStatus={false} />
         </div>
-        <div className="absolute inset-0 rounded-lg border-2 border-dashed border-zinc-300 bg-zinc-100/40 dark:border-zinc-700 dark:bg-zinc-800/20" />
+        <div className="absolute inset-0 rounded-[8px] border-2 border-dashed border-border bg-muted/40" />
       </div>
     );
   }
@@ -123,6 +123,7 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   return (
     <div
       ref={setNodeRef}
+      data-task-id={task.id}
       style={style}
       className="will-change-transform"
       {...(canDrag ? attributes : {})}
@@ -132,6 +133,7 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
         task={task}
         onClick={onClick}
         activeAssignableMemberIds={activeAssignableMemberIds}
+        showStatus={false}
       />
     </div>
   );
@@ -167,8 +169,8 @@ const KanbanColumn = React.memo(
       data: { type: "Column", column: col },
       disabled: !canReorderColumns,
       transition: {
-        duration: 300,
-        easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+        duration: 180,
+        easing: "cubic-bezier(0.2, 0.8, 0.3, 1)",
       },
     });
 
@@ -176,7 +178,7 @@ const KanbanColumn = React.memo(
       transform: CSS.Transform.toString(transform),
       transition: isDragging
         ? undefined
-        : (transition ?? "transform 300ms cubic-bezier(0.18, 0.67, 0.6, 1.22)"),
+        : (transition ?? "transform 180ms cubic-bezier(.2,.8,.3,1)"),
     };
     const visibleTasks = colTasks.slice(0, visibleLimit);
     const visibleTaskIds = useMemo(() => visibleTasks.map((t: Task) => t.id), [visibleTasks]);
@@ -209,15 +211,14 @@ const KanbanColumn = React.memo(
         role="region"
         aria-label={`${col.title} column, ${colTasks.length} tasks`}
         className={cn(
-          "group h-max w-[300px] shrink-0 rounded-xl border flex flex-col transition-all",
-          colors.bg,
-          colors.border,
+          "group h-max w-[300px] shrink-0 rounded-[8px] border flex flex-col transition-colors",
+          "bg-muted border-border",
           isDragging && "opacity-45 border-primary/30",
         )}
       >
         <div
           className={cn(
-            "p-4 shrink-0 flex items-center justify-between border-b rounded-t-xl",
+            "p-3 shrink-0 flex items-center justify-between border-b rounded-t-[8px]",
             colors.border,
           )}
         >
@@ -229,13 +230,13 @@ const KanbanColumn = React.memo(
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={handleBlur}
                 onKeyDown={(e) => e.key === "Enter" && handleBlur()}
-                className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 bg-transparent border-none outline-none w-full"
+                className="text-xs font-semibold text-foreground bg-transparent border-none outline-none w-full"
               />
             ) : (
               <div className="flex items-center gap-2 flex-1">
                 <h3
                   className={cn(
-                    "font-semibold text-sm truncate max-w-[150px]",
+                    "text-xs font-semibold truncate max-w-[150px]",
                     colors.text,
                   )}
                   title={col.title}
@@ -244,7 +245,7 @@ const KanbanColumn = React.memo(
                 </h3>
                 <span
                   className={cn(
-                    "px-2 py-0.5 rounded-full text-xs font-bold border",
+                    "inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border px-1 font-mono text-[10px] font-semibold",
                     colors.bg.replace("/50", ""),
                     colors.border,
                     colors.text,
@@ -258,26 +259,26 @@ const KanbanColumn = React.memo(
           <div className="flex items-center gap-1">
             {isLeader ? (
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-                <DropdownMenuTrigger className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded">
-                  <MoreHorizontal className="w-4 h-4 text-zinc-500" />
+                <DropdownMenuTrigger aria-label={`Options for ${col.title}`} className="size-7 flex items-center justify-center rounded-[5px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                  <MoreHorizontal className="size-4" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {!isEditing && isLeader && (
                     <>
                       <DropdownMenuItem
-                        className="cursor-pointer"
+                        className="cursor-pointer text-xs font-medium"
                         onSelect={(e) => {
                           e.preventDefault();
                           setIsEditing(true);
                           setDropdownOpen(false);
                         }}
                       >
-                        <Pencil className="w-4 h-4 mr-2" />
+                        <Pencil className="size-3.5 mr-2" />
                         Rename Section
                       </DropdownMenuItem>
                       <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="cursor-pointer">
-                          <Palette className="w-4 h-4 mr-2" />
+                        <DropdownMenuSubTrigger className="cursor-pointer text-xs font-medium">
+                          <Palette className="size-3.5 mr-2" />
                           Change Color
                         </DropdownMenuSubTrigger>
                         <DropdownMenuPortal>
@@ -299,16 +300,16 @@ const KanbanColumn = React.memo(
                                       handleColorClick(c);
                                     }}
                                     className={cn(
-                                      "w-6 h-6 rounded-full cursor-pointer flex items-center justify-center transition-all hover:scale-110",
+                                      "size-5 rounded-[3px] border border-border/60 cursor-pointer flex items-center justify-center transition-all hover:scale-105",
                                       cMap.dot,
                                       isSelected &&
-                                        "ring-2 ring-offset-1 ring-zinc-400 dark:ring-zinc-500 scale-110",
+                                        "ring-2 ring-primary ring-offset-1 ring-offset-background scale-105",
                                     )}
                                   >
                                     {isSelected && (
                                       <Check
-                                        className="w-3.5 h-3.5 text-white drop-shadow-sm"
-                                        strokeWidth={3}
+                                        className="size-3 text-white drop-shadow-sm"
+                                        strokeWidth={2.5}
                                       />
                                     )}
                                   </button>
@@ -322,10 +323,10 @@ const KanbanColumn = React.memo(
                   )}
                   {!col.isDefault && isLeader && (
                     <DropdownMenuItem
-                      className="text-rose-600 focus:text-rose-600 cursor-pointer"
+                      className="text-destructive focus:text-destructive cursor-pointer text-xs font-medium"
                       onClick={() => onRemoveColumn(col.id)}
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
+                      <Trash2 className="size-3.5 mr-2" />
                       Remove Section
                     </DropdownMenuItem>
                   )}
@@ -338,9 +339,9 @@ const KanbanColumn = React.memo(
                 aria-label={`Reorder ${col.title}`}
                 {...attributes}
                 {...listeners}
-                className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded cursor-grab active:cursor-grabbing text-zinc-400"
+                className="size-7 flex items-center justify-center rounded-[5px] hover:bg-muted text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing transition-colors"
               >
-                <GripVertical className="w-4 h-4" />
+                <GripVertical className="size-4" />
               </button>
             )}
           </div>
@@ -366,6 +367,7 @@ const KanbanColumn = React.memo(
                 ))}
                 {hasMoreInColumn && (
                   <button
+                    type="button"
                     onClick={() =>
                       setVisibleCounts((prev: any) => ({
                         ...prev,
@@ -375,18 +377,18 @@ const KanbanColumn = React.memo(
                         ),
                       }))
                     }
-                    className="w-full py-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 border border-dashed border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                    className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   >
                     Show more
                   </button>
                 )}
               </>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg opacity-50">
-                <p className="text-xs font-medium">
+              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed border-border/60 rounded-[6px] p-4 text-center nb-grid-ground bg-card">
+                <p className="text-xs font-medium text-foreground">
                   {col.emptyTitle || "No tasks here"}
                 </p>
-                <p className="mt-1 text-[11px] text-zinc-400 text-center max-w-[200px]">
+                <p className="mt-1 text-[11px] text-muted-foreground max-w-[200px]">
                   {col.emptyDescription || "Drag tasks into this section"}
                 </p>
               </div>
@@ -514,7 +516,16 @@ export default function KanbanBoard({
     if (event.active.data.current?.type === "Task") {
       const task = event.active.data.current.task as Task;
       setActiveTask(task);
-      setActiveTaskWidth(event.active.rect.current.initial?.width ?? null);
+      const targetEl = event.activatorEvent?.target as HTMLElement | null;
+      const cardEl =
+        targetEl?.closest?.('[data-testid="task-card"]') ??
+        (typeof document !== "undefined"
+          ? document.querySelector<HTMLElement>(`[data-task-id="${task.id}"]`)
+          : null);
+      const measuredWidth = cardEl?.getBoundingClientRect().width;
+      setActiveTaskWidth(
+        measuredWidth && measuredWidth > 0 ? measuredWidth : 276,
+      );
       setPreviewMove(null);
       onTaskDragStateChange?.(task.id);
     }
@@ -738,8 +749,11 @@ export default function KanbanBoard({
     onTaskDragStateChange?.(null);
   }
 
+  const boardRootRef = React.useRef<HTMLDivElement>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const prevWorkflowLengthRef = React.useRef(workflow.length);
+  const isDraggingAnyRef = React.useRef(false);
+  isDraggingAnyRef.current = Boolean(activeTask || activeColumn);
 
   useEffect(() => {
     if (workflow.length > prevWorkflowLengthRef.current) {
@@ -755,8 +769,99 @@ export default function KanbanBoard({
     prevWorkflowLengthRef.current = workflow.length;
   }, [workflow.length]);
 
+  useEffect(() => {
+    const el = boardRootRef.current;
+    if (!el) return;
+
+    let touchStartY = 0;
+    let touchStartX = 0;
+
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.shiftKey) return;
+      if (isDraggingAnyRef.current) return;
+
+      const rawDeltaY = event.deltaY;
+      const rawDeltaX = event.deltaX;
+
+      if (Math.abs(rawDeltaY) <= Math.abs(rawDeltaX)) return;
+
+      const routeRoot =
+        el.closest<HTMLElement>('[data-scroll-root="route"]') ??
+        document.querySelector<HTMLElement>('[data-scroll-root="route"]');
+      if (!routeRoot) return;
+
+      const maxScroll = routeRoot.scrollHeight - routeRoot.clientHeight;
+      if (maxScroll <= 0) return;
+
+      const deltaY =
+        event.deltaMode === 1
+          ? rawDeltaY * 40
+          : event.deltaMode === 2
+            ? rawDeltaY * window.innerHeight
+            : rawDeltaY;
+
+      const canScrollDown = deltaY > 0 && routeRoot.scrollTop < maxScroll;
+      const canScrollUp = deltaY < 0 && routeRoot.scrollTop > 0;
+      if (!canScrollDown && !canScrollUp) return;
+
+      event.preventDefault();
+      routeRoot.scrollTop = Math.max(
+        0,
+        Math.min(maxScroll, routeRoot.scrollTop + deltaY),
+      );
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      touchStartY = touch.clientY;
+      touchStartX = touch.clientX;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (isDraggingAnyRef.current) return;
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      const deltaY = touchStartY - touch.clientY;
+      const deltaX = touchStartX - touch.clientX;
+      touchStartY = touch.clientY;
+      touchStartX = touch.clientX;
+
+      if (Math.abs(deltaY) <= Math.abs(deltaX) || Math.abs(deltaY) < 1) return;
+
+      const routeRoot =
+        el.closest<HTMLElement>('[data-scroll-root="route"]') ??
+        document.querySelector<HTMLElement>('[data-scroll-root="route"]');
+      if (!routeRoot) return;
+
+      const maxScroll = routeRoot.scrollHeight - routeRoot.clientHeight;
+      if (maxScroll <= 0) return;
+
+      const canScrollDown = deltaY > 0 && routeRoot.scrollTop < maxScroll;
+      const canScrollUp = deltaY < 0 && routeRoot.scrollTop > 0;
+      if (!canScrollDown && !canScrollUp) return;
+
+      event.preventDefault();
+      routeRoot.scrollTop = Math.max(
+        0,
+        Math.min(maxScroll, routeRoot.scrollTop + deltaY),
+      );
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false, capture: true });
+    el.addEventListener("touchstart", handleTouchStart, { passive: true, capture: true });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false, capture: true });
+
+    return () => {
+      el.removeEventListener("wheel", handleWheel, { capture: true });
+      el.removeEventListener("touchstart", handleTouchStart, { capture: true });
+      el.removeEventListener("touchmove", handleTouchMove, { capture: true });
+    };
+  }, []);
+
   return (
-    <div className="space-y-4">
+    <div ref={boardRootRef} className="space-y-4">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -776,7 +881,7 @@ export default function KanbanBoard({
         >
           <div
             ref={scrollContainerRef}
-            className="flex items-start gap-6 overflow-x-auto overscroll-x-contain pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            className="flex items-start gap-4 overflow-x-auto overscroll-x-contain overscroll-y-auto pb-4 app-scroll app-scroll-x"
           >
             <div className="my-auto ml-auto shrink-0" aria-hidden="true" />
             {workflow.map((col) => {
@@ -807,8 +912,8 @@ export default function KanbanBoard({
         <DragOverlay
           adjustScale={false}
           dropAnimation={{
-            duration: 300,
-            easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+            duration: 180,
+            easing: "cubic-bezier(0.2, 0.8, 0.3, 1)",
             sideEffects: defaultDropAnimationSideEffects({
               styles: { active: { opacity: "0.15" } },
             }),
@@ -817,7 +922,7 @@ export default function KanbanBoard({
           {activeTask ? (
             // ponytail: one moving card; source and destination render blank slots only.
             <div
-              className="pointer-events-none w-[min(360px,calc(100vw-2rem))] cursor-grabbing rounded-lg shadow-xl ring-1 ring-black/5"
+              className="pointer-events-none w-[min(276px,calc(100vw-2rem))] cursor-grabbing rounded-[8px] shadow-lg"
               style={{
                 width:
                   activeTaskWidth && activeTaskWidth > 0
@@ -825,11 +930,11 @@ export default function KanbanBoard({
                     : undefined,
               }}
             >
-              <TaskCard task={activeTask} />
+              <TaskCard task={activeTask} showStatus={false} />
             </div>
           ) : null}
           {activeColumn ? (
-            <div className="cursor-grabbing rounded-xl shadow-xl ring-1 ring-black/5 opacity-95 max-h-[80vh] overflow-hidden">
+            <div className="cursor-grabbing rounded-[8px] shadow-lg border border-border/80 opacity-95 max-h-[80vh] overflow-hidden">
               <KanbanColumn
                 col={activeColumn}
                 colTasks={columns[activeColumn.id] || []}
@@ -851,13 +956,14 @@ export default function KanbanBoard({
 
       {hasNextPage && (
         <div className="mt-4 flex flex-col items-center gap-2">
-          <p className="text-xs text-zinc-500" role="status">
+          <p className="text-xs text-muted-foreground" role="status">
             Load all tasks before reordering so positions remain complete and deterministic.
           </p>
           <button
+            type="button"
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="px-4 py-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 border border-dashed border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors disabled:opacity-60"
+            className="h-[34px] rounded-[5px] border border-border bg-card px-4 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
           >
             {isFetchingNextPage ? "Loading more tasks..." : "Load more tasks"}
           </button>

@@ -25,8 +25,8 @@ describe('MobileProgressBar explicit progress', () => {
 const source = readFileSync(path.resolve(__dirname, '../MobileProgressBar.tsx'), 'utf8')
 
 describe('MobileProgressBar visual and accessibility contract', () => {
-  it('renders Step X of Y instead of an ambiguous percentage', () => {
-    assert.match(source, /Step \{currentStep\} of \{totalSteps\}/)
+  it('renders an explicit current-step count rather than an ambiguous percentage', () => {
+    assert.match(source, /\{currentStep\}\/\{totalSteps\}/)
     assert.doesNotMatch(source, /completionPercentage/)
   })
 

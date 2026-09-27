@@ -14,7 +14,7 @@ import type { ProjectNode } from "@/lib/db/schema";
  *
  * Req 2.6 / Req 15.14.
  */
-export const FILES_TAB_SIDEBAR_WIDTH_PX = 280;
+export const FILES_TAB_SIDEBAR_WIDTH_PX = 240;
 
 /** Header height used by the sidebar header row (design.md § FilesTabSidebar). */
 export const FILES_TAB_SIDEBAR_HEADER_HEIGHT_PX = 32;

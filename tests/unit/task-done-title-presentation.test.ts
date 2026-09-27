@@ -60,7 +60,6 @@ test("every task-oriented title surface consumes the shared Done presentation ru
     "src/components/projects/v2/files-tab/picker/TaskSearchPicker.tsx",
     "src/components/projects/v2/files-tab/file/LinkedTasksPanel.tsx",
     "src/components/projects/v2/files-tab/TaskLinkPopover.tsx",
-    "src/components/projects/analytics/AnalyticsMemberDetail.tsx",
     "src/components/projects/doc/ProjectDocReferencePreview.tsx",
   ];
 

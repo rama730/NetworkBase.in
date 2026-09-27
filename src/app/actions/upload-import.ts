@@ -107,32 +107,29 @@ function buildUploadImportSource(
   };
 }
 
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 async function withProjectSyncLock<T>(
   projectId: string,
-  task: () => Promise<T>,
+  task: (tx: DbTransaction) => Promise<T>,
 ): Promise<{ skipped: boolean; value: T | null }> {
-  const lockResult = await db.execute<{ locked: boolean }>(sql`
-    SELECT pg_try_advisory_lock(
-      hashtext(${LOCK_NAMESPACE}),
-      hashtext(CAST(${projectId} AS text))
-    ) AS locked
-  `);
-  const lockRow = Array.from(lockResult)[0];
-  const lockAcquired = !!lockRow?.locked;
-  if (!lockAcquired) {
-    return { skipped: true, value: null };
-  }
-
-  try {
-    return { skipped: false, value: await task() };
-  } finally {
-    await db.execute(sql`
-      SELECT pg_advisory_unlock(
+  // ponytail: transaction-scoped advisory lock (pg_try_advisory_xact_lock) releases automatically on commit/rollback. ceiling: single Postgres primary. upgrade: Redis redlock if multi-region active-active deployment required.
+  return await db.transaction(async (tx) => {
+    const lockResult = await tx.execute<{ locked: boolean }>(sql`
+      SELECT pg_try_advisory_xact_lock(
         hashtext(${LOCK_NAMESPACE}),
         hashtext(CAST(${projectId} AS text))
-      )
+      ) AS locked
     `);
-  }
+    const lockRow = Array.from(lockResult)[0];
+    const lockAcquired = !!lockRow?.locked;
+    if (!lockAcquired) {
+      return { skipped: true, value: null };
+    }
+
+    const value = await task(tx);
+    return { skipped: false, value };
+  });
 }
 
 async function fetchExistingNodes(
@@ -399,30 +396,22 @@ export async function registerUploadedFolderAction(
       let deletedFiles = 0;
 
       if (reconcilePolicy === 'mirror') {
-        const activeFiles = await tx
-          .select({ id: projectNodes.id })
-          .from(projectNodes)
+        const deletedRows = await tx
+          .update(projectNodes)
+          .set({
+            deletedAt: now,
+            deletedBy: user.id,
+            updatedAt: now,
+          })
           .where(
             and(
               eq(projectNodes.projectId, projectId),
               eq(projectNodes.type, 'file'),
               isNull(projectNodes.deletedAt),
             ),
-          );
-
-        const activeFileIds = activeFiles.map((row) => row.id);
-        for (const batchIds of chunkArray(activeFileIds, BATCH_SIZE)) {
-          if (batchIds.length === 0) continue;
-          await tx
-            .update(projectNodes)
-            .set({
-              deletedAt: now,
-              deletedBy: user.id,
-              updatedAt: now,
-            })
-            .where(inArray(projectNodes.id, batchIds));
-          deletedFiles += batchIds.length;
-        }
+          )
+          .returning({ id: projectNodes.id });
+        deletedFiles = deletedRows.length;
       }
 
       const nextImportSource = buildUploadImportSource(currentImportSource, {
@@ -456,6 +445,7 @@ export async function registerUploadedFolderAction(
 
     revalidatePath(`/projects/${projectId}`);
     if (project.slug) revalidatePath(`/projects/${project.slug}`);
+    revalidatePath('/discover');
     revalidatePath('/hub');
     logger.metric('upload.register.result', {
       projectId,
@@ -472,9 +462,8 @@ export async function registerUploadedFolderAction(
   }
 
   try {
-    const lockResult = await withProjectSyncLock(projectId, async () => {
-      return await db.transaction(async (tx) => {
-        const nowIso = new Date().toISOString();
+    const lockResult = await withProjectSyncLock(projectId, async (tx) => {
+      const nowIso = new Date().toISOString();
         const keepS3Keys = new Set(entries.map((entry) => buildProjectFileKey(projectId, entry.relativePath)));
         const startedSessionAt = typeof currentSession?.startedAt === 'string' ? currentSession.startedAt : nowIso;
         let activeImportSource = buildUploadImportSource(currentImportSource, {
@@ -694,30 +683,6 @@ export async function registerUploadedFolderAction(
         let reconcileCandidateCount = 0;
         let reconcileValidatedCount = 0;
         if (reconcilePolicy === 'mirror') {
-          activeImportSource = buildUploadImportSource(activeImportSource, {
-            syncPhase: 'reconciling',
-            uploadSession: {
-              sessionId,
-              manifestHash,
-              totalFiles: entries.length,
-              uploadedFiles: registeredFiles,
-              startedAt: startedSessionAt,
-              lastActivityAt: new Date().toISOString(),
-              status: 'reconciling',
-            } satisfies UploadSessionState,
-            reconcile: {
-              status: 'marked',
-              policy: reconcilePolicy,
-            },
-          });
-          await tx.update(projects)
-            .set({
-              syncStatus: 'indexing',
-              importSource: activeImportSource as any,
-              updatedAt: new Date(),
-            })
-            .where(eq(projects.id, projectId));
-
           const activeFileNodes = await tx
             .select({ id: projectNodes.id, s3Key: projectNodes.s3Key })
             .from(projectNodes)
@@ -736,70 +701,22 @@ export async function registerUploadedFolderAction(
 
           const candidateIds = candidates.map((node) => node.id);
           reconcileCandidateCount = candidateIds.length;
-          activeImportSource = buildUploadImportSource(activeImportSource, {
-            reconcile: {
-              status: 'marked',
-              policy: reconcilePolicy,
-              candidateCount: candidateIds.length,
-              deletedFiles: 0,
-            },
-          });
-          await tx.update(projects)
-            .set({
-              syncStatus: 'indexing',
-              importSource: activeImportSource as any,
-              updatedAt: new Date(),
-            })
-            .where(eq(projects.id, projectId));
+          reconcileValidatedCount = candidateIds.length;
 
-          let validatedCandidateIds = candidateIds;
           if (candidateIds.length > 0) {
-            const stillValidRows = await tx
-              .select({ id: projectNodes.id, s3Key: projectNodes.s3Key })
-              .from(projectNodes)
-              .where(
-                and(
-                  inArray(projectNodes.id, candidateIds),
-                  eq(projectNodes.projectId, projectId),
-                  eq(projectNodes.type, 'file'),
-                  isNull(projectNodes.deletedAt),
-                ),
-              );
-
-            validatedCandidateIds = stillValidRows
-              .filter((node) => !!node.s3Key && !keepS3Keys.has(node.s3Key))
-              .map((node) => node.id);
-          }
-          reconcileValidatedCount = validatedCandidateIds.length;
-
-          activeImportSource = buildUploadImportSource(activeImportSource, {
-            reconcile: {
-              status: 'validated',
-              policy: reconcilePolicy,
-              candidateCount: candidateIds.length,
-              validatedCount: validatedCandidateIds.length,
-              deletedFiles: 0,
-            },
-          });
-          await tx.update(projects)
-            .set({
-              syncStatus: 'indexing',
-              importSource: activeImportSource as any,
-              updatedAt: new Date(),
-            })
-            .where(eq(projects.id, projectId));
-
-          for (const batchIds of chunkArray(validatedCandidateIds, BATCH_SIZE)) {
-            if (batchIds.length === 0) continue;
-            await tx
-              .update(projectNodes)
-              .set({
-                deletedAt: new Date(),
-                deletedBy: user.id,
-                updatedAt: new Date(),
-              })
-              .where(inArray(projectNodes.id, batchIds));
-            deletedFiles += batchIds.length;
+            const now = new Date();
+            for (const batchIds of chunkArray(candidateIds, BATCH_SIZE)) {
+              if (batchIds.length === 0) continue;
+              await tx
+                .update(projectNodes)
+                .set({
+                  deletedAt: now,
+                  deletedBy: user.id,
+                  updatedAt: now,
+                })
+                .where(inArray(projectNodes.id, batchIds));
+              deletedFiles += batchIds.length;
+            }
           }
         }
 
@@ -844,7 +761,6 @@ export async function registerUploadedFolderAction(
           reconcilePolicy,
         };
       });
-    });
 
     if (lockResult.skipped) {
       let lockOwnerSessionId: string | null = currentSessionId;
@@ -892,6 +808,7 @@ export async function registerUploadedFolderAction(
     // Refresh the project page (slug or id)
     revalidatePath(`/projects/${projectId}`);
     if (project.slug) revalidatePath(`/projects/${project.slug}`);
+    revalidatePath('/discover');
     revalidatePath('/hub');
 
     const value = lockResult.value || {
@@ -1022,6 +939,7 @@ export async function markProjectSyncFailedAction(
 
   revalidatePath(`/projects/${projectId}`);
   if (project.slug) revalidatePath(`/projects/${project.slug}`);
+  revalidatePath('/discover');
   revalidatePath('/hub');
 
   logger.metric('upload.register.result', {

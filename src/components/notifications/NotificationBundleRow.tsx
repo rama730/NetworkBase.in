@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
 import { BellOff, ChevronDown, ChevronRight, ExternalLink, MoreVertical } from "lucide-react";
 
 import { NotificationRow } from "@/components/notifications/NotificationRow";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -16,6 +16,7 @@ import {
     buildNotificationMuteScopes,
     bundleUnreadCount,
     formatAbsoluteTimestamp,
+    formatRelativeTimestamp,
     getBundleSummary,
     getNotificationReasonLabel,
     type NotificationBundle,
@@ -24,17 +25,6 @@ import type { NotificationItem, NotificationMuteScope } from "@/lib/notification
 import { cn } from "@/lib/utils";
 
 const QUALIFIED_VIEW_MS = 750;
-
-function getInitial(label: string | null | undefined) {
-    const value = (label || "").trim();
-    return value ? value.charAt(0).toUpperCase() : "N";
-}
-
-function formatRelativeTimestamp(value: string) {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return null;
-    return formatDistanceToNow(date, { addSuffix: true });
-}
 
 type Handlers = {
     onOpen: (item: NotificationItem) => void | Promise<unknown>;
@@ -48,7 +38,6 @@ type Handlers = {
 export function NotificationBundleRow(props: { bundle: NotificationBundle } & Handlers) {
     const { bundle, onOpen, onViewed, onMarkUnread, onDismiss, onMuteScope, onSnooze } = props;
     const [expanded, setExpanded] = useState(false);
-    const [avatarFailed, setAvatarFailed] = useState(false);
     const rowRef = useRef<HTMLDivElement | null>(null);
     const viewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lead = bundle.lead;
@@ -106,80 +95,105 @@ export function NotificationBundleRow(props: { bundle: NotificationBundle } & Ha
                     }
                 }}
                 className={cn(
-                    "group relative flex min-h-[78px] items-start gap-1 rounded-xl px-3 py-3 outline-none transition-[background-color,box-shadow]",
-                    newCount > 0 ? "bg-blue-500/[0.06] hover:bg-blue-500/[0.1] dark:bg-blue-400/[0.1] dark:hover:bg-blue-400/[0.14]" : "hover:bg-zinc-100/80 dark:hover:bg-zinc-900/80",
+                    "group relative flex min-h-16 items-start gap-2 px-4 py-3 outline-none transition-[background-color,box-shadow] duration-[130ms] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                    newCount > 0
+                        ? "bg-primary/[0.04] hover:bg-primary/[0.07] dark:bg-primary/[0.08] dark:hover:bg-primary/[0.12]"
+                        : "hover:bg-muted/60",
                 )}
             >
                 <button
                     type="button"
-                    onClick={() => setExpanded((value) => !value)}
-                    aria-expanded={expanded}
-                    aria-label={expanded ? "Collapse grouped notifications" : `Expand ${count} grouped notifications`}
-                    className="mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-200/70 hover:text-zinc-900 focus-visible:outline-none dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                >
-                    {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </button>
-                <button
-                    type="button"
                     onClick={() => void handleOpenLead()}
-                    className="flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left outline-none transition-transform active:scale-[0.99]"
+                    className="flex min-w-0 flex-1 items-start gap-3 rounded-sm text-left outline-none active:translate-y-px"
                     aria-label={`${newCount > 0 ? `${newCount} new` : "Seen"} grouped ${reasonLabel}: ${lead.title}`}
                 >
                     <div className="relative mt-0.5 shrink-0">
-                        {lead.preview?.actorAvatarUrl && !avatarFailed ? (
-                            <img src={lead.preview.actorAvatarUrl} alt={actorName} onError={() => setAvatarFailed(true)} className="h-9 w-9 rounded-full object-cover ring-1 ring-zinc-200 dark:ring-zinc-800" />
-                        ) : (
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">{getInitial(actorName)}</div>
-                        )}
-                        <span className="absolute -bottom-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-zinc-900 px-1 text-[10px] font-semibold text-white ring-2 ring-white dark:bg-zinc-100 dark:text-zinc-900 dark:ring-zinc-950">{count}</span>
+                        <UserAvatar
+                            identity={{ id: lead.actorUserId, fullName: actorName, avatarUrl: lead.preview?.actorAvatarUrl }}
+                            size={34}
+                            className="border border-border/80"
+                            fallbackClassName="nb-ui-label"
+                        />
+                        <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-[3px] bg-foreground px-1 font-mono text-[10px] font-semibold leading-none text-background ring-2 ring-card shadow-2xs">
+                            {count}
+                        </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="line-clamp-1 text-sm font-semibold leading-5 text-zinc-900 dark:text-zinc-50">{summary || lead.title}</p>
-                        {summary ? <p className="mt-0.5 line-clamp-1 text-sm leading-5 text-zinc-600 dark:text-zinc-400">{lead.title}</p> : null}
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        <p className={cn("nb-compact line-clamp-1 text-foreground", newCount > 0 ? "font-semibold" : "font-medium")}>{summary || lead.title}</p>
+                        {summary ? <p className="nb-compact mt-0.5 line-clamp-1 text-muted-foreground">{lead.title}</p> : null}
+                        <div className="nb-meta mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                             {lead.preview?.contextLabel ? <span>{lead.preview.contextLabel}</span> : null}
-                            {lead.preview?.contextLabel ? <span aria-hidden="true">·</span> : null}
+                            {lead.preview?.contextLabel ? <span aria-hidden="true" className="text-muted-foreground/40 font-bold">·</span> : null}
                             <span title={absolute ?? undefined}>{relative}</span>
-                            <span aria-hidden="true">·</span>
+                            <span aria-hidden="true" className="text-muted-foreground/40 font-bold">·</span>
                             <span>{count} updates</span>
                         </div>
                     </div>
                 </button>
-                <DropdownMenu modal={false}>
-                    <DropdownMenuTrigger asChild>
-                        <button type="button" className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 opacity-100 transition-[background-color,color,opacity] hover:bg-zinc-200/70 hover:text-zinc-900 focus-visible:outline-none md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100 dark:hover:bg-zinc-800 dark:hover:text-zinc-100" aria-label="Grouped notification actions">
-                            <MoreVertical className="h-4 w-4" />
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={() => void handleOpenLead()} disabled={!lead.href}>
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Open latest
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {muteScopes.slice(0, 3).map((scope) => (
-                            <DropdownMenuItem key={`${scope.kind}:${scope.value}`} onClick={() => void onMuteScope(lead, scope)}>
-                                <BellOff className="mr-2 h-4 w-4" />
-                                {scope.kind === "notification_type" ? `Turn off ${reasonLabel}` : `Mute ${scope.label ?? scope.kind}`}
+
+                <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+                    <button
+                        type="button"
+                        onClick={() => setExpanded((value) => !value)}
+                        aria-expanded={expanded}
+                        aria-label={expanded ? "Collapse grouped notifications" : `Expand ${count} grouped notifications`}
+                        className="nb-icon-button nb-touch-target h-7 w-7 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        title={expanded ? "Collapse group" : `Expand ${count} updates`}
+                    >
+                        {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    <DropdownMenu modal={false}>
+                        <DropdownMenuTrigger asChild>
+                            <button type="button" className="nb-icon-button nb-touch-target h-7 w-7 rounded-md opacity-100 transition-[background-color,color,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100" aria-label="Grouped notification actions">
+                                <MoreVertical className="h-4 w-4" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuItem onClick={() => void handleOpenLead()} disabled={!lead.href}>
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                Open latest
                             </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                            <DropdownMenuSeparator />
+                            {muteScopes.slice(0, 3).map((scope) => (
+                                <DropdownMenuItem key={`${scope.kind}:${scope.value}`} onClick={() => void onMuteScope(lead, scope)}>
+                                    <BellOff className="mr-2 h-4 w-4" />
+                                    {scope.kind === "notification_type" ? `Turn off ${reasonLabel}` : `Mute ${scope.label ?? scope.kind}`}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             </div>
             {expanded ? (
-                <div className="mt-1 space-y-1 border-l border-zinc-200 pl-4 dark:border-zinc-800 sm:ml-6">
-                    {bundle.items.map((item) => (
-                        <NotificationRow
-                            key={item.id}
-                            item={item}
-                            onOpen={onOpen}
-                            onViewed={onViewed}
-                            onMarkUnread={onMarkUnread}
-                            onDismiss={onDismiss}
-                            onMuteScope={onMuteScope}
-                            onSnooze={onSnooze}
-                        />
-                    ))}
+                <div className="relative pb-2 bg-muted/10">
+                    {/* Continuous vertical drafting thread rail */}
+                    <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-[33px] top-0 bottom-4 w-px bg-border/80 dark:bg-border"
+                    />
+                    <div className="space-y-0.5">
+                        {bundle.items.map((item) => (
+                            <div key={item.id} className="relative flex items-start pl-8 pr-2">
+                                {/* Drafting-table branching elbow */}
+                                <span
+                                    aria-hidden="true"
+                                    className="pointer-events-none absolute left-[33px] top-3.5 h-3 w-3 rounded-bl-[6px] border-b border-l border-border/80 dark:border-border"
+                                />
+                                <div className="min-w-0 flex-1 pl-2">
+                                    <NotificationRow
+                                        item={item}
+                                        onOpen={onOpen}
+                                        onViewed={onViewed}
+                                        onMarkUnread={onMarkUnread}
+                                        onDismiss={onDismiss}
+                                        onMuteScope={onMuteScope}
+                                        onSnooze={onSnooze}
+                                        compact
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             ) : null}
         </div>

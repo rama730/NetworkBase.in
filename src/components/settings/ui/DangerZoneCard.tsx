@@ -17,21 +17,21 @@ export function DangerZoneCard({
     return (
         <section
             className={cn(
-                "rounded-2xl border border-red-200 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20",
+                "rounded-lg border border-border bg-card",
                 className
             )}
         >
-            <div className="p-5 sm:p-6 border-b border-red-200/60 dark:border-red-900/40">
-                <div className="text-base font-semibold text-red-800 dark:text-red-200">
+            <div className="border-b border-border p-6">
+                <h3 className="nb-card-title text-foreground">
                     {title}
-                </div>
+                </h3>
                 {description ? (
-                    <div className="text-sm text-red-700/80 dark:text-red-200/70 mt-1">
+                    <div className="nb-compact mt-1 text-muted-foreground">
                         {description}
                     </div>
                 ) : null}
             </div>
-            <div className="p-5 sm:p-6">{children}</div>
+            <div className="p-6">{children}</div>
         </section>
     );
 }

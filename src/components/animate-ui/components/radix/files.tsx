@@ -84,13 +84,13 @@ const FolderTrigger = React.forwardRef<
             )}
             {...props}
         >
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-90 text-zinc-400" />
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform duration-[180ms] group-data-[state=open]:rotate-90 text-zinc-400" />
             <FolderIcon className="h-4 w-4 shrink-0 group-data-[state=open]:hidden" />
             <FolderOpen className="h-4 w-4 shrink-0 hidden group-data-[state=open]:block" />
             <span className="truncate">{children}</span>
             {gitStatus && (
                 <span className={cn(
-                    "ml-auto text-[10px] font-bold px-1.5 rounded-sm mr-2",
+                    "ml-auto text-[11px] font-semibold px-1.5 rounded-sm mr-2",
                     gitStatus === "modified" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-500",
                     gitStatus === "untracked" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
                 )}>
@@ -109,7 +109,7 @@ const FolderContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
     <AccordionPrimitive.Content
         ref={ref}
-        className="overflow-hidden text-sm transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+        className="overflow-hidden text-sm transition-[color,background-color,border-color,box-shadow,opacity,transform] data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
         {...props}
     >
         <div className={cn("pt-1 pb-2", className)}>{children}</div>
@@ -136,7 +136,7 @@ const FileItem = React.forwardRef<
         {actions && <div className="ml-1 flex-shrink-0 relative z-20">{actions}</div>}
         {gitStatus && (
             <span className={cn(
-                "text-[10px] font-bold px-1.5 rounded-sm",
+                "text-[11px] font-semibold px-1.5 rounded-sm",
                 gitStatus === "modified" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-500",
                 gitStatus === "untracked" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500"
             )}>

@@ -54,6 +54,22 @@ interface MessagesV2OutboxState {
     ) => void;
 }
 
+const MAX_OUTBOX_ITEMS = 50;
+const SETTLED_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function pruneOutboxItems(items: MessagesV2OutboxItem[]): MessagesV2OutboxItem[] {
+    const now = Date.now();
+    let pruned = items.filter((item) => {
+        if (item.state === 'sent') return false;
+        if (item.state === 'failed' && (now - item.createdAt > SETTLED_MAX_AGE_MS)) return false;
+        return true;
+    });
+    if (pruned.length > MAX_OUTBOX_ITEMS) {
+        pruned = pruned.slice(pruned.length - MAX_OUTBOX_ITEMS);
+    }
+    return pruned;
+}
+
 export const useMessagesV2OutboxStore = create<MessagesV2OutboxState>()(
     persist(
         (set) => ({
@@ -61,12 +77,14 @@ export const useMessagesV2OutboxStore = create<MessagesV2OutboxState>()(
             upsertItem: (item) =>
                 set((state) => {
                     const existingIndex = state.items.findIndex((current) => current.clientMessageId === item.clientMessageId);
+                    let nextItems: MessagesV2OutboxItem[];
                     if (existingIndex === -1) {
-                        return { items: [...state.items, item] };
+                        nextItems = [...state.items, item];
+                    } else {
+                        nextItems = [...state.items];
+                        nextItems[existingIndex] = { ...nextItems[existingIndex], ...item };
                     }
-                    const nextItems = [...state.items];
-                    nextItems[existingIndex] = { ...nextItems[existingIndex], ...item };
-                    return { items: nextItems };
+                    return { items: pruneOutboxItems(nextItems) };
                 }),
             removeItem: (clientMessageId) =>
                 set((state) => ({
@@ -100,11 +118,12 @@ export const useMessagesV2OutboxStore = create<MessagesV2OutboxState>()(
                     ),
                 })),
             markItem: (clientMessageId, patch) =>
-                set((state) => ({
-                    items: state.items.map((item) =>
+                set((state) => {
+                    const nextItems = state.items.map((item) =>
                         item.clientMessageId === clientMessageId ? { ...item, ...patch } : item,
-                    ),
-                })),
+                    );
+                    return { items: pruneOutboxItems(nextItems) };
+                }),
         }),
         {
             name: 'messages-v2-outbox',
@@ -121,19 +140,19 @@ export const useMessagesV2OutboxStore = create<MessagesV2OutboxState>()(
                     case 1:
                         return {
                             ...next,
-                            items: normalizedItems.map((item) => ({
+                            items: pruneOutboxItems(normalizedItems.map((item) => ({
                                 ...item,
                                 mode: item.mode ?? (item.structuredAction ? 'structured' : 'plain'),
                                 contextChips: item.contextChips ?? [],
                                 structuredAction: item.structuredAction ?? null,
-                            })),
+                            }))),
                         } satisfies MessagesV2OutboxState;
                     case 2:
                     default:
                         // Future versions can branch here without reprocessing already-migrated state.
                         return {
                             ...next,
-                            items: normalizedItems,
+                            items: pruneOutboxItems(normalizedItems),
                         } satisfies MessagesV2OutboxState;
                 }
             },

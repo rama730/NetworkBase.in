@@ -64,7 +64,7 @@ export default function SecurityOverviewSection({
                         return (
                             <div
                                 key={stat.label}
-                                className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-950/40"
+                                className="rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-950/40"
                             >
                                 <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">
                                     <Icon className="h-3.5 w-3.5" />
@@ -78,7 +78,7 @@ export default function SecurityOverviewSection({
                     })}
                 </div>
 
-                <div className="rounded-xl border border-blue-200 bg-blue-50/80 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-100">
+                <div className="rounded-lg border border-blue-200 bg-blue-50/80 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/20 dark:text-blue-100">
                     <span className="font-semibold">Recommended next step:</span> {recommendedStep}
                 </div>
             </div>

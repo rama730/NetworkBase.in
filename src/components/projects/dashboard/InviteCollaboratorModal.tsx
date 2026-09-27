@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Briefcase, Check, Loader2, Search, Sparkles, Users } from "lucide-react";
+import { AlertCircle, Briefcase, Check, Loader2, Search, Users } from "lucide-react";
 import { del, get, set } from "idb-keyval";
 import { toast } from "sonner";
 import { Virtuoso } from "react-virtuoso";
@@ -13,7 +13,7 @@ import {
     searchProjectInviteCandidatesAction,
 } from "@/app/actions/project/guidance";
 import { getProfileToRoleAlignmentAction, type AttributeAlignment } from "@/app/actions/matchmaking/resolver";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -64,11 +64,6 @@ export interface InviteCollaboratorModalProps {
     canAppointGuidance?: boolean;
 }
 
-const APPLICATION_PROMPTS = [
-    "I can contribute immediately and align with your current sprint goals.",
-    "I have prior experience with similar projects and team workflows.",
-    "I can commit consistent weekly time and communicate progress clearly.",
-];
 const APPLICATION_DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const NOTE_LIMIT = 500;
 const APPLICATION_LIMIT = 1200;
@@ -514,44 +509,153 @@ export default function InviteCollaboratorModal({
         }
     };
 
-    const step = (label: string) => <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{label}</p>;
-    const selectedProjectContext = selectedProject ? <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900"><span><span className="text-zinc-500">Project:</span> <strong>{selectedProject.title}</strong></span>{!projectIsFixed ? <Button type="button" variant="ghost" size="sm" aria-expanded={isChoosingProject} aria-controls="recruitment-project-list" onClick={() => setIsChoosingProject((open) => !open)}>{isChoosingProject ? "Cancel" : "Change"}</Button> : null}</div> : null;
+    const step = (label: string) => <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">{label}</p>;
+    const selectedProjectContext = selectedProject ? <div className="flex items-center justify-between rounded-[5px] border border-border bg-muted/30 px-3.5 py-2.5 text-[13px] text-foreground"><span><span className="text-muted-foreground">Project:</span> <strong>{selectedProject.title}</strong></span>{!projectIsFixed ? <Button type="button" variant="ghost" size="sm" aria-expanded={isChoosingProject} aria-controls="recruitment-project-list" onClick={() => setIsChoosingProject((open) => !open)} className="h-[28px] rounded-[5px] px-2 text-xs font-medium">{isChoosingProject ? "Cancel" : "Change"}</Button> : null}</div> : null;
     // ponytail: an anchored list keeps the application form and modal dimensions intact.
-    const projectPicker = showProjectPicker ? <div ref={projectPickerRef} tabIndex={-1} className="absolute inset-x-0 top-full z-10 mt-2 animate-in fade-in slide-in-from-top-1 duration-150 rounded-xl border border-zinc-200 bg-white p-2 shadow-lg outline-none dark:border-zinc-800 dark:bg-zinc-950">{step("Select project")}<div id="recruitment-project-list" role="listbox" aria-label="Available projects" className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-800">{projectOptions.length ? projectOptions.map((project) => <button key={project.id} type="button" role="option" aria-selected={project.id === selectedProjectId} onClick={() => { setSelectedProjectId(project.id); setIsChoosingProject(false); setFormError(null); }} className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors ${project.id === selectedProjectId ? "bg-primary/10 font-semibold text-primary" : "hover:bg-zinc-50 dark:hover:bg-zinc-900"}`}><span className="truncate">{project.title}</span>{project.id === selectedProjectId ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}</button>) : <p className="px-3 py-2.5 text-sm text-zinc-500">No eligible projects available.</p>}</div></div> : null;
+    const projectPicker = showProjectPicker ? <div ref={projectPickerRef} tabIndex={-1} className="absolute inset-x-0 top-full z-10 mt-2 animate-in fade-in slide-in-from-top-1 duration-[130ms] rounded-[8px] border border-border bg-card p-2 shadow-md outline-none">{step("Select project")}<div id="recruitment-project-list" role="listbox" aria-label="Available projects" className="mt-2 max-h-56 overflow-y-auto rounded-[5px] border border-border">{projectOptions.length ? projectOptions.map((project) => <button key={project.id} type="button" role="option" aria-selected={project.id === selectedProjectId} onClick={() => { setSelectedProjectId(project.id); setIsChoosingProject(false); setFormError(null); }} className={`flex w-full items-center justify-between gap-3 rounded-[5px] px-3 py-2 text-left text-sm transition-colors ${project.id === selectedProjectId ? "bg-primary/10 font-medium text-primary" : "hover:bg-muted text-foreground"}`}><span className="truncate">{project.title}</span>{project.id === selectedProjectId ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}</button>) : <p className="px-3 py-2 text-sm text-muted-foreground">No eligible projects available.</p>}</div></div> : null;
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && !submitting && closeComposer("dismissed")}>
-            <DialogContent className="sm:max-w-[550px] gap-0 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100">
-                <DialogHeader className="border-b border-zinc-100 px-5 py-3.5 text-left dark:border-zinc-900">
-                    <DialogTitle className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <DialogContent className="sm:max-w-[550px] gap-0 overflow-hidden rounded-[12px] border border-border bg-card p-0 text-foreground shadow-lg">
+                <DialogHeader className="border-b border-border px-6 py-4 text-left">
+                    <DialogTitle className="nb-card-title flex items-center gap-2 text-foreground">
                         {mode === "apply" ? <Briefcase aria-hidden="true" className="size-5 text-primary" /> : <Users aria-hidden="true" className="size-5 text-primary" />}
                         {mode === "apply" ? "Apply to Join" : "Invite Collaborator"}
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="max-h-[65vh] space-y-4 overflow-y-auto px-5 py-4">
-                    {formError ? <div role="alert" className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />{formError}</div> : null}
+                <div className="max-h-[68vh] space-y-4 overflow-y-auto px-6 py-5">
+                    {formError ? <div role="alert" className="flex gap-2 rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300"><AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />{formError}</div> : null}
 
                     <div className="relative">
                         {selectedProjectContext}
                         {projectPicker}
                     </div>
 
-                    {mode === "invite" && !candidateIsFixed && selectedProjectId ? <div className="space-y-2">{step("Select person")}<label className="sr-only" htmlFor="recruitment-person-search">Search people</label>{!selectedCandidate ? <><div className="relative"><Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" /><input ref={searchInputRef} id="recruitment-person-search" value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setFormError(null); }} placeholder="Search connections or people..." className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2 pl-9 pr-3 text-sm dark:border-zinc-800 dark:bg-zinc-900" /></div><div role="status" aria-live="polite" className="sr-only">{searching ? "Searching people." : `${people.length} eligible ${people.length === 1 ? "person" : "people"} found.`}</div><div aria-busy={loadingOptions || searching} className="h-[230px] overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-900">{loadingOptions || searching ? <div className="flex h-full items-center justify-center"><Loader2 aria-label="Loading people" className="size-5 animate-spin text-primary" /></div> : people.length === 0 ? <div className="flex h-full items-center justify-center px-4 text-center text-sm text-zinc-500">{searchQuery.trim().length === 1 ? "Type at least two characters to search people." : "No eligible people found."}</div> : <Virtuoso style={{ height: 230 }} data={people} itemContent={(_, candidate) => <button type="button" onClick={() => selectCandidate(candidate)} aria-label={`Select ${displayName(candidate)}`} className="flex w-full items-center gap-3 border-b border-zinc-100 px-3 py-2.5 text-left hover:bg-zinc-50 dark:border-zinc-900 dark:hover:bg-zinc-900"><Avatar className="size-9"><AvatarImage src={candidate.avatarUrl || undefined} /><AvatarFallback>{displayName(candidate)[0]}</AvatarFallback></Avatar><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{displayName(candidate)} {candidate.username && candidate.fullName ? <span className="font-normal text-zinc-500">@{candidate.username}</span> : null}</span><span className="block truncate text-xs text-zinc-500">{candidate.headline || ""}</span></span>{candidate.state === "application_pending" ? <span className="text-[10px] font-semibold text-amber-600">APPLIED</span> : null}{candidate.state === "invitation_pending" ? <span className="text-[10px] font-semibold text-amber-600">INVITED</span> : null}</button>} />}</div></> : <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900"><span className="text-sm font-semibold">Candidate: {displayName(selectedCandidate)}</span><Button type="button" size="sm" variant="ghost" onClick={() => { setSelectedCandidate(null); setFormError(null); window.requestAnimationFrame(() => searchInputRef.current?.focus()); }}>Change</Button></div>}</div> : null}
+                    {mode === "invite" && !candidateIsFixed && selectedProjectId ? <div className="space-y-2">{step("Select person")}<label className="sr-only" htmlFor="recruitment-person-search">Search people</label>{!selectedCandidate ? <><div className="relative"><Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input ref={searchInputRef} id="recruitment-person-search" value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setFormError(null); }} placeholder="Search connections or people..." className="w-full rounded-[5px] border border-border bg-muted/30 py-2 pl-9 pr-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /></div><div role="status" aria-live="polite" className="sr-only">{searching ? "Searching people." : `${people.length} eligible ${people.length === 1 ? "person" : "people"} found.`}</div><div aria-busy={loadingOptions || searching} className="h-[230px] overflow-hidden rounded-[5px] border border-border">{loadingOptions || searching ? <div className="flex h-full items-center justify-center"><Loader2 aria-label="Loading people" className="size-5 animate-spin text-primary" /></div> : people.length === 0 ? <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">{searchQuery.trim().length === 1 ? "Type at least two characters to search people." : "No eligible people found."}</div> : <Virtuoso style={{ height: 230 }} data={people} itemContent={(_, candidate) => <button type="button" onClick={() => selectCandidate(candidate)} aria-label={`Select ${displayName(candidate)}`} className="flex w-full items-center gap-3 border-b border-border px-3 py-2.5 text-left transition-colors hover:bg-muted"><UserAvatar identity={candidate} size={34} roundedClassName="rounded-[5px]" fallbackClassName="font-mono text-xs" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-foreground">{displayName(candidate)} {candidate.username && candidate.fullName ? <span className="font-normal text-muted-foreground">@{candidate.username}</span> : null}</span><span className="block truncate text-xs text-muted-foreground">{candidate.headline || ""}</span></span>{candidate.state === "application_pending" ? <span className="rounded-[3px] border border-primary/20 bg-primary/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-primary">APPLIED</span> : null}{candidate.state === "invitation_pending" ? <span className="rounded-[3px] border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-amber-700 dark:text-amber-300">INVITED</span> : null}</button>} />}</div></> : <div className="flex items-center justify-between rounded-[5px] border border-border bg-muted/30 p-3 text-foreground"><span className="text-sm font-medium">Candidate: {displayName(selectedCandidate)}</span><Button type="button" size="sm" variant="ghost" onClick={() => { setSelectedCandidate(null); setFormError(null); window.requestAnimationFrame(() => searchInputRef.current?.focus()); }}>Change</Button></div>}</div> : null}
 
                     {(mode === "apply" || selectedCandidate) && selectedProjectId ? <>
-                        {mode === "invite" ? <div className="space-y-2">{step("Invite as")}<label className="sr-only" htmlFor="recruitment-invite-kind">Invitation type</label><select id="recruitment-invite-kind" value={inviteKind} onChange={(event) => { setInviteKind(event.target.value as InvitationKind); setFormError(null); }} className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900"><option value="ordinary_role">Open role</option>{canAppointSelectedGuidance ? <option value="guidance_appointment">Invite as Guide</option> : null}</select></div> : null}
+                        {mode === "invite" ? <div className="space-y-2">{step("Invite as")}<label className="sr-only" htmlFor="recruitment-invite-kind">Invitation type</label><select id="recruitment-invite-kind" value={inviteKind} onChange={(event) => { setInviteKind(event.target.value as InvitationKind); setFormError(null); }} className="w-full rounded-[5px] border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-1 focus-visible:ring-primary"><option value="ordinary_role">Open role</option>{canAppointSelectedGuidance ? <option value="guidance_appointment">Invite as Guide</option> : null}</select></div> : null}
 
-                        {mode === "invite" && inviteKind === "guidance_appointment" ? <div className="space-y-3"><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-2"><label htmlFor="recruitment-guidance-label" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Guidance label</label><input ref={guidanceLabelRef} id="recruitment-guidance-label" value={guidanceLabel} onChange={(event) => setGuidanceLabel(event.target.value.slice(0, 60))} maxLength={60} className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900" /></div><div className="space-y-2"><label htmlFor="recruitment-review-date" className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Review date <span className="normal-case font-normal">(optional)</span></label><input id="recruitment-review-date" type="date" value={reviewAt} onChange={(event) => setReviewAt(event.target.value)} className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900" /></div></div>{guidanceLoading ? <p className="flex items-center gap-2 text-xs text-zinc-500"><Loader2 className="size-3.5 animate-spin" />Checking Guide availability…</p> : guidancePreflight?.activeGuide ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">{guidancePreflight.activeGuide.label}: {guidancePreflight.activeGuide.name} is already active on this project.</div> : guidancePreflight?.capacity === "blocked" ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">This person has reached the active Guide appointment limit.</div> : guidancePreflight?.capacity === "warning" ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">This person is nearing their active Guide appointment capacity.</div> : <p className="text-xs text-zinc-500">On acceptance, this appointment uses the project’s existing Co-leader access.</p>}</div> : <div className="space-y-2">{step(mode === "apply" ? "Select role" : "Assign role")}<label className="sr-only" htmlFor="recruitment-role">Role</label><select ref={roleSelectRef} id="recruitment-role" value={roleId} onChange={(event) => { setRoleId(event.target.value); setFormError(null); }} disabled={selectableRoles.length === 0} className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900"><option value="">{selectableRoles.length ? "Select a role" : "No open roles available"}</option>{selectableRoles.map((role) => <option key={role.id} value={role.id}>{roleLabel(role)} ({remainingRoles(role)} spot{remainingRoles(role) === 1 ? "" : "s"} left)</option>)}</select>{selectedRole?.description ? <p className="text-xs text-zinc-500">{selectedRole.description}</p> : null}{selectedRole?.skills?.length ? <p className="text-xs text-zinc-500">Skills: {selectedRole.skills.slice(0, 6).join(", ")}</p> : null}</div>}
+                        {mode === "invite" && inviteKind === "guidance_appointment" ? <div className="space-y-3"><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-2"><label htmlFor="recruitment-guidance-label" className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Guidance label</label><input ref={guidanceLabelRef} id="recruitment-guidance-label" value={guidanceLabel} onChange={(event) => setGuidanceLabel(event.target.value.slice(0, 60))} maxLength={60} className="w-full rounded-[5px] border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /></div><div className="space-y-2"><label htmlFor="recruitment-review-date" className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Review date <span className="normal-case font-normal">(optional)</span></label><input id="recruitment-review-date" type="date" value={reviewAt} onChange={(event) => setReviewAt(event.target.value)} className="w-full rounded-[5px] border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /></div></div>{guidanceLoading ? <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />Checking Guide availability…</p> : guidancePreflight?.activeGuide ? <div className="rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">{guidancePreflight.activeGuide.label}: {guidancePreflight.activeGuide.name} is already active on this project.</div> : guidancePreflight?.capacity === "blocked" ? <div className="rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">This person has reached the active Guide appointment limit.</div> : guidancePreflight?.capacity === "warning" ? <div className="rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">This person is nearing their active Guide appointment capacity.</div> : <p className="text-xs text-muted-foreground">On acceptance, this appointment uses the project’s existing Co-leader access.</p>}</div> : <div className="space-y-3">
+                            <div className="space-y-1.5">
+                                <label htmlFor="recruitment-role" className="nb-ui-label block text-[13px] font-medium text-foreground">
+                                    {mode === "apply" ? "Select role" : "Assign role"}
+                                </label>
+                                <select
+                                    ref={roleSelectRef}
+                                    id="recruitment-role"
+                                    value={roleId}
+                                    onChange={(event) => { setRoleId(event.target.value); setFormError(null); }}
+                                    disabled={selectableRoles.length === 0}
+                                    className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground disabled:opacity-60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                                >
+                                    <option value="">{selectableRoles.length ? "Select a role" : "No open roles available"}</option>
+                                    {selectableRoles.map((role) => (
+                                        <option key={role.id} value={role.id}>
+                                            {roleLabel(role)} ({remainingRoles(role)} spot{remainingRoles(role) === 1 ? "" : "s"} left)
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            {selectedRole ? (
+                                <div className="space-y-3 rounded-[6px] border border-border bg-muted/20 p-4">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="nb-ui-label text-sm font-semibold text-foreground">
+                                            {roleLabel(selectedRole)}
+                                        </span>
+                                        <span className="inline-flex h-5 items-center rounded-[3px] border border-border bg-muted/60 px-[7px] font-mono text-[11px] uppercase tracking-[0.09em] leading-none text-muted-foreground">
+                                            {remainingRoles(selectedRole)} {remainingRoles(selectedRole) === 1 ? "SPOT LEFT" : "SPOTS LEFT"}
+                                        </span>
+                                    </div>
+                                    {selectedRole.description ? (
+                                        <div className="space-y-1">
+                                            <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Role Description</p>
+                                            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground/85">
+                                                {selectedRole.description}
+                                            </p>
+                                        </div>
+                                    ) : null}
+                                    {selectedRole.skills && selectedRole.skills.length > 0 ? (
+                                        <div className="space-y-1.5">
+                                            <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Required Skills</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {selectedRole.skills.map((skill) => (
+                                                    <span
+                                                        key={skill}
+                                                        className="inline-flex items-center rounded-[3px] border border-border bg-card px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.09em] text-foreground/90 shadow-none"
+                                                    >
+                                                        {skill}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                        </div>}
 
-                        {mode === "invite" && hasPendingApplication ? <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />Review this person’s existing application instead of sending a separate invitation.</div> : null}{mode === "invite" && hasPendingInvitation ? <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />An invitation is already pending for this person.</div> : null}
-                        {mode === "invite" && alignment && inviteKind === "ordinary_role" ? <div className="grid grid-cols-3 gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-zinc-800 dark:bg-zinc-900"><span className="flex items-center gap-1">{alignment.commitmentMatch.aligns ? <Check aria-hidden="true" className="size-3 text-emerald-600" /> : null}Commitment</span><span className="flex items-center gap-1">{alignment.capacityMatch.aligns ? <Check aria-hidden="true" className="size-3 text-emerald-600" /> : null}Capacity</span><span className="flex items-center gap-1">{alignment.experienceMatch.aligns ? <Check aria-hidden="true" className="size-3 text-emerald-600" /> : null}Experience</span></div> : null}
+                        {mode === "invite" && hasPendingApplication ? <div className="flex gap-2 rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200"><AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />Review this person’s existing application instead of sending a separate invitation.</div> : null}{mode === "invite" && hasPendingInvitation ? <div className="flex gap-2 rounded-[5px] border border-amber-500/25 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200"><AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />An invitation is already pending for this person.</div> : null}
+                        {mode === "invite" && alignment && inviteKind === "ordinary_role" ? <div className="grid grid-cols-3 gap-2 rounded-[5px] border border-border bg-muted/30 p-3 text-xs text-muted-foreground"><span className="flex items-center gap-1">{alignment.commitmentMatch.aligns ? <Check aria-hidden="true" className="size-3 text-[var(--status-success,#2F6B4F)]" /> : null}Commitment</span><span className="flex items-center gap-1">{alignment.capacityMatch.aligns ? <Check aria-hidden="true" className="size-3 text-[var(--status-success,#2F6B4F)]" /> : null}Capacity</span><span className="flex items-center gap-1">{alignment.experienceMatch.aligns ? <Check aria-hidden="true" className="size-3 text-[var(--status-success,#2F6B4F)]" /> : null}Experience</span></div> : null}
 
-                        {mode === "invite" ? <div className="space-y-2">{step("Invitation note")}<label className="sr-only" htmlFor="recruitment-note">Invitation note</label><textarea id="recruitment-note" value={note} onChange={(event) => setNote(event.target.value.slice(0, NOTE_LIMIT))} rows={4} maxLength={NOTE_LIMIT} placeholder="Add a friendly note..." className="w-full resize-none rounded-xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900" /><p className="text-right text-xs text-zinc-500">{note.length}/{NOTE_LIMIT}</p></div> : <div className="space-y-4"><div className="space-y-2"><label htmlFor="recruitment-application-message" className="text-sm font-semibold">Why are you a fit?</label><textarea ref={applicationMessageRef} id="recruitment-application-message" value={applicationMessage} onChange={(event) => setApplicationMessage(event.target.value.slice(0, APPLICATION_LIMIT))} rows={5} maxLength={APPLICATION_LIMIT} placeholder="Describe your relevant skills, execution style, and first-week contribution." className="w-full resize-none rounded-xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900" /><div className="flex justify-between text-xs text-zinc-500"><span>{applicationMessage.trim().split(/\s+/).filter(Boolean).length < 12 ? "Add a concise intro, relevant skills, and expected contribution." : "Good application detail."}</span><span>{applicationMessage.length}/{APPLICATION_LIMIT}</span></div></div><div><div className="mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-500"><Sparkles aria-hidden="true" className="size-3.5" />Quick prompts</div><div className="flex flex-wrap gap-2">{APPLICATION_PROMPTS.map((prompt) => <button type="button" key={prompt} onClick={() => setApplicationMessage((value) => value.includes(prompt) ? value : `${value.trim()}${value.trim() ? "\n\n" : ""}${prompt}`.slice(0, APPLICATION_LIMIT))} className="rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900">{prompt.length > 42 ? `${prompt.slice(0, 42)}…` : prompt}</button>)}</div></div><div className="grid gap-3 sm:grid-cols-2"><div><label htmlFor="recruitment-portfolio" className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">Portfolio / GitHub <span className="font-normal">(optional)</span></label><input id="recruitment-portfolio" value={portfolioUrl} onChange={(event) => setPortfolioUrl(event.target.value)} placeholder="https://…" className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900" /></div><div><label htmlFor="recruitment-availability" className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">Availability <span className="font-normal">(optional)</span></label><input id="recruitment-availability" value={availability} onChange={(event) => setAvailability(event.target.value)} placeholder="e.g. 15 hrs/week" className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900" /></div></div><p className="text-xs text-zinc-500">Your application is sent to the project owner/admin team and mirrored in the existing conversation when available.</p></div>}
+                        {mode === "invite" ? <div className="space-y-2">{step("Invitation note")}<label className="sr-only" htmlFor="recruitment-note">Invitation note</label><textarea id="recruitment-note" value={note} onChange={(event) => setNote(event.target.value.slice(0, NOTE_LIMIT))} rows={4} maxLength={NOTE_LIMIT} placeholder="Add a friendly note..." className="w-full resize-none rounded-[5px] border border-border bg-card p-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary" /><p className="text-right text-xs text-muted-foreground">{note.length}/{NOTE_LIMIT}</p></div> : <div className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label htmlFor="recruitment-application-message" className="nb-ui-label block text-[13px] font-medium text-foreground">
+                                    Why are you a fit?
+                                </label>
+                                <textarea
+                                    ref={applicationMessageRef}
+                                    id="recruitment-application-message"
+                                    value={applicationMessage}
+                                    onChange={(event) => setApplicationMessage(event.target.value.slice(0, APPLICATION_LIMIT))}
+                                    rows={5}
+                                    maxLength={APPLICATION_LIMIT}
+                                    placeholder="Describe your relevant skills, execution style, and first-week contribution."
+                                    className="w-full resize-none rounded-[5px] border border-border bg-card p-3 text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                                />
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>{applicationMessage.trim().split(/\s+/).filter(Boolean).length < 12 ? "Add a concise intro, relevant skills, and expected contribution." : "Good application detail."}</span>
+                                    <span>{applicationMessage.length}/{APPLICATION_LIMIT}</span>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="space-y-1.5">
+                                    <label htmlFor="recruitment-portfolio" className="nb-ui-label block text-[13px] font-medium text-foreground">
+                                        Portfolio / GitHub <span className="font-normal text-xs text-muted-foreground">(optional)</span>
+                                    </label>
+                                    <input
+                                        id="recruitment-portfolio"
+                                        value={portfolioUrl}
+                                        onChange={(event) => setPortfolioUrl(event.target.value)}
+                                        placeholder="https://…"
+                                        className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label htmlFor="recruitment-availability" className="nb-ui-label block text-[13px] font-medium text-foreground">
+                                        Availability <span className="font-normal text-xs text-muted-foreground">(optional)</span>
+                                    </label>
+                                    <input
+                                        id="recruitment-availability"
+                                        value={availability}
+                                        onChange={(event) => setAvailability(event.target.value)}
+                                        placeholder="e.g. 15 hrs/week"
+                                        className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Your application is sent to the project owner/admin team and mirrored in the existing conversation when available.
+                            </p>
+                        </div>}
                     </> : null}
                 </div>
 
-                <DialogFooter className="border-t border-zinc-100 bg-zinc-50 px-5 py-3 dark:border-zinc-900 dark:bg-zinc-950"><Button type="button" variant="outline" onClick={() => closeComposer("cancelled")} disabled={submitting}>Cancel</Button><Button type="button" onClick={submit} disabled={submitting || !selectedProject || (mode === "apply" ? !roleId || !applicationMessage.trim() : !selectedCandidate || hasPendingApplication || hasPendingInvitation || (inviteKind === "ordinary_role" && !roleId) || (inviteKind === "guidance_appointment" && (!guidanceLabel.trim() || guidanceLoading || guidanceUnavailable)))}>{submitting ? <Loader2 aria-label="Submitting" className="size-4 animate-spin" /> : null}{submitting ? "Sending..." : mode === "apply" ? "Submit Application" : "Send Invitation"}</Button></DialogFooter>
+                <DialogFooter className="flex items-center justify-end gap-2.5 border-t border-border bg-muted/10 px-6 py-3.5">
+                    <Button type="button" variant="outline" onClick={() => closeComposer("cancelled")} disabled={submitting} className="h-[34px] rounded-[5px] border-border text-foreground hover:bg-muted">Cancel</Button>
+                    <Button type="button" onClick={submit} disabled={submitting || !selectedProject || (mode === "apply" ? !roleId || !applicationMessage.trim() : !selectedCandidate || hasPendingApplication || hasPendingInvitation || (inviteKind === "ordinary_role" && !roleId) || (inviteKind === "guidance_appointment" && (!guidanceLabel.trim() || guidanceLoading || guidanceUnavailable)))} className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]">{submitting ? <Loader2 aria-label="Submitting" className="size-4 animate-spin" /> : null}{submitting ? "Sending..." : mode === "apply" ? "Submit Application" : "Send Invitation"}</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

@@ -33,7 +33,7 @@ import { recordNodeEvent } from "@/lib/files/internal-helpers";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { normalizeAndValidateFileSize, normalizeAndValidateMimeType } from "@/lib/upload/security";
 import {
-    buildProjectDocPublishMetadata,
+    getOrBuildProjectDocPublishMetadata,
     buildProjectDocStorageKey,
     DEFAULT_PROJECT_DOC_SETTINGS,
     PROJECT_DOC_ALLOWED_IMAGE_MIME_TYPES,
@@ -168,7 +168,7 @@ function normalizeStoredQualityReport(value: unknown, fallbackContent: string): 
 function toDocVersion(row: (typeof projectMarkdownVersions.$inferSelect & { createdByName?: string | null }) | null | undefined, displayVersionNumber?: number, coAuthorsData?: { id: string; name: string; avatarUrl: string | null }[]): ProjectDocVersion | null {
     if (!row) return null;
     const content = normalizeProjectDocContent(row.content);
-    const cleanedMetadata = content === row.content ? null : buildProjectDocPublishMetadata(content);
+    const cleanedMetadata = content === row.content ? null : getOrBuildProjectDocPublishMetadata(content);
     return {
         id: row.id,
         projectId: row.projectId,
@@ -465,7 +465,10 @@ function optionFromTask(row: TaskReferenceRow, project: { id: string; slug: stri
     };
 }
 
-function optionFromSprint(row: typeof projectSprints.$inferSelect, project: { id: string; slug: string | null }): ProjectDocReferenceOption {
+function optionFromSprint(
+    row: Pick<typeof projectSprints.$inferSelect, "id" | "name" | "goal" | "description" | "status" | "startDate" | "endDate">,
+    project: { id: string; slug: string | null }
+): ProjectDocReferenceOption {
     const dateRange = formatSprintDateRange(row.startDate, row.endDate);
     return {
         id: row.id,
@@ -480,9 +483,12 @@ function optionFromSprint(row: typeof projectSprints.$inferSelect, project: { id
     };
 }
 
-function optionFromFile(row: typeof projectNodes.$inferSelect, project: { id: string; slug: string | null }): ProjectDocReferenceOption {
+function optionFromFile(
+    row: Pick<typeof projectNodes.$inferSelect, "id" | "name" | "path" | "currentVersion" | "mimeType">,
+    project: { id: string; slug: string | null }
+): ProjectDocReferenceOption {
     const versions = row.currentVersion > 1 ? `${row.currentVersion} versions` : "1 version";
-    const fileType = formatFileType(row);
+    const fileType = formatFileType(row as typeof projectNodes.$inferSelect);
     return {
         id: row.id,
         kind: "files",
@@ -491,23 +497,17 @@ function optionFromFile(row: typeof projectNodes.$inferSelect, project: { id: st
         subtitle: row.path || "/",
         status: fileType,
         meta: versions,
-        href: projectFileHref(project, row),
+        href: projectFileHref(project, row as typeof projectNodes.$inferSelect),
     };
 }
 
 function isDocImportCandidate(row: Pick<typeof projectNodes.$inferSelect, "name" | "path" | "mimeType" | "size">) {
     const name = row.name.toLowerCase();
     const path = row.path.toLowerCase();
-    const mimeType = row.mimeType?.toLowerCase() ?? "";
-    const markdownName = /\.(md|mdx|markdown|mdown)$/i.test(name);
-    const markdownPath = /\.(md|mdx|markdown|mdown)$/i.test(path);
-    const readmeishName = /^readme(?:[._-]|$)/i.test(name) || /readme.*\.(md|mdx|markdown|mdown|txt)$/i.test(name);
-    const readmeishPath = /(^|\/)readme(?:[._-]|$)/i.test(path) || /(^|\/).*readme.*\.(md|mdx|markdown|mdown|txt)$/i.test(path);
-    const bareReadme = name === "readme" || /(^|\/)readme$/i.test(path);
-    const markdownMime = mimeType.includes("markdown") || mimeType === "text/x-markdown" || mimeType === "text/markdown";
-    const textMime = mimeType === "text/plain" && (readmeishName || readmeishPath);
-    const safeSize = typeof row.size !== "number" || row.size <= 500 * 1024;
-    return safeSize && (markdownName || markdownPath || readmeishName || readmeishPath || bareReadme || markdownMime || textMime);
+    if (!isDocLikePath(name) && !isDocLikePath(path)) return false;
+    if (typeof row.size === "number" && row.size > 500 * 1024) return false;
+    const mime = (row.mimeType || "").toLowerCase();
+    return !mime || mime.includes("markdown") || mime.includes("text") || mime.includes("plain");
 }
 
 function normalizeReadmeCandidatePath(value: string | null | undefined) {
@@ -538,6 +538,15 @@ async function findProjectDocNodeByPath(projectId: string, sourcePath: string) {
                 ilike(projectNodes.path, `%${normalizedPath}`),
             )!,
         ),
+        columns: {
+            id: true,
+            name: true,
+            path: true,
+            mimeType: true,
+            size: true,
+            s3Key: true,
+            updatedAt: true,
+        },
         orderBy: [desc(projectNodes.updatedAt)],
         limit: 40,
     });
@@ -546,7 +555,7 @@ async function findProjectDocNodeByPath(projectId: string, sourcePath: string) {
         const rowName = normalizeReadmeCandidatePath(row.name);
         return rowPath === normalizedPath || rowPath === `/${normalizedPath}` || rowName === normalizedPath || rowName === fileName;
     });
-    return [exact, ...rows].find((row): row is typeof projectNodes.$inferSelect => Boolean(row && isDocImportCandidate(row))) ?? null;
+    return [exact, ...rows].find((row) => Boolean(row && isDocImportCandidate(row))) ?? null;
 }
 
 function resolveProjectGithubSource(project: Awaited<ReturnType<typeof getDocProjectContext>>["project"]) {
@@ -612,7 +621,17 @@ async function fetchGithubReadmeContentForProject(
     return Buffer.from(payload.content.replace(/\s/g, ""), "base64").toString("utf8");
 }
 
-function optionFromRole(row: typeof projectOpenRoles.$inferSelect, project: { id: string; slug: string | null }): ProjectDocReferenceOption {
+function optionFromRole(
+    row: {
+        id: string;
+        role: string;
+        title: string | null;
+        description?: string | null;
+        count: number;
+        filled: number;
+    },
+    project: { id: string; slug: string | null },
+): ProjectDocReferenceOption {
     const count = normalizeReferenceCount(row.count);
     const filled = count > 0
         ? Math.min(normalizeReferenceCount(row.filled), count)
@@ -688,7 +707,7 @@ export async function readProjectDocAction(projectId: string, docSlug: string = 
                 };
                 try {
                     const content = await getProjectFileContent(projectId, node.id, { skipFileTabCheck: true });
-                    const metadata = buildProjectDocPublishMetadata(content);
+                    const metadata = getOrBuildProjectDocPublishMetadata(content);
                     versionRow = {
                         id: `linked-${node.id}`,
                         projectId,
@@ -759,7 +778,7 @@ export async function validateProjectDocAction(projectId: string, content: unkno
         return {
             success: true as const,
             qualityReport: buildProjectDocQualityReport(normalized),
-            headings: buildProjectDocPublishMetadata(normalized).headings,
+            headings: getOrBuildProjectDocPublishMetadata(normalized).headings,
         };
     } catch (error) {
         return { success: false as const, error: error instanceof Error ? error.message : "Failed to validate document." };
@@ -808,6 +827,15 @@ export async function readProjectDocReferenceOptionsAction(projectId: string, in
             if (query) sprintConditions.push(or(ilike(projectSprints.name, like), ilike(projectSprints.goal, like), ilike(projectSprints.description, like))!);
             const rows = await db.query.projectSprints.findMany({
                 where: and(...sprintConditions),
+                columns: {
+                    id: true,
+                    name: true,
+                    goal: true,
+                    description: true,
+                    status: true,
+                    startDate: true,
+                    endDate: true,
+                },
                 orderBy: [desc(projectSprints.updatedAt)],
                 limit,
             });
@@ -819,6 +847,13 @@ export async function readProjectDocReferenceOptionsAction(projectId: string, in
             if (query) fileConditions.push(or(ilike(projectNodes.name, like), ilike(projectNodes.path, like))!);
             const rows = await db.query.projectNodes.findMany({
                 where: and(...fileConditions),
+                columns: {
+                    id: true,
+                    name: true,
+                    path: true,
+                    currentVersion: true,
+                    mimeType: true,
+                },
                 orderBy: [desc(projectNodes.updatedAt)],
                 limit,
             });
@@ -830,6 +865,14 @@ export async function readProjectDocReferenceOptionsAction(projectId: string, in
             if (query) roleConditions.push(or(ilike(projectOpenRoles.role, like), ilike(projectOpenRoles.title, like), ilike(projectOpenRoles.description, like))!);
             const rows = await db.query.projectOpenRoles.findMany({
                 where: and(...roleConditions),
+                columns: {
+                    id: true,
+                    role: true,
+                    title: true,
+                    description: true,
+                    count: true,
+                    filled: true,
+                },
                 orderBy: [desc(projectOpenRoles.updatedAt)],
                 limit,
             });
@@ -948,11 +991,13 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             const [selectedRows, recentRows] = await Promise.all([
                 sprintIds.length ? db.query.projectSprints.findMany({
                     where: and(eq(projectSprints.projectId, projectId), inArray(projectSprints.id, sprintIds)),
+                    columns: { id: true, name: true, goal: true, description: true, status: true, startDate: true, endDate: true },
                     orderBy: [desc(projectSprints.updatedAt)],
                     limit: sprintIds.length,
                 }) : Promise.resolve([]),
                 needsRecent.has("sprints") ? db.query.projectSprints.findMany({
                     where: eq(projectSprints.projectId, projectId),
+                    columns: { id: true, name: true, goal: true, description: true, status: true, startDate: true, endDate: true },
                     orderBy: [desc(projectSprints.updatedAt)],
                     limit: 4,
                 }) : Promise.resolve([]),
@@ -968,11 +1013,13 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             const [selectedRows, recentRows] = await Promise.all([
                 fileIds.length ? db.query.projectNodes.findMany({
                     where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt), inArray(projectNodes.id, fileIds)),
+                    columns: { id: true, name: true, path: true, currentVersion: true, mimeType: true },
                     orderBy: [desc(projectNodes.updatedAt)],
                     limit: fileIds.length,
                 }) : Promise.resolve([]),
                 needsRecent.has("files") ? db.query.projectNodes.findMany({
                     where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt)),
+                    columns: { id: true, name: true, path: true, currentVersion: true, mimeType: true },
                     orderBy: [desc(projectNodes.updatedAt)],
                     limit: 4,
                 }) : Promise.resolve([]),
@@ -988,11 +1035,13 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
             const [selectedRows, recentRows] = await Promise.all([
                 roleIds.length ? db.query.projectOpenRoles.findMany({
                     where: and(eq(projectOpenRoles.projectId, projectId), inArray(projectOpenRoles.id, roleIds)),
+                    columns: { id: true, role: true, title: true, description: true, count: true, filled: true },
                     orderBy: [desc(projectOpenRoles.updatedAt)],
                     limit: roleIds.length,
                 }) : Promise.resolve([]),
                 needsRecent.has("roles") ? db.query.projectOpenRoles.findMany({
                     where: eq(projectOpenRoles.projectId, projectId),
+                    columns: { id: true, role: true, title: true, description: true, count: true, filled: true },
                     orderBy: [desc(projectOpenRoles.updatedAt)],
                     limit: 4,
                 }) : Promise.resolve([]),
@@ -1486,3 +1535,68 @@ export async function createProjectMarkdownAction(projectId: string, input: unkn
         return { success: false as const, error: error instanceof Error ? error.message : "Failed to create document." };
     }
 }
+
+// ponytail: single atomic doc draft init on project creation. ceiling: 500KB starter draft. upgrade: chunked version insert if drafts exceed 500KB.
+export async function applyCreationIntentAction(projectId: string, input: unknown) {
+    try {
+        const userId = await requireUserId();
+        const parsed = applyCreationIntentSchema.parse(input);
+        if (parsed.mode === "skip") {
+            return { success: true as const, skipped: true };
+        }
+
+        const context = await getDocProjectContext(projectId, userId, "readme");
+        if (!context.permission.canEdit) {
+            return { success: false as const, error: "You cannot initialize documents for this project." };
+        }
+
+        const readme = await getOrCreateMarkdown(projectId, userId, "readme", context.settings);
+        const starterText = parsed.starterContent || "";
+
+        if (starterText.trim().length > 0) {
+            let publishedVersionId: string | null = null;
+            if (parsed.publishOnCreate) {
+                const metadata = getOrBuildProjectDocPublishMetadata(starterText);
+                const [newVersion] = await db
+                    .insert(projectMarkdownVersions)
+                    .values({
+                        projectId,
+                        markdownId: readme.id,
+                        versionNumber: 1,
+                        content: metadata.content,
+                        excerpt: metadata.excerpt,
+                        headings: metadata.headings,
+                        qualityReport: metadata.qualityReport,
+                        contentHash: metadata.contentHash,
+                        changeSummary: "Initial project document",
+                        coAuthors: [],
+                        createdBy: userId,
+                    })
+                    .returning({ id: projectMarkdownVersions.id });
+                if (newVersion) {
+                    publishedVersionId = newVersion.id;
+                }
+            }
+
+            await db
+                .update(projectMarkdowns)
+                .set({
+                    draftContent: starterText,
+                    draftUpdatedAt: new Date(),
+                    draftUpdatedBy: userId,
+                    ...(publishedVersionId ? { publishedVersionId } : {}),
+                })
+                .where(eq(projectMarkdowns.id, readme.id));
+        }
+
+        revalidateProjectDoc(context.project);
+        return { success: true as const };
+    } catch (error) {
+        logger.error("project_readme.apply_creation_intent_failed", {
+            projectId,
+            error: error instanceof Error ? error.message : String(error),
+        });
+        return { success: false as const, error: error instanceof Error ? error.message : "Failed to apply document creation intent." };
+    }
+}
+

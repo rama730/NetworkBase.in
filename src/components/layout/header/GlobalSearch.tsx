@@ -73,14 +73,14 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
     return (
         <div
             className={`
-                hidden md:flex items-center rounded-xl
-                border bg-white/80 dark:bg-zinc-950/80
-                transition-colors duration-150 group relative overflow-hidden shadow-sm
+                hidden md:flex items-center rounded-[5px]
+                border bg-card
+                transition-colors duration-[130ms] group relative overflow-hidden shadow-none
                 ${condensed
-                    ? 'h-10 w-10 shrink-0 justify-center gap-0 border-transparent bg-transparent px-0 py-0 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-800'
-                    : `h-10 w-60 gap-2 px-3 ${query
-                        ? 'border-primary/30 ring-1 ring-primary/10'
-                        : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700'
+                    ? 'h-10 w-10 shrink-0 justify-center gap-0 border-transparent bg-transparent px-0 py-0 hover:bg-muted'
+                    : `h-[var(--ui-control-height)] w-60 lg:w-80 gap-2 px-3 ${query
+                        ? 'border-primary/40 ring-1 ring-primary/10'
+                        : 'border-border hover:border-input'
                     }`
                 }
             `}
@@ -89,19 +89,19 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
                 type="button"
                 onClick={() => onOpenCommandPalette(query, context)}
                 aria-label={triggerLabel}
-                className={`flex min-w-0 items-center rounded-lg transition-colors duration-150 focus:outline-none ${
+                className={`flex min-w-0 items-center rounded-[5px] transition-colors duration-[130ms] focus:outline-none ${
                     condensed ? 'justify-center' : 'flex-1 gap-2'
                 }`}
             >
-                <Search className={`w-4 h-4 shrink-0 transition-colors duration-300
+                <Search className={`size-4 shrink-0 transition-colors duration-[180ms]
                     ${condensed
-                        ? 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
-                        : (query ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-400 group-hover:text-zinc-500")
+                        ? 'text-muted-foreground hover:text-foreground'
+                        : (query ? "text-foreground" : "text-muted-foreground group-hover:text-foreground")
                     }`}
                 />
 
                 <div className={`items-center flex-1 overflow-hidden ${condensed ? 'hidden' : 'flex w-auto opacity-100'}`}>
-                    <span className={`text-sm whitespace-nowrap truncate transition-colors ${query ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-400"}`}>
+                    <span className={`text-xs whitespace-nowrap truncate transition-colors ${query ? "text-foreground font-medium" : "text-muted-foreground group-hover:text-foreground"}`}>
                         {query || placeholder}
                     </span>
                 </div>
@@ -112,13 +112,13 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
                     <button
                         type="button"
                         onClick={handleClear}
-                        className="p-0.5 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-300 transition-colors"
+                        className="flex size-5 items-center justify-center rounded-[3px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                         aria-label="Clear search"
                     >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="size-3.5" />
                     </button>
                 ) : (
-                    <kbd className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[10px] font-mono text-zinc-400 group-hover:text-zinc-500 transition-colors shadow-sm">
+                    <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-[3px] bg-muted/60 border border-border text-[11px] font-mono text-muted-foreground shadow-none">
                         {isMac ? "⌘" : "Ctrl"}K
                     </kbd>
                 )}

@@ -5,7 +5,7 @@ const PWNED_PASSWORD_TIMEOUT_MS = 3_500;
 
 type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-// ponytail: Free-plan fallback; native Supabase enforcement should replace this after a Pro upgrade.
+// ponytail: Free-plan fallback; native Supabase enforcement should replace this after a Pro upgrade. ceiling: HaveIBeenPwned k-anonymity range API. upgrade: native Supabase leaked password check once enterprise project upgraded.
 export async function isLeakedPassword(password: string, fetcher: Fetcher = fetch) {
   const hash = createHash("sha1").update(password, "utf8").digest("hex").toUpperCase();
   const prefix = hash.slice(0, 5);

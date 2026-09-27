@@ -194,17 +194,19 @@ export async function finalizeUploadIntent(params: {
   projectId?: string | null;
   expectedScope?: UploadIntentScope;
   expectedKind?: UploadIntentKind;
-}) {
-  const intent = params.intentId
-    ? await getUploadIntentById({ intentId: params.intentId, userId: params.userId })
-    : params.storageKey
-      ? await getUploadIntentByStorageKey({
-          bucket: params.bucket,
-          storageKey: params.storageKey,
-          userId: params.userId,
-          projectId: params.projectId,
-        })
-      : null;
+}, preloadedIntent?: UploadIntent | null) {
+  const intent = preloadedIntent !== undefined
+    ? preloadedIntent
+    : params.intentId
+      ? await getUploadIntentById({ intentId: params.intentId, userId: params.userId })
+      : params.storageKey
+        ? await getUploadIntentByStorageKey({
+            bucket: params.bucket,
+            storageKey: params.storageKey,
+            userId: params.userId,
+            projectId: params.projectId,
+          })
+        : null;
 
   if (!intent) {
     throw new Error("Upload intent not found");
@@ -293,12 +295,33 @@ export async function finalizeUploadIntents(paramsList: Array<{
   expectedScope?: UploadIntentScope;
   expectedKind?: UploadIntentKind;
 }>) {
-  const concurrency = 8;
-  for (let index = 0; index < paramsList.length; index += concurrency) {
-    await Promise.all(
-      paramsList.slice(index, index + concurrency).map((params) => finalizeUploadIntent(params)),
-    );
+  const first = paramsList[0];
+  if (!first) return [];
+  if (paramsList.length === 1) {
+    return [await finalizeUploadIntent(first)];
   }
+
+  // Pre-fetch all matching intents in a single batched query
+  const storageKeys = paramsList.map((p) => p.storageKey);
+  const userIds = Array.from(new Set(paramsList.map((p) => p.userId)));
+  const existingIntents = await db.query.uploadIntents.findMany({
+    where: and(
+      inArray(uploadIntents.storageKey, storageKeys),
+      userIds.length === 1 ? eq(uploadIntents.userId, userIds[0]!) : inArray(uploadIntents.userId, userIds),
+    ),
+  });
+  const intentByKey = new Map(existingIntents.map((it) => [`${it.userId}:${it.storageKey}`, it]));
+
+  const concurrency = 8;
+  const results: UploadIntent[] = [];
+  for (let index = 0; index < paramsList.length; index += concurrency) {
+    const chunk = paramsList.slice(index, index + concurrency);
+    const chunkResults = await Promise.all(
+      chunk.map((params) => finalizeUploadIntent(params, intentByKey.get(`${params.userId}:${params.storageKey}`) ?? null)),
+    );
+    results.push(...chunkResults);
+  }
+  return results;
 }
 
 export async function cleanupExpiredUploadIntents() {

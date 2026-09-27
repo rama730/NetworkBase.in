@@ -46,8 +46,7 @@ export function MessageAttentionProvider({ children }: { children: React.ReactNo
     const inboxParticipantStatesRef = useRef(new Map<string, string>());
     const pendingInboxConversationIdsRef = useRef(new Set<string>());
     const enabled = Boolean(isAuthenticated && user?.id);
-    // ponytail: this key participates in effects below, so it must not create
-    // a new array on each query-driven render.
+    // ponytail: this key participates in effects below, so it must not create a new array on each query-driven render. ceiling: static queryKey memo. upgrade: dynamic scoped queryKey if multi-account switching supported.
     const unreadQueryKey = useMemo(() => queryKeys.messages.v2.unread(), []);
 
     const unreadQuery = useQuery<number>({
@@ -77,8 +76,7 @@ export function MessageAttentionProvider({ children }: { children: React.ReactNo
             window.clearTimeout(inboxRefreshTimerRef.current);
             inboxRefreshTimerRef.current = null;
         }
-        // ponytail: this cache key predates user-scoped query keys; reset it on
-        // identity changes instead of duplicating every existing cache mutation.
+        // ponytail: this cache key predates user-scoped query keys; reset it on identity changes instead of duplicating every existing cache mutation. ceiling: resetQueries call on unreadQueryKey. upgrade: user-scoped query key hierarchy.
         void queryClient.resetQueries({ queryKey: unreadQueryKey });
     }, [queryClient, unreadQueryKey, user?.id]);
 
@@ -91,7 +89,7 @@ export function MessageAttentionProvider({ children }: { children: React.ReactNo
         refreshTimerRef.current = window.setTimeout(() => {
             refreshTimerRef.current = null;
             void queryClient.invalidateQueries({ queryKey: unreadQueryKey });
-        }, 180);
+        }, 500);
     }, [enabled, queryClient, unreadQueryKey]);
 
     const scheduleInboxRefresh = useCallback((conversationId?: string | null) => {
@@ -118,7 +116,7 @@ export function MessageAttentionProvider({ children }: { children: React.ReactNo
                 // The next focus/reconnect reconciliation will retry; a failed
                 // background sync must never interrupt message attention.
             });
-        }, 180);
+        }, 500);
     }, [enabled, queryClient]);
 
     useEffect(() => {
@@ -147,8 +145,7 @@ export function MessageAttentionProvider({ children }: { children: React.ReactNo
                     const cached = getCachedInboxConversation(queryClient, conversationId);
                     const payloadNew = event.payload.new as Record<string, unknown> | undefined;
                     if (cached && payloadNew && typeof payloadNew === 'object') {
-                        // ponytail: direct in-memory patch from Realtime payload.
-                        // Eliminates redundant HTTP server action request when conversation is already cached.
+                        // ponytail: direct in-memory patch from Realtime payload. ceiling: conversation already cached. upgrade: fetch from server action if conversation uncached.
                         const unreadCount = typeof payloadNew.unread_count === 'number' ? payloadNew.unread_count : cached.unreadCount;
                         const lastMessageAt = payloadNew.last_message_at ? new Date(String(payloadNew.last_message_at)) : cached.lastMessage?.createdAt;
                         const lastMessageId = typeof payloadNew.last_message_id === 'string' ? payloadNew.last_message_id : cached.lastMessage?.id;

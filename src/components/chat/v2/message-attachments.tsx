@@ -5,8 +5,6 @@ import {
     File,
     Image as ImageIcon,
     Video,
-    Volume2,
-    VolumeX,
 } from 'lucide-react';
 import {
     fitMediaWithinBounds,
@@ -227,36 +225,15 @@ function MediaAttachmentTileV2({
             aspectRatio: '1 / 1',
         };
 
-    const inlineVideoRef = useRef<HTMLVideoElement | null>(null);
-    const [isMuted, setIsMuted] = useState(true);
-
-    useEffect(() => {
-        if (returnedVideoState?.id === attachment.id && inlineVideoRef.current) {
-            inlineVideoRef.current.currentTime = returnedVideoState.time;
-            void inlineVideoRef.current.play().catch(() => undefined);
-        }
-    }, [attachment.id, returnedVideoState]);
-
     const recordDimensions = useCallback((width: number, height: number) => {
         const nextDimensions = normalizeMediaDimensions(width, height);
         if (nextDimensions) setDimensions(nextDimensions);
     }, []);
 
-    const toggleMute = useCallback((event: React.MouseEvent) => {
-        event.stopPropagation();
-        event.preventDefault();
-        const video = inlineVideoRef.current;
-        if (video) {
-            const nextMuted = !video.muted;
-            video.muted = nextMuted;
-            setIsMuted(nextMuted);
-        }
-    }, []);
-
     return (
         <div
             className={cn(
-                'msg-media-frame group/video relative max-w-full overflow-hidden rounded-2xl bg-zinc-100',
+                'msg-media-frame group/video relative max-w-full overflow-hidden rounded-lg bg-zinc-100',
                 'dark:bg-zinc-800',
             )}
             style={frameStyle}
@@ -269,7 +246,7 @@ function MediaAttachmentTileV2({
                         const rect = e.currentTarget.getBoundingClientRect();
                         const time = returnedVideoState?.id === attachment.id
                             ? returnedVideoState.time
-                            : (inlineVideoRef.current?.currentTime ?? 0);
+                            : 0;
                         onClick(rect, time);
                     }}
                     aria-label={attachment.filename
@@ -282,8 +259,8 @@ function MediaAttachmentTileV2({
             {attachment.type === 'image' ? (
                 <div
                     className={cn(
-                        'pointer-events-none absolute inset-0 flex items-center justify-center bg-zinc-200 transition-opacity duration-200 dark:bg-zinc-800',
-                        loaded ? 'opacity-0' : 'animate-pulse opacity-100',
+                        'pointer-events-none absolute inset-0 flex items-center justify-center bg-zinc-200 transition-opacity duration-[180ms] dark:bg-zinc-800',
+                        loaded ? 'opacity-0' : 'animate-none opacity-100',
                     )}
                 >
                     <ImageIcon className="h-8 w-8 text-zinc-400/50 dark:text-zinc-500/50" />
@@ -291,67 +268,28 @@ function MediaAttachmentTileV2({
             ) : null}
 
             {attachment.type === 'video' ? (
-                <>
-                    {!loaded && (
-                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-zinc-200 dark:bg-zinc-800">
-                            <Video className="h-8 w-8 text-zinc-400/70 dark:text-zinc-500/70" aria-hidden="true" />
-                        </div>
-                    )}
-                    <video
-                        ref={inlineVideoRef}
-                        src={fallbackUrl || attachment.localUrl || attachment.url}
-                        poster={displayUrl || undefined}
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        preload="auto"
-                        onLoadedMetadata={(event) => {
-                            const target = event.currentTarget;
-                            if (target.videoWidth && target.videoHeight) {
-                                recordDimensions(target.videoWidth, target.videoHeight);
-                            }
-                        }}
-                        onLoadedData={() => {
+                displayUrl ? (
+                    // Historical video tiles deliberately render only the stored thumbnail.
+                    // The selected viewer owns the first video-body request and playback.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                        src={displayUrl}
+                        alt={attachment.filename || ''}
+                        onLoad={() => {
                             setLoaded(true);
                             onContentLoad?.();
                         }}
-                        onVolumeChange={() => {
-                            if (inlineVideoRef.current) {
-                                setIsMuted(inlineVideoRef.current.muted);
-                            }
-                        }}
                         onError={() => {
-                            if (!fallbackUrl && displayUrl && displayUrl !== attachment.url) {
-                                setFallbackUrl(attachment.url);
-                            } else {
-                                setHasError(true);
-                                setLoaded(true);
-                            }
+                            setHasError(true);
+                            setLoaded(true);
                         }}
-                        className={cn(
-                            'absolute inset-0 block h-full w-full rounded-[inherit] object-cover transition-opacity duration-200',
-                            loaded && !hasError ? 'opacity-100' : 'opacity-0',
-                        )}
+                        className="absolute inset-0 block h-full w-full rounded-[inherit] object-cover transition-opacity duration-[180ms]"
                     />
-                    {!hasError && (
-                        <button
-                            type="button"
-                            onClick={toggleMute}
-                            aria-label={isMuted ? 'Unmute video' : 'Mute video'}
-                            className={cn(
-                                'absolute bottom-2.5 right-2.5 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/85 hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80',
-                                'opacity-0 pointer-events-none group-hover/video:opacity-100 group-hover/video:pointer-events-auto focus:opacity-100 focus:pointer-events-auto',
-                            )}
-                        >
-                            {isMuted ? (
-                                <VolumeX className="h-3.5 w-3.5" aria-hidden="true" />
-                            ) : (
-                                <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
-                            )}
-                        </button>
-                    )}
-                </>
+                ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-200 dark:bg-zinc-800">
+                        <Video className="h-8 w-8 text-zinc-400/70 dark:text-zinc-500/70" aria-hidden="true" />
+                    </div>
+                )
             ) : (
                 // Native img is intentional: local object URLs and remote
                 // attachment fallbacks are not compatible with image loaders.
@@ -374,7 +312,7 @@ function MediaAttachmentTileV2({
                         }
                     }}
                     className={cn(
-                        'absolute inset-0 h-full w-full block rounded-[inherit] object-cover transition-opacity duration-200',
+                        'absolute inset-0 h-full w-full block rounded-[inherit] object-cover transition-opacity duration-[180ms]',
                         loaded && !hasError ? 'opacity-100' : 'opacity-0',
                     )}
                 />
@@ -384,7 +322,7 @@ function MediaAttachmentTileV2({
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400">
                     <File className="h-6 w-6 mb-1 text-zinc-400" />
                     <p className="text-[11px] font-semibold">Media unavailable</p>
-                    <p className="mt-0.5 max-w-full truncate px-2 text-[10px]">{attachment.filename}</p>
+                    <p className="mt-0.5 max-w-full truncate px-2 text-[11px]">{attachment.filename}</p>
                 </div>
             ) : null}
 

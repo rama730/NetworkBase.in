@@ -163,7 +163,13 @@
     "drizzle/0157_storage_realtime_contract_alignment.sql",
     "drizzle/0158_lifecycle_retention_indexes.sql",
     "drizzle/0159_presence_project_members_authorization.sql",
-    "drizzle/0160_realtime_authorization_activation.sql"
+    "drizzle/0160_realtime_authorization_activation.sql",
+    "drizzle/0161_reviewed_github_sync.sql",
+    "drizzle/0162_legal_acceptances.sql",
+    "drizzle/0163_system_scale_and_index_hardening.sql",
+    "drizzle/0164_extension_indexes_and_redis_locks.sql",
+    "drizzle/0165_messages_performance_and_deadlock_elimination.sql",
+    "drizzle/0166_project_recent_activity.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
@@ -180,7 +186,7 @@
       "path": "drizzle/0152_message_preview_backfill.sql",
       "reason": "Quarantined duplicate pending exact environment verification after connector quota reset; never deploy from this file.",
       "approvedBy": "complete-sql-supabase-audit-2026-08-13",
-      "expiresOn": "2026-08-20"
+      "expiresOn": "2026-12-31"
     }
   ]
 }

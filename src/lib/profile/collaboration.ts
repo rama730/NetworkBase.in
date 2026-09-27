@@ -55,6 +55,9 @@ export type ProfileCollaborationProject = {
   skills: string[];
   tags: string[];
   verified: boolean;
+  githubRepoUrl?: string | null;
+  externalLinks?: any;
+  openRolesCount?: number | null;
 };
 
 export type ProfileCollaborationRoleStage = {
@@ -136,6 +139,9 @@ type ProfileProjectRow = {
   status: string | null;
   created_at: Date | string | null;
   updated_at: Date | string | null;
+  github_repo_url?: string | null;
+  external_links?: unknown;
+  open_roles_count?: number | string | null;
   user_role: string | null;
   joined_at: Date | string | null;
   contribution_started_at: Date | string | null;
@@ -327,7 +333,7 @@ function roleStages(value: unknown, fallbackContributionId: string | null): Prof
 
 function projectFromRow(row: ProfileProjectRow): ProfileCollaborationProject {
   const title = normalizeProjectTitle(row.title);
-  const description = normalizeProjectDescription(row.short_description, row.description);
+  const description = normalizeProjectDescription(row.description, row.short_description);
   const href = buildProjectHref({ id: row.project_id, slug: row.slug });
   const roleKind = trimDisplayText(row.user_role) || "contributor";
   return {
@@ -353,9 +359,12 @@ function projectFromRow(row: ProfileProjectRow): ProfileCollaborationProject {
     visibility: trimOptionalDisplayText(row.visibility),
     contributionVisibility: row.contribution_visibility === "private" ? "private" : "public",
     status: trimOptionalDisplayText(row.status),
-    skills: stringArray(row.contribution_skills).length ? stringArray(row.contribution_skills) : stringArray(row.skills),
+    skills: stringArray(row.skills).length ? stringArray(row.skills) : stringArray(row.contribution_skills),
     tags: stringArray(row.tags),
     verified: true,
+    githubRepoUrl: trimOptionalDisplayText(row.github_repo_url),
+    externalLinks: row.external_links ?? null,
+    openRolesCount: numberOrNull(row.open_roles_count) ?? 0,
   };
 }
 
@@ -457,6 +466,9 @@ async function queryProfileProjectRows(profileId: string, options: {
         p.status,
         p.created_at,
         p.updated_at,
+        p.github_repo_url,
+        p.external_links,
+        p.open_roles_count,
         CASE
           WHEN p.owner_id = ${profileId} THEN 'owner'
           ELSE COALESCE(pm_self.role, pc.role_kind, 'contributor')

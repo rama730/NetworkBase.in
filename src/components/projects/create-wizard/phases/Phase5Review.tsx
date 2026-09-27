@@ -1,235 +1,269 @@
 'use client';
 
-import { useFormContext } from 'react-hook-form';
+import { useEffect, type ComponentType, type ReactNode } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
+import { Edit3, Folder, GitBranch, Globe, Link2, Lock, Tag, Users, Workflow } from 'lucide-react';
 import { CreateProjectInput } from '@/lib/validations/project';
-import { WizardContextType } from '../useCreateProjectWizard';
-import { BookOpen, Edit3, Globe, Lock, Users, Tag } from 'lucide-react';
 import { SkillList } from '@/components/skills/SkillList';
+import { Button } from '@/components/ui/button';
+import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
+import { resolveSocialPresence, socialLinkItemsFromStorage } from '@/lib/profile/normalization';
 
 interface Phase5ReviewProps {
-    wizardContext: WizardContextType;
     goToPhase: (phase: 1 | 2 | 3 | 4) => void;
+    onReady: () => void;
 }
 
-export default function Phase5Review({ wizardContext, goToPhase }: Phase5ReviewProps) {
-    const { watch } = useFormContext<CreateProjectInput>();
-    const formData = watch();
-    const { openRoles } = wizardContext;
-    const leadFocus = (formData.creator_role?.title || '').trim();
-    const readmeIntent = formData.readme ?? { mode: 'starter' as const, sourcePath: null };
-    const readmeSummary = (() => {
-        if (readmeIntent.mode === 'detected') {
-            return {
-                title: 'Use detected document',
-                description: `A private draft will be prepared from ${readmeIntent.sourcePath || 'the detected document'} after project files are available.`,
-            };
-        }
-        if (readmeIntent.mode === 'skip') {
-            return {
-                title: 'Skip document for now',
-                description: 'The Docs tab stays empty until a project leader creates or imports one.',
-            };
-        }
-        return {
-            title: 'Create starter document draft',
-            description: 'A private draft with overview, setup, project focus, and roles will be prepared.',
-        };
-    })();
+interface ReviewSectionProps {
+    eyebrow: string;
+    title: string;
+    onEdit: () => void;
+    children: ReactNode;
+}
 
-    const visibilityIcons = {
-        public: Globe,
-        private: Lock,
-    };
-    const VisibilityIcon = visibilityIcons[formData.visibility || 'public'];
+function ReviewSection({ eyebrow, title, onEdit, children }: ReviewSectionProps) {
+    return (
+        <section className="border-t border-border pt-6">
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">{eyebrow}</p>
+                    <h4 className="nb-card-title mt-1 text-foreground">{title}</h4>
+                </div>
+                <Button type="button" onClick={onEdit} variant="link" size="sm" className="shrink-0">
+                    <Edit3 className="size-3" />
+                    Edit
+                </Button>
+            </div>
+            <div className="mt-4 border-y border-border">{children}</div>
+        </section>
+    );
+}
+
+interface ReviewRowProps {
+    label: string;
+    icon?: ComponentType<{ className?: string }>;
+    children: ReactNode;
+}
+
+function ReviewRow({ label, icon: Icon, children }: ReviewRowProps) {
+    return (
+        <div className="flex gap-3 border-b border-border py-3.5 last:border-b-0">
+            {Icon ? <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
+            <div className="min-w-0 flex-1">
+                <p className="nb-meta text-muted-foreground">{label}</p>
+                <div className="mt-1 text-foreground">{children}</div>
+            </div>
+        </div>
+    );
+}
+
+function DetailLabel({ children }: { children: ReactNode }) {
+    return (
+        <span className="inline-flex rounded-[3px] border border-border bg-muted/40 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.09em] text-foreground">
+            {children}
+        </span>
+    );
+}
+
+const sourceCopy = {
+    scratch: {
+        title: 'Start from scratch',
+        detail: 'A new project will be created without imported files.',
+        icon: Folder,
+    },
+    github: {
+        title: 'Import from GitHub',
+        detail: 'Repository files and the selected branch will be imported after creation.',
+        icon: GitBranch,
+    },
+    upload: {
+        title: 'Upload a folder',
+        detail: 'The selected local project files will be uploaded after creation.',
+        icon: Folder,
+    },
+};
+
+export default function Phase5Review({ goToPhase, onReady }: Phase5ReviewProps) {
+    const { control } = useFormContext<CreateProjectInput>();
+    const formData = useWatch({ control }) as CreateProjectInput;
+
+    useEffect(() => {
+        onReady();
+    }, [onReady]);
+
+    const openRoles = (formData.roles || []).filter((role) => role.role.trim().length > 0);
+    const openPositionCount = openRoles.reduce((total, role) => total + role.count, 0);
+    const projectLinks = socialLinkItemsFromStorage(formData.external_links);
+    const projectType = PROJECT_TYPE_OPTIONS.find((type) => type.id === formData.project_type);
+    const projectTypeLabel = formData.project_type === 'other'
+        ? formData.custom_project_type || 'Custom category'
+        : projectType?.label || 'No category selected';
+    const sourceType = formData.import_source?.type || 'scratch';
+    const source = sourceCopy[sourceType];
+    const SourceIcon = source.icon;
+    const sourceMetadata = formData.import_source?.metadata || {};
+    const uploadFileCount = Number(sourceMetadata.fileCount || 0);
+    const lifecycleStages = formData.lifecycle_stages || [];
+    const VisibilityIcon = formData.visibility === 'private' ? Lock : Globe;
 
     return (
-        <div className="space-y-6">
-            <div className="text-center mb-8">
-                <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-                    Review Your Project
-                </h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    Make sure everything looks good before launching
+        <div className="min-w-0 w-full space-y-8 pb-6">
+            <header className="max-w-2xl">
+                <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Phase 5 · review</p>
+                <h3 className="nb-section-title mt-2 text-foreground">Review before creating</h3>
+                <p className="nb-body mt-2 text-muted-foreground">
+                    Confirm what collaborators will see at launch. Use Edit to return to the relevant phase; the project is created only when you choose Create project in the footer.
                 </p>
-            </div>
+            </header>
 
-            {/* Project Info Section */}
-            <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">Project Details</h4>
-                    <button
-                        type="button"
-                        onClick={() => goToPhase(2)}
-                        className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
-                    >
-                        <Edit3 className="w-3 h-3" />
-                        Edit
-                    </button>
-                </div>
+            <ReviewSection eyebrow="Phase 1 · start" title="Starting point" onEdit={() => goToPhase(1)}>
+                <ReviewRow label="Source" icon={SourceIcon}>
+                    <p className="nb-ui-label text-foreground">{source.title}</p>
+                    <p className="nb-compact mt-1 text-muted-foreground">{source.detail}</p>
+                </ReviewRow>
+                {sourceType === 'github' ? (
+                    <>
+                        <ReviewRow label="Repository" icon={GitBranch}>
+                            <p className="nb-body break-all text-foreground">{formData.import_source?.repoUrl || 'No repository selected'}</p>
+                        </ReviewRow>
+                        <ReviewRow label="Branch">
+                            <DetailLabel>{formData.import_source?.branch || 'Default branch'}</DetailLabel>
+                        </ReviewRow>
+                    </>
+                ) : null}
+                {sourceType === 'upload' ? (
+                    <ReviewRow label="Folder contents" icon={Folder}>
+                        <p className="nb-body text-foreground">
+                            {uploadFileCount > 0
+                                ? `${uploadFileCount} ${uploadFileCount === 1 ? 'file is' : 'files are'} ready to upload.`
+                                : 'The selected folder is ready to upload.'}
+                        </p>
+                    </ReviewRow>
+                ) : null}
+            </ReviewSection>
 
-                <div className="space-y-4">
-                    <div>
-                        <span className="text-sm text-zinc-500 dark:text-zinc-400">Title</span>
-                        <p className="font-medium text-zinc-900 dark:text-zinc-100">{formData.title || '—'}</p>
+            <ReviewSection eyebrow="Phase 2 · information" title="Project details" onEdit={() => goToPhase(2)}>
+                <ReviewRow label="Project title">
+                    <p className="nb-body font-medium text-foreground">{formData.title || 'Untitled project'}</p>
+                </ReviewRow>
+                <ReviewRow label="Category" icon={Tag}>
+                    <p className="nb-body text-foreground">{projectTypeLabel}</p>
+                    {projectType?.description ? <p className="nb-compact mt-1 text-muted-foreground">{projectType.description}</p> : null}
+                </ReviewRow>
+                {formData.short_description ? (
+                    <ReviewRow label="Tagline">
+                        <p className="nb-body text-foreground">{formData.short_description}</p>
+                    </ReviewRow>
+                ) : null}
+                <ReviewRow label="Description">
+                    <p className="nb-body whitespace-pre-wrap text-foreground">{formData.description || 'No description added.'}</p>
+                </ReviewRow>
+                {formData.problem_statement || formData.solution_statement ? (
+                    <div className="grid border-b border-border md:grid-cols-2">
+                        {formData.problem_statement ? (
+                            <div className="border-b border-border px-0 py-3.5 md:border-b-0 md:border-r md:px-4 md:first:pl-0">
+                                <p className="nb-meta text-muted-foreground">Problem</p>
+                                <p className="nb-compact mt-1 whitespace-pre-wrap text-foreground">{formData.problem_statement}</p>
+                            </div>
+                        ) : null}
+                        {formData.solution_statement ? (
+                            <div className="px-0 py-3.5 md:px-4 md:last:pr-0">
+                                <p className="nb-meta text-muted-foreground">Solution</p>
+                                <p className="nb-compact mt-1 whitespace-pre-wrap text-foreground">{formData.solution_statement}</p>
+                            </div>
+                        ) : null}
                     </div>
-
-                    {formData.short_description && (
-                        <div>
-                            <span className="text-sm text-zinc-500 dark:text-zinc-400">Tagline</span>
-                            <p className="text-zinc-700 dark:text-zinc-300">{formData.short_description}</p>
-                        </div>
-                    )}
-
-                    <div>
-                        <span className="text-sm text-zinc-500 dark:text-zinc-400">Description</span>
-                        <p className="text-zinc-700 dark:text-zinc-300 line-clamp-3">{formData.description || '—'}</p>
-                    </div>
-
-                    {(formData.problem_statement || formData.solution_statement) && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                            {formData.problem_statement && (
-                                <div className="p-3 rounded-lg bg-rose-50/50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/20">
-                                    <span className="text-xs font-bold text-rose-800 dark:text-rose-200">The Problem</span>
-                                    <p className="text-sm text-zinc-700 dark:text-zinc-300 mt-1 line-clamp-3">
-                                        {formData.problem_statement}
-                                    </p>
-                                </div>
-                            )}
-                            {formData.solution_statement && (
-                                <div className="p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/20">
-                                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-200">The Solution</span>
-                                    <p className="text-sm text-zinc-700 dark:text-zinc-300 mt-1 line-clamp-3">
-                                        {formData.solution_statement}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <Tag className="w-4 h-4 text-zinc-400" />
-                            <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                                {formData.project_type || 'No type selected'}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <VisibilityIcon className="w-4 h-4 text-zinc-400" />
-                            <span className="text-sm text-zinc-600 dark:text-zinc-400 capitalize">
-                                {formData.visibility || 'public'}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Tags & Tech */}
-            {(formData.tags?.length > 0 || formData.technologies_used?.length > 0) && (
-                <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">Tags & Technologies</h4>
-                        <button
-                            type="button"
-                            onClick={() => goToPhase(2)}
-                            className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
-                        >
-                            <Edit3 className="w-3 h-3" />
-                            Edit
-                        </button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                        {formData.tags?.map((tag) => (
-                            <span key={tag} className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-full text-sm">
-                                {tag}
-                            </span>
-                        ))}
-                        <SkillList skills={formData.technologies_used ?? []} size="sm" />
-                    </div>
-                </div>
-            )}
-
-            {/* Team Section */}
-            <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">Team & Roles</h4>
-                    <button
-                        type="button"
-                        onClick={() => goToPhase(3)}
-                        className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
-                    >
-                        <Edit3 className="w-3 h-3" />
-                        Edit
-                    </button>
-                </div>
-
-                {formData.creator_role && (
-                    <div className="mb-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
-                        <span className="text-sm text-indigo-600 dark:text-indigo-400">Your Role</span>
-                        <p className="font-medium text-indigo-700 dark:text-indigo-300">Lead</p>
-                        {leadFocus && (
-                            <p className="text-xs text-indigo-600/90 dark:text-indigo-300/80">
-                                Focus: {leadFocus}
-                            </p>
-                        )}
-                    </div>
-                )}
-
-                {openRoles.length > 0 ? (
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-                            <Users className="w-4 h-4" />
-                            <span>{openRoles.length} open position(s)</span>
-                        </div>
+                ) : null}
+                <ReviewRow label="Tags and technologies" icon={Tag}>
+                    {formData.tags?.length || formData.technologies_used?.length ? (
                         <div className="flex flex-wrap gap-2">
-                            {openRoles.map((role, i) => (
-                                <span key={i} className="px-3 py-1 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-full text-sm">
-                                    {role.role || 'Unnamed role'} ({role.count})
-                                </span>
+                            {formData.tags?.map((tag) => <DetailLabel key={tag}>{tag}</DetailLabel>)}
+                            <SkillList skills={formData.technologies_used || []} size="sm" />
+                        </div>
+                    ) : <p className="nb-compact text-muted-foreground">No tags or technologies added.</p>}
+                </ReviewRow>
+                <ReviewRow label="Project journey" icon={Workflow}>
+                    {lifecycleStages.length ? (
+                        <ol className="space-y-2">
+                            {lifecycleStages.map((stage, index) => (
+                                <li key={`${stage}-${index}`} className="flex items-center gap-2">
+                                    <span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] border border-border font-mono text-[11px] text-muted-foreground">{index + 1}</span>
+                                    <span className="nb-compact text-foreground">{stage}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    ) : <p className="nb-compact text-muted-foreground">No journey stages added.</p>}
+                </ReviewRow>
+            </ReviewSection>
+
+            <ReviewSection eyebrow="Phase 3 · team" title="Team and roles" onEdit={() => goToPhase(3)}>
+                <ReviewRow label="Project lead" icon={Users}>
+                    <p className="nb-ui-label text-foreground">Lead{formData.creator_role?.title ? ` · ${formData.creator_role.title}` : ''}</p>
+                    {formData.creator_role?.time_commitment ? <p className="nb-compact mt-1 text-muted-foreground">{formData.creator_role.time_commitment} hours per week</p> : null}
+                </ReviewRow>
+                <ReviewRow label="Open roles" icon={Users}>
+                    {openRoles.length ? (
+                        <div className="space-y-4">
+                            <p className="nb-compact text-muted-foreground">{openPositionCount} open {openPositionCount === 1 ? 'position' : 'positions'} across {openRoles.length} {openRoles.length === 1 ? 'role' : 'roles'}.</p>
+                            {openRoles.map((role, index) => (
+                                <div key={`${role.role}-${index}`} className="border-l-2 border-primary pl-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <p className="nb-ui-label text-foreground">{role.role}</p>
+                                        <DetailLabel>{role.count} {role.count === 1 ? 'opening' : 'openings'}</DetailLabel>
+                                        <DetailLabel>{role.experience_level}</DetailLabel>
+                                        <DetailLabel>{role.compensation_type.replace('_', ' ')}</DetailLabel>
+                                    </div>
+                                    {role.description ? <p className="nb-compact mt-2 whitespace-pre-wrap text-muted-foreground">{role.description}</p> : null}
+                                    {role.skills?.length ? <div className="mt-2"><SkillList skills={role.skills} size="sm" /></div> : null}
+                                </div>
                             ))}
                         </div>
-                    </div>
-                ) : (
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">No open positions added</p>
-                )}
-            </div>
+                    ) : <p className="nb-compact text-muted-foreground">No open roles added.</p>}
+                </ReviewRow>
+            </ReviewSection>
 
-            {/* Doc Section */}
-            <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-semibold text-zinc-900 dark:text-zinc-100">Project Document</h4>
-                    <button
-                        type="button"
-                        onClick={() => goToPhase(1)}
-                        className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
-                    >
-                        <Edit3 className="w-3 h-3" />
-                        Edit
-                    </button>
-                </div>
+            <ReviewSection eyebrow="Phase 4 · settings" title="Launch settings" onEdit={() => goToPhase(4)}>
+                <ReviewRow label="Visibility" icon={VisibilityIcon}>
+                    <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? 'Private project' : 'Public project'}</p>
+                    <p className="nb-compact mt-1 text-muted-foreground">
+                        {formData.visibility === 'private' ? 'Only collaborators can access the project at launch.' : 'The project is visible to everyone at launch.'}
+                    </p>
+                </ReviewRow>
+                <ReviewRow label="Collaborator availability" icon={Users}>
+                    <p className="nb-ui-label text-foreground">{openRoles.length ? 'Open to collaborators' : 'No openings planned'}</p>
+                    <p className="nb-compact mt-1 text-muted-foreground">
+                        {openRoles.length ? `${openPositionCount} role openings will be visible at launch.` : 'Roles can be added later from project settings.'}
+                    </p>
+                </ReviewRow>
+                <ReviewRow label="Project links" icon={Link2}>
+                    {projectLinks.length ? (
+                        <ul className="space-y-3">
+                            {projectLinks.map((link) => {
+                                const resolved = resolveSocialPresence(link.platform, link.url);
+                                const title = link.label || link.destinationLabel || resolved?.platformLabel || 'Project link';
+                                const secondary = link.destinationLabel && link.destinationLabel !== title
+                                    ? link.destinationLabel
+                                    : resolved?.accountLabel || link.url;
+                                return (
+                                    <li key={link.id} className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p className="nb-ui-label text-foreground">{title}</p>
+                                            <DetailLabel>{link.audience === 'members' ? 'Members only' : 'Public'}</DetailLabel>
+                                            {link.purpose ? <DetailLabel>{link.purpose.replaceAll('-', ' ')}</DetailLabel> : null}
+                                        </div>
+                                        <p className="nb-compact mt-1 truncate text-muted-foreground" title={link.url}>{secondary}</p>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    ) : <p className="nb-compact text-muted-foreground">No project links added.</p>}
+                </ReviewRow>
+            </ReviewSection>
 
-                <div className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900/60">
-                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-300">
-                        <BookOpen className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                        <p className="font-medium text-zinc-900 dark:text-zinc-100">{readmeSummary.title}</p>
-                        <p className="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-400">
-                            {readmeSummary.description}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Ready to Launch */}
-            <div className="text-center py-6 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800">
-                <h4 className="font-bold text-indigo-900 dark:text-indigo-100 mb-2">
-                    Ready to launch your project?
-                </h4>
-                <p className="text-sm text-indigo-600 dark:text-indigo-400">
-                    Click &quot;Launch Project&quot; below to publish your project and start finding collaborators.
-                </p>
-            </div>
+            <aside className="border-l-2 border-primary bg-secondary/35 px-4 py-3.5" aria-label="Creation confirmation">
+                <p className="nb-ui-label text-foreground">Ready to create</p>
+                <p className="nb-compact mt-1 text-muted-foreground">Nothing has been created yet. Create the project only when you select Create project in the footer.</p>
+            </aside>
         </div>
     );
 }

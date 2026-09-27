@@ -48,7 +48,7 @@ function encodeSessionCursor(value: { lastSeenAt: Date; id: string }) {
   })).toString("base64url");
 }
 
-// ponytail: in-memory LRU cache of resolved authMethod by sessionId to avoid repeated DISTINCT ON queries on event table
+// ponytail: in-memory LRU cache of resolved authMethod by sessionId to avoid repeated DISTINCT ON queries on event table. ceiling: 5,000 entries (~500KB RAM). upgrade: Redis shared cache if multi-instance worker fleet requires shared session cache.
 const authMethodCache = new Map<string, ExtensionSessionAuthMethod>();
 const MAX_AUTH_METHOD_CACHE_SIZE = 5_000;
 

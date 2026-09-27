@@ -1,23 +1,42 @@
 'use client'
 
-import RadioCardGroup from '@/components/onboarding/RadioCardGroup'
+import { useState } from 'react'
 import { StepHeader } from '@/components/onboarding/StepHeader'
 import type { OnboardingMessagePrivacy, OnboardingVisibility } from '@/lib/onboarding/contracts'
 
-const VISIBILITY_OPTIONS = [
-  { value: 'public', label: 'Public', description: 'Anyone can view your profile' },
-  { value: 'connections', label: 'Connections only', description: 'Only your connections can view' },
-  { value: 'private', label: 'Private', description: 'Only you can view your profile' },
+type PrivacyChoice = {
+  value: string
+  label: string
+  description: string
+}
+
+const VISIBILITY_OPTIONS: PrivacyChoice[] = [
+  { value: 'public', label: 'Public', description: 'Appears in Discovery and people search.' },
+  { value: 'connections', label: 'Connections only', description: 'Visible to people after you connect.' },
+  { value: 'private', label: 'Private', description: 'Hidden from Discovery and people search.' },
 ]
 
-const MESSAGE_PRIVACY_OPTIONS = [
-  { value: 'everyone', label: 'Everyone', description: 'Anyone can send you messages' },
-  { value: 'connections', label: 'Connections only', description: 'Only your connections' },
+const MESSAGE_PRIVACY_OPTIONS: PrivacyChoice[] = [
+  { value: 'everyone', label: 'Everyone', description: 'Any NetworkBase member can start a conversation.' },
+  { value: 'connections', label: 'Connections only', description: 'Only people you connect with can start a conversation.' },
 ]
+
+const VISIBILITY_CONTEXT: Record<OnboardingVisibility, string> = {
+  public: 'Your profile can be discovered by anyone using NetworkBase.',
+  connections: 'Your profile is only available to people in your network.',
+  private: 'Your profile will not appear in Discovery or people search.',
+}
+
+const MESSAGE_CONTEXT: Record<OnboardingMessagePrivacy, string> = {
+  everyone: 'Anyone on NetworkBase can start a conversation with you.',
+  connections: 'New conversations are limited to people in your network.',
+}
 
 interface ReviewSummaryItem {
   label: string
   value: string
+  editLabel?: string
+  onEdit?: () => void
 }
 
 interface Step4PrivacyProps {
@@ -25,12 +44,58 @@ interface Step4PrivacyProps {
   messagePrivacy: OnboardingMessagePrivacy
   onVisibilityChange: (value: OnboardingVisibility) => void
   onMessagePrivacyChange: (value: OnboardingMessagePrivacy) => void
-  /** Summary items to display in the review card */
+  /** The existing onboarding values shown for a final, non-editing review. */
   summaryItems: ReviewSummaryItem[]
-  /** Optional error message */
   error?: string | null
 }
 
+interface PrivacyChoiceGroupProps {
+  id: string
+  choices: PrivacyChoice[]
+  selected: string
+  onChange: (value: string) => void
+}
+
+function PrivacyChoiceGroup({ id, choices, selected, onChange }: PrivacyChoiceGroupProps) {
+  return (
+    <div role="radiogroup" aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`} className="onb-privacy-choice-list">
+      {choices.map((choice) => {
+        const isSelected = choice.value === selected
+        const choiceId = `${id}-${choice.value}`
+
+        return (
+          <div key={choice.value} className="onb-privacy-choice-option">
+            <input
+              id={choiceId}
+              name={id}
+              type="radio"
+              value={choice.value}
+              checked={isSelected}
+              onChange={() => onChange(choice.value)}
+              className="onb-privacy-choice-input"
+            />
+            <label
+              htmlFor={choiceId}
+              className="onb-privacy-choice"
+            >
+              <span className="onb-privacy-choice-copy">
+                <span className="onb-privacy-choice-label">{choice.label}</span>
+                <span className="onb-privacy-choice-description">{choice.description}</span>
+              </span>
+              <span className="onb-privacy-choice-indicator" aria-hidden="true"><span /></span>
+            </label>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * Step 4 keeps the existing privacy model intact, while presenting the choices
+ * in the order a person makes them: discoverability, conversation access, then
+ * a concise final review before profile creation.
+ */
 export function Step4Privacy({
   visibility,
   messagePrivacy,
@@ -39,72 +104,81 @@ export function Step4Privacy({
   summaryItems,
   error,
 }: Step4PrivacyProps) {
+  const [hasChangedVisibility, setHasChangedVisibility] = useState(false)
+  const [hasChangedMessagePrivacy, setHasChangedMessagePrivacy] = useState(false)
+
   return (
-    <div>
+    <div className="onb-privacy-step">
       <StepHeader
         title="Privacy & visibility"
-        subtitle="Control who sees your profile"
+        subtitle="Choose who can find you and start a conversation. You can change these settings later."
+        step={4}
+        totalSteps={4}
       />
 
-      {/* Profile visibility */}
-      <div>
-        <h2 className="mb-3 text-[14px] font-medium text-foreground">
-          Profile visibility
-        </h2>
-        <RadioCardGroup
-          options={VISIBILITY_OPTIONS}
-          selected={visibility}
-          onChange={(val) => onVisibilityChange(val as OnboardingVisibility)}
-          labelledBy="profile-visibility-label"
-        />
-        <span id="profile-visibility-label" className="sr-only">
-          Profile visibility
-        </span>
-      </div>
-
-      {/* 24px gap between visibility and messaging sections */}
-      <div className="h-6" />
-
-      {/* Message privacy */}
-      <div>
-        <h2 className="mb-3 text-[14px] font-medium text-foreground">
-          Who can message you?
-        </h2>
-        <RadioCardGroup
-          options={MESSAGE_PRIVACY_OPTIONS}
-          selected={messagePrivacy}
-          onChange={(val) => onMessagePrivacyChange(val as OnboardingMessagePrivacy)}
-          labelledBy="message-privacy-label"
-        />
-        <span id="message-privacy-label" className="sr-only">
-          Who can message you?
-        </span>
-      </div>
-
-      {/* 32px gap before review summary */}
-      <div className="h-8" />
-
-      {/* Review summary — single-column key-value list with muted background and border */}
-      <div className="rounded-lg border bg-muted p-4">
-        <p className="mb-3 text-[14px] font-medium text-foreground">
-          Your profile summary
+      <section className="onb-privacy-section" aria-labelledby="profile-visibility-title">
+        <p className="onb-section-kicker">Profile access</p>
+        <h2 id="profile-visibility-title" className="onb-privacy-section-title">Who can discover you?</h2>
+        <p id="profile-visibility-description" className="onb-privacy-section-description">
+          This controls how your profile appears in Discovery and people search.
         </p>
-        <dl className="space-y-2">
+        <PrivacyChoiceGroup
+          id="profile-visibility"
+          choices={VISIBILITY_OPTIONS}
+          selected={visibility}
+          onChange={(value) => {
+            setHasChangedVisibility(true)
+            onVisibilityChange(value as OnboardingVisibility)
+          }}
+        />
+        <p className="onb-privacy-context" aria-live={hasChangedVisibility ? 'polite' : 'off'}>{VISIBILITY_CONTEXT[visibility]}</p>
+        {visibility === 'public' ? (
+          <p className="onb-privacy-disclosure">Public profiles can be viewed without an account and may be indexed or cached. Do not add confidential information.</p>
+        ) : null}
+      </section>
+
+      <section className="onb-privacy-section onb-privacy-section--separated" aria-labelledby="message-privacy-title">
+        <p className="onb-section-kicker">Messages</p>
+        <h2 id="message-privacy-title" className="onb-privacy-section-title">Who can start a conversation?</h2>
+        <p id="message-privacy-description" className="onb-privacy-section-description">
+          Choose who can send you a first message. Existing conversations are not affected.
+        </p>
+        <PrivacyChoiceGroup
+          id="message-privacy"
+          choices={MESSAGE_PRIVACY_OPTIONS}
+          selected={messagePrivacy}
+          onChange={(value) => {
+            setHasChangedMessagePrivacy(true)
+            onMessagePrivacyChange(value as OnboardingMessagePrivacy)
+          }}
+        />
+        <p className="onb-privacy-context" aria-live={hasChangedMessagePrivacy ? 'polite' : 'off'}>{MESSAGE_CONTEXT[messagePrivacy]}</p>
+      </section>
+
+      <aside className="onb-privacy-review" aria-labelledby="privacy-review-title">
+        <div>
+          <p className="onb-section-kicker">Final review</p>
+          <h2 id="privacy-review-title" className="onb-privacy-review-title">Ready to finish</h2>
+          <p className="onb-privacy-review-description">
+            Your profile will use the choices below. You can revise them in Settings at any time.
+          </p>
+        </div>
+        <dl className="onb-privacy-review-list">
           {summaryItems.map((item) => (
-            <div key={item.label} className="flex items-baseline gap-2 text-[13px]">
-              <dt className="text-muted-foreground">{item.label}:</dt>
-              <dd className="text-foreground">{item.value}</dd>
+            <div key={item.label} className="onb-privacy-review-item">
+              <dt>{item.label}</dt>
+              <dd>
+                <span>{item.value}</span>
+                {item.onEdit && item.editLabel ? (
+                  <button type="button" className="onb-review-edit onb-focusable" onClick={item.onEdit}>{item.editLabel}</button>
+                ) : null}
+              </dd>
             </div>
           ))}
         </dl>
-      </div>
+      </aside>
 
-      {/* Error display */}
-      {error && (
-        <div className="mt-4 rounded-lg bg-destructive/10 p-3 text-[13px] text-destructive">
-          {error}
-        </div>
-      )}
+      {error ? <div className="onb-alert-error onb-privacy-error" role="alert">{error}</div> : null}
     </div>
   )
 }

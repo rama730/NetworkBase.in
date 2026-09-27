@@ -39,7 +39,8 @@ export const notificationPushDelivery = inngest.createFunction(
     retries: 2,
     concurrency: { limit: 1 },
   },
-  { cron: "* * * * *" },
+  // ponytail: 5-minute interval cuts idle checks by 80% while preserving timely push delivery
+  { cron: "*/5 * * * *" },
   async ({ step }) => {
     const result = await step.run("deliver-due-web-push", async () => {
       const now = new Date();
@@ -71,13 +72,21 @@ export const notificationPushDelivery = inngest.createFunction(
       let delivered = 0;
       let dropped = 0;
       let delayed = 0;
+      const droppedDeliveries: Array<{
+        notificationId: string;
+        userId: string;
+        channel: "web_push";
+        status: "dropped";
+        errorCode: string;
+        errorMessage: string | null;
+      }> = [];
 
       for (let index = 0; index < rows.length; index += DELIVERY_CONCURRENCY) {
         const chunk = rows.slice(index, index + DELIVERY_CONCURRENCY);
         const outcomes = await Promise.all(chunk.map(async (row) => {
           const preferences = normalizeNotificationPreferences(row.notificationPreferences);
           if (!preferences.delivery.push) {
-            await db.insert(notificationDeliveries).values({
+            droppedDeliveries.push({
               notificationId: row.notification.id,
               userId: row.notification.userId,
               channel: "web_push",
@@ -118,6 +127,10 @@ export const notificationPushDelivery = inngest.createFunction(
         delivered += outcomes.filter((outcome) => outcome === "delivered").length;
         dropped += outcomes.filter((outcome) => outcome === "dropped").length;
         delayed += outcomes.filter((outcome) => outcome === "delayed").length;
+      }
+
+      if (droppedDeliveries.length > 0) {
+        await db.insert(notificationDeliveries).values(droppedDeliveries);
       }
 
       return { scanned: rows.length, delivered, dropped, delayed };

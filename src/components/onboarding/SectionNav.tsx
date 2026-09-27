@@ -15,11 +15,12 @@ export interface SectionNavProps {
 }
 
 /**
- * Horizontal pill navigation for switching between sub-sections within a step.
- * Renders as a single row of pills — no sticky positioning, scrolls with content.
+ * Horizontal section navigation for switching within step two. It follows the
+ * application's underlined-tab treatment with automatic activation and native
+ * tab keyboard navigation. Each selected section exposes one labelled panel.
  *
  * Visual states:
- * - Active: primary/10 background, primary text, weight 500
+ * - Active: primary underline and foreground text
  * - Completed: 4px primary dot before label
  * - Inactive: transparent background, muted-foreground text
  */
@@ -29,30 +30,64 @@ export function SectionNav({
   completedSections,
   onSectionChange,
 }: SectionNavProps) {
+  const navId = 'onb-details'
+
+  const moveFocus = (currentIndex: number, direction: 1 | -1 | 'first' | 'last') => {
+    const nextIndex = direction === 'first'
+      ? 0
+      : direction === 'last'
+        ? sections.length - 1
+        : (currentIndex + direction + sections.length) % sections.length
+    const nextSection = sections[nextIndex]
+    if (!nextSection) return
+    onSectionChange(nextSection.id)
+    window.requestAnimationFrame(() => {
+      document.getElementById(`${navId}-${nextSection.id}`)?.focus()
+    })
+  }
+
   return (
-    <nav aria-label="Section navigation" className="flex flex-wrap gap-1.5">
-      {sections.map((section) => {
+    <div role="tablist" aria-label="Profile details sections" className="onb-tab-list -mx-1 flex overflow-x-auto px-1">
+      {sections.map((section, index) => {
         const isActive = section.id === activeSection
         const isCompleted = completedSections.has(section.id) && !isActive
 
         return (
           <button
             key={section.id}
+            id={`${navId}-${section.id}`}
             type="button"
             onClick={() => onSectionChange(section.id)}
-            aria-current={isActive ? "true" : undefined}
+            role="tab"
+            aria-selected={isActive}
+            aria-controls={`${navId}-${section.id}-panel`}
+            tabIndex={isActive ? 0 : -1}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                event.preventDefault()
+                moveFocus(index, 1)
+              } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                event.preventDefault()
+                moveFocus(index, -1)
+              } else if (event.key === 'Home') {
+                event.preventDefault()
+                moveFocus(index, 'first')
+              } else if (event.key === 'End') {
+                event.preventDefault()
+                moveFocus(index, 'last')
+              }
+            }}
+            data-active={isActive}
             className={cn(
-              "inline-flex items-center rounded-[var(--radius-lg)] px-3.5 py-2 text-sm transition-colors",
-              "min-h-[44px] sm:min-h-0",
-              "focus-visible:outline-none   ",
-              isActive && "bg-primary/10 font-medium text-primary",
-              isCompleted && "bg-transparent text-muted-foreground",
-              !isActive && !isCompleted && "bg-transparent text-muted-foreground"
+              "onb-tab onb-focusable inline-flex shrink-0 items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium transition-[border-color,color] duration-[130ms]",
+              "min-h-[44px] sm:min-h-[34px]",
+              isActive && "font-medium",
+              !isActive && "hover:text-foreground"
             )}
           >
             {isCompleted && (
               <span
-                className="mr-1.5 inline-block h-1 w-1 rounded-full bg-primary"
+                className="inline-block h-1 w-1 rounded-full bg-primary"
                 aria-hidden="true"
               />
             )}
@@ -60,6 +95,6 @@ export function SectionNav({
           </button>
         )
       })}
-    </nav>
+    </div>
   )
 }

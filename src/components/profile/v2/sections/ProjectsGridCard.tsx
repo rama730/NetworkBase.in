@@ -1,120 +1,102 @@
-'use client'
+"use client";
 
-import { FolderKanban } from 'lucide-react'
-import Image from 'next/image'
-import Link from 'next/link'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { initialsForName, normalizeProjectDescription, normalizeProjectTitle } from '@/lib/profile/display'
+import { FolderKanban } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
+import ProjectCard from "@/components/projects/ProjectCard";
+import ProjectCardSkeleton from "@/components/projects/ProjectCardSkeleton";
+import { toProjectCardViewModel } from "@/lib/view-models/project-card";
+import type { ProfileCollaborationProject } from "@/lib/profile/collaboration";
+import type { Project } from "@/types/hub";
 
 interface ProjectsGridCardProps {
-    projects: any[]
-    title?: string
-    description?: string
-    isLoading?: boolean
-    onProjectIntent?: (href: string) => void
+    projects: ProfileCollaborationProject[];
+    title?: string;
+    description?: string;
+    isLoading?: boolean;
+    onProjectIntent?: (href: string) => void;
 }
 
-export function ProjectsGridCard({ projects, title = 'Projects', description, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{title}</h2>
-                    {description && <p className="text-sm text-zinc-500 dark:text-zinc-400">{description}</p>}
-                </div>
-            </div>
+function toDiscoveryProject(project: ProfileCollaborationProject): Project {
+    const status: Project["status"] = project.status === "draft"
+        || project.status === "completed"
+        || project.status === "archived"
+        ? project.status
+        : "active";
 
-            {isLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" aria-busy="true">
-                    {Array.from({ length: 6 }).map((_, idx) => (
-                        <div key={idx} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">
-                            <div className="aspect-video w-full bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
-                            <div className="p-5 space-y-3">
-                                <div className="h-4 w-2/3 rounded bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
-                                <div className="h-3 w-full rounded bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
-                                <div className="h-3 w-4/5 rounded bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : projects && projects.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {projects.map((project, idx) => {
-                        const projectHref = project.href || project.url
-                        return (
-                        <article
-                            key={idx}
-                            className="group flex flex-col rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden hover:shadow-lg transition-all duration-300"
+    return {
+        id: project.id,
+        ownerId: project.ownerId,
+        title: project.title,
+        description: project.description,
+        shortDescription: project.shortDescription,
+        slug: project.slug ?? undefined,
+        status,
+        category: project.category,
+        coverImage: project.coverImage,
+        tags: project.tags,
+        skills: project.skills,
+        visibility: project.visibility ?? undefined,
+        viewCount: project.viewCount ?? 0,
+        followersCount: project.followersCount ?? 0,
+        createdAt: project.createdAt ?? undefined,
+        updatedAt: project.updatedAt,
+        githubRepoUrl: project.githubRepoUrl ?? (project as any).github_repo_url ?? null,
+        externalLinks: project.externalLinks ?? (project as any).external_links ?? null,
+        openRolesCount: project.openRolesCount ?? (project as any).open_roles_count ?? 0,
+        collaborators: project.members.map(member => ({
+            userId: member.id,
+            membershipRole: "member",
+            user: {
+                id: member.id,
+                username: member.username,
+                fullName: member.displayName,
+                avatarUrl: member.avatarUrl,
+            },
+        })),
+        openRoles: [],
+    } as any;
+}
+
+export function ProjectsGridCard({ projects, title = "Projects", description, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
+    return <section className="space-y-4">
+        <div><h2 className="nb-section-title">{title}</h2>{description && <p className="nb-compact text-muted-foreground">{description}</p>}</div>
+        {isLoading ? (
+            <div
+                className="nb-portfolio-grid flex flex-col gap-4 w-full"
+                style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}
+                aria-busy="true"
+            >
+                {[1,2,3,4].map(key => <ProjectCardSkeleton key={key} />)}
+            </div>
+        ) : projects.length ? (
+            <div
+                className="nb-portfolio-grid flex flex-col gap-4 w-full"
+                style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}
+            >
+                {projects.map(project => {
+                    const cardProject = toDiscoveryProject(project);
+                    const href = project.href || project.url;
+                    return (
+                        <div
+                            key={project.id}
+                            className="w-full min-w-0"
+                            style={{ width: "100%", minWidth: 0 }}
+                            onMouseEnter={() => onProjectIntent?.(href)}
+                            onFocusCapture={() => onProjectIntent?.(href)}
                         >
-                            <div className="relative aspect-video w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-                                {project.image ? (
-                                    <Image
-                                        src={project.image}
-                                        alt={normalizeProjectTitle(project.title)}
-                                        fill
-                                        className="object-cover group-hover:scale-105 transition-transform duration-500"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-zinc-300 dark:text-zinc-700">
-                                        <FolderKanban className="w-12 h-12" />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex-1 p-5 flex flex-col">
-                                <h3 className="font-semibold text-lg text-zinc-900 dark:text-zinc-100 mb-2">
-                                    {normalizeProjectTitle(project.title)}
-                                </h3>
-                                <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 mb-4 flex-1">
-                                    {normalizeProjectDescription(project.shortDescription, project.description)}
-                                </p>
-                                <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-                                    <div className="flex -space-x-2">
-                                        {(project.members || []).slice(0, 3).map((member: any) => (
-                                            <Avatar
-                                                key={member.id}
-                                                className="h-6 w-6 border-2 border-white dark:border-zinc-900"
-                                                title={member.displayName || member.username || 'Collaborator'}
-                                            >
-                                                <AvatarImage src={member.avatarUrl || undefined} alt={member.displayName || member.username || 'Collaborator'} />
-                                                <AvatarFallback className="text-[10px] font-semibold">
-                                                    {initialsForName(member.displayName, member.username)}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        ))}
-                                    </div>
-                                    {projectHref ? (
-                                        <Link
-                                            href={projectHref}
-                                            onMouseEnter={() => onProjectIntent?.(projectHref)}
-                                            onFocus={() => onProjectIntent?.(projectHref)}
-                                            className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-                                        >
-                                            View Details
-                                        </Link>
-                                    ) : (
-                                        <span
-                                            role="link"
-                                            aria-disabled="true"
-                                            className="text-sm font-medium text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
-                                        >
-                                            View Details
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </article>
-                        )
-                    })}
-                </div>
-            ) : (
-                <div className="text-center py-12 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
-                    <FolderKanban className="w-12 h-12 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
-                    <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">No projects yet</h3>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                        Projects you create or contribute to will appear here.
-                    </p>
-                </div>
-            )}
-        </div>
-    )
+                            <ProjectCard
+                                project={cardProject}
+                                viewModel={toProjectCardViewModel(cardProject)}
+                                fromTab="portfolio"
+                                followersCount={cardProject.followersCount ?? 0}
+                                onOpenProject={() => onProjectIntent?.(href)}
+                            />
+                        </div>
+                    );
+                })}
+            </div>
+        ) : (
+            <EmptyState icon={FolderKanban} title="No projects yet" description="Projects you create or contribute to will appear here." />
+        )}
+    </section>;
 }

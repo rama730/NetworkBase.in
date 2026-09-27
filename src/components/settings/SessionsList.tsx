@@ -110,7 +110,7 @@ export function SessionsList({
       </div>
 
       {sessions.length === 0 ? (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">No active sessions found.</p>
+        <p className="nb-compact text-muted-foreground">No active sessions found.</p>
       ) : (
         <div className="space-y-2">
           {sessions.map((session) => {
@@ -122,12 +122,12 @@ export function SessionsList({
               title={`${browser} on ${os}`}
               badges={<>
                 {session.is_current ? (
-                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        <span className="inline-flex rounded-full border border-border bg-muted px-2 py-0.5 nb-meta font-medium text-foreground">
                           This device
                         </span>
                       ) : null}
                       {session.aal === "aal2" ? (
-                        <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                        <span className="inline-flex rounded-full border border-border bg-muted px-2 py-0.5 nb-meta font-medium text-foreground">
                           MFA verified
                         </span>
                       ) : null}
@@ -151,7 +151,7 @@ export function SessionsList({
                     disabled={busy}
                     onClick={() => setPendingAction({ type: "current", id: session.id })}
                   >
-                    <LogOut className="h-4 w-4 text-red-500" />
+                    <LogOut className="h-4 w-4 text-destructive" strokeWidth={1.75} />
                   </Button>
                 ) : null}
             />;

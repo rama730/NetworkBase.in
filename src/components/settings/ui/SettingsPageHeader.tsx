@@ -6,19 +6,23 @@ export function SettingsPageHeader({
     title,
     description,
     action,
+    level = 1,
 }: {
     title: string;
     description?: string;
     action?: React.ReactNode;
+    level?: 1 | 2;
 }) {
+    const Heading = level === 1 ? "h1" : "h2";
+
     return (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-                <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+                <Heading className={level === 1 ? "nb-page-title text-foreground" : "text-xl font-semibold text-foreground"}>
                     {title}
-                </h1>
+                </Heading>
                 {description ? (
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                    <p className="nb-compact mt-1 text-muted-foreground">
                         {description}
                     </p>
                 ) : null}

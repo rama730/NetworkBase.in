@@ -15,7 +15,7 @@ export default function LoginHistory({ initialHistory = [] }: LoginHistoryProps)
 
     if (history.length === 0) {
         return (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">No recent sign-in activity is available yet.</p>
+            <p className="nb-compact text-muted-foreground">No recent sign-in activity is available yet.</p>
         );
     }
 
@@ -29,7 +29,7 @@ export default function LoginHistory({ initialHistory = [] }: LoginHistoryProps)
                     icon={Icon}
                     title={`${browser} on ${os}`}
                     badges={entry.aal === "aal2" ? (
-                                        <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                        <span className="inline-flex rounded-full border border-border bg-muted px-2 py-0.5 nb-meta font-medium text-foreground">
                                             Protected by authenticator app
                                         </span>
                                     ) : null}

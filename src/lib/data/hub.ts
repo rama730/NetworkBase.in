@@ -734,7 +734,7 @@ const hydrateProjects = async (
     const projectIds = rawProjects.map((project) => project.id);
     const ownerIds = Array.from(new Set(rawProjects.map((project) => project.ownerId)));
 
-    const [owners, roles, members, follows, connectedMembers] = await Promise.all([
+    const [owners, roles, members, follows, connectedMembers, ownerRelationshipMap] = await Promise.all([
         db.select({
                 id: profiles.id,
                 username: profiles.username,
@@ -744,9 +744,19 @@ const hydrateProjects = async (
             .from(profiles)
             .where(inArray(profiles.id, ownerIds)),
         db
-            .select()
+            .select({
+                id: projectOpenRoles.id,
+                projectId: projectOpenRoles.projectId,
+                role: projectOpenRoles.role,
+                title: projectOpenRoles.title,
+                description: projectOpenRoles.description,
+                skills: projectOpenRoles.skills,
+                count: projectOpenRoles.count,
+                filled: projectOpenRoles.filled,
+            })
             .from(projectOpenRoles)
             .where(inArray(projectOpenRoles.projectId, projectIds))
+            .limit(200)
             .catch((error) => {
                 const message = error instanceof Error ? error.message : String(error);
                 if (message.toLowerCase().includes('project_open_roles') && message.toLowerCase().includes('does not exist')) {
@@ -849,10 +859,10 @@ const hydrateProjects = async (
                 return db.select().from(rankedConnectedMembers).where(lte(rankedConnectedMembers.connectionRank, 3));
             })()
             : Promise.resolve([]),
+        resolvePrivacyRelationships(viewerId, ownerIds),
     ]);
 
     const ownerMap = new Map(owners.map((owner) => [owner.id, owner]));
-    const ownerRelationshipMap = await resolvePrivacyRelationships(viewerId, ownerIds);
     const followCountMap = new Map(
         (follows as Array<{ projectId: string; count: number | string | null }>).map((follow) => [
             follow.projectId,
@@ -890,7 +900,10 @@ const hydrateProjects = async (
     });
 
 
-    type OpenRoleRow = typeof projectOpenRoles.$inferSelect;
+    type OpenRoleRow = Pick<
+        typeof projectOpenRoles.$inferSelect,
+        'id' | 'projectId' | 'role' | 'title' | 'description' | 'skills' | 'count' | 'filled'
+    >;
     const rolesMap = new Map<string, OpenRoleRow[]>();
     (roles as OpenRoleRow[]).forEach((role) => {
         if (!rolesMap.has(role.projectId)) rolesMap.set(role.projectId, []);
@@ -1199,7 +1212,7 @@ export const getHubProjects = cache(async (
             ownerId: projects.ownerId,
             title: projects.title,
             slug: projects.slug,
-            description: projects.description,
+            description: sql<string | null>`null`,
             shortDescription: projects.shortDescription,
             coverImage: sql<string | null>`null`,
             category: sql<string | null>`null`,
@@ -1270,7 +1283,7 @@ export const getHubProjects = cache(async (
             ownerId: projects.ownerId,
             title: projects.title,
             slug: sql<string | null>`null`,
-            description: projects.description,
+            description: sql<string | null>`null`,
             shortDescription: sql<string | null>`null`,
             coverImage: sql<string | null>`null`,
             category: sql<string | null>`null`,

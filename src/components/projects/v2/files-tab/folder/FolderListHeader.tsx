@@ -19,7 +19,14 @@ import { FOLDER_LIST_GRID_TEMPLATE } from "./layout";
 
 export interface FolderListHeaderProps {
   className?: string;
-  sort?: "name" | "updated" | "type";
+  sort?: "name" | "updated" | "size" | "type";
+  sortDirection?: "asc" | "desc";
+  onSort?: (column: "name" | "updated" | "size") => void;
+  updatedLabel?: string;
+  byLabel?: string;
+  hasCheckbox?: boolean;
+  allSelected?: boolean;
+  onToggleSelectAll?: () => void;
 }
 
 /**
@@ -29,33 +36,90 @@ export interface FolderListHeaderProps {
 export function FolderListHeader({
   className,
   sort,
+  sortDirection,
+  onSort,
+  updatedLabel = "Last updated",
+  byLabel = "Updated by",
+  hasCheckbox = false,
+  allSelected = false,
+  onToggleSelectAll,
 }: FolderListHeaderProps): React.JSX.Element {
+  const getSortArrow = (column: "name" | "updated" | "size") => {
+    if (sort !== column) return null;
+    if (column === "name") {
+      return <span aria-hidden="true">{sortDirection === "desc" ? "↓" : "↑"}</span>;
+    }
+    return <span aria-hidden="true">{sortDirection === "asc" ? "↑" : "↓"}</span>;
+  };
+
   return (
     <div
       role="row"
       data-testid="files-tab-folder-list-header"
       style={{ gridTemplateColumns: FOLDER_LIST_GRID_TEMPLATE }}
       className={cn(
-        "sticky top-0 z-10 grid items-center gap-x-3 border-b border-zinc-200 bg-zinc-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-600",
-        "dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400",
+        "sticky top-0 z-10 grid items-center gap-x-3 border-b border-[#DBD5C8] bg-[#F3F0EA] px-4 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-[#4C5A61]",
+        "dark:border-border dark:bg-card dark:text-muted-foreground",
         className,
       )}
     >
-      <div role="columnheader" data-column="name" aria-sort={sort === "name" ? "ascending" : sort === "type" ? "other" : undefined} className="min-w-0">
-        Name {sort === "name" ? <span aria-hidden="true">↑</span> : sort === "type" ? <span className="normal-case">(by type)</span> : null}
+      <div role="columnheader" data-column="name" aria-sort={sort === "name" ? (sortDirection === "desc" ? "descending" : "ascending") : sort === "type" ? "other" : undefined} className="min-w-0">
+        <div className="flex items-center gap-2">
+          {hasCheckbox && (
+            <input
+              type="checkbox"
+              aria-label="Select all items"
+              checked={allSelected}
+              onChange={onToggleSelectAll}
+              className="size-3.5 rounded-[3px] border-[#DBD5C8] text-[#D14E24] focus:ring-[#D14E24] cursor-pointer"
+            />
+          )}
+          {onSort ? (
+            <button
+              type="button"
+              onClick={() => onSort("name")}
+              className="inline-flex items-center gap-1 uppercase tracking-[0.09em] hover:text-foreground focus:outline-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D14E24]"
+            >
+              Name {getSortArrow("name")}
+            </button>
+          ) : (
+            <>Name {sort === "name" ? <span aria-hidden="true">↑</span> : sort === "type" ? <span className="normal-case">(by type)</span> : null}</>
+          )}
+        </div>
       </div>
-      <div role="columnheader" data-column="updated" aria-sort={sort === "updated" ? "descending" : undefined} className="min-w-0">
-        Last updated {sort === "updated" && <span aria-hidden="true">↓</span>}
+      <div role="columnheader" data-column="updated" aria-sort={sort === "updated" ? (sortDirection === "asc" ? "ascending" : "descending") : undefined} className="min-w-0">
+        {onSort ? (
+          <button
+            type="button"
+            onClick={() => onSort("updated")}
+            className="inline-flex items-center gap-1 uppercase tracking-[0.09em] hover:text-foreground focus:outline-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D14E24]"
+          >
+            {updatedLabel} {getSortArrow("updated")}
+          </button>
+        ) : (
+          <>{updatedLabel} {sort === "updated" && <span aria-hidden="true">↓</span>}</>
+        )}
       </div>
       <div
         role="columnheader"
         data-column="size"
+        aria-sort={sort === "size" ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
         className="min-w-0 text-right"
       >
-        Size
+        {onSort ? (
+          <button
+            type="button"
+            onClick={() => onSort("size")}
+            className="inline-flex items-center gap-1 uppercase tracking-[0.09em] hover:text-foreground focus:outline-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D14E24]"
+          >
+            Size {getSortArrow("size")}
+          </button>
+        ) : (
+          "Size"
+        )}
       </div>
-      <div role="columnheader" data-column="by" className="min-w-0">
-        Updated by
+      <div role="columnheader" data-column="by" className="min-w-0 uppercase tracking-[0.09em]">
+        {byLabel}
       </div>
       <div role="columnheader" data-column="actions"><span className="sr-only">Actions</span></div>
     </div>

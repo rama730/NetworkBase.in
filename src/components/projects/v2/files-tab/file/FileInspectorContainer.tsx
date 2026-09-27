@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 /** A single inspector: inline on desktop, focus-contained drawer on small screens. */
@@ -14,17 +14,27 @@ export function FileInspectorContainer({
   children: React.ReactNode;
   testId?: string;
 }) {
-  const [compact, setCompact] = useState(false);
+  const [compact, setCompact] = useState(true);
+  const anchorRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 1023px)");
-    const sync = () => setCompact(media.matches);
+    const container = anchorRef.current?.parentElement;
+    if (!container) return;
+    // Reserve 520px of usable canvas beside the 320px inspector, even when
+    // the user widens the independently resizable file tree.
+    const sync = () => setCompact(window.innerWidth < 1024 || container.clientWidth < 840);
     sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
+    const observer = new ResizeObserver(sync);
+    observer.observe(container);
+    window.addEventListener("resize", sync);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", sync);
+    };
   }, []);
+  const anchor = <span ref={anchorRef} hidden aria-hidden="true" />;
   if (compact)
     return (
-      <Dialog
+      <>{anchor}<Dialog
         open
         onOpenChange={(open) => {
           if (!open) onClose();
@@ -39,15 +49,15 @@ export function FileInspectorContainer({
           <DialogTitle className="sr-only">{title}</DialogTitle>
           {children}
         </DialogContent>
-      </Dialog>
+      </Dialog></>
     );
   return (
-    <aside
+    <>{anchor}<aside
       aria-label={title}
       data-testid={testId}
-      className="flex w-80 shrink-0 flex-col overflow-hidden border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+      className="flex w-80 shrink-0 flex-col overflow-hidden border-l border-[#DBD5C8] bg-white dark:border-border dark:bg-card"
     >
       {children}
-    </aside>
+    </aside></>
   );
 }

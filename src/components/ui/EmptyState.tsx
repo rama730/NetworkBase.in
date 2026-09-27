@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 interface EmptyStateProps {
     icon: LucideIcon;
     title: string;
-    description?: string;
+    description?: React.ReactNode;
     action?: React.ReactNode;
     className?: string;
     compact?: boolean;
@@ -21,25 +21,26 @@ export function EmptyState({
 }: EmptyStateProps) {
     return (
         <div
+            role="status"
             className={cn(
-                "text-center bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl rounded-2xl border border-zinc-200/60 dark:border-white/5",
-                compact ? "py-8 px-4" : "py-16 px-6",
+                "nb-empty-state nb-grid-ground",
+                compact ? "py-8" : "py-12",
                 className,
             )}
         >
             <Icon
                 className={cn(
-                    "text-zinc-300 dark:text-zinc-600 mx-auto mb-4",
-                    compact ? "w-10 h-10" : "w-14 h-14",
+                    "text-muted-foreground mx-auto mb-4",
+                    "w-6 h-6",
                 )}
             />
-            <p className="text-zinc-600 dark:text-zinc-400 text-lg font-medium">
+            <p className="nb-card-title text-foreground">
                 {title}
             </p>
             {description && (
-                <p className="text-zinc-400 dark:text-zinc-500 text-sm mt-1">
+                <div className="nb-compact mt-1 text-muted-foreground">
                     {description}
-                </p>
+                </div>
             )}
             {action && <div className="mt-3">{action}</div>}
         </div>

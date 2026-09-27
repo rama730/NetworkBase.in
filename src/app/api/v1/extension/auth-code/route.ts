@@ -24,7 +24,7 @@ const exchangeSchema = z.object({
   state: z.string().max(256).optional().nullable(),
 });
 
-function readMetadata(event: typeof extensionDeviceSessionEvents.$inferSelect) {
+function readMetadata(event: { metadata: unknown }) {
   return event.metadata && typeof event.metadata === "object"
     ? event.metadata as Record<string, unknown>
     : {};
@@ -52,7 +52,11 @@ export async function POST(request: Request) {
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${verified.codeHash}))`);
 
       const [activeSession] = await tx
-        .select()
+        .select({
+          id: extensionDeviceSessions.id,
+          tokenPrefix: extensionDeviceSessions.tokenPrefix,
+          expiresAt: extensionDeviceSessions.expiresAt,
+        })
         .from(extensionDeviceSessions)
         .where(
           and(
@@ -70,7 +74,10 @@ export async function POST(request: Request) {
       }
 
       const events = await tx
-        .select()
+        .select({
+          eventType: extensionDeviceSessionEvents.eventType,
+          metadata: extensionDeviceSessionEvents.metadata,
+        })
         .from(extensionDeviceSessionEvents)
         .where(
             and(

@@ -17,7 +17,7 @@ export type ProjectSettingsSectionId =
   | "readme"
   | "updates"
   | "notifications"
-  | "security-audit"
+  | "privacy-policies"
   | "privacy-terms"
   | "danger";
 
@@ -47,7 +47,6 @@ export type ProjectPublicTabId =
   | "updates"
   | "sprints"
   | "tasks"
-  | "analytics"
   | "files";
 
 export type ProjectPublicTabVisibility = Record<ProjectPublicTabId, boolean>;
@@ -193,7 +192,6 @@ export const DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY: ProjectPublicTabVisibility =
     files: true,
     sprints: false,
     tasks: false,
-    analytics: false,
   };
 
 export const PROJECT_PUBLIC_TAB_LABELS: Record<ProjectPublicTabId, string> = {
@@ -203,7 +201,6 @@ export const PROJECT_PUBLIC_TAB_LABELS: Record<ProjectPublicTabId, string> = {
   files: "Files",
   sprints: "Sprints",
   tasks: "Tasks",
-  analytics: "Analytics",
 };
 
 export const PROJECT_PUBLIC_TAB_DESCRIPTIONS: Record<
@@ -222,8 +219,6 @@ export const PROJECT_PUBLIC_TAB_DESCRIPTIONS: Record<
     "Sprint history and planning details, usually best kept member-only.",
   tasks:
     "Task board and work execution details, usually best kept member-only.",
-  analytics:
-    "Project analytics and operational metrics, usually best kept member-only.",
 };
 
 export function normalizeProjectMemberRole(
@@ -327,10 +322,6 @@ export function normalizeProjectPublicTabVisibility(
       typeof source.tasks === "boolean"
         ? source.tasks
         : DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY.tasks,
-    analytics:
-      typeof source.analytics === "boolean"
-        ? source.analytics
-        : DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY.analytics,
   };
 }
 
@@ -352,8 +343,8 @@ export function isProjectTabVisibleToViewer(input: {
   publicTabVisibility?: unknown;
 }) {
   if (input.tabId === "settings") return Boolean(input.canManageSettings);
-  if (input.isOwnerOrMember) return true;
   if (!(input.tabId in DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY)) return false;
+  if (input.isOwnerOrMember) return true;
   return normalizeProjectPublicTabVisibility(input.publicTabVisibility)[
     input.tabId as ProjectPublicTabId
   ];
@@ -515,6 +506,7 @@ function formatCount(
 }
 
 export const PROJECT_SETTINGS_SECTIONS: ProjectSettingsSectionDefinition[] = [
+  // Group 1: Project Profile
   {
     id: "general",
     label: "General",
@@ -523,48 +515,51 @@ export const PROJECT_SETTINGS_SECTIONS: ProjectSettingsSectionDefinition[] = [
   },
   {
     id: "links",
-    label: "Project Links",
+    label: "Links",
     description: "External project destinations shown beside the project title.",
   },
+  // Group 2: Access & Team
   {
     id: "access",
-    label: "Access",
+    label: "Access & Visibility",
     description:
       "Visibility, discovery, sharing, and follower-facing access behavior.",
   },
   {
     id: "collaborators",
-    label: "Collaborators",
+    label: "Team Members",
     description: "Member visibility, roles, and ownership readiness.",
   },
   {
     id: "roles-applications",
-    label: "Project Roles Editor",
+    label: "Roles & Applications",
     description: "Open roles, application intake, and reviewer routing.",
   },
-  {
-    id: "tasks-workflow",
-    label: "Project Lifecycle",
-    description: "Journey stages, task defaults, and workflow guidance.",
-  },
-  {
-    id: "files-workspace",
-    label: "Files & Workspace",
-    description:
-      "File intake, version behavior, reviews, and download guidance.",
-  },
+  // Group 3: Workspace Policies (aligned with top navigation: Docs -> Updates -> Tasks -> Files)
   {
     id: "readme",
-    label: "Doc",
+    label: "Documentation",
     description:
       "Documentation publishing rules, media policy, and smart blocks.",
   },
   {
     id: "updates",
-    label: "Updates",
+    label: "Updates & Discussions",
     description:
-      "Project update publishing, visibility, follower notifications, and discussion rules.",
+      "Project update publishing, visibility, follower alerts, and discussion rules.",
   },
+  {
+    id: "tasks-workflow",
+    label: "Lifecycle & Workflow",
+    description: "Journey stages, task defaults, and workflow guidance.",
+  },
+  {
+    id: "files-workspace",
+    label: "Files & Storage",
+    description:
+      "File intake, version behavior, reviews, and download guidance.",
+  },
+  // Group 4: System & Governance
   {
     id: "notifications",
     label: "Notifications",
@@ -572,16 +567,10 @@ export const PROJECT_SETTINGS_SECTIONS: ProjectSettingsSectionDefinition[] = [
       "Project event categories and member/follower attention rules.",
   },
   {
-    id: "security-audit",
-    label: "Security & Data",
+    id: "privacy-policies",
+    label: "Privacy and Policies",
     description:
-      "Recent settings audit, protected actions, and project data export.",
-  },
-  {
-    id: "privacy-terms",
-    label: "Privacy & Terms",
-    description:
-      "Project legal notice, visibility disclosures, member responsibilities, and applicable terms.",
+      "Legal terms, policies, and account data rights.",
   },
   {
     id: "danger",

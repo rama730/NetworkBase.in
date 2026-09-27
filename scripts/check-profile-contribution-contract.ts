@@ -75,7 +75,7 @@ async function main() {
   requireContract("stage presentation has no second visibility authority", !readModel.includes("stage.visibility"));
   requireContract("project update role reads use parent visibility", !projectUpdates.includes('eq(profileProjectContributionStages.visibility, "public")') && projectUpdates.includes('eq(profileProjectContributions.visibility, "public")'));
   requireContract("role history is bounded", readModel.includes("LIMIT ${stageLimit}"));
-  requireContract("summary cache version is current", readModel.includes("const SUMMARY_VERSION = 5"));
+  requireContract("summary cache version is current", readModel.includes("const SUMMARY_VERSION = 6"));
   requireContract("read requests are deduplicated", readModel.includes("runInFlightDeduped"));
   requireContract("stale cache writes are generation guarded", readModel.includes("newer_invalidation") && readModel.includes("generationStartedAt"));
   requireContract("read metrics exist", readModel.includes("profile.collaboration.contributions"));

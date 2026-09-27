@@ -3,8 +3,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  Check,
   CheckCircle2,
   CheckSquare,
+  Copy,
   MessageCircle,
   Paperclip,
   Trash2,
@@ -20,6 +22,7 @@ import { formatTaskId } from "@/lib/project-key";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import {
+  normalizeTaskSurfacePerson,
   normalizeTaskSurfaceRecord,
   type TaskSurfaceRecord,
 } from "@/lib/projects/task-presentation";
@@ -34,6 +37,7 @@ import FilesTab from "./TaskDetailTabs/FilesTab";
 import SubtasksTab from "./TaskDetailTabs/SubtasksTab";
 import TaskPriorityBadge from "./badges/TaskPriorityBadge";
 import TaskStatusBadge from "./badges/TaskStatusBadge";
+import { OpenInIdeButton } from "@/components/projects/v2/files-tab/OpenInIdeButton";
 
 interface TaskDetailPanelProps {
   task: TaskSurfaceRecord | any;
@@ -47,6 +51,8 @@ interface TaskDetailPanelProps {
   projectId: string;
   projectSlug?: string;
   currentUserId?: string;
+  currentUserName?: string | null;
+  currentUserAvatarUrl?: string | null;
   initialTab?: TaskPanelTab | null;
   initialCommentId?: string | null;
   initialFileId?: string | null;
@@ -64,7 +70,9 @@ export default function TaskDetailPanel({
   projectId,
   projectSlug,
   currentUserId,
-  initialTab = null,
+  currentUserName = null,
+  currentUserAvatarUrl = null,
+  initialTab = "details",
   initialCommentId = null,
   initialFileId = null,
 }: TaskDetailPanelProps) {
@@ -72,16 +80,19 @@ export default function TaskDetailPanel({
   const [activeTab, setActiveTab] = useState<TaskPanelTab>(
     initialTab ?? "details",
   );
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showRealtimeIssue, setShowRealtimeIssue] = useState(false);
-  const readReceiptTaskIdRef = useRef<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [copiedTaskId, setCopiedTaskId] = useState(false);
 
   const normalizedTask = useMemo(
     () => normalizeTaskSurfaceRecord(task),
     [task],
   );
+
+  const readReceiptTaskIdRef = useRef<string | null>(null);
+
   const resource = useTaskPanelResource({
     task: normalizedTask,
     projectId,
@@ -92,6 +103,44 @@ export default function TaskDetailPanel({
     members,
     onTaskUpdated,
   });
+
+  const currentUser = useMemo(() => {
+    const found = members.find(
+      (m: any) =>
+        m?.id === currentUserId ||
+        m?.userId === currentUserId ||
+        m?.user_id === currentUserId ||
+        m?.user?.id === currentUserId,
+    );
+    const person = found ? normalizeTaskSurfacePerson(found?.user ?? found) : null;
+    const fullName =
+      person?.fullName ||
+      currentUserName ||
+      (found as any)?.displayName ||
+      (found as any)?.fullName ||
+      (found as any)?.name ||
+      "You";
+    const avatarUrl =
+      person?.avatarUrl ||
+      currentUserAvatarUrl ||
+      (found as any)?.avatarUrl ||
+      (found as any)?.profile?.avatarUrl ||
+      (found as any)?.user?.avatarUrl ||
+      null;
+    const username =
+      (found as any)?.username ||
+      (found as any)?.user?.username ||
+      null;
+
+    return {
+      id: currentUserId || person?.id,
+      fullName,
+      username,
+      avatarUrl,
+    };
+  }, [members, currentUserId, currentUserName, currentUserAvatarUrl]);
+
+  const currentMember = currentUser;
 
   useEffect(() => {
     setActiveTab(initialTab ?? "details");
@@ -194,41 +243,75 @@ export default function TaskDetailPanel({
     <>
       <Dialog open onOpenChange={(open) => !open && onClose()}>
         <DialogContent
+          presentation="right-drawer"
           data-testid="task-detail-panel"
           showCloseButton={false}
-          overlayClassName="z-[200] bg-zinc-900/40 backdrop-blur-md dark:bg-black/50"
-          className="bottom-0 left-auto right-0 top-0 z-[201] flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 border-l border-zinc-200 bg-white p-0 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:w-[40vw] sm:max-w-[40vw]"
+          overlayClassName="z-[200] bg-black/60 backdrop-blur-none"
+          className="bottom-0 left-auto right-0 top-0 z-[201] flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 border-l border-border bg-card p-0 shadow-2xl sm:w-[520px] sm:max-w-[520px]"
         >
           <DialogTitle className="sr-only">{resource.task.title}</DialogTitle>
-          <div className="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="flex-shrink-0 border-b border-border">
             {deleteError ? (
-              <div className="mx-6 mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200">
+              <div className="mx-6 mt-4 rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {deleteError}
               </div>
             ) : null}
 
             <div className="flex items-center justify-between px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-3">
-                  <p className="font-mono text-xs text-zinc-500">
-                    {resource.task.taskNumber && resource.task.projectKey
-                      ? formatTaskId(
-                          resource.task.projectKey,
-                          resource.task.taskNumber,
-                        )
-                      : "Task"}
-                  </p>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const taskIdFormatted =
+                        resource.task.taskNumber && resource.task.projectKey
+                          ? formatTaskId(
+                              resource.task.projectKey,
+                              resource.task.taskNumber,
+                            )
+                          : "Task";
+                      if (typeof navigator !== "undefined" && navigator.clipboard) {
+                        void navigator.clipboard.writeText(
+                          `${window.location.origin}${window.location.pathname}?tab=tasks&taskId=${resource.task.id}`,
+                        );
+                      }
+                      setCopiedTaskId(true);
+                      setTimeout(() => setCopiedTaskId(false), 2000);
+                    }}
+                    title="Click to copy task link"
+                    aria-label="Copy task link"
+                    className="group inline-flex items-center gap-1.5 rounded-[4px] px-1.5 py-0.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-muted-foreground transition hover:bg-muted hover:text-foreground shrink-0"
+                  >
+                    <span>
+                      {resource.task.taskNumber && resource.task.projectKey
+                        ? formatTaskId(
+                            resource.task.projectKey,
+                            resource.task.taskNumber,
+                          )
+                        : "Task"}
+                    </span>
+                    {copiedTaskId ? (
+                      <Check className="size-3 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+                    ) : (
+                      <Copy className="size-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </button>
                   <TaskStatusBadge status={resource.task.status} />
                   <TaskPriorityBadge priority={resource.task.priority} />
                   {showRealtimeIssue ? (
-                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-700 dark:border-amber-900/30 dark:bg-amber-900/20 dark:text-amber-200">
+                    <span className="rounded-[3px] border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[11px] font-medium text-amber-700 dark:text-amber-400">
                       Live updates reconnecting
                     </span>
                   ) : null}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
+                <OpenInIdeButton
+                  projectId={projectId}
+                  projectSlug={projectSlug}
+                  taskId={resource.task.id}
+                />
                 {isOwner ? (
                   <button
                     onClick={() => {
@@ -237,18 +320,18 @@ export default function TaskDetailPanel({
                     }}
                     disabled={isDeleting}
                     aria-label="Delete task"
-                    className="rounded-md p-2 text-rose-600 transition-colors hover:bg-rose-50 disabled:opacity-50 dark:text-rose-400 dark:hover:bg-rose-900/20"
+                    className="size-8 flex items-center justify-center rounded-[5px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
                     title="Delete task"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="size-4" />
                   </button>
                 ) : null}
                 <button
                   onClick={onClose}
                   aria-label="Close task details"
-                  className="rounded-md p-2 text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="size-8 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="size-4" />
                 </button>
               </div>
             </div>
@@ -289,21 +372,21 @@ export default function TaskDetailPanel({
                     );
                   }}
                   className={cn(
-                    "flex min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-2 px-1 pb-3 text-xs font-medium transition-colors xl:text-sm",
+                    "flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 pb-2.5 text-xs font-medium transition-colors",
                     activeTab === tab.id
-                      ? "border-primary text-primary"
-                      : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
+                      ? "border-primary text-foreground font-semibold"
+                      : "border-transparent text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  <tab.icon aria-hidden="true" className="h-4 w-4" />
+                  <tab.icon aria-hidden="true" className="size-3.5" />
                   <span className="min-w-0 truncate">{tab.label}</span>
                   {tab.count !== undefined && tab.count > 0 ? (
                     <span
                       className={cn(
-                        "rounded-full px-1.5 py-0.5 text-[10px]",
+                        "inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border px-1 font-mono text-[10px] font-semibold",
                         activeTab === tab.id
-                          ? "bg-primary/10 text-primary"
-                          : "bg-zinc-100 text-zinc-600",
+                          ? "border-primary/20 bg-primary/10 text-primary"
+                          : "border-border bg-muted/60 text-muted-foreground",
                       )}
                     >
                       {tab.count}
@@ -314,7 +397,7 @@ export default function TaskDetailPanel({
             </div>
           </div>
 
-          <div className="relative flex-1 overflow-y-auto bg-white dark:bg-zinc-900">
+          <div className="relative flex-1 overflow-y-auto bg-card">
             {resource.loadedTabs.details ? (
               <div
                 id="task-panel-details"
@@ -388,6 +471,8 @@ export default function TaskDetailPanel({
                   error={resource.errors.comments}
                   canEdit={canEdit}
                   currentUserId={currentUserId}
+                  currentUser={currentUser}
+                  members={members}
                   presenceStatus={resource.discussionPresenceStatus}
                   topLevelTypingUsers={resource.commentTyping.topLevel}
                   replyTypingUsersByParentId={
@@ -466,7 +551,7 @@ export default function TaskDetailPanel({
         description="Are you sure you want to delete this task? This action cannot be undone."
         confirmLabel="Delete"
         variant="destructive"
-        overlayClassName="z-[300] bg-zinc-950/60"
+        overlayClassName="z-[300] bg-black/60"
         contentClassName="z-[301]"
         onConfirm={confirmDeleteTask}
       />

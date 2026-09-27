@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const bubbleVariants = cva(
-  "relative flex flex-col gap-1 shadow-sm transition-shadow duration-200",
+  "relative flex flex-col gap-1 shadow-none transition-shadow duration-[180ms]",
   {
     variants: {
       variant: {
@@ -24,8 +24,8 @@ const bubbleVariants = cva(
           "bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20",
       },
       align: {
-        start: "rounded-2xl rounded-bl-sm",
-        end: "rounded-2xl rounded-br-sm",
+        start: "rounded-lg rounded-bl-sm",
+        end: "rounded-lg rounded-br-sm",
       }
     },
     defaultVariants: {
@@ -105,7 +105,7 @@ const BubbleContent = React.forwardRef<HTMLDivElement, BubbleContentProps>(
 BubbleContent.displayName = "BubbleContent"
 
 const bubbleReactionsVariants = cva(
-  "absolute z-10 flex items-center gap-0.5 rounded-full border border-zinc-200/80 bg-background/95 p-1 shadow-md backdrop-blur-sm select-none dark:border-zinc-700/80 dark:bg-zinc-900/95",
+  "absolute z-10 flex items-center gap-0.5 rounded-full border border-zinc-200/80 bg-background/95 p-1 shadow-md backdrop-blur-none select-none dark:border-zinc-700/80 dark:bg-zinc-900/95",
   {
     variants: {
       side: {

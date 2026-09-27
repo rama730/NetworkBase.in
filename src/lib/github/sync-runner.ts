@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   projects,
@@ -178,39 +178,39 @@ async function remoteAuthors(
     `${repoApi(manifest.repository)}/commits?sha=${manifest.headSha}&path=${encodeURIComponent(file.path)}&per_page=100`,
   );
   const result: SyncContributor[] = [];
-  for (const commit of commits) {
+  // ponytail: batch inArray query resolves up to 100 contributor identities in 1 SQL round-trip. ceiling: 100 authors per file history. upgrade: chunked inArray if git history pagination exceeds 100.
+  const authorIds = Array.from(
+    new Set(
+      (commits ?? [])
+        .map((c) => c.author?.id)
+        .filter((id): id is number => typeof id === "number"),
+    ),
+  );
+  const authorRows =
+    authorIds.length > 0
+      ? await db.query.githubContributorIdentities.findMany({
+          where: inArray(githubContributorIdentities.githubId, authorIds),
+        })
+      : [];
+  const authorMap = new Map(authorRows.map((r) => [r.githubId, r]));
+
+  for (const commit of commits ?? []) {
     if (commit.sha === file.baseCommit) break;
     if (delta && !delta.has(commit.sha)) continue;
     const author = commit.author;
+    const authorName = commit.commit?.author?.name || author?.login || "Unknown";
     if (
       result.some((item) =>
         author
           ? item.githubId === author.id
-          : item.name === commit.commit.author.name,
+          : item.name === authorName,
       )
     )
       continue;
-    let linked = null;
-    if (author) {
-      if (identityCache) {
-        if (!identityCache.has(author.id)) {
-          identityCache.set(
-            author.id,
-            db.query.githubContributorIdentities.findFirst({
-              where: eq(githubContributorIdentities.githubId, author.id),
-            }),
-          );
-        }
-        linked = await identityCache.get(author.id);
-      } else {
-        linked = await db.query.githubContributorIdentities.findFirst({
-          where: eq(githubContributorIdentities.githubId, author.id),
-        });
-      }
-    }
+    const linked = author ? authorMap.get(author.id) ?? null : null;
     result.push({
       userId: linked?.userId || null,
-      name: commit.commit.author.name,
+      name: authorName,
       username: null,
       avatarUrl: author?.avatar_url || null,
       githubLogin: author?.login || null,
@@ -448,7 +448,7 @@ export async function runReviewedGitHubSync(
               ).slice(0, 200),
               head: result.branch,
               base: manifest.branch,
-              body: `Reviewed publication from NetworkBase.\n\nOperation: ${runId}\n\n${manifest.files.length} selected file(s).`,
+              body: `Reviewed publication from NetworkBase.\n\nOperation: ${runId}\n\n${manifest.files.length} selected file(s).${manifest.message?.trim() ? `\n\n${manifest.message.trim()}` : ""}`,
             },
           ));
         result = {
@@ -495,7 +495,7 @@ export async function runReviewedGitHubSync(
       for (const file of manifest.files) {
         if (result.applied?.includes(file.path)) continue;
         const now = Date.now();
-        // ponytail: throttle stage updates to at most once per 2 seconds to avoid saturating Postgres with per-file UPDATE queries
+        // ponytail: 2s throttle on stage update ceiling avoids saturating Postgres with per-file updates. ceiling: 2s throttle. upgrade: Redis pub/sub if realtime per-file progress is required.
         if (now - lastStageUpdate > 2000) {
           lastStageUpdate = now;
           await update({ stage: `Applying ${file.path}` });

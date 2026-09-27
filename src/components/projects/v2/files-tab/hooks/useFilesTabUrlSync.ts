@@ -191,7 +191,7 @@ export function shouldPreserveTaskFileDeepLink(
     | { type: "folder" | "root"; id?: string }
     | null,
 ): boolean {
-  // ponytail: taskId is absent on some legacy working files; their hidden path is the shared stable marker.
+  // ponytail: hidden path identifies legacy working files when taskId is absent. ceiling: single-project working files. upgrade: schema backfill if legacy files require explicit taskId indexing.
   if (
     location?.type !== "file" ||
     (!location.node.taskId &&

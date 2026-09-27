@@ -8,16 +8,18 @@ interface EmptyConversationProps {
 
 export function EmptyConversation({ partnerName }: EmptyConversationProps) {
     return (
-        <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary/8 ring-1 ring-primary/15">
-                <MessageSquare className="h-9 w-9 text-primary/60" />
+        <div className="flex flex-1 items-center justify-center p-6">
+            <div className="nb-empty-state nb-grid-ground w-full max-w-sm py-10 text-center">
+                <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-[8px] border border-border bg-card text-primary shadow-2xs">
+                    <MessageSquare className="size-5 text-primary" />
+                </div>
+                <h3 className="nb-card-title text-foreground">
+                    {partnerName ? `Say hi to ${partnerName}` : 'No messages yet'}
+                </h3>
+                <p className="nb-compact mx-auto mt-1 max-w-[260px] text-muted-foreground">
+                    Drop a quick hello below to start the conversation.
+                </p>
             </div>
-            <p className="text-base font-semibold text-foreground">
-                {partnerName ? `Say hi to ${partnerName}` : 'No messages yet'}
-            </p>
-            <p className="mt-1.5 max-w-[260px] text-xs text-muted-foreground">
-                Drop a quick hello below to start the conversation.
-            </p>
         </div>
     );
 }

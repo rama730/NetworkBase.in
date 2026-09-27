@@ -13,9 +13,10 @@ describe("workspace drawer contracts", () => {
     assert.match(requests, /RequestProfileRow/);
     assert.match(requests, /usePendingRequests\(20, isWorkspaceOpen && isActive, \{ includeSent: false \}\)/);
     assert.match(requests, /app\.isWorkflowItem/);
-    assert.match(requests, /queryKeys\.workspace\.joinRequests\(\)/);
+    assert.match(requests, /queryKeys\.workspace\.joinRequests\(20\)/);
     assert.match(requests, /getIncomingApplicationsAction\(\{ limit: 20 \}\)/);
-    assert.match(requests, /View all requests/);
+    assert.match(requests, /View all invitations/);
+    assert.match(drawer, /label: "Invitations"/);
     assert.match(drawer, /getWorkspaceSummaryAction/);
     assert.match(drawer, /queryKeys\.workspace\.summary\(\)/);
   });
@@ -75,6 +76,16 @@ describe("workspace drawer contracts", () => {
     assert.match(workspace, /scope: "my" \| "team" \| "all" = "all"/);
   });
 
+  it("builds a PostgreSQL UUID array when enriching workspace task counts", () => {
+    const workspace = read("src/app/actions/workspace.ts");
+
+    assert.match(workspace, /const taskIdArray = sql`ARRAY\[/);
+    assert.match(workspace, /taskIds\.map\(\(taskId\) => sql`\$\{taskId\}::uuid`\)/);
+    assert.match(workspace, /SELECT unnest\(\$\{taskIdArray\}\) AS id/);
+    assert.match(workspace, /WHERE task_id = ANY\(\$\{taskIdArray\}\)/);
+    assert.doesNotMatch(workspace, /\$\{taskIds\}::uuid\[\]/);
+  });
+
   it("keeps workspace refreshes scoped to task and request notifications", () => {
     const provider = read("src/components/providers/PeopleNotificationsProvider.tsx");
 
@@ -126,7 +137,7 @@ it("uses the shared drawer motion contract and concise workspace naming", () => 
   assert.match(drawer, /<DialogTitle[^>]*>\s*Workspace/);
   assert.match(host, /const \[hasMounted, setHasMounted\]/);
   assert.match(host, /return hasMounted \? <WorkspaceDrawer \/> : null/);
-  assert.match(indicator, />\s*Workspace\s*</);
+  assert.match(indicator, />\s*My work\s*</);
   assert.doesNotMatch(indicator, /PanelRightOpen/);
 });
 
@@ -138,17 +149,19 @@ it("keeps actionable workspace state visible without task-tab scaffolding", () =
   assert.match(indicator, /getWorkspaceSummaryAction/);
   assert.match(indicator, /usePeopleNotifications/);
   assert.match(indicator, /summary\.taskCount \+ summary\.requestCount \+ pendingConnections/);
-  assert.match(indicator, /text-rose-600/);
+  assert.match(indicator, /className="nb-nav-count"/);
+  assert.doesNotMatch(indicator, /(?:text|bg)-rose-/);
+  assert.match(indicator, /<ListChecks size=\{16\}/);
   assert.match(indicator, /actionCount/);
   assert.match(drawer, /usePeopleNotifications/);
   assert.match(drawer, /summary\.requestCount : 0\) \+ pendingConnections/);
-  assert.match(drawer, /needsAttention/);
-  assert.match(drawer, /text-rose-500/);
-  assert.match(drawer, /bg-rose-100/);
+  assert.doesNotMatch(drawer, /needsAttention/);
+  assert.match(drawer, /className="nb-tab-count"/);
+  assert.doesNotMatch(drawer, /(?:text|bg|border)-rose-/);
   assert.doesNotMatch(tasks, />Workspace Tasks</);
   assert.match(tasks, /groups\.map\(\(group, index\)/);
   assert.match(tasks, /API's urgency-aware task order/);
-  assert.match(tasks, /grid-cols-1 gap-2 min-\[600px\]:grid-cols-2/);
+  assert.match(tasks, /grid-cols-1 gap-2/);
   assert.match(tasks, /Load more tasks/);
   assert.match(drawer, /px-6 pb-6 pt-2/);
 });

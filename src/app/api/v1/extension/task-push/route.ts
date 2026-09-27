@@ -3,10 +3,10 @@ import { db } from "@/lib/db";
 import { taskPushes, tasks, projectNodes } from "@/lib/db/schema";
 import { eq, and, inArray, isNull } from "drizzle-orm";
 import { getProjectAccessById } from "@/lib/data/project-access";
-import { logger } from "@/lib/logger";
 import { checkIdempotencyKey, saveIdempotencyResult } from "@/lib/security/idempotency";
-import { recordNodeEvent } from "@/lib/files/internal-helpers";
+import { recordNodeEventsBatch } from "@/lib/files/internal-helpers";
 import { validateCsrf } from "@/lib/security/csrf";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   const csrfError = validateCsrf(request);
@@ -94,23 +94,19 @@ export async function POST(request: Request) {
           .where(and(inArray(projectNodes.id, nodeIds), eq(projectNodes.projectId, projectId)));
       }
 
-      if (nodeIds.length > 0) {
-        for (const nodeId of nodeIds) {
-          await recordNodeEvent(projectId, user.id, nodeId, "extension_task_push", {
-            taskId,
-            taskAction,
-            filesCount: pushedFiles.length,
-            nodeIds,
-          }, tx);
-        }
-      } else {
-        await recordNodeEvent(projectId, user.id, null, "extension_task_push", {
+      await recordNodeEventsBatch(
+        projectId,
+        user.id,
+        nodeIds.length > 0 ? nodeIds : [null],
+        "extension_task_push",
+        {
           taskId,
           taskAction,
           filesCount: pushedFiles.length,
           nodeIds,
-        }, tx);
-      }
+        },
+        tx
+      );
 
       return created;
     });

@@ -146,6 +146,11 @@ function findAncestorEditor(node: Node | null, editor: HTMLElement): boolean {
     return false;
 }
 
+export interface MentionComposerHandle {
+    focus: () => void;
+    triggerMention: () => void;
+}
+
 function detectMentionState(
     editor: HTMLElement,
 ): MentionDetectState | null {
@@ -178,71 +183,195 @@ function detectMentionState(
     const query = text.slice(idx + 1, startOffset);
     if (query.length > MENTION_DISPLAY_NAME_MAX_LENGTH) return null;
 
-    // Anchor the menu to the bounding rect of `@query` rather than to the
-    // caret itself. This keeps the menu stable as the user types.
+    // Anchor the menu to the bounding rect of `@query` relative to the editor container
     const anchor = document.createRange();
     anchor.setStart(textNode, idx);
     anchor.setEnd(textNode, startOffset);
-    const rect = anchor.getBoundingClientRect();
+    const clientRects = anchor.getClientRects();
+    const rangeRect = clientRects.length > 0 ? clientRects[0] : anchor.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+
+    const editorWidth = editorRect?.width || 380;
+    const maxLeft = Math.max(4, editorWidth - 300 - 8);
+    // When @ is at the start of a line or text (idx === 0), it anchors at the left padding (10px)
+    const rawLeft = idx === 0
+        ? 10
+        : (rangeRect && editorRect && rangeRect.left > 0)
+            ? Math.max(0, rangeRect.left - editorRect.left)
+            : 10;
+    const relLeft = Math.max(4, Math.min(rawLeft, maxLeft));
+
+    // Flip upwards if near bottom of viewport
+    const estimatedMenuHeight = 240;
+    const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 900;
+    const shouldFlipUp = Boolean(
+        rangeRect &&
+        editorRect &&
+        rangeRect.bottom + estimatedMenuHeight > viewportHeight - 16 &&
+        editorRect.top > estimatedMenuHeight
+    );
+
+    const relTop = (shouldFlipUp && rangeRect && editorRect)
+        ? Math.max(-estimatedMenuHeight, (rangeRect.top - editorRect.top) - estimatedMenuHeight - 4)
+        : (rangeRect && editorRect && rangeRect.bottom > 0)
+            ? Math.max(20, rangeRect.bottom - editorRect.top + 4)
+            : 28;
 
     return {
         query,
         textNode,
         atOffset: idx,
         cursorOffset: startOffset,
-        anchorRect: { top: rect.top, left: rect.left, height: rect.height || 18 },
+        anchorRect: { top: relTop, left: relLeft, height: rangeRect?.height || 20 },
     };
 }
 
-// Replaces the `@query` run in `state.textNode` with a mention chip and puts
-// the caret immediately after the trailing space that we insert.
-function insertMentionAtDetectedRange(
+// Inserts a mention chip into the editor, replacing the `@query` run.
+// Bulletproof: handles valid detected ranges, detached DOM fallback search,
+// focus recovery, and caret positioning.
+function insertMentionCandidate(
     editor: HTMLElement,
-    state: MentionDetectState,
     candidate: MentionCandidate,
+    state: MentionDetectState | null,
+    onDraftChange?: (raw: string) => void,
+    setIsEmpty?: (empty: boolean) => void,
 ) {
     const displayName =
         sanitizeMentionDisplayName(
             candidate.fullName || candidate.username || "user",
         ) || "user";
 
-    const original = state.textNode;
-    const fullText = original.textContent ?? "";
-    const before = fullText.slice(0, state.atOffset);
-    const after = fullText.slice(state.cursorOffset);
-
-    const parent = original.parentNode;
-    if (!parent) return;
-
-    const beforeNode = document.createTextNode(before);
     const chip = document.createElement("span");
     chip.dataset.mentionId = candidate.id;
     chip.dataset.mentionName = displayName;
     chip.setAttribute("contenteditable", "false");
     chip.className =
-        "inline-flex items-center rounded-md bg-indigo-100 px-1.5 py-px text-[13px] font-medium text-indigo-700 align-baseline dark:bg-indigo-900/40 dark:text-indigo-200";
-    chip.textContent = `@${displayName}`;
-    // A non-breaking space after the chip so the caret always has a text
-    // node to live in; users expect typing to continue seamlessly after a
-    // mention.
+        "inline-flex items-center gap-1 rounded-[3px] bg-primary/10 pl-1.5 pr-1 py-px text-[13px] font-medium text-primary align-baseline select-none";
+
+    const label = document.createElement("span");
+    label.textContent = `@${displayName}`;
+    chip.appendChild(label);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.setAttribute("aria-label", `Remove @${displayName}`);
+    removeBtn.className =
+        "inline-flex size-3.5 items-center justify-center rounded-[2px] text-primary/70 hover:bg-primary/20 hover:text-destructive transition-colors text-[11px] leading-none cursor-pointer";
+    removeBtn.innerHTML = "&times;";
+
+    removeBtn.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const next = chip.nextSibling;
+        if (next && next.nodeType === Node.TEXT_NODE && (next.textContent === "\u00A0" || next.textContent === " ")) {
+            next.parentNode?.removeChild(next);
+        }
+        chip.parentNode?.removeChild(chip);
+        editor.focus();
+        const raw = serializeEditor(editor);
+        setIsEmpty?.(raw.length === 0);
+        onDraftChange?.(raw);
+        editor.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    chip.appendChild(removeBtn);
+
     const spacer = document.createTextNode("\u00A0");
-    const afterNode = document.createTextNode(after);
 
-    parent.insertBefore(beforeNode, original);
-    parent.insertBefore(chip, original);
-    parent.insertBefore(spacer, original);
-    parent.insertBefore(afterNode, original);
-    parent.removeChild(original);
+    let afterNode: Node | null = null;
 
-    const newRange = document.createRange();
-    newRange.setStart(afterNode, 0);
-    newRange.collapse(true);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(newRange);
+    // Primary: use the detected state if its text node is still valid in this editor
+    if (
+        state?.textNode &&
+        state.textNode.parentNode &&
+        findAncestorEditor(state.textNode, editor)
+    ) {
+        const original = state.textNode;
+        const fullText = original.textContent ?? "";
+        const atOffset = Math.min(state.atOffset, fullText.length);
+        const cursorOffset = Math.min(Math.max(atOffset, state.cursorOffset), fullText.length);
 
-    // Fire one synthetic input so consumers that track the draft see the
-    // updated content.
+        const before = fullText.slice(0, atOffset);
+        const after = fullText.slice(cursorOffset);
+        const parent = original.parentNode;
+
+        if (parent) {
+            const beforeNode = document.createTextNode(before);
+            const trailingNode = document.createTextNode(after);
+
+            parent.insertBefore(beforeNode, original);
+            parent.insertBefore(chip, original);
+            parent.insertBefore(spacer, original);
+            parent.insertBefore(trailingNode, original);
+            parent.removeChild(original);
+
+            afterNode = trailingNode;
+        }
+    }
+
+    // Fallback: search editor text nodes for the trailing `@` or `@query` run
+    if (!afterNode) {
+        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+        let targetTextNode: Text | null = null;
+        let atIndex = -1;
+        let currentNode: Node | null = walker.nextNode();
+
+        while (currentNode) {
+            const text = currentNode.textContent ?? "";
+            const lastAt = text.lastIndexOf("@");
+            if (lastAt !== -1) {
+                targetTextNode = currentNode as Text;
+                atIndex = lastAt;
+            }
+            currentNode = walker.nextNode();
+        }
+
+        if (targetTextNode && targetTextNode.parentNode) {
+            const fullText = targetTextNode.textContent ?? "";
+            const before = fullText.slice(0, atIndex);
+            // Slice after query word (non-whitespace run after @)
+            const spaceIdx = fullText.indexOf(" ", atIndex);
+            const after = spaceIdx !== -1 ? fullText.slice(spaceIdx) : "";
+
+            const parent = targetTextNode.parentNode;
+            const beforeNode = document.createTextNode(before);
+            const trailingNode = document.createTextNode(after);
+
+            parent.insertBefore(beforeNode, targetTextNode);
+            parent.insertBefore(chip, targetTextNode);
+            parent.insertBefore(spacer, targetTextNode);
+            parent.insertBefore(trailingNode, targetTextNode);
+            parent.removeChild(targetTextNode);
+
+            afterNode = trailingNode;
+        } else {
+            // Last resort: append to end of editor
+            editor.appendChild(chip);
+            editor.appendChild(spacer);
+            const trailingNode = document.createTextNode("");
+            editor.appendChild(trailingNode);
+            afterNode = trailingNode;
+        }
+    }
+
+    // Ensure editor has active DOM focus
+    editor.focus();
+
+    // Position caret immediately after the spacer
+    if (afterNode) {
+        const newRange = document.createRange();
+        newRange.setStart(afterNode, 0);
+        newRange.collapse(true);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(newRange);
+    }
+
+    // Ensure draft state updates immediately in parents
+    const raw = serializeEditor(editor);
+    setIsEmpty?.(raw.length === 0);
+    onDraftChange?.(raw);
+
+    // Fire synthetic input event so draft serializers and parent observers sync
     editor.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
@@ -254,18 +383,22 @@ const MIN_QUERY_LENGTH = 0; // show the full roster on bare `@`
 const QUERY_DEBOUNCE_MS = 140;
 const MAX_RESULTS = 10;
 
-export function MentionComposer({
-    projectId,
-    placeholder,
-    disabled,
-    autoFocus,
-    resetKey,
-    onDraftChange,
-    onSubmit,
-    className,
-    editorClassName,
-    ...rest
-}: MentionComposerProps) {
+export const MentionComposer = React.forwardRef<MentionComposerHandle, MentionComposerProps>(
+    function MentionComposer(
+        {
+            projectId,
+            placeholder,
+            disabled,
+            autoFocus,
+            resetKey,
+            onDraftChange,
+            onSubmit,
+            className,
+            editorClassName,
+            ...rest
+        }: MentionComposerProps,
+        forwardedRef,
+    ) {
     const editorRef = React.useRef<HTMLDivElement | null>(null);
     const [isEmpty, setIsEmpty] = React.useState(true);
 
@@ -278,6 +411,13 @@ export function MentionComposer({
     const [activeIndex, setActiveIndex] = React.useState(0);
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
+    const blurTimeoutRef = React.useRef<number | null>(null);
+
+    React.useEffect(() => {
+        return () => {
+            if (blurTimeoutRef.current !== null) window.clearTimeout(blurTimeoutRef.current);
+        };
+    }, []);
 
     // Keep the ref in sync so event handlers reading the "live" menu state
     // never race with stale React state.
@@ -367,6 +507,8 @@ export function MentionComposer({
     // ---------------------------------------------------------------------
     // Input handling
     // ---------------------------------------------------------------------
+    const lastMentionStateRef = React.useRef<MentionDetectState | null>(null);
+
     const handleInput = React.useCallback(() => {
         const editor = editorRef.current;
         if (!editor) return;
@@ -377,23 +519,76 @@ export function MentionComposer({
 
         const detected = detectMentionState(editor);
         setMenuState(detected);
+        if (detected) {
+            lastMentionStateRef.current = detected;
+        }
     }, [onDraftChange]);
 
     const closeMenu = React.useCallback(() => {
+        if (blurTimeoutRef.current !== null) {
+            window.clearTimeout(blurTimeoutRef.current);
+            blurTimeoutRef.current = null;
+        }
         setMenuState(null);
+        lastMentionStateRef.current = null;
         setCandidates([]);
         setActiveIndex(0);
     }, []);
 
     const selectCandidate = React.useCallback(
         (candidate: MentionCandidate) => {
+            if (blurTimeoutRef.current !== null) {
+                window.clearTimeout(blurTimeoutRef.current);
+                blurTimeoutRef.current = null;
+            }
             const editor = editorRef.current;
-            const state = menuStateRef.current;
-            if (!editor || !state) return;
-            insertMentionAtDetectedRange(editor, state, candidate);
+            if (!editor) return;
+            const state = menuStateRef.current || lastMentionStateRef.current || detectMentionState(editor);
+            insertMentionCandidate(editor, candidate, state, onDraftChange, setIsEmpty);
             closeMenu();
         },
-        [closeMenu],
+        [closeMenu, onDraftChange],
+    );
+
+    React.useImperativeHandle(
+        forwardedRef,
+        () => ({
+            focus: () => {
+                editorRef.current?.focus();
+            },
+            triggerMention: () => {
+                if (blurTimeoutRef.current !== null) {
+                    window.clearTimeout(blurTimeoutRef.current);
+                    blurTimeoutRef.current = null;
+                }
+                const editor = editorRef.current;
+                if (!editor) return;
+                editor.focus();
+                const sel = window.getSelection();
+                let range: Range;
+                if (
+                    sel &&
+                    sel.rangeCount > 0 &&
+                    findAncestorEditor(sel.getRangeAt(0).startContainer, editor)
+                ) {
+                    range = sel.getRangeAt(0);
+                    range.deleteContents();
+                } else {
+                    range = document.createRange();
+                    range.selectNodeContents(editor);
+                    range.collapse(false);
+                }
+                const textNode = document.createTextNode("@");
+                range.insertNode(textNode);
+                const newRange = document.createRange();
+                newRange.setStart(textNode, 1);
+                newRange.collapse(true);
+                sel?.removeAllRanges();
+                sel?.addRange(newRange);
+                handleInput();
+            },
+        }),
+        [handleInput],
     );
 
     // ---------------------------------------------------------------------
@@ -433,6 +628,117 @@ export function MentionComposer({
                 const selected = candidates[activeIndex];
                 if (selected) selectCandidate(selected);
                 return;
+            }
+        }
+
+        // Backspace / Delete handling for mention chips
+        if (event.key === "Backspace" || event.key === "Delete") {
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                if (range.collapsed) {
+                    const { startContainer, startOffset } = range;
+                    let chipToDelete: HTMLElement | null = null;
+                    let spacerToDelete: Node | null = null;
+
+                    if (event.key === "Backspace") {
+                        if (startContainer.nodeType === Node.TEXT_NODE) {
+                            const textNode = startContainer as Text;
+                            if (
+                                startOffset === 0 ||
+                                (startOffset === 1 && (textNode.textContent === "\u00A0" || textNode.textContent === " "))
+                            ) {
+                                let prev = textNode.previousSibling;
+                                if (
+                                    prev &&
+                                    prev.nodeType === Node.TEXT_NODE &&
+                                    (prev.textContent === "\u00A0" || prev.textContent === " " || !prev.textContent)
+                                ) {
+                                    spacerToDelete = prev;
+                                    prev = prev.previousSibling;
+                                }
+                                if (
+                                    prev &&
+                                    prev.nodeType === Node.ELEMENT_NODE &&
+                                    (prev as HTMLElement).dataset?.mentionId
+                                ) {
+                                    chipToDelete = prev as HTMLElement;
+                                }
+                            }
+                        } else if (startContainer.nodeType === Node.ELEMENT_NODE) {
+                            const parent = startContainer as HTMLElement;
+                            if (startOffset > 0) {
+                                let prev = parent.childNodes[startOffset - 1];
+                                if (
+                                    prev &&
+                                    prev.nodeType === Node.TEXT_NODE &&
+                                    (prev.textContent === "\u00A0" || prev.textContent === " " || !prev.textContent)
+                                ) {
+                                    spacerToDelete = prev;
+                                    if (startOffset > 1) {
+                                        prev = parent.childNodes[startOffset - 2];
+                                    }
+                                }
+                                if (
+                                    prev &&
+                                    prev.nodeType === Node.ELEMENT_NODE &&
+                                    (prev as HTMLElement).dataset?.mentionId
+                                ) {
+                                    chipToDelete = prev as HTMLElement;
+                                }
+                            }
+                        }
+                    } else if (event.key === "Delete") {
+                        if (startContainer.nodeType === Node.TEXT_NODE) {
+                            const textNode = startContainer as Text;
+                            if (startOffset === (textNode.textContent?.length || 0)) {
+                                const next = textNode.nextSibling;
+                                if (
+                                    next &&
+                                    next.nodeType === Node.ELEMENT_NODE &&
+                                    (next as HTMLElement).dataset?.mentionId
+                                ) {
+                                    chipToDelete = next as HTMLElement;
+                                }
+                            }
+                        } else if (startContainer.nodeType === Node.ELEMENT_NODE) {
+                            const parent = startContainer as HTMLElement;
+                            const next = parent.childNodes[startOffset];
+                            if (
+                                next &&
+                                next.nodeType === Node.ELEMENT_NODE &&
+                                (next as HTMLElement).dataset?.mentionId
+                            ) {
+                                chipToDelete = next as HTMLElement;
+                            }
+                        }
+                    }
+
+                    if (chipToDelete) {
+                        event.preventDefault();
+                        if (spacerToDelete && spacerToDelete.parentNode) {
+                            spacerToDelete.parentNode.removeChild(spacerToDelete);
+                        }
+                        const next = chipToDelete.nextSibling;
+                        if (
+                            next &&
+                            next.nodeType === Node.TEXT_NODE &&
+                            (next.textContent === "\u00A0" || next.textContent === " ")
+                        ) {
+                            next.parentNode?.removeChild(next);
+                        }
+                        chipToDelete.parentNode?.removeChild(chipToDelete);
+
+                        const editor = editorRef.current;
+                        if (editor) {
+                            const raw = serializeEditor(editor);
+                            setIsEmpty(raw.length === 0);
+                            onDraftChange?.(raw);
+                            editor.dispatchEvent(new Event("input", { bubbles: true }));
+                        }
+                        return;
+                    }
+                }
             }
         }
 
@@ -492,14 +798,15 @@ export function MentionComposer({
                 onKeyDown={handleKeyDown}
                 onBlur={() => {
                     // Delay close so pointer-down inside the menu lands first.
-                    window.setTimeout(() => {
+                    if (blurTimeoutRef.current !== null) window.clearTimeout(blurTimeoutRef.current);
+                    blurTimeoutRef.current = window.setTimeout(() => {
                         setMenuState((current) =>
                             current && menuStateRef.current === current ? null : current,
                         );
-                    }, 120);
+                    }, 250);
                 }}
                 className={cn(
-                    "mention-composer min-h-[96px] w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-3 text-sm leading-6 text-zinc-900 outline-none transition focus:border-indigo-500   disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950/60 dark:text-zinc-100",
+                    "mention-composer min-h-[96px] w-full resize-none rounded-[5px] border border-border bg-card px-3 py-3 text-[13px] leading-6 text-foreground outline-none transition focus:border-foreground/40 disabled:cursor-not-allowed disabled:opacity-60",
                     "whitespace-pre-wrap break-words",
                     disabled && "pointer-events-none opacity-60",
                     editorClassName,
@@ -511,7 +818,7 @@ export function MentionComposer({
                 .mention-composer:empty::before,
                 .mention-composer[data-empty="true"]::before {
                     content: attr(data-placeholder);
-                    color: rgb(161 161 170); /* zinc-400 */
+                    color: hsl(var(--muted-foreground));
                     pointer-events: none;
                 }
             `}</style>
@@ -528,6 +835,6 @@ export function MentionComposer({
             />
         </div>
     );
-}
+});
 
 export default MentionComposer;

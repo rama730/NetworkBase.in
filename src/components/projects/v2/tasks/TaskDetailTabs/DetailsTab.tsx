@@ -1,25 +1,33 @@
 "use client";
 
-import React, { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
-  CheckSquare,
+  Check,
+  ChevronDown,
   Clock,
+  Edit3,
   ExternalLink,
   Flag,
+  Lock,
   MessageSquareQuote,
-  Paperclip,
+  Search,
   TriangleAlert,
   User,
-  Zap,
-  Lock,
-  Check,
   X as XIcon,
+  Zap,
 } from "lucide-react";
-import { format } from "date-fns";
+import { addDays, format, formatDistanceToNow, isBefore, startOfDay } from "date-fns";
+import ReactMarkdown from "react-markdown";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { UserAvatar } from "@/components/ui/UserAvatar";
 import { readTaskSourceMessageLinksAction } from "@/app/actions/messaging/linked-work";
 import { approveTaskReviewAction } from "@/app/actions/task";
 import type { TaskFileReadinessWarning } from "@/lib/projects/task-file-intelligence";
@@ -56,7 +64,13 @@ interface DetailsTabProps {
   fileWarnings?: TaskFileReadinessWarning[];
   fileWarningSummary?: string | null;
   onUpdateField: (
-    field: "title" | "description" | "priority" | "sprintId" | "dueDate",
+    field:
+      | "title"
+      | "description"
+      | "priority"
+      | "sprintId"
+      | "dueDate"
+      | "storyPoints",
     value: unknown,
   ) => Promise<{ success: boolean; error?: string }>;
   onUpdateStatus: (
@@ -89,6 +103,30 @@ export default function DetailsTab({
   onOpenTab,
 }: DetailsTabProps) {
   const titlePresentation = getTaskTitlePresentation(task);
+  const titleInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [titleDraft, setTitleDraft] = useState(task.title);
+
+  // Concurrency Focus Protection for Title
+  useEffect(() => {
+    if (document.activeElement !== titleInputRef.current) {
+      setTitleDraft(task.title);
+    }
+  }, [task.title]);
+
+  // Description Edit & Markdown Preview State
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState(task.description || "");
+
+  // Concurrency Focus Protection for Description
+  useEffect(() => {
+    if (!isEditingDescription) {
+      setDescriptionDraft(task.description || "");
+    }
+  }, [task.description, isEditingDescription]);
+
+  // Assignee Search Filter State
+  const [assigneeSearch, setAssigneeSearch] = useState("");
+
   const availableSprints = useMemo(
     () => normalizeSprintOptions(sprints),
     [sprints],
@@ -113,7 +151,15 @@ export default function DetailsTab({
   const currentAssigneeLabel =
     currentAssigneeReference?.displayName ||
     task.assignee?.fullName ||
-    "Removed collaborator";
+    "Unassigned";
+
+  const filteredMembers = useMemo(() => {
+    if (!assigneeSearch.trim()) return availableMembers;
+    const query = assigneeSearch.toLowerCase();
+    return availableMembers.filter((m) =>
+      (m.identity?.fullName || "").toLowerCase().includes(query),
+    );
+  }, [availableMembers, assigneeSearch]);
 
   const createdAtLabel =
     task.createdAt && Number.isFinite(Date.parse(task.createdAt))
@@ -121,6 +167,42 @@ export default function DetailsTab({
       : "Unknown";
   const creatorName = task.creator?.fullName || "Unknown";
   const creatorAvatar = task.creator?.avatarUrl || null;
+
+  const updatedAtLabel = useMemo(() => {
+    if (!task.updatedAt || !Number.isFinite(Date.parse(task.updatedAt))) return null;
+    try {
+      return formatDistanceToNow(new Date(task.updatedAt), { addSuffix: true });
+    } catch {
+      return null;
+    }
+  }, [task.updatedAt]);
+
+  const isOverdue = useMemo(() => {
+    if (!task.dueDate || task.status === "done") return false;
+    try {
+      return isBefore(new Date(task.dueDate), startOfDay(new Date()));
+    } catch {
+      return false;
+    }
+  }, [task.dueDate, task.status]);
+
+  const setDueDatePreset = (daysFromToday: number | null) => {
+    if (daysFromToday === null) {
+      void onUpdateField("dueDate", null);
+      return;
+    }
+    const targetDate = addDays(new Date(), daysFromToday);
+    void onUpdateField("dueDate", format(targetDate, "yyyy-MM-dd"));
+  };
+
+  const saveDescription = async () => {
+    const trimmed = descriptionDraft.trim();
+    if (trimmed !== (task.description || "").trim()) {
+      await onUpdateField("description", trimmed);
+    }
+    setIsEditingDescription(false);
+  };
+
   const showDoneWarnings = task.status === "done" && fileWarnings.length > 0;
   const sourceLinksQuery = useQuery({
     queryKey: ["task-source-message-links", task.projectId, task.id],
@@ -151,353 +233,633 @@ export default function DetailsTab({
       const res = await approveTaskReviewAction(task.id, task.projectId);
       if (res.success && res.updatedAt) {
         onReviewApproved(res.updatedAt);
-        void queryClient.invalidateQueries({ queryKey: ["files-task-collections", task.projectId] });
-      }
-      else setReviewError(res.error || "Failed to approve task review");
+        void queryClient.invalidateQueries({
+          queryKey: ["files-task-collections", task.projectId],
+        });
+      } else setReviewError(res.error || "Failed to approve task review");
     } finally {
       setIsApproving(false);
     }
   };
 
   const handleReject = () => {
-    onUpdateStatus("blocked");
+    void onUpdateStatus("blocked");
   };
 
   return (
-    <div className="grid min-h-full grid-cols-1 items-start gap-8 p-6 lg:grid-cols-3">
-      <div className="min-w-0 space-y-8 lg:col-span-2">
-        {mutationError ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200">
-            {mutationError}
-          </div>
-        ) : null}
-
-        {task.reviewStatus === "pending" ? (
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50/90 px-4 py-3 text-sm text-indigo-800 dark:border-indigo-900/40 dark:bg-indigo-950/30 dark:text-indigo-100">
-            <div className="flex items-start gap-3">
-              <Lock className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              <div className="space-y-2 flex-1">
-                <div className="font-medium">In Review</div>
-                <div className="text-xs text-indigo-700 dark:text-indigo-200">
-                  The assignee has marked this as done. You can approve it to
-                  finalize the task and publish its files, or reject it back to
-                  the assignee.
-                </div>
-                {canManageSprint && (
-                  <div className="flex items-center gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={handleApprove}
-                      disabled={isApproving}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      {isApproving ? "Approving..." : "Done"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleReject}
-                      disabled={isApproving}
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-indigo-200 bg-white text-indigo-700 rounded-md text-xs font-semibold hover:bg-indigo-100 transition dark:bg-zinc-900 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
-                    >
-                      <XIcon className="w-3.5 h-3.5" />
-                      Issues
-                    </button>
-                  </div>
-                )}
-                {reviewError ? (
-                  <p className="text-xs text-rose-700 dark:text-rose-300">
-                    {reviewError}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {showDoneWarnings ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
-            <div className="flex items-start gap-3">
-              <TriangleAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              <div className="space-y-2">
-                <div className="font-medium">
-                  {fileWarningSummary ||
-                    "This task is done, but its file state still needs follow-up."}
-                </div>
-                <ul className="space-y-1 text-xs text-amber-700 dark:text-amber-200">
-                  {fileWarnings.map((warning) => (
-                    <li key={warning.code} className="list-inside list-disc">
-                      {warning.message}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <textarea
-              key={`title-${task.id}`}
-              defaultValue={task.title}
-              ref={(el) => {
-                if (el) {
-                  el.style.height = "0px";
-                  el.style.height = `${el.scrollHeight}px`;
-                }
-              }}
-              onChange={(event) => {
-                event.target.style.height = "0px";
-                event.target.style.height = `${event.target.scrollHeight}px`;
-              }}
-              onBlur={(event) => {
-                const normalized = normalizeTaskTitleDraft(event.target.value);
-                if (!normalized) {
-                  event.target.value = task.title; // revert on empty
-                  return;
-                }
-                if (normalized !== task.title) {
-                  void onUpdateField("title", normalized);
-                }
-              }}
-              disabled={!canEdit || isMutating}
-              rows={1}
-              aria-label={titlePresentation.ariaLabel ?? "Task title"}
-              className={cn(
-                "w-full resize-none overflow-hidden bg-transparent text-2xl font-bold leading-tight text-zinc-900 outline-none placeholder:text-zinc-400 disabled:opacity-60 dark:text-zinc-100",
-                titlePresentation.className,
-                titlePresentation.isCompleted && "focus:no-underline focus:text-zinc-900 dark:focus:text-zinc-100",
-              )}
-              placeholder="Task title"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-100 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800">
-              <span className="text-zinc-400">Created by</span>
-              <div className="flex items-center gap-1.5">
-                <Avatar className="h-4 w-4">
-                  <AvatarImage src={creatorAvatar ?? undefined} />
-                  <AvatarFallback>
-                    {creatorName.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="max-w-[140px] truncate font-medium text-zinc-900 dark:text-zinc-200">
-                  {creatorName}
-                </span>
-              </div>
-            </div>
-            <span className="text-zinc-300 dark:text-zinc-700">•</span>
-            <div className="inline-flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5 text-zinc-400" />
-              <span>{createdAtLabel}</span>
-            </div>
-          </div>
+    <div className="min-w-0 space-y-6 p-6">
+      {mutationError ? (
+        <div className="rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {mutationError}
         </div>
+      ) : null}
 
-        {sourceLinksQuery.error ? (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
-            {sourceLinksQuery.error instanceof Error
-              ? sourceLinksQuery.error.message
-              : "Failed to load source messages"}
-          </div>
-        ) : null}
-
-        {sourceLinks.map((sourceLink, index) => (
-          <div
-            key={String(sourceLink.id ?? index)}
-            className="rounded-xl border border-blue-200 bg-blue-50/80 px-4 py-3 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-100"
-          >
-            <div className="flex items-start gap-3">
-              <MessageSquareQuote className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">Created from message</div>
-                <div className="mt-1 line-clamp-2 text-xs text-blue-700/80 dark:text-blue-200/80">
-                  {String(
-                    sourceLink.metadata?.sourcePreview ||
-                      sourceLink.subtitle ||
-                      "Open the original conversation context.",
-                  )}
-                </div>
+      {task.reviewStatus === "pending" ? (
+        <div className="rounded-[6px] border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-foreground">
+          <div className="flex items-start gap-3">
+            <Lock className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+            <div className="space-y-2 flex-1">
+              <div className="font-semibold text-foreground">In Review</div>
+              <div className="text-xs text-muted-foreground">
+                The assignee has marked this as done. You can approve it to
+                finalize the task and publish its files, or request changes back to
+                the assignee.
               </div>
-              {typeof sourceLink.metadata?.sourceMessageHref === "string" ? (
-                <a
-                  href={sourceLink.metadata.sourceMessageHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-white/70 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-white dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-100"
-                >
-                  Open source
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+              {reviewError ? (
+                <p className="text-xs text-destructive">{reviewError}</p>
+              ) : null}
+              {canManageSprint ? (
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleApprove()}
+                    disabled={isApproving}
+                    className="inline-flex h-[34px] items-center gap-1.5 px-3 rounded-[5px] bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    <Check className="size-3.5" />
+                    {isApproving ? "Approving..." : "Done"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReject}
+                    disabled={isApproving}
+                    className="inline-flex h-[34px] items-center gap-1.5 px-3 rounded-[5px] border border-border bg-card text-foreground text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    <XIcon className="size-3.5" />
+                    Issues
+                  </button>
+                </div>
               ) : null}
             </div>
           </div>
-        ))}
+        </div>
+      ) : null}
 
-        <div className="space-y-3">
-          <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-            Description
-          </label>
+      {showDoneWarnings ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+          <div className="flex items-start gap-3">
+            <TriangleAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <div className="space-y-2">
+              <div className="font-medium">
+                {fileWarningSummary ||
+                  "This task is done, but its file state still needs follow-up."}
+              </div>
+              <ul className="space-y-1 text-xs text-amber-700 dark:text-amber-200">
+                {fileWarnings.map((warning) => (
+                  <li key={warning.code} className="list-inside list-disc">
+                    {warning.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Title & Metadata Block */}
+      <div className="space-y-3">
+        <div className="relative">
           <textarea
-            key={`description-${task.id}`}
-            rows={8}
-            defaultValue={task.description || ""}
+            key={`title-${task.id}`}
+            ref={(el) => {
+              titleInputRef.current = el;
+              if (el) {
+                el.style.height = "0px";
+                el.style.height = `${el.scrollHeight}px`;
+              }
+            }}
+            value={titleDraft}
+            onChange={(event) => {
+              setTitleDraft(event.target.value);
+              event.target.style.height = "0px";
+              event.target.style.height = `${event.target.scrollHeight}px`;
+            }}
             onBlur={(event) => {
-              if ((event.target.value || "") !== (task.description || "")) {
-                void onUpdateField("description", event.target.value);
+              const normalized = normalizeTaskTitleDraft(event.target.value);
+              if (!normalized) {
+                setTitleDraft(task.title); // revert on empty
+                return;
+              }
+              if (normalized !== task.title) {
+                void onUpdateField("title", normalized);
+              }
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                event.currentTarget.blur();
               }
             }}
             disabled={!canEdit || isMutating}
-            placeholder="Add a description..."
-            className="w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-indigo-500   disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+            rows={1}
+            aria-label={titlePresentation.ariaLabel ?? "Task title"}
+            className={cn(
+              "w-full resize-none overflow-hidden rounded-[5px] border border-transparent bg-transparent text-lg font-semibold tracking-[-0.01em] text-foreground leading-snug outline-none transition placeholder:text-muted-foreground/50 focus:border-border/80 focus:bg-background/50 px-1 -mx-1 disabled:opacity-60",
+              titlePresentation.className,
+              titlePresentation.isCompleted &&
+                "focus:no-underline focus:text-foreground",
+            )}
+            placeholder="Task title"
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => onOpenTab("subtasks")}
-            className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-left transition hover:border-indigo-300 dark:border-zinc-800 dark:bg-zinc-900"
+        {/* Creator & Live Telemetry Metadata */}
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>Created by</span>
+          <div className="flex items-center gap-1.5 font-medium text-foreground">
+            <UserAvatar
+              identity={{
+                fullName: creatorName,
+                avatarUrl: creatorAvatar,
+              }}
+              size={18}
+            />
+            <span>{creatorName}</span>
+          </div>
+          <span className="text-muted-foreground/40">·</span>
+          <div
+            className="flex items-center gap-1 font-mono text-[11px] text-muted-foreground"
+            title={task.createdAt ?? undefined}
           >
-            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              <CheckSquare className="h-3.5 w-3.5" />
-              Subtasks
-            </span>
-            <span className="mt-2 block text-sm font-medium text-zinc-800 dark:text-zinc-200">
-              {completedSubtaskCount}/{subtaskCount} complete
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onOpenTab("files")}
-            className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-left transition hover:border-indigo-300 dark:border-zinc-800 dark:bg-zinc-900"
+            <Clock className="size-3 text-muted-foreground" />
+            <span>{createdAtLabel}</span>
+          </div>
+          {updatedAtLabel ? (
+            <>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="text-[11px] text-muted-foreground">
+                Updated {updatedAtLabel}
+              </span>
+            </>
+          ) : null}
+          <span className="text-muted-foreground/40">·</span>
+          <span
+            className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground"
+            title="Autosave status"
           >
-            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              <Paperclip className="h-3.5 w-3.5" />
-              Files
-            </span>
-            <span className="mt-2 block text-sm font-medium text-zinc-800 dark:text-zinc-200">
-              {attachmentCount} attached
-            </span>
-          </button>
+            <span
+              className={cn(
+                "size-1.5 rounded-[1px] transition-colors",
+                isMutating ? "bg-amber-500 animate-pulse" : "bg-emerald-500",
+              )}
+            />
+            {isMutating ? "Saving…" : "Saved"}
+          </span>
         </div>
       </div>
 
-      <div className="min-w-0 space-y-6">
-        <div className="sticky top-6 space-y-6 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="border-b border-zinc-100 pb-4 dark:border-zinc-800">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
-              Properties
-            </h3>
-          </div>
+      {sourceLinksQuery.error ? (
+        <div className="rounded-[5px] border border-destructive/20 bg-destructive/10 px-4 py-3 font-mono text-xs text-destructive">
+          {sourceLinksQuery.error instanceof Error
+            ? sourceLinksQuery.error.message
+            : "Failed to load source messages"}
+        </div>
+      ) : null}
 
+      {sourceLinks.map((sourceLink, index) => (
+        <div
+          key={String(sourceLink.id ?? index)}
+          className="rounded-[6px] border border-border bg-card px-4 py-3 text-sm text-foreground"
+        >
+          <div className="flex items-start gap-3">
+            <MessageSquareQuote className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-foreground">
+                Created from message
+              </div>
+              <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                {String(
+                  sourceLink.metadata?.sourcePreview ||
+                    sourceLink.subtitle ||
+                    "Open the original conversation context.",
+                )}
+              </div>
+            </div>
+            {typeof sourceLink.metadata?.sourceMessageHref === "string" ? (
+              <a
+                href={sourceLink.metadata.sourceMessageHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-[5px] border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+              >
+                Open source
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : null}
+          </div>
+        </div>
+      ))}
+
+      {/* Description Block (Markdown Preview + Autogrow Editor) */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label className="block text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            Description
+          </label>
+          {!isEditingDescription && task.description && canEdit ? (
+            <button
+              type="button"
+              onClick={() => setIsEditingDescription(true)}
+              className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground transition"
+            >
+              <Edit3 className="size-3" />
+              Edit
+            </button>
+          ) : null}
+        </div>
+
+        {isEditingDescription ? (
+          <div className="space-y-2">
+            <textarea
+              autoFocus
+              rows={4}
+              value={descriptionDraft}
+              onChange={(e) => setDescriptionDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                  e.preventDefault();
+                  void saveDescription();
+                } else if (e.key === "Escape") {
+                  setDescriptionDraft(task.description || "");
+                  setIsEditingDescription(false);
+                }
+              }}
+              placeholder="Add a detailed description or context for this task… (supports Markdown)"
+              className="min-h-[100px] w-full resize-y rounded-[5px] border border-primary bg-background px-3 py-2 text-[13px] leading-relaxed text-foreground outline-none transition placeholder:text-muted-foreground/60 shadow-2xs"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+              <span className="font-mono text-[11px] text-muted-foreground">
+                <kbd className="rounded-[3px] border border-border bg-muted/50 px-1 py-0.5 text-[10px]">
+                  ⌘/Ctrl
+                </kbd>{" "}
+                +{" "}
+                <kbd className="rounded-[3px] border border-border bg-muted/50 px-1 py-0.5 text-[10px]">
+                  Enter
+                </kbd>{" "}
+                to save ·{" "}
+                <kbd className="rounded-[3px] border border-border bg-muted/50 px-1 py-0.5 text-[10px]">
+                  Esc
+                </kbd>{" "}
+                to cancel
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDescriptionDraft(task.description || "");
+                    setIsEditingDescription(false);
+                  }}
+                  className="h-7 rounded-[4px] border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void saveDescription()}
+                  className="h-7 rounded-[4px] bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs hover:bg-primary/90 transition"
+                >
+                  Save description
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : task.description ? (
+          <div
+            onClick={() => canEdit && setIsEditingDescription(true)}
+            className={cn(
+              "group relative min-h-[72px] w-full rounded-[5px] border border-border/80 bg-background px-3.5 py-2.5 text-[13px] leading-relaxed text-foreground transition",
+              canEdit
+                ? "cursor-pointer hover:border-foreground/30 hover:bg-muted/10"
+                : "",
+            )}
+            role={canEdit ? "button" : undefined}
+            tabIndex={canEdit ? 0 : -1}
+            onKeyDown={(e) => {
+              if (canEdit && (e.key === "Enter" || e.key === " ")) {
+                setIsEditingDescription(true);
+              }
+            }}
+            aria-label="Edit description"
+          >
+            <div className="max-w-none text-[13px] leading-relaxed break-words space-y-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-[3px] [&_code]:font-mono [&_code]:text-xs [&_a]:text-primary [&_a]:underline">
+              <ReactMarkdown>{task.description}</ReactMarkdown>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={!canEdit}
+            onClick={() => setIsEditingDescription(true)}
+            className="flex min-h-[64px] w-full items-center justify-start rounded-[5px] border border-dashed border-border bg-muted/10 px-3.5 py-3 text-[13px] text-muted-foreground/70 transition hover:border-foreground/30 hover:text-muted-foreground disabled:cursor-not-allowed text-left"
+          >
+            <span className="flex items-center gap-1.5">
+              <Edit3 className="size-3.5 text-muted-foreground/60" />
+              Add a detailed description or context for this task… (supports Markdown)
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Properties Section (Unboxed, direct on panel surface) */}
+      <div className="space-y-3 pt-1">
+        <div className="border-b border-border/60 pb-2">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            Properties
+          </h3>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          {/* Status Dropdown */}
           <div className="space-y-1.5">
-            <label className="flex items-center gap-2 text-[10px] font-semibold uppercase text-zinc-500">
-              <Flag className="h-3 w-3" />
+            <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+              <Flag className="size-3 text-muted-foreground" />
               Status
             </label>
-            <select
-              value={task.status}
-              onChange={(event) => void onUpdateStatus(event.target.value)}
-              disabled={!canEdit || isMutating}
-              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-indigo-500   disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-            >
-              {TASK_WORKFLOW_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {getTaskStatusPresentation(status).label}
-                </option>
-              ))}
-            </select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  disabled={!canEdit || isMutating}
+                  className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
+                  aria-label="Select status"
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "size-2 rounded-[2px]",
+                        task.status === "done"
+                          ? "bg-emerald-500"
+                          : task.status === "in_progress"
+                            ? "bg-sky-500"
+                            : task.status === "blocked"
+                              ? "bg-rose-500"
+                              : "bg-muted-foreground/60",
+                      )}
+                    />
+                    <span className="font-medium">
+                      {getTaskStatusPresentation(task.status).label}
+                    </span>
+                  </span>
+                  <ChevronDown className="size-3.5 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48 p-1">
+                {TASK_WORKFLOW_STATUSES.map((status) => {
+                  const pres = getTaskStatusPresentation(status);
+                  const isSelected = task.status === status;
+                  return (
+                    <DropdownMenuItem
+                      key={status}
+                      onClick={() => void onUpdateStatus(status)}
+                      className="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-[4px] cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "size-2 rounded-[2px]",
+                            status === "done"
+                              ? "bg-emerald-500"
+                              : status === "in_progress"
+                                ? "bg-sky-500"
+                                : status === "blocked"
+                                  ? "bg-rose-500"
+                                  : "bg-muted-foreground/60",
+                          )}
+                        />
+                        <span className="font-medium">{pres.label}</span>
+                      </span>
+                      {isSelected ? (
+                        <Check className="size-3.5 text-primary stroke-[2.5]" />
+                      ) : null}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
+          {/* Priority Dropdown */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold uppercase text-zinc-500">
+            <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
               Priority
             </label>
-            <select
-              value={task.priority}
-              onChange={(event) =>
-                void onUpdateField("priority", event.target.value)
-              }
-              disabled={!canEdit || isMutating}
-              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-indigo-500   disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-            >
-              {TASK_PRIORITY_VALUES.map((priority) => (
-                <option key={priority} value={priority}>
-                  {getTaskPriorityPresentation(priority).label}
-                </option>
-              ))}
-            </select>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  disabled={!canEdit || isMutating}
+                  className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
+                  aria-label="Select priority"
+                >
+                  <span className="flex items-center gap-2">
+                    <Flag className="size-3 text-muted-foreground" />
+                    <span className="font-medium">
+                      {getTaskPriorityPresentation(task.priority).label}
+                    </span>
+                  </span>
+                  <ChevronDown className="size-3.5 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44 p-1">
+                {TASK_PRIORITY_VALUES.map((priority) => {
+                  const pres = getTaskPriorityPresentation(priority);
+                  const isSelected = task.priority === priority;
+                  return (
+                    <DropdownMenuItem
+                      key={priority}
+                      onClick={() => void onUpdateField("priority", priority)}
+                      className="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-[4px] cursor-pointer"
+                    >
+                      <span className="font-medium">{pres.label}</span>
+                      {isSelected ? (
+                        <Check className="size-3.5 text-primary stroke-[2.5]" />
+                      ) : null}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
+          {/* Assignee Dropdown with Search */}
           <div className="space-y-1.5">
-            <label className="flex items-center gap-2 text-[10px] font-semibold uppercase text-zinc-500">
-              <User className="h-3 w-3" />
+            <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+              <User className="size-3 text-muted-foreground" />
               Assignee
             </label>
-            <select
-              value={task.assigneeId || ""}
-              onChange={(event) =>
-                void onUpdateAssignee(event.target.value || null)
-              }
-              disabled={!canEdit || isMutating}
-              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-indigo-500   disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+            <DropdownMenu
+              onOpenChange={(open) => {
+                if (!open) setAssigneeSearch("");
+              }}
             >
-              <option value="">Unassigned</option>
-              {currentAssigneeUnavailable && task.assigneeId ? (
-                <option value={task.assigneeId} disabled>
-                  {currentAssigneeLabel} (removed from project)
-                </option>
-              ) : null}
-              {availableMembers.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.identity?.fullName || "Unknown"}
-                </option>
-              ))}
-            </select>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  disabled={!canEdit || isMutating}
+                  className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
+                  aria-label="Select assignee"
+                >
+                  <div className="flex items-center gap-2 min-w-0 truncate">
+                    {task.assignee ? (
+                      <UserAvatar
+                        identity={{
+                          fullName: currentAssigneeLabel,
+                          avatarUrl: task.assignee.avatarUrl || null,
+                        }}
+                        size={18}
+                      />
+                    ) : (
+                      <User className="size-3.5 text-muted-foreground shrink-0" />
+                    )}
+                    <span className="truncate font-medium">
+                      {currentAssigneeLabel}
+                    </span>
+                  </div>
+                  <ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64 p-1 space-y-1">
+                <div className="px-2 pt-1 pb-1">
+                  <div className="relative flex items-center">
+                    <Search className="absolute left-2 size-3 text-muted-foreground" />
+                    <input
+                      value={assigneeSearch}
+                      onChange={(e) => setAssigneeSearch(e.target.value)}
+                      placeholder="Search team members…"
+                      className="h-[28px] w-full rounded-[3px] border border-border bg-muted/40 pl-7 pr-2 text-xs text-foreground outline-none focus:border-primary"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                </div>
+                <DropdownMenuItem
+                  onClick={() => void onUpdateAssignee(null)}
+                  className="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-[4px] cursor-pointer"
+                >
+                  <span className="text-muted-foreground">Unassigned</span>
+                  {!task.assigneeId ? (
+                    <Check className="size-3.5 text-primary stroke-[2.5]" />
+                  ) : null}
+                </DropdownMenuItem>
+                <div className="max-h-52 overflow-y-auto space-y-0.5">
+                  {filteredMembers.map((member) => {
+                    const isSelected = task.assigneeId === member.id;
+                    return (
+                      <DropdownMenuItem
+                        key={member.id}
+                        onClick={() => void onUpdateAssignee(member.id)}
+                        className="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-[4px] cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 truncate">
+                          <UserAvatar identity={member.identity} size={18} />
+                          <span className="truncate font-medium">
+                            {member.identity?.fullName || "Unknown"}
+                          </span>
+                        </div>
+                        {isSelected ? (
+                          <Check className="size-3.5 text-primary stroke-[2.5]" />
+                        ) : null}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                  {filteredMembers.length === 0 ? (
+                    <div className="py-2 text-center text-xs text-muted-foreground">
+                      No members match search
+                    </div>
+                  ) : null}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
             {currentAssigneeUnavailable ? (
-              <p className="text-xs text-amber-600 dark:text-amber-300">
+              <p className="text-xs text-amber-600 dark:text-amber-400">
                 Removed from project · Needs reassignment
               </p>
             ) : null}
           </div>
 
+          {/* Sprint Dropdown */}
           <div className="space-y-1.5">
-            <label className="flex items-center gap-2 text-[10px] font-semibold uppercase text-zinc-500">
-              <Zap className="h-3 w-3" />
+            <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+              <Zap className="size-3 text-muted-foreground" />
               Sprint
             </label>
-            <select
-              value={task.sprintId || ""}
-              onChange={(event) =>
-                void onUpdateField("sprintId", event.target.value || null)
-              }
-              disabled={!canEdit || !canManageSprint || isMutating}
-              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-indigo-500   disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-            >
-              <option value="">Backlog</option>
-              {availableSprints.map((sprint) => (
-                <option
-                  key={sprint.id}
-                  value={sprint.id}
-                  disabled={!isAssignableSprintOption(sprint)}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  disabled={!canEdit || !canManageSprint || isMutating}
+                  className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
+                  aria-label="Select sprint"
                 >
-                  {sprint.name}
-                  {isAssignableSprintOption(sprint)
-                    ? ""
-                    : ` · ${sprint.status ? SPRINT_STATUS_PRESENTATION[sprint.status].label : "Unavailable"}`}
-                </option>
-              ))}
-            </select>
+                  <span className="flex items-center gap-2 truncate">
+                    <Zap className="size-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate font-medium">
+                      {availableSprints.find((s) => s.id === task.sprintId)
+                        ?.name || "Backlog"}
+                    </span>
+                  </span>
+                  <ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="w-56 p-1 max-h-56 overflow-y-auto space-y-0.5"
+              >
+                <DropdownMenuItem
+                  onClick={() => void onUpdateField("sprintId", null)}
+                  className="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-[4px] cursor-pointer"
+                >
+                  <span className="font-medium">Backlog</span>
+                  {!task.sprintId ? (
+                    <Check className="size-3.5 text-primary stroke-[2.5]" />
+                  ) : null}
+                </DropdownMenuItem>
+                {availableSprints.map((sprint) => {
+                  const isSelected = task.sprintId === sprint.id;
+                  const assignable = isAssignableSprintOption(sprint);
+                  return (
+                    <DropdownMenuItem
+                      key={sprint.id}
+                      disabled={!assignable}
+                      onClick={() =>
+                        assignable && void onUpdateField("sprintId", sprint.id)
+                      }
+                      className="flex items-center justify-between px-2.5 py-1.5 text-xs rounded-[4px] cursor-pointer disabled:opacity-50"
+                    >
+                      <div className="truncate min-w-0">
+                        <span className="font-medium truncate">{sprint.name}</span>
+                        {!assignable && sprint.status ? (
+                          <span className="text-[10px] text-muted-foreground ml-1.5">
+                            (
+                            {SPRINT_STATUS_PRESENTATION[sprint.status]?.label ||
+                              "Unavailable"}
+                            )
+                          </span>
+                        ) : null}
+                      </div>
+                      {isSelected ? (
+                        <Check className="size-3.5 text-primary stroke-[2.5]" />
+                      ) : null}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
+          {/* Due date with Quick Presets & Overdue Status */}
           <div className="space-y-1.5">
-            <label className="flex items-center gap-2 text-[10px] font-semibold uppercase text-zinc-500">
-              <Calendar className="h-3 w-3" />
-              Due date
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+                <Calendar className="size-3 text-muted-foreground" />
+                Due date
+              </label>
+              {isOverdue ? (
+                <span className="inline-flex items-center rounded-[3px] border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
+                  Overdue
+                </span>
+              ) : null}
+            </div>
             <input
               type="date"
               value={task.dueDate ? task.dueDate.slice(0, 10) : ""}
@@ -505,8 +867,94 @@ export default function DetailsTab({
                 void onUpdateField("dueDate", event.target.value || null)
               }
               disabled={!canEdit || isMutating}
-              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-indigo-500   disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+              className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
             />
+            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+              <button
+                type="button"
+                disabled={!canEdit || isMutating}
+                onClick={() => setDueDatePreset(0)}
+                className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                disabled={!canEdit || isMutating}
+                onClick={() => setDueDatePreset(7)}
+                className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
+              >
+                +1 Week
+              </button>
+              <button
+                type="button"
+                disabled={!canEdit || isMutating}
+                onClick={() => setDueDatePreset(14)}
+                className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
+              >
+                +2 Weeks
+              </button>
+              {task.dueDate ? (
+                <button
+                  type="button"
+                  disabled={!canEdit || isMutating}
+                  onClick={() => setDueDatePreset(null)}
+                  className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition disabled:opacity-50"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Story points */}
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+              <Zap className="size-3 text-muted-foreground" />
+              Story points
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={task.storyPoints ?? ""}
+              onChange={(event) => {
+                const val = event.target.value.trim();
+                void onUpdateField(
+                  "storyPoints",
+                  val ? Number.parseInt(val, 10) : null,
+                );
+              }}
+              placeholder="Unestimated"
+              disabled={!canEdit || isMutating}
+              className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 font-mono text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
+            />
+            <div className="flex flex-wrap items-center gap-1 pt-0.5">
+              <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
+                Presets:
+              </span>
+              {[1, 2, 3, 5, 8, 13].map((points) => (
+                <button
+                  key={points}
+                  type="button"
+                  onClick={() =>
+                    void onUpdateField(
+                      "storyPoints",
+                      task.storyPoints === points ? null : points,
+                    )
+                  }
+                  disabled={!canEdit || isMutating}
+                  className={cn(
+                    "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[3px] border font-mono text-[10px] font-semibold transition-colors disabled:opacity-50",
+                    task.storyPoints === points
+                      ? "border-primary bg-primary/10 text-primary font-semibold"
+                      : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  {points}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

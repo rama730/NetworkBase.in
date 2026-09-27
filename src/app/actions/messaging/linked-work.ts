@@ -61,7 +61,23 @@ export async function readMessageWorkLinksAction(
                 ))
                 .limit(1),
             db
-                .select()
+                .select({
+                    id: messageWorkLinks.id,
+                    sourceMessageId: messageWorkLinks.sourceMessageId,
+                    sourceConversationId: messageWorkLinks.sourceConversationId,
+                    targetType: messageWorkLinks.targetType,
+                    targetId: messageWorkLinks.targetId,
+                    targetProjectId: messageWorkLinks.targetProjectId,
+                    visibility: messageWorkLinks.visibility,
+                    status: messageWorkLinks.status,
+                    ownerUserId: messageWorkLinks.ownerUserId,
+                    assigneeUserId: messageWorkLinks.assigneeUserId,
+                    createdBy: messageWorkLinks.createdBy,
+                    href: messageWorkLinks.href,
+                    metadata: messageWorkLinks.metadata,
+                    createdAt: messageWorkLinks.createdAt,
+                    updatedAt: messageWorkLinks.updatedAt,
+                })
                 .from(messageWorkLinks)
                 .where(and(
                     eq(messageWorkLinks.sourceConversationId, conversationId),
@@ -73,7 +89,8 @@ export async function readMessageWorkLinksAction(
                         eq(messageWorkLinks.createdBy, userId),
                     ),
                 ))
-                .orderBy(messageWorkLinks.updatedAt),
+                .orderBy(messageWorkLinks.updatedAt)
+                .limit(50),
         ]);
 
         if (participants.length === 0) {

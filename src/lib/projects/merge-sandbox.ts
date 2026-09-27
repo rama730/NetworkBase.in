@@ -31,13 +31,23 @@ export async function mergeSandboxTask(
     }
     const seqNum = project.newSequenceNumber;
 
-    // Step 1: Lock target canonical nodes
+    // Step 1: Lock target canonical nodes, parent folders, and target paths on the main branch
     await tx.execute(sql`
-      SELECT id FROM project_nodes 
-      WHERE id IN (
-          SELECT canonical_node_id FROM project_nodes 
-          WHERE project_id = ${projectId}::uuid AND task_id = ${taskId}::uuid AND canonical_node_id IS NOT NULL
-      ) FOR UPDATE
+      SELECT id FROM project_nodes
+      WHERE project_id = ${projectId}::uuid
+        AND (
+          id IN (
+            SELECT canonical_node_id FROM project_nodes 
+            WHERE project_id = ${projectId}::uuid AND task_id = ${taskId}::uuid AND canonical_node_id IS NOT NULL
+          )
+          OR (
+            task_id IS NULL AND deleted_at IS NULL
+            AND (
+              id IN (SELECT parent_id FROM project_nodes WHERE project_id = ${projectId}::uuid AND task_id = ${taskId}::uuid)
+              OR path IN (SELECT path FROM project_nodes WHERE project_id = ${projectId}::uuid AND task_id = ${taskId}::uuid)
+            )
+          )
+        ) FOR UPDATE
     `);
 
     const activeLease = await tx.execute<{ nodeId: string }>(sql`
@@ -57,16 +67,6 @@ export async function mergeSandboxTask(
     if (Array.from(activeLease)[0]) {
       throw new Error("Task merge deferred because a collaborator is editing an affected file");
     }
-
-    // Step 2: Lock parent folders and target paths on the main branch
-    await tx.execute(sql`
-      SELECT id FROM project_nodes
-      WHERE project_id = ${projectId}::uuid AND task_id IS NULL AND deleted_at IS NULL
-        AND (
-          id IN (SELECT parent_id FROM project_nodes WHERE project_id = ${projectId}::uuid AND task_id = ${taskId}::uuid)
-          OR path IN (SELECT path FROM project_nodes WHERE project_id = ${projectId}::uuid AND task_id = ${taskId}::uuid)
-        ) FOR UPDATE
-    `);
 
     // Step 3: Preflight Path Collision checking
     const collisionRows = await tx.execute<{ id: string; path: string }>(sql`
@@ -224,27 +224,24 @@ export async function mergeSandboxTask(
         AND staged.sync_status <> 'deleted_tombstone'
     `);
 
-    // Step 8: Handle Folder Renames child path prefix recalculation
-    const renamedFolders = await tx.execute<{ id: string; old_path: string; new_path: string }>(sql`
-      SELECT staged.canonical_node_id as id, canonical.path as old_path, staged.path as new_path
-      FROM project_nodes staged
-      JOIN project_nodes canonical ON canonical.id = staged.canonical_node_id
-      WHERE staged.project_id = ${projectId}::uuid AND staged.task_id = ${taskId}::uuid
-        AND staged.type = 'folder' AND staged.sync_status <> 'deleted_tombstone'
-        AND staged.path <> canonical.path
+    // Step 8: Handle Folder Renames child path prefix recalculation in a single batch
+    await tx.execute(sql`
+      UPDATE project_nodes pn
+      SET path = rf.new_path || SUBSTRING(pn.path FROM LENGTH(rf.old_path) + 1),
+          updated_at = NOW()
+      FROM (
+        SELECT staged.canonical_node_id as id, canonical.path as old_path, staged.path as new_path
+        FROM project_nodes staged
+        JOIN project_nodes canonical ON canonical.id = staged.canonical_node_id
+        WHERE staged.project_id = ${projectId}::uuid AND staged.task_id = ${taskId}::uuid
+          AND staged.type = 'folder' AND staged.sync_status <> 'deleted_tombstone'
+          AND staged.path <> canonical.path
+      ) rf
+      WHERE pn.project_id = ${projectId}::uuid 
+        AND pn.task_id IS NULL
+        AND pn.deleted_at IS NULL
+        AND pn.path LIKE rf.old_path || '/%'
     `);
-
-    for (const folder of Array.from(renamedFolders)) {
-      await tx.execute(sql`
-        UPDATE project_nodes 
-        SET path = ${folder.new_path} || SUBSTRING(path FROM ${folder.old_path.length + 1}),
-            updated_at = NOW()
-        WHERE project_id = ${projectId}::uuid 
-          AND task_id IS NULL
-          AND deleted_at IS NULL
-          AND path LIKE ${folder.old_path + '/%'}
-      `);
-    }
 
     // Step 9: Promote New Files & Folders
     await tx

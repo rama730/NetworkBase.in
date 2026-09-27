@@ -1,13 +1,12 @@
 'use client';
 
-import { toast } from "sonner";
 import { useState, useMemo, memo, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouteWarmPrefetch } from '@/hooks/useRouteWarmPrefetch';
 import { motion } from 'framer-motion';
-import { Search, Sparkles, Filter, CheckSquare, X } from 'lucide-react';
-import { VirtuosoGrid } from 'react-virtuoso';
+import { Search, Sparkles, CheckSquare, X } from 'lucide-react';
+import { Virtuoso } from 'react-virtuoso';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Hooks
@@ -21,9 +20,9 @@ import { useHubUrlFilters } from '@/hooks/hub/useHubUrlFilters';
 // Components
 import ProjectCard from '@/components/projects/ProjectCard';
 import ProjectCardSkeleton from '@/components/projects/ProjectCardSkeleton';
-import HubNavigation from '@/components/hub/HubNavigation';
 import HubHeader from '@/components/hub/HubHeader';
 import { HubErrorBoundary } from '@/components/hub/HubErrorBoundary';
+import { DiscoverPeopleRail } from '@/components/hub/DiscoverPeopleRail';
 import { AppScrollArea } from '@/components/ui/AppScrollArea';
 import { useReducedMotionPreference } from '@/components/providers/theme-provider';
 // Constants & Types
@@ -34,21 +33,23 @@ import {
     SORT_OPTIONS,
     VIEW_MODES,
     FilterView,
-    ViewMode,
-    SortOption,
-    ProjectStatus,
-    ProjectType,
 } from '@/constants/hub';
+import { ROUTES } from '@/constants/routes';
 import { User, Project } from '@/types/hub';
 
 // Dynamic Modals
 const CreateProjectWizard = dynamic(() => import('@/components/projects/create-wizard/CreateProjectWizard'), { ssr: false });
-// Optimization: Defer mobile sidebar code until interaction
-const MobileSidebarDrawer = dynamic(() => import('@/components/hub/MobileSidebarDrawer'), { ssr: false });
 
 import { toProjectCardViewModel, ProjectCardViewModel } from '@/lib/view-models/project-card';
 import { queryKeys } from '@/lib/query-keys';
+import type { ConnectionFeedPage, DiscoverConnectionItem } from '@/hooks/useConnections';
 import { toHubUser } from '@/lib/view-models/hub-user';
+import {
+    clearGithubOAuthResume,
+    getCreateProjectReturnPath,
+    readGithubOAuthResume,
+    type CreateProjectGithubOAuthResume,
+} from '@/components/projects/create-wizard/github-oauth-resume';
 
 const CREATE_PROJECT_MODAL_STORAGE_KEY = 'hub:create-project-modal-state';
 
@@ -94,9 +95,14 @@ interface SimpleHubClientProps {
         nextCursor?: string;
         hasMore?: boolean;
     } | null;
+    initialPeopleSuggestions?: ConnectionFeedPage<DiscoverConnectionItem>;
 }
 
-const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialProjectsPage }: SimpleHubClientProps) {
+const VIRTUOSO_CONTAINER_STYLE = { width: "100%" } as const;
+const VIRTUOSO_INCREASE_VIEWPORT_BY = { top: 1200, bottom: 800 } as const;
+const computeProjectItemKey = (_: number, project: Project) => project.id;
+
+const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialProjectsPage, initialPeopleSuggestions }: SimpleHubClientProps) {
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const prefetch = useRouteWarmPrefetch();
@@ -106,20 +112,16 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
 
     // --- State ---
     // Essential UI State
-    const [viewMode, setViewMode] = useState<ViewMode>(VIEW_MODES.GRID);
-    const [isSticky, setIsSticky] = useState(false);
-    const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+    const viewMode = VIEW_MODES.GRID;
 
     // Selection & Modal State
 
     // Dialog Visibility
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [createModalInitialSource, setCreateModalInitialSource] = useState<'scratch' | 'github' | 'upload' | null>(null);
+    const [githubOAuthResume, setGithubOAuthResume] = useState<CreateProjectGithubOAuthResume | null>(null);
     const [profileChecklistItems, setProfileChecklistItems] = useState<string[]>([]);
     const [showProfileChecklist, setShowProfileChecklist] = useState(false);
-    const [isFeedScrolling, setIsFeedScrolling] = useState(false);
-    const feedScrollingRef = useRef(false);
-    const feedScrollStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // --- Derived Data ---
     const { urlFilters, updateUrlFilters } = useHubUrlFilters();
@@ -162,8 +164,12 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
                 ? new URLSearchParams(window.location.search)
                 : new URLSearchParams(searchParams.toString());
         const requestedSource = parsePersistedCreateProjectSource(liveParams.get('createProjectSource'));
+        const returnPath = typeof window !== 'undefined'
+            ? getCreateProjectReturnPath(window.location)
+            : '/hub';
+        const githubResume = readGithubOAuthResume(returnPath);
         const persistedModalState = readPersistedCreateProjectModalState();
-        const source = requestedSource ?? persistedModalState?.source ?? null;
+        const source = requestedSource ?? githubResume?.values.import_source?.type ?? persistedModalState?.source ?? null;
         const shouldOpenCreateModal =
             liveParams.get('createProject') === '1'
             || persistedModalState?.open === true;
@@ -181,6 +187,7 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
 
         persistCreateProjectModalState({ open: true, source });
         setCreateModalInitialSource(source);
+        setGithubOAuthResume(githubResume);
         setShowCreateModal(true);
 
         if (typeof window !== 'undefined') {
@@ -218,7 +225,6 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
         isLoading,
         error: projectsError,
     } = useHubProjectsSimple(currentFilters, filterView, initialProjectsPage);
-
     const allProjects = useMemo(() => {
         return data?.pages?.flatMap((p) => p.projects) || [];
     }, [data]);
@@ -242,12 +248,143 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
         fetchNextPage();
     }, [hideOpened, visibleProjects.length, hasNextPage, isFetchingNextPage, allProjects.length, fetchNextPage]);
 
+    // Synchronize fresh SSR initialProjectsPage into React Query cache on client navigation
+    useEffect(() => {
+        if (!initialProjectsPage?.projects?.length) return;
+        queryClient.setQueriesData<any>(
+            { queryKey: queryKeys.hub.projectsSimpleRoot() },
+            (oldData: any) => {
+                if (!oldData?.pages?.length) return oldData;
+                const freshMap = new Map(initialProjectsPage.projects!.map((p) => [p.id, p]));
+                return {
+                    ...oldData,
+                    pages: oldData.pages.map((page: any, idx: number) => {
+                        if (idx !== 0) return page;
+                        return {
+                            ...page,
+                            projects: (page.projects || []).map((cachedProject: any) => {
+                                const fresh = freshMap.get(cachedProject.id);
+                                if (!fresh) return cachedProject;
+                                return {
+                                    ...cachedProject,
+                                    coverImage: fresh.coverImage ?? cachedProject.coverImage,
+                                    title: fresh.title ?? cachedProject.title,
+                                    shortDescription: fresh.shortDescription ?? cachedProject.shortDescription,
+                                    description: fresh.description ?? cachedProject.description,
+                                    updatedAt: fresh.updatedAt ?? cachedProject.updatedAt,
+                                };
+                            }),
+                        };
+                    }),
+                };
+            }
+        );
+    }, [initialProjectsPage, queryClient]);
+
+    // Real-time synchronization across tabs & project settings updates (1M scale)
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+
+        const handleProjectUpdate = (event: Event) => {
+            const customEvent = event as CustomEvent<{
+                projectId?: string;
+                update?: { coverImage?: string | null };
+            }>;
+            const targetId = customEvent.detail?.projectId;
+            const patch = customEvent.detail?.update;
+            if (!targetId) return;
+
+            if (patch && patch.coverImage !== undefined) {
+                queryClient.setQueriesData<any>(
+                    { queryKey: queryKeys.hub.projectsSimpleRoot() },
+                    (oldData: any) => {
+                        if (!oldData?.pages) return oldData;
+                        return {
+                            ...oldData,
+                            pages: oldData.pages.map((page: any) => ({
+                                ...page,
+                                projects: (page.projects || []).map((p: any) =>
+                                    p.id === targetId || p.slug === targetId
+                                        ? { ...p, coverImage: patch.coverImage }
+                                        : p
+                                ),
+                            })),
+                        };
+                    }
+                );
+            }
+
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.hub.projectsSimpleRoot(),
+            });
+        };
+
+        window.addEventListener("nb-project-updated", handleProjectUpdate as EventListener);
+
+        let channel: BroadcastChannel | null = null;
+        if (typeof BroadcastChannel !== "undefined") {
+            try {
+                channel = new BroadcastChannel("nb-project-updated-v1");
+                channel.onmessage = (msgEvent) => {
+                    const data = msgEvent.data;
+                    if (data?.projectId) {
+                        handleProjectUpdate(
+                            new CustomEvent("nb-project-updated", { detail: data })
+                        );
+                    }
+                };
+            } catch {
+                // Ignore restricted environments
+            }
+        }
+
+        return () => {
+            window.removeEventListener("nb-project-updated", handleProjectUpdate as EventListener);
+            if (channel) {
+                channel.close();
+            }
+        };
+    }, [queryClient]);
+
     const projectViewModels = useMemo(() => {
         return visibleProjects.reduce((acc, p) => {
             acc[p.id] = toProjectCardViewModel(p);
             return acc;
         }, {} as Record<string, ProjectCardViewModel>);
     }, [visibleProjects]);
+
+    const virtuosoComponents = useMemo(() => ({
+        Footer: () => {
+            if (!isFetchingNextPage) return null;
+            return (
+                <div className="pb-8 pt-4 text-center text-zinc-500 text-sm">
+                    Loading more projects...
+                </div>
+            );
+        },
+    }), [isFetchingNextPage]);
+
+    const handleEndReached = useCallback(() => {
+        if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+        }
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    const renderProjectItem = useCallback((_: number, project: Project) => {
+        const vm = projectViewModels[project.id] || toProjectCardViewModel(project);
+        return (
+            <div className="pb-4">
+                <ProjectCard
+                    project={project}
+                    viewModel={vm}
+                    viewMode={viewMode}
+                    isFollowing={myFollowedProjects?.has(project.id)}
+                    followersCount={project.followersCount ?? 0}
+                    onOpenProject={markSeen}
+                />
+            </div>
+        );
+    }, [markSeen, myFollowedProjects, projectViewModels, viewMode]);
 
     // --- Handlers ---
 
@@ -257,42 +394,14 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
         setScrollContainer((prev) => (prev === node ? prev : node));
     }, []);
 
-    useEffect(() => {
-        if (!scrollContainer) return;
-
-        let rafId: number | null = null;
-        const updateSticky = () => {
-            const nextSticky = scrollContainer.scrollTop > 20;
-            setIsSticky((prev) => (prev === nextSticky ? prev : nextSticky));
-        };
-
-        const handleScroll = () => {
-            if (rafId !== null) return;
-            rafId = window.requestAnimationFrame(() => {
-                rafId = null;
-                updateSticky();
-            });
-        };
-
-        scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-        updateSticky();
-
-        return () => {
-            scrollContainer.removeEventListener('scroll', handleScroll);
-            if (rafId !== null) {
-                window.cancelAnimationFrame(rafId);
-            }
-        };
-    }, [scrollContainer]);
-
     // Creating Project
     const handleProjectCreated = useCallback(() => {
         persistCreateProjectModalState(null);
         setShowCreateModal(false);
         setCreateModalInitialSource(null);
+        setGithubOAuthResume(null);
         queryClient.invalidateQueries({ queryKey: queryKeys.hub.projectsSimpleRoot() });
         queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.hubRoot() });
-        toast.success('Project created successfully!');
     }, [queryClient]);
 
     // Clear Filters
@@ -307,42 +416,9 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
     }, [updateUrlFilters]);
 
     // Clear Filters
-    const handleSelectView = (view: string) => {
-        updateUrlFilters({ view: view as FilterView });
-        setShowMobileSidebar(false);
+    const handleSelectView = (view: FilterView) => {
+        updateUrlFilters({ view });
     };
-
-    const handleFeedScrollState = useCallback((isScrolling: boolean) => {
-        if (isScrolling) {
-            if (feedScrollStopTimerRef.current) {
-                clearTimeout(feedScrollStopTimerRef.current);
-                feedScrollStopTimerRef.current = null;
-            }
-            if (!feedScrollingRef.current) {
-                feedScrollingRef.current = true;
-                setIsFeedScrolling(true);
-            }
-            return;
-        }
-
-        if (feedScrollStopTimerRef.current) {
-            clearTimeout(feedScrollStopTimerRef.current);
-        }
-
-        feedScrollStopTimerRef.current = setTimeout(() => {
-            feedScrollStopTimerRef.current = null;
-            feedScrollingRef.current = false;
-            setIsFeedScrolling(false);
-        }, 140);
-    }, []);
-
-    useEffect(() => {
-        return () => {
-            if (feedScrollStopTimerRef.current) {
-                clearTimeout(feedScrollStopTimerRef.current);
-            }
-        };
-    }, []);
 
     // --- Render ---
 
@@ -350,21 +426,12 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
         <HubErrorBoundary>
             <div className="h-full min-h-0 overflow-hidden bg-zinc-50 dark:bg-zinc-950">
                 {projectsError && (
-                    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-2 rounded-lg shadow-sm">
+                    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-2 rounded-lg shadow-none">
                         Error loading projects: {projectsError.message}
                     </div>
                 )}
 
                 <div className="w-full mx-auto flex h-full min-h-0">
-                    {/* Sidebar */}
-                    <AppScrollArea axis="y" className="hidden lg:block w-60 flex-shrink-0 h-full py-8 pl-6 pr-4">
-                        <HubNavigation
-                            currentUser={currentUser}
-                            activeView={filterView}
-                            onSelectView={handleSelectView}
-                        />
-                    </AppScrollArea>
-
                     {/* Main Content */}
                     <div className="flex-1 min-w-0 h-full min-h-0 flex flex-col overflow-hidden">
                         <AppScrollArea
@@ -373,50 +440,29 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
                             id="hub-scroll-container"
                             data-testid="hub-feed-scroll"
                             data-scroll-root="route"
-                            className="flex-1 min-h-0 px-4 sm:px-6 lg:pl-4 lg:pr-6 pb-8 relative"
+                            className="flex-1 min-h-0 px-4 sm:px-6 pb-8 relative"
                         >
-                            <div className="flex flex-col">
-                                {/* Spacer to allow scrolling up before sticking */}
-                                <div className="h-8 shrink-0" aria-hidden="true" />
-                                
-                                <div 
-                                    data-testid="hub-header-shell" 
-                                    className="sticky z-30 mb-6 -mx-4 sm:mx-0 px-4 sm:px-0 transition-all duration-200"
-                                    style={{ top: "12px" }}
-                                >
-                                    <div className={`p-4 rounded-2xl border transition-shadow duration-300 ${
-                                        isSticky 
-                                            ? 'shadow-md border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 supports-[backdrop-filter]:dark:bg-zinc-950/80' 
-                                            : 'shadow-sm border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
-                                    }`}>
-                                        <HubHeader
-                                            filterView={filterView}
-                                            onApplyFilters={(newFilters) => {
-                                                updateUrlFilters({
-                                                    status: newFilters.status as ProjectStatus,
-                                                    type: newFilters.type as ProjectType,
-                                                    sort: newFilters.sort as SortOption,
-                                                    tech: newFilters.tech,
-                                                    hideOpened: newFilters.hideOpened ?? false,
-                                                });
-                                            }}
-                                            onCreateProject={() => {
-                                                persistCreateProjectModalState({ open: true, source: null });
-                                                setCreateModalInitialSource(null);
-                                                setShowCreateModal(true);
-                                            }}
-                                            onPreloadModal={() => import('@/components/projects/create-wizard/CreateProjectWizard')}
-                                            filters={currentFilters}
-                                            viewMode={viewMode}
-                                            onViewModeChange={setViewMode}
-                                        />
-                                    </div>
-                                </div>
+                            <div className="mx-auto flex w-full max-w-[1240px] flex-col">
+                                <div className="h-6 shrink-0" aria-hidden="true" />
 
-                                <div className="flex flex-col gap-6">
+                                <div className={currentUser?.id ? "nb-discover-columns" : "nb-discover-columns nb-discover-columns--single"}>
+                                <div className="min-w-0">
+                                    <div
+                                        data-testid="hub-header-shell"
+                                        className="mb-[18px] py-2"
+                                    >
+                                        <div className="pb-4">
+                                            <HubHeader
+                                                filterView={filterView}
+                                                onSelectView={handleSelectView}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex min-w-0 flex-col gap-4">
 
                             {showProfileChecklist && profileChecklistItems.length > 0 && (
-                                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-950/30 p-4">
+                                <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-950/30 p-4">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="space-y-2">
                                             <p className="text-sm font-semibold flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
@@ -429,9 +475,9 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
                                                 ))}
                                             </ul>
                                             <Link
-                                                href="/profile"
-                                                onMouseEnter={() => prefetch('/profile')}
-                                                onFocus={() => prefetch('/profile')}
+                                                href={ROUTES.MY_PROFILE}
+                                                onMouseEnter={() => prefetch(ROUTES.MY_PROFILE)}
+                                                onFocus={() => prefetch(ROUTES.MY_PROFILE)}
                                                 className="inline-flex items-center rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
                                             >
                                                 Complete profile details
@@ -458,7 +504,7 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
 
                             {/* Projects Grid */}
                             {isLoading && visibleProjects.length === 0 ? (
-                                <div className={`grid gap-x-4 gap-y-3 ${viewMode === VIEW_MODES.GRID ? 'md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+                                <div className="grid grid-cols-1 gap-4">
                                     {[1, 2, 3, 4, 5, 6].map((i) => (
                                         <ProjectCardSkeleton key={i} />
                                     ))}
@@ -468,69 +514,53 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
                                     initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
                                     animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
                                     transition={reduceMotion ? { duration: 0 } : undefined}
-                                    className="text-center py-24 bg-white dark:bg-zinc-900 rounded-3xl border border-dashed border-slate-300 dark:border-zinc-800"
+                                    className="nb-empty-state nb-grid-ground py-16"
                                 >
-                                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-50 dark:bg-zinc-800 flex items-center justify-center">
-                                        <Search className="w-10 h-10 text-slate-300 dark:text-zinc-600" />
+                                    <div className="w-12 h-12 mx-auto mb-4 rounded-[8px] border border-border bg-card flex items-center justify-center text-muted-foreground shadow-2xs">
+                                        <Search className="w-6 h-6 text-muted-foreground" />
                                     </div>
-                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No Projects Found</h3>
-                                    <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-md mx-auto">
+                                    <h3 className="nb-card-title text-foreground mb-2">No Projects Found</h3>
+                                    <p className="nb-compact text-muted-foreground mb-6 max-w-md mx-auto">
                                         Adjust your filters or create a new project.
                                     </p>
                                     <div className="flex items-center justify-center gap-3">
-                                        <button onClick={handleClearFilters} className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg font-medium transition-all">
+                                        <button onClick={handleClearFilters} className="inline-flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-[6px] text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform]">
                                             Clear Filters
                                         </button>
                                         <button onClick={() => {
                                             persistCreateProjectModalState({ open: true, source: null });
                                             setCreateModalInitialSource(null);
                                             setShowCreateModal(true);
-                                        }} className="inline-flex items-center gap-2 px-6 py-3 app-accent-solid hover:bg-primary/90 rounded-xl font-semibold transition-all">
-                                            <Sparkles className="w-5 h-5" />
+                                        }} className="inline-flex items-center gap-2 px-5 py-2.5 app-accent-solid hover:bg-primary/90 rounded-[6px] text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]">
+                                            <Sparkles className="w-4 h-4" />
                                             Start New Project
                                         </button>
                                     </div>
                                 </motion.div>
                             ) : (
-                                <div className="flex-1 w-full min-h-[600px]">
+                                <div className="flex-1 w-full min-h-0">
                                     {scrollContainer && (
-                                        <VirtuosoGrid
+                                        <Virtuoso
                                             customScrollParent={scrollContainer}
-                                            style={{ width: '100%' }}
-                                            totalCount={visibleProjects.length}
+                                            style={VIRTUOSO_CONTAINER_STYLE}
                                             data={visibleProjects}
-                                            computeItemKey={(_, project) => project.id}
-                                            increaseViewportBy={{ top: 560, bottom: 1200 }}
-                                            overscan={520}
-                                            isScrolling={handleFeedScrollState}
-                                            endReached={() => {
-                                                if (hasNextPage && !isFetchingNextPage) {
-                                                    fetchNextPage();
-                                                }
-                                            }}
-                                            components={{
-                                                List: ({ children, ...props }) => (
-                                                    <div {...props} className={`grid gap-x-4 gap-y-3 ${viewMode === VIEW_MODES.GRID ? 'md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'} pb-24`}>
-                                                        {children}
-                                                    </div>
-                                                ),
-                                                Footer: () => (isFetchingNextPage ? <div className="col-span-full py-8 text-center text-zinc-500">Loading more...</div> : null),
-                                            }}
-                                            itemContent={(_, project) => (
-                                                <ProjectCard
-                                                    project={project}
-                                                    viewModel={projectViewModels[project.id]!}
-                                                    viewMode={viewMode}
-                                                    isFollowing={myFollowedProjects?.has(project.id)}
-                                                    followersCount={project.followersCount ?? 0}
-                                                    onOpenProject={markSeen}
-                                                    disableHoverEffects={isFeedScrolling}
-                                                />
-                                            )}
+                                            computeItemKey={computeProjectItemKey}
+                                            overscan={400}
+                                            increaseViewportBy={VIRTUOSO_INCREASE_VIEWPORT_BY}
+                                            endReached={handleEndReached}
+                                            components={virtuosoComponents}
+                                            itemContent={renderProjectItem}
                                         />
                                     )}
                                 </div>
                             )}
+                            </div>
+                            </div>
+                            {currentUser?.id ? (
+                                <aside className="nb-discover-rail pt-2" aria-label="People you should meet">
+                                    <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" />
+                                </aside>
+                            ) : null}
                             </div>
                             </div>
                         </AppScrollArea>
@@ -543,9 +573,15 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
                                     persistCreateProjectModalState(null);
                                     setShowCreateModal(false);
                                     setCreateModalInitialSource(null);
+                                    setGithubOAuthResume(null);
                                 }}
                                 onSuccess={handleProjectCreated}
                                 initialSource={createModalInitialSource}
+                                githubOAuthResume={githubOAuthResume}
+                                onGithubOAuthResumeRestored={(resumeId) => {
+                                    clearGithubOAuthResume(resumeId);
+                                    setGithubOAuthResume(null);
+                                }}
                                 onSourceChange={(source) => {
                                     setCreateModalInitialSource(source);
                                     persistCreateProjectModalState({ open: true, source });
@@ -556,22 +592,6 @@ const SimpleHubClient = memo(function SimpleHubClient({ returnUserData, initialP
                     </div>
                 </div>
 
-                {/* Mobile FAB */}
-                <button
-                    onClick={() => setShowMobileSidebar(true)}
-                    className="lg:hidden fixed bottom-6 right-6 z-30 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
-                    aria-label="Open filters"
-                >
-                    <Filter className="w-5 h-5" />
-                </button>
-
-                <MobileSidebarDrawer isOpen={showMobileSidebar} onClose={() => setShowMobileSidebar(false)}>
-                    <HubNavigation
-                        currentUser={currentUser}
-                        activeView={filterView}
-                        onSelectView={handleSelectView}
-                    />
-                </MobileSidebarDrawer>
             </div>
         </HubErrorBoundary>
     );

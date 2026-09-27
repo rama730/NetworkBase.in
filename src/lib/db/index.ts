@@ -45,12 +45,16 @@ function resolvePreparedStatementsEnabled(raw: string) {
     return isDevelopment && !isTransactionPoolerUrl(raw)
 }
 
-const dbPoolMax = readIntEnv('DB_POOL_MAX', isDevelopment ? 5 : 20, 1, 100)
-const dbIdleTimeoutSeconds = readIntEnv('DB_IDLE_TIMEOUT_SECONDS', isDevelopment ? 10 : 60, 5, 600)
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NEXT_RUNTIME === 'edge')
+const defaultPoolMax = isDevelopment ? 5 : (isServerless ? 2 : 20)
+const dbPoolMax = readIntEnv('DB_POOL_MAX', defaultPoolMax, 1, 100)
+const dbIdleTimeoutSeconds = readIntEnv('DB_IDLE_TIMEOUT_SECONDS', isDevelopment ? 10 : 10, 2, 600)
 const dbConnectTimeoutSeconds = readIntEnv('DB_CONNECT_TIMEOUT_SECONDS', 10, 2, 60)
+const dbStatementTimeoutMs = readIntEnv('DB_STATEMENT_TIMEOUT_MS', 8000, 1000, 60000)
+const dbIdleTxTimeoutMs = readIntEnv('DB_IDLE_TX_TIMEOUT_MS', 5000, 1000, 30000)
 
 /**
- * Singleton connection pattern for Next.js HMR
+ * Singleton connection pattern for Next.js HMR and server runtime
  */
 const globalForDb = globalThis as unknown as {
     conn: postgres.Sql | undefined
@@ -68,6 +72,10 @@ const client = globalForDb.conn ?? postgres(resolvedConnectionString, {
     max: dbPoolMax,
     idle_timeout: dbIdleTimeoutSeconds,
     connect_timeout: dbConnectTimeoutSeconds,
+    connection: {
+        statement_timeout: dbStatementTimeoutMs,
+        idle_in_transaction_session_timeout: dbIdleTxTimeoutMs,
+    },
     onnotice: (notice) => logger.debug('pg notice', { module: 'db', message: notice.message }),
     onclose: () => logger.debug('pg connection closed', { module: 'db' }),
 })
@@ -86,13 +94,16 @@ const readClient = globalForDb.readConn ?? (
             max: dbPoolMax,
             idle_timeout: dbIdleTimeoutSeconds,
             connect_timeout: dbConnectTimeoutSeconds,
+            connection: {
+                statement_timeout: dbStatementTimeoutMs,
+                idle_in_transaction_session_timeout: dbIdleTxTimeoutMs,
+            },
         })
 )
 
-if (process.env.NODE_ENV !== 'production') {
-    globalForDb.conn = client
-    globalForDb.readConn = readClient
-}
+// ponytail: always preserve singletons across module re-evaluations to prevent pool exhaustion and RAM leaks. ceiling: process global singleton. upgrade: external connection pool manager if serverless process isolation changes.
+globalForDb.conn = client
+globalForDb.readConn = readClient
 
 export const db = drizzle(client, { schema })
 export const readDb = drizzle(readClient, { schema })

@@ -27,7 +27,9 @@ export async function applyConnectionsCountIncrements(tx: DbTransaction, increme
 }
 
 export async function revalidateConnectionsPaths() {
+    revalidatePath('/network');
     revalidatePath('/people');
+    revalidatePath('/my-profile');
     revalidatePath('/profile');
     revalidatePath('/messages');
 }

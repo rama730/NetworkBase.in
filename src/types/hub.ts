@@ -88,7 +88,6 @@ export interface Project {
     files: boolean;
     sprints: boolean;
     tasks: boolean;
-    analytics: boolean;
   };
   hasPublishedReadme?: boolean;
   readmeExcerpt?: string | null;

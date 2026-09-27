@@ -1,6 +1,6 @@
 import { REALTIME_SUBSCRIBE_STATES, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js'
 
-import { subscribeActiveResource } from '@/lib/realtime/subscriptions'
+import { isRealtimeTerminalStatus, subscribeActiveResource } from '@/lib/realtime/subscriptions'
 import { logger } from '@/lib/logger'
 
 // ---------------------------------------------------------------------------
@@ -9,7 +9,9 @@ import { logger } from '@/lib/logger'
 
 export interface ProjectFilesChannelOptions {
     projectId: string
+    scope?: string
     onFileLeaseChange?: () => void
+    onSyncRunChange?: () => void
     onStatus?: (status: REALTIME_SUBSCRIBE_STATES) => void
 }
 
@@ -22,7 +24,8 @@ export interface ProjectFilesChannelOptions {
  * Enforced client-side to stay within the realtime budget alongside
  * the existing task-resource channel.
  */
-const MAX_BACKGROUND_CHANNELS = 2
+// ponytail: client channel ceiling of 4 covers root files tab and github sync workspace simultaneously. ceiling: 4 concurrent channels per tab. upgrade: increase budget when additional scoped sub-panels are introduced.
+const MAX_BACKGROUND_CHANNELS = 4
 
 // ---------------------------------------------------------------------------
 // Channel budget tracking
@@ -35,11 +38,8 @@ const activeChannelIds = new Set<string>()
 // ---------------------------------------------------------------------------
 
 /**
- * Subscribe only to the genuinely project-filterable lease resource.
- * Workspace-wide task-link/version bindings and the unpublished
- * `project_nodes` binding were removed; consumers reconcile bounded folder
- * state on focus and after mutations instead of receiving every workspace
- * event in every open project.
+ * Subscribe to project-filtered lease, node, and sync-run resources.
+ * Realtime CDC eliminates high-frequency client polling loops across 1M developers.
  *
  * Supabase Realtime owns socket reconnect and channel rejoin. This wrapper only
  * reports status and releases its budget marker when the channel is removed.
@@ -51,36 +51,53 @@ export function subscribeProjectFilesChannel(
     supabase: SupabaseClient,
     options: ProjectFilesChannelOptions,
 ): RealtimeChannel {
-    const { projectId, onFileLeaseChange, onStatus } = options
+    const { projectId, scope = 'files-root', onFileLeaseChange, onSyncRunChange, onStatus } = options
+
+    const channelId = `${projectId}:${scope}`
 
     // Budget enforcement
     if (activeChannelIds.size >= MAX_BACKGROUND_CHANNELS) {
         logger.warn('realtime.project-files-channel.budget-exceeded', {
             module: 'realtime',
             projectId,
+            scope,
             count: activeChannelIds.size,
         })
     }
-
-    const channelId = projectId
 
     function cleanup() {
         activeChannelIds.delete(channelId)
     }
 
+    const bindings = [
+        {
+            event: '*' as const,
+            table: 'project_node_locks',
+            filter: `project_id=eq.${projectId}`,
+            handler: () => onFileLeaseChange?.(),
+        },
+    ]
+
+    if (onSyncRunChange) {
+        bindings.push({
+            event: '*' as const,
+            table: 'github_sync_runs',
+            filter: `project_id=eq.${projectId}`,
+            handler: () => onSyncRunChange(),
+        })
+    }
+
     const channel = subscribeActiveResource({
         supabase,
         resourceType: 'project_files',
-        resourceId: projectId,
-        bindings: [
-                {
-                    event: '*',
-                    table: 'project_node_locks',
-                    filter: `project_id=eq.${projectId}`,
-                    handler: () => onFileLeaseChange?.(),
-                },
-        ],
-        onStatus,
+        resourceId: channelId,
+        bindings,
+        onStatus: (status) => {
+            if (isRealtimeTerminalStatus(status)) {
+                cleanup()
+            }
+            onStatus?.(status)
+        },
     })
 
     // Track this channel in the budget

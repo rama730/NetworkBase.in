@@ -15,7 +15,7 @@ function isAlreadyExistsError(error: { message?: string } | null): boolean {
 
 export const migrateProjectFileLegacyKeys = inngest.createFunction(
     { id: "project-files-key-migration", retries: 1 },
-    { cron: "0 * * * *" },
+    { cron: "0 3 * * *" },
     async () => {
         const admin = await createAdminClient();
 

@@ -64,12 +64,12 @@ export function ProjectDocSmartBlock({
     if (preview) return <ProjectDocSmartBlockPreviewCard preview={preview} />;
     if (loading && block.kind !== "unknown") {
         return (
-            <div className="my-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-950/60">
+            <div className="my-4 rounded-[8px] border border-border bg-card/60 p-4">
                 <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 animate-pulse rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
+                    <div aria-hidden="true" className="nb-skeleton size-8 rounded-[5px]" />
                     <div className="min-w-0 flex-1 space-y-2">
-                        <div className="h-3 w-40 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
-                        <div className="h-3 w-64 max-w-full animate-pulse rounded bg-zinc-100 dark:bg-zinc-900" />
+                        <div aria-hidden="true" className="nb-skeleton h-3 w-40 rounded-[3px]" />
+                        <div aria-hidden="true" className="nb-skeleton h-3 w-64 max-w-full rounded-[3px]" />
                     </div>
                 </div>
             </div>
@@ -97,30 +97,30 @@ export function ProjectDocSmartBlock({
     return (
         <div
             className={cn(
-                "my-4 rounded-2xl border p-4",
+                "my-4 rounded-[8px] border p-4 bg-card transition-colors",
                 block.kind === "unknown"
-                    ? "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/20 dark:text-amber-100"
-                    : "border-blue-200 bg-blue-50/70 text-blue-950 dark:border-blue-900/70 dark:bg-blue-950/20 dark:text-blue-100",
+                    ? "border-amber-500/30 bg-amber-500/5 text-foreground"
+                    : "border-border hover:border-foreground/20 text-foreground",
             )}
         >
             <div className="flex items-start gap-3">
-                <span className="rounded-xl bg-white/70 p-2 shadow-sm dark:bg-white/10">
-                    <Icon className="h-4 w-4" />
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-[5px] border border-border bg-muted/50 text-foreground">
+                    <Icon className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{copy.title}</p>
-                    <p className="mt-1 text-sm opacity-80">{copy.description}</p>
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] opacity-70">{summary}</p>
+                    <p className="nb-ui-label font-semibold text-foreground">{copy.title}</p>
+                    <p className="nb-compact mt-0.5 text-xs text-muted-foreground">{copy.description}</p>
+                    <p className="nb-meta mt-2 text-[11px] uppercase tracking-wider text-muted-foreground font-mono">{summary}</p>
                 </div>
                 {block.kind !== "unknown" ? (
                     <Link
                         href={href}
-                        className="rounded-full border border-current/20 px-3 py-1 text-xs font-semibold transition hover:bg-white/50 dark:hover:bg-white/10"
+                        className="inline-flex h-[28px] items-center justify-center rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                     >
                         Open
                     </Link>
                 ) : (
-                    <FileText className="h-4 w-4 opacity-70" />
+                    <FileText className="size-4 text-muted-foreground" />
                 )}
             </div>
         </div>

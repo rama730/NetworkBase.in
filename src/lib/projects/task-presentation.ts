@@ -82,7 +82,7 @@ export function getTaskTitlePresentation(task: {
   return {
     isCompleted,
     className: isCompleted
-      ? "line-through decoration-1 decoration-zinc-400 text-zinc-500 dark:decoration-zinc-500 dark:text-zinc-400"
+      ? "line-through decoration-1 decoration-muted-foreground/60 text-muted-foreground"
       : "",
     ...(isCompleted && task.title
       ? { ariaLabel: `Completed task: ${task.title}` }
@@ -229,8 +229,7 @@ export function calculateTaskTimeHealth(
   const completionTimestamp =
     task.completedAt ?? (task.status === "done" ? task.updatedAt ?? null : null);
 
-  // ponytail: a task completed after its due day remains Done and is also
-  // Overdue, independently of whether its Sprint is still active.
+  // ponytail: a task completed after its due day remains Done and is also Overdue, independently of whether its Sprint is still active. ceiling: completedAt timestamp vs referenceDate. upgrade: store discrete historical status audit logs if completion latency tracking needed.
   if (isTaskDone) {
     const finishDate = completionTimestamp
       ? Date.parse(completionTimestamp)

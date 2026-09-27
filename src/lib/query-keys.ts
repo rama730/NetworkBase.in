@@ -78,6 +78,7 @@ export const queryKeys = {
     collaborationSummary: (userId: string) =>
       ["profile", "collaboration-summary", userId] as const,
     projects: (userId: string) => ["profile", "projects", userId] as const,
+    sidebarProjects: (userId: string) => ["profile", "sidebar-projects", userId] as const,
     inviteOptions: (userId: string) =>
       ["profile", "project-invite-options", userId] as const,
     stats: (userId: string) => ["profile", "stats", userId] as const,
@@ -174,116 +175,8 @@ export const queryKeys = {
         ["project", projectId, "detail", "sprints"] as const,
       workflow: (projectId: string) =>
         ["project", projectId, "detail", "workflow"] as const,
-      analytics: (projectId: string) =>
-        ["project", projectId, "detail", "analytics"] as const,
-      analyticsOverview: (
-        projectId: string,
-        filters?: Record<string, unknown> | null,
-      ) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "analytics",
-          "overview",
-          filters ?? null,
-        ] as const,
-      analyticsMembers: (
-        projectId: string,
-        filters?: Record<string, unknown> | null,
-      ) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "analytics",
-          "members",
-          filters ?? null,
-        ] as const,
-      analyticsMember: (
-        projectId: string,
-        memberId: string | null | undefined,
-      ) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "analytics",
-          "member",
-          asNullable(memberId),
-        ] as const,
-      analyticsWorkflow: (
-        projectId: string,
-        filters?: Record<string, unknown> | null,
-      ) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "analytics",
-          "workflow",
-          filters ?? null,
-        ] as const,
-      analyticsSprints: (
-        projectId: string,
-        filters?: Record<string, unknown> | null,
-      ) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "analytics",
-          "sprints",
-          filters ?? null,
-        ] as const,
-      analyticsFiles: (
-        projectId: string,
-        filters?: Record<string, unknown> | null,
-      ) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "analytics",
-          "files",
-          filters ?? null,
-        ] as const,
-      analyticsRisks: (
-        projectId: string,
-        filters?: Record<string, unknown> | null,
-      ) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "analytics",
-          "risks",
-          filters ?? null,
-        ] as const,
-      analyticsSnapshot: (
-        projectId: string,
-        filters?: Record<string, unknown> | null,
-      ) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "analytics",
-          "snapshot",
-          filters ?? null,
-        ] as const,
-      analyticsTimeline: (
-        projectId: string,
-        filters: Record<string, unknown> | null | undefined,
-      ) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "analytics",
-          "timeline",
-          filters ?? null,
-        ] as const,
+      recentActivity: (projectId: string) =>
+        ["project", projectId, "detail", "recent-activity"] as const,
       readme: (projectId: string) =>
         ["project", projectId, "detail", "readme"] as const,
       readmeDraft: (projectId: string) =>
@@ -380,6 +273,7 @@ export const queryKeys = {
     sprints: () => ["workspace", "sprints"] as const,
     tasks: (scope: "my" | "team" | "all" = "my", limit = 24) =>
       ["workspace", "tasks", scope, limit] as const,
-    joinRequests: () => ["workspace", "joinRequests"] as const,
+    joinRequests: (limit = 20) => ["workspace", "joinRequests", limit] as const,
+    sentProjectInvitations: (limit = 50) => ["workspace", "sentProjectInvitations", limit] as const,
   },
 } as const;

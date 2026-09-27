@@ -24,19 +24,39 @@ export async function syncGithub<T>(
 ): Promise<T> {
   if (!path.startsWith("/") || path.startsWith("//") || /[\r\n]/.test(path))
     throw new Error("Invalid GitHub API path");
-  const response = await fetch(`https://api.github.com${path}`, {
-    method,
-    cache: "no-store",
-    redirect: "error",
-    signal: AbortSignal.timeout(20_000),
-    headers: {
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(body ? { "Content-Type": "application/json" } : {}),
-    },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(body ? { "Content-Type": "application/json" } : {}),
+  };
+  const executeFetch = () =>
+    fetch(`https://api.github.com${path}`, {
+      method,
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(20_000),
+      headers,
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+
+  let response = await executeFetch();
+
+  // ponytail: single backoff retry on secondary rate limit for idempotent GET. ceiling: 1 retry, max 5s backoff. upgrade: exponential backoff queue with jitter if hitting sustained GitHub org rate limits.
+  if (
+    method === "GET" &&
+    (response.status === 429 ||
+      (response.status === 403 &&
+        (response.headers.has("retry-after") ||
+          response.headers.get("x-ratelimit-remaining") === "0")))
+  ) {
+    const retryAfter = parseInt(response.headers.get("retry-after") || "1", 10);
+    const delayMs =
+      Math.min(Math.max(0, isNaN(retryAfter) ? 1 : retryAfter), 5) * 1000;
+    if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    response = await executeFetch();
+  }
+
   if (response.status === 204) return undefined as T;
   const reader = response.body?.getReader();
   const chunks: Uint8Array[] = [];
@@ -153,11 +173,59 @@ export async function readGitHubTree(
     truncated: boolean;
     tree: SyncTreeEntry[];
   }>(token, `${repoApi(repository)}/git/trees/${head}?recursive=1`);
-  if (result.truncated)
-    throw new Error(
-      "GitHub returned an incomplete tree. This repository exceeds the supported sync listing size.",
-    );
-  return result.tree.filter((entry) => entry.type !== "tree");
+  if (!result?.truncated) {
+    return (result?.tree ?? []).filter((entry) => entry && entry.type !== "tree");
+  }
+
+  // ponytail: 1-level hierarchical subtree fallback. ceiling: 100k files single-tree limit. upgrade: multi-level recursive tree traversal if subtrees exceed 100k.
+  try {
+    const rootResult = await syncGithub<{
+      truncated: boolean;
+      tree: SyncTreeEntry[];
+    }>(token, `${repoApi(repository)}/git/trees/${head}`);
+
+    const allBlobs: SyncTreeEntry[] = [];
+    const subTreesToFetch: Array<{ sha: string; prefix: string }> = [];
+
+    for (const entry of rootResult?.tree ?? []) {
+      if (!entry) continue;
+      if (entry.type === "tree") {
+        subTreesToFetch.push({ sha: entry.sha, prefix: entry.path });
+      } else {
+        allBlobs.push(entry);
+      }
+    }
+
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < subTreesToFetch.length; i += BATCH_SIZE) {
+      const chunk = subTreesToFetch.slice(i, i + BATCH_SIZE);
+      const subResults = await Promise.all(
+        chunk.map(async ({ sha, prefix }) => {
+          try {
+            const sub = await syncGithub<{
+              truncated: boolean;
+              tree: SyncTreeEntry[];
+            }>(token, `${repoApi(repository)}/git/trees/${sha}?recursive=1`);
+            return (sub?.tree ?? [])
+              .filter((e) => e && e.type !== "tree")
+              .map((e) => ({ ...e, path: `${prefix}/${e.path}` }));
+          } catch {
+            return [];
+          }
+        }),
+      );
+      for (const subBlobs of subResults) {
+        allBlobs.push(...subBlobs);
+      }
+    }
+
+    return allBlobs.length > 0
+      ? allBlobs
+      : (result?.tree ?? []).filter((entry) => entry && entry.type !== "tree");
+  } catch {
+    // If hierarchical recovery fails, return whatever entries were retrieved in the original tree
+    return (result?.tree ?? []).filter((entry) => entry && entry.type !== "tree");
+  }
 }
 // A missing branch in a populated repository is not an empty repository.
 export async function requireExistingOrEmptyBranch(

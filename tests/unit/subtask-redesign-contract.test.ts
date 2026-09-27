@@ -12,17 +12,26 @@ function read(relativePath: string) {
 test("subtasks use an accessible grouped checklist with explicit creation and recovery", () => {
   const tab = read("src/components/projects/v2/tasks/TaskDetailTabs/SubtasksTab.tsx");
 
-  assert.match(tab, /role="progressbar"/);
+  assert.doesNotMatch(tab, /role="progressbar"/);
   assert.match(tab, /role="checkbox"/);
   assert.match(tab, /aria-checked=\{subtask\.completed\}/);
-  assert.match(tab, /Open · \{openSubtasks\.length\}/);
-  assert.match(tab, /Completed · \{completedSubtasks\.length\}/);
-  assert.match(tab, /Add a subtask…/);
+  assert.match(tab, /Open \(\{openSubtasks\.length\}\)/);
+  assert.match(tab, /Done \(\{completedSubtasks\.length\}\)/);
+  assert.match(tab, /Add a new subtask checkpoint…/);
   assert.match(tab, /onUpdateSubtask/);
   assert.match(tab, /onBlur=\{\(\) => void saveTitle\(subtask\)\}/);
   assert.match(tab, /await onDeleteSubtask\(subtask\.id\)/);
   assert.doesNotMatch(tab, /setTimeout\(\(\) => void commit/);
   assert.match(tab, /void onRetry\(\)/);
+
+  // Redesign enhancements:
+  assert.doesNotMatch(tab, /rounded-\[8px\] border border-border bg-card p-4/);
+  assert.doesNotMatch(tab, /rounded-full/);
+  assert.match(tab, /#\{index \+ 1\}/);
+  assert.match(tab, /copySubtaskTitle/);
+  assert.match(tab, /inputRef\.current\?\.focus\(\)/);
+  assert.match(tab, /Mark all done/);
+  assert.match(tab, /Reopen all/);
 });
 
 test("subtask mutations reconcile by id and use deterministic, narrow reads", () => {

@@ -11,7 +11,8 @@ interface ChatProviderProps {
 }
 
 const CHAT_IDLE_MS = 5 * 60_000;
-const HEARTBEAT_INTERVAL_MS = 4 * 60_000;
+// ponytail: 10-minute heartbeat is plenty for coarse last-active tracking while reducing network egress. ceiling: 1,000,000 users. upgrade: Realtime WebSocket presence cluster if fine-grained sub-second presence required.
+const HEARTBEAT_INTERVAL_MS = 10 * 60_000;
 const INITIAL_HEARTBEAT_COOLDOWN_MS = 60_000;
 let lastSuccessfulHeartbeatAt = 0;
 let heartbeatInFlight = false;

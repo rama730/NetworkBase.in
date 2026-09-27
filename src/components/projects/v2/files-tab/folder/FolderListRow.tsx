@@ -3,13 +3,14 @@
 "use client";
 
 import * as React from "react";
-import { MoreHorizontal, Star } from "lucide-react";
+import { MoreHorizontal, Star, X } from "lucide-react";
 
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { getTaskWorkingFilesDisplayName } from "@/lib/files/task-working-files";
 
 import { FileIcon } from "../../explorer/FileIcons";
+import { FileTypeChip } from "../FileTypeChip";
 import { TaskLinkPopover } from "../TaskLinkPopover";
 import { VersionPill } from "../VersionPill";
 import { formatBytes, formatRelativeTime, formatFileActor } from "./format";
@@ -63,6 +64,11 @@ export interface FolderListRowProps {
   showActions?: boolean;
   actions?: React.ReactNode;
   subtitle?: string;
+  taskLabel?: string | null;
+  onTaskLabelChange?: (node: FolderListRowNode, newLabel: string | null) => void;
+  isEditingTaskLabel?: boolean;
+  onStartEditTaskLabel?: () => void;
+  onCancelEditTaskLabel?: () => void;
 }
 
 // ─── Drag-source MIME (matches the tree drag-source in `FileTreeRow`) ─
@@ -130,7 +136,7 @@ function GitChangeBadge({
       data-status={status}
       title={`Git: ${status}`}
       className={cn(
-        "inline-flex h-[18px] w-[18px] items-center justify-center rounded-sm text-[10px] font-bold tabular-nums",
+        "inline-flex h-[18px] w-[18px] items-center justify-center rounded-sm text-[11px] font-semibold tabular-nums",
         GIT_BADGE_CLASS[status],
       )}
     >
@@ -160,6 +166,11 @@ export const FolderListRow = React.memo(function FolderListRow({
   showActions = true,
   actions,
   subtitle,
+  taskLabel,
+  onTaskLabelChange,
+  isEditingTaskLabel,
+  onStartEditTaskLabel,
+  onCancelEditTaskLabel,
 }: FolderListRowProps): React.JSX.Element {
   const isFolder = node.type === "folder";
   const [dropHighlight, setDropHighlight] = React.useState(false);
@@ -254,6 +265,51 @@ export const FolderListRow = React.memo(function FolderListRow({
   const updatedLabel = updatedAtLabel(node);
   const displayName = getTaskWorkingFilesDisplayName(node);
 
+  const [localEditingLabel, setLocalEditingLabel] = React.useState(false);
+  const isEditingLabel = isEditingTaskLabel || localEditingLabel;
+  const [editLabelValue, setEditLabelValue] = React.useState(taskLabel || "");
+  const labelInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (!isEditingLabel) return undefined;
+    setEditLabelValue(taskLabel || "");
+    const timer = setTimeout(() => {
+      labelInputRef.current?.focus();
+      labelInputRef.current?.select();
+    }, 10);
+    return () => clearTimeout(timer);
+  }, [isEditingLabel, taskLabel]);
+
+  const commitLabelEdit = React.useCallback(() => {
+    setLocalEditingLabel(false);
+    onCancelEditTaskLabel?.();
+    const trimmed = editLabelValue.trim();
+    if (trimmed !== (taskLabel || "")) {
+      onTaskLabelChange?.(node, trimmed || null);
+    }
+  }, [editLabelValue, taskLabel, onTaskLabelChange, node, onCancelEditTaskLabel]);
+
+  const cancelLabelEdit = React.useCallback(() => {
+    setLocalEditingLabel(false);
+    onCancelEditTaskLabel?.();
+    setEditLabelValue(taskLabel || "");
+  }, [taskLabel, onCancelEditTaskLabel]);
+
+  const handleLabelKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        commitLabelEdit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        cancelLabelEdit();
+      }
+    },
+    [commitLabelEdit, cancelLabelEdit],
+  );
+
   return (
     <div
       role="row"
@@ -281,43 +337,164 @@ export const FolderListRow = React.memo(function FolderListRow({
       onDrop={handleDrop}
       tabIndex={0}
       className={cn(
-        "group grid cursor-pointer items-center gap-x-3 border-b border-zinc-100 px-4 text-sm outline-none transition-colors",
-        "hover:bg-zinc-50 focus-visible:bg-zinc-50   ",
-        "dark:border-zinc-800 dark:hover:bg-zinc-900/40 dark:focus-visible:bg-zinc-900/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500",
+        "group grid cursor-pointer items-center gap-x-3 border-b border-[#E8E3D9] px-4 text-sm outline-none transition-colors",
+        "hover:bg-[#F3F0EA]/70 focus-visible:bg-[#F3F0EA]/70",
+        "dark:border-white/10 dark:hover:bg-white/5 dark:focus-visible:bg-white/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#D14E24]",
         dropHighlight &&
-          "bg-indigo-50/70 ring-1 ring-inset ring-indigo-400 dark:bg-indigo-900/30",
+          "bg-[#FCF0EA]/75 ring-1 ring-inset ring-[#D14E24] dark:bg-[#D14E24]/20",
         className,
-        selected && onSelectionChange && "bg-blue-50 dark:bg-blue-950/30",
+        selected && onSelectionChange && "bg-[#F3F0EA] dark:bg-white/10",
       )}
     >
       {/* Name column */}
       <div
         role="cell"
         data-column="name"
-        className="flex min-w-0 items-center gap-2"
+        className="flex min-w-0 items-center gap-2.5"
       >
-        {canEdit && onSelectionChange && <label className="flex size-9 shrink-0 cursor-pointer items-center justify-center" onClick={event => event.stopPropagation()}><input type="checkbox" aria-label={`Select ${displayName}`} checked={selected} onChange={event => onSelectionChange(node.id, event.target.checked)} className="size-4 accent-blue-600" /></label>}
-        <FileIcon
+        {canEdit && onSelectionChange && (
+          <label
+            className="flex size-7 shrink-0 cursor-pointer items-center justify-center"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              aria-label={`Select ${displayName}`}
+              checked={selected}
+              onChange={(event) => onSelectionChange(node.id, event.target.checked)}
+              className="size-4 rounded-[3px] accent-[#D14E24]"
+            />
+          </label>
+        )}
+        <FileTypeChip
           name={displayName}
           mimeType={node.mimeType}
           isFolder={isFolder}
           isOpen={false}
-          className="h-4 w-4 shrink-0 text-zinc-500"
         />
-        <div className="min-w-0 flex-1"><span
-          data-testid="files-tab-folder-list-name"
-          className={cn(
-            "block truncate text-zinc-800 dark:text-zinc-200",
-            isFolder && "font-medium",
+        <div className="min-w-0 flex-1">
+          <span
+            data-testid="files-tab-folder-list-name"
+            className={cn(
+              "block truncate text-[#141A1E] dark:text-foreground",
+              isFolder ? "font-semibold" : "font-medium",
+            )}
+            title={displayName}
+          >
+            {displayName}
+          </span>
+          {(subtitle || taskLabel || isEditingLabel || (canEdit && onTaskLabelChange)) && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+              {subtitle && (
+                <span title={subtitle} className="inline-flex items-center truncate text-xs">
+                  {subtitle.startsWith("Deliverable") ? (
+                    <span
+                      data-testid="file-role-badge-deliverable"
+                      className={cn(
+                        "inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium tracking-wide",
+                        subtitle.includes("Approved")
+                          ? "bg-[#EDF5F0] text-[#245A41] dark:bg-[#245A41]/20 dark:text-[#EDF5F0]"
+                          : "bg-[#FCF0EA] text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]",
+                      )}
+                    >
+                      {subtitle}
+                    </span>
+                  ) : subtitle === "Working file" ? (
+                    <span
+                      data-testid="file-role-badge-working"
+                      className="inline-flex items-center rounded-[3px] bg-[#EEF4FD] px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-[#2563C9] dark:bg-[#2563C9]/20 dark:text-[#EEF4FD]"
+                    >
+                      Working file
+                    </span>
+                  ) : subtitle === "Reference" ? (
+                    <span
+                      data-testid="file-role-badge-reference"
+                      className="inline-flex items-center rounded-[3px] bg-[#F3F0EA] px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-[#6B7880] dark:bg-muted dark:text-muted-foreground"
+                    >
+                      Reference
+                    </span>
+                  ) : (
+                    <span className="text-[#6B7880] dark:text-muted-foreground">{subtitle}</span>
+                  )}
+                </span>
+              )}
+
+              {/* Task label pill / inline editor */}
+              {isEditingLabel ? (
+                <span
+                  className="inline-flex items-center gap-1 rounded-[3px] border border-[#D14E24] bg-white px-1.5 py-0.5 shadow-xs dark:border-[#D14E24] dark:bg-card"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    ref={labelInputRef}
+                    data-testid="folder-list-row-label-editor"
+                    type="text"
+                    value={editLabelValue}
+                    onChange={(e) => setEditLabelValue(e.target.value)}
+                    onBlur={commitLabelEdit}
+                    onKeyDown={handleLabelKeyDown}
+                    placeholder="Label..."
+                    className="w-32 bg-transparent font-mono text-[10px] font-medium text-[#141A1E] dark:text-foreground outline-none placeholder:text-[#6B7880] dark:placeholder:text-muted-foreground"
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Clear label for ${displayName}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditLabelValue("");
+                      setLocalEditingLabel(false);
+                      onCancelEditTaskLabel?.();
+                      onTaskLabelChange?.(node, null);
+                    }}
+                    className="rounded-[2px] p-0.5 text-[#6B7880] hover:bg-[#F3F0EA] hover:text-[#141A1E] dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ) : taskLabel ? (
+                <button
+                  type="button"
+                  data-testid="folder-list-row-task-label"
+                  aria-label={`Edit label: ${taskLabel}`}
+                  title={canEdit && onTaskLabelChange ? "Click to edit label" : taskLabel}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (canEdit && onTaskLabelChange) {
+                      if (onStartEditTaskLabel) onStartEditTaskLabel();
+                      else setLocalEditingLabel(true);
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex max-w-[320px] truncate shrink-0 items-center rounded-[3px] border border-[#DBD5C8] bg-[#F3F0EA] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#374349] dark:border-border dark:bg-muted dark:text-muted-foreground",
+                    canEdit && onTaskLabelChange &&
+                      "cursor-text hover:border-[#B8AF9E] hover:bg-[#E8E3D9] hover:text-[#141A1E] dark:hover:bg-muted/80 dark:hover:text-foreground transition-colors",
+                  )}
+                >
+                  {taskLabel}
+                </button>
+              ) : canEdit && onTaskLabelChange ? (
+                <button
+                  type="button"
+                  data-testid="folder-list-row-add-label-btn"
+                  aria-label={`Add label to ${displayName}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onStartEditTaskLabel) onStartEditTaskLabel();
+                    else setLocalEditingLabel(true);
+                  }}
+                  className="hidden group-hover:inline-flex items-center rounded-[3px] border border-dashed border-[#DBD5C8] px-1.5 py-0.5 font-mono text-[10px] text-[#6B7880] hover:border-[#141A1E] hover:text-[#141A1E] dark:border-border dark:text-muted-foreground dark:hover:border-foreground dark:hover:text-foreground transition-colors"
+                >
+                  + label
+                </button>
+              ) : null}
+            </div>
           )}
-          title={displayName}
-        >
-          {displayName}
-        </span>
-        {subtitle && <span title={subtitle} className="block truncate text-xs text-zinc-500">{subtitle}</span>}
-        <span data-file-mobile-meta className="truncate text-xs text-zinc-500">{[updatedLabel, sizeLabel(node), byLabel].filter(label => label && label !== MISSING).join(" · ")}</span></div>
+          <span data-file-mobile-meta className="truncate text-xs text-[#6B7880] dark:text-muted-foreground">
+            {[updatedLabel, sizeLabel(node), byLabel].filter((label) => label && label !== MISSING).join(" · ")}
+          </span>
+        </div>
         <VersionPill v={node.currentVersion} />
-        {isFavorite && <Star aria-label="Starred" className="size-3.5 shrink-0 text-zinc-500" fill="currentColor" />}
+        {isFavorite && <Star aria-label="Starred" className="size-3.5 shrink-0 text-[#9A6B00]" fill="currentColor" />}
         {showGitBadge ? <GitChangeBadge status={gitChange!} /> : null}
         {(taskLinkCount ?? 0) > 0 ? (
           <TaskLinkPopover
@@ -326,14 +503,13 @@ export const FolderListRow = React.memo(function FolderListRow({
             count={taskLinkCount!}
           />
         ) : null}
-
       </div>
 
       {/* Last updated */}
       <div
         role="cell"
         data-column="updated"
-        className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
+        className="min-w-0 truncate font-mono text-xs text-[#6B7880] dark:text-muted-foreground"
         title={node.versionUpdatedAt ? String(node.versionUpdatedAt) : node.updatedAt ? String(node.updatedAt) : undefined}
       >
         {updatedLabel}
@@ -343,7 +519,7 @@ export const FolderListRow = React.memo(function FolderListRow({
       <div
         role="cell"
         data-column="size"
-        className="min-w-0 text-right text-xs tabular-nums text-zinc-500 dark:text-zinc-400"
+        className="min-w-0 text-right font-mono text-xs tabular-nums text-[#6B7880] dark:text-muted-foreground"
       >
         {sizeLabel(node)}
       </div>
@@ -352,12 +528,23 @@ export const FolderListRow = React.memo(function FolderListRow({
       <div
         role="cell"
         data-column="by"
-        className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
+        className="min-w-0 truncate text-xs text-[#6B7880] dark:text-muted-foreground"
         title={byLabel}
       >
         {byLabel}
       </div>
-      <div role="cell" data-column="actions" onClick={event => event.stopPropagation()} className="flex justify-end">{showActions && (actions ?? <button type="button" aria-label={`Actions for ${displayName}`} className="flex size-10 items-center justify-center rounded hover:bg-zinc-200 focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-zinc-800" onClick={handleContextMenu}><MoreHorizontal aria-hidden="true" className="size-4" /></button>)}</div>
+      <div role="cell" data-column="actions" onClick={(event) => event.stopPropagation()} className="flex justify-end">
+        {showActions && (actions ?? (
+          <button
+            type="button"
+            aria-label={`Actions for ${displayName}`}
+            className="flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
+            onClick={handleContextMenu}
+          >
+            <MoreHorizontal aria-hidden="true" className="size-4" />
+          </button>
+        ))}
+      </div>
     </div>
   );
 });

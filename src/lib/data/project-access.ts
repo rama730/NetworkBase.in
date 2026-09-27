@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { db } from "@/lib/db";
 import { projects, projectMembers } from "@/lib/db/schema";
 import {
@@ -20,8 +21,9 @@ export type ProjectAccess = {
         status: Status;
         slug?: string | null;
         publicTabVisibility?: unknown;
-        importSource?: { type?: string | null } | null;
+        importSource?: { type?: string | null; repoUrl?: string | null; branch?: string | null; metadata?: any } | null;
         syncStatus?: string | null;
+        githubLastCommitSha?: string | null;
     } | null;
     isOwner: boolean;
     isMember: boolean;
@@ -68,6 +70,7 @@ async function getProjectAccess(where: SQL<unknown>, userId: string | null): Pro
             publicTabVisibility: projects.publicTabVisibility,
             importSource: projects.importSource,
             syncStatus: projects.syncStatus,
+            githubLastCommitSha: projects.githubLastCommitSha,
             memberRole: projectMembers.role,
             fileUploadEnabled: projectMembers.fileUploadEnabled,
         })
@@ -93,28 +96,32 @@ async function getProjectAccess(where: SQL<unknown>, userId: string | null): Pro
     let memberRole: MemberRole = null;
     let member: ProjectAccess["member"] = null;
 
-    if (userId && !isOwner && row.memberRole) {
-        isMember = true;
-        memberRole = (row.memberRole as MemberRole) || "member";
-        member = { role: memberRole, fileUploadEnabled: row.fileUploadEnabled };
+    if (userId && !isOwner) {
+        if (row.memberRole) {
+            isMember = true;
+            memberRole = (row.memberRole as MemberRole) || "member";
+            member = {
+                role: memberRole,
+                fileUploadEnabled: row.fileUploadEnabled,
+            };
+        }
     }
 
-    const project = {
-        id: row.id,
-        ownerId: row.ownerId,
-        visibility: row.visibility,
-        status: row.status,
-        slug: row.slug,
-        publicTabVisibility: row.publicTabVisibility,
-        importSource: row.importSource,
-        syncStatus: row.syncStatus,
-    };
-
-    const canRead = computeProjectReadAccess(project.visibility, project.status, isOwner, isMember);
+    const canRead = computeProjectReadAccess(row.visibility, row.status, isOwner, isMember);
     const canWrite = computeProjectWriteAccess(isOwner, memberRole);
 
     return {
-        project,
+        project: {
+            id: row.id,
+            ownerId: row.ownerId,
+            visibility: row.visibility,
+            status: row.status,
+            slug: row.slug,
+            publicTabVisibility: row.publicTabVisibility,
+            importSource: row.importSource,
+            syncStatus: row.syncStatus,
+            githubLastCommitSha: row.githubLastCommitSha,
+        },
         isOwner,
         isMember,
         memberRole,
@@ -124,20 +131,34 @@ async function getProjectAccess(where: SQL<unknown>, userId: string | null): Pro
     };
 }
 
-export function getProjectAccessById(projectId: string, userId: string | null): Promise<ProjectAccess> {
-    return getProjectAccess(eq(projects.id, projectId), userId);
-}
+export const getProjectAccessById = cache(
+    async (projectId: string, userId: string | null): Promise<ProjectAccess> => {
+        return getProjectAccess(eq(projects.id, projectId), userId);
+    }
+);
 
-export function getProjectAccessByIdentifier(identifier: string, userId: string | null): Promise<ProjectAccess> {
-    const value = identifier.trim();
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-    return getProjectAccess(isUuid ? or(eq(projects.slug, value), eq(projects.id, value))! : eq(projects.slug, value), userId);
-}
+export const getProjectAccessBySlug = cache(
+    async (slug: string, userId: string | null): Promise<ProjectAccess> => {
+        return getProjectAccess(eq(projects.slug, slug), userId);
+    }
+);
+
+export const getProjectAccessByIdentifier = cache(
+    (identifier: string, userId: string | null): Promise<ProjectAccess> => {
+        const value = identifier.trim();
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+        return getProjectAccess(isUuid ? or(eq(projects.slug, value), eq(projects.id, value))! : eq(projects.slug, value), userId);
+    }
+);
 
 export async function getProjectAccessByIds(projectIds: string[], userId: string | null): Promise<Record<string, ProjectAccess>> {
     if (projectIds.length === 0) return {};
     
-    const projectsData = await db
+    const memberJoinCondition = userId
+        ? and(eq(projectMembers.projectId, projects.id), eq(projectMembers.userId, userId))
+        : sql`FALSE`;
+
+    const rows = await db
         .select({
             id: projects.id,
             ownerId: projects.ownerId,
@@ -147,36 +168,34 @@ export async function getProjectAccessByIds(projectIds: string[], userId: string
             publicTabVisibility: projects.publicTabVisibility,
             importSource: projects.importSource,
             syncStatus: projects.syncStatus,
+            githubLastCommitSha: projects.githubLastCommitSha,
+            memberRole: projectMembers.role,
+            fileUploadEnabled: projectMembers.fileUploadEnabled,
         })
         .from(projects)
+        .leftJoin(projectMembers, memberJoinCondition)
         .where(and(inArray(projects.id, projectIds), isNull(projects.deletedAt)));
 
-    const projectMemberships = userId ? await db
-        .select({ projectId: projectMembers.projectId, role: projectMembers.role, fileUploadEnabled: projectMembers.fileUploadEnabled })
-        .from(projectMembers)
-        .where(and(inArray(projectMembers.projectId, projectIds), eq(projectMembers.userId, userId))) : [];
-
-    const membershipsByProject = Object.fromEntries(projectMemberships.map(m => [m.projectId, m]));
-
     const result: Record<string, ProjectAccess> = {};
-    for (const project of projectsData) {
-        let isOwner = false;
-        let isMember = false;
-        let memberRole: MemberRole = null;
-        let memberFileUploadEnabled: boolean | null = null;
+    for (const row of rows) {
+        const isOwner = Boolean(userId && row.ownerId === userId);
+        const isMember = Boolean(userId && !isOwner && row.memberRole);
+        const memberRole: MemberRole = isMember ? ((row.memberRole as MemberRole) || "member") : null;
+        const memberFileUploadEnabled = isMember ? row.fileUploadEnabled : null;
 
-        if (userId) {
-            isOwner = project.ownerId === userId;
-            if (!isOwner) {
-                const member = membershipsByProject[project.id];
-                if (member) {
-                    isMember = true;
-                    memberRole = (member.role as MemberRole) || "member";
-                    memberFileUploadEnabled = member.fileUploadEnabled;
-                }
-            }
-        }
-        result[project.id] = {
+        const project = {
+            id: row.id,
+            ownerId: row.ownerId,
+            visibility: row.visibility,
+            status: row.status,
+            slug: row.slug,
+            publicTabVisibility: row.publicTabVisibility,
+            importSource: row.importSource,
+            syncStatus: row.syncStatus,
+            githubLastCommitSha: row.githubLastCommitSha,
+        };
+
+        result[row.id] = {
             project,
             isOwner,
             isMember,

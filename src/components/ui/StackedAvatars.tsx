@@ -14,7 +14,7 @@ interface StackedAvatarsProps {
     size?: number;
 }
 
-export function StackedAvatars({ avatars, max = 3, size = 24 }: StackedAvatarsProps) {
+export function StackedAvatars({ avatars, max = 3, size = 26 }: StackedAvatarsProps) {
     const visible = avatars.slice(0, max);
     const overflow = avatars.length - visible.length;
 
@@ -32,16 +32,16 @@ export function StackedAvatars({ avatars, max = 3, size = 24 }: StackedAvatarsPr
                     className="border-2 border-white dark:border-zinc-950"
                     fallbackDisplayName={avatar.name ?? avatar.initials}
                     fallbackInitials={avatar.initials}
-                    fallbackClassName="text-[10px] font-medium text-white"
-                    style={{ marginLeft: index > 0 ? -(size * 0.35) : 0, zIndex: visible.length - index }}
+                    fallbackClassName="text-[11px] font-medium text-white"
+                    style={{ marginLeft: index > 0 ? -6 : 0, zIndex: visible.length - index }}
                 />
             ))}
             {overflow > 0 && (
                 <div
-                    className="flex shrink-0 items-center justify-center rounded-full border-2 border-white bg-zinc-300 dark:border-zinc-950 dark:bg-zinc-600"
-                    style={{ width: size, height: size, marginLeft: -(size * 0.35), zIndex: 0 }}
+                    className="flex shrink-0 items-center justify-center rounded-md border-2 border-card bg-secondary text-secondary-foreground"
+                    style={{ width: size, height: size, marginLeft: -6, zIndex: 0 }}
                 >
-                    <span className="text-[9px] font-bold text-zinc-600 dark:text-zinc-200">+{overflow}</span>
+                    <span className="font-mono text-[11px] font-semibold">+{overflow}</span>
                 </div>
             )}
         </div>

@@ -1,7 +1,7 @@
 // Task 3.1 acceptance test — `FilesTabSidebar`.
 //
 // Verifies (per tasks.md § 3.1):
-//   (i)   Fixed width 280px when visible; 0px when
+//   (i)   Fixed width 240px when visible; 0px when
 //         `ui.sidebarCollapsed === true` (Req 2.5–2.7, 15.14).
 //   (ii)  Collapse toggle flips `ui.sidebarCollapsed` via the store
 //         action shared with the existing sidebar (Req 2.4–2.5).
@@ -93,11 +93,11 @@ function buildTree(nodes: ProjectNode[]): Record<string, ProjectNode> {
 // ─── Fixed width constant (Req 2.6, Req 15.14) ──────────────────────
 
 describe("FilesTabSidebar — fixed width constant (Req 2.6, Req 15.14)", () => {
-  it("exposes the 280px width as a named export so runtime + tests never drift", () => {
+  it("exposes the 240px width as a named export so runtime + tests never drift", () => {
     assert.equal(
       FILES_TAB_SIDEBAR_WIDTH_PX,
-      280,
-      "Req 2.6 mandates a 280px fixed width for the Files_Tab sidebar",
+      240,
+      "Req 2.6 mandates a 240px fixed width for the Files_Tab sidebar",
     );
   });
 });
@@ -369,13 +369,13 @@ describe("FilesTabSidebar — structural contracts (source-level)", () => {
     assert.doesNotMatch(SIDEBAR_SOURCE, /getProjectNodes\(/);
   });
 
-  it("applies `width: 280` (via FILES_TAB_SIDEBAR_WIDTH_PX) when visible and `width: 0` when collapsed", () => {
+  it("applies `width: 240` (via FILES_TAB_SIDEBAR_WIDTH_PX) when visible and `width: 0` when collapsed", () => {
     // Two distinct <aside style={{ width: ... }}> branches: one uses the
     // named constant, the other literal 0.
     assert.match(
       SIDEBAR_SOURCE,
       /style=\{\{\s*width:\s*FILES_TAB_SIDEBAR_WIDTH_PX\s*\}\}/,
-      "expanded aside must use the 280px constant",
+      "expanded aside must use the 240px constant",
     );
     assert.match(
       SIDEBAR_SOURCE,

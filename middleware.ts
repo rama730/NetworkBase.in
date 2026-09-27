@@ -9,16 +9,12 @@ const CSP_NONCE_HEADER = "x-nonce";
 const ROUTE_METRIC_HEADER = "x-route-metric";
 const REQUEST_TARGET_HEADER = "x-networkbase-request-target";
 const CSRF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
-const AUTH_PROTECTED_PREFIXES = ["/hub", "/settings", "/messages", "/profile", "/people", "/workspace", "/monitor", "/u/", "/onboarding", "/projects", "/admin", "/authorize"];
-const AUTH_PROTECTED_EXACT = new Set(["/", "/login", "/signup", "/verify-email"]);
+const AUTH_PROTECTED_PREFIXES = ["/hub", "/discover", "/settings", "/messages", "/profile", "/my-profile", "/people", "/network", "/workspace", "/monitor", "/u/", "/projects", "/admin", "/authorize"];
+// ponytail: remove "/" from auth resolution to serve public landing without auth/redis roundtrips. ceiling: unauthenticated landing page. upgrade: route-level personalization if landing page requires server-rendered user state.
+const AUTH_PROTECTED_EXACT = new Set(["/login", "/signup", "/verify-email"]);
 
 function toBase64Url(buffer: ArrayBuffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return Buffer.from(buffer).toString("base64url");
 }
 
 async function signValue(value: string, secret: string) {
@@ -63,6 +59,10 @@ async function issueSignedCsrfToken() {
 }
 
 function shouldResolveAuthSession(pathname: string) {
+  if (pathname === "/onboarding" || pathname.startsWith("/onboarding/")) {
+    return true;
+  }
+
   if (AUTH_PROTECTED_EXACT.has(pathname)) {
     return true;
   }
@@ -163,7 +163,11 @@ export async function middleware(request: NextRequest) {
   const nonce = toBase64Url(crypto.getRandomValues(new Uint8Array(24)).buffer);
   requestHeaders.set(CSP_NONCE_HEADER, nonce);
 
-  const response = shouldResolveAuthSession(request.nextUrl.pathname)
+  const isPrefetch = request.headers.get("purpose") === "prefetch"
+    || request.headers.get("x-purpose") === "preview"
+    || request.headers.has("next-router-prefetch");
+
+  const response = (!isPrefetch && shouldResolveAuthSession(request.nextUrl.pathname))
     ? await updateSession(request, { requestHeaders })
     : NextResponse.next({
         request: {
@@ -175,20 +179,22 @@ export async function middleware(request: NextRequest) {
   response.headers.set(CSP_NONCE_HEADER, nonce);
   response.headers.set("X-WAF-Edge-Protected", "1");
 
-  const csrfCookie = request.cookies.get(CSRF_COOKIE_NAME)?.value?.trim() || "";
-  if (!csrfCookie || !csrfCookie.includes(".")) {
-    // SEC-C1: Mark the CSRF cookie httpOnly so it cannot be read via
-    // document.cookie. The client fetches the token value from
-    // /api/v1/security/csrf and attaches it to the x-csrf-token header.
-    response.cookies.set({
-      name: CSRF_COOKIE_NAME,
-      value: await issueSignedCsrfToken(),
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: CSRF_COOKIE_MAX_AGE_SECONDS,
-    });
+  if (!isPrefetch) {
+    const csrfCookie = request.cookies.get(CSRF_COOKIE_NAME)?.value?.trim() || "";
+    if (!csrfCookie || !csrfCookie.includes(".")) {
+      // SEC-C1: Mark the CSRF cookie httpOnly so it cannot be read via
+      // document.cookie. The client fetches the token value from
+      // /api/v1/security/csrf and attaches it to the x-csrf-token header.
+      response.cookies.set({
+        name: CSRF_COOKIE_NAME,
+        value: await issueSignedCsrfToken(),
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: CSRF_COOKIE_MAX_AGE_SECONDS,
+      });
+    }
   }
 
   return response;

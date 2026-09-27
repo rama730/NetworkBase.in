@@ -365,7 +365,7 @@ function isNonColorUtility(className: string): boolean {
   // - border-[1.5px], border-[var(...)], ring-[3px] — arbitrary values for width/size
   if (/^(?:border|ring|outline)-\[/.test(className)) return true;
 
-  // - text-[13px], text-[14px] — arbitrary font sizes
+  // - text-[13px], text-[13px] — arbitrary font sizes
   if (/^text-\[\d+(?:\.\d+)?(?:px|rem|em)\]/.test(className)) return true;
 
   // - shadow-[...] — arbitrary shadow values
