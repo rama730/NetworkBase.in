@@ -70,8 +70,12 @@ export type ProjectDocVersion = {
     deletedAt: string | null;
 };
 
+export type ProjectDocListItem = { id: string; slug: string; filename: string; linkedNodeId: string | null };
+
 export type ProjectDocPublishedPayload = {
     projectId: string;
+    docSlug: string;
+    docs: ProjectDocListItem[];
     canEdit: boolean;
     permission: ProjectDocPermission;
     settings: ProjectDocSettings;
