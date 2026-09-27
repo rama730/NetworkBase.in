@@ -27,7 +27,7 @@ import {
     WORKSPACE_TASK_HANDOFF_STORAGE_KEY,
     readWorkspaceTaskHandoff,
     type WorkspaceTaskHandoff,
-} from '@/lib/stores/ui-store';
+} from '@/stores/ui-store';
 
 import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, ProjectSettingsTab } from '@/components/projects/dashboard/ProjectTabsRegistry';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';

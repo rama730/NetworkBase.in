@@ -28,7 +28,7 @@ import { toast } from "sonner";
 import { getTotpVerificationErrorMessage, normalizeTotpQrCodeSource } from "@/lib/auth/mfa-ui";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { queryKeys } from "@/lib/query-keys";
-import type { MfaFactor, SecurityData } from "@/lib/types/settingsTypes";
+import type { MfaFactor, SecurityData } from "@/types/settingsTypes";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 
 interface MfaSetupProps {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { useUIStore } from "@/lib/stores/ui-store";
+import { useUIStore } from "@/stores/ui-store";
 
 const WorkspaceDrawer = dynamic(() => import("./WorkspaceDrawer"), { ssr: false });
 

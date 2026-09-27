@@ -27,7 +27,7 @@ import { identityLinkError, startGithubIdentityLink } from "@/lib/github/oauth-c
 import { GitHubCommitAttributionSettings } from "@/components/settings/GitHubCommitAttributionSettings";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { revokeExtensionSession, generateExtensionToken } from "@/app/actions/extension-sessions";
-import type { AuthConnectionMethod, ExtensionSessionData, ExtensionSessionsData, IntegrationsAuthProvider } from "@/lib/types/settingsTypes";
+import type { AuthConnectionMethod, ExtensionSessionData, ExtensionSessionsData, IntegrationsAuthProvider } from "@/types/settingsTypes";
 
 const PROVIDER_ICONS: Partial<Record<IntegrationsAuthProvider, string>> = {
   google: "/skill-icons/v1/logos-google-icon.svg",

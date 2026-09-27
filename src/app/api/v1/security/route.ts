@@ -13,7 +13,7 @@ import { getLatestPasswordChangeAt, listSecurityActivity } from "@/lib/security/
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
 import { countRemainingRecoveryCodes } from "@/lib/security/recovery-codes";
 import { listActiveSessions, listLoginHistory } from "@/lib/security/session-activity";
-import type { SecurityData } from "@/lib/types/settingsTypes";
+import type { SecurityData } from "@/types/settingsTypes";
 
 export async function GET(request: Request) {
   const startedAt = Date.now();

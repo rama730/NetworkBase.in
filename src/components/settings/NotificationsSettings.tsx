@@ -9,7 +9,7 @@ import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
 import { useNotificationPreferences, useUpdateNotificationPreferences } from "@/hooks/useSettingsQueries";
-import type { NotificationPreferences } from "@/lib/types/settingsTypes";
+import type { NotificationPreferences } from "@/types/settingsTypes";
 import type { NotificationPreferenceCategory } from "@/lib/notifications/types";
 import { formatMinuteOfDay, isNotificationPauseActive, NOTIFICATION_PREFERENCE_CATEGORIES, parseTimeInput } from "@/lib/notifications/preferences";
 import { getBrowserNotificationSupport, requestBrowserNotificationPermission, type BrowserNotificationPermissionState } from "@/lib/notifications/browser-push";

@@ -1,7 +1,7 @@
 import type {
   ExternalAccountHealth,
   ExternalAccountHealthReason,
-} from "@/lib/types/settingsTypes";
+} from "@/types/settingsTypes";
 
 const GITHUB_API_BASE = "https://api.github.com";
 const DEFAULT_TIMEOUT_MS = 5_000;

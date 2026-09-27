@@ -46,7 +46,7 @@ describe("workspace drawer contracts", () => {
 
   it("opens workspace tasks through the project panel without exposing drawer IDs", () => {
     const tasks = read("src/components/workspace/WorkspaceTasksTab.tsx");
-    const store = read("src/lib/stores/ui-store.ts");
+    const store = read("src/stores/ui-store.ts");
     const dashboard = read("src/components/projects/dashboard/ProjectDashboardClient.tsx");
 
     assert.match(tasks, /createWorkspaceTaskHandoff\(projectId, task\.id\)/);
@@ -114,7 +114,7 @@ describe("workspace drawer contracts", () => {
 it("keeps the drawer state and deep links on the same two-tab contract", () => {
   const drawer = read("src/components/workspace/WorkspaceDrawer.tsx");
   const host = read("src/components/workspace/WorkspaceDrawerHost.tsx");
-  const store = read("src/lib/stores/ui-store.ts");
+  const store = read("src/stores/ui-store.ts");
 
   assert.match(drawer, /role="tab"/);
   assert.match(drawer, /aria-selected/);

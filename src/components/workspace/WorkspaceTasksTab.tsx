@@ -10,7 +10,7 @@ import {
     useUIStore,
     createWorkspaceTaskHandoff,
     WORKSPACE_TASK_HANDOFF_STORAGE_KEY,
-} from "@/lib/stores/ui-store";
+} from "@/stores/ui-store";
 import {
     ListChecks,
     Folder,

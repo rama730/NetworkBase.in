@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useAuth as useAuthContext } from '@/lib/hooks/use-auth';
+import { useAuth as useAuthContext } from '@/hooks/use-auth';
 
 /**
  * Backward-compatible auth hook used by legacy components.

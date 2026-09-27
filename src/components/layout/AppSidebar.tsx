@@ -9,13 +9,13 @@ import { BrandMark } from "@/components/brand/BrandMark";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isMainNavRouteActive } from "./header/nav-items";
 import { ROUTES } from "@/constants/routes";
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { useMessageAttention } from "@/components/providers/MessageAttentionProvider";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import WorkspaceIndicator from "./header/WorkspaceIndicator";
 import { queryKeys } from "@/lib/query-keys";
-import { useUIStore } from "@/lib/stores/ui-store";
+import { useUIStore } from "@/stores/ui-store";
 
 type SidebarProject = {
     id: string;

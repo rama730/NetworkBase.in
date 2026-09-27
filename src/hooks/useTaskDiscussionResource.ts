@@ -11,7 +11,7 @@ import {
   toggleTaskCommentLikeAction,
 } from "@/app/actions/task-comment";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import {
   appendTaskDiscussionEntry,
   buildOptimisticTaskDiscussionEntry,

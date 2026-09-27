@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useAuth } from '@/lib/hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { subscribePresenceRoom, type PresenceStatus } from '@/lib/realtime/presence-client';
 import type {
     PresenceMemberProfile,

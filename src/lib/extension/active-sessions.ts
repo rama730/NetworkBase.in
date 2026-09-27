@@ -9,7 +9,7 @@ import {
   extensionDeviceSessions,
 } from "@/lib/db/schema";
 import { EXTENSION_DEVICE_SESSION_EVENTS } from "@/lib/extension/session-events";
-import type { ExtensionSessionAuthMethod } from "@/lib/types/settingsTypes";
+import type { ExtensionSessionAuthMethod } from "@/types/settingsTypes";
 
 const sessionCursorSchema = z.object({
   lastSeenAt: z.string().datetime(),

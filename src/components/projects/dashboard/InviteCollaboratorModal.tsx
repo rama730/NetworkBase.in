@@ -16,7 +16,7 @@ import { getProfileToRoleAlignmentAction, type AttributeAlignment } from "@/app/
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth";
 import { logger } from "@/lib/logger";
 
 export type ParticipationRole = {

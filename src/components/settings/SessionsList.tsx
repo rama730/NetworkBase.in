@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "sonner";
 import { parseUserAgent } from "@/lib/utils/device";
-import type { Session } from "@/lib/types/settingsTypes";
+import type { Session } from "@/types/settingsTypes";
 import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import { SecurityListRow } from "@/components/settings/ui/SecurityListRow";
 import { formatDateTime } from "@/lib/ui/date-formatting";
