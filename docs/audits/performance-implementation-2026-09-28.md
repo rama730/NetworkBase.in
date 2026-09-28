@@ -58,22 +58,22 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 | T6.2 duplicate and hidden routes | done | `a446ffdd`; production calls `/api/inngest` (103k/week), so that path was kept and the v1 alias removed; `admin/notifications` kept |
 | T6.3 merge privacy and sessions routes | done | `191898b0` |
 | T7.1 static legal pages | done (local) | `58a6362c`, `63a42d68`: `(site)` and `(legal)` root layouts share `RootDocument`; the 11 legal pages are prerendered (`x-nextjs-cache: HIT`). Trade-off: the proxy gives those paths `script-src 'self' 'unsafe-inline'` with no nonce; every other route keeps the nonce policy. The CSP contract pins this to the legal path list |
-| T7.2 parallel reads | partial | `aebf625f` sprint read now parallel. Layout already verifies auth locally; file/task metadata titles left as is |
+| T7.2 parallel reads | done (local) | `aebf625f`, `03ffacf7`: main layout paints providers and chrome after local auth and suspends only the content slot on the legal check; sprint detail streams as a promise under its own Suspense; file/task titles move client-side (two per-link DB reads removed) |
 | T7.3 i18n, flags, revalidations | done | `3473c27a`; only one `revalidatePath` was dead — the rest refresh the current page after an action |
 | T7.4 fewer queued actions | done (local) | `e6ec875e`, `3e1792f5`, `d8c3ef08`; `6d3d0ead` batches the Files tab header reads (git sync, installed IDEs, extension sessions) into one server action |
 | T7.5 emitters | done | `51edd3db` (removed; wire later if wanted) |
 | T7.6 caches | done (local) | `f326b3da` weights as constants; `c2810c1d` removes the Discover in-process snapshot cache (feed now reads the DB each request — pairs with the region move) |
 | T8.1 root providers | done | `fc58e253`; `MotionConfig` removed later with framer-motion |
 | T8.2 skill icons | done (local) | `e8d73afb`, `13d2eff2`; also fixes 6 broken numbered Lucide icons. `82fb90fd` moves the skill catalog out of the JS bundle into `/skill-catalog.json`, loaded on first use |
-| T8.3 auth pages | partial | `3884d7f6` (third-party scripts on idle). Server-shell rewrite needs signed-in visual QA |
-| T8.4 split large components | deferred | Needs signed-in visual QA |
+| T8.3 auth pages | done (local) | `3884d7f6`, `ea47e7cd`, `06e5d63a`, `8a757ed6`: auth pages drop the app provider stack and load Supabase on first action; login/signup are server shells (form HTML in the first response); legal footer links no longer prefetch; page titles. /login 269 → 163 KB gzip |
+| T8.4 split large components | done (local, safe split) | `524c9d30`, `d40e490c`, `0c8618cc`, `98b2df16`: leaf components move to modules unchanged (ProjectSettingsTab 5,363 → 3,692, UpdatesTab 2,580 → 519) and on-demand dialogs load lazily. State colocation per section and removing manual memoization were not done: they need signed-in QA |
 | T8.5 timers, polls, fonts | done | `9a28b9c3`; `1651ae60` drops `prefetch={false}` and manual route warming for default `Link` prefetch |
-| T8.6 motion, dates, theme | partial | `cc2c8c05`, `2ffc732c`, `c5b210ae`. Theme provider shrink needs signed-in QA of appearance sync |
+| T8.6 motion, dates, theme | done (local) | `cc2c8c05`, `2ffc732c`, `c5b210ae`, `1507b410` (theme provider 490 → 277 lines, same sync behaviour) |
 | T9.1 packages and lockfiles | done | `1300b331` |
 | T9.2 test-only code | done | `cce70b55` (−2,247 lines) |
 | T9.3 telemetry, scale tooling, env knobs | done | `021c1cda`; `MOCK_USER_ID` auth bypass removed; bloom filter was write-only |
 | T9.4 conventions and build config | done (local) | `c1642aab`; `84a9a38f` drops the action barrels (callers import from each module); `57574316` replaces the E2E alias with one auth route that 404s in production builds. Turbopack builds 5× faster but ships ~60 KB more JS per page — webpack kept |
-| T9.5 clutter | partial | `44ad74dd`; `.agents/` and `skills/` kept (Codex skills) |
+| T9.5 clutter | done (local) | `44ad74dd`, `c9b57c2e`: screenshots, scratch/, tmp/, checkpoints/, graphify-out/, .agents/, skills/ and Playwright MCP logs moved to `~/nb-s3-clutter-archive/` (not deleted); QA matrices to `docs/qa/` |
 | T10.1 skill workflow | done | `65dc6310` |
 | T11.1 re-measure | done | this file; analyzer fix `994d3419` |
 | T11.2 stale markers | done | all seven listed markers are gone |
@@ -93,6 +93,16 @@ Commits `1651ae60` … `63a42d68` are on local `main` only; production still run
 - Checked locally on a production build: legal pages prerendered and hydrate with no CSP errors; `/login` and the global 404 keep the nonce CSP with every inline script nonced.
 - Contracts: csp, head, scroll, page, query-key, runtime-boundaries pass. The scroll contract had been checking zero pages since the route-group move; it now checks `(site)/(main)`. build-rendering, appearance, brand and canonical-logic fail exactly as on the commit before (JS budgets 200/220 KB exceeded by ~8 KB on `/`, legal, `/login`, `/signup`; missing brand icon files).
 - Unit suite: 41 failing suites, the same set as before these commits.
+
+## Second local round (not pushed)
+
+Commits `c9b57c2e` … `8a757ed6`. Checks on the final state:
+
+- Unit suite 2,044 / 2,044 pass (was 41 failing suites); onboarding component tests 170 / 170; typecheck and whole-repo lint clean.
+- Every offline contract passes. `check:build-rendering-contract` now measures the scripts each page's HTML loads from a production server; the old manifest lookup used Turbopack keys under webpack and reported static pages 60 KB too high and auth pages 45 KB too low. Measured: `/` and legal 144 KB gzip, `/login` 163, `/signup` 165, `/forgot-password` 157, `/reset-password` 155. Signed-in routes are listed as not measured there.
+- `check:db:remigration-replay` still needs `DATABASE_URL_FRESH` (a disposable SSL Supabase database).
+- Real defects fixed on the way: push notifications lost their badge icon (`icon-ink-64.png` was deleted); the attachment presign POST/PUT had no CSRF check; attachment redirects could be served for up to an hour after their signed URL expired; the scroll contract checked zero pages; Google One Tap's stylesheet was blocked by the CSP.
+- Not verified here: signed-in screens (settings, updates, files, messages, create wizard, main layout). The component splits move code without changing it, but click through those screens before pushing.
 
 ## Remaining production steps (yours)
 
