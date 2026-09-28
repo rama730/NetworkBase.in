@@ -5,15 +5,6 @@ import nextBundleAnalyzer from "@next/bundle-analyzer";
 const withBundleAnalyzer = nextBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
-const e2eAuthRouteImplRelativePath =
-  process.env.NODE_ENV === "production"
-    ? "./src/app/api/e2e/auth/route.disabled.ts"
-    : "./src/app/api/e2e/auth/route.dev.ts";
-const e2eAuthRouteImplAbsolutePath =
-  process.env.NODE_ENV === "production"
-    ? path.resolve(__dirname, "src/app/api/e2e/auth/route.disabled.ts")
-    : path.resolve(__dirname, "src/app/api/e2e/auth/route.dev.ts");
-
 const nextConfig: NextConfig = {
   // Keep verification builds isolated from an actively running local dev server.
   distDir: process.env.NEXT_DIST_DIR || ".next",
@@ -73,9 +64,6 @@ const nextConfig: NextConfig = {
   // Turbopack configuration - use absolute path to silence warning
   turbopack: {
     root: path.resolve(__dirname),
-    resolveAlias: {
-      "@/app/api/e2e/auth/route-impl": e2eAuthRouteImplRelativePath,
-    },
   },
 
   // Image optimization configuration for external domains and local query strings
@@ -150,10 +138,6 @@ const nextConfig: NextConfig = {
         crypto: false,
       };
     }
-    config.resolve.alias = {
-      ...(config.resolve.alias ?? {}),
-      "@/app/api/e2e/auth/route-impl": e2eAuthRouteImplAbsolutePath,
-    };
     if (dev) {
       config.cache = {
         type: 'filesystem',
