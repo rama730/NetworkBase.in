@@ -7,8 +7,8 @@ const source = (relativePath: string) =>
   readFileSync(path.join(process.cwd(), relativePath), "utf8");
 
 test("project detail has an immediate route shell and a shared server read", () => {
-  const page = source("src/app/(main)/projects/[slug]/page.tsx");
-  const loading = source("src/app/(main)/projects/[slug]/loading.tsx");
+  const page = source("src/app/(site)/(main)/projects/[slug]/page.tsx");
+  const loading = source("src/app/(site)/(main)/projects/[slug]/loading.tsx");
 
   assert.match(page, /const readProjectRouteShell = cache/);
   assert.match(page, /readProjectRouteShell\(slug\)/);

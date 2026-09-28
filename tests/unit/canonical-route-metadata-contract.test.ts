@@ -7,7 +7,7 @@ import { buildOwnerProfileTitle } from "@/lib/profile/display";
 const ROOT = process.cwd();
 
 test("Canonical route metadata contract: Discover route has updated title and path", () => {
-    const discoverSource = readFileSync(resolve(ROOT, "src/app/(main)/discover/page.tsx"), "utf-8");
+    const discoverSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/discover/page.tsx"), "utf-8");
 
     assert.match(discoverSource, /title:\s*['"]Discover \| NetworkBase['"]/);
     assert.match(discoverSource, /path:\s*['"]\/discover['"]/);
@@ -15,7 +15,7 @@ test("Canonical route metadata contract: Discover route has updated title and pa
 });
 
 test("Canonical route metadata contract: Network route has updated title and path", () => {
-    const networkSource = readFileSync(resolve(ROOT, "src/app/(main)/network/page.tsx"), "utf-8");
+    const networkSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/network/page.tsx"), "utf-8");
 
     assert.match(networkSource, /title:\s*['"]Network \| NetworkBase['"]/);
     assert.match(networkSource, /path:\s*['"]\/network['"]/);
@@ -23,7 +23,7 @@ test("Canonical route metadata contract: Network route has updated title and pat
 });
 
 test("Canonical route metadata contract: My Profile has updated title fallback and canonical path", () => {
-    const myProfileSource = readFileSync(resolve(ROOT, "src/app/(main)/my-profile/page.tsx"), "utf-8");
+    const myProfileSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/my-profile/page.tsx"), "utf-8");
 
     assert.match(myProfileSource, /title:\s*['"]My Profile \| NetworkBase['"]/);
     assert.match(myProfileSource, /path:\s*['"]\/my-profile['"]/);
@@ -36,15 +36,15 @@ test("Canonical route metadata contract: My Profile has updated title fallback a
 });
 
 test("Canonical route metadata contract: Messages, Settings, and Workspace have matching metadata", () => {
-    const messagesSource = readFileSync(resolve(ROOT, "src/app/(main)/messages/page.tsx"), "utf-8");
+    const messagesSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/messages/page.tsx"), "utf-8");
     assert.match(messagesSource, /title:\s*['"]Messages \| NetworkBase['"]/);
     assert.match(messagesSource, /path:\s*['"]\/messages['"]/);
 
-    const settingsSource = readFileSync(resolve(ROOT, "src/app/(main)/settings/page.tsx"), "utf-8");
+    const settingsSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/settings/page.tsx"), "utf-8");
     assert.match(settingsSource, /title:\s*['"]Settings \| NetworkBase['"]/);
     assert.match(settingsSource, /path:\s*['"]\/settings['"]/);
 
-    const workspaceSource = readFileSync(resolve(ROOT, "src/app/(main)/workspace/page.tsx"), "utf-8");
+    const workspaceSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/workspace/page.tsx"), "utf-8");
     assert.match(workspaceSource, /title:\s*['"]Workspace \| NetworkBase['"]/);
     assert.match(workspaceSource, /path:\s*['"]\/workspace['"]/);
     assert.match(workspaceSource, /redirect\(['"]\/discover\?workspace=tasks['"]\)/);

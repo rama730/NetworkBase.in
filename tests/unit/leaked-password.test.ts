@@ -41,6 +41,6 @@ describe("leaked-password protection", () => {
     const source = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
     assert.match(source("src/app/api/v1/auth/signup/route.ts"), /isLeakedPassword/);
     assert.match(source("src/app/api/v1/auth/change-password/route.ts"), /isLeakedPassword/);
-    assert.match(source("src/app/(auth)/reset-password/page.tsx"), /\/api\/v1\/auth\/password-safety/);
+    assert.match(source("src/app/(site)/(auth)/reset-password/page.tsx"), /\/api\/v1\/auth\/password-safety/);
   });
 });

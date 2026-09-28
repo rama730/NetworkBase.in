@@ -15,7 +15,7 @@ describe("check-head-contract script", () => {
   it("passes when root metadata ownership and theme-color ownership are isolated", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "head-contract-pass-"));
     write(
-      path.join(tmp, "src/app/layout.tsx"),
+      path.join(tmp, "src/app/root-document.tsx"),
       `export const metadata = { metadataBase: new URL("https://networkbase.test") }; export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en" data-scroll-behavior="smooth"><head><meta name="theme-color" content="#fff" data-app-theme-color="true" /></head><body>{children}</body></html>}`,
     );
     write(
@@ -34,7 +34,7 @@ describe("check-head-contract script", () => {
   it("fails when root layout owns page metadata keys or theme-color selection is mixed", () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "head-contract-fail-"));
     write(
-      path.join(tmp, "src/app/layout.tsx"),
+      path.join(tmp, "src/app/root-document.tsx"),
       `export const metadata = { title: "NetworkBase", description: "Bad", openGraph: {}, metadataBase: new URL("https://networkbase.test") }; export default function RootLayout({children}:{children:React.ReactNode}){return <html><head><meta name="theme-color" content="#fff" /><meta name="theme-color" content="#000" data-app-theme-color="true" /></head><body>{children}</body></html>}`,
     );
     write(

@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (file: string) => readFileSync(file, "utf8");
 
 test("personal settings render as one navigable scroll document", () => {
-  const route = read("src/app/(main)/settings/page.tsx");
+  const route = read("src/app/(site)/(main)/settings/page.tsx");
   const document = read("src/components/settings/SettingsDocument.tsx");
   const layout = read("src/components/settings/SettingsLayout.tsx");
   const globals = read("src/app/globals.css");

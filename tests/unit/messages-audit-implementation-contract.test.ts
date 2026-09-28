@@ -35,7 +35,7 @@ test("read-receipt recovery uses the participant watermark without a refetch loo
 
 test("message workspace uses URL-backed transitions and explicit recovery states", () => {
   const source = readProjectFile("src/components/chat/v2/MessagesWorkspaceV2.tsx");
-  const page = readProjectFile("src/app/(main)/messages/page.tsx");
+  const page = readProjectFile("src/app/(site)/(main)/messages/page.tsx");
 
   assert.match(source, /router\.push\(`\/messages\?\$\{params\.toString\(\)\}`\)/);
   assert.match(source, /Conversation unavailable/);

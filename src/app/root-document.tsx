@@ -1,42 +1,20 @@
-import type { Metadata } from "next";
-import { headers } from "next/headers";
-import localFont from "next/font/local";
+import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { SecurityRuntimeProvider } from "@/components/providers/SecurityRuntimeProvider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { CookieConsentRuntime } from "@/components/privacy/CookieConsentRuntime";
-import { Suspense } from "react";
 import "@/lib/env";
 import "./globals.css";
+import { instrumentSans, instrumentSerif, jetbrainsMono } from "./app-fonts";
 import { buildThemePrehydrateScript } from "@/lib/theme/appearance";
 import { resolveAuthBaseUrl } from "@/lib/auth/redirects";
-
-const instrumentSans = localFont({
-  src: "./fonts/InstrumentSans.ttf",
-  variable: "--font-instrument-sans",
-  weight: "400 700",
-  display: "swap",
-});
-const jetbrainsMono = localFont({
-  src: "./fonts/JetBrainsMono.ttf",
-  variable: "--font-jetbrains-mono",
-  weight: "100 800",
-  display: "swap",
-  preload: false,
-});
-const instrumentSerif = localFont({
-  src: "./fonts/InstrumentSerif.ttf",
-  variable: "--font-instrument-serif",
-  weight: "400",
-  display: "swap",
-  preload: false,
-});
 
 const THEME_PREHYDRATE_SCRIPT = buildThemePrehydrateScript();
 const APP_METADATA_BASE = new URL(
   resolveAuthBaseUrl({ requireConfiguredBaseInProduction: false }),
 );
 
-export const metadata: Metadata = {
+export const rootMetadata: Metadata = {
   metadataBase: APP_METADATA_BASE,
   applicationName: "NetworkBase",
   manifest: "/manifest.webmanifest",
@@ -58,9 +36,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: import("next").Viewport = {
-  // The installed application and browser chrome use the brand's fixed Ink
-  // field. Page surfaces still respond independently to the chosen theme.
+export const rootViewport: Viewport = {
   themeColor: "#141A1E",
   colorScheme: "light dark",
   width: "device-width",
@@ -83,14 +59,13 @@ function ThemeProviders({
   );
 }
 
-export default async function RootLayout({
+export function RootDocument({
   children,
+  nonce,
 }: Readonly<{
   children: React.ReactNode;
+  nonce?: string;
 }>) {
-  const headerStore = await headers();
-  const nonce = headerStore.get("x-nonce") || undefined;
-  
   return (
     <html lang="en" data-scroll-behavior="smooth" data-csp-nonce={nonce} suppressHydrationWarning>
       <head>

@@ -34,7 +34,7 @@ test("rail recommendations use the same privacy-safe source as the connection li
   const connections = source("src/app/actions/connections.ts");
   const suggestions = source("src/inngest/functions/social-graph-suggestions.ts");
   const profile = source("src/app/actions/profile.ts");
-  const hubPage = source("src/app/(main)/discover/page.tsx");
+  const hubPage = source("src/app/(site)/(main)/discover/page.tsx");
 
   assert.match(hubPage, /getConnectionsFeed\(\{ tab: 'discover', limit: 3, includeMeta: false \}\)/);
   assert.doesNotMatch(connections, /recommendationMode/);

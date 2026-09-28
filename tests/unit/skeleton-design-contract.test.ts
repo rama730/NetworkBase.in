@@ -26,17 +26,17 @@ test("Skeleton architectural contract: Section 33 CSS tokens and shimmer animati
 
 test("Skeleton architectural contract: Canonical route loading shells exist", () => {
     const canonicalRoutes = [
-        "src/app/(main)/discover/loading.tsx",
-        "src/app/(main)/discover/loading.tsx",
-        "src/app/(main)/network/loading.tsx",
-        "src/app/(main)/network/loading.tsx",
-        "src/app/(main)/projects/[slug]/loading.tsx",
-        "src/app/(main)/projects/new/loading.tsx",
-        "src/app/(main)/u/[username]/loading.tsx",
-        "src/app/(main)/my-profile/loading.tsx",
-        "src/app/(main)/my-profile/loading.tsx",
-        "src/app/(main)/messages/loading.tsx",
-        "src/app/(main)/settings/loading.tsx",
+        "src/app/(site)/(main)/discover/loading.tsx",
+        "src/app/(site)/(main)/discover/loading.tsx",
+        "src/app/(site)/(main)/network/loading.tsx",
+        "src/app/(site)/(main)/network/loading.tsx",
+        "src/app/(site)/(main)/projects/[slug]/loading.tsx",
+        "src/app/(site)/(main)/projects/new/loading.tsx",
+        "src/app/(site)/(main)/u/[username]/loading.tsx",
+        "src/app/(site)/(main)/my-profile/loading.tsx",
+        "src/app/(site)/(main)/my-profile/loading.tsx",
+        "src/app/(site)/(main)/messages/loading.tsx",
+        "src/app/(site)/(main)/settings/loading.tsx",
     ];
 
     for (const routePath of canonicalRoutes) {
@@ -91,7 +91,7 @@ test("Skeleton architectural contract: Project Tab Skeletons modularization", ()
 });
 
 test("Skeleton architectural contract: Settings loading CSS purge hygiene", () => {
-    const settingsLoading = readFileSync(resolve(ROOT, "src/app/(main)/settings/loading.tsx"), "utf-8");
+    const settingsLoading = readFileSync(resolve(ROOT, "src/app/(site)/(main)/settings/loading.tsx"), "utf-8");
 
     // No dynamically evaluated class template strings
     assert.doesNotMatch(settingsLoading, /className=\{`h-10 \$\{width\} rounded-md`\}/);
