@@ -43,11 +43,7 @@ test("migration lineage is exact and the duplicate backfill is quarantined", () 
     assert.ok(manifest.existingMigrationFiles.includes(`drizzle/${tag}.sql`));
   }
   assert.equal(manifest.strictLineageFromIndex, 152);
-  assert.ok(
-    manifest.breakGlassExceptions.some(
-      (exception) => exception.path === "drizzle/0152_message_preview_backfill.sql",
-    ),
-  );
+  assert.deepEqual(manifest.breakGlassExceptions, []);
 });
 
 test("hard-delete retries Auth finalization and removes retained identity", () => {

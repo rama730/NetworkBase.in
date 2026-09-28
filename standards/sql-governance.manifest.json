@@ -174,7 +174,9 @@
     "drizzle/0169_index_fixes.sql",
     "drizzle/0170_rls_security.sql",
     "drizzle/0171_sql_naming.sql",
-    "drizzle/0173_node_events_single_table.sql"
+    "drizzle/0173_node_events_single_table.sql",
+    "drizzle/0174_drop_unused.sql",
+    "drizzle/0175_docs_retired_objects.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
@@ -186,12 +188,5 @@
     "0079_job_heartbeats"
   ],
   "allowedUtilitySqlFiles": [],
-  "breakGlassExceptions": [
-    {
-      "path": "drizzle/0152_message_preview_backfill.sql",
-      "reason": "Quarantined duplicate pending exact environment verification after connector quota reset; never deploy from this file.",
-      "approvedBy": "complete-sql-supabase-audit-2026-08-13",
-      "expiresOn": "2026-12-31"
-    }
-  ]
+  "breakGlassExceptions": []
 }
