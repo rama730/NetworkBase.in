@@ -1,5 +1,7 @@
 # NetworkBase performance audit — 2026-09-27 (v4, implemented on main)
 
+> **Implementation status (2026-09-28):** see `docs/audits/performance-implementation-2026-09-28.md` for what was done, measured results, deferred items with reasons, and the production checklist.
+
 Scope: full app (`src/`, 1,045 files, 278k lines), production Railway service, Supabase `ap-southeast-1`. Method: code + import-graph scan, live `pg_stat_statements`, Supabase advisors, Railway metrics, production curl and browser timings. Style: caveman-lite. Ponytail convention: reuse what exists, add no dependency. Nothing was deleted or changed.
 
 **95 unique issues (119 entries; PT items marked *also* overlap a v1 ID)** — P0 4 · P1 20 · P2 60 · P3 35
