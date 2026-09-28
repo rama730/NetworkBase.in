@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import React, { useCallback, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { ProjectNode } from "@/lib/db/schema";
@@ -8,7 +9,6 @@ import { updateTaskNodeLink } from "@/app/actions/files/links";
 import {
   moveProjectNodes,
 } from "@/app/actions/files/mutations";
-import { MoveDialog } from "@/components/projects/v2/explorer/ExplorerDialogsHost";
 import { TaskFileRow } from "@/components/projects/v2/tasks/components/TaskFileRow";
 import { toast } from "sonner";
 import { composeAnnotation } from "@/lib/projects/task-file-label";
@@ -18,6 +18,8 @@ import {
   replaceTaskFileRoleTag,
   type TaskFileRole,
 } from "@/lib/projects/task-file-intelligence";
+
+const MoveDialog = dynamic(() => import("@/components/projects/v2/explorer/ExplorerDialogsHost").then((mod) => mod.MoveDialog), { ssr: false });
 
 type LinkedTaskNode = ProjectNode & {
   order?: number;

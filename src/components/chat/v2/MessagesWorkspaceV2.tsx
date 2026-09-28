@@ -56,12 +56,14 @@ import { ConversationListV2 } from './ConversationListV2';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { MessageComposerV2 } from './MessageComposerV2';
 import { MessageThreadV2 } from './MessageThreadV2';
-import { NewMessageModalV2 } from './NewMessageModalV2';
 import { findLatestApplicationEvent } from '@/lib/chat/application-events';
 import { formatMessagePreview } from '@/lib/messages/preview';
 import { ThreadSkeletonV2 } from './MessagesSurfaceSkeletons';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { MessageWithSender } from '@/app/actions/messaging';
+import { getSearchHighlightTerm, pickNewestLastMessage, renderHighlightedSearchText } from '@/components/chat/v2/messages-workspace-helpers';
+
+const NewMessageModalV2 = dynamic(() => import('./NewMessageModalV2').then((mod) => mod.NewMessageModalV2), { ssr: false });
 
 const ApplicationsListV2 = dynamic(
     () => import('./ApplicationsListV2').then((module) => module.ApplicationsListV2),
@@ -88,58 +90,6 @@ interface ReplyContextJumpState {
     anchorMessageId: string;
     hasOlderContext: boolean;
     hasNewerContext: boolean;
-}
-
-type ConversationLastMessageSnapshot = {
-    id?: string | null;
-    createdAt?: Date | string | null;
-} | null | undefined;
-
-function lastMessageEpoch(value: ConversationLastMessageSnapshot) {
-    if (!value?.createdAt) return 0;
-    const epoch = value.createdAt instanceof Date
-        ? value.createdAt.getTime()
-        : new Date(value.createdAt).getTime();
-    return Number.isFinite(epoch) ? epoch : 0;
-}
-
-function pickNewestLastMessage(
-    left: ConversationLastMessageSnapshot,
-    right: ConversationLastMessageSnapshot,
-) {
-    if (!left?.id) return right?.id ? right : null;
-    if (!right?.id) return left;
-    const leftEpoch = lastMessageEpoch(left);
-    const rightEpoch = lastMessageEpoch(right);
-    if (rightEpoch !== leftEpoch) {
-        return rightEpoch > leftEpoch ? right : left;
-    }
-    return String(right.id).localeCompare(String(left.id)) > 0 ? right : left;
-}
-
-function getSearchHighlightTerm(query: string) {
-    const textOnly = query
-        .replace(/(?:^|\s)(?:from:"[^"]*"|from:\S+|has:\S+|kind:\S+|is:\S+|in:\S+)/giu, ' ')
-        .normalize('NFKC')
-        .replace(/\s+/g, ' ')
-        .trim();
-    const [term] = textOnly.match(/"([^"]+)"|[^\s"]+/u) ?? [];
-    const normalized = term?.replace(/^"|"$/g, '').trim() ?? '';
-    return Array.from(normalized).length >= 2 ? normalized : null;
-}
-
-function renderHighlightedSearchText(text: string, term: string | null) {
-    if (!term) return text;
-    const index = text.toLocaleLowerCase().indexOf(term.toLocaleLowerCase());
-    if (index < 0) return text;
-    const end = index + term.length;
-    return (
-        <>
-            {text.slice(0, index)}
-            <mark className="rounded-sm bg-primary/15 px-0.5 text-inherit">{text.slice(index, end)}</mark>
-            {text.slice(end)}
-        </>
-    );
 }
 
 export function MessagesWorkspaceV2({

@@ -1,6 +1,7 @@
 // File actions: role-gated edit/replace/task/doc actions plus read-only panel toggles.
 "use client";
 
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 
 import * as React from "react";
@@ -38,11 +39,12 @@ import {
 
 import { FilesTabRoleContext } from "../FilesTabRoleContext";
 import { useFilesWorkspaceView } from "../FilesWorkspaceViews";
-import { TaskSearchPicker } from "../picker/TaskSearchPicker";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
 import { Star, FolderInput, Trash2 } from "lucide-react";
 import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
+
+const TaskSearchPicker = dynamic(() => import("../picker/TaskSearchPicker").then((mod) => mod.TaskSearchPicker), { ssr: false });
+const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
 
 interface LockConflictInfo {
   lockedBy: { userId: string; displayName: string; lockedAt: string };

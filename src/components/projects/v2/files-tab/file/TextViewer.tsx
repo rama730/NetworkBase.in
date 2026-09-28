@@ -51,12 +51,13 @@ import { createClient as createSupabaseBrowserClient } from "@/lib/supabase/clie
 import { cn } from "@/lib/utils";
 
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
 import { saveFileRevision } from "@/hooks/useFileVersions";
 import { getProjectFileContent } from "@/app/actions/files/content";
 import { listFileVersions } from "@/app/actions/files/versions";
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
 import type { FileLeaseStatus } from "../hooks/useFileLease";
+
+const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
 
 // Dynamic import keeps `@uiw/react-codemirror` (and its `@codemirror/*`
 // transitive tree) out of the Files-tab initial chunk. The import only

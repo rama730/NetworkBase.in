@@ -2,6 +2,7 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 
 import React, {
@@ -56,11 +57,12 @@ import {
 } from "../explorer/ExplorerTree";
 import { EMPTY_ARRAY, EMPTY_OBJECT } from "../explorer/explorerTypes";
 import { useExplorerOperationLog } from "../explorer/useExplorerOperationLog";
-import { ExplorerDialogsHost } from "../explorer/ExplorerDialogsHost";
 
 import { useNavigateTo } from "./hooks/useNavigateTo";
 import { FilesTabBootContext } from "./hooks/useFolderContents";
 import { FILES_TAB_SIDEBAR_WIDTH_PX } from "./sidebarSearch";
+
+const ExplorerDialogsHost = dynamic(() => import("../explorer/ExplorerDialogsHost").then((mod) => mod.ExplorerDialogsHost), { ssr: false });
 
 // Re-export the pure helpers so consumers (Task 3.2 tests, FilesTabMain's
 // collapsed-state floating toggle) can depend on a single import path.

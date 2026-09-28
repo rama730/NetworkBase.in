@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { useFormContext } from 'react-hook-form';
 import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, Loader2, RefreshCcw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-
 import type { CreateProjectInput } from '@/lib/validations/project';
 import { logger } from '@/lib/logger';
 import { getAuthHardeningPhase } from '@/lib/auth/hardening';
@@ -25,9 +25,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Phase1SourceMethodGroup, type ProjectSourceType } from '@/components/projects/create-wizard/phase1/Phase1SourceMethodGroup';
 import { buildUploadManifest, type UploadManifest } from '@/components/projects/create-wizard/phase1/upload-manifest';
-import { UploadManifestPreview } from '@/components/projects/create-wizard/phase1/UploadManifestPreview';
-import { GithubImportDetails } from '@/components/projects/create-wizard/phase1/GithubImportDetails';
 import { clearGithubOAuthResume, getCreateProjectReturnPath, saveGithubOAuthResume } from '@/components/projects/create-wizard/github-oauth-resume';
+import { isGithubAccessRefreshError } from '@/components/projects/create-wizard/phase1/github-access';
+
+const UploadManifestPreview = dynamic(() => import('@/components/projects/create-wizard/phase1/UploadManifestPreview').then((mod) => mod.UploadManifestPreview));
+const GithubImportDetails = dynamic(() => import('@/components/projects/create-wizard/phase1/GithubImportDetails').then((mod) => mod.GithubImportDetails));
 
 type SourceType = ProjectSourceType;
 
@@ -50,18 +52,6 @@ type ImportSourceMetadata = Record<string, unknown> & {
     importAuth?: unknown;
     fileCount?: number;
 };
-
-function isGithubAccessRefreshError(message: string | null | undefined) {
-    const normalized = (message || '').toLowerCase();
-    if (!normalized) return false;
-    return (
-        normalized.includes('repository access is not available') ||
-        normalized.includes('unauthorized') ||
-        normalized.includes('connect github') ||
-        normalized.includes('log in to github') ||
-        normalized.includes('private. connect github')
-    );
-}
 
 const GITHUB_OAUTH_RETRY_DELAYS_MS = [250, 500, 1000, 1500];
 const TREE_INDENT_CLASSES = ['pl-2', 'pl-5', 'pl-8', 'pl-11', 'pl-14', 'pl-16'];

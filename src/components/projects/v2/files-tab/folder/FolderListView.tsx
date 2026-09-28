@@ -14,6 +14,7 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 
 import * as React from "react";
@@ -48,8 +49,6 @@ import { getProjectNodes } from "@/app/actions/files/nodes";
 import { getProjectFileSignedUrl } from "@/app/actions/files/content";
 import { useFilesWorkspaceView } from "../FilesWorkspaceViews";
 import { FilesWorkspaceMenu, FilesHeaderSlot } from "../FilesWorkspaceHeader";
-import { TaskSearchPicker } from "../picker/TaskSearchPicker";
-import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
 import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
 import { isTextLike as isTextFile } from "../../utils/fileKind";
 import type { ProjectNode } from "@/lib/db/schema";
@@ -64,7 +63,6 @@ import { EMPTY_ARRAY, EMPTY_OBJECT } from "../../explorer/explorerTypes";
 import { useExplorerDragDrop } from "../../explorer/useExplorerDragDrop";
 import { useExplorerMutations } from "../../explorer/useExplorerMutations";
 import { useExplorerOperationLog } from "../../explorer/useExplorerOperationLog";
-import { ExplorerDialogsHost } from "../../explorer/ExplorerDialogsHost";
 
 import { useFolderContents, FilesTabBootContext } from "../hooks/useFolderContents";
 import { useNavigateTo } from "../hooks/useNavigateTo";
@@ -86,6 +84,10 @@ import {
   type FilesTabUploadConfirmResult,
 } from "../upload/FilesTabUploadModal";
 import { validateUploadSelection } from "@/lib/files/upload-validator";
+
+const TaskSearchPicker = dynamic(() => import("../picker/TaskSearchPicker").then((mod) => mod.TaskSearchPicker), { ssr: false });
+const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
+const ExplorerDialogsHost = dynamic(() => import("../../explorer/ExplorerDialogsHost").then((mod) => mod.ExplorerDialogsHost), { ssr: false });
 
 /**
  * Stable empty reference for the git `changedFiles` slice. The store

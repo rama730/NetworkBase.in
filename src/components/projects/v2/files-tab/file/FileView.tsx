@@ -43,6 +43,7 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 
 import * as React from "react";
@@ -92,11 +93,12 @@ import { FileInspectorPanelHeader } from "./FileInspectorPanelHeader";
 import { formatBytes, formatFileTimestamp, formatFileActor } from "../folder/format";
 import { taskFilesHref } from "@/lib/files/task-navigation";
 import { confirmFileNavigation } from "@/lib/files/unsaved-navigation";
-import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
 import { createClient } from "@/lib/supabase/client";
 import { useFileLease, type FileLeaseStatus } from "../hooks/useFileLease";
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
+
+const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
 
 // ---------------------------------------------------------------------------
 // Props
