@@ -59,6 +59,6 @@ test("workspace project links in application sidebar render titles without file/
 
   // 2. Workspaces project links render title directly in nb-sidebar-label without leading icon
   assert.match(sidebar, /<section className="nb-sidebar-workspace[\s\S]*?\{projects\.map\(\(project\) => \{/);
-  assert.match(sidebar, /<Link key=\{project\.id\} href=\{project\.href\} prefetch=\{false\} className="nb-nav-link"[^>]*>\s*<span className="nb-sidebar-label truncate">\{project\.title\}<\/span>\s*<\/Link>/);
+  assert.match(sidebar, /<Link key=\{project\.id\} href=\{project\.href\} className="nb-nav-link"[^>]*>\s*<span className="nb-sidebar-label truncate">\{project\.title\}<\/span>\s*<\/Link>/);
 });
 
