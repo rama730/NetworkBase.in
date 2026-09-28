@@ -36,7 +36,7 @@ test("public legal documents are discoverable and security reports have a standa
 });
 
 test("signup requires affirmative age, terms, EULA, and privacy acknowledgement", () => {
-  const signup = read("src/app/(site)/(auth)/signup/page.tsx");
+  const signup = read("src/components/auth/SignupForm.tsx");
   const route = read("src/app/api/v1/auth/signup/route.ts");
   assert.match(signup, /I am at least 18/);
   assert.match(signup, /Terms of Service/);

@@ -5,8 +5,8 @@ import test from "node:test";
 
 test("Google and GitHub OAuth return through versioned legal acceptance", () => {
   const callback = readFileSync(resolve(process.cwd(), "src/app/auth/callback/route.ts"), "utf8");
-  const login = readFileSync(resolve(process.cwd(), "src/app/(site)/(auth)/login/page.tsx"), "utf8");
-  const signup = readFileSync(resolve(process.cwd(), "src/app/(site)/(auth)/signup/page.tsx"), "utf8");
+  const login = readFileSync(resolve(process.cwd(), "src/components/auth/LoginForm.tsx"), "utf8");
+  const signup = readFileSync(resolve(process.cwd(), "src/components/auth/SignupForm.tsx"), "utf8");
 
   assert.match(login, /signInWithGoogle\(legalNext\)/);
   assert.match(login, /signInWithGitHub\(legalNext\)/);
