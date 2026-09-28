@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { projectSettingsSource } from "./_helpers/project-settings-source";
+import { componentSource } from "./_helpers/component-source";
 
 const cwd = process.cwd();
 function source(path: string): string {
@@ -11,7 +11,7 @@ function source(path: string): string {
 
 test("project settings eliminates Security & Data tab completely and standardizes Privacy and Policies", () => {
     const policies = source("src/lib/projects/settings-policies.ts");
-    const settingsTab = projectSettingsSource();
+    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // 1. Security & Data completely removed from PROJECT_SETTINGS_SECTIONS and ProjectSettingsTab
     assert.doesNotMatch(
@@ -59,7 +59,7 @@ test("project settings eliminates Security & Data tab completely and standardize
 });
 
 test("project danger zone tab is redesigned into 1 canonical SettingsCard with live preflight telemetry", () => {
-    const settingsTab = projectSettingsSource();
+    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // 1. Redundant SummaryCard, standalone Preflight card, and DangerAction wrappers removed
     const dangerBlock =
@@ -107,7 +107,7 @@ test("project danger zone tab is redesigned into 1 canonical SettingsCard with l
 
 test("project danger zone enforces high-stakes verification barriers for ownership transfer and project deletion", () => {
     const modalsSource = source("src/components/projects/settings/ProjectDangerModals.tsx");
-    const settingsTab = projectSettingsSource();
+    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // 1. Modals mounted in ProjectSettingsTab
     assert.match(settingsTab, /<ProjectArchiveModal/, "Must mount ProjectArchiveModal in ProjectSettingsTab");

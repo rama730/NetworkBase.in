@@ -27,6 +27,7 @@ import {
     sanitizeProjectUpdateRoleTitle,
     shouldNotifyProjectUpdateFollowers,
 } from "../../src/lib/projects/updates";
+import { componentSource } from "./_helpers/component-source";
 
 test("project update normalization fails closed for unknown types and filters", () => {
     assert.equal(isProjectUpdateType("progress"), true);
@@ -235,7 +236,7 @@ test("project update draft hydration does not immediately autosave an unchanged 
 });
 
 test("project update comments share one project-scoped wildcard postgres binding", () => {
-    const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const subscriptionsSource = readFileSync(path.join(process.cwd(), "src/lib/realtime/subscriptions.ts"), "utf8");
 
     assert.equal(tabSource.includes('(["INSERT", "UPDATE", "DELETE"] as const).map'), false);
@@ -326,7 +327,7 @@ test("project update author roles repair stale open-role snapshots with authorit
 });
 
 test("updates tab right rail stays a shortcut index instead of a duplicate feed", () => {
-    const source = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const source = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const railStart = source.indexOf("function UpdatesRightRail");
     const detailStart = source.indexOf("function UpdateDetailPanel");
     assert.notEqual(railStart, -1);
@@ -365,7 +366,7 @@ test("updates tab right rail stays a shortcut index instead of a duplicate feed"
 });
 
 test("updates tab owns one composer placement and refreshes realtime posts directly", () => {
-    const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const composerSource = readFileSync(path.join(process.cwd(), "src/components/projects/updates/ProjectUpdateComposer.tsx"), "utf8");
 
     assert.match(tabSource, /useDesktopUpdatesRail/);
@@ -403,7 +404,7 @@ test("project update composer renders structured context and image media before 
 });
 
 test("updates feed and detail render context references and actual images", () => {
-    const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const mediaFrameSource = readFileSync(path.join(process.cwd(), "src/components/projects/updates/ProjectUpdateMediaFrame.tsx"), "utf8");
     const referenceLinkStart = tabSource.indexOf("function ReferenceLink");
     const rendererStart = tabSource.indexOf("function UpdateContextAndMedia");
@@ -497,7 +498,7 @@ test("updates feed and detail render context references and actual images", () =
 });
 
 test("project update comments and replies use the compact feed conversation layout", () => {
-    const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const commentRowStart = tabSource.indexOf("function CommentRow");
     const updateCommentsStart = tabSource.indexOf("function UpdateComments");
     const updateCardStart = tabSource.indexOf("function UpdateCard");
@@ -594,7 +595,7 @@ test("project update task mentions keep retrying until the task panel opens", ()
 });
 
 test("updates tab balances the feed with a bounded responsive supporting rail", () => {
-    const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const layoutSource = readFileSync(path.join(process.cwd(), "src/components/projects/dashboard/ProjectLayout.tsx"), "utf8");
 
     assert.match(tabSource, /xl:grid-cols-\[minmax\(0,1fr\)_440px\]/);

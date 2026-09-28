@@ -2,12 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { componentSource } from "./_helpers/component-source";
 
 test("Project Updates Tab Design Specification Conformance Contract (Section 25 & Sections 03, 04, 05, 10)", async (t) => {
     const tabsDir = path.join(process.cwd(), "src/components/projects/tabs");
     const updatesDir = path.join(process.cwd(), "src/components/projects/updates");
 
-    const updatesTab = fs.readFileSync(path.join(tabsDir, "UpdatesTab.tsx"), "utf-8");
+    const updatesTab = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const composer = fs.readFileSync(path.join(updatesDir, "ProjectUpdateComposer.tsx"), "utf-8");
     const mediaFrame = fs.readFileSync(path.join(updatesDir, "ProjectUpdateMediaFrame.tsx"), "utf-8");
     const editor = fs.readFileSync(path.join(updatesDir, "ProjectUpdateRichTextEditor.tsx"), "utf-8");

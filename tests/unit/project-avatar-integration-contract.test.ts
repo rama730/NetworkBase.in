@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
-import { projectSettingsSource } from "./_helpers/project-settings-source";
+import { componentSource } from "./_helpers/component-source";
 
 const ROOT = process.cwd();
 
@@ -161,7 +161,7 @@ test("Discovery page ProjectCard and detail page ProjectStatsBar: last updated d
 
 test("Animated GIF avatar architecture: bypass canvas rasterization, preserve frames as image/gif, and render unoptimized", () => {
     const prepSource = readFileSync(resolve(ROOT, "src/lib/upload/image-prep-client.ts"), "utf-8");
-    const settingsSource = projectSettingsSource();
+    const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
 
     // 1. image-prep-client must bypass 2D canvas for GIFs so animation frames are never flattened
@@ -176,7 +176,7 @@ test("Animated GIF avatar architecture: bypass canvas rasterization, preserve fr
 });
 
 test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, immutable edge caching, compositor throttling, and async decoding", () => {
-    const settingsSource = projectSettingsSource();
+    const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const routeSource = readFileSync(resolve(ROOT, "src/app/api/v1/projects/[id]/image/route.ts"), "utf-8");
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
     const globalsCss = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");
@@ -203,7 +203,7 @@ test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, immutabl
 
 test("Project avatar fit architecture: enforces objectFit cover across detail page, cards, settings, and globals to eliminate gaps", () => {
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
-    const settingsSource = projectSettingsSource();
+    const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const globalsCss = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");
 
     // 1. ProjectAvatar enforces inline objectFit cover with 100% fill
@@ -219,7 +219,7 @@ test("Project avatar fit architecture: enforces objectFit cover across detail pa
 test("Discovery page avatar cache synchronization & multi-tab real-time updates contract", () => {
     const projectActionsSource = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
-    const settingsSource = projectSettingsSource();
+    const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const hubClientSource = readFileSync(resolve(ROOT, "src/components/discover/DiscoverClient.tsx"), "utf-8");
 
     // 1. Server route revalidation includes /discover, /hub, and /my-profile

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { componentSource } from "./_helpers/component-source";
 
 function read(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -89,9 +90,7 @@ test("task comments use the shared ThreadRail primitive aligned with Updates tab
   const comments = read(
     "src/components/projects/v2/tasks/TaskDetailTabs/CommentsTab.tsx",
   );
-  const updates = read(
-    "src/components/projects/tabs/UpdatesTab.tsx",
-  );
+  const updates = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
   const threadRail = read(
     "src/components/ui/ThreadRail.tsx",
   );
