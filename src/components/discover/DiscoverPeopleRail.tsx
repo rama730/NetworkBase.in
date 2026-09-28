@@ -17,7 +17,7 @@ import {
     useSuggestedPeople,
 } from "@/hooks/useConnections";
 import { canonicalSkillKey, matchingSkillLabels } from "@/lib/skills/matching";
-import { resolveClientSkill } from "@/lib/skills/client";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { profileHref } from "@/lib/routing/identifiers";
 
 type DiscoverPeopleRailProps = {
@@ -32,6 +32,7 @@ function SuggestedPersonCard({
     profile: DiscoverConnectionItem;
     viewerSkills: string[];
 }) {
+    useSkillCatalog();
     const { sendRequest } = useConnectionMutations();
     const [requestSent, setRequestSent] = useState(false);
     const displayName = profile.fullName || profile.username || "NetworkBase member";

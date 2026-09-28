@@ -2,7 +2,7 @@
 
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { resolveClientSkill } from '@/lib/skills/client'
+import { resolveClientSkill, useSkillCatalog } from '@/lib/skills/client'
 import type { SkillSummary } from '@/lib/skills/types'
 import { SkillIcon } from './SkillIcon'
 
@@ -25,6 +25,7 @@ export function SkillChip({
     selected?: boolean
     className?: string
 }) {
+    useSkillCatalog();
     const skill = skillSummary(input)
     const name = skill.name
     const iconSize = size === 'sm' ? 14 : size === 'lg' ? 18 : 16

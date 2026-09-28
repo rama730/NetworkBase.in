@@ -38,7 +38,7 @@ import { getTaskPriorityPresentation, getTaskStatusPresentation } from "@/lib/pr
 import { getTaskTitlePresentation } from "@/lib/projects/task-presentation";
 import { projectStageLabel } from "@/lib/projects/status-presentation";
 import type { SocialPresenceIconKey } from "@/lib/profile/normalization";
-import { resolveClientSkill } from "@/lib/skills/client";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { cn } from "@/lib/utils";
 import type { SettingsSearchItem } from "./global-search";
 
@@ -123,6 +123,7 @@ function ResultShell({
 }
 
 function SkillIconRail({ skills, max = 5 }: { skills: string[]; max?: number }) {
+    useSkillCatalog();
     if (!skills.length) return null;
     const visible = skills.slice(0, max);
     const hidden = Math.max(0, skills.length - visible.length);

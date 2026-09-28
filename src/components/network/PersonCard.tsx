@@ -8,7 +8,7 @@ import type { SuggestedProfile } from "@/app/actions/connections";
 import { SkillIcon } from "@/components/skills";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
-import { resolveClientSkill } from "@/lib/skills/client";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { profileHref } from "@/lib/routing/identifiers";
 import { canonicalSkillKey, matchingSkillLabels } from "@/lib/skills/matching";
 import { useConnectionMutations } from "@/hooks/useConnections";
@@ -34,6 +34,7 @@ function PersonCard({
     priority = false,
     viewerSkills,
 }: PersonCardProps) {
+    useSkillCatalog();
     const { cancelRequest, blockProfile } = useConnectionMutations();
     const [localStatus, setLocalStatus] = useState<"none" | "pending_sent" | null>(null);
     const [connecting, setConnecting] = useState(false);

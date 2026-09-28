@@ -9,7 +9,7 @@ import type { ProjectCardViewModel } from "@/lib/view-models/project-card";
 import { useToggleProjectFollow } from "@/hooks/mutations/useProjectMutations";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SkillIcon } from "@/components/skills/SkillIcon";
-import { resolveClientSkill } from "@/lib/skills/client";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { SocialPresenceIcon } from "@/components/profile/SocialPresenceIcon";
 import { resolveProjectSocialLinks } from "@/lib/projects/social-links";
 import ProjectAvatar, { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
@@ -28,6 +28,7 @@ interface ProjectCardProps {
 }
 
 export default memo(function ProjectCard({ project, viewModel, fromTab = "projects", viewMode = "grid", previewMode = false, isFollowing = false, followersCount: initialFollowers = 0, onOpenProject }: ProjectCardProps) {
+    useSkillCatalog();
     const { mutateAsync } = useToggleProjectFollow();
     const [following, setFollowing] = useState(isFollowing);
     const [followers, setFollowers] = useState(initialFollowers);
