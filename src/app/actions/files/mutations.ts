@@ -794,56 +794,62 @@ export async function moveProjectNodes(
             .from(taskNodeLinks)
             .innerJoin(tasks, eq(tasks.id, taskNodeLinks.taskId))
             .where(inArray(taskNodeLinks.nodeId, movers.map((node) => node.id)));
-        for (const node of movers) {
-            const oldPath = node.path;
-            const newPath = `${newParentPath}/${node.name}`;
-            affectedParentIds.add(node.parentId ?? null);
-            const [updated] = await tx.update(projectNodes)
-                .set({
-                    parentId: newParentId,
-                    path: newPath,
-                    taskId: isPublishing ? null : node.taskId,
-                    updatedAt: now,
+        const moves = movers.map((node) => ({ node, oldPath: node.path, newPath: `${newParentPath}/${node.name}` }));
+        for (const { node } of moves) affectedParentIds.add(node.parentId ?? null);
+        const updatedRows = await tx.update(projectNodes)
+            .set({
+                parentId: newParentId,
+                path: sql`CASE ${projectNodes.id} ${sql.join(moves.map(({ node, newPath }) => sql`WHEN ${node.id}::uuid THEN ${newPath}`), sql` `)} END`,
+                ...(isPublishing ? { taskId: null } : {}),
+                updatedAt: now,
             })
-            .where(and(eq(projectNodes.id, node.id), eq(projectNodes.projectId, projectId)))
+            .where(and(inArray(projectNodes.id, moves.map(({ node }) => node.id)), eq(projectNodes.projectId, projectId)))
             .returning();
-            if (node.type === "folder") {
-                if (isPublishing) {
-                    await tx.execute(sql`
-                        UPDATE project_nodes
-                        SET task_id = NULL,
-                            updated_at = NOW()
-                        WHERE project_id = ${projectId}
-                          AND path LIKE ${descendantLikePattern(oldPath)} ESCAPE '\\'
-                          AND deleted_at IS NULL
-                    `);
-                }
-                await updateFolderDescendantPaths(tx, projectId, oldPath, newPath, node.taskId ?? null);
+        const updatedById = new Map(updatedRows.map((row) => [row.id, row]));
+        for (const { node, oldPath, newPath } of moves) {
+            if (node.type !== "folder") continue;
+            if (isPublishing) {
+                await tx.execute(sql`
+                    UPDATE project_nodes
+                    SET task_id = NULL,
+                        updated_at = NOW()
+                    WHERE project_id = ${projectId}
+                      AND path LIKE ${descendantLikePattern(oldPath)} ESCAPE '\\'
+                      AND deleted_at IS NULL
+                `);
             }
-            movedNodes.push(updated!);
-            await recordNodeEvent(projectId, user.id, node.id, isPublishing ? "publish_task_file" : "move", {
+            await updateFolderDescendantPaths(tx, projectId, oldPath, newPath, node.taskId ?? null);
+        }
+        for (const { node } of moves) movedNodes.push(updatedById.get(node.id)!);
+        await recordNodeEventsBatch(
+            projectId,
+            user.id,
+            moves.map(({ node }) => node.id),
+            isPublishing ? "publish_task_file" : "move",
+            moves.map(({ node, oldPath, newPath }) => ({
                 operationId,
                 oldParentId: node.parentId ?? null,
                 newParentId,
                 oldPath,
                 newPath,
                 taskId: node.taskId ?? null,
-            }, tx);
-            const nodeTaskLinks = linkedTasks.filter((link) => link.nodeId === node.id);
-            if (nodeTaskLinks.length > 0) {
-                await tx.insert(taskActivityEvents).values(
-                    nodeTaskLinks.map((link) => ({
-                        taskId: link.taskId,
-                        projectId,
-                        sprintId: link.sprintId,
-                        actorId: user.id,
-                        eventType: isPublishing ? "file_published" : "file_relocated",
-                        payload: { operationId, fileName: node.name, oldPath, newPath },
-                        createdAt: now,
-                    })),
-                );
-            }
-        }
+            })),
+            tx,
+        );
+        const activityRows = moves.flatMap(({ node, oldPath, newPath }) =>
+            linkedTasks
+                .filter((link) => link.nodeId === node.id)
+                .map((link) => ({
+                    taskId: link.taskId,
+                    projectId,
+                    sprintId: link.sprintId,
+                    actorId: user.id,
+                    eventType: isPublishing ? "file_published" : "file_relocated",
+                    payload: { operationId, fileName: node.name, oldPath, newPath },
+                    createdAt: now,
+                })),
+        );
+        if (activityRows.length > 0) await tx.insert(taskActivityEvents).values(activityRows);
 
         return { nodes: movedNodes, operationId, affectedParentIds: Array.from(affectedParentIds) };
     });
