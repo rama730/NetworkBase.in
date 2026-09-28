@@ -2,18 +2,17 @@
 
 import Link from 'next/link'
 import type { FormEvent } from 'react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey } from '@/components/auth/TurnstileWidget'
 import { AuthAmbientCanvas } from '@/components/auth/AuthAmbientCanvas'
 import { buildOAuthRedirectTo, resolveAuthBaseUrl } from '@/lib/auth/redirects'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { loadBrowserSupabase } from '@/lib/auth/browser-auth-actions'
 import { LegalLinks } from '@/components/legal/LegalLinks'
 
 export default function ForgotPasswordPage() {
-    const supabase = useMemo(() => createSupabaseBrowserClient(), [])
     const [email, setEmail] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -39,6 +38,7 @@ export default function ForgotPasswordPage() {
                 '/reset-password'
             )
 
+            const supabase = await loadBrowserSupabase()
             const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
                 redirectTo,
                 captchaToken: captchaToken || undefined,

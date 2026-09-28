@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useAuth } from '@/hooks/use-auth'
+import { loadBrowserSupabase, signUpWithPassword as signUp, startOAuthSignIn, verifyEmailOtp as verifyOtp } from '@/lib/auth/browser-auth-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey } from '@/components/auth/TurnstileWidget'
@@ -16,7 +16,6 @@ import { LegalLinks } from '@/components/legal/LegalLinks'
 import { detectEmailDomainTypo } from '@/lib/validations/email-typo'
 import { sanitizeUsernameInput } from '@/lib/validations/username'
 import { isDisposableEmail } from '@/lib/validations/disposable-email'
-import { createClient } from '@/lib/supabase/client'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 function GoogleIcon({ className = 'w-4 h-4' }: { className?: string }) {
@@ -45,7 +44,8 @@ function GoogleIcon({ className = 'w-4 h-4' }: { className?: string }) {
 function SignupPageInner() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const { signUp, verifyOtp, signInWithGoogle, signInWithGitHub } = useAuth()
+    const signInWithGoogle = (nextPath?: string | null) => startOAuthSignIn('google', nextPath)
+    const signInWithGitHub = (nextPath?: string | null) => startOAuthSignIn('github', nextPath)
     const redirectPath = resolveAuthRedirectPath(searchParams.get('redirect'))
     const loginHref = buildAuthPageHref('/login', redirectPath)
     const inviteParam = searchParams.get('invite') || searchParams.get('ref') || searchParams.get('project')
@@ -167,21 +167,27 @@ function SignupPageInner() {
     // Dual Session/Magic-Link listener: if user confirms via email on another device/tab, advance automatically
     useEffect(() => {
         if (!isVerifyingOtp) return
-        const supabase = createClient()
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-            if (session?.user) {
-                try {
-                    sessionStorage.removeItem('nb_signup_draft')
-                } catch {
-                    // Ignore
+        let cancelled = false
+        let unsubscribe: (() => void) | null = null
+        void loadBrowserSupabase().then((supabase) => {
+            if (cancelled) return
+            const {
+                data: { subscription },
+            } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+                if (session?.user) {
+                    try {
+                        sessionStorage.removeItem('nb_signup_draft')
+                    } catch {
+                        // Ignore
+                    }
+                    router.push(redirectPath)
                 }
-                router.push(redirectPath)
-            }
+            })
+            unsubscribe = () => subscription.unsubscribe()
         })
         return () => {
-            subscription.unsubscribe()
+            cancelled = true
+            unsubscribe?.()
         }
     }, [isVerifyingOtp, redirectPath, router])
 

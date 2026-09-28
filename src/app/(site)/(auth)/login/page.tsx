@@ -5,7 +5,7 @@ import Logo from "@/components/layout/header/Logo";
 import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useAuth } from '@/hooks/use-auth'
+import { signInWithPassword as signIn, signUpWithPassword as signUp, startOAuthSignIn } from '@/lib/auth/browser-auth-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import TurnstileWidget, { hasTurnstileSiteKey } from '@/components/auth/TurnstileWidget'
@@ -72,7 +72,8 @@ function isDuplicateObfuscatedResponse(payload: unknown): boolean {
 function LoginPageInner() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const { signIn, signUp, signInWithGoogle, signInWithGitHub } = useAuth()
+    const signInWithGoogle = (nextPath?: string | null) => startOAuthSignIn('google', nextPath)
+    const signInWithGitHub = (nextPath?: string | null) => startOAuthSignIn('github', nextPath)
     const redirectPath = resolveAuthRedirectPath(searchParams.get('redirect'))
     const searchErrorCode = searchParams.get('error')
     const signupHref = buildAuthPageHref('/signup', redirectPath)
