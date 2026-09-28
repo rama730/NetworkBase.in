@@ -314,7 +314,7 @@ export default function ProjectSettingsTab({
         });
     }, []);
 
-    const handleNavigateSection = useCallback((sectionId: ProjectSettingsSectionId) => {
+    const handleNavigateSection = (sectionId: ProjectSettingsSectionId) => {
         const localNav = { id: sectionId };
         locallyNavigatedSectionRef.current = localNav;
         setActiveSection(sectionId);
@@ -337,7 +337,7 @@ export default function ProjectSettingsTab({
             }
             localNavigationReleaseTimerRef.current = null;
         }, 800);
-    }, [router, scrollToSection]);
+    };
 
     useEffect(() => () => {
         if (localNavigationReleaseTimerRef.current !== null) {
@@ -543,30 +543,24 @@ export default function ProjectSettingsTab({
 
     const ownerId = projectOwnerId(project);
     const accessPolicy = buildProjectAccessPolicy({ visibility });
-    const accessImpactPolicy = useMemo(
-        () => buildProjectAccessImpact({
+    const accessImpactPolicy = buildProjectAccessImpact({
             visibility,
             membersCount: accessImpact?.membersCount ?? members.length,
             followersCount: accessImpact?.followersCount ?? project?.followersCount ?? project?.followers_count ?? 0,
             openRolesCount: accessImpact?.openRolesCount ?? project?.openRoles?.length ?? project?.open_roles?.length ?? 0,
             pendingApplicationsCount: accessImpact?.pendingApplicationsCount ?? 0,
             activeTasksCount: accessImpact?.activeTasksCount ?? 0,
-        }),
-        [accessImpact, members.length, project?.followersCount, project?.followers_count, project?.openRoles?.length, project?.open_roles?.length, visibility],
-    );
+        });
     const collaboratorMembers = collaboratorData?.members ?? members;
-    const rolePolicy = useMemo(
-        () => buildProjectRolePolicy({ isOwner: isProjectOwner, actorRole: actorProjectRole, ownerId, members: collaboratorMembers }),
-        [actorProjectRole, collaboratorMembers, isProjectOwner, ownerId],
-    );
+    const rolePolicy = buildProjectRolePolicy({ isOwner: isProjectOwner, actorRole: actorProjectRole, ownerId, members: collaboratorMembers });
     const filteredCollaborators = rolePolicy.members.filter((member) => projectMemberRole(member, ownerId) !== "owner");
     const notificationSummary = summarizeProjectNotificationPolicy(projectNotificationDraft);
-    const toggleNotificationGroup = useCallback((groupId: string) => {
+    const toggleNotificationGroup = (groupId: string) => {
         setExpandedNotificationGroups((prev) => ({
             ...prev,
             [groupId]: !prev[groupId],
         }));
-    }, []);
+    };
     const areAllNotificationGroupsExpanded = NOTIFICATION_GROUPS.length > 0 && NOTIFICATION_GROUPS.every((g) => expandedNotificationGroups[g.id]);
     const toggleAllNotificationGroups = useCallback(() => {
         if (areAllNotificationGroupsExpanded) {
@@ -794,7 +788,7 @@ export default function ProjectSettingsTab({
         return { success: true, message: messages.join(" ") || "Access settings updated.", refresh: true };
     }, [projectId, publicTabVisibility, publicTabVisibilityDirty, visibility, visibilityDirty]);
 
-    const handleSaveAccess = useCallback(async () => {
+    const handleSaveAccess = async () => {
         if (!accessDirty) return;
 
         setSavingSettings(true);
@@ -835,7 +829,7 @@ export default function ProjectSettingsTab({
         } finally {
             setSavingSettings(false);
         }
-    }, [accessDirty, onProjectUpdated, projectId, publicTabVisibility, router, saveAccessSettings, visibility, visibilityDirty]);
+    };
 
     const handleAddSettingsRole = useCallback(() => {
         appendRole({ role: "New Role", count: 1, description: "", skills: [] });
@@ -921,7 +915,7 @@ export default function ProjectSettingsTab({
         }
     }, [onProjectUpdated, projectId, publicTabVisibility, router]);
 
-    const handleSelectVisibility = useCallback(async (nextVisibility: ProjectSettingsVisibility) => {
+    const handleSelectVisibility = async (nextVisibility: ProjectSettingsVisibility) => {
         if (nextVisibility === visibility) return;
         setSavingSettings(true);
         try {
@@ -954,7 +948,7 @@ export default function ProjectSettingsTab({
         } finally {
             setSavingSettings(false);
         }
-    }, [onProjectUpdated, projectId, router, visibility]);
+    };
 
     const handleToggleMemberFileUpload = useCallback(async (member: FileWorkspaceSettingsData["members"][number], enabled: boolean) => {
         if (member.uploadPermissionLocked) return;
@@ -1035,9 +1029,9 @@ export default function ProjectSettingsTab({
         }
     }, [fileWorkspaceData, projectId]);
 
-    const handleProjectNotificationPreset = useCallback((preset: ProjectNotificationPreset) => {
+    const handleProjectNotificationPreset = (preset: ProjectNotificationPreset) => {
         setProjectNotificationDraft(buildDefaultProjectNotificationPolicy(preset));
-    }, []);
+    };
 
     const handleProjectNotificationToggle = useCallback((eventKey: ProjectNotificationEventKey, enabled: boolean) => {
         setProjectNotificationDraft((current) => {
@@ -1057,7 +1051,7 @@ export default function ProjectSettingsTab({
         });
     }, []);
 
-    const handleSaveNotifications = useCallback(async () => {
+    const handleSaveNotifications = async () => {
         setSavingSettings(true);
         try {
             const result = await updateProjectNotificationSettingsAction(projectId, projectNotificationDraft);
@@ -1074,9 +1068,9 @@ export default function ProjectSettingsTab({
         } finally {
             setSavingSettings(false);
         }
-    }, [projectId, projectNotificationDraft]);
+    };
 
-    const handleSaveReadmeSettings = useCallback(async () => {
+    const handleSaveReadmeSettings = async () => {
         setReadmeSettingsSaving(true);
         try {
             const result = await updateProjectDocSettingsAction(projectId, readmeSettingsDraft);
@@ -1095,9 +1089,9 @@ export default function ProjectSettingsTab({
         } finally {
             setReadmeSettingsSaving(false);
         }
-    }, [onProjectUpdated, projectId, readmeSettingsDraft]);
+    };
 
-    const handleToggleReadmeSetting = useCallback(async (key: keyof ProjectDocSettings, enabled: boolean) => {
+    const handleToggleReadmeSetting = async (key: keyof ProjectDocSettings, enabled: boolean) => {
         const previous = readmeSettingsDraft;
         const next: ProjectDocSettings = {
             ...previous,
@@ -1128,9 +1122,9 @@ export default function ProjectSettingsTab({
         } finally {
             setSavingReadmeKey(null);
         }
-    }, [onProjectUpdated, projectId, readmeSettingsDraft]);
+    };
 
-    const handleResetNotifications = useCallback(async () => {
+    const handleResetNotifications = async () => {
         setSavingSettings(true);
         try {
             const result = await resetProjectNotificationSettingsAction(projectId, "balanced");
@@ -1147,7 +1141,7 @@ export default function ProjectSettingsTab({
         } finally {
             setSavingSettings(false);
         }
-    }, [projectId]);
+    };
 
     const openMemberNotificationSettings = useCallback(async (member: ProjectSettingsMember) => {
         setMemberNotificationData(null);
@@ -1218,7 +1212,7 @@ export default function ProjectSettingsTab({
         }
     }, [memberNotificationData, projectId]);
 
-    const handleSaveUpdatesSettings = useCallback(async () => {
+    const handleSaveUpdatesSettings = async () => {
         setSavingSettings(true);
         try {
             const result = await updateProject(projectId, {
@@ -1237,9 +1231,9 @@ export default function ProjectSettingsTab({
         } finally {
             setSavingSettings(false);
         }
-    }, [memberUpdatesEnabled, onProjectUpdated, projectId, router]);
+    };
 
-    const handleToggleMemberUpdates = useCallback(async (enabled: boolean) => {
+    const handleToggleMemberUpdates = async (enabled: boolean) => {
         const previous = memberUpdatesEnabled;
         setMemberUpdatesEnabled(enabled);
         setSavingMemberUpdates(true);
@@ -1263,20 +1257,20 @@ export default function ProjectSettingsTab({
         } finally {
             setSavingMemberUpdates(false);
         }
-    }, [memberUpdatesEnabled, onProjectUpdated, projectId, router]);
+    };
 
-    const handleCancelAccess = useCallback(() => {
+    const handleCancelAccess = () => {
         setVisibility(savedVisibility);
         setPublicTabVisibility(savedPublicTabVisibility);
-    }, [savedPublicTabVisibility, savedVisibility]);
+    };
 
-    const handleCancelReadmeSettings = useCallback(() => {
+    const handleCancelReadmeSettings = () => {
         setReadmeSettingsDraft(readmeSettings);
-    }, [readmeSettings]);
+    };
 
-    const handleCancelUpdatesSettings = useCallback(() => {
+    const handleCancelUpdatesSettings = () => {
         setMemberUpdatesEnabled(initialSettings.memberUpdatesEnabled);
-    }, [initialSettings.memberUpdatesEnabled]);
+    };
 
     const handleCancelNotifications = useCallback(() => {
         setProjectNotificationDraft(projectNotificationData?.policy ?? buildDefaultProjectNotificationPolicy());
@@ -1556,12 +1550,12 @@ export default function ProjectSettingsTab({
         setDeleteModalOpen(true);
     }, [dangerPreflight]);
 
-    const toggleAdvanced = useCallback((sectionId: ProjectSettingsSectionId) => {
+    const toggleAdvanced = (sectionId: ProjectSettingsSectionId) => {
         setAdvancedOpen((current) => ({
             ...current,
             [sectionId]: !current[sectionId],
         }));
-    }, []);
+    };
 
     if (!canManageSettings) {
         return (

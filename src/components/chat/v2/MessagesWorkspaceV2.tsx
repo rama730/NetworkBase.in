@@ -439,13 +439,10 @@ export function MessagesWorkspaceV2({
             : null,
         [inbox.conversations, selectedConversationId],
     );
-    const authoritativeLatestMessage = useMemo(
-        () => pickNewestLastMessage(
+    const authoritativeLatestMessage = pickNewestLastMessage(
             thread.conversation?.lastMessage ?? null,
             selectedInboxConversation?.lastMessage ?? null,
-        ),
-        [selectedInboxConversation?.lastMessage, thread.conversation?.lastMessage],
-    );
+        );
     const authoritativeLatestMessageId = authoritativeLatestMessage?.id ?? null;
     const hasLoadedAuthoritativeLatest = useMemo(
         () => !authoritativeLatestMessageId
@@ -828,7 +825,7 @@ export function MessagesWorkspaceV2({
         }
     }, [selectedConversationId, setSelectedConversationId, mode, router]);
 
-    const setMessageSearchVisibility = useCallback((open: boolean) => {
+    const setMessageSearchVisibility = (open: boolean) => {
         setSearchOpen(open);
         if (open) return;
         setGlobalSearch('');
@@ -839,7 +836,7 @@ export function MessagesWorkspaceV2({
         current.searchParams.delete('q');
         const suffix = current.searchParams.toString();
         router.replace(`${current.pathname}${suffix ? `?${suffix}` : ''}`);
-    }, [mode, router, setSearchOpen]);
+    };
 
     useMessagingShortcuts({
         onEscape: () => {
@@ -868,7 +865,7 @@ export function MessagesWorkspaceV2({
         () => getSearchHighlightTerm(normalizedGlobalSearch),
         [normalizedGlobalSearch],
     );
-    const openSearchResult = useCallback((result: (typeof searchResults)[number]) => {
+    const openSearchResult = (result: (typeof searchResults)[number]) => {
         searchResultNavigationRef.current = true;
         recordMessageSearch({
             queryLength: Array.from(normalizedGlobalSearch).length,
@@ -888,13 +885,7 @@ export function MessagesWorkspaceV2({
         });
         setSearchOpen(false);
         setGlobalSearch('');
-    }, [
-        normalizedGlobalSearch,
-        openConversation,
-        search.hasNextPage,
-        searchResults,
-        setSearchOpen,
-    ]);
+    };
 
     useEffect(() => {
         setActiveSearchIndex(0);

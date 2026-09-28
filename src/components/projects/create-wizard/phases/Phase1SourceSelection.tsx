@@ -610,7 +610,7 @@ export default function Phase1SourceSelection({
         void loadGithubPreview(repoUrl, branch || null);
     }, [branch, hasGithubRepoAccess, isResumingGithubOAuth, loadGithubPreview, repoUrl]);
 
-    const handlePickRepository = useCallback(async (item: GithubImportRepoItem) => {
+    const handlePickRepository = async (item: GithubImportRepoItem) => {
         latestRepoAnalysisKeyRef.current = item.htmlUrl;
         setGithubEntryMode('browse');
         setValue('import_source.repoUrl', item.htmlUrl, { shouldDirty: true });
@@ -632,7 +632,7 @@ export default function Phase1SourceSelection({
         });
         setRepoPickerOpen(false);
         await loadGithubPreview(item.htmlUrl, item.defaultBranch);
-    }, [loadGithubPreview, mergeImportSourceMetadata, setValue]);
+    };
 
     useEffect(() => {
         if (activeSourceView !== 'github' || !repoPickerOpen || !hasGithubRepoAccess) return;
@@ -751,15 +751,15 @@ export default function Phase1SourceSelection({
         await processUploadFiles(event.target.files);
     };
 
-    const handleUploadDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    const handleUploadDragOver = (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         event.stopPropagation();
         if (!isDragOverUpload) {
             setIsDragOverUpload(true);
         }
-    }, [isDragOverUpload]);
+    };
 
-    const handleUploadDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    const handleUploadDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         event.stopPropagation();
         const nextTarget = event.relatedTarget as Node | null;
@@ -767,15 +767,15 @@ export default function Phase1SourceSelection({
             return;
         }
         setIsDragOverUpload(false);
-    }, []);
+    };
 
-    const handleUploadDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
+    const handleUploadDrop = async (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         event.stopPropagation();
         setIsDragOverUpload(false);
         const files = event.dataTransfer?.files ?? null;
         await processUploadFiles(files);
-    }, [processUploadFiles]);
+    };
 
     const rootEntries = githubFolderEntries[''] || githubPreview.rootEntries || [];
     const allLoadedEntries = Object.values(githubFolderEntries).flat();
@@ -813,7 +813,7 @@ export default function Phase1SourceSelection({
         }
     }, [expandedFolders, githubFolderEntries, loadGithubFolder]);
 
-    const renderTree = useCallback((entries: GithubPreviewEntry[], depth: number) => {
+    const renderTree = (entries: GithubPreviewEntry[], depth: number) => {
         if (!entries || entries.length === 0) {
             return (
                 <div className="nb-compact py-2 text-muted-foreground">
@@ -899,7 +899,7 @@ export default function Phase1SourceSelection({
                 })}
             </div>
         );
-    }, [expandedFolders, githubFolderEntries, loadingFolders, toggleFolder]);
+    };
 
     const renderScratchView = () => (
         <section

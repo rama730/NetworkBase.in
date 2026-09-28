@@ -293,7 +293,7 @@ export function GeneralSettingsSection({
         categoryValue !== initialIdentity.category ||
         !areStringArraysEqual(tags, initialIdentity.tags) ||
         !areStringArraysEqual(skills, initialIdentity.skills);
-    const handleSaveGeneral = useCallback(async () => {
+    const handleSaveGeneral = async () => {
         const trimmedTitle = projectTitle.trim();
         if (!trimmedTitle) {
             toast.error("Project name cannot be empty.");
@@ -332,19 +332,7 @@ export function GeneralSettingsSection({
         } finally {
             setSavingSettings(false);
         }
-    }, [
-        categoryChoice,
-        customCategory,
-        description,
-        onProjectUpdated,
-        projectId,
-        projectTitle,
-        queryClient,
-        router,
-        shortDescription,
-        skills,
-        tags,
-    ]);
+    };
 
     const handleCancelGeneral = useCallback(() => {
         onProjectTitleChange(initialIdentity.title);
@@ -356,7 +344,7 @@ export function GeneralSettingsSection({
         setSkills(initialIdentity.skills);
     }, [initialIdentity, onProjectTitleChange]);
 
-    const handleCoverImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCoverImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         restoreFilePickerScroll();
         const file = event.target.files?.[0];
         event.target.value = "";
@@ -399,7 +387,7 @@ export function GeneralSettingsSection({
                 filePickerScrollSnapshotRef.current = null;
             }, 50);
         }
-    }, [restoreFilePickerScroll]);
+    };
 
     const handleOpenProjectImagePicker = useCallback(() => {
         if (uploadingCoverImage) return;
@@ -461,7 +449,7 @@ export function GeneralSettingsSection({
 
     const projectImagePreviewMetricsValue = coverDraft ? projectImagePreviewMetrics(coverDraft) : null;
 
-    const handlePublishCoverDraft = useCallback(async () => {
+    const handlePublishCoverDraft = async () => {
         if (!coverDraft) return;
         setUploadingCoverImage(true);
         try {
@@ -513,7 +501,7 @@ export function GeneralSettingsSection({
         } finally {
             setUploadingCoverImage(false);
         }
-    }, [coverDraft, onProjectUpdated, projectId, queryClient, router]);
+    };
 
     const handleCancelCoverDraft = useCallback(() => {
         setCoverDraft((current) => {
@@ -522,7 +510,7 @@ export function GeneralSettingsSection({
         });
     }, []);
 
-    const handleClearCoverImage = useCallback(async () => {
+    const handleClearCoverImage = async () => {
         if (coverDraft) {
             handleCancelCoverDraft();
             return;
@@ -547,7 +535,7 @@ export function GeneralSettingsSection({
         } finally {
             setUploadingCoverImage(false);
         }
-    }, [coverDraft, handleCancelCoverDraft, onProjectUpdated, projectId, queryClient, router]);
+    };
 
     const coverImageUrl = coverImage.trim();
     const coverInputId = `project-image-${projectId}`;

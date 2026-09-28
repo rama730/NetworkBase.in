@@ -158,42 +158,39 @@ export function GitHubSyncWorkspace({
   );
   const canSaveTargetRepository = isChangeRepoUrlValid && Boolean(changeRepoBranch.trim());
 
-  const inspectFile = useCallback(
-    async (filePath: string) => {
-      latestInspectPathRef.current = filePath;
-      setActiveInspectPath(filePath);
-      setLoadingDiff(true);
-      try {
-        const file = manifest?.files.find((f) => f.path === filePath);
-        let result;
-        if (file && manifest?.repository) {
-          // ponytail: fast-path direct blob fetch by pre-computed SHA (115ms vs 2,300ms). ceiling: single file blobs <= 1MB. upgrade: stream directly from Git Data API if blob exceeds 10MB.
-          result = await sync.getSingleFileDiff(projectId, {
-            repository: manifest.repository,
-            path: filePath,
-            storageKey: file.storageKey,
-            remoteSha: file.remoteSha,
-            baseSha: file.baseSha,
-            size: file.size,
-          });
-        } else {
-          result = await sync.getGitHubSyncDiff(projectId, config, filePath);
-        }
-        if (latestInspectPathRef.current !== filePath) return;
-        if (result.success) {
-          setDiff({ path: filePath, ...result.data });
-          setMerged(choices[filePath]?.content || result.data.edge);
-        }
-      } catch {
-        // Ignore transient diff loading error
-      } finally {
-        if (latestInspectPathRef.current === filePath) {
-          setLoadingDiff(false);
-        }
+  const inspectFile = async (filePath: string) => {
+    latestInspectPathRef.current = filePath;
+    setActiveInspectPath(filePath);
+    setLoadingDiff(true);
+    try {
+      const file = manifest?.files.find((f) => f.path === filePath);
+      let result;
+      if (file && manifest?.repository) {
+        // ponytail: fast-path direct blob fetch by pre-computed SHA (115ms vs 2,300ms). ceiling: single file blobs <= 1MB. upgrade: stream directly from Git Data API if blob exceeds 10MB.
+        result = await sync.getSingleFileDiff(projectId, {
+          repository: manifest.repository,
+          path: filePath,
+          storageKey: file.storageKey,
+          remoteSha: file.remoteSha,
+          baseSha: file.baseSha,
+          size: file.size,
+        });
+      } else {
+        result = await sync.getGitHubSyncDiff(projectId, config, filePath);
       }
-    },
-    [projectId, config, choices, manifest],
-  );
+      if (latestInspectPathRef.current !== filePath) return;
+      if (result.success) {
+        setDiff({ path: filePath, ...result.data });
+        setMerged(choices[filePath]?.content || result.data.edge);
+      }
+    } catch {
+      // Ignore transient diff loading error
+    } finally {
+      if (latestInspectPathRef.current === filePath) {
+        setLoadingDiff(false);
+      }
+    }
+  };
 
   const selectedContributors = useMemo(() => {
     if (!manifest) return [];
