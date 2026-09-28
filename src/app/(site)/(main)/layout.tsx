@@ -1,3 +1,5 @@
+import { Suspense } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { MainRuntimeProviders } from '@/components/providers/MainRuntimeProviders';
 import { AuthRouteProviders } from '@/components/providers/AuthRouteProviders';
@@ -7,13 +9,13 @@ import { normalizeAuthNextPath } from '@/lib/auth/redirects';
 import { hasCurrentLegalAcceptance } from '@/lib/legal/acceptance';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
-async function ResolvedProviders({
+async function LegalAcceptanceGate({
+  user,
   children,
 }: {
+  user: User | null;
   children: React.ReactNode;
 }) {
-  const { user } = await getViewerAuthContext();
-
   if (user && !(await hasCurrentLegalAcceptance(user.id))) {
     const headerStore = await headers();
     const nextPath = normalizeAuthNextPath(
@@ -22,25 +24,25 @@ async function ResolvedProviders({
     redirect(`/legal/accept?next=${encodeURIComponent(nextPath)}`);
   }
 
-  return (
-    <AuthRouteProviders initialUser={user} initialProfile={null}>
-      <MainRuntimeProviders>
-        <MainLayout>{children}</MainLayout>
-      </MainRuntimeProviders>
-    </AuthRouteProviders>
-  );
+  return children;
 }
 
-import { Suspense } from 'react';
-
-export default function MainRouteLayout({
+export default async function MainRouteLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user } = await getViewerAuthContext();
+
   return (
-    <Suspense fallback={<div className="min-h-screen w-full bg-zinc-50 dark:bg-zinc-950" />}>
-      <ResolvedProviders>{children}</ResolvedProviders>
-    </Suspense>
+    <AuthRouteProviders initialUser={user} initialProfile={null}>
+      <MainRuntimeProviders>
+        <MainLayout>
+          <Suspense fallback={<div className="h-full w-full bg-background" />}>
+            <LegalAcceptanceGate user={user}>{children}</LegalAcceptanceGate>
+          </Suspense>
+        </MainLayout>
+      </MainRuntimeProviders>
+    </AuthRouteProviders>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -30,6 +30,7 @@ import {
 } from '@/stores/ui-store';
 
 import { DashboardTab, DocTab, UpdatesTab, TasksTab, FilesTab, SprintPlanning, ProjectSettingsTab } from '@/components/projects/dashboard/ProjectTabsRegistry';
+import { SkeletonSprints } from '@/components/projects/skeletons/SkeletonSprints';
 import { confirmFileNavigation } from '@/lib/files/unsaved-navigation';
 import { useFilesWorkspaceStore } from '@/stores/filesWorkspaceStore';
 
@@ -112,7 +113,7 @@ interface ProjectDashboardClientProps {
     viewerAvatarUrl?: string | null;
     isOwner: boolean;
     isMember: boolean;
-    initialSprintData?: SprintDetailPayload | null;
+    initialSprintData?: Promise<SprintDetailPayload | null> | null;
 }
 
 export default function ProjectDashboardClient({ project, currentUserId, viewerDisplayName = null, viewerAvatarUrl = null, isOwner, isMember, initialSprintData = null }: ProjectDashboardClientProps) {
@@ -442,10 +443,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
     // OPTIMIZATION: Default to empty arrays as these are now fetched client-side or lazy loaded
     const tasks = useMemo(() => extendedProject?.tasks || [], [extendedProject]);
-    const sprints = useMemo(() => {
-        if (initialSprintData?.sprints?.length) return initialSprintData.sprints;
-        return extendedProject?.sprints || [];
-    }, [extendedProject, initialSprintData?.sprints]);
+    const sprints = useMemo(() => extendedProject?.sprints || [], [extendedProject]);
 
     const collaboratorUsers = useMemo(() => {
         const list = (extendedProject?.collaborators || []) as any[];
@@ -1077,7 +1075,9 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Sprints">
                         <div className="space-y-6">
-                            <SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} initialSprintData={initialSprintData} />
+                            <Suspense fallback={<SkeletonSprints />}>
+                                <SprintPlanning projectId={project.id} projectSlug={project.slug || project.id} projectName={project.title} projectKey={project.key} isOwner={isOwner} isOwnerOrMember={isOwnerOrMember} initialSprintData={initialSprintData} />
+                            </Suspense>
                         </div>
                     </TabErrorBoundary>
                 </div>

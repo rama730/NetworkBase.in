@@ -50,6 +50,7 @@ import { queryKeys } from "@/lib/query-keys";
 import type { TaskPanelTab } from "@/hooks/useTaskPanelResource";
 import { OpenInIdeButton } from "@/components/projects/v2/files-tab/OpenInIdeButton";
 import { SkeletonTasks } from "@/components/projects/skeletons/SkeletonTasks";
+import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 
 const PAGE_NORMALIZED_TASKS_CACHE = new WeakMap<object, TaskSurfaceRecord[]>();
 
@@ -172,6 +173,7 @@ export default function TasksTab({
   );
   const [editingInitialTab, setEditingInitialTab] =
     useState<TaskPanelTab | null>(null);
+  useDocumentTitlePrefix(editingTask?.title);
   const [createTaskError, setCreateTaskError] = useState<string | null>(null);
   const [initialTaskLoadError, setInitialTaskLoadError] = useState<
     string | null

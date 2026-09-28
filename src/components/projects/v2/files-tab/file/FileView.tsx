@@ -96,6 +96,7 @@ import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
 import { createClient } from "@/lib/supabase/client";
 import { useFileLease, type FileLeaseStatus } from "../hooks/useFileLease";
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
+import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -145,6 +146,7 @@ export function FileView({
   canEdit,
 }: FileViewProps): React.JSX.Element {
   const roleContext = React.useContext(FilesTabRoleContext);
+  useDocumentTitlePrefix(node.name);
   const { mutations, dialogs } = useFilePreviewMutations(projectId, node.id, canEdit, roleContext?.canManageFiles ?? false);
   // ── Fetch project members for uploader profiles ────────────────────
   const { data: membersData } = useProjectMembers(projectId);
