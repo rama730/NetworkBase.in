@@ -166,7 +166,9 @@ for (const u of units.values()) {
       if (ts.isPropertyAccessExpression(callee)) {
         const m = callee.name.text, objTxt = callee.expression.getText();
         if ((m === "from" || m === "rpc") && !/\.storage$/.test(objTxt) && /(supabase|admin|adminClient|client|serviceClient)$/i.test(objTxt)) eff.rest++;
-        if (/\.auth(\.admin|\.mfa)?$/.test(objTxt) && AUTH_NET.test(m)) eff.authNet++;
+        const serverGetUser = m === "getUser" && /\.auth$/.test(objTxt) && u.directive !== "client" && !/^src\/(hooks|stores|components)\//.test(u.file);
+        if (serverGetUser) eff.authLocal++;
+        else if (/\.auth(\.admin|\.mfa)?$/.test(objTxt) && AUTH_NET.test(m)) eff.authNet++;
         if (/\.auth$/.test(objTxt) && m === "getSession") eff.authLocal++;
         if (STORAGE_METHODS.has(m) && /\.storage\.from\(/.test(objTxt)) eff.storage++;
         if (REDIS_METHODS.has(m) && (/\bredis\b|redisClient|getRedisClient\(\)/i.test(objTxt) || /^(pipe|pipeline|multi)$/.test(objTxt))) eff.redis++;
