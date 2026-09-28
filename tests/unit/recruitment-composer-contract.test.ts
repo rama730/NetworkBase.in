@@ -44,7 +44,7 @@ test("all recruitment entry points use the Invite Collaborator surface", () => {
 
 test("application entry points exclude existing project members", () => {
     const profilePage = source("src/app/(main)/u/[username]/page.tsx");
-    const projectAction = source("src/app/actions/project/_all.ts");
+    const projectAction = source("src/app/actions/project/index.ts");
     const dashboard = source("src/components/projects/dashboard/ProjectDashboardClient.tsx");
 
     assert.match(profilePage, /getProfileProjectsWithOpenRolesAction\(data\.profile\.id, viewerAuth\.user\?\.id \?\? null\)/);

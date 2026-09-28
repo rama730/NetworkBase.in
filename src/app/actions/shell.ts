@@ -1,7 +1,7 @@
 "use server";
 
 import { readNetworkPendingCountsAction } from "@/app/actions/connections";
-import { getUnreadCount } from "@/app/actions/messaging/_all";
+import { getUnreadCount } from "@/app/actions/messaging";
 import { readNotificationPreferencesAction, readNotificationUnreadCountAction } from "@/app/actions/notifications";
 import { getWorkspaceSummaryAction } from "@/app/actions/workspace";
 

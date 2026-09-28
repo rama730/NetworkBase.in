@@ -40,7 +40,7 @@ describe("github unavailable-account end-to-end contract", () => {
 
   it("keeps public and GitHub App reads working while private OAuth access is blocked", () => {
     const preview = source("src/app/actions/project/sync-preview.ts");
-    const retry = source("src/app/actions/project/_all.ts");
+    const retry = source("src/app/actions/project/index.ts");
     const syncActions = source("src/app/actions/github-sync.ts");
     const tokenResolver = source("src/lib/github/user-access-token.ts");
     const worker = source("src/inngest/functions/git-sync.ts");

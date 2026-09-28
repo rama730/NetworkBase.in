@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { cache, Suspense } from 'react';
 import ProjectDashboardClient from '@/components/projects/dashboard/ProjectDashboardClient';
-import { readProjectDetailShell, readProjectSprintDetail } from '@/app/actions/project/_all';
+import { readProjectDetailShell, readProjectSprintDetail } from '@/app/actions/project';
 import ProjectDetailLoading from './loading';
 import { getViewerIdentityContext, toClientViewer } from '@/lib/server/viewer-context';
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata';

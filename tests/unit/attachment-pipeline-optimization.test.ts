@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 test('sendMessageWithAttachments: embeds deterministic attachment and reply descriptors into messages.metadata', () => {
-    const filePath = path.join(process.cwd(), 'src/app/actions/messaging/_all.ts');
+    const filePath = path.join(process.cwd(), 'src/app/actions/messaging/index.ts');
     const content = fs.readFileSync(filePath, 'utf8');
 
     // Ensure deterministic UUID generation before message insertion

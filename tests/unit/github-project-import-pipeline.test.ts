@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 
 const PROJECT_ACTIONS_SRC = readFileSync(
-  path.resolve(__dirname, "../../src/app/actions/project/_all.ts"),
+  path.resolve(__dirname, "../../src/app/actions/project/index.ts"),
   "utf8",
 );
 

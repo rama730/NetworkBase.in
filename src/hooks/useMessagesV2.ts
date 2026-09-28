@@ -31,19 +31,8 @@ import {
     sendConversationMessageV2,
     sendStructuredConversationMessageV2,
 } from '@/app/actions/messaging/v2';
-import {
-    convertMessageToFollowUpActionV2,
-    convertMessageToTaskActionV2,
-    getMessageContext,
-    getProjectGroups,
-    markConversationAsRead,
-    searchMessages,
-    setConversationArchived,
-    setConversationMuted,
-    setMessagePinned,
-    type MessageWithSender,
-    type UploadedAttachment,
-} from '@/app/actions/messaging';
+import { getMessageContext, getProjectGroups, markConversationAsRead, searchMessages, setConversationArchived, setConversationMuted, setMessagePinned, type MessageWithSender, type UploadedAttachment } from '@/app/actions/messaging';
+import { convertMessageToFollowUpActionV2, convertMessageToTaskActionV2 } from '@/app/actions/messaging/collaboration';
 import { getInboxApplicationsAction } from '@/app/actions/applications';
 import { queryKeys } from '@/lib/query-keys';
 import {

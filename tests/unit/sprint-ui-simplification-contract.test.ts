@@ -25,7 +25,7 @@ const sprintLifecycleModalsSource = readSource(
 const sprintEditorSource = readSource(
   "src/components/projects/v2/sprints/CreateSprintModal.tsx",
 );
-const sprintActionsSource = readSource("src/app/actions/project/_all.ts");
+const sprintActionsSource = readSource("src/app/actions/project/index.ts");
 
 describe("sprint tab target architecture contract", () => {
   it("keeps canonical Sprint and task references in URLs", () => {

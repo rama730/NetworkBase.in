@@ -21,13 +21,7 @@ import { toast } from "sonner";
 import { useLinkPreview } from "@/hooks/useLinkPreview";
 import { MultiAttachmentPicker } from "@/components/projects/v2/files-tab/picker/MultiAttachmentPicker";
 
-import { 
-    createProjectUpdateMediaUploadUrlAction,
-    finalizeProjectUpdateMediaUploadAction,
-    readProjectUpdateContextOptionsAction,
-    readProjectUpdateDraftAction,
-    saveProjectUpdateDraftAction,
-} from "@/app/actions/project";
+import { createProjectUpdateMediaUploadUrlAction, finalizeProjectUpdateMediaUploadAction, readProjectUpdateContextOptionsAction, readProjectUpdateDraftAction, saveProjectUpdateDraftAction } from "@/app/actions/project/updates";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { queryKeys } from "@/lib/query-keys";

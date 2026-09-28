@@ -14,20 +14,8 @@ import {
     roleApplications,
 } from '@/lib/db/schema';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import {
-    ConversationWithDetails,
-    MessageWithSender,
-    UploadedAttachment,
-    getConversations,
-    hydrateConversationLastMessageDeliveryMetadata,
-    getMessages,
-    getOrCreateDMConversation,
-    isDirectMessagingAllowed,
-    getPinnedMessages,
-    sendMessageWithAttachments,
-    sendStructuredMessageActionV2,
-    resolveMessageWorkflowActionV2,
-} from '@/app/actions/messaging';
+import { ConversationWithDetails, MessageWithSender, UploadedAttachment, getConversations, hydrateConversationLastMessageDeliveryMetadata, getMessages, getOrCreateDMConversation, isDirectMessagingAllowed, getPinnedMessages, sendMessageWithAttachments } from '@/app/actions/messaging';
+import { sendStructuredMessageActionV2, resolveMessageWorkflowActionV2 } from '@/app/actions/messaging/collaboration';
 import type { MessageContextChip } from '@/lib/messages/structured';
 import { APPLICATION_BANNER_HIDE_AFTER_MS } from '@/lib/chat/banner-lifecycle';
 import { consumeRateLimit } from '@/lib/security/rate-limit';

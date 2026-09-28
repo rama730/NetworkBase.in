@@ -102,7 +102,7 @@ test("project-file reconciliation attaches verified path-correlated objects idem
 });
 
 test("compatibility and typing behavior have one exact owner", () => {
-  const projects = read("src/app/actions/project/_all.ts");
+  const projects = read("src/app/actions/project/index.ts");
   const typing = read("src/lib/chat/typing-state.ts");
   const avatars = read("src/lib/services/avatar-service.ts");
 

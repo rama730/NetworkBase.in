@@ -53,7 +53,7 @@ test('notification ordering is based on source activity and actor previews are c
 
 test('message notifications are delivered inline when no transaction executor is supplied', () => {
     const emitters = readProjectFile('src/lib/notifications/emitters.ts');
-    const messagingActions = readProjectFile('src/app/actions/messaging/_all.ts');
+    const messagingActions = readProjectFile('src/app/actions/messaging/index.ts');
     const messageEmitter = emitters.slice(
         emitters.indexOf('export async function emitMessageBurstNotifications'),
         emitters.indexOf('export async function emitWorkflowAssignedNotification'),
@@ -84,7 +84,7 @@ test('chat-backed workflow notifications retain their source message for reply-s
 
 test('message deletion updates only the notification sourced from that message', () => {
     const service = readProjectFile('src/lib/notifications/service.ts');
-    const messaging = readProjectFile('src/app/actions/messaging/_all.ts');
+    const messaging = readProjectFile('src/app/actions/messaging/index.ts');
 
     assert.match(service, /export async function markMessageBurstSourceDeleted/);
     assert.match(service, /entityRefs} ->> 'sourceMessageId' = \$\{sourceMessageId\}/);
@@ -130,7 +130,7 @@ test('profile enrichment failure does not prevent durable notification writes', 
 test('every user-visible project notification preference has a concrete source trigger', () => {
     const policy = readProjectFile('src/lib/notifications/project-policy.ts');
     const sourceFiles = [
-        'src/app/actions/project/_all.ts',
+        'src/app/actions/project/index.ts',
         'src/app/actions/task.ts',
         'src/app/actions/task-comment.ts',
         'src/app/actions/project/doc.ts',

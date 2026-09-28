@@ -26,7 +26,7 @@ test("project cards use one native route-prefetch path", () => {
 
 test("project detail defers and deduplicates optional work", () => {
   const dashboard = source("src/components/projects/dashboard/ProjectDashboardClient.tsx");
-  const actions = source("src/app/actions/project/_all.ts");
+  const actions = source("src/app/actions/project/index.ts");
 
   assert.match(dashboard, /const guidance = \(project as \{ guidance\?: unknown \}\)\.guidance \?\? null/);
   assert.match(actions, /const \[ownerRows, followersResult, membersResult, rolesResult, readmeRows, guidanceRows\] =/);
@@ -36,7 +36,7 @@ test("project detail defers and deduplicates optional work", () => {
 });
 
 test("project shell overlaps independent enrichment reads and records its latency", () => {
-  const actions = source("src/app/actions/project/_all.ts");
+  const actions = source("src/app/actions/project/index.ts");
 
   assert.match(actions, /const \[acceptedRoleRows, ownerRelationship\] = await Promise\.all\(/);
   assert.match(actions, /logger\.metric\("project\.detail\.shell\.data"/);

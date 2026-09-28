@@ -216,7 +216,7 @@ test("Project avatar fit architecture: enforces objectFit cover across detail pa
 });
 
 test("Discovery page avatar cache synchronization & multi-tab real-time updates contract", () => {
-    const projectActionsSource = readFileSync(resolve(ROOT, "src/app/actions/project/_all.ts"), "utf-8");
+    const projectActionsSource = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
     const settingsSource = readFileSync(resolve(ROOT, "src/components/projects/tabs/ProjectSettingsTab.tsx"), "utf-8");
     const hubClientSource = readFileSync(resolve(ROOT, "src/components/discover/DiscoverClient.tsx"), "utf-8");

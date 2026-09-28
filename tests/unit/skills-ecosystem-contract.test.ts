@@ -43,7 +43,7 @@ describe('skills ecosystem contract', () => {
         const service = source('src/lib/skills/service.ts')
         const profile = source('src/app/actions/profile.ts')
         const onboarding = source('src/app/actions/onboarding.ts')
-        const project = source('src/app/actions/project/_all.ts')
+        const project = source('src/app/actions/project/index.ts')
         const collaboration = source('src/lib/profile/collaboration.ts')
 
         for (const functionName of ['syncProfileSkills', 'syncProjectSkills', 'syncRoleSkills', 'syncContributionSkills']) {

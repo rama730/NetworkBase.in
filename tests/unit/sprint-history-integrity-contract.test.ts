@@ -8,7 +8,7 @@ function source(relativePath: string) {
 }
 
 const schema = source("src/lib/db/schema/index.ts");
-const projectActions = source("src/app/actions/project/_all.ts");
+const projectActions = source("src/app/actions/project/index.ts");
 const taskActions = source("src/app/actions/task.ts");
 const migration = source("drizzle/0149_sprint_lifecycle_memberships.sql");
 

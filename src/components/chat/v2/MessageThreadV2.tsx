@@ -9,7 +9,7 @@ import type { TypingUser } from '@/hooks/useTypingChannel';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { useAuth } from '@/hooks/useAuth';
 import { useMessageReceiptBuffer } from '@/hooks/useMessageReceiptBuffer';
-import { recordDeliveryReceipts } from '@/app/actions/messaging';
+import { recordDeliveryReceipts } from '@/app/actions/messaging/features';
 import { useMessageWorkLinks } from '@/hooks/useMessageWorkLinks';
 import { formatMessageCalendarLabel } from '@/lib/messages/date-buckets';
 import { buildMessageThreadModel, type MessageThreadItem } from '@/lib/messages/thread-items';
