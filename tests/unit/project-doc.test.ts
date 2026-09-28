@@ -714,3 +714,15 @@ test("Doc editor reference atomic deletion keymap logic is present", () => {
         "Doc editor reference plugin should configure EditorView.atomicRanges.of"
     );
 });
+
+test("Docs tab opens with one action and one context query", () => {
+    const docTab = fs.readFileSync(path.join(process.cwd(), "src/components/projects/tabs/DocTab.tsx"), "utf8");
+    const actions = fs.readFileSync(path.join(process.cwd(), "src/app/actions/project/doc.ts"), "utf8");
+    const loader = actions.slice(actions.indexOf("async function loadDocProjectBase"), actions.indexOf("type DocProjectBase"));
+
+    assert.doesNotMatch(docTab, /useProjectMarkdowns|listProjectMarkdownsAction/);
+    assert.match(actions, /\(await getViewerAuthContext\(\)\)\.userId/);
+    assert.match(loader, /db\.query\.projects\.findFirst\(/);
+    assert.match(loader, /markdowns: true/);
+    assert.doesNotMatch(loader, /Promise\.all/);
+});

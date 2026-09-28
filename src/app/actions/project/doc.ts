@@ -134,36 +134,33 @@ async function requireUserId() {
 }
 
 async function loadDocProjectBase(projectId: string, actorUserId: string | null) {
-    const [[project], membership, docs] = await Promise.all([
-        db
-            .select({
-                id: projects.id,
-                slug: projects.slug,
-                title: projects.title,
-                ownerId: projects.ownerId,
-                visibility: projects.visibility,
-                publicTabVisibility: projects.publicTabVisibility,
-                deletedAt: projects.deletedAt,
-                importSource: projects.importSource,
-                githubRepoUrl: projects.githubRepoUrl,
-                githubDefaultBranch: projects.githubDefaultBranch,
-                key: projects.key,
-            })
-            .from(projects)
-            .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
-            .limit(1),
-        actorUserId
-            ? db.query.projectMembers.findFirst({
-                where: and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, actorUserId)),
+    const row = await db.query.projects.findFirst({
+        where: and(eq(projects.id, projectId), isNull(projects.deletedAt)),
+        columns: {
+            id: true,
+            slug: true,
+            title: true,
+            ownerId: true,
+            visibility: true,
+            publicTabVisibility: true,
+            deletedAt: true,
+            importSource: true,
+            githubRepoUrl: true,
+            githubDefaultBranch: true,
+            key: true,
+        },
+        with: {
+            markdowns: true,
+            members: {
+                where: actorUserId ? eq(projectMembers.userId, actorUserId) : sql`false`,
                 columns: { role: true },
-            })
-            : Promise.resolve(null),
-        db.query.projectDocs.findMany({
-            where: eq(projectDocs.projectId, projectId),
-        }),
-    ]);
-    if (!project) throw new Error("Project not found");
-    return { project, membership: membership ?? null, docs };
+                limit: 1,
+            },
+        },
+    });
+    if (!row) throw new Error("Project not found");
+    const { markdowns: docs, members, ...project } = row;
+    return { project, membership: members[0] ?? null, docs };
 }
 
 type DocProjectBase = Awaited<ReturnType<typeof loadDocProjectBase>>;
