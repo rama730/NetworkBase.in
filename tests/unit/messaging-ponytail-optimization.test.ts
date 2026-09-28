@@ -161,7 +161,7 @@ test('optimization 8: schema index pruning removes redundant B-tree and GIN inde
 
 test('optimization 9: searchMessages removes unindexed ILIKE clauses that break GIN index scans', () => {
     const allFile = readFileSync(
-        resolve(ROOT, 'src/app/actions/messaging/_all.ts'),
+        resolve(ROOT, 'src/app/actions/messaging/index.ts'),
         'utf8',
     );
     assert.doesNotMatch(
@@ -325,7 +325,7 @@ test('optimization 18: detectCodeLanguage limits sample scanning to 1,500 charac
 
 test('optimization 19: getConversations removed runInFlightDeduped wrapper', () => {
     const allFile = readFileSync(
-        resolve(ROOT, 'src/app/actions/messaging/_all.ts'),
+        resolve(ROOT, 'src/app/actions/messaging/index.ts'),
         'utf8',
     );
     assert.doesNotMatch(

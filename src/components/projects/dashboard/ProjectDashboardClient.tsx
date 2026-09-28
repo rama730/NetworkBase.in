@@ -12,7 +12,7 @@ import { TabErrorBoundary } from '@/components/projects/TabErrorBoundary';
 import type { Project } from '@/types/discover';
 import { toggleProjectFollowAction, updateProjectStageAction, incrementProjectViewAction } from '@/app/actions/project';
 import { getApplicationStatusAction, acceptProposedRoleAction, declineProposedRoleAction, type ApplicationStatusResult } from '@/app/actions/applications';
-import { resolveMessageWorkflowActionV2 } from '@/app/actions/messaging';
+import { resolveMessageWorkflowActionV2 } from '@/app/actions/messaging/collaboration';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { useProjectMembers } from '@/hooks/projects/useProjectMembers';
 import { queryKeys } from '@/lib/query-keys';

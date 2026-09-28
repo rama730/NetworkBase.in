@@ -145,7 +145,7 @@ test("/go route contract: route handler joins githubSyncConnections and resolves
 
 test("DTO contract: projectDetailProjectSchema includes githubSyncConnection to prevent safeParse stripping", () => {
     const actionsContent = readFileSync(
-        path.join(process.cwd(), "src/app/actions/project/_all.ts"),
+        path.join(process.cwd(), "src/app/actions/project/index.ts"),
         "utf8",
     );
     assert.match(

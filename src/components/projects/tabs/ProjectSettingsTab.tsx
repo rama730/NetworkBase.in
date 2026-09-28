@@ -71,36 +71,8 @@ const SkillPicker = dynamic(
 );
 import { Button } from "@/components/ui/button";
 import { transferProjectOwnership } from "@/app/actions/account";
-import {
-    archiveProjectAction,
-    clearProjectCoverImageAction,
-    createProjectCoverImageUploadUrlAction,
-    deleteProject,
-    finalizeProjectCoverImageUploadAction,
-    getProjectAccessImpactAction,
-    getProjectAccessTransitionPreflightAction,
-    getProjectCollaboratorSettingsAction,
-    getProjectDangerZonePreflightAction,
-    getProjectFileWorkspaceSettingsAction,
-    getProjectMemberRemovalPreflightAction,
-    readProjectMemberNotificationSettingsAction,
-    readProjectNotificationSettingsAction,
-    readProjectDocSettingsAction,
-    readProjectSettingsBootstrapAction,
-    removeProjectMemberAction,
-    resetProjectMemberNotificationSettingsAction,
-    resetProjectNotificationSettingsAction,
-    updateProject,
-    updateProjectLifecycleAction,
-    updateProjectFileUploadDefaultsAction,
-    updateProjectMemberFileUploadAction,
-    updateProjectMemberNotificationSettingsAction,
-    updateProjectMemberRoleAction,
-    updateProjectNotificationSettingsAction,
-    updateProjectPublicTabVisibilityAction,
-    updateProjectDocSettingsAction,
-    updateProjectVisibilityAction,
-} from "@/app/actions/project";
+import { archiveProjectAction, clearProjectCoverImageAction, createProjectCoverImageUploadUrlAction, deleteProject, finalizeProjectCoverImageUploadAction, getProjectAccessImpactAction, getProjectAccessTransitionPreflightAction, getProjectCollaboratorSettingsAction, getProjectDangerZonePreflightAction, getProjectFileWorkspaceSettingsAction, getProjectMemberRemovalPreflightAction, readProjectMemberNotificationSettingsAction, readProjectNotificationSettingsAction, readProjectSettingsBootstrapAction, removeProjectMemberAction, resetProjectMemberNotificationSettingsAction, resetProjectNotificationSettingsAction, updateProject, updateProjectLifecycleAction, updateProjectFileUploadDefaultsAction, updateProjectMemberFileUploadAction, updateProjectMemberNotificationSettingsAction, updateProjectMemberRoleAction, updateProjectNotificationSettingsAction, updateProjectPublicTabVisibilityAction, updateProjectVisibilityAction } from "@/app/actions/project";
+import { readProjectDocSettingsAction, updateProjectDocSettingsAction } from "@/app/actions/project/doc";
 import { cn } from "@/lib/utils";
 import {
     isKnownProjectType,

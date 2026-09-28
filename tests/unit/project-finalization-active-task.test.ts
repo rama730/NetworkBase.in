@@ -5,7 +5,7 @@ import test from "node:test";
 
 test("project preflight and finalization ignore soft-deleted tasks", () => {
   const source = fs.readFileSync(
-    path.join(process.cwd(), "src/app/actions/project/_all.ts"),
+    path.join(process.cwd(), "src/app/actions/project/index.ts"),
     "utf8",
   );
   const unfinishedPredicates = source.match(

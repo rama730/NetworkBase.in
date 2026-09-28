@@ -47,7 +47,7 @@ test('the responsive project header exposes a labeled mobile links menu', () => 
 });
 
 test('project-link saves use semantic concurrency checks and a viewport-contained editor', () => {
-    const action = source('src/app/actions/project/_all.ts');
+    const action = source('src/app/actions/project/index.ts');
     const surface = source('src/components/projects/dashboard/ProjectSocialLinksCard.tsx');
     assert.match(action, /areProjectSocialLinksEqual\(current, expected\.links\)/);
     assert.doesNotMatch(action, /JSON\.stringify\(current\)\s*!==\s*JSON\.stringify\(expected\.links\)/);

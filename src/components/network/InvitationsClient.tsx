@@ -13,7 +13,7 @@ import {
     cancelSentProjectInvitationAction,
     type SentProjectInvitationItem,
 } from "@/app/actions/applications";
-import { resolveMessageWorkflowActionV2 } from "@/app/actions/messaging";
+import { resolveMessageWorkflowActionV2 } from "@/app/actions/messaging/collaboration";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/ui/UserAvatar";

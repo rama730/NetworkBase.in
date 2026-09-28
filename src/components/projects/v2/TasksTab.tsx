@@ -13,12 +13,7 @@ import {
   createTaskAction,
   getProjectTaskDetailAction,
 } from "@/app/actions/project";
-import {
-  createProjectWorkflowColumnAction,
-  deleteProjectWorkflowColumnAction,
-  getProjectWorkflowColumnsAction,
-  updateProjectWorkflowColumnsAction,
-} from "@/app/actions/project";
+import { createProjectWorkflowColumnAction, deleteProjectWorkflowColumnAction, getProjectWorkflowColumnsAction, updateProjectWorkflowColumnsAction } from "@/app/actions/project/workflow";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
 import {

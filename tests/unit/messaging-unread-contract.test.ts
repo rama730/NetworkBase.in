@@ -29,7 +29,7 @@ test('conversation unread reconciliation counts system messages with null sender
 });
 
 test('mark conversation read returns the reconciled unread count instead of forcing zero', () => {
-    const source = readProjectFile('src/app/actions/messaging/_all.ts');
+    const source = readProjectFile('src/app/actions/messaging/index.ts');
     const markRead = extractFunction(source, 'markConversationAsRead');
 
     assert.match(markRead, /const result = await db\.transaction\(async \(tx\) =>/);
@@ -48,7 +48,7 @@ test('mark conversation read returns the reconciled unread count instead of forc
 });
 
 test('mark conversation read never regresses the persisted read watermark', () => {
-    const source = readProjectFile('src/app/actions/messaging/_all.ts');
+    const source = readProjectFile('src/app/actions/messaging/index.ts');
     const markRead = extractFunction(source, 'markConversationAsRead');
 
     assert.match(source, /function compareReadWatermark/);
@@ -136,7 +136,7 @@ test('active-thread read handling does not duplicate notification or global unre
 });
 
 test('ordinary sends use the database trigger and optimistic cache instead of redundant summaries', () => {
-    const messaging = readProjectFile('src/app/actions/messaging/_all.ts');
+    const messaging = readProjectFile('src/app/actions/messaging/index.ts');
     const v2 = readProjectFile('src/app/actions/messaging/v2.ts');
 
     assert.match(messaging, /const \[participantMembershipId, conversationRows\] = await Promise\.all/);

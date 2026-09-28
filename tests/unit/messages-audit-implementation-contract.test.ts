@@ -51,7 +51,7 @@ test("message workspace uses URL-backed transitions and explicit recovery states
 test("new-message recipients use the same server eligibility boundary as send", () => {
   const modal = readProjectFile("src/components/chat/v2/NewMessageModalV2.tsx");
   const action = readProjectFile("src/app/actions/messaging/v2.ts");
-  const messaging = readProjectFile("src/app/actions/messaging/_all.ts");
+  const messaging = readProjectFile("src/app/actions/messaging/index.ts");
 
   assert.match(modal, /searchMessageRecipientsV2/);
   assert.doesNotMatch(modal, /getAcceptedConnections/);
@@ -122,7 +122,7 @@ test("messaging database integration covers concurrent writes and the authentica
 });
 
 test("thread hydration reuses one authorization scope and runs message reads concurrently", () => {
-  const actions = readProjectFile("src/app/actions/messaging/_all.ts");
+  const actions = readProjectFile("src/app/actions/messaging/index.ts");
   const v2 = readProjectFile("src/app/actions/messaging/v2.ts");
 
   assert.match(actions, /const \[hiddenRows, rows\] = await Promise\.all\(\[/);

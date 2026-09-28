@@ -28,22 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  createProjectUpdateAction,
-  createProjectUpdateCommentAction,
-  deleteProjectUpdateAction,
-  deleteProjectUpdateCommentAction,
-  editProjectUpdateAction,
-  readProjectUpdateAction,
-  readProjectUpdateCommentsAction,
-  readProjectUpdatesAction,
-  resolveProjectUpdateMentionTargetAction,
-  toggleProjectUpdateLikeAction,
-  toggleProjectUpdatePinAction,
-  type ProjectUpdateCommentView,
-  type ProjectUpdateMovementSummary,
-  type ProjectUpdateView,
-} from "@/app/actions/project";
+import { createProjectUpdateAction, createProjectUpdateCommentAction, deleteProjectUpdateAction, deleteProjectUpdateCommentAction, editProjectUpdateAction, readProjectUpdateAction, readProjectUpdateCommentsAction, readProjectUpdatesAction, resolveProjectUpdateMentionTargetAction, toggleProjectUpdateLikeAction, toggleProjectUpdatePinAction, type ProjectUpdateCommentView, type ProjectUpdateMovementSummary, type ProjectUpdateView } from "@/app/actions/project/updates";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,

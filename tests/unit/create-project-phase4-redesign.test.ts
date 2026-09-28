@@ -58,7 +58,7 @@ test('Phase 4 blocks unfinished link work and carries launch settings into revie
 });
 
 test('creation derives recruiting and open-role counts from valid submitted roles', () => {
-    const action = source('src/app/actions/project/_all.ts');
+    const action = source('src/app/actions/project/index.ts');
 
     assert.match(action, /const openRoles = \(input\.roles \|\| \[\]\)\.filter/);
     assert.match(action, /const lookingForCollaborators = openRoles\.length > 0/);

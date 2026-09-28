@@ -40,7 +40,7 @@ describe("SQL audit query remediations", () => {
 
   it("keeps selector reads search-keyset paginated and bounded", () => {
     const profile = read("src/lib/profile/collaboration.ts");
-    const projects = read("src/app/actions/project/_all.ts");
+    const projects = read("src/app/actions/project/index.ts");
     assert.match(profile, /input: \{ search\?: string; cursor\?: string; limit\?: number; projectId\?: string \}/);
     assert.match(profile, /ORDER BY p\.updated_at DESC, p\.id DESC/);
     assert.match(projects, /input: \{ search\?: string; cursor\?: string; limit\?: number \}/);
@@ -66,7 +66,7 @@ describe("SQL audit query remediations", () => {
 
   it("bounds workspace pages and consolidates project task aggregates", () => {
     const workspace = read("src/app/actions/workspace.ts");
-    const projects = read("src/app/actions/project/_all.ts");
+    const projects = read("src/app/actions/project/index.ts");
     assert.match(workspace, /function normalizeWorkspaceLimit/);
     assert.match(workspace, /Number\.isFinite\(parsed\)/);
     assert.match(workspace, /isUuid\(cursor\.beforeId\)/);
@@ -103,7 +103,7 @@ describe("SQL audit query remediations", () => {
   });
 
   it("uses OCC for lifecycle writes and one project snapshot for update access", () => {
-    const projects = read("src/app/actions/project/_all.ts");
+    const projects = read("src/app/actions/project/index.ts");
     const updates = read("src/app/actions/project/updates.ts");
     assert.match(projects, /eq\(projects\.updatedAt, project\.updatedAt\)/);
     assert.match(projects, /Project lifecycle changed\. Refresh and retry\./);

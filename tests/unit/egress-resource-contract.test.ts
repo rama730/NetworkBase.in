@@ -35,7 +35,7 @@ test("avatar and onboarding writes use the shared optimized lifecycle", () => {
 });
 
 test("immutable message attachments carry durable cache metadata", () => {
-  const messaging = read("src/app/actions/messaging/_all.ts");
+  const messaging = read("src/app/actions/messaging/index.ts");
   assert.match(
     messaging,
     /\.from\(ATTACHMENTS_BUCKET\)[\s\S]*?\.upload\(storagePath, file, \{[\s\S]*?cacheControl: '31536000'/,

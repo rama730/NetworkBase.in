@@ -16,7 +16,7 @@ async function main() {
     connectionsActions,
   ] = await Promise.all([
     readWorkspaceFile("src/app/actions/task.ts"),
-    readWorkspaceFile("src/app/actions/messaging/_all.ts"),
+    readWorkspaceFile("src/app/actions/messaging/index.ts"),
     readWorkspaceFile("src/app/api/v1/auth/change-password/route.ts"),
     readWorkspaceFile("src/inngest/functions/git-sync.ts"),
     readWorkspaceFile("src/inngest/functions/account-cleanup.ts"),

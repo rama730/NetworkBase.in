@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { acceptApplicationAction, getIncomingApplicationsAction, rejectApplicationAction } from "@/app/actions/applications";
-import { resolveMessageWorkflowActionV2 } from "@/app/actions/messaging";
+import { resolveMessageWorkflowActionV2 } from "@/app/actions/messaging/collaboration";
 import { queryKeys } from "@/lib/query-keys";
 import { useUIStore } from "@/stores/ui-store";
 import { Inbox } from "lucide-react";

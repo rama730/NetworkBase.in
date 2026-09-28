@@ -18,8 +18,8 @@ import {
     tasks,
     roleApplications,
 } from '@/lib/db/schema';
-import type { MessageWithSender } from './_all';
-import { getMessageContext, getOrCreateDMConversation } from './_all';
+import type { MessageWithSender } from './index';
+import { getMessageContext, getOrCreateDMConversation } from './index';
 import {
     createPendingStructuredState,
     createStructuredMessagePayload,

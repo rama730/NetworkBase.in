@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (path: string) => readFileSync(path, "utf8");
 
 test("task creation persists selected files as reference links", () => {
-  const source = read("src/app/actions/project/_all.ts");
+  const source = read("src/app/actions/project/index.ts");
 
   assert.match(source, /annotation: "#initial_reference"/);
   assert.match(source, /tags: replaceTaskFileRoleTag\(\[\], "reference"\)/);
