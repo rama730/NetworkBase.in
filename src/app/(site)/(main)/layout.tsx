@@ -7,6 +7,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { normalizeAuthNextPath } from '@/lib/auth/redirects';
 import { hasCurrentLegalAcceptance } from '@/lib/legal/acceptance';
+import { hasCompletedOnboarding } from '@/lib/onboarding/completion';
 import { getViewerAuthContext } from '@/lib/server/viewer-context';
 
 async function LegalAcceptanceGate({
@@ -16,11 +17,19 @@ async function LegalAcceptanceGate({
   user: User | null;
   children: React.ReactNode;
 }) {
-  if (user && !(await hasCurrentLegalAcceptance(user.id))) {
+  if (!user) return children;
+  const [onboarded, legalAccepted] = await Promise.all([
+    hasCompletedOnboarding(user),
+    hasCurrentLegalAcceptance(user.id),
+  ]);
+  if (!onboarded || !legalAccepted) {
     const headerStore = await headers();
     const nextPath = normalizeAuthNextPath(
       headerStore.get('x-networkbase-request-target'),
     );
+    if (!onboarded) {
+      redirect(nextPath === '/discover' ? '/onboarding' : `/onboarding?next=${encodeURIComponent(nextPath)}`);
+    }
     redirect(`/legal/accept?next=${encodeURIComponent(nextPath)}`);
   }
 
