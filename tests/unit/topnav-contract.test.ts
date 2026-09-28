@@ -302,7 +302,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(searchPreviews, /fetchProjectTaskPreviewsAction/);
   assert.match(connectionsAction, /accepted_connection\.status = 'accepted'/);
   assert.match(connectionsAction, /blocked_connection\.status = 'blocked'/);
-  assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items, privacyProfiles\)/);
+  assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items\)/);
   assert.doesNotMatch(personCard, /onDismiss/);
   assert.match(personCard, /shared connections/);
   assert.match(personCard, /min-h-\[158px\]/);

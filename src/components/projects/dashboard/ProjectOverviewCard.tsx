@@ -59,22 +59,21 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
     project,
 }: ProjectOverviewCardProps) {
     const [statement, setStatement] = useState<StatementSelection>(null);
-    const projectSkills = useMemo(
-        () => normalizeProjectSkills(project),
-        [project?.id, project?.updatedAt, project?.skills, project?.technologies_used, project?.technologiesUsed, project?.techStack],
-    );
+    const projectSkills = useMemo(() => normalizeProjectSkills(project), [project]);
+    const problemStatement = project?.problemStatement;
+    const solutionStatement = project?.solutionStatement;
 
     const handleOpenProblem = useCallback(() => {
-        if (project?.problemStatement) {
-            setStatement({ title: "The Problem", content: project.problemStatement, tone: "problem" });
+        if (problemStatement) {
+            setStatement({ title: "The Problem", content: problemStatement, tone: "problem" });
         }
-    }, [project?.problemStatement]);
+    }, [problemStatement]);
 
     const handleOpenSolution = useCallback(() => {
-        if (project?.solutionStatement) {
-            setStatement({ title: "The Solution", content: project.solutionStatement, tone: "solution" });
+        if (solutionStatement) {
+            setStatement({ title: "The Solution", content: solutionStatement, tone: "solution" });
         }
-    }, [project?.solutionStatement]);
+    }, [solutionStatement]);
 
     return (
         <div className="flex h-fit flex-col overflow-hidden rounded-[8px] border border-border bg-card shadow-none">
