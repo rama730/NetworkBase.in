@@ -292,7 +292,7 @@ export default function TopNav() {
                                         <DropdownMenuItem asChild>
                                             <Link
                                                 href={ROUTES.MY_PROFILE}
-                                                prefetch={false}
+                                               
                                                 className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted focus:text-foreground"
                                             >
                                                 <UserRound className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />

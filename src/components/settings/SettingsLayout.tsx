@@ -7,7 +7,6 @@ import { Bell, ChevronDown, Lock, Palette, Plug, Scale, Shield, User, type Lucid
 import { settingsTabHref } from "@/constants/routes";
 import { SETTINGS_SECTION_META } from "@/constants/settings";
 import { cn } from "@/lib/utils";
-import { useRouteWarmPrefetch } from "@/hooks/useRouteWarmPrefetch";
 
 type SettingsItem = { title: string; tab: string; href: string; icon: LucideIcon; description: string };
 const settingsItems: SettingsItem[] = [
@@ -27,11 +26,10 @@ function SettingsNav({
   activeTab: string;
   onNavigate: (event: MouseEvent<HTMLAnchorElement>, item: SettingsItem) => void;
 }) {
-  const warmPrefetchRoute = useRouteWarmPrefetch();
   return <nav aria-label="Settings sections" className="space-y-1">{settingsItems.map((item) => {
     const Icon = item.icon;
     const active = activeTab === item.tab;
-    return <Link key={item.tab} href={item.href} prefetch={false} aria-current={active ? "page" : undefined} onClick={(event) => onNavigate(event, item)} onPointerEnter={() => warmPrefetchRoute(item.href)} onFocus={() => warmPrefetchRoute(item.href)} className={cn("group flex min-h-16 items-start gap-3 rounded-md px-3 py-3 transition-colors duration-[130ms]", active ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+    return <Link key={item.tab} href={item.href} aria-current={active ? "page" : undefined} onClick={(event) => onNavigate(event, item)} className={cn("group flex min-h-16 items-start gap-3 rounded-md px-3 py-3 transition-colors duration-[130ms]", active ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
       <span className={cn("mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md", active ? "bg-background text-primary ring-1 ring-inset ring-border" : "bg-muted text-muted-foreground")}><Icon className="size-4" strokeWidth={1.75} aria-hidden="true" /></span>
       <span className="min-w-0"><span className="nb-ui-label block text-foreground">{item.title}</span><span className="nb-compact mt-0.5 block text-muted-foreground">{item.description}</span></span>
     </Link>;

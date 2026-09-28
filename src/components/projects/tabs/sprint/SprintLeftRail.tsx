@@ -249,7 +249,7 @@ export function SprintLeftRail({
                             sprint.id,
                             { sprintCode: sprint.code },
                           )}
-                          prefetch={false}
+                         
                           aria-current={isSelected ? "page" : undefined}
                           className={cn(
                             "group relative flex flex-col gap-1 rounded-[5px] border px-2.5 py-2 text-left transition-colors select-none",

@@ -498,7 +498,7 @@ function renderCommentContent(content: string) {
         <Link
           key={i}
           href={`/u/${username}`}
-          prefetch={false}
+         
           className="font-mono font-medium text-foreground hover:underline"
         >
           {part}
@@ -620,7 +620,7 @@ function CommentRow({
               {c.author?.username ? (
                 <Link
                   href={`/u/${c.author.username}`}
-                  prefetch={false}
+                 
                   className="flex size-8 shrink-0 items-center justify-center transition-opacity hover:opacity-80"
                 >
                   <UserAvatar
@@ -661,7 +661,7 @@ function CommentRow({
                             {c.author?.username ? (
                               <Link
                                 href={`/u/${c.author.username}`}
-                                prefetch={false}
+                               
                                 className="hover:underline"
                               >
                                 {c.author.fullName || c.author.username}
@@ -1191,7 +1191,7 @@ function UpdateComments({
           {c.author?.username ? (
             <Link
               href={`/u/${c.author.username}`}
-              prefetch={false}
+             
               className="flex items-center justify-center shrink-0 transition-opacity hover:opacity-80 z-10 w-8 h-8"
             >
               <UserAvatar
@@ -1239,7 +1239,7 @@ function UpdateComments({
                         {c.author?.username ? (
                           <Link
                             href={`/u/${c.author.username}`}
-                            prefetch={false}
+                           
                             className="hover:underline"
                           >
                             {c.author.fullName || c.author.username}
@@ -1703,7 +1703,7 @@ function UpdateCard({
       ) : null}
       <div className="flex gap-3">
         {update.author?.username ? (
-          <Link href={`/u/${update.author.username}`} prefetch={false} className="shrink-0 transition-opacity hover:opacity-80">
+          <Link href={`/u/${update.author.username}`} className="shrink-0 transition-opacity hover:opacity-80">
             <UserAvatar
               identity={{
                 fullName: updateAuthorName(update),
@@ -1730,7 +1730,7 @@ function UpdateCard({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm leading-5">
                 {update.author?.username ? (
-                  <Link href={`/u/${update.author.username}`} prefetch={false} className="truncate font-semibold text-foreground hover:underline">
+                  <Link href={`/u/${update.author.username}`} className="truncate font-semibold text-foreground hover:underline">
                     {updateAuthorName(update)}
                   </Link>
                 ) : (
@@ -2058,7 +2058,7 @@ function UpdateDetailPanel({
         <article className="border-b border-border pb-4">
           <div className="flex gap-3">
             {update.author?.username ? (
-              <Link href={`/u/${update.author.username}`} prefetch={false} className="shrink-0 transition-opacity hover:opacity-80">
+              <Link href={`/u/${update.author.username}`} className="shrink-0 transition-opacity hover:opacity-80">
                 <UserAvatar
                   identity={{
                     fullName: updateAuthorName(update),
@@ -2083,7 +2083,7 @@ function UpdateDetailPanel({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm leading-5">
                 {update.author?.username ? (
-                  <Link href={`/u/${update.author.username}`} prefetch={false} className="truncate font-semibold text-foreground hover:underline">
+                  <Link href={`/u/${update.author.username}`} className="truncate font-semibold text-foreground hover:underline">
                     {updateAuthorName(update)}
                   </Link>
                 ) : (

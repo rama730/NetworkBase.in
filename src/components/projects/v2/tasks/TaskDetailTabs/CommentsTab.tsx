@@ -160,7 +160,7 @@ function DiscussionEntry({
         {entry.author?.username ? (
           <Link
             href={`/u/${entry.author.username}`}
-            prefetch={false}
+           
             className="flex items-center justify-center shrink-0 transition-opacity hover:opacity-80"
           >
             <UserAvatar
@@ -194,7 +194,7 @@ function DiscussionEntry({
                 {entry.author?.username ? (
                   <Link
                     href={`/u/${entry.author.username}`}
-                    prefetch={false}
+                   
                     className="hover:underline"
                   >
                     {name}
