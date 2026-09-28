@@ -1,6 +1,6 @@
 # Speed audit — implementation record (2026-09-28)
 
-Implements `docs/superpowers/plans/2026-09-27-networkbase-speed-audit.md` on local `main`, from baseline commit `b9e97a37` to `994d3419` (45 commits). Code only: no migration was run on Supabase and nothing was changed in Railway.
+Implements `docs/superpowers/plans/2026-09-27-networkbase-speed-audit.md` on local `main`, from baseline commit `b9e97a37` to `a6ee03a3` (47 commits). Code only: no migration was run on Supabase and nothing was changed in Railway.
 
 ## Measured results
 
@@ -40,7 +40,7 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 | Task | Status | Commit(s) / reason |
 |---|---|---|
 | T1.1 Railway runtime on main | done | `88948db4` |
-| T2.1 Docs table migration | blocked | Classifier blocked the DROP migration; write it yourself using the new `project_doc*` names |
+| T2.1 Docs table migration | done | `a6ee03a3` (`0175`): archives the 6 unpublished drafts, the draft contributor row and any assets into `app_private.retired_domain_archive`, then drops the asset and draft-contributor tables, draft columns, the asset function and enum, two unused version indexes, and the stale settings keys |
 | T2.2 · T2.3 Docs env and one action per open | done | `5ce27149`, `7554bca0` |
 | T3.1–T3.5 proxy, rate limits, landing, appearance, Tailwind | done | `69e414c5` … `84c3a6ba` |
 | T4.1 · T4.2 single proxy, local auth only | done | `7286eda0`, `4f964302` |
@@ -51,7 +51,7 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 | T5.5 presence | done | `f507104a` (the unconditional write was already gone on main) |
 | T5.6 RLS / functions | done | `3232b889` (`0170`); policies already fixed by `0154` |
 | T5.7 SQL naming | done | `a133287b` (`0171`, tested on a local Postgres) |
-| T5.8 drop unused objects | blocked | Classifier blocked the commit; patch at `scratch/t58-drop-unused.patch` (regenerate its journal hunk). `nb_validate_dm_conversation` is **in use** by two triggers — kept |
+| T5.8 drop unused objects | done | `a6ee03a3` (`0174`): archives rows (20 in `profile_interests`) then drops 4 tables and 1 view; orphan `0152` and its exception removed. `nb_validate_dm_conversation` is **in use** by two triggers — kept |
 | T5.9 single node-events table | done | `284a7304` (`0173`, tested locally) |
 | T5.10 query shape | done | `9ebf645c`; badge count was already one FILTER query; E2E already refuses the app database |
 | T6.1 Discover / Network / My profile | done | `dca2efb8`; 308 redirects kept |
@@ -80,7 +80,7 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 
 ## Production checklist (you run these)
 
-1. Apply migrations `0150`–`0171` and `0173` in order (there is no `0172` until you apply the T5.8 patch).
+1. Apply migrations `0150`–`0171`, then `0173`–`0175`, in order (there is no `0172`). `0174` and `0175` drop objects, so run them only after the new code is live.
 2. Switch Railway production to `main` (Dockerfile builder); consider moving to the database region.
 3. Unset `PROJECT_VIEWS_WRITE_THROUGH`, `DOC_COLLABORATION_TOKEN_SECRET`, `REDIS_URL`.
 4. Supabase: limit API exposed schemas to `public`; enable leaked-password protection.
