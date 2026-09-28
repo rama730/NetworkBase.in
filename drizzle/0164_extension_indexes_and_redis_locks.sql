@@ -12,17 +12,12 @@ ON "extension_recovery_sessions" ("user_id", "session_id", "device_id");
 
 -- 3. Recovery drafts historical path lookup
 CREATE INDEX IF NOT EXISTS "idx_recovery_drafts_path_time"
-ON "extension_recovery_drafts" ("user_id", "project_id", "path", "captured_at" DESC);
+ON "extension_recovery_drafts" ("user_id", "project_id", "file_path", "captured_at" DESC);
 
 -- 4. Ephemeral lock expiration cleanup index
 CREATE INDEX IF NOT EXISTS "idx_project_node_locks_expires"
 ON "project_node_locks" ("expires_at")
 WHERE "expires_at" IS NOT NULL;
-
--- 5. Task node links fast composite lookup
-CREATE INDEX IF NOT EXISTS "idx_task_node_links_project_task"
-ON "task_node_links" ("project_id", "task_id")
-WHERE "deleted_at" IS NULL;
 
 -- 6. Project files Git sync local and remote SHA covering indexes
 CREATE INDEX IF NOT EXISTS "github_sync_files_local_sha_idx"

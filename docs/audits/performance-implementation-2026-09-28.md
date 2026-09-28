@@ -78,11 +78,18 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 | T11.1 re-measure | done | this file; analyzer fix `994d3419` |
 | T11.2 stale markers | done | all seven listed markers are gone |
 
-## Production checklist (you run these)
+## Production rollout (2026-09-28)
 
-1. Apply migrations `0150`–`0171`, then `0173`–`0175`, in order (there is no `0172`). `0174` and `0175` drop objects, so run them only after the new code is live.
-2. Switch Railway production to `main` (Dockerfile builder); consider moving to the database region.
-3. Unset `PROJECT_VIEWS_WRITE_THROUGH`, `DOC_COLLABORATION_TOKEN_SECRET`, `REDIS_URL`.
+- `main` pushed to GitHub; both Railway services (`networkbase-web`, `networkbase-worker`) now deploy from `main` with the Dockerfile. Both deployments are healthy.
+- All 22 pending migrations applied to production with `npm run db:setup`, after a full trial run inside a rolled-back transaction. Three migration files needed fixes first: `0150` (column already existed; now `ADD COLUMN IF NOT EXISTS`), `0163` (constraint names were double-quoted), `0164` (wrong column `path` → `file_path`; removed an index on columns `task_node_links` does not have).
+- Checked after rollout: home, legal, login, Discover redirect, public project pages including the Docs and Updates tabs, health and readiness endpoints; no database errors in web or worker logs; Inngest calls to the worker keep returning 2xx.
+- `check:db:live-lineage` still reports "strict migration order mismatch" because production applied `0161`/`0162` before `0153`–`0160`. Every migration is applied; only the historical order differs.
+
+## Remaining production steps (yours)
+
+1. Set the web service's `INNGEST_EXECUTION_ROLE` to exactly `web` (its current value is rejected, so `/api/inngest` on the web domain returns 500; Inngest itself calls the worker, which works).
+2. Unset `PROJECT_VIEWS_WRITE_THROUGH`, `DOC_COLLABORATION_TOKEN_SECRET`, `REDIS_URL`.
+3. Consider moving the Railway services to the database region (ap-southeast-1).
 4. Supabase: limit API exposed schemas to `public`; enable leaked-password protection.
 5. Point E2E at a disposable database (`E2E_DATABASE_URL`).
-6. Reset `pg_stat_statements` after deploy and re-check the slow queries.
+6. Reset `pg_stat_statements` and re-check the slow queries after a day of traffic.
