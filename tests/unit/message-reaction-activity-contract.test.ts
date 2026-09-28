@@ -15,7 +15,7 @@ test('reaction activity is separate from messages and remains recipient-specific
 
     assert.match(action, /hashtextextended\(\$\{`\$\{messageId\}:\$\{user\.id\}`\}/);
     assert.match(action, /lastReactionMessageId: messageRow\.id/);
-    assert.match(action, /await emitMessageReactionNotification\(/);
+    assert.match(action, /after\(\(\) => emitMessageReactionNotification\(/);
     assert.match(emitters, /kind: 'message_reaction'/);
     assert.match(emitters, /message-reaction:\$\{params\.sourceMessageId\}:\$\{params\.actorUserId\}:\$\{params\.emoji\}/);
     assert.match(schema, /lastReactionAt: timestamp\(["']last_reaction_at["']/);

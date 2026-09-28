@@ -39,7 +39,7 @@ test('optimization 2: notifications are non-blocking background tasks in collabo
     );
     assert.match(
         featuresFile,
-        /void emitMessageReactionNotification\(pendingNotification\)\.catch/,
+        /after\(\(\) => emitMessageReactionNotification\(notification\)\.catch/,
         'Reaction notification must be dispatched non-blocking outside the advisory lock transaction',
     );
 });
@@ -122,9 +122,10 @@ test('optimization 6: attachment proxy route expands rate limit and includes sta
     );
     assert.match(
         routeFile,
-        /"Cache-Control":\s*"private,\s*max-age=300,\s*stale-while-revalidate=60"/,
-        'Attachment redirect response must set Cache-Control with stale-while-revalidate',
+        /max-age=\$\{ATTACHMENT_SIGNED_URL_TTL_SECONDS - ATTACHMENT_REDIRECT_STALE_SECONDS\}, stale-while-revalidate=\$\{ATTACHMENT_REDIRECT_STALE_SECONDS\}/,
+        'Attachment redirects must stay cached no longer than the signed URL they point to',
     );
+    assert.doesNotMatch(routeFile, /"Cache-Control":\s*"private, max-age=/);
 });
 
 test('optimization 8: schema index pruning removes redundant B-tree and GIN indexes', () => {
@@ -335,14 +336,17 @@ test('optimization 19: getConversations removed runInFlightDeduped wrapper', () 
     );
 });
 
-test('optimization 20: useTypingChannel throttles typing presence broadcasts by 2.5 seconds', () => {
+test('optimization 20: useTypingChannel throttles typing broadcasts within the indicator lifetime', () => {
     const typingFile = readFileSync(
         resolve(ROOT, 'src/hooks/useTypingChannel.ts'),
         'utf8',
     );
-    assert.match(
-        typingFile,
-        /now - lastSentRef\.current < 2500/,
-        'useTypingChannel must throttle isTyping: true broadcasts by 2.5 seconds',
+    const throttleMs = Number(typingFile.match(/now - lastSentRef\.current < (\d+)/)?.[1]);
+    const visibleMs = Number(
+        readFileSync(resolve(ROOT, 'src/hooks/usePresenceTyping.ts'), 'utf8')
+            .match(/PRESENCE_TYPING_VISIBLE_TTL_MS = ([\d_]+)/)?.[1]
+            .replace(/_/g, ''),
     );
+    assert.ok(throttleMs >= 2500, 'useTypingChannel must throttle isTyping: true broadcasts by at least 2.5 seconds');
+    assert.ok(throttleMs < visibleMs, 'typing broadcasts must repeat before the indicator expires');
 });

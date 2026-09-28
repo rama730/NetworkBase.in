@@ -509,8 +509,7 @@ test("project update comments and replies use the compact feed conversation layo
     const updateCommentsSource = tabSource.slice(updateCommentsStart, updateCardStart);
 
     assert.match(commentRowSource, /relative flex gap-2\.5 rounded-\[5px\] px-1/);
-    assert.match(tabSource, /function ThreadAvatarRail/);
-    assert.match(tabSource, /function ThreadRailBridge/);
+    assert.match(tabSource, /import \{ ThreadAvatarRail, ThreadRailBridge \} from "@\/components\/ui\/ThreadRail"/);
     assert.match(commentRowSource, /<ThreadAvatarRail incoming=\{!isFirst\} outgoing=\{!isLast\}>/);
     assert.equal(tabSource.includes("-z-10 left-[15px]"), false);
     assert.match(commentRowSource, /flex flex-wrap items-baseline gap-x-1\.5 gap-y-0\.5 text-\[13px\] leading-4/);
@@ -529,7 +528,7 @@ test("project update comments and replies use the compact feed conversation layo
     assert.match(updateCommentsSource, /mb-2 flex shrink-0 gap-2/);
     assert.match(updateCommentsSource, /size=\{28\}/);
     assert.match(updateCommentsSource, /h-8 min-w-0 flex-1/);
-    assert.match(updateCommentsSource, /h-8 shrink-0 animate-none rounded-\[5px\]/);
+    assert.match(updateCommentsSource, /nb-skeleton h-8 shrink-0 rounded-\[5px\]/);
     assert.match(updateCommentsSource, /min-h-0 flex-1 space-y-1\.5 overflow-y-auto/);
     assert.equal(updateCommentsSource.includes("rounded-2xl bg-zinc-50 px-3 py-2"), false);
     assert.equal(updateCommentsSource.includes("mt-1 whitespace-pre-wrap break-words text-sm"), false);

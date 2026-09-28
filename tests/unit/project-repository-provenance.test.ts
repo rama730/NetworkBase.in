@@ -118,8 +118,7 @@ test("UI card contract: ProjectSocialLinksCard renders distinct badges and borde
     assert.match(cardContent, /const label = isCloned \? 'Cloned repository' : 'Connected repository';/);
     assert.match(cardContent, /const badgeText = isCloned \? 'Cloned from GitHub' : 'Managed by integration';/);
     assert.match(cardContent, /data-testid=\{`project-managed-repo-\$\{repo\.id\}`\}/);
-    assert.match(cardContent, /border-zinc-200 bg-zinc-50\/70/);
-    assert.match(cardContent, /border-emerald-200 bg-emerald-50\/60/);
+    assert.match(cardContent, /\? 'border border-border bg-muted\/60 text-muted-foreground'\s*: 'border border-primary\/20 bg-primary\/10 text-primary'/);
 });
 
 test("UI tooltip contract: ProjectLinkAnchor distinguishes cloned from connected repository tooltips", () => {

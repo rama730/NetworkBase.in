@@ -24,11 +24,11 @@ test("connections feed shares auth, overlaps reads, and keeps privacy auditing o
 test("People lazily loads inactive tabs and has a route-level loading shell", () => {
   const hub = source("src/components/network/NetworkClient.tsx");
   const invitations = source("src/components/network/InvitationsClient.tsx");
-  const loading = source("src/app/(site)/(main)/network/loading.tsx");
+  const loading = source("src/components/network/NetworkRouteSkeleton.tsx");
 
-  assert.match(hub, /const loadPeopleClient = \(\) => import\("@\/components\/people\/NetworkPeopleTab"\)/);
-  assert.match(hub, /const loadConnectionsClient = \(\) => import\("@\/components\/people\/ConnectionsClient"\)/);
-  assert.match(hub, /const loadInvitationsClient = \(\) => import\("@\/components\/people\/InvitationsClient"\)/);
+  assert.match(hub, /const loadPeopleClient = \(\) => import\("@\/components\/network\/NetworkPeopleTab"\)/);
+  assert.match(hub, /const loadConnectionsClient = \(\) => import\("@\/components\/network\/ConnectionsClient"\)/);
+  assert.match(hub, /const loadInvitationsClient = \(\) => import\("@\/components\/network\/InvitationsClient"\)/);
   assert.match(hub, /dynamic\(loadPeopleClient/);
   assert.match(hub, /dynamic\(loadConnectionsClient/);
   assert.match(hub, /dynamic\(loadInvitationsClient/);
@@ -38,5 +38,5 @@ test("People lazily loads inactive tabs and has a route-level loading shell", ()
   assert.match(invitations, /getIncomingApplicationsAction\(\{ limit: 50 \}\)/);
   assert.match(invitations, /invitation\.isWorkflowItem/);
   assert.match(invitations, /resolveMessageWorkflowActionV2/);
-  assert.match(loading, /aria-label="Loading connections"/);
+  assert.match(loading, /aria-label="Loading network"/);
 });

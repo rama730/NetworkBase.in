@@ -21,14 +21,13 @@ test("Storage and private Realtime share the application key/topic contracts", (
 test("private Realtime is fail-closed until database authorization is promoted", () => {
   const authorization = read("src/lib/realtime/authorization.ts");
   const presence = read("src/lib/realtime/presence-client.ts");
-  const subscriptions = read("src/lib/realtime/subscriptions.ts");
   const activation = read("drizzle/0160_realtime_authorization_activation.sql");
   const exampleEnv = read(".env.local.example");
 
   assert.match(authorization, /NEXT_PUBLIC_REALTIME_AUTHORIZATION_ENABLED/);
   assert.match(presence, /if \(!isPrivateRealtimeAuthorizationEnabled\(\)\)/);
   assert.match(presence, /await supabase\.realtime\.setAuth\(accessToken\)/);
-  assert.match(subscriptions, /if \(!isPrivateRealtimeAuthorizationEnabled\(\)\) return null/);
+  assert.doesNotMatch(read("src/lib/realtime/subscriptions.ts"), /private:\s*true/);
   assert.match(activation, /CREATE POLICY application_topic_read ON realtime\.messages/);
   assert.match(activation, /realtime\.messages\.extension IN \('presence', 'broadcast'\)/);
   assert.match(activation, /realtime\.messages\.extension = 'broadcast'/);

@@ -173,7 +173,7 @@ test('messages workspace gates chat-only runtime work by active tab', () => {
 
     assert.match(messagesHook, /export function useInbox\(\n\s*limit: number = 20,\n\s*enabled: boolean = true,\n\s*scope: 'active' \| 'archived' = 'active'/);
     assert.match(messagesHook, /if \(!enabled \|\| !user\?\.id\)/);
-    assert.match(messagesHook, /enabled: enabled && cacheReady/);
+    assert.match(messagesHook, /initialPageParam: undefined as string \| undefined,\n\s*enabled,/);
 
     assert.match(realtime, /type MessagesRealtimeOptions = boolean \| \{/);
     assert.match(realtime, /NEXT_PUBLIC_MESSAGES_REALTIME_TRACE/);

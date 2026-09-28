@@ -23,6 +23,8 @@ import {
 
 const ATTACHMENTS_BUCKET = "chat-attachments";
 const ATTACHMENT_SIGNED_URL_TTL_SECONDS = 86_400; // 24 hours
+const ATTACHMENT_REDIRECT_STALE_SECONDS = 3_600;
+const ATTACHMENT_REDIRECT_CACHE_CONTROL = `private, max-age=${ATTACHMENT_SIGNED_URL_TTL_SECONDS - ATTACHMENT_REDIRECT_STALE_SECONDS}, stale-while-revalidate=${ATTACHMENT_REDIRECT_STALE_SECONDS}`;
 
 function storageImageTransformationsEnabled() {
   return process.env.SUPABASE_STORAGE_IMAGE_TRANSFORMATIONS_ENABLED?.trim().toLowerCase() === "true";
@@ -245,7 +247,7 @@ export async function GET(
       status: 307,
       headers: {
         Location: signedUrl,
-        "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
+        "Cache-Control": ATTACHMENT_REDIRECT_CACHE_CONTROL,
       },
     });
   }
@@ -287,7 +289,7 @@ export async function GET(
     status: 307,
     headers: {
       Location: signedUrl,
-      "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
+      "Cache-Control": ATTACHMENT_REDIRECT_CACHE_CONTROL,
     },
   });
 }

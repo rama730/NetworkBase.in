@@ -59,7 +59,7 @@ describe("GitHub Sync Destination Simplification & Inline Controls", () => {
     );
     assert.match(
       source,
-      /Change Target Repository/,
+      /Change target repository/i,
       "Dialog title must be present",
     );
     assert.match(

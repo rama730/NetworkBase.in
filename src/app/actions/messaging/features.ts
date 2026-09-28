@@ -17,6 +17,7 @@ import {
     buildReactionSummaryByMessage,
     type MessageReactionSummary,
 } from '@/lib/messages/reactions';
+import { after } from 'next/server';
 import { emitMessageReactionNotification } from '@/lib/notifications/emitters';
 
 async function listAccessibleMessages(messageIds: string[], userId: string) {
@@ -200,9 +201,10 @@ export async function toggleReaction(
         });
 
         if (pendingNotification) {
-            await emitMessageReactionNotification(pendingNotification).catch((err) => {
+            const notification = pendingNotification;
+            after(() => emitMessageReactionNotification(notification).catch((err) => {
                 console.error('Failed to emit reaction notification:', err);
-            });
+            }));
         }
 
         return txResult;

@@ -11,7 +11,7 @@ const projectActions = read("src/app/actions/project/index.ts");
 test("task links default to references and unlink never deletes the project node", () => {
   const unlink = links.slice(links.indexOf("export async function unlinkNodeFromTask"), links.indexOf("export async function getTaskAttachments"));
   assert.match(links, /replaceTaskFileRoleTag\(\[\], options\?\.role \?\? "reference"\)/);
-  assert.match(unlink, /tx\.delete\(taskNodeLinks\)/);
+  assert.match(unlink, /DELETE FROM task_node_links\s*WHERE task_id = \$\{taskId\}::uuid AND node_id = \$\{nodeId\}::uuid/);
   assert.match(unlink, /taskFileDetachedFrom/);
   assert.doesNotMatch(unlink, /deleteNode/);
 });
