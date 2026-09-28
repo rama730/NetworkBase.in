@@ -48,9 +48,12 @@ test("project settings tab renders a continuous single-scroll document with all 
     }
 
     // 3. Sections must appear in canonical order in the continuous document
+    const tabOnly = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
     let lastIndex = -1;
     for (const sectionId of canonicalSections) {
-        const currentIndex = settingsTab.indexOf(`id="project-settings-${sectionId}"`);
+        const currentIndex = sectionId === "general"
+            ? tabOnly.indexOf("<GeneralSettingsSection")
+            : tabOnly.indexOf(`id="project-settings-${sectionId}"`);
         assert.ok(
             currentIndex > lastIndex,
             `Section #${sectionId} (pos ${currentIndex}) must appear after previous section (pos ${lastIndex})`,

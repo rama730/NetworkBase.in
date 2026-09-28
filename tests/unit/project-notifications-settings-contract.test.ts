@@ -87,7 +87,7 @@ test("project notifications tab eliminates duplicate header and redundant cards,
     );
     assert.match(
         notifBlock,
-        /notificationGroups\.map/,
+        /NOTIFICATION_GROUPS\.map/,
         "Must map the 7 notification workflow categories",
     );
     assert.match(
