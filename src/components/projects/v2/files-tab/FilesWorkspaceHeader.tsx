@@ -13,7 +13,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { getHeaderGitHubSyncStatus } from "@/app/actions/github-sync";
+import { readHeaderGitHubSyncStatus } from "@/lib/files-tab-batch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -228,7 +228,7 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
   React.useEffect(() => {
     let active = true;
     const fetchStatus = () => {
-      getHeaderGitHubSyncStatus(projectId)
+      readHeaderGitHubSyncStatus(projectId)
         .then((res) => {
           if (active && res.success) {
             setStatus(res.data);
