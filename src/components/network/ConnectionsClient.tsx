@@ -14,7 +14,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useConnectionMutations, useConnections, type NetworkConnectionItem } from "@/hooks/useConnections";
 import { profileHref } from "@/lib/routing/identifiers";
-import { resolveClientSkill } from "@/lib/skills/client";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { formatLastActive } from "@/lib/ui/date-formatting";
 import { formatDistanceToNow } from "@/lib/utils/date";
 
@@ -129,6 +129,7 @@ function ConnectionCard({
     onDisconnect: (id: string) => Promise<void>;
     onBlock: (id: string) => Promise<void>;
 }) {
+    useSkillCatalog();
     const user = connection.otherUser;
     if (!user) return null;
     const displayName = user.fullName || user.username || "NetworkBase member";

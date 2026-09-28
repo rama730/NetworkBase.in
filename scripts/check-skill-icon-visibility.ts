@@ -1,12 +1,15 @@
+import { readFileSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import sharp from 'sharp'
 import { MARKET_SKILLS } from '../src/lib/skills/catalog'
-import { resolveClientSkill } from '../src/lib/skills/client'
+import { resolveClientSkill, setSkillCatalog, type SkillCatalog } from '../src/lib/skills/client'
 import { GENERATED_SKILL_ICON_THEME_ASSET_VARIANTS } from '../src/lib/skills/generated-icon-theme-variants'
 import { resolveSkillIconThemeVariant } from '../src/lib/skills/icon-theme-policy'
 import { SKILL_SEMANTIC_ICON_KEYS } from '../src/lib/skills/semantic-icons'
 import type { SkillSummary } from '../src/lib/skills/types'
+
+setSkillCatalog(JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'skill-catalog.json'), 'utf8')) as SkillCatalog)
 
 const LIGHT_BACKGROUND = '#FFFFFF'
 const DARK_BACKGROUND = '#09090B'

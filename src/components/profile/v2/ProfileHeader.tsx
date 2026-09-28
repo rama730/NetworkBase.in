@@ -10,7 +10,7 @@ import { buildPrivacyPresentation } from '@/lib/privacy/presentation'
 import type { ConnectionState, ProfilePrivacyRelationship, ProfileStats } from './types'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { SkillIcon } from '@/components/skills'
-import { resolveClientSkill } from '@/lib/skills/client'
+import { resolveClientSkill, useSkillCatalog } from '@/lib/skills/client'
 import { formatLastActive } from '@/lib/ui/date-formatting'
 import { resolveProfileActionState } from './profile-action-state'
 
@@ -87,6 +87,7 @@ export function ProfileHeader({
     privacyRelationship: ProfilePrivacyRelationship
     lockedShell?: boolean
 }) {
+    useSkillCatalog();
     const vm = normalizeProfile(profile)
     if (!vm) return null
     const name = vm.fullName || vm.username || 'User'

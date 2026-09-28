@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -6,7 +7,6 @@ import { MARKET_SKILLS, SKILL_CATALOG_VERSION, SKILL_CATEGORIES } from '../src/l
 import { SKILL_ICON_MANIFEST, SKILL_ICON_MANIFEST_HASH, SKILL_ICON_MANIFEST_VERSION } from '../src/lib/skills/generated-icon-manifest'
 import { SKILL_ICON_SOURCE_REGISTRY } from '../src/lib/skills/icon-sources'
 import { SKILL_ICON_THEME_VARIANTS, SKILL_SEMANTIC_ICON_ONLY } from '../src/lib/skills/icon-theme-policy'
-import { SKILL_CLIENT_CATALOG_VERSION } from '../src/lib/skills/generated-client-catalog'
 import { normalizeSkillLookup } from '../src/lib/skills/normalization'
 import { SKILL_SEMANTIC_ICON_KEYS } from '../src/lib/skills/semantic-icons'
 import { hasExplicitCanvasBackground } from './skill-icons/normalize-svg'
@@ -14,7 +14,8 @@ import { hasExplicitCanvasBackground } from './skill-icons/normalize-svg'
 const failures: string[] = []
 
 if (SKILL_ICON_MANIFEST_VERSION !== SKILL_CATALOG_VERSION) failures.push('icon manifest catalog version is stale')
-if (SKILL_CLIENT_CATALOG_VERSION !== SKILL_CATALOG_VERSION) failures.push('client catalog version is stale')
+const clientCatalog = JSON.parse(readFileSync(path.join(process.cwd(), 'public', 'skill-catalog.json'), 'utf8')) as { version: string }
+if (clientCatalog.version !== SKILL_CATALOG_VERSION) failures.push('client catalog version is stale')
 
 function assertUnique(label: string, values: readonly string[]) {
     const seen = new Map<string, number>()

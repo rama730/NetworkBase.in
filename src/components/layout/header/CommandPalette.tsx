@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Skeleton } from "@/components/ui/skeleton";
 import { isGlobalSearchPreview, useGlobalSearchPreviews, type GlobalSearchPreview } from "@/hooks/useGlobalSearchPreviews";
 import { getConnectionRequestSuccessMessage, useConnectionMutations } from "@/hooks/useConnections";
-import { resolveClientSkill } from "@/lib/skills/client";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { SearchPreviewError } from "@/lib/search/contracts";
 import {
     ProfileSearchResultCard,
@@ -133,6 +133,7 @@ function RecentSearchList({
 }
 
 export default function CommandPalette({ isOpen, onClose, initialQuery = "", context, recentSearchOwnerId = "" }: CommandPaletteProps) {
+    useSkillCatalog();
     const queryClient = useQueryClient();
     const pathname = usePathname();
     const router = useRouter();
