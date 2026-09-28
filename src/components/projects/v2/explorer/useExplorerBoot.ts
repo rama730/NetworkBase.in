@@ -241,7 +241,7 @@ export function useExplorerBoot(options: {
     prevSyncStatus.current = syncStatus;
   }, [isActive, isBooting, syncStatus, loadFolderContent]);
 
-  // ponytail: restore only unloaded folders through paginated loader without forced refresh cascades.
+  // ponytail: restore only unloaded folders, four at a time. ceiling: deep trees restore in rounds of four requests. upgrade: raise the concurrency if restores feel slow.
   // Four requests at a time keeps restore below the global in-flight budget.
   useEffect(() => {
     if (!isActive || batchLoadedRef.current) return;

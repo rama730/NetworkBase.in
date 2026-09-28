@@ -143,7 +143,7 @@ export function FileTreeItem({
 
     // Node Row
     const node = context.nodesById[row.nodeId];
-    // ponytail: a virtualized row must always have measurable height. A node
+    // A virtualized row must always have measurable height. A node
     // can disappear between the row calculation and the next context update.
     if (!node) return <div aria-hidden="true" className="h-8 [@media(pointer:coarse)]:h-11" />;
 

@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger'
 import { buildOwnerProfileTitle, buildProfileMetadataDescription } from '@/lib/profile/display'
 import { ProfileRouteSkeleton } from '@/components/profile/v2/ProfileRouteSkeleton'
 
-// ponytail: metadata derives from the same required profile projection as the page body.
+// Metadata derives from the same required profile projection as the page body.
 const readOwnerProfileRoute = cache(async () => {
     const { user } = await getViewerAuthContext()
     if (!user) return { user: null, profileData: null }

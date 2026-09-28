@@ -9,7 +9,6 @@ import {
   DEFAULT_APPEARANCE_SNAPSHOT,
   parseAppearanceSnapshot,
   readLocalAppearanceSnapshot,
-  resolveThemeMode,
   buildThemePrehydrateScript,
 } from "../../src/lib/theme/appearance";
 import {
@@ -132,11 +131,6 @@ test("areAppearanceSnapshotsEquivalent ignores updatedAt when values match", () 
   assert.equal(areAppearanceSnapshotsEquivalent(first, second), true);
 });
 
-test("resolveThemeMode resolves system mode against device preference", () => {
-  assert.equal(resolveThemeMode("system", true), "dark");
-  assert.equal(resolveThemeMode("system", false), "light");
-  assert.equal(resolveThemeMode("dark", false), "dark");
-});
 
 test("buildThemePrehydrateScript includes core storage keys", () => {
   const script = buildThemePrehydrateScript();

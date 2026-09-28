@@ -400,7 +400,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 if (typeof nextVersion === 'string') {
                     setStageVersionSafe(nextVersion);
                 }
-                // ponytail: sync stats on the same unified channel without separate broadcast channel
+                // Sync stats on the same unified channel without separate broadcast channel
                 const nextViews = payload.new?.view_count;
                 if (typeof nextViews === 'number') {
                     setViewCount((current: number) => Math.max(current, nextViews));

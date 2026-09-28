@@ -272,7 +272,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
             group.tasks.push(task);
             grouped.set(project.id, group);
         }
-        // ponytail: keep the API's urgency-aware task order when grouping,
+        // Keep the API's urgency-aware task order when grouping,
         // rather than re-sorting projects alphabetically and burying work that
         // needs attention.
         return Array.from(grouped.values());
@@ -312,7 +312,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
         } catch {
             // In-memory handoff still covers browsers with blocked storage.
         }
-        // ponytail: router.push is sufficient here. A prefetch immediately
+        // Router.push is sufficient here. A prefetch immediately
         // followed by a navigation has no user-visible benefit and competes
         // with the task surface's own data request.
         router.push(`/projects/${projectIdentifier}?tab=tasks`);

@@ -72,7 +72,7 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
         staleTime: 30_000,
     });
     const { data, isLoading, error } = query;
-    // ponytail: Workspace only presents decisions the viewer can take. It
+    // Workspace only presents decisions the viewer can take. It
     // never fetches the sent queue that is only useful in the full Requests
     // page, eliminating one request and unrelated loading/error state.
     const connectionsQuery = usePendingRequests(20, isWorkspaceOpen && isActive, { includeSent: false });

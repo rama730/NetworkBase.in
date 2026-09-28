@@ -1,6 +1,6 @@
 'use server';
 
-import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
 import { getAuthUser } from '@/lib/supabase/auth-user';
 import { isUuid } from '@/lib/validations/uuid';
 import { db } from '@/lib/db';
@@ -12,7 +12,6 @@ import {
     messages,
     profiles,
     projectMembers,
-    projectNodes,
     projectOpenRoles,
     projects,
     tasks,
@@ -330,162 +329,6 @@ async function emitActivityBridgeMessage(params: {
         .returning({ id: messages.id });
 
     return messageRow?.id ? hydrateSingleMessage(params.conversationId, messageRow.id) : null;
-}
-
-export interface MessagingStructuredCatalogV2 {
-    linkedProjectId: string | null;
-    projects: Array<{
-        id: string;
-        title: string;
-        slug: string | null;
-        role: 'owner' | 'admin' | 'member' | 'viewer';
-    }>;
-    tasks: Array<{
-        id: string;
-        title: string;
-        taskNumber: number;
-        projectId: string;
-    }>;
-    files: Array<{
-        id: string;
-        name: string;
-        path: string;
-        projectId: string;
-    }>;
-    profiles: Array<{
-        id: string;
-        label: string;
-        subtitle: string | null;
-    }>;
-}
-
-export async function getMessagingStructuredCatalogV2(params: {
-    conversationId?: string | null;
-    targetUserId?: string | null;
-}): Promise<{ success: boolean; error?: string; catalog?: MessagingStructuredCatalogV2 }> {
-    try {
-        const user = await getAuthUser();
-        if (!user) {
-            return { success: false, error: 'Not authenticated' };
-        }
-        const conversationId = await resolveConversationId(params);
-        await requireConversationAccess(conversationId, user.id);
-
-        const [linkedProject, projectMemberships, participantProfiles] = await Promise.all([
-            db
-                .select({ id: projects.id })
-                .from(projects)
-                .where(eq(projects.conversationId, conversationId))
-                .limit(1),
-            db
-                .select({
-                    id: projects.id,
-                    title: projects.title,
-                    slug: projects.slug,
-                    role: projectMembers.role,
-                })
-                .from(projectMembers)
-                .innerJoin(projects, eq(projects.id, projectMembers.projectId))
-                .where(
-                    and(
-                        eq(projectMembers.userId, user.id),
-                        isNull(projects.deletedAt),
-                    ),
-                )
-                .orderBy(desc(projects.updatedAt))
-                .limit(20),
-            db
-                .select({
-                    id: profiles.id,
-                    username: profiles.username,
-                    fullName: profiles.fullName,
-                })
-                .from(conversationParticipants)
-                .innerJoin(profiles, eq(profiles.id, conversationParticipants.userId))
-                .where(eq(conversationParticipants.conversationId, conversationId)),
-        ]);
-
-        const linkedProjectId = linkedProject[0]?.id ?? null;
-        const projectScopeIds = linkedProjectId
-            ? [linkedProjectId]
-            : projectMemberships.slice(0, 5).map((membership) => membership.id);
-
-        const [taskRows, fileRows] = projectScopeIds.length > 0
-            ? await Promise.all([
-                db
-                    .select({
-                        id: tasks.id,
-                        title: tasks.title,
-                        taskNumber: tasks.taskNumber,
-                        projectId: tasks.projectId,
-                    })
-                    .from(tasks)
-                    .where(
-                        and(
-                            inArray(tasks.projectId, projectScopeIds),
-                            isNull(tasks.deletedAt),
-                        ),
-                    )
-                    .orderBy(desc(tasks.updatedAt))
-                    .limit(30),
-                db
-                    .select({
-                        id: projectNodes.id,
-                        name: projectNodes.name,
-                        path: projectNodes.path,
-                        projectId: projectNodes.projectId,
-                    })
-                    .from(projectNodes)
-                    .where(
-                        and(
-                            inArray(projectNodes.projectId, projectScopeIds),
-                            eq(projectNodes.type, 'file'),
-                            isNull(projectNodes.deletedAt),
-                        ),
-                    )
-                    .orderBy(desc(projectNodes.updatedAt))
-                    .limit(30),
-            ])
-            : [[], []];
-
-        return {
-            success: true,
-            catalog: {
-                linkedProjectId,
-                projects: projectMemberships.map((membership) => ({
-                    id: membership.id,
-                    title: membership.title,
-                    slug: membership.slug,
-                    role: membership.role,
-                })),
-                tasks: taskRows.map((task) => ({
-                    id: task.id,
-                    title: task.title,
-                    taskNumber: task.taskNumber ?? 0,
-                    projectId: task.projectId,
-                })),
-                files: fileRows.map((file) => ({
-                    id: file.id,
-                    name: file.name,
-                    path: file.path,
-                    projectId: file.projectId,
-                })),
-                profiles: participantProfiles
-                    .filter((profile) => profile.id !== user.id)
-                    .map((profile) => ({
-                        id: profile.id,
-                        label: profile.fullName || profile.username || 'User',
-                        subtitle: profile.username ? `@${profile.username}` : null,
-                    })),
-            },
-        };
-    } catch (error) {
-        logger.error('[messages.collaboration] failed to load structured catalog', {
-            module: 'messaging',
-            error: error instanceof Error ? error.message : String(error),
-        });
-        return { success: false, error: error instanceof Error ? error.message : 'Failed to load commands' };
-    }
 }
 
 function toProjectChip(project: { id: string; title: string; slug: string | null }): MessageContextChip {

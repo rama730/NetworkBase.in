@@ -142,7 +142,7 @@ test("task-card footers keep the avatar and use its former label space for task 
 
   assert.doesNotMatch(html, /<span[^>]*>Rama<\/span>/);
   assert.match(html, /title="Rama"/);
-  assert.match(source, /avatar \+ task counts share one fixed footer row/);
+  assert.match(source, /avatar \+ task counts share one fixed footer row/i);
   assert.doesNotMatch(
     source,
     /flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar/,

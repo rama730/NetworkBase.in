@@ -85,7 +85,7 @@ export async function prepareProjectImageForUpload(
     file: File,
     options: PrepareProjectImageOptions,
 ): Promise<PreparedImageUpload> {
-    // ponytail: preserve animated GIF frames by bypassing 2D canvas rasterization
+    // Preserve animated GIF frames by bypassing 2D canvas rasterization
     const isGif = file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif");
     if (isGif) {
         if (file.size > options.maxBytes) {

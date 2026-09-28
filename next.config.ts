@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   // Keep verification builds isolated from an actively running local dev server.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone",
-  // ponytail: native HTTP 308 redirects preserve query params and offload route migration to edge.
+  // Native HTTP 308 redirects preserve query params and offload route migration to edge.
   async redirects() {
     return [
       { source: '/hub', destination: '/discover', permanent: true },
@@ -103,7 +103,7 @@ const nextConfig: NextConfig = {
   experimental: {
     globalNotFound: true,
     scrollRestoration: true,
-    // ponytail: disabling persistent dev cache avoids observed multi-second compaction stalls.
+    // ponytail: disabling persistent dev cache avoids observed multi-second compaction stalls. ceiling: slower cold dev starts. upgrade: re-enable once Turbopack compaction stops stalling.
     turbopackFileSystemCacheForDev: false,
     optimizePackageImports: [
       'lucide-react',

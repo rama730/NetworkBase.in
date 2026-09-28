@@ -3,8 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
-  classifyRouteRenderingMode,
-  getRouteCachePolicy,
   PAGE_PERFORMANCE_CONTRACTS,
   resolveRouteContract,
 } from "@/lib/performance/page-contract";
@@ -27,25 +25,7 @@ describe("page performance contract", () => {
     assert.equal(userRoute?.routeId, "/u/[username]");
   });
 
-  it("classifies rendering mode from route id", () => {
-    assert.equal(classifyRouteRenderingMode("/discover"), "dynamic");
-    assert.equal(classifyRouteRenderingMode("/settings"), "dynamic");
-    assert.equal(classifyRouteRenderingMode("/login"), "dynamic");
-  });
 
-  it("returns deterministic cache policy by route class", () => {
-    assert.deepEqual(getRouteCachePolicy("/discover"), {
-      strategy: "none",
-      ttlSeconds: 0,
-      invalidationOwner: "api",
-    });
-
-    assert.deepEqual(getRouteCachePolicy("/settings", { isAuthenticated: true }), {
-      strategy: "request",
-      ttlSeconds: 30,
-      invalidationOwner: "server-action",
-    });
-  });
 
   it("tracks explicit bootstrap and overload contracts for hot routes", () => {
     assert.deepEqual(

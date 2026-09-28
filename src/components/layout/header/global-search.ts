@@ -115,7 +115,7 @@ function writeRecentGlobalSearches(ownerId: string, scope: string, searches: rea
             JSON.stringify({ ...store, [scope]: next }),
         );
     } catch {
-        // ponytail: browser-local recents are best-effort; storage failures must never block search navigation.
+        // Browser-local recents are best-effort; storage failures must never block search navigation.
     }
     return next;
 }

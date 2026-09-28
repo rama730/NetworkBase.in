@@ -52,11 +52,6 @@ function setUsernameCheckCache(username: string, result: UsernameAvailabilityRes
     })
 }
 
-export function resetUsernameAvailabilityCache() {
-    usernameCheckCache.clear()
-    usernameCheckInFlight.clear()
-}
-
 export async function requestUsernameAvailability(username: string): Promise<UsernameAvailabilityResult> {
     const normalized = sanitizeUsernameInput(username)
     if (!normalized) {

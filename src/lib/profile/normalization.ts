@@ -1,11 +1,12 @@
+import { isSafeHttpUrl } from '@/lib/security/urls';
+import { findDomainPresence, type DomainPresenceIconKey } from '@/lib/profile/domain-presence';
+
 /**
  * C6: Single source of truth for profile normalization.
  * Handles camelCase (Drizzle) ↔ snake_case (Supabase REST) conversions,
  * form state, server payload, and optimistic update transformations.
  */
 
-import { isSafeHttpUrl } from '@/lib/security/urls';
-import { findDomainPresence, type DomainPresenceIconKey } from '@/lib/profile/domain-presence';
 
 export const SOCIAL_LINK_PLATFORMS = [
     'github', 'x', 'twitter', 'linkedin', 'website', 'portfolio', 'dribbble',
@@ -408,20 +409,6 @@ export function normalizeOptionalProfileUrl(value: string | undefined): string |
     const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
     return isSafeHttpUrl(candidate) ? candidate : '';
 }
-
-export function normalizeSocialLinkRecord(links: Record<string, string> | undefined): Record<string, string> | undefined {
-    if (!links) return undefined;
-    const out: Record<string, string> = {};
-    for (const [key, raw] of Object.entries(links)) {
-        const platform = key.trim().toLowerCase().slice(0, 32);
-        if (!SOCIAL_LINK_PLATFORM_SET.has(platform)) continue;
-        const url = normalizeOptionalProfileUrl(String(raw || ''));
-        if (url) out[platform] = url;
-    }
-    return out;
-}
-
-// ── Form State (used by EditProfileModal) ───────────────────────────
 
 export type ProfileFormState = {
     fullName: string;

@@ -504,7 +504,7 @@ export async function updateTaskStatusAction(
 
       let newReviewStatus = locked.reviewStatus;
 
-      // ponytail: Sub-State Lifecycle Interceptor
+      // Sub-State Lifecycle Interceptor
       if (status === "done" && locked.currentStatus !== "done") {
         newReviewStatus = "pending";
       } else if (locked.reviewStatus === "pending" && status !== "done") {

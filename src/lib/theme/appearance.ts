@@ -1,3 +1,5 @@
+
+
 export type ThemeMode = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
 export type AccentColor = "default" | "orchid" | "forest" | "ember" | "rose" | "lagoon";
@@ -151,11 +153,6 @@ export function areAppearanceSnapshotsEquivalent(
     left.density === right.density &&
     left.reduceMotion === right.reduceMotion
   );
-}
-
-export function resolveThemeMode(theme: ThemeMode, systemPrefersDark: boolean): ResolvedTheme {
-  if (theme === "system") return systemPrefersDark ? "dark" : "light";
-  return theme;
 }
 
 export function readLocalAppearanceSnapshot(

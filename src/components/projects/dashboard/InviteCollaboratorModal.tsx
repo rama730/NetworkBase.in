@@ -93,7 +93,7 @@ async function fingerprint(value: string) {
         const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
         return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
     }
-    // ponytail: legacy browsers retain deterministic retries; modern browsers take the SHA-256 path.
+    // ponytail: legacy browsers fall back to a string hash; modern browsers take the SHA-256 path. ceiling: the fallback hash is not collision-resistant. upgrade: drop the fallback when legacy browser support ends.
     let hash = 0;
     for (let index = 0; index < value.length; index += 1) hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
     return Math.abs(hash).toString(16);
@@ -511,7 +511,7 @@ export default function InviteCollaboratorModal({
 
     const step = (label: string) => <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">{label}</p>;
     const selectedProjectContext = selectedProject ? <div className="flex items-center justify-between rounded-[5px] border border-border bg-muted/30 px-3.5 py-2.5 text-[13px] text-foreground"><span><span className="text-muted-foreground">Project:</span> <strong>{selectedProject.title}</strong></span>{!projectIsFixed ? <Button type="button" variant="ghost" size="sm" aria-expanded={isChoosingProject} aria-controls="recruitment-project-list" onClick={() => setIsChoosingProject((open) => !open)} className="h-[28px] rounded-[5px] px-2 text-xs font-medium">{isChoosingProject ? "Cancel" : "Change"}</Button> : null}</div> : null;
-    // ponytail: an anchored list keeps the application form and modal dimensions intact.
+    // An anchored list keeps the application form and modal dimensions intact.
     const projectPicker = showProjectPicker ? <div ref={projectPickerRef} tabIndex={-1} className="absolute inset-x-0 top-full z-10 mt-2 animate-in fade-in slide-in-from-top-1 duration-[130ms] rounded-[8px] border border-border bg-card p-2 shadow-md outline-none">{step("Select project")}<div id="recruitment-project-list" role="listbox" aria-label="Available projects" className="mt-2 max-h-56 overflow-y-auto rounded-[5px] border border-border">{projectOptions.length ? projectOptions.map((project) => <button key={project.id} type="button" role="option" aria-selected={project.id === selectedProjectId} onClick={() => { setSelectedProjectId(project.id); setIsChoosingProject(false); setFormError(null); }} className={`flex w-full items-center justify-between gap-3 rounded-[5px] px-3 py-2 text-left text-sm transition-colors ${project.id === selectedProjectId ? "bg-primary/10 font-medium text-primary" : "hover:bg-muted text-foreground"}`}><span className="truncate">{project.title}</span>{project.id === selectedProjectId ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}</button>) : <p className="px-3 py-2 text-sm text-muted-foreground">No eligible projects available.</p>}</div></div> : null;
 
     return (

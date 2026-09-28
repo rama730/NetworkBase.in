@@ -252,7 +252,7 @@ async function readDiscussionRows(params: {
   const hasMore = topLevelRows.length > pageSize;
   const limitedTopLevelRows = hasMore ? topLevelRows.slice(0, pageSize) : topLevelRows;
   const oldestLoaded = limitedTopLevelRows[limitedTopLevelRows.length - 1] ?? null;
-  // ponytail: parents are newest-first everywhere; replies remain chronological in their thread.
+  // Parents are newest-first everywhere; replies remain chronological in their thread.
   const orderedTopLevelRows = limitedTopLevelRows as DiscussionRow[];
   const parentIds = orderedTopLevelRows.map((row) => row.id);
 

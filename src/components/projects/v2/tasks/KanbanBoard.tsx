@@ -653,7 +653,7 @@ export default function KanbanBoard({
       return;
     }
 
-    // ponytail: float64 gaps avoid rewriting every card; use Lexorank only if repeated midpoint moves exhaust precision.
+    // ponytail: float64 gaps avoid rewriting every card. ceiling: about 50 repeated midpoint moves between the same two cards. upgrade: Lexorank or a column rebalance when precision runs out.
     const POSITION_GAP = 60000;
     const newPosition =
       previousTask && nextTask
@@ -920,7 +920,7 @@ export default function KanbanBoard({
           }}
         >
           {activeTask ? (
-            // ponytail: one moving card; source and destination render blank slots only.
+            // One moving card; source and destination render blank slots only.
             <div
               className="pointer-events-none w-[min(276px,calc(100vw-2rem))] cursor-grabbing rounded-[8px] shadow-lg"
               style={{
