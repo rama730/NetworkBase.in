@@ -10021,11 +10021,18 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
           }).returning({ id: projectNodes.id, path: projectNodes.path });
           recoveryFolder = created!;
         }
+        if (rootNodes.length > 0) {
+          await tx.update(projectNodes)
+            .set({
+              parentId: recoveryFolder.id,
+              path: sql`CASE ${projectNodes.id} ${sql.join(rootNodes.map((node) => sql`WHEN ${node.id}::uuid THEN ${`${recoveryFolder!.path}/${node.name}`}`), sql` `)} END`,
+              taskId: null,
+              updatedAt: new Date(),
+            })
+            .where(inArray(projectNodes.id, rootNodes.map((node) => node.id)));
+        }
         for (const node of rootNodes) {
           const nextPath = `${recoveryFolder.path}/${node.name}`;
-          await tx.update(projectNodes)
-            .set({ parentId: recoveryFolder.id, path: nextPath, taskId: null, updatedAt: new Date() })
-            .where(eq(projectNodes.id, node.id));
           if (node.type === "folder") {
             await tx.execute(sql`
               UPDATE project_nodes

@@ -447,7 +447,7 @@ export async function recordNodeEventsBatch(
     actorId: string | null,
     nodeIds: (string | null)[],
     type: string,
-    metadata: Record<string, unknown> = {},
+    metadata: Record<string, unknown> | Record<string, unknown>[] = {},
     clientTx?: DbTransaction
 ) {
     const run = async (tx: any) => {
@@ -475,7 +475,7 @@ export async function recordNodeEventsBatch(
             nodeId,
             type,
             sequenceNumber: startSeq + idx + 1,
-            metadata,
+            metadata: Array.isArray(metadata) ? metadata[idx] ?? {} : metadata,
             createdAt: now,
         }));
 
