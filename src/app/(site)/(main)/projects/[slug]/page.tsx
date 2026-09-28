@@ -8,7 +8,6 @@ import { getViewerIdentityContext, toClientViewer } from '@/lib/server/viewer-co
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata';
 import { buildProjectDetailMetadataInput } from '@/lib/projects/project-detail-metadata';
 import { isProjectTabVisibleToViewer } from '@/lib/projects/settings-policies';
-import { readProjectFileMetadataTitle, readProjectTaskMetadataTitle } from '@/lib/projects/project-detail-metadata-lookup';
 
 const readProjectSprintDetailCached = cache((slugOrId: string, actorUserId: string | null, limit?: number, sprintId?: string, taskReference?: string) => readProjectSprintDetail({ slugOrId, actorUserId, limit, sprintId, taskReference }));
 
@@ -27,13 +26,7 @@ export async function generateMetadata({
     searchParams,
 }: {
     params: Promise<{ slug: string }>;
-    searchParams: Promise<{
-        tab?: string;
-        fileId?: string;
-        drawerType?: string;
-        drawerId?: string;
-        panelTab?: string;
-    }>;
+    searchParams: Promise<{ tab?: string }>;
 }): Promise<Metadata> {
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
     const { result } = await readProjectRouteShell(slug);
@@ -55,37 +48,10 @@ export async function generateMetadata({
         privacy: "Settings",
         readme: "Docs",
         docs: "Docs",
+        files: "Files",
+        tasks: "Tasks",
     };
-    let tabTitle = tabTitleMap[tab] ?? "";
-
-    if (tab === "files") {
-        tabTitle = "Files";
-        const fileId = _searchParams?.fileId;
-        if (fileId) {
-            try {
-                const fileTitle = await readProjectFileMetadataTitle(project.id, fileId);
-                if (fileTitle) {
-                    tabTitle = `${fileTitle} | Files`;
-                }
-            } catch (e) {
-                // Ignore query error, fallback to 'Files'
-            }
-        }
-    } else if (tab === "tasks") {
-        tabTitle = "Tasks";
-        const drawerType = _searchParams?.drawerType;
-        const drawerId = _searchParams?.drawerId;
-        if (drawerType === "task" && drawerId) {
-            try {
-                const taskTitle = await readProjectTaskMetadataTitle(project.id, drawerId);
-                if (taskTitle) {
-                    tabTitle = `${taskTitle} | Tasks`;
-                }
-            } catch (e) {
-                // Ignore query error, fallback to 'Tasks'
-            }
-        }
-    }
+    const tabTitle = tabTitleMap[tab] ?? "";
 
     if (tabTitle) {
         metadataInput.title = `${tabTitle} | ${project.title} | NetworkBase`;
@@ -135,7 +101,9 @@ async function ResolvedProjectDashboard({
         isOwnerOrMember: capabilities.isOwner || capabilities.isMember,
         publicTabVisibility: project.publicTabVisibility,
     });
-    const sprintResult = canViewSprints && sprintPromise ? await sprintPromise : null;
+    const initialSprintData = canViewSprints && sprintPromise
+        ? sprintPromise.then((sprintResult) => (sprintResult.success ? sprintResult.data : null), () => null)
+        : null;
 
     return (
         <ProjectDashboardClient
@@ -145,7 +113,7 @@ async function ResolvedProjectDashboard({
             viewerAvatarUrl={clientViewer.avatarUrl}
             isOwner={capabilities.isOwner}
             isMember={capabilities.isMember}
-            initialSprintData={sprintResult && sprintResult.success ? sprintResult.data : null}
+            initialSprintData={initialSprintData}
             data-hardening-data="v1"
             data-hardening-files="v1"
             data-hardening-people="v1"

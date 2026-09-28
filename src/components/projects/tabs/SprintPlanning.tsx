@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Plus } from "lucide-react";
@@ -45,7 +45,7 @@ interface SprintPlanningProps {
   projectKey?: string | null;
   isOwner: boolean;
   isOwnerOrMember: boolean;
-  initialSprintData?: SprintDetailPayload | null;
+  initialSprintData?: Promise<SprintDetailPayload | null> | null;
 }
 
 export type Sprint = SprintListItem;
@@ -62,8 +62,9 @@ export default function SprintPlanning({
   projectKey,
   isOwner,
   isOwnerOrMember,
-  initialSprintData = null,
+  initialSprintData: initialSprintPromise = null,
 }: SprintPlanningProps) {
+  const initialSprintData = initialSprintPromise ? use(initialSprintPromise) : null;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

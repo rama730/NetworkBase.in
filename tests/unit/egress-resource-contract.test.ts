@@ -17,8 +17,11 @@ test("stable project media routes use version or ETag caching", () => {
   assert.match(read("src/app/api/v1/projects/[id]/update-media/route.ts"), /PRIVATE_REDIRECT_MAX_AGE_SECONDS = 12 \* 60/);
 });
 
-test("profile shell and pages reuse server profile reads", () => {
-  assert.match(read("src/app/(site)/(main)/layout.tsx"), /initialProfile=\{profile\}/);
+test("app chrome renders before the legal gate and profile pages reuse server reads", () => {
+  const layout = read("src/app/(site)/(main)/layout.tsx");
+  assert.match(layout, /initialProfile=\{null\}/);
+  assert.doesNotMatch(layout, /getViewerProfileContext/);
+  assert.match(layout, /<MainLayout>\s*<Suspense[\s\S]*<LegalAcceptanceGate user=\{user\}>\{children\}<\/LegalAcceptanceGate>/);
   assert.match(read("src/app/(site)/(main)/u/[username]/page.tsx"), /const readPublicProfileRoute = cache/);
   assert.match(read("src/app/(site)/(main)/my-profile/page.tsx"), /const readOwnerProfileRoute = cache/);
 });
