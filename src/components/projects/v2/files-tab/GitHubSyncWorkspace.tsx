@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from 'next/dynamic';
 import { createVisibilityAwareInterval } from "@/lib/utils/visibility";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -50,9 +51,12 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { ContributorIdentitySection } from '@/components/projects/v2/files-tab/github-sync/ContributorIdentitySection';
+import { button } from '@/components/projects/v2/files-tab/github-sync/sync-styles';
+import { scanForSecrets } from '@/components/projects/v2/files-tab/github-sync/secret-scan';
 
-const button =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-[5px] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 py-2 text-sm font-medium text-[var(--text-strong)] transition-[background-color,border-color,color,box-shadow] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]";
+const SplitDiffViewer = dynamic(() => import('@/components/projects/v2/files-tab/github-sync/SplitDiffViewer').then((mod) => mod.SplitDiffViewer));
+
 // Primary actions intentionally do not extend `button`: Tailwind resolves overlapping
 // arbitrary background/text utilities by generated CSS order, which can make a
 // primary control inherit the neutral surface and look absent.
@@ -65,217 +69,6 @@ type Success<T> =
 type State = Success<Awaited<ReturnType<typeof sync.getGitHubSyncState>>>;
 type Choice = { resolution?: SyncResolution; content?: string };
 type CompareInput = Parameters<typeof sync.compareGitHubSync>[1];
-
-function scanForSecrets(
-  path: string,
-  content?: string | null,
-): { blocked: boolean; reason?: string } {
-  const lowerPath = path.toLowerCase();
-  if (
-    lowerPath.endsWith(".env") ||
-    lowerPath.includes(".env.") ||
-    lowerPath.endsWith(".pem") ||
-    lowerPath.endsWith(".key")
-  ) {
-    return {
-      blocked: true,
-      reason: `Sensitive configuration file pattern (${path})`,
-    };
-  }
-  if (!content) return { blocked: false };
-
-  if (/-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/.test(content)) {
-    return { blocked: true, reason: "Private cryptographic key detected" };
-  }
-  if (/AKIA[0-9A-Z]{16}/.test(content)) {
-    return { blocked: true, reason: "AWS Access Key ID detected" };
-  }
-  if (/ghp_[0-9a-zA-Z]{36}|github_pat_[0-9a-zA-Z_]{82}/.test(content)) {
-    return { blocked: true, reason: "GitHub Personal Access Token detected" };
-  }
-  if (/sk_live_[0-9a-zA-Z]{24,}/.test(content)) {
-    return { blocked: true, reason: "Stripe Live Secret Key detected" };
-  }
-  if (/sk-(?:proj-)?[0-9a-zA-Z_-]{32,}/.test(content)) {
-    return { blocked: true, reason: "OpenAI API Key detected" };
-  }
-  return { blocked: false };
-}
-
-function SplitDiffViewer({
-  leftTitle,
-  leftContent,
-  rightTitle,
-  rightContent,
-}: {
-  leftTitle: string;
-  leftContent: string;
-  rightTitle: string;
-  rightContent: string;
-}) {
-  const leftLines = leftContent ? leftContent.split("\n") : [];
-  const rightLines = rightContent ? rightContent.split("\n") : [];
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border rounded-lg overflow-hidden border-zinc-200 dark:border-zinc-800 text-xs font-mono">
-      <div className="flex flex-col border-b md:border-b-0 md:border-r border-zinc-200 dark:border-zinc-800">
-        <div className="bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 font-semibold text-zinc-700 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-700 flex justify-between items-center">
-          <span>{leftTitle}</span>
-          <span className="text-[11px] text-zinc-500">{leftLines.length} lines</span>
-        </div>
-        <div className="max-h-72 overflow-y-auto overflow-x-auto p-2 space-y-0.5 bg-zinc-50 dark:bg-zinc-950">
-          {leftLines.length === 0 ? (
-            <p className="p-2 text-zinc-400 italic">(File absent)</p>
-          ) : (
-            leftLines.map((line, idx) => (
-              <div key={idx} className="flex gap-2 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50">
-                <span className="w-8 text-right select-none text-zinc-400 shrink-0">{idx + 1}</span>
-                <span className="whitespace-pre break-all">{line || " "}</span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-      <div className="flex flex-col">
-        <div className="bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 font-semibold text-zinc-700 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-700 flex justify-between items-center">
-          <span>{rightTitle}</span>
-          <span className="text-[11px] text-zinc-500">{rightLines.length} lines</span>
-        </div>
-        <div className="max-h-72 overflow-y-auto overflow-x-auto p-2 space-y-0.5 bg-zinc-50 dark:bg-zinc-950">
-          {rightLines.length === 0 ? (
-            <p className="p-2 text-zinc-400 italic">(File absent)</p>
-          ) : (
-            rightLines.map((line, idx) => (
-              <div key={idx} className="flex gap-2 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50">
-                <span className="w-8 text-right select-none text-zinc-400 shrink-0">{idx + 1}</span>
-                <span className="whitespace-pre break-all">{line || " "}</span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ContributorIdentitySection({
-  identity,
-  onApproved,
-}: {
-  identity?: { login: string; email: string } | null;
-  onApproved: (email: string) => Promise<void>;
-}) {
-  const [options, setOptions] = useState<{
-    account: { login: string; [key: string]: unknown };
-    emails: string[];
-  } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [selectedEmail, setSelectedEmail] = useState(identity?.email || "");
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState("");
-
-  const fetchOptions = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await sync.getGitHubCommitIdentityOptions();
-      if (res.success) {
-        setOptions(res.data);
-        if (!selectedEmail && res.data.emails[0]) {
-          setSelectedEmail(res.data.emails[0]);
-        }
-      } else {
-        setError(res.error);
-      }
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="rounded-[6px] border border-[#DBD5C8] bg-[#FAF8F4] p-3.5 text-xs dark:border-border dark:bg-white/5 transition-colors">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h4 className="font-semibold text-xs text-[#141A1E] dark:text-foreground">
-            Git Commit Attribution
-          </h4>
-          <p className="text-[11px] text-[#6B7880] dark:text-muted-foreground mt-0.5">
-            {identity
-              ? `Currently configured as: ${identity.login} <${identity.email}>`
-              : "Approve your verified GitHub email or privacy-safe noreply handle for commit attribution."}
-          </p>
-        </div>
-        {!options && (
-          <button
-            type="button"
-            className="rounded-[5px] border border-[#DBD5C8] bg-white px-3 py-1.5 text-xs font-medium text-[#374349] hover:bg-[#F3F0EA] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-white/5 cursor-pointer transition-colors shadow-2xs"
-            disabled={loading}
-            onClick={() => void fetchOptions()}
-          >
-            {loading ? "Loading…" : identity ? "Change Email" : "Configure Email"}
-          </button>
-        )}
-      </div>
-
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-
-      {options && (
-        <div className="mt-3 space-y-2 border-t border-[#E8E3D9] pt-3 dark:border-border">
-          <label className="block text-xs font-medium text-[#374349] dark:text-foreground">
-            Select verified commit author email:
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              aria-label="Verified GitHub emails"
-              className="min-h-9 rounded-[5px] border border-[#DBD5C8] bg-white px-2.5 py-1 text-xs text-[#141A1E] dark:border-border dark:bg-card dark:text-foreground"
-              value={selectedEmail}
-              onChange={(e) => setSelectedEmail(e.target.value)}
-            >
-              {options.emails.map((email) => (
-                <option key={email} value={email}>
-                  {email}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="min-h-9 rounded-[5px] bg-[#141A1E] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#212B30] dark:bg-white dark:text-[#141A1E] dark:hover:bg-white/90 disabled:opacity-50 cursor-pointer shadow-2xs transition-colors"
-              disabled={loading || !selectedEmail}
-              onClick={async () => {
-                setLoading(true);
-                setError("");
-                try {
-                  await onApproved(selectedEmail);
-                  setSaved(true);
-                  setTimeout(() => setSaved(false), 3000);
-                  setOptions(null);
-                } catch (e) {
-                  setError((e as Error).message);
-                } finally {
-                  setLoading(false);
-                }
-              }}
-            >
-              {loading ? "Saving…" : "Save Attribution"}
-            </button>
-            <button
-              type="button"
-              className="min-h-9 rounded-[5px] border border-[#DBD5C8] bg-white px-3 py-1.5 text-xs text-[#374349] hover:bg-[#F3F0EA] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-white/5 cursor-pointer transition-colors"
-              onClick={() => setOptions(null)}
-            >
-              Cancel
-            </button>
-          </div>
-          {saved && (
-            <p className="text-[11px] text-[#1E7E34] font-medium">Attribution saved successfully.</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function GitHubSyncWorkspace({
   projectId,

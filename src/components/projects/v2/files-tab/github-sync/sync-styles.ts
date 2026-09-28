@@ -1,0 +1,2 @@
+export const button =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-[5px] border border-[var(--border-default)] bg-[var(--surface-card)] px-3 py-2 text-sm font-medium text-[var(--text-strong)] transition-[background-color,border-color,color,box-shadow] hover:bg-[var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:shadow-[var(--focus-ring)]";
