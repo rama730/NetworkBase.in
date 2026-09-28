@@ -38,7 +38,7 @@ test("rail recommendations use the same privacy-safe source as the connection li
 
   assert.match(hubPage, /getConnectionsFeed\(\{ tab: 'discover', limit: 3, includeMeta: false \}\)/);
   assert.doesNotMatch(connections, /recommendationMode/);
-  assert.match(connections, /applySuggestedProfilePrivacy\(user\.id, items, privacyProfiles\)/);
+  assert.match(connections, /applySuggestedProfilePrivacy\(user\.id, items\)/);
   assert.match(connections, /NOT EXISTS \(\s*SELECT 1 FROM \$\{connections\} existing/);
   assert.match(suggestions, /notInArray\(connectionSuggestions\.suggestedUserId/);
   assert.match(suggestions, /db\.delete\(connectionSuggestions\)/);

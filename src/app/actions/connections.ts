@@ -29,11 +29,6 @@ import {
     resolvePrivacyRelationship,
     resolvePrivacyRelationships,
 } from '@/lib/privacy/resolver';
-import type {
-    ConnectionPrivacySetting,
-    MessagePrivacySetting,
-    ProfileVisibilitySetting,
-} from '@/lib/privacy/relationship-state';
 import type { PrivacyRelationshipState } from '@/lib/privacy/relationship-state';
 import { emitConnectionAcceptedNotification, emitConnectionRequestReceivedNotification } from '@/lib/notifications/emitters';
 import { logger } from '@/lib/logger';
@@ -149,12 +144,6 @@ interface ConnectionsFeedStats {
 async function applySuggestedProfilePrivacy(
     viewerId: string,
     items: SuggestedProfile[],
-    preloadedProfiles?: Map<string, {
-        id: string;
-        visibility: ProfileVisibilitySetting | null;
-        messagePrivacy: MessagePrivacySetting | null;
-        connectionPrivacy: ConnectionPrivacySetting | null;
-    }>,
 ): Promise<SuggestedProfile[]> {
     const relationships = await resolvePrivacyRelationships(viewerId, items.map((item) => item.id));
 
@@ -1092,12 +1081,6 @@ async function getConnectionsFeedImpl(
         .limit(limit + 1);
     const discoverQueryMs = Math.round(performance.now() - discoverQueryStartedAt);
 
-    let privacyProfiles = new Map(rows.map((row) => [row.suggestedUserId, {
-        id: row.suggestedUserId,
-        visibility: (row.visibility || 'public') as ProfileVisibilitySetting,
-        messagePrivacy: (row.messagePrivacy || 'connections') as MessagePrivacySetting,
-        connectionPrivacy: (row.connectionPrivacy || 'everyone') as ConnectionPrivacySetting,
-    }]));
     let items = rows.slice(0, limit).map((row) => {
         const profileVisibility = (row.visibility || 'public') as SuggestedProfile['profileVisibility'];
         return {
@@ -1216,12 +1199,6 @@ async function getConnectionsFeedImpl(
             .limit(limit + 1);
 
         const fallbackPageRows = fallbackRows.slice(0, limit);
-        privacyProfiles = new Map(fallbackPageRows.map((row) => [row.id, {
-            id: row.id,
-            visibility: (row.visibility || 'public') as ProfileVisibilitySetting,
-            messagePrivacy: (row.messagePrivacy || 'connections') as MessagePrivacySetting,
-            connectionPrivacy: (row.connectionPrivacy || 'everyone') as ConnectionPrivacySetting,
-        }]));
         if (searchPattern) {
             searchFallbackHasMore = fallbackRows.length > limit;
             const lastFallbackRow = fallbackPageRows[fallbackPageRows.length - 1];
@@ -1257,7 +1234,7 @@ async function getConnectionsFeedImpl(
         });
     }
     const privacyStartedAt = performance.now();
-    const visibleItems = await applySuggestedProfilePrivacy(user.id, items, privacyProfiles);
+    const visibleItems = await applySuggestedProfilePrivacy(user.id, items);
     const privacyMs = Math.round(performance.now() - privacyStartedAt);
     const metadataStartedAt = performance.now();
     const [viewerProjects, viewerProfiles] = await metadataPromise;
