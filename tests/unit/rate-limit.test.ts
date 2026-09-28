@@ -3,7 +3,6 @@ import assert from 'node:assert/strict'
 
 // Ensure test mode - no Redis connection
 ;(process.env as Record<string, string | undefined>).NODE_ENV = 'test'
-;(process.env as Record<string, string | undefined>).RATE_LIMIT_MODE = 'best-effort'
 delete process.env.UPSTASH_REDIS_REST_URL
 delete process.env.UPSTASH_REDIS_REST_TOKEN
 
