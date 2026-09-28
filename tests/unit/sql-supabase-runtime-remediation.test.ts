@@ -65,7 +65,7 @@ test("logout deletes the authenticated push record before local and Auth teardow
   assert.match(push, /return \{ ok: false, reason: "server_cleanup_failed" \}/);
   assert.ok(signOut.indexOf("await unsubscribeWebPush()") < signOut.indexOf("syncBrowserSessionToServer(null)"));
   assert.ok(signOut.indexOf("await unsubscribeWebPush()") < signOut.indexOf("supabase.auth.signOut({ scope: 'local' })"));
-  assert.match(auth, /if \(session && token === lastSyncedSessionToken\) return/);
+  assert.match(source("src/lib/auth/browser-auth-actions.ts"), /if \(session && token === lastSyncedSessionToken\) return/);
   assert.match(sessionRoute, /supabase\.auth\.signOut\(\{ scope: "local" \}\)/);
   assert.match(sessionRoute, /expireBrowserSessionCookies\(response, cookieNames\)/);
   assert.doesNotMatch(sessionRoute, /jsonError\("Failed to clear browser session"/);

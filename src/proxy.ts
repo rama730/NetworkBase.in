@@ -124,7 +124,7 @@ function buildCsp(nonce: string | null, request: NextRequest) {
   const directives = [
     "default-src 'self'",
     `script-src ${scriptDirectives.join(" ")}`,
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src ${connectDirectives.join(" ")}`,

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Mail, Loader2, RefreshCcw } from 'lucide-react'
 
 import { useAuth } from '@/hooks/use-auth'
+import { AuthRouteProviders } from '@/components/providers/AuthRouteProviders'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { LegalLinks } from '@/components/legal/LegalLinks'
@@ -154,8 +155,10 @@ function VerifyEmailPageFallback() {
 
 export default function VerifyEmailPage() {
     return (
-        <Suspense fallback={<VerifyEmailPageFallback />}>
-            <VerifyEmailPageInner />
-        </Suspense>
+        <AuthRouteProviders initialUser={null} initialProfile={null}>
+            <Suspense fallback={<VerifyEmailPageFallback />}>
+                <VerifyEmailPageInner />
+            </Suspense>
+        </AuthRouteProviders>
     )
 }

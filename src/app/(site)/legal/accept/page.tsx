@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
@@ -58,7 +57,7 @@ export default function LegalAcceptancePage() {
         </div>
         <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-4 text-sm leading-6 text-zinc-700 dark:border-zinc-700 dark:text-zinc-200">
           <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 h-4 w-4 rounded border-zinc-300 text-indigo-600" />
-          <span>I am at least 18 years old, accept the <Link href="/terms" target="_blank" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-300">Terms of Service</Link> and <Link href="/eula" target="_blank" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-300">EULA</Link>, and acknowledge the <Link href="/privacy" target="_blank" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-300">Privacy Policy</Link>.</span>
+          <span>I am at least 18 years old, accept the <a href="/terms" target="_blank" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-300">Terms of Service</a> and <a href="/eula" target="_blank" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-300">EULA</a>, and acknowledge the <a href="/privacy" target="_blank" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-300">Privacy Policy</a>.</span>
         </label>
         {error ? <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p> : null}
         <button type="button" disabled={!confirmed || submitting} onClick={() => void continueToNetworkBase()} className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-zinc-950 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-zinc-950">

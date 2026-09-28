@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordStrengthMeter } from '@/components/settings/PasswordStrengthMeter'
 import { AuthAmbientCanvas } from '@/components/auth/AuthAmbientCanvas'
-import { createSupabaseBrowserClient } from '@/lib/supabase/client'
+import { loadBrowserSupabase } from '@/lib/auth/browser-auth-actions'
 import { getPasswordPolicyResult } from '@/lib/security/password-policy'
 import { LegalLinks } from '@/components/legal/LegalLinks'
 
@@ -18,7 +18,6 @@ type RecoveryState = 'loading' | 'ready' | 'invalid' | 'success'
 
 export default function ResetPasswordPage() {
     const router = useRouter()
-    const supabase = useMemo(() => createSupabaseBrowserClient(), [])
     const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
     const [status, setStatus] = useState<RecoveryState>('loading')
     const [newPassword, setNewPassword] = useState('')
@@ -37,29 +36,29 @@ export default function ResetPasswordPage() {
 
     useEffect(() => {
         let active = true
+        let unsubscribe: (() => void) | null = null
 
-        const syncSession = async () => {
+        void loadBrowserSupabase().then(async (supabase) => {
+            if (!active) return
+            const {
+                data: { subscription },
+            } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+                if (!active) return
+                if (session) {
+                    setStatus('ready')
+                }
+            })
+            unsubscribe = () => subscription.unsubscribe()
             const { data } = await supabase.auth.getSession()
             if (!active) return
             setStatus(data.session ? 'ready' : 'invalid')
-        }
-
-        void syncSession()
-
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-            if (!active) return
-            if (session) {
-                setStatus('ready')
-            }
         })
 
         return () => {
             active = false
-            subscription.unsubscribe()
+            unsubscribe?.()
         }
-    }, [supabase])
+    }, [])
 
     const passwordPolicy = useMemo(() => getPasswordPolicyResult(newPassword), [newPassword])
 
@@ -90,6 +89,7 @@ export default function ResetPasswordPage() {
                 throw new Error(safetyBody?.message || 'Unable to verify password safety.')
             }
 
+            const supabase = await loadBrowserSupabase()
             const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
             if (updateError) {
                 throw updateError

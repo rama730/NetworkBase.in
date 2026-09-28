@@ -3,7 +3,7 @@
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import { useSecurityRuntime } from "@/components/providers/SecurityRuntimeProvider";
-import { useAuth } from "@/hooks/use-auth";
+import { signInWithGoogleIdToken } from "@/lib/auth/browser-auth-actions";
 import {
   createGoogleOneTapNonce,
   getGoogleOneTapClientId,
@@ -50,7 +50,6 @@ export function GoogleOneTap({
   onError?: (message: string) => void;
 }) {
   const { nonce: cspNonce } = useSecurityRuntime();
-  const { signInWithGoogleIdToken } = useAuth();
   const [scriptReady, setScriptReady] = useState(false);
   const handlingCredentialRef = useRef(false);
   const errorRef = useRef(onError);
@@ -115,7 +114,7 @@ export function GoogleOneTap({
       cancelled = true;
       window.google?.accounts.id.cancel();
     };
-  }, [normalizedNextPath, scriptReady, signInWithGoogleIdToken]);
+  }, [normalizedNextPath, scriptReady]);
 
   if (!GOOGLE_ONE_TAP_CLIENT_ID) return null;
 
