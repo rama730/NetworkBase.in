@@ -57,22 +57,22 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 | T6.1 Discover / Network / My profile | done | `dca2efb8`; 308 redirects kept |
 | T6.2 duplicate and hidden routes | done | `a446ffdd`; production calls `/api/inngest` (103k/week), so that path was kept and the v1 alias removed; `admin/notifications` kept |
 | T6.3 merge privacy and sessions routes | done | `191898b0` |
-| T7.1 static legal pages | partial | `58a6362c` removed redundant `force-dynamic`. Static legal pages conflict with the nonce CSP (Next inlines per-request scripts); making them static needs `unsafe-inline` — not done |
+| T7.1 static legal pages | done (local) | `58a6362c`, `63a42d68`: `(site)` and `(legal)` root layouts share `RootDocument`; the 11 legal pages are prerendered (`x-nextjs-cache: HIT`). Trade-off: the proxy gives those paths `script-src 'self' 'unsafe-inline'` with no nonce; every other route keeps the nonce policy. The CSP contract pins this to the legal path list |
 | T7.2 parallel reads | partial | `aebf625f` sprint read now parallel. Layout already verifies auth locally; file/task metadata titles left as is |
 | T7.3 i18n, flags, revalidations | done | `3473c27a`; only one `revalidatePath` was dead — the rest refresh the current page after an action |
-| T7.4 fewer queued actions | partial | `e6ec875e`, `3e1792f5`, `d8c3ef08`. Files-tab reads take per-call arguments; not merged |
+| T7.4 fewer queued actions | done (local) | `e6ec875e`, `3e1792f5`, `d8c3ef08`; `6d3d0ead` batches the Files tab header reads (git sync, installed IDEs, extension sessions) into one server action |
 | T7.5 emitters | done | `51edd3db` (removed; wire later if wanted) |
-| T7.6 caches | partial | `f326b3da` weights as constants. Discover snapshot cache kept: it hides the cross-region DB round trip until the region move. No in-flight dedupe overlaps a `cache()` wrapper |
+| T7.6 caches | done (local) | `f326b3da` weights as constants; `c2810c1d` removes the Discover in-process snapshot cache (feed now reads the DB each request — pairs with the region move) |
 | T8.1 root providers | done | `fc58e253`; `MotionConfig` removed later with framer-motion |
-| T8.2 skill icons | partial | `e8d73afb`, `13d2eff2`; also fixes 6 broken numbered Lucide icons. Client skill catalog kept: removing it needs resolved skills in every read model |
+| T8.2 skill icons | done (local) | `e8d73afb`, `13d2eff2`; also fixes 6 broken numbered Lucide icons. `82fb90fd` moves the skill catalog out of the JS bundle into `/skill-catalog.json`, loaded on first use |
 | T8.3 auth pages | partial | `3884d7f6` (third-party scripts on idle). Server-shell rewrite needs signed-in visual QA |
 | T8.4 split large components | deferred | Needs signed-in visual QA |
-| T8.5 timers, polls, fonts | done | `9a28b9c3`; `prefetch={false}` kept (default prefetch on dynamic routes adds requests) |
+| T8.5 timers, polls, fonts | done | `9a28b9c3`; `1651ae60` drops `prefetch={false}` and manual route warming for default `Link` prefetch |
 | T8.6 motion, dates, theme | partial | `cc2c8c05`, `2ffc732c`, `c5b210ae`. Theme provider shrink needs signed-in QA of appearance sync |
 | T9.1 packages and lockfiles | done | `1300b331` |
 | T9.2 test-only code | done | `cce70b55` (−2,247 lines) |
 | T9.3 telemetry, scale tooling, env knobs | done | `021c1cda`; `MOCK_USER_ID` auth bypass removed; bloom filter was write-only |
-| T9.4 conventions and build config | partial | `c1642aab`. Barrels kept (`"use server"` files cannot re-export). E2E alias kept (keeps dev sign-in code out of prod bundles). Turbopack builds 5× faster but ships ~60 KB more JS per page — webpack kept |
+| T9.4 conventions and build config | done (local) | `c1642aab`; `84a9a38f` drops the action barrels (callers import from each module); `57574316` replaces the E2E alias with one auth route that 404s in production builds. Turbopack builds 5× faster but ships ~60 KB more JS per page — webpack kept |
 | T9.5 clutter | partial | `44ad74dd`; `.agents/` and `skills/` kept (Codex skills) |
 | T10.1 skill workflow | done | `65dc6310` |
 | T11.1 re-measure | done | this file; analyzer fix `994d3419` |
@@ -85,6 +85,14 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 - Checked after rollout: home, legal, login, Discover redirect, public project pages including the Docs and Updates tabs, health and readiness endpoints; no database errors in web or worker logs; Inngest calls to the worker keep returning 2xx.
 - Regression found and fixed during rollout: the T5.2 database-client cleanup had removed the production switch from the Supabase session pooler (port 5432, 15-client cap shared by web and worker) to the transaction pooler (6543). Production briefly ran on the session pool and filled it. `6361193d` restores the switch; after redeploy the pages serve normally and the app logs show no connection errors.
 - `check:db:live-lineage` still reports "strict migration order mismatch" because production applied `0161`/`0162` before `0153`–`0160`. Every migration is applied; only the historical order differs.
+
+## Local-only follow-up (not pushed)
+
+Commits `1651ae60` … `63a42d68` are on local `main` only; production still runs `6361193d`. No migration is involved.
+
+- Checked locally on a production build: legal pages prerendered and hydrate with no CSP errors; `/login` and the global 404 keep the nonce CSP with every inline script nonced.
+- Contracts: csp, head, scroll, page, query-key, runtime-boundaries pass. The scroll contract had been checking zero pages since the route-group move; it now checks `(site)/(main)`. build-rendering, appearance, brand and canonical-logic fail exactly as on the commit before (JS budgets 200/220 KB exceeded by ~8 KB on `/`, legal, `/login`, `/signup`; missing brand icon files).
+- Unit suite: 41 failing suites, the same set as before these commits.
 
 ## Remaining production steps (yours)
 
