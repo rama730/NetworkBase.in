@@ -56,10 +56,10 @@ export function useDirectAttachmentUpload() {
 
     if (!presignRes.ok) {
       const err = await presignRes.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to initialize upload session');
+      throw new Error(err.message || 'Failed to initialize upload session');
     }
 
-    const presignData = await presignRes.json();
+    const presignData = (await presignRes.json()).data;
     onProgress?.(50);
 
     // 2. Direct upload if not deduplicated
@@ -91,10 +91,10 @@ export function useDirectAttachmentUpload() {
 
     if (!completeRes.ok) {
       const err = await completeRes.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to complete upload session');
+      throw new Error(err.message || 'Failed to complete upload session');
     }
 
-    const completeData = await completeRes.json();
+    const completeData = (await completeRes.json()).data;
     onProgress?.(100);
 
     return completeData.attachment as UploadedAttachment;

@@ -10,7 +10,6 @@ const GRADIENT_ACTION_CLASS = "app-accent-gradient-horizontal";
 const DISALLOWED_HARDCODED_ACCENT = /\b(?:bg|text|border|ring|from|to)-(?:blue|indigo|purple|violet|pink|fuchsia)-/;
 
 const CORE_APPEARANCE_FILES = [
-  "src/components/layout/header/NavLink.tsx",
   "src/components/layout/header/TopNav.tsx",
   "src/components/layout/header/MobileMenu.tsx",
   "src/components/discover/DiscoverHeader.tsx",

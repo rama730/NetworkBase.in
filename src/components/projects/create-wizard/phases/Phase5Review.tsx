@@ -210,8 +210,8 @@ export default function Phase5Review({ goToPhase, onReady }: Phase5ReviewProps) 
                                     <div className="flex flex-wrap items-center gap-2">
                                         <p className="nb-ui-label text-foreground">{role.role}</p>
                                         <DetailLabel>{role.count} {role.count === 1 ? 'opening' : 'openings'}</DetailLabel>
-                                        <DetailLabel>{role.experience_level}</DetailLabel>
-                                        <DetailLabel>{role.compensation_type.replace('_', ' ')}</DetailLabel>
+                                        <DetailLabel>{role.experienceLevel || 'any'}</DetailLabel>
+                                        <DetailLabel>{(role.compensationType || 'unpaid').replace('_', ' ')}</DetailLabel>
                                     </div>
                                     {role.description ? <p className="nb-compact mt-2 whitespace-pre-wrap text-muted-foreground">{role.description}</p> : null}
                                     {role.skills?.length ? <div className="mt-2"><SkillList skills={role.skills} size="sm" /></div> : null}
