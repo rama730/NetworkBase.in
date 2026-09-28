@@ -23,12 +23,12 @@ WHERE "deleted_at" IS NULL;
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = "project_updates_like_count_nonnegative"
+    SELECT 1 FROM pg_constraint WHERE conname = 'project_updates_like_count_nonnegative'
   ) THEN
     ALTER TABLE "project_updates" ADD CONSTRAINT "project_updates_like_count_nonnegative" CHECK ("like_count" >= 0);
   END IF;
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = "project_updates_comment_count_nonnegative"
+    SELECT 1 FROM pg_constraint WHERE conname = 'project_updates_comment_count_nonnegative'
   ) THEN
     ALTER TABLE "project_updates" ADD CONSTRAINT "project_updates_comment_count_nonnegative" CHECK ("comment_count" >= 0);
   END IF;

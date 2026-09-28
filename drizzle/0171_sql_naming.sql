@@ -157,7 +157,6 @@ BEGIN
     ('idx_task_comments_user_id', 'task_comments_user_id_idx'),
     ('idx_task_node_links_created_by', 'task_node_links_created_by_idx'),
     ('idx_task_node_links_node_id', 'task_node_links_node_id_idx'),
-    ('idx_task_node_links_project_task', 'task_node_links_project_task_idx'),
     ('idx_task_node_links_task_id', 'task_node_links_task_id_idx'),
     ('idx_task_read_receipts_user_task', 'task_read_receipts_user_task_idx'),
     ('idx_task_subtasks_position', 'task_subtasks_position_idx'),
