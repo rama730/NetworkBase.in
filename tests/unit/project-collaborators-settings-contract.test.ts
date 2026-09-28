@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { projectSettingsSource } from "./_helpers/project-settings-source";
+import { componentSource } from "./_helpers/component-source";
 
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project collaborators tab eliminates duplicate headers and renders a single unified canonical SettingsCard", () => {
-  const settingsTab = projectSettingsSource();
+  const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // SectionHeader is suppressed on collaborators tab to avoid duplicate title
   assert.match(settingsTab, /activeSection !== "collaborators"/, "SectionHeader must be suppressed on collaborators tab to avoid duplicate title");

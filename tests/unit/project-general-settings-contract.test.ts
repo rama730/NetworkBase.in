@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { projectSettingsSource } from "./_helpers/project-settings-source";
+import { componentSource } from "./_helpers/component-source";
 
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project general settings renders 3 canonical cards and removes redundant overview cards", () => {
-  const content = projectSettingsSource();
+  const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // General tab block extraction
   const generalBlock = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
@@ -55,7 +55,7 @@ test("project general settings renders 3 canonical cards and removes redundant o
 });
 
 test("project general settings removes duplicate header card and renders card-level Save Changes and Cancel buttons", () => {
-  const content = projectSettingsSource();
+  const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // Duplicate header card removed from general tab
   assert.match(content, /activeSection !== "general"/, "SectionHeader must be skipped for General tab to avoid duplicate header");
@@ -68,7 +68,7 @@ test("project general settings removes duplicate header card and renders card-le
 });
 
 test("project settings sidebar and header follow NetworkBase layout standards", () => {
-  const content = projectSettingsSource();
+  const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   assert.match(content, /max-w-\[1320px\]/, "Settings container max width must be 1320px matching Layout Pattern G");
   assert.match(content, /border-border bg-card/, "Sidebar aside must use semantic border and card background");

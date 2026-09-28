@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { projectSettingsSource } from "./_helpers/project-settings-source";
+import { componentSource } from "./_helpers/component-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project lifecycle tab eliminates duplicate header and redundant summary cards, rendering 1 canonical SettingsCard", () => {
-    const settingsTab = projectSettingsSource();
+    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // 1. SectionHeader is suppressed on tasks-workflow tab
     assert.match(

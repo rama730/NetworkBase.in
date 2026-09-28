@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { projectSettingsSource } from "./_helpers/project-settings-source";
+import { componentSource } from "./_helpers/component-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project settings tab renders a continuous single-scroll document with all 12 sections mounted simultaneously", () => {
-    const settingsTab = projectSettingsSource();
+    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // 1. Must have data-project-settings-document attribute on main container
     assert.match(
@@ -60,7 +60,7 @@ test("project settings tab renders a continuous single-scroll document with all 
 });
 
 test("project settings sidebar organizes navigation into 4 semantic category groups aligned with top tabs", () => {
-    const settingsTab = projectSettingsSource();
+    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // Must define SECTION_GROUPS with 4 distinct category clusters
     assert.match(settingsTab, /SECTION_GROUPS/, "ProjectSettingsTab must declare SECTION_GROUPS");
@@ -90,7 +90,7 @@ test("project settings sidebar organizes navigation into 4 semantic category gro
 });
 
 test("project settings implements 60fps RAF ScrollSpy and non-thrashing navigation lock", () => {
-    const settingsTab = projectSettingsSource();
+    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // Must have requestAnimationFrame throttling for ScrollSpy
     assert.match(

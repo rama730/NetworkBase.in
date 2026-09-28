@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { projectSettingsSource } from "./_helpers/project-settings-source";
+import { componentSource } from "./_helpers/component-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project notifications tab eliminates duplicate header and redundant cards, rendering 1 canonical SettingsCard with 7 category dropdown triggers", () => {
-    const settingsTab = projectSettingsSource();
+    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // 1. SectionHeader is suppressed on notifications tab to avoid duplicate title
     assert.match(
@@ -110,7 +110,7 @@ test("project notifications tab eliminates duplicate header and redundant cards,
 });
 
 test("project notifications settings adhere to NetworkBase drafting-table design tokens and switches", () => {
-    const settingsTab = projectSettingsSource();
+    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const notifBlock =
         settingsTab.split('activeSection === "notifications" && (')[1]?.split('activeSection === "privacy-policies"')[0] ?? "";
 
@@ -154,7 +154,7 @@ test("project notifications settings adhere to NetworkBase drafting-table design
 });
 
 test("project notification rule rows and member editor components use SettingsSwitch and semantic tokens", () => {
-    const settingsTab = projectSettingsSource();
+    const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
     // ProjectNotificationRuleRow must use SettingsSwitch and not TogglePill
     const ruleRowBlock = settingsTab.split("function ProjectNotificationRuleRow(")[1]?.split("function MemberNotificationSettingsEditor(")[0] ?? "";
