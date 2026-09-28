@@ -82,8 +82,6 @@ export function formatProjectActivePresenceLabel(value: string | Date | null | u
     return null;
 }
 
-export type ProjectPresenceState = "today" | "week" | "offline";
-
 /**
  * Broadcast project metadata and cover updates across local windows and tabs (1M users scale)
  */
@@ -267,4 +265,3 @@ export function ProjectAvatar({
 }
 
 export default ProjectAvatar;
-

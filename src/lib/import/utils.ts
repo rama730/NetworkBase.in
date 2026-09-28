@@ -1,15 +1,7 @@
-
 import path from 'path';
 import { db } from '@/lib/db';
 import { projectNodes } from '@/lib/db/schema';
 import { eq, and, inArray, isNull, sql } from 'drizzle-orm';
-
-export interface ScannedFile {
-    relativePath: string;
-    absolutePath: string;
-    size: number;
-    mimeType: string;
-}
 
 const ROOT_KEY = 'root';
 const DB_BATCH_SIZE = 500;

@@ -11,7 +11,7 @@ export function generateMetadata() {
 }
 
 export default function WorkspacePage() {
-    // ponytail: /workspace was a second page only to open the hub drawer.
+    // /workspace was a second page only to open the hub drawer.
     // Keep old links working while discover remains the single workspace host.
     redirect("/discover?workspace=tasks");
 }

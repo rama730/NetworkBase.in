@@ -58,7 +58,7 @@ export function WorkspaceDrawerHost() {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isOpen, setWorkspaceOpen]);
 
-    // ponytail: keep the lazily loaded host after its first open so Radix can
+    // Keep the lazily loaded host after its first open so Radix can
     // play the closed-state animation instead of being unmounted immediately.
     return hasMounted ? <WorkspaceDrawer /> : null;
 }

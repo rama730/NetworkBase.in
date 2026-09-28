@@ -221,7 +221,7 @@ export const TaskCard = memo(function TaskCard({
         </div>
 
         <div className="flex min-w-0 items-center justify-between gap-2 border-t border-border/50 pt-1.5">
-          {/* ponytail: avatar + task counts share one fixed footer row; names belong in the tooltip. */}
+          {/* Avatar + task counts share one fixed footer row; names belong in the tooltip. */}
           <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
             {taskRecord.assignee ? (
               <div

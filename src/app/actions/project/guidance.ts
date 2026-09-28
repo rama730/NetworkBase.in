@@ -192,7 +192,7 @@ export async function getMyPendingProjectInvitationsAction() {
             eq(projectInvitations.candidateId, user.id),
             eq(projectInvitations.status, "pending"),
             // PostgreSQL evaluates this against the durable timestamp; no client clock is trusted.
-            // ponytail: expire on inbox read and acceptance; a scheduled sweeper is unnecessary until metrics require one.
+            // ponytail: expire on inbox read and acceptance. ceiling: expired invitations stay until someone reads them. upgrade: a scheduled sweep when stale invitations show up in metrics.
             sql`${projectInvitations.expiresAt} <= now()`,
         ));
     const invitations = await db
@@ -245,7 +245,7 @@ export async function searchProjectInviteCandidatesAction(input: { projectId: st
     }
 
     const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
-    // ponytail: let the existing project-member index exclude members; never copy an entire team into application memory for a 20-row search.
+    // Let the existing project-member index exclude members; never copy an entire team into application memory for a 20-row search.
     const isNotProjectMember = notExists(db
         .select({ id: projectMembers.id })
         .from(projectMembers)

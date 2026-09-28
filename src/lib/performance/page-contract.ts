@@ -28,12 +28,6 @@ export interface PagePerformanceContract {
   allowForceDynamic?: boolean;
 }
 
-export interface RouteCachePolicy {
-  strategy: RouteCacheStrategy;
-  ttlSeconds: number;
-  invalidationOwner: PagePerformanceContract["invalidationOwner"];
-}
-
 type ViewerContext = {
   isAuthenticated?: boolean;
 };
@@ -391,43 +385,6 @@ export const FORCE_DYNAMIC_ALLOWLIST = new Set(
     .filter((contract) => contract.allowForceDynamic)
     .map((contract) => contract.routeId),
 );
-
-export function classifyRouteRenderingMode(routeId: string): RouteRenderingMode {
-  const contract = PAGE_PERFORMANCE_CONTRACTS[routeId];
-  return contract?.renderingMode ?? "static";
-}
-
-export function getRouteCachePolicy(
-  routeId: string,
-  viewerContext?: ViewerContext,
-): RouteCachePolicy {
-  const contract = PAGE_PERFORMANCE_CONTRACTS[routeId];
-  if (!contract) {
-    return { strategy: "none", ttlSeconds: 0, invalidationOwner: "none" };
-  }
-
-  if (contract.routeClass === "active_surface" || contract.cacheStrategy === "none") {
-    return {
-      strategy: "none",
-      ttlSeconds: 0,
-      invalidationOwner: contract.invalidationOwner,
-    };
-  }
-
-  if (contract.routeClass === "user_shell" && !viewerContext?.isAuthenticated) {
-    return {
-      strategy: "none",
-      ttlSeconds: 0,
-      invalidationOwner: contract.invalidationOwner,
-    };
-  }
-
-  return {
-    strategy: contract.cacheStrategy,
-    ttlSeconds: contract.cacheTtlSeconds,
-    invalidationOwner: contract.invalidationOwner,
-  };
-}
 
 function normalizePathname(pathname: string): string {
   const trimmed = pathname.split("?")[0]?.split("#")[0] ?? pathname;

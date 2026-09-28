@@ -1,12 +1,11 @@
 import test, { afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { requestUsernameAvailability, resetUsernameAvailabilityCache } from '@/hooks/useUsernameAvailability'
+import { requestUsernameAvailability } from '@/hooks/useUsernameAvailability'
 
 const originalFetch = globalThis.fetch
 
 afterEach(() => {
     globalThis.fetch = originalFetch
-    resetUsernameAvailabilityCache()
 })
 
 test('requestUsernameAvailability dedupes in-flight requests for the same username', async () => {

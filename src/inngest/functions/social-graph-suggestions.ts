@@ -195,7 +195,7 @@ export const refreshSocialGraphSuggestionsForCandidate = inngest.createFunction(
         );
         const viewerIds = [...new Set([event.data.candidateUserId, ...viewerRows.map((row) => row.userId)])];
 
-        // ponytail: chunks avoid one oversized event request. ceiling: large
+        // ponytail: chunks avoid one oversized event request. ceiling: large. upgrade: a paged fan-out job if one sweep outgrows the chunk budget.
         // fan-outs are queued serially here; upgrade to a dedicated fan-out
         // queue if candidate profiles routinely reach tens of thousands of viewers.
         for (let index = 0; index < viewerIds.length; index += 100) {

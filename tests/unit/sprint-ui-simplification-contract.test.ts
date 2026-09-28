@@ -117,7 +117,7 @@ describe("sprint tab target architecture contract", () => {
     assert.match(sprintEditorSource, /initializedDraftKeyRef/);
     assert.match(
       sprintActionsSource,
-      /a read must not mutate Sprint lifecycle state/,
+      /a read must not mutate Sprint lifecycle state/i,
     );
     assert.doesNotMatch(sprintActionsSource, /await startDueSprints\(/);
   });
@@ -126,7 +126,7 @@ describe("sprint tab target architecture contract", () => {
     assert.doesNotMatch(sprintActionsSource, /\bt\.completed_at\b/);
     assert.match(
       sprintActionsSource,
-      /tasks persist status and updated_at, not a completed_at/,
+      /tasks persist status and updated_at, not a completed_at/i,
     );
   });
 });

@@ -11,7 +11,6 @@ import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { IdempotencyConflictError, runIdempotent } from '@/lib/security/idempotency';
 import {
     CONNECTION_REQUEST_HISTORY_STATUSES,
-    isConnectionHistoryStatus,
     type ConnectionRequestHistoryStatus,
 } from '@/lib/applications/status';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
@@ -235,22 +234,6 @@ function getUsableRelationshipConnectionId(connectionId: string | null | undefin
     return connectionId;
 }
 
-export interface ConnectionRequestHistoryItem {
-    id: string;
-    kind: 'connection';
-    direction: 'incoming' | 'outgoing';
-    status: ConnectionRequestHistoryStatus;
-    eventAt: string;
-    createdAt: string;
-    user: {
-        id: string;
-        username: string | null;
-        fullName: string | null;
-        avatarUrl: string | null;
-        headline: string | null;
-    };
-}
-
 type NetworkFeedItem = {
     id: string;
     requesterId: string;
@@ -268,11 +251,6 @@ type NetworkFeedItem = {
 };
 
 const REJECT_REQUEST_COOLDOWN_MS = 2 * 24 * 60 * 60 * 1000;
-const CONNECTION_HISTORY_STATUSES: readonly ConnectionRequestHistoryStatus[] = CONNECTION_REQUEST_HISTORY_STATUSES;
-
-function isConnectionRequestHistoryStatus(status: unknown): status is ConnectionRequestHistoryStatus {
-    return isConnectionHistoryStatus(status);
-}
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // ============================================================================
@@ -654,7 +632,7 @@ async function getConnectionsFeedImpl(
         }
     }
 
-    // ponytail: statistics and the first page do not depend on each other.
+    // Statistics and the first page do not depend on each other.
     const statsStartedAt = performance.now();
     const statsPromise: Promise<ConnectionsFeedStats> = includeMeta
         ? getConnectionStatsForUser(user.id)
@@ -1327,149 +1305,6 @@ export async function getConnectionsFeed(input: ConnectionsFeedInput) {
     return result;
 }
 
-
-export async function getConnectionRequestHistory(
-    limit: number = 80,
-    cursor?: string,
-    filters?: HistoryFilters,
-): Promise<{
-    success: boolean;
-    items: ConnectionRequestHistoryItem[];
-    nextCursor?: string | null;
-    hasMore?: boolean;
-    error?: string;
-}> {
-    try {
-        const user = await getAuthUser();
-        if (!user) return { success: false, items: [], error: 'Not authenticated' };
-
-        const effectiveLimit = Math.max(1, Math.min(limit, 200));
-
-        let historyCursor: { eventAt: string; id: string } | null = null;
-        if (cursor) {
-            const sepIdx = cursor.indexOf('|');
-            if (sepIdx > 0) {
-                const eventAtRaw = cursor.slice(0, sepIdx);
-                const id = cursor.slice(sepIdx + 1);
-                const parsed = new Date(eventAtRaw);
-                if (!Number.isNaN(parsed.getTime()) && id) {
-                    historyCursor = { eventAt: parsed.toISOString(), id };
-                }
-            }
-        }
-
-        const dedupeKey = `connections:request-history:${user.id}:${effectiveLimit}:${cursor || 'none'}:${JSON.stringify(filters ?? {})}`;
-        return await runInFlightDeduped(dedupeKey, async () => {
-            const historyEventAtExpr = sql`CASE
-                WHEN ${connections.status} = 'pending' THEN ${connections.createdAt}
-                ELSE ${connections.updatedAt}
-            END`;
-            const conditions = [
-                or(eq(connections.requesterId, user.id), eq(connections.addresseeId, user.id)),
-                inArray(connections.status, CONNECTION_HISTORY_STATUSES),
-            ];
-
-            if (filters?.status && isConnectionHistoryStatus(filters.status)) {
-                conditions.push(eq(connections.status, filters.status));
-            }
-            if (filters?.direction === 'sent') {
-                conditions.push(eq(connections.requesterId, user.id));
-            } else if (filters?.direction === 'received') {
-                conditions.push(eq(connections.addresseeId, user.id));
-            }
-            if (filters?.dateFrom) {
-                const from = new Date(filters.dateFrom);
-                if (!Number.isNaN(from.getTime())) {
-                    conditions.push(sql`${historyEventAtExpr} >= ${from.toISOString()}`);
-                }
-            }
-            if (filters?.dateTo) {
-                const to = new Date(filters.dateTo);
-                if (!Number.isNaN(to.getTime())) {
-                    conditions.push(sql`${historyEventAtExpr} <= ${to.toISOString()}`);
-                }
-            }
-
-            if (historyCursor) {
-                conditions.push(sql`(
-                    ${historyEventAtExpr} < ${historyCursor.eventAt}
-                    OR (${historyEventAtExpr} = ${historyCursor.eventAt} AND ${connections.id} < ${historyCursor.id})
-                )`);
-            }
-
-            const rows = await db
-                .select({
-                    id: connections.id,
-                    requesterId: connections.requesterId,
-                    addresseeId: connections.addresseeId,
-                    status: connections.status,
-                    createdAt: connections.createdAt,
-                    updatedAt: connections.updatedAt,
-                    eventAt: historyEventAtExpr,
-                    profileId: profiles.id,
-                    username: profiles.username,
-                    fullName: profiles.fullName,
-                    avatarUrl: profiles.avatarUrl,
-                    headline: profiles.headline,
-                })
-                .from(connections)
-                .innerJoin(
-                    profiles,
-                    or(
-                        and(eq(connections.requesterId, user.id), eq(connections.addresseeId, profiles.id)),
-                        and(eq(connections.addresseeId, user.id), eq(connections.requesterId, profiles.id)),
-                    ),
-                )
-                .where(and(...conditions))
-                .orderBy(desc(historyEventAtExpr), desc(connections.id))
-                .limit(effectiveLimit + 1);
-
-            const hasMore = rows.length > effectiveLimit;
-            const items: ConnectionRequestHistoryItem[] = rows.slice(0, effectiveLimit).flatMap((row) => {
-                if (!isConnectionRequestHistoryStatus(row.status)) {
-                    console.error('Invalid connection history status encountered', {
-                        connectionId: row.id,
-                        status: row.status,
-                    });
-                    return [];
-                }
-
-                const status = row.status;
-                const eventAt = new Date(row.eventAt as string | number | Date).toISOString();
-                return [{
-                    id: row.id,
-                    kind: 'connection',
-                    direction: row.requesterId === user.id ? 'outgoing' : 'incoming',
-                    status,
-                    eventAt,
-                    createdAt: row.createdAt.toISOString(),
-                    user: {
-                        id: row.profileId,
-                        username: row.username,
-                        fullName: row.fullName,
-                        avatarUrl: row.avatarUrl,
-                        headline: row.headline,
-                    },
-                }];
-            });
-
-            let nextCursor: string | null = null;
-            if (hasMore && items.length > 0) {
-                const last = items[items.length - 1];
-                nextCursor = `${last!.eventAt}|${last!.id}`;
-            }
-
-            return { success: true, items, nextCursor, hasMore };
-        });
-    } catch (error) {
-        console.error('Error fetching connection request history:', error);
-        return { success: false, items: [], error: 'Failed to load history' };
-    }
-}
-
-// ============================================================================
-// SEND CONNECTION REQUEST
-// ============================================================================
 
 const CONNECTION_REQUEST_IDEMPOTENCY_TTL_SECONDS = 60;
 

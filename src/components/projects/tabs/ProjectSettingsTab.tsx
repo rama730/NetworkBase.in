@@ -396,7 +396,7 @@ export default function ProjectSettingsTab({
         const metadata = (project?.importSource?.metadata || project?.import_source?.metadata || {}) as any;
         const leadFocus = typeof metadata.leadFocus === "string" ? metadata.leadFocus.trim() : "";
 
-        // ponytail: skip duplicate lead-role when open roles already define the lead focus
+        // Skip duplicate lead-role when open roles already define the lead focus
         const leadHasOpenRole = Boolean(leadFocus) && openRoles.some(
             (r) => (r.role || "").trim().toLowerCase() === leadFocus.toLowerCase()
         );
@@ -632,7 +632,7 @@ export default function ProjectSettingsTab({
             if (!cursor) return;
             setCollaboratorLoadingMore(true);
         } else {
-            // ponytail: keep warm data mounted without layout shift; only show skeletons on cold mount
+            // Keep warm data mounted without layout shift; only show skeletons on cold mount
             if (!collaboratorDataRef.current) {
                 setCollaboratorLoading(true);
             } else {

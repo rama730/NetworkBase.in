@@ -76,7 +76,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // ponytail: fast bootstrap summary mode skips expensive window-partition task/file queries
+    // ponytail: summary mode skips per-project task and file queries. ceiling: counts only until the IDE asks for full mode. upgrade: none; full mode already serves details.
     if (isSummaryMode) {
       const projectTaskCountMap = await getProjectTaskCountMap(projectIds);
       const summaryProjects = userProjects.map((project) => ({

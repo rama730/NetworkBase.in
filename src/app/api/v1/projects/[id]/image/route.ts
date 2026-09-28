@@ -54,7 +54,7 @@ export async function GET(
     const version = coverVersion(project.key);
     const hasMatchingVersion = request.nextUrl.searchParams.get("v") === version;
     const isPublicRequest = !user && access.canRead;
-    // ponytail: versioned project avatars are immutable; cache at CDN edge and browser memory
+    // ponytail: versioned project avatars are immutable; cache at CDN edge and browser memory. ceiling: an avatar change needs a new version URL. upgrade: none needed while URLs carry the version.
     const cacheControl = hasMatchingVersion
         ? (isPublicRequest
             ? "public, max-age=31536000, s-maxage=31536000, immutable"
@@ -95,7 +95,7 @@ export async function GET(
         return jsonError("Not found", 404, "NOT_FOUND");
     }
 
-    // ponytail: redirect directly to Supabase storage to eliminate binary proxying through Railway container
+    // ponytail: redirect to Supabase storage instead of proxying bytes. ceiling: clients see the storage host. upgrade: proxy through the app only if the storage host must stay hidden.
     const response = new Response(null, {
         status: 302,
         headers: {

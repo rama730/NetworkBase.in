@@ -1,5 +1,4 @@
 import { and, desc, eq, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
-
 import { db } from "@/lib/db";
 import { profiles, userNotifications } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
@@ -538,24 +537,6 @@ export async function markNotificationUnread(
         .where(and(eq(userNotifications.userId, userId), eq(userNotifications.id, notificationId), isNull(userNotifications.dismissedAt)))
         .returning();
     return row ?? null;
-}
-
-export async function markAllNotificationsRead(
-    userId: string,
-    executor?: NotificationWriteExecutor,
-) {
-    const tx = getExecutor(executor);
-    const readAt = new Date();
-    const readAtIso = readAt.toISOString();
-    await tx
-        .update(userNotifications)
-        .set({
-            readAt,
-            seenAt: sql`COALESCE(${userNotifications.seenAt}, ${readAtIso}::timestamptz)`,
-            updatedAt: readAt,
-        })
-        .where(and(eq(userNotifications.userId, userId), isNull(userNotifications.readAt), isNull(userNotifications.dismissedAt)));
-    return readAt;
 }
 
 export async function markConversationNotificationsRead(

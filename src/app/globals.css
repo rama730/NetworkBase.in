@@ -696,19 +696,9 @@ html[data-reduce-motion="true"] .nb-skeleton {
   overflow-x: visible;
 }
 
-.msg-bubble-own {
-  /* ponytail: legacy styling overrides removed to allow new Shadcn primitives to style bubbles */
-}
-
-.msg-bubble-peer {
-  /* ponytail: legacy styling overrides removed to allow new Shadcn primitives to style bubbles */
-}
-
 .msg-bubble-shell[data-pending="true"] {
   opacity: 0.72;
 }
-
-/* ponytail: dead styles for msg-action-rail and bubble corner overrides removed */
 
 .msg-date-pill {
   background: var(--msg-date-pill-bg);
@@ -778,7 +768,7 @@ html[data-reduce-motion="true"] .nb-skeleton {
 
 /* Row-level layout isolation for ultra-fast scrolling */
 .msg-message-row {
-  /* ponytail: removed content-visibility: auto as it fatally breaks React Virtuoso's ability to measure off-screen elements during overscan, causing severe scroll jitter */
+  /* Removed content-visibility: auto as it fatally breaks React Virtuoso's ability to measure off-screen elements during overscan, causing severe scroll jitter */
 }
 
 /* Script element visibility override for debugging script payloads in chat */

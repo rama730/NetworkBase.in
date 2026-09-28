@@ -11,7 +11,7 @@ import { isProjectTabVisibleToViewer } from '@/lib/projects/settings-policies';
 
 const readProjectSprintDetailCached = cache((slugOrId: string, actorUserId: string | null, limit?: number, sprintId?: string, taskReference?: string) => readProjectSprintDetail({ slugOrId, actorUserId, limit, sprintId, taskReference }));
 
-// ponytail: metadata and the rendered route share one auth-qualified shell read.
+// Metadata and the rendered route share one auth-qualified shell read.
 const readProjectRouteShell = cache(async (slugOrId: string) => {
     const viewerIdentity = await getViewerIdentityContext();
     const result = await readProjectDetailShell({

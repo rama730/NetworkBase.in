@@ -1,7 +1,5 @@
 import type { NotificationImportance, NotificationKind } from "./types";
 
-export type NotificationClass = "j1" | "j2";
-
 /**
  * J1 = "You owe someone a response" (action-required, survives pause, important badge).
  * J2 = "Someone did a thing" (awareness, honors pause, more tab).
@@ -24,4 +22,3 @@ const J1_KINDS: ReadonlySet<NotificationKind> = new Set(J1_KIND_LIST);
 export function importanceForKind(kind: NotificationKind): NotificationImportance {
     return J1_KINDS.has(kind) ? "important" : "more";
 }
-

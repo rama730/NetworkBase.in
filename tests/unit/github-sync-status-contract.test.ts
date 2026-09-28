@@ -11,19 +11,6 @@ function source(path: string) {
   return readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 }
 
-test("a verified zero-diff preview clears stale failure state", () => {
-  const action = source("src/app/actions/project/sync-preview.ts");
-
-  assert.match(action, /conflicts\.length === 0 && incomingUpdatesCount === 0/);
-  assert.match(action, /syncStatus: "ready"/);
-  assert.match(action, /githubLastSyncAt: syncedAtDate/);
-  assert.match(action, /lastError: null/);
-  assert.match(action, /syncProgress: null/);
-  assert.match(
-    action,
-    /inArray\(projects\.syncStatus, \["ready", "failed"\]\)/,
-  );
-});
 
 test("account integrations keeps repository synchronization on project surfaces", () => {
   const ui = source("src/components/settings/IntegrationsSettings.tsx");

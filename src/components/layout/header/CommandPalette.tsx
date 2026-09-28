@@ -414,7 +414,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                     {recentSearches.length ? (
                                         <RecentSearchList items={recentSearches} onSelectQuery={setQuery} onOpenPreview={openPreviewResult} onConnect={connectProfile} connectingUserId={sendRequest.isPending ? sendRequest.variables?.userId : undefined} onRemove={removeRecentSearch} />
                                     ) : (
-                                        /* ponytail: hide Search by options when recent searches are present */
+                                        /* Hide Search by options when recent searches are present */
                                         <div>
                                             <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Search by</p>
                                             <div className="mt-2.5 flex flex-wrap gap-1.5">

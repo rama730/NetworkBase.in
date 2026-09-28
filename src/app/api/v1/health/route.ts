@@ -50,7 +50,7 @@ export async function GET(request: Request) {
     const probe = (searchParams.get('probe') || 'liveness').toLowerCase()
     const detailed = isAuthenticatedProbe(request)
 
-    // ponytail: liveness returns instant 200 without DB/Redis load. Readiness performs deep dependency checks.
+    // Liveness returns instant 200 without DB/Redis load. Readiness performs deep dependency checks.
     if (probe !== 'readiness') {
         return jsonSuccess(
             detailed

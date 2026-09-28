@@ -20,7 +20,7 @@ function decodeUsernameParam(username: string): string | null {
     }
 }
 
-// ponytail: metadata and body share the same auth-qualified profile read.
+// Metadata and body share the same auth-qualified profile read.
 const readPublicProfileRoute = cache(async (username: string) => {
     const decodedUsername = decodeUsernameParam(username);
     if (!decodedUsername) return { status: 'not_found' as const, currentUsername: username };

@@ -142,7 +142,7 @@ const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
   "project_node_events_2026_12",
   "project_node_events_default",
   "reserved_usernames",
-  // ponytail: lifecycle records are server-only; RLS without client policies
+  // Lifecycle records are server-only; RLS without client policies
   // is intentional so task/Sprint history is accessed through authorized actions.
   "project_sprint_events",
   "task_activity_events",
