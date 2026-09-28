@@ -213,7 +213,7 @@ export function EditProfileTabs({
 
                         {/* Profile photo */}
                         {(() => {
-                            const avatarSrc = profile.avatarUrl || profile.avatar_url;
+                            const avatarSrc = profile.avatarUrl;
                             return (
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between py-4 border-b border-border">
                                     <div className="flex min-w-0 flex-1 items-center gap-4 sm:gap-5">

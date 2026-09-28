@@ -69,10 +69,10 @@ export default memo(function ProjectCard({ project, viewModel, fromTab = "projec
         }
     }
 
-    const avatarUrl = getProjectAvatarUrl(project);
+    const coverUrl = getProjectAvatarUrl(project);
 
     return <article className="nb-project-card group h-full" data-project-id={project.id} data-testid={`project-card-${project.id}`} data-view={viewMode}>
-        {avatarUrl ? (
+        {coverUrl ? (
             <div className="flex items-center gap-3">
                 <ProjectAvatar project={project} size="card" />
                 <div className="min-w-0 flex-1">

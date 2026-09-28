@@ -14,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import { cacheManager } from "@/lib/utils/cache-manager";
+import { normalizeIdentityFields } from "@/lib/ui/identity";
 
 export default function AccountPage({ embedded = false }: { embedded?: boolean }) {
   const [isClearingCache, setIsClearingCache] = useState(false);
@@ -63,7 +64,7 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
           description="The identity attached to your signed-in NetworkBase account."
         >
           <div className="divide-y divide-border">
-            <SettingsRow title="Name" right={<span className="nb-compact text-foreground">{profile?.fullName || user?.user_metadata?.full_name || "Not set"}</span>} />
+            <SettingsRow title="Name" right={<span className="nb-compact text-foreground">{profile?.fullName || normalizeIdentityFields(user?.user_metadata).fullName || "Not set"}</span>} />
             <SettingsRow title="Email" right={<span className="nb-compact text-foreground">{profile?.email || user?.email || "Not available"}</span>} />
             <SettingsRow title="Username" right={<span className="nb-meta text-foreground">{profile?.username ? `@${profile.username}` : "Not set"}</span>} />
           </div>

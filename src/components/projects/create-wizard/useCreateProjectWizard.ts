@@ -422,9 +422,9 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             count: 1,
             description: '',
             skills: [],
-            experience_level: 'any',
-            compensation_type: 'unpaid',
-            compensation_details: '',
+            experienceLevel: 'any',
+            compensationType: 'unpaid',
+            compensationDetails: '',
         }, { shouldFocus: true });
     }, [appendOpenRole]);
 

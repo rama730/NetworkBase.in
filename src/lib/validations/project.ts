@@ -8,9 +8,9 @@ export const openRoleSchema = z.object({
     count: z.number().min(1, 'Add at least one position').max(10, 'A role can have up to 10 positions').default(1),
     description: z.string().optional(),
     skills: z.array(z.string()).default([]),
-    experience_level: z.enum(['any', 'junior', 'mid', 'senior']).default('any'),
-    compensation_type: z.enum(['unpaid', 'equity', 'paid', 'rev_share']).default('unpaid'),
-    compensation_details: z.string().optional(),
+    experienceLevel: z.enum(['any', 'junior', 'mid', 'senior']).default('any'),
+    compensationType: z.enum(['unpaid', 'equity', 'paid', 'rev_share']).default('unpaid'),
+    compensationDetails: z.string().optional(),
 });
 
 export type OpenRoleInput = z.infer<typeof openRoleSchema>;
