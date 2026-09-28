@@ -14,10 +14,25 @@ function usesTransactionPooler(raw: string) {
     }
 }
 
+function resolveConnectionString(raw: string) {
+    if (env.NODE_ENV !== 'production') return raw
+    try {
+        const url = new URL(raw)
+        if (url.port === '5432' && url.hostname.endsWith('.pooler.supabase.com')) {
+            url.port = '6543'
+            return url.toString()
+        }
+    } catch {
+        return raw
+    }
+    return raw
+}
+
+const connectionString = resolveConnectionString(env.DATABASE_URL)
 const globalForDb = globalThis as unknown as { conn: postgres.Sql | undefined }
 
-const client = globalForDb.conn ?? postgres(env.DATABASE_URL, {
-    prepare: !usesTransactionPooler(env.DATABASE_URL),
+const client = globalForDb.conn ?? postgres(connectionString, {
+    prepare: !usesTransactionPooler(connectionString),
     fetch_types: false,
     max: env.NODE_ENV === 'development' ? 5 : 10,
     idle_timeout: 300,
