@@ -2,7 +2,6 @@
 
 import { ThemeProvider as NextThemesProvider, useTheme as useNextTheme } from 'next-themes'
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { logger } from '@/lib/logger'
 import { isProtectedAppRoute } from '@/lib/routing/route-class'
 import {
     APPEARANCE_STORAGE_KEYS,
@@ -18,7 +17,6 @@ import {
     isSnapshotNewer,
     normalizeThemeMode,
     readLocalAppearanceSnapshot,
-    resolveThemeMode,
     writeAppearanceSnapshot,
     isReducedMotionEnabled,
     prefersReducedMotionFromSystem,
@@ -30,8 +28,6 @@ import {
 } from '@/lib/theme/appearance-client'
 
 const REMOTE_SYNC_DEBOUNCE_MS = 900
-
-let themeTransitionInFlight = false
 
 interface ThemeContextValue {
     theme: ThemeMode;
@@ -54,14 +50,10 @@ interface AppearanceContextValue {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 const AppearanceContext = createContext<AppearanceContextValue | undefined>(undefined)
 
-interface ThemeProviderProps {
-    children: ReactNode
-    nonce?: string
-}
-
-type IdleWindow = Window & typeof globalThis & {
-    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
-    cancelIdleCallback?: (handle: number) => void
+function persistLocalSnapshot(snapshot: AppearanceSnapshot) {
+    try {
+        writeAppearanceSnapshot(snapshot, (key, value) => localStorage.setItem(key, value))
+    } catch {}
 }
 
 function ensureThemeColorMeta(content: string) {
@@ -75,7 +67,7 @@ function ensureThemeColorMeta(content: string) {
     if (meta.content !== content) meta.content = content
 }
 
-function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
+function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
     const { theme: rawTheme, resolvedTheme: rawResolvedTheme, setTheme: setNextTheme } = useNextTheme()
     const theme = normalizeThemeMode(rawTheme, DEFAULT_APPEARANCE_SNAPSHOT.theme)
     const resolvedTheme: ResolvedTheme = rawResolvedTheme === 'dark' ? 'dark' : 'light'
@@ -83,208 +75,107 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
     const [accentColor, setAccentColorState] = useState<AccentColor>(DEFAULT_APPEARANCE_SNAPSHOT.accentColor)
     const [density, setDensityState] = useState<Density>(DEFAULT_APPEARANCE_SNAPSHOT.density)
     const [reduceMotion, setReduceMotionState] = useState<boolean>(DEFAULT_APPEARANCE_SNAPSHOT.reduceMotion)
+    const [systemReduceMotion, setSystemReduceMotion] = useState(false)
     const [viewerId, setViewerId] = useState<string | null>(null)
     const [syncState, setSyncState] = useState<AppearanceSyncState>('idle')
     const [lastSyncedAt, setLastSyncedAt] = useState<string | undefined>(undefined)
-    const [systemReduceMotion, setSystemReduceMotion] = useState(false)
 
-    const bootstrappedRef = useRef(false)
     const pendingSyncRef = useRef<AppearanceSnapshot | null>(null)
     const lastSyncedSnapshotRef = useRef<AppearanceSnapshot | null>(null)
     const syncInFlightRef = useRef(false)
     const syncTimerRef = useRef<number | null>(null)
 
-    const persistLocalSnapshot = useCallback((snapshot: AppearanceSnapshot, source: string) => {
-        try {
-            writeAppearanceSnapshot(snapshot, (key, value) => localStorage.setItem(key, value))
-            logger.metric('theme.snapshot.local_persist', {
-                source,
-                theme: snapshot.theme,
-                accentColor: snapshot.accentColor,
-                density: snapshot.density,
-            })
-        } catch (error) {
-            logger.metric('theme.snapshot.local_persist_failed', {
-                source,
-                error: error instanceof Error ? error.message : 'unknown',
-            })
-        }
-    }, [])
-
-    const buildNextSnapshot = useCallback((patch: Partial<AppearanceSnapshot>) => {
-        return createAppearanceSnapshot({
-            theme: patch.theme ?? theme,
-            accentColor: patch.accentColor ?? accentColor,
-            density: patch.density ?? density,
-            reduceMotion: typeof patch.reduceMotion === 'boolean' ? patch.reduceMotion : reduceMotion,
-            updatedAt: patch.updatedAt ?? new Date().toISOString(),
-        })
-    }, [accentColor, density, reduceMotion, theme])
-
-    const applySnapshotLocally = useCallback((snapshot: AppearanceSnapshot, source: string) => {
-        setAccentColorState(snapshot.accentColor)
-        setDensityState(snapshot.density)
-        setReduceMotionState(snapshot.reduceMotion)
-        setNextTheme(snapshot.theme)
-        persistLocalSnapshot(snapshot, source)
-    }, [persistLocalSnapshot, setNextTheme])
-
-    const flushRemoteSync = useCallback(async (reason: string) => {
-        if (!viewerId) return
-        if (syncInFlightRef.current) return
-
+    const flushRemoteSync = useCallback(async () => {
         const snapshot = pendingSyncRef.current
-        if (!snapshot) return
-
+        if (!viewerId || syncInFlightRef.current || !snapshot) return
         syncInFlightRef.current = true
         pendingSyncRef.current = null
-        const startedAt = performance.now()
         setSyncState('saving')
-
         try {
-            if (lastSyncedSnapshotRef.current && areAppearanceSnapshotsEquivalent(lastSyncedSnapshotRef.current, snapshot)) {
-                logger.metric('theme.sync.skip_stale', { reason, userId: viewerId })
-                setSyncState('saved')
-                setLastSyncedAt(lastSyncedSnapshotRef.current.updatedAt)
-                return
-            }
-
-            const result = await writeAppearanceSettings(snapshot)
-            const savedSnapshot = result.snapshot ?? snapshot
-            lastSyncedSnapshotRef.current = savedSnapshot
-            setLastSyncedAt(savedSnapshot.updatedAt)
+            const saved = (await writeAppearanceSettings(snapshot)).snapshot ?? snapshot
+            lastSyncedSnapshotRef.current = saved
+            setLastSyncedAt(saved.updatedAt)
             setSyncState('saved')
-
-            logger.metric('theme.sync.success', {
-                reason,
-                userId: viewerId,
-                durationMs: Math.round(performance.now() - startedAt),
-            })
-        } catch (error) {
-            logger.metric('theme.sync.failure', {
-                reason,
-                userId: viewerId,
-                error: error instanceof Error ? error.message : 'unknown',
-            })
+        } catch {
             setSyncState('save_failed')
         } finally {
             syncInFlightRef.current = false
-            if (pendingSyncRef.current) {
-                queueMicrotask(() => void flushRemoteSync('queued'))
-            }
+            if (pendingSyncRef.current) queueMicrotask(() => void flushRemoteSync())
         }
     }, [viewerId])
 
-    const queueRemoteSync = useCallback((snapshot: AppearanceSnapshot, reason: string) => {
-        if (!viewerId || !bootstrappedRef.current) return
-        if (pendingSyncRef.current && areAppearanceSnapshotsEquivalent(pendingSyncRef.current, snapshot)) {
-            return
-        }
+    const commitSnapshot = useCallback((patch: Partial<AppearanceSnapshot>) => {
+        const snapshot = createAppearanceSnapshot({
+            theme: patch.theme ?? theme,
+            accentColor: patch.accentColor ?? accentColor,
+            density: patch.density ?? density,
+            reduceMotion: patch.reduceMotion ?? reduceMotion,
+            updatedAt: new Date().toISOString(),
+        })
+        persistLocalSnapshot(snapshot)
+        if (!viewerId) return
         if (lastSyncedSnapshotRef.current && areAppearanceSnapshotsEquivalent(lastSyncedSnapshotRef.current, snapshot)) {
+            pendingSyncRef.current = null
             setSyncState('saved')
-            setLastSyncedAt(lastSyncedSnapshotRef.current.updatedAt)
             return
         }
         pendingSyncRef.current = snapshot
         setSyncState('saving')
+        if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current)
+        syncTimerRef.current = window.setTimeout(() => void flushRemoteSync(), REMOTE_SYNC_DEBOUNCE_MS)
+    }, [accentColor, density, flushRemoteSync, reduceMotion, theme, viewerId])
 
-        if (syncTimerRef.current !== null) {
-            window.clearTimeout(syncTimerRef.current)
-        }
-        syncTimerRef.current = window.setTimeout(() => {
-            void flushRemoteSync(reason)
-        }, REMOTE_SYNC_DEBOUNCE_MS)
-    }, [flushRemoteSync, viewerId])
-
-    const applyThemeMode = useCallback(async (nextTheme: ThemeMode, allowTransition: boolean) => {
-        const startedAt = performance.now()
-        const root = document.documentElement
-        const transitionSupported = !!(document as Document & { startViewTransition?: (callback: () => void) => { finished: Promise<void> } }).startViewTransition
-
-        if (!allowTransition) {
-            setNextTheme(nextTheme)
-            logger.metric('theme.toggle.ms', {
-                mode: nextTheme,
-                transitioned: false,
-                durationMs: Math.round(performance.now() - startedAt),
-            })
-            return
-        }
-
-        if (themeTransitionInFlight) {
-            logger.metric('theme.transition.duplicate_suppressed', { mode: nextTheme })
-            setNextTheme(nextTheme)
-            return
-        }
-
-        themeTransitionInFlight = true
-        root.classList.add('theme-transition')
-
-        try {
-            const useViewTransition =
-                transitionSupported
-                && !isReducedMotionEnabled({
-                    root: document.documentElement,
-                    matchMedia: window.matchMedia?.bind(window),
-                })
-            if (!useViewTransition) {
-                setNextTheme(nextTheme)
-            } else {
-                const transition = (document as Document & { startViewTransition: (callback: () => void) => { finished: Promise<void> } })
-                    .startViewTransition(() => setNextTheme(nextTheme))
-                await transition.finished
-            }
-
-            logger.metric('theme.toggle.ms', {
-                mode: nextTheme,
-                transitioned: useViewTransition,
-                durationMs: Math.round(performance.now() - startedAt),
-            })
-        } catch (error) {
-            setNextTheme(nextTheme)
-            logger.metric('theme.toggle.error', {
-                mode: nextTheme,
-                error: error instanceof Error ? error.message : 'unknown',
-            })
-        } finally {
-            window.setTimeout(() => root.classList.remove('theme-transition'), 220)
-            themeTransitionInFlight = false
-        }
+    const applySnapshot = useCallback((snapshot: AppearanceSnapshot) => {
+        setAccentColorState(snapshot.accentColor)
+        setDensityState(snapshot.density)
+        setReduceMotionState(snapshot.reduceMotion)
+        setNextTheme(snapshot.theme)
+        persistLocalSnapshot(snapshot)
     }, [setNextTheme])
 
     const setThemeWithTransition = useCallback(async (nextThemeInput: ThemeMode) => {
         const nextTheme = normalizeThemeMode(nextThemeInput, theme)
         if (nextTheme === theme) return
+        commitSnapshot({ theme: nextTheme })
+        const root = document.documentElement
+        const startViewTransition = (document as Document & { startViewTransition?: (callback: () => void) => { finished: Promise<void> } }).startViewTransition?.bind(document)
+        if (!startViewTransition || isReducedMotionEnabled({ root, matchMedia: window.matchMedia?.bind(window) })) {
+            setNextTheme(nextTheme)
+            return
+        }
+        root.classList.add('theme-transition')
+        try {
+            await startViewTransition(() => setNextTheme(nextTheme)).finished
+        } catch {
+            setNextTheme(nextTheme)
+        } finally {
+            window.setTimeout(() => root.classList.remove('theme-transition'), 220)
+        }
+    }, [commitSnapshot, setNextTheme, theme])
 
-        const nextSnapshot = buildNextSnapshot({ theme: nextTheme })
-        persistLocalSnapshot(nextSnapshot, 'set-theme-transition')
-        queueRemoteSync(nextSnapshot, 'set-theme-transition')
-        await applyThemeMode(nextTheme, true)
-    }, [applyThemeMode, buildNextSnapshot, persistLocalSnapshot, queueRemoteSync, theme])
+    const setAccentColor = useCallback((next: AccentColor) => {
+        if (next === accentColor) return
+        setAccentColorState(next)
+        commitSnapshot({ accentColor: next })
+    }, [accentColor, commitSnapshot])
 
-    const setAccentColor = useCallback((nextAccent: AccentColor) => {
-        if (nextAccent === accentColor) return
-        setAccentColorState(nextAccent)
-        const snapshot = buildNextSnapshot({ accentColor: nextAccent })
-        persistLocalSnapshot(snapshot, 'set-accent')
-        queueRemoteSync(snapshot, 'set-accent')
-    }, [accentColor, buildNextSnapshot, persistLocalSnapshot, queueRemoteSync])
+    const setDensity = useCallback((next: Density) => {
+        if (next === density) return
+        setDensityState(next)
+        commitSnapshot({ density: next })
+    }, [commitSnapshot, density])
 
-    const setDensity = useCallback((nextDensity: Density) => {
-        if (nextDensity === density) return
-        setDensityState(nextDensity)
-        const snapshot = buildNextSnapshot({ density: nextDensity })
-        persistLocalSnapshot(snapshot, 'set-density')
-        queueRemoteSync(snapshot, 'set-density')
-    }, [buildNextSnapshot, density, persistLocalSnapshot, queueRemoteSync])
+    const setReduceMotion = useCallback((next: boolean) => {
+        if (next === reduceMotion) return
+        setReduceMotionState(next)
+        commitSnapshot({ reduceMotion: next })
+    }, [commitSnapshot, reduceMotion])
 
-    const setReduceMotion = useCallback((nextReduceMotion: boolean) => {
-        if (nextReduceMotion === reduceMotion) return
-        setReduceMotionState(nextReduceMotion)
-        const snapshot = buildNextSnapshot({ reduceMotion: nextReduceMotion })
-        persistLocalSnapshot(snapshot, 'set-reduce-motion')
-        queueRemoteSync(snapshot, 'set-reduce-motion')
-    }, [buildNextSnapshot, persistLocalSnapshot, queueRemoteSync, reduceMotion])
+    const resetAppearance = useCallback(async () => {
+        const snapshot = createAppearanceSnapshot(DEFAULT_APPEARANCE_SNAPSHOT)
+        applySnapshot(snapshot)
+        commitSnapshot(snapshot)
+    }, [applySnapshot, commitSnapshot])
 
     const effectiveReduceMotion = reduceMotion || systemReduceMotion
 
@@ -296,16 +187,12 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
         root.setAttribute('data-density', density)
         if (effectiveReduceMotion) root.setAttribute('data-reduce-motion', 'true')
         else root.removeAttribute('data-reduce-motion')
-        // Keep browser chrome tied to the fixed app-icon field. The active
-        // page palette remains controlled by `resolvedTheme` below.
         ensureThemeColorMeta('#141A1E')
     }, [accentColor, density, effectiveReduceMotion, resolvedTheme, theme])
 
     useEffect(() => {
         const media = window.matchMedia('(prefers-reduced-motion: reduce)')
-        const update = () => {
-            setSystemReduceMotion(prefersReducedMotionFromSystem(window.matchMedia?.bind(window)))
-        }
+        const update = () => setSystemReduceMotion(prefersReducedMotionFromSystem(window.matchMedia?.bind(window)))
         update()
         media.addEventListener('change', update)
         return () => media.removeEventListener('change', update)
@@ -313,134 +200,38 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
 
     useEffect(() => {
         let cancelled = false
-        let idleHandle: number | null = null
-        const idleWindow = window as IdleWindow
-        const startedAt = performance.now()
-        const nowIso = new Date().toISOString()
-        const localSnapshot = readLocalAppearanceSnapshot((key) => localStorage.getItem(key), nowIso)
+        const localSnapshot = readLocalAppearanceSnapshot((key) => localStorage.getItem(key), new Date().toISOString())
+        applySnapshot(localSnapshot)
 
-        const root = document.documentElement
-        const systemPrefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false
-        const expectedResolved = resolveThemeMode(localSnapshot.theme, systemPrefersDark)
-        const expectedDark = expectedResolved === 'dark'
-        const mismatchReasons: string[] = []
-        if (root.classList.contains('dark') !== expectedDark) mismatchReasons.push('dark-class')
-        if (root.getAttribute('data-accent') !== localSnapshot.accentColor) mismatchReasons.push('accent')
-        if (root.getAttribute('data-density') !== localSnapshot.density) mismatchReasons.push('density')
-        const expectedReduceMotion = localSnapshot.reduceMotion || prefersReducedMotionFromSystem(window.matchMedia?.bind(window))
-        if ((root.getAttribute('data-reduce-motion') === 'true') !== expectedReduceMotion) mismatchReasons.push('reduce-motion')
-        if (mismatchReasons.length > 0) {
-            logger.metric('theme.hydration_mismatch', {
-                reasons: mismatchReasons.join(','),
-                count: mismatchReasons.length,
-            })
-        }
-
-        setAccentColorState(localSnapshot.accentColor)
-        setDensityState(localSnapshot.density)
-        setReduceMotionState(localSnapshot.reduceMotion)
-        setNextTheme(localSnapshot.theme)
-        persistLocalSnapshot(localSnapshot, 'bootstrap-local')
-        bootstrappedRef.current = true
-        setSyncState('idle')
-
-        const runRemoteBootstrap = () => {
+        const bootstrapRemote = () => {
             if (!isProtectedAppRoute(window.location.pathname)) return
-            void readAppearanceSettings().then((result) => {
-                if (cancelled) return
-                const nextUserId = result.userId ?? null
-
-                setViewerId(nextUserId)
+            readAppearanceSettings().then((result) => {
+                if (cancelled || !result.userId) return
                 lastSyncedSnapshotRef.current = result.snapshot
-
-                if (!nextUserId) {
-                    return
-                }
-
-                const remoteSnapshot = result.snapshot
-                if (!remoteSnapshot) {
-                    logger.metric('theme.snapshot.fallback', {
-                        source: 'remote',
-                        reason: 'missing-or-invalid',
-                    })
-                    pendingSyncRef.current = localSnapshot
-                    setSyncState('saving')
-                    return
-                }
-
-                const preferredSnapshot = choosePreferredSnapshot(localSnapshot, remoteSnapshot)
-                if (isSnapshotNewer(remoteSnapshot, localSnapshot)) {
-                    applySnapshotLocally(preferredSnapshot, 'bootstrap-remote-preferred')
-                    setLastSyncedAt(remoteSnapshot.updatedAt)
+                if (result.snapshot && isSnapshotNewer(result.snapshot, localSnapshot)) {
+                    applySnapshot(choosePreferredSnapshot(localSnapshot, result.snapshot))
+                    setLastSyncedAt(result.snapshot.updatedAt)
                     setSyncState('saved')
-                    logger.metric('theme.snapshot.remote_preferred', { userId: nextUserId })
                 } else {
                     pendingSyncRef.current = localSnapshot
-                    setSyncState('saving')
-                    logger.metric('theme.snapshot.local_preferred', { userId: nextUserId })
                 }
-            }).catch((error: unknown) => {
-                if (cancelled) return
-                logger.metric('theme.snapshot.fallback', {
-                    source: 'remote',
-                    reason: 'request-failed',
-                    error: error instanceof Error ? error.message : 'unknown',
-                })
-                setSyncState('idle')
-            }).finally(() => {
-                logger.metric('theme.bootstrap.ms', {
-                    durationMs: Math.round(performance.now() - startedAt),
-                })
-            })
+                setViewerId(result.userId)
+            }).catch(() => {})
         }
-
-        if (typeof idleWindow.requestIdleCallback === 'function') {
-            idleHandle = idleWindow.requestIdleCallback(() => {
-                idleHandle = null
-                runRemoteBootstrap()
-            }, { timeout: 1200 })
-        } else {
-            idleHandle = window.setTimeout(() => {
-                idleHandle = null
-                runRemoteBootstrap()
-            }, 250)
-        }
-
+        const idle = window.requestIdleCallback?.(bootstrapRemote, { timeout: 1200 }) ?? window.setTimeout(bootstrapRemote, 250)
         return () => {
             cancelled = true
-            if (idleHandle !== null) {
-                if (typeof idleWindow.cancelIdleCallback === 'function') {
-                    idleWindow.cancelIdleCallback(idleHandle)
-                } else {
-                    window.clearTimeout(idleHandle)
-                }
-                idleHandle = null
-            }
-            if (syncTimerRef.current !== null) {
-                window.clearTimeout(syncTimerRef.current)
-                syncTimerRef.current = null
-            }
+            if (window.cancelIdleCallback) window.cancelIdleCallback(idle)
+            else window.clearTimeout(idle)
+            if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current)
         }
-    }, [applySnapshotLocally, persistLocalSnapshot, setNextTheme])
+    }, [applySnapshot])
 
     useEffect(() => {
-        if (!bootstrappedRef.current || !viewerId) return
-        if (!pendingSyncRef.current) return
-        void flushRemoteSync('viewer-ready')
+        if (viewerId && pendingSyncRef.current) void flushRemoteSync()
     }, [flushRemoteSync, viewerId])
 
-    const resetAppearance = useCallback(async () => {
-        const snapshot = createAppearanceSnapshot(DEFAULT_APPEARANCE_SNAPSHOT)
-        applySnapshotLocally(snapshot, 'reset-local')
-        queueRemoteSync(snapshot, 'reset')
-    }, [applySnapshotLocally, queueRemoteSync])
-
-    const themeValue = useMemo<ThemeContextValue>(() => ({
-        theme,
-        resolvedTheme,
-        setThemeWithTransition,
-    }), [resolvedTheme, setThemeWithTransition, theme])
-
+    const themeValue = useMemo<ThemeContextValue>(() => ({ theme, resolvedTheme, setThemeWithTransition }), [resolvedTheme, setThemeWithTransition, theme])
     const appearanceValue = useMemo<AppearanceContextValue>(() => ({
         accentColor,
         setAccentColor,
@@ -462,7 +253,7 @@ function ThemeRuntimeProvider({ children }: ThemeProviderProps) {
     )
 }
 
-export function ThemeProvider({ children, nonce }: ThemeProviderProps) {
+export function ThemeProvider({ children, nonce }: { children: ReactNode; nonce?: string }) {
     return (
         <NextThemesProvider attribute="class" defaultTheme="system" enableSystem nonce={nonce}>
             <ThemeRuntimeProvider>{children}</ThemeRuntimeProvider>
@@ -472,17 +263,13 @@ export function ThemeProvider({ children, nonce }: ThemeProviderProps) {
 
 export function useTheme() {
     const context = useContext(ThemeContext)
-    if (!context) {
-        throw new Error('useTheme must be used within a ThemeProvider')
-    }
+    if (!context) throw new Error('useTheme must be used within a ThemeProvider')
     return context
 }
 
 export function useAppearance() {
     const context = useContext(AppearanceContext)
-    if (!context) {
-        throw new Error('useAppearance must be used within a ThemeProvider')
-    }
+    if (!context) throw new Error('useAppearance must be used within a ThemeProvider')
     return context
 }
 
