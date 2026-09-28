@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { projectSettingsSource } from "./_helpers/project-settings-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project files-workspace tab eliminates duplicate header and redundant cards, rendering 1 canonical SettingsCard", () => {
-    const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+    const settingsTab = projectSettingsSource();
 
     // 1. SectionHeader is suppressed on files-workspace tab to avoid duplicate title
     assert.match(
@@ -91,7 +92,7 @@ test("project files-workspace tab eliminates duplicate header and redundant card
 });
 
 test("FileWorkspaceMembers adheres to two-section architecture, unified identity, Section 10 role badges, and drafting-table tokens", () => {
-    const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+    const settingsTab = projectSettingsSource();
 
     // Extract FileWorkspaceMembers definition
     const membersDef =
@@ -220,7 +221,7 @@ test("FileWorkspaceMembers adheres to two-section architecture, unified identity
 });
 
 test("files-workspace permissions enforce optimistic in-memory updates for 1M+ scale", () => {
-    const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+    const settingsTab = projectSettingsSource();
 
     // Single member toggle optimistic update
     const toggleDef =

@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { projectSettingsSource } from "./_helpers/project-settings-source";
 
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project access tab eliminates duplicate headers, extra cards, and renders 1 canonical SettingsCard with immediate toggle controls", () => {
-  const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const settingsTab = projectSettingsSource();
 
   // SectionHeader is suppressed on access tab
   assert.match(settingsTab, /activeSection !== "access"/, "SectionHeader must be suppressed on access tab to avoid duplicate title");
@@ -46,7 +47,7 @@ test("project access tab eliminates duplicate headers, extra cards, and renders 
 });
 
 test("project access tab components adhere to NetworkBase drafting-table design tokens and switch controls", () => {
-  const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const settingsTab = projectSettingsSource();
 
   // Public tab visibility editor tokens
   const editorDef = settingsTab.split("function PublicTabVisibilityEditor({")[1]?.split("function FileWorkspaceMembers({")[0] ?? "";

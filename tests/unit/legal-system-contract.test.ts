@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { CURRENT_LEGAL_ACCEPTANCE, LEGAL_VERSIONS } from "@/lib/legal/versions";
+import { projectSettingsSource } from "./_helpers/project-settings-source";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -81,7 +82,7 @@ test("settings and project detail expose contextual legal controls", () => {
   assert.ok(settingsDocument.indexOf('id="settings-privacy-policies"') > settingsDocument.indexOf('id="settings-integrations"'));
   const layout = read("src/components/projects/dashboard/ProjectLayout.tsx");
   assert.doesNotMatch(layout, /id: "privacy", label: "Privacy & terms"/);
-  const settings = read("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const settings = projectSettingsSource();
   assert.match(settings, /"privacy-policies": Scale/);
   assert.match(settings, /LegalAndDataRightsSection/);
   const policies = read("src/lib/projects/settings-policies.ts");

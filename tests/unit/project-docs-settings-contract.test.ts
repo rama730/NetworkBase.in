@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { projectSettingsSource } from "./_helpers/project-settings-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project docs/readme tab eliminates duplicate header and redundant cards, rendering 1 canonical SettingsCard", () => {
-    const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+    const settingsTab = projectSettingsSource();
 
     // 1. SectionHeader is suppressed on readme tab to avoid duplicate title
     assert.match(
@@ -105,7 +106,7 @@ test("project docs/readme tab eliminates duplicate header and redundant cards, r
 });
 
 test("project docs settings and components adhere to NetworkBase drafting-table design tokens and switches", () => {
-    const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+    const settingsTab = projectSettingsSource();
     const readmeBlock =
         settingsTab.split('id="project-settings-readme"')[1]?.split('id="project-settings-updates"')[0] ?? "";
 

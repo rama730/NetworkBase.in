@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { projectSettingsSource } from "./_helpers/project-settings-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project updates tab eliminates duplicate header and redundant cards, rendering 1 canonical SettingsCard", () => {
-    const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+    const settingsTab = projectSettingsSource();
 
     // 1. SectionHeader is suppressed on updates tab to avoid duplicate title
     assert.match(
@@ -81,7 +82,7 @@ test("project updates tab eliminates duplicate header and redundant cards, rende
 });
 
 test("project updates settings adhere to NetworkBase drafting-table design tokens and switches", () => {
-    const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+    const settingsTab = projectSettingsSource();
     const updatesBlock =
         settingsTab.split('id="project-settings-updates"')[1]?.split('id="project-settings-tasks-workflow"')[0] ?? "";
 

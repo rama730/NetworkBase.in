@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { projectSettingsSource } from "./_helpers/project-settings-source";
 
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project links tab eliminates duplicate headers, summary cards, and leaves one clean SettingsCard", () => {
-  const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const settingsTab = projectSettingsSource();
 
   // SectionHeader is suppressed on links tab
   assert.match(settingsTab, /activeSection !== "links"/, "SectionHeader must be suppressed on links tab to avoid duplicate title");
