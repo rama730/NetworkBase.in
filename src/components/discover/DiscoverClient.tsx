@@ -3,7 +3,6 @@
 import { useState, useMemo, memo, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useRouteWarmPrefetch } from '@/hooks/useRouteWarmPrefetch';
 import { Search, Sparkles, CheckSquare, X } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import { useQueryClient } from '@tanstack/react-query';
@@ -103,7 +102,6 @@ const computeProjectItemKey = (_: number, project: Project) => project.id;
 const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialProjectsPage, initialPeopleSuggestions }: DiscoverClientProps) {
     const queryClient = useQueryClient();
     const { user } = useAuth();
-    const prefetch = useRouteWarmPrefetch();
     const searchParams = useSearchParams();
     const handledCreateProjectRequestRef = useRef<string | null>(null);
 
@@ -473,8 +471,6 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
                                             </ul>
                                             <Link
                                                 href={ROUTES.MY_PROFILE}
-                                                onMouseEnter={() => prefetch(ROUTES.MY_PROFILE)}
-                                                onFocus={() => prefetch(ROUTES.MY_PROFILE)}
                                                 className="inline-flex items-center rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
                                             >
                                                 Complete profile details

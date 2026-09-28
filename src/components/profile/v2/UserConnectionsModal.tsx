@@ -6,7 +6,6 @@ import { getAcceptedConnections } from '@/app/actions/connections';
 import Image from 'next/image';
 import Link from 'next/link';
 import { profileHref } from '@/lib/routing/identifiers';
-import { useRouteWarmPrefetch } from '@/hooks/useRouteWarmPrefetch';
 import { logger } from '@/lib/logger';
 import {
     Dialog,
@@ -37,7 +36,6 @@ interface ConnectionRow {
 }
 
 export function UserConnectionsModal({ isOpen, onClose, userId, userName }: UserConnectionsModalProps) {
-    const prefetch = useRouteWarmPrefetch();
     const [connections, setConnections] = useState<ConnectionRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -190,8 +188,6 @@ export function UserConnectionsModal({ isOpen, onClose, userId, userName }: User
                                         key={conn.id}
                                         href={profileHref(user)}
                                         onClick={onClose}
-                                        onMouseEnter={() => prefetch(profileHref(user))}
-                                        onFocus={() => prefetch(profileHref(user))}
                                         className="flex items-center gap-3 p-2 hover:bg-muted rounded-[3px] transition-colors group"
                                     >
                                         {user.avatarUrl ? (
