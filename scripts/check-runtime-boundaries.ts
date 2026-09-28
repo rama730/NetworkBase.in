@@ -93,13 +93,13 @@ function main() {
     errors.push("getUserProfile must not use wildcard profile selects; authenticated shell bootstrap must stay explicit and bounded.");
   }
 
-  const mainLayoutPath = path.join(REPO_ROOT, "src", "app", "(main)", "layout.tsx");
+  const mainLayoutPath = path.join(REPO_ROOT, "src", "app", "(site)", "(main)", "layout.tsx");
   const mainLayout = fs.readFileSync(mainLayoutPath, "utf8");
   if (mainLayout.includes("getViewerProfileContext")) {
     errors.push("Main route layout must not fetch the full viewer profile on every render; bootstrap from auth snapshot only.");
   }
 
-  const inngestRoutePath = path.join(REPO_ROOT, "src", "app", "api", "v1", "inngest", "route.ts");
+  const inngestRoutePath = path.join(REPO_ROOT, "src", "app", "api", "inngest", "route.ts");
   const inngestRoute = fs.readFileSync(inngestRoutePath, "utf8");
   if (!inngestRoute.includes("getRegisteredInngestFunctions")) {
     errors.push("Inngest route must register functions through getRegisteredInngestFunctions().");

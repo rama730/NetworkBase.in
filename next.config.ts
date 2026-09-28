@@ -101,6 +101,7 @@ const nextConfig: NextConfig = {
 
   // Performance optimizations
   experimental: {
+    globalNotFound: true,
     scrollRestoration: true,
     // ponytail: disabling persistent dev cache avoids observed multi-second compaction stalls.
     turbopackFileSystemCacheForDev: false,

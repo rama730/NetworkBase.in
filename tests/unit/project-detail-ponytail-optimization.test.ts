@@ -147,7 +147,7 @@ test("Domain E: ProjectOverviewCard memoizes StatementBox and click handlers", (
 
 test("Domain G: Project page route consolidates viewer identity context", () => {
   const pageContent = readFileSync(
-    resolve(ROOT, "src/app/(main)/projects/[slug]/page.tsx"),
+    resolve(ROOT, "src/app/(site)/(main)/projects/[slug]/page.tsx"),
     "utf-8"
   );
 

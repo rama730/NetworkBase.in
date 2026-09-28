@@ -24,7 +24,7 @@ const TARGET_FILES = new Set<string>([
   "src/hooks/useConnections.ts",
   "src/components/profile/ProfileForm.tsx",
   "src/components/profile/edit/EditProfileModal.tsx",
-  "src/app/(onboarding)/onboarding/page.tsx",
+  "src/app/(site)/(onboarding)/onboarding/page.tsx",
 ]);
 
 const FORBIDDEN_PATTERNS: RegExp[] = [

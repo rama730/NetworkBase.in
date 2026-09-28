@@ -71,7 +71,7 @@ function clientPayloadKb(nextDir: string, manifestPath: string, entryKey: string
 }
 
 function main() {
-  const nextDir = path.join(process.cwd(), ".next");
+  const nextDir = path.join(process.cwd(), process.env.NEXT_DIST_DIR ?? ".next");
   const prerenderPath = path.join(nextDir, "prerender-manifest.json");
   const appPathsPath = path.join(nextDir, "server", "app-paths-manifest.json");
   if (!fs.existsSync(prerenderPath) || !fs.existsSync(appPathsPath)) {

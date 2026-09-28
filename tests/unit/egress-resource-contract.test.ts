@@ -18,9 +18,9 @@ test("stable project media routes use version or ETag caching", () => {
 });
 
 test("profile shell and pages reuse server profile reads", () => {
-  assert.match(read("src/app/(main)/layout.tsx"), /initialProfile=\{profile\}/);
-  assert.match(read("src/app/(main)/u/[username]/page.tsx"), /const readPublicProfileRoute = cache/);
-  assert.match(read("src/app/(main)/my-profile/page.tsx"), /const readOwnerProfileRoute = cache/);
+  assert.match(read("src/app/(site)/(main)/layout.tsx"), /initialProfile=\{profile\}/);
+  assert.match(read("src/app/(site)/(main)/u/[username]/page.tsx"), /const readPublicProfileRoute = cache/);
+  assert.match(read("src/app/(site)/(main)/my-profile/page.tsx"), /const readOwnerProfileRoute = cache/);
 });
 
 test("avatar and onboarding writes use the shared optimized lifecycle", () => {
@@ -28,7 +28,7 @@ test("avatar and onboarding writes use the shared optimized lifecycle", () => {
   assert.match(editor, /compressAvatarOffMainThread/);
   assert.match(editor, /cacheProfile: "immutable"/);
 
-  const onboarding = read("src/app/(onboarding)/onboarding/page.tsx");
+  const onboarding = read("src/app/(site)/(onboarding)/onboarding/page.tsx");
   assert.doesNotMatch(onboarding, /saveOnboardingDraft/);
   assert.doesNotMatch(onboarding, /trackOnboardingEvent/);
   assert.match(onboarding, /telemetry,/);

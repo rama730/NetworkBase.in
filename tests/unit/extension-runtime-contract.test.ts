@@ -9,7 +9,7 @@ function readSource(relativePath: string) {
 
 describe("extension runtime contract", () => {
   it("uses one-time auth codes for browser editor authorization", () => {
-    const authorizePage = readSource("src/app/(auth)/authorize/page.tsx");
+    const authorizePage = readSource("src/app/(site)/(auth)/authorize/page.tsx");
     const mainLayout = readSource("src/components/layout/MainLayout.tsx");
     const settingsPage = readSource("src/components/settings/IntegrationsSettings.tsx");
     const actionSource = readSource("src/app/actions/extension-sessions.ts");

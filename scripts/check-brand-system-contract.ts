@@ -104,7 +104,7 @@ for (const selector of [
   if (!globals.includes(selector)) throw new Error(`Brand CSS contract is missing ${selector}.`);
 }
 
-const layout = readFileSync(path.join(root, "src", "app", "layout.tsx"), "utf8");
+const layout = readFileSync(path.join(root, "src", "app", "root-document.tsx"), "utf8");
 if (!layout.includes('themeColor: "#141A1E"')) {
   throw new Error("Browser chrome must use the approved fixed Ink brand field.");
 }

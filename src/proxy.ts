@@ -79,16 +79,32 @@ function isLocalHostname(hostname: string | null | undefined) {
     || hostname === "[::1]";
 }
 
-function buildCsp(nonce: string, request: NextRequest) {
+const STATIC_LEGAL_PATHS = new Set([
+  "/acceptable-use",
+  "/cookies",
+  "/copyright",
+  "/dpa",
+  "/eula",
+  "/grievances",
+  "/open-source",
+  "/privacy",
+  "/security-reporting",
+  "/subprocessors",
+  "/terms",
+]);
+
+function buildCsp(nonce: string | null, request: NextRequest) {
   const isProduction = process.env.NODE_ENV === "production";
-  const scriptDirectives = [
-    "'self'",
-    `'nonce-${nonce}'`,
-    "'strict-dynamic'",
-    "https://challenges.cloudflare.com",
-    "https://accounts.google.com",
-    ...(isProduction ? [] : ["'unsafe-eval'"]),
-  ];
+  const scriptDirectives = nonce
+    ? [
+        "'self'",
+        `'nonce-${nonce}'`,
+        "'strict-dynamic'",
+        "https://challenges.cloudflare.com",
+        "https://accounts.google.com",
+        ...(isProduction ? [] : ["'unsafe-eval'"]),
+      ]
+    : ["'self'", "'unsafe-inline'", ...(isProduction ? [] : ["'unsafe-eval'"])];
 
   const localConnectDirectives = [
     "ws://localhost:*",
@@ -146,6 +162,14 @@ export async function proxy(request: NextRequest) {
         headers: requestHeaders,
       },
     });
+  }
+
+  const isStaticLegalPage = STATIC_LEGAL_PATHS.has(request.nextUrl.pathname);
+  if (isStaticLegalPage) {
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    response.headers.set("Content-Security-Policy", buildCsp(null, request));
+    response.headers.set("X-WAF-Edge-Protected", "1");
+    return response;
   }
 
   const nonce = toBase64Url(crypto.getRandomValues(new Uint8Array(24)).buffer);
