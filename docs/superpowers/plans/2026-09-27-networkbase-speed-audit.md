@@ -1,5 +1,7 @@
 # NetworkBase Speed Audit Implementation Plan
 
+> **Implementation status (2026-09-28):** see `docs/audits/performance-implementation-2026-09-28.md` for what was done, measured results, deferred items with reasons, and the production checklist.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement every finding in the NetworkBase Speed Audit (https://claude.ai/artifact/2dXeSPoBT9eaoQ4E19nYcj), including the Docs database migration and deploying main before any database object is dropped.
