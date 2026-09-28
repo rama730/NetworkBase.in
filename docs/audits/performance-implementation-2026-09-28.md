@@ -83,6 +83,7 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 - `main` pushed to GitHub; both Railway services (`networkbase-web`, `networkbase-worker`) now deploy from `main` with the Dockerfile. Both deployments are healthy.
 - All 22 pending migrations applied to production with `npm run db:setup`, after a full trial run inside a rolled-back transaction. Three migration files needed fixes first: `0150` (column already existed; now `ADD COLUMN IF NOT EXISTS`), `0163` (constraint names were double-quoted), `0164` (wrong column `path` → `file_path`; removed an index on columns `task_node_links` does not have).
 - Checked after rollout: home, legal, login, Discover redirect, public project pages including the Docs and Updates tabs, health and readiness endpoints; no database errors in web or worker logs; Inngest calls to the worker keep returning 2xx.
+- Regression found and fixed during rollout: the T5.2 database-client cleanup had removed the production switch from the Supabase session pooler (port 5432, 15-client cap shared by web and worker) to the transaction pooler (6543). Production briefly ran on the session pool and filled it. `6361193d` restores the switch; after redeploy the pages serve normally and the app logs show no connection errors.
 - `check:db:live-lineage` still reports "strict migration order mismatch" because production applied `0161`/`0162` before `0153`–`0160`. Every migration is applied; only the historical order differs.
 
 ## Remaining production steps (yours)
