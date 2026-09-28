@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { BookOpen, FolderDown, FolderUp, RefreshCcw } from "lucide-react";
 
@@ -13,7 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
-import { FolderPicker } from "@/components/projects/v2/explorer/ExplorerDialogsHost";
+
+const FolderPicker = dynamic(() => import("@/components/projects/v2/explorer/ExplorerDialogsHost").then((mod) => mod.FolderPicker), { ssr: false });
 
 export type UploadIntent = "reference" | "working" | "deliverable" | "version";
 
