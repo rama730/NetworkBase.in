@@ -1434,13 +1434,6 @@ export const projectDocVersions = pgTable(
     markdownVersionUnique: uniqueIndex(
       "project_doc_versions_markdown_version_unique",
     ).on(t.markdownId, t.versionNumber),
-    projectCreatedIdx: index(
-      "project_doc_versions_project_created_idx",
-    ).on(t.projectId, t.createdAt),
-    projectHashIdx: index("project_doc_versions_project_hash_idx").on(
-      t.projectId,
-      t.contentHash,
-    ),
     projectDeletedIdx: index(
       "project_doc_versions_project_deleted_idx",
     ).on(t.projectId, t.deletedAt),
@@ -1660,35 +1653,6 @@ export const projectFollows = pgTable(
     uniqueFollow: uniqueIndex("project_follows_unique_idx").on(
       t.projectId,
       t.userId,
-    ),
-  }),
-);
-
-// ============================================================================
-// SAVED PROJECTS TABLE
-// Legacy bookmark table retained for catalog compatibility and old counters.
-// New follower behavior uses project_follows.
-// ============================================================================
-export const savedProjects = pgTable(
-  "saved_projects",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    userIdx: index("saved_projects_user_id_idx").on(t.userId),
-    projectIdx: index("saved_projects_project_id_idx").on(t.projectId),
-    uniqueSave: uniqueIndex("saved_projects_unique_idx").on(
-      t.userId,
-      t.projectId,
     ),
   }),
 );
@@ -3097,7 +3061,6 @@ export const profilesRelations = relations(profiles, ({ many, one }) => ({
   projects: many(projects),
   projectMemberships: many(projectMembers),
   followedProjects: many(projectFollows),
-  savedProjects: many(savedProjects),
   receivedNotifications: many(userNotifications, {
     relationName: "notification_recipient",
   }),
@@ -3159,7 +3122,6 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   }),
   members: many(projectMembers),
   followers: many(projectFollows),
-  saves: many(savedProjects),
   updates: many(projectUpdates),
 
   sprints: many(projectSprints),
@@ -3332,17 +3294,6 @@ export const projectFollowsRelations = relations(projectFollows, ({ one }) => ({
   }),
   user: one(profiles, {
     fields: [projectFollows.userId],
-    references: [profiles.id],
-  }),
-}));
-
-export const savedProjectsRelations = relations(savedProjects, ({ one }) => ({
-  project: one(projects, {
-    fields: [savedProjects.projectId],
-    references: [projects.id],
-  }),
-  user: one(profiles, {
-    fields: [savedProjects.userId],
     references: [profiles.id],
   }),
 }));
@@ -4590,8 +4541,6 @@ export type ProjectMember = typeof projectMembers.$inferSelect;
 export type NewProjectMember = typeof projectMembers.$inferInsert;
 export type ProjectFollow = typeof projectFollows.$inferSelect;
 export type NewProjectFollow = typeof projectFollows.$inferInsert;
-export type SavedProject = typeof savedProjects.$inferSelect;
-export type NewSavedProject = typeof savedProjects.$inferInsert;
 export type ProjectUpdate = typeof projectUpdates.$inferSelect;
 export type NewProjectUpdate = typeof projectUpdates.$inferInsert;
 export type ProjectUpdateLike = typeof projectUpdateLikes.$inferSelect;
@@ -4621,46 +4570,12 @@ export const collections = pgTable(
   }),
 );
 
-export const collectionProjects = pgTable(
-  "collection_projects",
-  {
-    collectionId: uuid("collection_id")
-      .notNull()
-      .references(() => collections.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    addedAt: timestamp("added_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    pk: primaryKey({ columns: [t.collectionId, t.projectId] }),
-    projectIdx: index("collection_projects_project_idx").on(t.projectId),
-  }),
-);
-
-export const collectionsRelations = relations(collections, ({ one, many }) => ({
+export const collectionsRelations = relations(collections, ({ one }) => ({
   owner: one(profiles, {
     fields: [collections.ownerId],
     references: [profiles.id],
   }),
-  projects: many(collectionProjects),
 }));
-
-export const collectionProjectsRelations = relations(
-  collectionProjects,
-  ({ one }) => ({
-    collection: one(collections, {
-      fields: [collectionProjects.collectionId],
-      references: [collections.id],
-    }),
-    project: one(projects, {
-      fields: [collectionProjects.projectId],
-      references: [projects.id],
-    }),
-  }),
-);
 
 // ============================================================================
 // ACCOUNT DELETIONS TABLE (Immutable Audit Trail)
@@ -4767,8 +4682,6 @@ export type NewAttachmentUpload = typeof attachmentUploads.$inferInsert;
 
 export type Collection = typeof collections.$inferSelect;
 export type NewCollection = typeof collections.$inferInsert;
-export type CollectionProject = typeof collectionProjects.$inferSelect;
-export type NewCollectionProject = typeof collectionProjects.$inferInsert;
 
 export type TaskSubtask = typeof taskSubtasks.$inferSelect;
 export type NewTaskSubtask = typeof taskSubtasks.$inferInsert;
@@ -4971,40 +4884,6 @@ export const skillIconAssets = pgTable("skill_icon_assets", {
     .defaultNow()
     .notNull(),
 });
-
-export const skillPopularitySnapshots = pgTable(
-  "skill_popularity_snapshots",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    skillId: uuid("skill_id")
-      .notNull()
-      .references(() => skills.id, { onDelete: "cascade" }),
-    source: text("source").notNull(),
-    score: integer("score").default(0).notNull(),
-    rank: integer("rank"),
-    sampleSize: integer("sample_size"),
-    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
-    metadata: jsonb("metadata")
-      .$type<Record<string, unknown>>()
-      .default({})
-      .notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    snapshotUnique: uniqueIndex("skill_popularity_snapshot_unique").on(
-      t.skillId,
-      t.source,
-      t.capturedAt,
-    ),
-    sourceRankIdx: index("skill_popularity_source_rank_idx").on(
-      t.source,
-      t.capturedAt.desc(),
-      t.rank,
-    ),
-  }),
-);
 
 export const skillProposals = pgTable(
   "skill_proposals",
@@ -5225,29 +5104,6 @@ export const interests = pgTable(
       "gin",
       sql`${t.name} gin_trgm_ops`,
     ),
-  }),
-);
-
-export const profileInterests = pgTable(
-  "profile_interests",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    profileId: uuid("profile_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    interestId: uuid("interest_id")
-      .notNull()
-      .references(() => interests.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    uniqueProfileInterest: uniqueIndex("profile_interests_unique_idx").on(
-      t.profileId,
-      t.interestId,
-    ),
-    interestIdx: index("profile_interests_interest_idx").on(t.interestId),
   }),
 );
 

@@ -60,21 +60,6 @@ async function main() {
       ON CONFLICT DO NOTHING
       RETURNING id
     `);
-    const linkedInterests = await tx.execute<{ id: string }>(sql`
-      WITH source AS MATERIALIZED (
-        SELECT DISTINCT p.id AS profile_id,
-          trim(both '-' from regexp_replace(lower(value.label), '[^a-z0-9]+', '-', 'g')) AS slug
-        FROM profiles p
-        CROSS JOIN LATERAL jsonb_array_elements_text(coalesce(p.interests, '[]'::jsonb)) AS value(label)
-      )
-      INSERT INTO profile_interests (profile_id, interest_id)
-      SELECT source.profile_id, interests.id
-      FROM source
-      JOIN interests ON interests.slug = source.slug
-      WHERE source.slug <> ''
-      ON CONFLICT (profile_id, interest_id) DO NOTHING
-      RETURNING id
-    `);
     const updatedPaths = await tx.execute<{ id: string }>(sql`
       WITH RECURSIVE tree AS (
         SELECT node.id, node.project_id, node.parent_id,
@@ -143,7 +128,6 @@ async function main() {
       tags: Array.from(insertedTags).length,
       projectTags: Array.from(linkedTags).length,
       interests: Array.from(insertedInterests).length,
-      profileInterests: Array.from(linkedInterests).length,
       paths: Array.from(updatedPaths).length,
     };
   });
