@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { projectSettingsSource } from "./_helpers/project-settings-source";
 
 function source(path: string) {
     return readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -24,7 +25,7 @@ test('authenticated metadata previews are private and never log full requested U
 });
 
 test('Project Links has one canonical settings surface and participates in project search', () => {
-    const settings = source('src/components/projects/tabs/ProjectSettingsTab.tsx');
+    const settings = projectSettingsSource();
     const search = source('src/hooks/useGlobalSearchPreviews.ts');
     assert.doesNotMatch(settings, /isProjectOwner\) return visible\.filter\(\(section\) => section\.id !== "links"/);
     assert.equal((settings.match(/<ProjectLinksManager/g) ?? []).length, 1);
