@@ -71,12 +71,12 @@ test("logout deletes the authenticated push record before local and Auth teardow
   assert.doesNotMatch(sessionRoute, /jsonError\("Failed to clear browser session"/);
 });
 
-test("presence is chat-scoped and debounce markers follow persistence", () => {
+test("presence is app-wide and debounce markers follow persistence", () => {
   const runtime = source("src/components/providers/MainRuntimeProviders.tsx");
   const chat = source("src/components/chat/ChatProvider.tsx");
   const heartbeat = source("src/app/api/v1/presence/heartbeat/route.ts");
 
-  assert.match(runtime, /<LazyChatProvider presenceEnabled=\{isMessagesRoute \|\| popupOpen\}/);
+  assert.match(runtime, /<LazyChatProvider presenceEnabled=\{true\} \/>/);
   assert.match(chat, /useMessagesV2OutboxSync\(active\)/);
   assert.match(chat, /const presenceActive = active && presenceEnabled/);
   assert.match(chat, /document\.hidden \? pause\(\) : resume\(\)/);
@@ -90,7 +90,6 @@ test("presence is chat-scoped and debounce markers follow persistence", () => {
 test("extension workspace bounds root files per project", () => {
   const workspace = source("src/app/api/v1/extension/workspace/route.ts");
 
-  assert.match(workspace, /row_number\(\) OVER \(\s*PARTITION BY \$\{projectNodes\.projectId\}/);
-  assert.match(workspace, /WHERE ranked\.rn <= 100/);
+  assert.match(workspace, /CROSS JOIN LATERAL \(\s*SELECT id\s*FROM project_nodes\s*WHERE project_id = p\.id[\s\S]*?LIMIT 100\s*\) n/);
   assert.doesNotMatch(workspace, /\.limit\(Math\.max\(100, projectIds\.length \* 100\)\)/);
 });

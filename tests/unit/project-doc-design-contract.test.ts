@@ -63,7 +63,7 @@ test("Docs Tab Design Specification Conformance Contract (Section 22 & Sections 
         assert.match(viewer, /xl:grid-cols-\[minmax\(0,1fr\)_260px\]/, "Viewer must allocate 260px to right documents rail");
         assert.match(viewer, /ProjectDocRail/, "Viewer must render the dedicated right documents rail");
         assert.doesNotMatch(viewer, /ProjectDocQuickConsole/, "Viewer must not render the quick console context rail");
-        assert.match(docTab, /nb-empty-state py-12/, "DocTab empty state must have generous vertical rhythm");
+        assert.match(docTab, /nb-empty-state nb-grid-ground py-12/, "DocTab empty state must have generous vertical rhythm");
         assert.match(docTab, /nb-empty-state-icon/, "DocTab empty state must style icon consistently");
     });
 });

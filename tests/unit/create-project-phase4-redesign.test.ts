@@ -36,8 +36,8 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
     assert.match(linkEditor, /commitContext\?: 'settings' \| 'project-create'/);
     assert.match(linkEditor, /saved when you create the project/);
     assert.match(linkEditor, /commitContext === 'settings' && saved/);
-    assert.match(linkEditor, /rounded-\[8px\] border border-border bg-muted\/20 p-4 sm:p-5/);
-    assert.match(linkEditor, /overflow-hidden rounded-\[8px\] border border-border bg-card/);
+    assert.match(linkEditor, /rounded-lg border border-border bg-muted\/20 p-4 sm:p-5/);
+    assert.match(linkEditor, /overflow-hidden rounded-lg border border-border bg-card/);
 });
 
 test('Phase 4 blocks unfinished link work and carries launch settings into review', () => {

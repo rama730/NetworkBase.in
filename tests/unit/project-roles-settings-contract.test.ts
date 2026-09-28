@@ -79,8 +79,7 @@ test("ProjectRolesEditor provides rich master-detail workspaces for Occupied and
   assert.match(editorSrc, /Delete Position/, "Open position workspace must offer deletion action");
   assert.match(editorSrc, /Applicant View Preview/, "Open position workspace must render live applicant preview card");
 
-  // Empty state is styled with border-border/80, bg-muted/10, and Add Position button
-  assert.match(editorSrc, /border-dashed border-border\/80 bg-muted\/10/, "Empty state must use dashed border and muted background");
+  assert.match(editorSrc, /nb-empty-state nb-grid-ground[^"]*border-dashed border-border\/80/, "Empty state must use the shared empty-state surface with a dashed border");
   assert.match(editorSrc, /No roles configured/, "Empty state must display clear copy");
 });
 

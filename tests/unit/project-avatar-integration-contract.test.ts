@@ -40,7 +40,7 @@ test("ProjectCard conditionally renders ProjectAvatar with card-size lockup and 
     const cardSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectCard.tsx"), "utf-8");
 
     assert.match(cardSource, /import ProjectAvatar,\s*\{\s*getProjectAvatarUrl\s*\}\s*from\s*"@\/components\/projects\/ProjectAvatar"/);
-    assert.match(cardSource, /const avatarUrl = getProjectAvatarUrl\(project\);/);
+    assert.match(cardSource, /const coverUrl = getProjectAvatarUrl\(project\);/);
     assert.match(cardSource, /<ProjectAvatar\s+project=\{project\}\s+size="card"/);
 
     // Verify zero-presence fallback branch exists

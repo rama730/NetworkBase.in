@@ -10,11 +10,14 @@ import {
   logApiRoute,
   requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
+import { validateCsrf } from "@/lib/security/csrf";
 
 const ATTACHMENTS_BUCKET = "chat-attachments";
 const MAX_ATTACHMENT_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
 export async function POST(request: Request) {
+  const csrfError = validateCsrf(request);
+  if (csrfError) return csrfError;
   const startedAt = Date.now();
   const requestId = getRequestId(request);
 
@@ -171,6 +174,8 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const csrfError = validateCsrf(request);
+  if (csrfError) return csrfError;
   const startedAt = Date.now();
   const requestId = getRequestId(request);
 

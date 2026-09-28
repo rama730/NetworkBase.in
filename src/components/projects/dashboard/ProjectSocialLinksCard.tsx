@@ -410,7 +410,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                     <div
                         key={repo.id}
                         data-testid={`project-managed-repo-${repo.id}`}
-                        className="flex min-w-0 items-center gap-3 rounded-[8px] border border-border bg-card px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+                        className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-card px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
                     >
                         <ProjectLinkIcon link={repo} className="h-4 w-4 text-muted-foreground" />
                         <span className="min-w-0 flex-1">
@@ -436,7 +436,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
                 <SortableLinkList
                     items={draft}
                     disabled={disabled}
-                    className="min-w-0 max-w-full divide-y divide-border overflow-hidden rounded-[8px] border border-border bg-card"
+                    className="min-w-0 max-w-full divide-y divide-border overflow-hidden rounded-lg border border-border bg-card"
                     itemClassName="flex min-w-0 max-w-full items-center gap-2.5 overflow-hidden bg-card px-3.5 py-2.5 text-sm transition-colors hover:bg-muted/30"
                     handleClassName="-ml-1 text-muted-foreground hover:text-foreground"
                     getItemLabel={(item) => {
@@ -478,7 +478,7 @@ export const ProjectLinkEditorFields = forwardRef<ProjectLinkEditorHandle, {
             ) : null}
 
             <div
-                className="min-w-0 max-w-full overflow-hidden rounded-[8px] border border-border bg-muted/20 p-4 sm:p-5"
+                className="min-w-0 max-w-full overflow-hidden rounded-lg border border-border bg-muted/20 p-4 sm:p-5"
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
                     const text = event.dataTransfer.getData('text/plain');

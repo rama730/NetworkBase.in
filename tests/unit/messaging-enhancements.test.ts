@@ -46,17 +46,18 @@ test('realtime presence-client: preserves incoming payload.profile and populates
     );
 });
 
-test('video attachments: renders inline video with autoplay, muted, playsInline, and loop', () => {
-    const attachmentsPath = path.join(process.cwd(), 'src/components/chat/v2/message-attachments.tsx');
-    const content = fs.readFileSync(attachmentsPath, 'utf8');
+test('video attachments: chat tiles show thumbnails and the media viewer owns playback', () => {
+    const tiles = fs.readFileSync(path.join(process.cwd(), 'src/components/chat/v2/message-attachments.tsx'), 'utf8');
+    const viewer = fs.readFileSync(path.join(process.cwd(), 'src/components/ui/media-viewer.tsx'), 'utf8');
+    const player = fs.readFileSync(path.join(process.cwd(), 'src/components/chat/v2/resolved-video-player.tsx'), 'utf8');
 
-    assert.ok(content.includes('<video'), 'Must render inline <video> element for video attachments');
-    assert.ok(content.includes('autoPlay'), 'Video must have autoPlay attribute');
-    assert.ok(content.includes('muted'), 'Video must have muted attribute for browser autoplay policy');
-    assert.ok(content.includes('loop'), 'Video must have loop attribute');
-    assert.ok(content.includes('playsInline'), 'Video must have playsInline attribute for mobile autoplay');
-    assert.ok(content.includes('group-hover/video'), 'Video must show speaker control button on hover');
-    assert.ok(content.includes('VolumeX') && content.includes('Volume2'), 'Must include VolumeX and Volume2 toggle icons');
+    assert.ok(!tiles.includes('<video'), 'Chat tiles must not start a video-body request');
+    assert.ok(viewer.includes('<ResolvedVideoPlayer'), 'The media viewer must play videos');
+    for (const attribute of ['autoPlay={true}', 'muted={viewerMuted}', 'playsInline={true}']) {
+        assert.ok(viewer.includes(attribute), `Viewer video must set ${attribute}`);
+    }
+    assert.ok(viewer.includes('VolumeX') && viewer.includes('Volume2'), 'Viewer must include VolumeX and Volume2 toggle icons');
+    assert.ok(player.includes('<video'), 'ResolvedVideoPlayer must render a native video element');
 });
 
 test('global presence: MainRuntimeProviders sets presenceEnabled={true}', () => {
@@ -73,15 +74,12 @@ test('global presence: MainRuntimeProviders sets presenceEnabled={true}', () => 
     );
 });
 
-test('reaction placement: sender side aligns left (opposite corner), receiver side aligns right', () => {
+test('reaction placement: reactions align with their own bubble side', () => {
     const bubblePath = path.join(process.cwd(), 'src/components/chat/v2/MessageBubbleV2.tsx');
     const content = fs.readFileSync(bubblePath, 'utf8');
 
-    // In MessageBubbleV2:
-    // Sender (isOwn === true) -> align="start" (bottom-left corner of video/bubble)
-    // Receiver (isOwn === false) -> align="end" (bottom-right corner of PDF/bubble)
     assert.ok(
-        content.includes("align={isOwn ? 'start' : 'end'}"),
-        'ReactionPillRow must align start (left) on sender side and end (right) on receiver side'
+        content.includes("align={isOwn ? 'end' : 'start'}") && !content.includes("align={isOwn ? 'start' : 'end'}"),
+        'ReactionPillRow must align end on the sender side and start on the receiver side'
     );
 });

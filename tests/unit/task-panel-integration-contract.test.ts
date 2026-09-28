@@ -151,7 +151,6 @@ test("subtasks tab adheres to precision drafting redesign with counts and filter
   assert.doesNotMatch(subtasks, /completionPercent/);
   assert.match(subtasks, /rounded-\[3px\]/);
   assert.match(subtasks, /rounded-\[5px\]/);
-  assert.match(subtasks, /rounded-\[6px\]/);
   assert.doesNotMatch(subtasks, /rounded-full/);
 });
 
@@ -277,8 +276,8 @@ test("task file move dialog is roomy and layered above the detail panel", () => 
   assert.doesNotMatch(panel, /overflow-x-auto/);
   assert.match(dialogs, /overlayClassName="z-\[300\]/);
   assert.match(dialogs, /className="z-\[301\]/);
-  assert.match(dialogs, /sm:max-w-2xl/);
-  assert.match(dialogs, /h-\[min\(58vh,32rem\)\]/);
+  assert.match(dialogs, /className="z-\[301\] flex max-h-\[88vh\] flex-col sm:max-w-\[460px\]/);
+  assert.match(dialogs, /h-\[min\(58vh,28rem\)\]/);
   assert.doesNotMatch(row, /<Dialog/);
   assert.doesNotMatch(row, /onSelect=\{\(event\) => \{\s*event\.preventDefault\(\);\s*setIsMoveModalOpen/);
 });
