@@ -313,7 +313,7 @@ export function FolderListView({
   }
   const { loadFolderContent } = bootContext;
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
-  const loadMore = React.useCallback(async () => {
+  const loadMore = async () => {
     if (!folderPage.hasMore || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
@@ -325,7 +325,7 @@ export function FolderListView({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [folderId, folderPage.hasMore, isLoadingMore, loadFolderContent]);
+  };
 
   // ── Folder contents (status / children / retry) ───────────────────
   const cachedFolder = useFolderContents(projectId, folderId, !collection && !search && sort === "name");
@@ -489,8 +489,7 @@ export function FolderListView({
   const [pendingRevisionFile, setPendingRevisionFile] = React.useState<File | null>(null);
   const [isRevisionModalOpen, setIsRevisionModalOpen] = React.useState(false);
 
-  const triggerRevisionFileInput = React.useCallback(
-    (node: FolderListRowNode) => {
+  const triggerRevisionFileInput = (node: FolderListRowNode) => {
       setTargetRevisionNode(node);
       const fileInputEl = document.createElement("input");
       fileInputEl.type = "file";
@@ -511,9 +510,7 @@ export function FolderListView({
         setIsRevisionModalOpen(true);
       };
       fileInputEl.click();
-    },
-    [],
-  );
+    };
 
   const handleRevisionOptionSelected = React.useCallback(
     async (choice: { option: "overwrite" | "commit"; comment?: string }) => {
@@ -590,41 +587,31 @@ export function FolderListView({
     };
   }, [resetDragState]);
 
-  const handleDragEnter = React.useCallback(
-    (e: React.DragEvent) => {
-      if (!canEdit) return;
-      if (!e.dataTransfer.types.includes("Files")) return;
-      e.preventDefault();
-      dragCounterRef.current += 1;
-      setIsDragActive(true);
-    },
-    [canEdit],
-  );
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (!canEdit) return;
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    setIsDragActive(true);
+  };
 
-  const handleDragOver = React.useCallback(
-    (e: React.DragEvent) => {
-      if (!canEdit) return;
-      if (!e.dataTransfer.types.includes("Files")) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-    },
-    [canEdit],
-  );
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!canEdit) return;
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
 
-  const handleDragLeave = React.useCallback(
-    (e: React.DragEvent) => {
+  const handleDragLeave = (e: React.DragEvent) => {
       if (!canEdit) return;
       e.preventDefault();
       dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
       if (dragCounterRef.current === 0) {
         setIsDragActive(false);
       }
-    },
-    [canEdit],
-  );
+    };
 
-  const handleDrop = React.useCallback(
-    (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
       if (!canEdit) return;
       e.preventDefault();
       e.stopPropagation();
@@ -641,9 +628,7 @@ export function FolderListView({
 
       setTargetDropFolderId(folderId);
       setPendingUploadFiles(validation.files);
-    },
-    [canEdit, folderId, resetDragState],
-  );
+    };
 
   // ── Desktop file drop wiring (opens modal with target folder) ──────────
   const handleDesktopFileDrop = React.useCallback(
