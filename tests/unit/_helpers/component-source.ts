@@ -3,6 +3,8 @@ import path from "node:path";
 
 const SPLIT_COMPONENTS: Record<string, string[]> = {
   "src/components/projects/tabs/ProjectSettingsTab.tsx": [
+    "src/components/projects/settings/GeneralSettingsSection.tsx",
+    "src/components/projects/settings/CollaboratorSearchField.tsx",
     "src/components/projects/settings/SettingsFormFields.tsx",
     "src/components/projects/settings/SettingsPolicyDetails.tsx",
     "src/components/projects/settings/ProjectNotificationSettings.tsx",

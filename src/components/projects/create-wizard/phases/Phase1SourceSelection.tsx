@@ -88,7 +88,7 @@ export default function Phase1SourceSelection({
     const repoUrl = watch('import_source.repoUrl');
     const branch = watch('import_source.branch');
 
-    const supabase = useMemo(() => createClient(), []);
+    const supabase = createClient();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const latestBranchRequestKeyRef = useRef('');
     const latestPreflightRequestKeyRef = useRef('');

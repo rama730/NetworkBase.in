@@ -12,7 +12,9 @@ test("project general settings renders 3 canonical cards and removes redundant o
   const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // General tab block extraction
-  const generalBlock = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
+  const tabGeneralSlot = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
+  assert.match(tabGeneralSlot, /<GeneralSettingsSection/, "The General slot must render GeneralSettingsSection");
+  const generalBlock = source("src/components/projects/settings/GeneralSettingsSection.tsx");
   assert.ok(generalBlock.length > 0, "General settings block must exist");
 
   // Removed unnecessary overview/disclosure cards
@@ -62,7 +64,9 @@ test("project general settings removes duplicate header card and renders card-le
   assert.doesNotMatch(content, /data-testid="project-settings-dirty-banner"/, "Header dirty banner must be removed in favor of card footers");
 
   // General tab block extraction
-  const generalBlock = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
+  const tabGeneralSlot = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
+  assert.match(tabGeneralSlot, /<GeneralSettingsSection/, "The General slot must render GeneralSettingsSection");
+  const generalBlock = source("src/components/projects/settings/GeneralSettingsSection.tsx");
   assert.match(generalBlock, /Save changes/, "General settings cards must provide Save changes button in footer");
   assert.match(generalBlock, /Cancel/, "General settings cards must provide Cancel button in footer");
 });

@@ -35,6 +35,7 @@ test("project collaborators tab eliminates duplicate headers and renders a singl
 
   // Team search input, role filter pills, and empty state
   assert.match(collaboratorsBlock, /aria-label="Filter collaborators by role"/, "Role filter tablist must exist");
-  assert.match(collaboratorsBlock, /aria-label="Search collaborators"/, "Collaborator search input must exist");
+  assert.match(collaboratorsBlock, /<CollaboratorSearchField onCommit=\{setCollaboratorSearch\} \/>/, "Collaborator search input must exist");
+  assert.match(source("src/components/projects/settings/CollaboratorSearchField.tsx"), /aria-label="Search collaborators"/, "Collaborator search input must be labelled");
   assert.match(collaboratorsBlock, /No collaborators found/, "Team Directory must have empty state when filtered");
 });
