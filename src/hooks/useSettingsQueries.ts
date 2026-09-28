@@ -24,7 +24,7 @@ import {
   updateNotificationPreferencesAction,
 } from "@/app/actions/notifications";
 import { getAccountDeletionStatus } from "@/app/actions/account";
-import { getActiveExtensionSessions } from "@/app/actions/extension-sessions";
+import { readActiveExtensionSessions } from "@/lib/files-tab-batch";
 
 export const SETTINGS_STALE_MS = 2 * 60_000;
 export const SETTINGS_SECURITY_STALE_MS = 60_000;
@@ -179,7 +179,7 @@ async function fetchAccountDeletionStatus(): Promise<AccountDeletionStatusData> 
 }
 
 async function fetchExtensionSessionsData(): Promise<ExtensionSessionsData> {
-  const result = await getActiveExtensionSessions();
+  const result = await readActiveExtensionSessions();
   if (!result.success || !result.sessions) {
     return DEFAULT_EXTENSION_SESSIONS_DATA;
   }
