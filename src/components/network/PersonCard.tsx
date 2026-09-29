@@ -25,30 +25,45 @@ import {
 /**
  * Shared Network person-card anatomy (profile-header style): avatar top-left with name beside it,
  * the primary action beside the name, details full width below.
+ * The headline fills the space beside the avatar unless two meta lines already sit there.
  */
 export function PersonCardLayout({
     avatar,
     head,
+    meta = [],
+    headline,
     aside,
     body,
     className,
 }: {
     avatar: ReactNode;
     head: ReactNode;
+    /** Keyed mono lines under the name (location, "Connected …"); falsy entries are skipped. */
+    meta?: ReactNode[];
+    headline?: ReactNode;
     /** Primary action beside the name (grid cards); keeps the card compact. */
     aside?: ReactNode;
     body?: ReactNode;
     className?: string;
 }) {
+    const metaLines = meta.filter(Boolean);
+    const headlineBesideAvatar = metaLines.length < 2;
     return (
         <article className={cn("flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card p-4 transition-colors hover:border-input", className)}>
             <div className="flex min-w-0 shrink-0 items-start gap-3">
                 {avatar}
-                <div className="min-w-0 flex-1 pt-0.5">{head}</div>
+                <div className="min-w-0 flex-1 pt-0.5">
+                    {head}
+                    {metaLines}
+                    {headlineBesideAvatar && headline ? <div className="mt-1 min-w-0">{headline}</div> : null}
+                </div>
                 {aside ? <div className="flex shrink-0 items-center">{aside}</div> : null}
             </div>
             {/* Body absorbs spare height and clips, so fixed-height grid items never overflow. */}
-            <div className="mt-3 min-h-0 min-w-0 flex-1 space-y-2 overflow-hidden">{body}</div>
+            <div className="mt-3 min-h-0 min-w-0 flex-1 space-y-2 overflow-hidden">
+                {headlineBesideAvatar ? null : headline}
+                {body}
+            </div>
         </article>
     );
 }
@@ -222,36 +237,33 @@ function PersonCard({
             head={
                 <Link href={profileHref(profile)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <h3 className="nb-card-title min-w-0 truncate text-foreground" title={displayName}>{displayName}</h3>
-                    {!isLocked && profile.location ? (
-                        <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={profile.location}>
-                            <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-                            <span className="min-w-0 truncate">{profile.location}</span>
-                        </p>
-                    ) : null}
-                    {!isLocked && (profile.mutualConnections ?? 0) > 0 ? (
-                        <p className="nb-meta mt-1 truncate">{profile.mutualConnections} shared connections</p>
-                    ) : null}
                 </Link>
             }
+            meta={isLocked ? [] : [
+                profile.location ? (
+                    <p key="location" className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={profile.location}>
+                        <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                        <span className="min-w-0 truncate">{profile.location}</span>
+                    </p>
+                ) : null,
+                (profile.mutualConnections ?? 0) > 0 ? (
+                    <p key="shared" className="nb-meta mt-1 truncate">{profile.mutualConnections} shared connections</p>
+                ) : null,
+            ]}
+            headline={isLocked ? (
+                <p className="nb-compact flex items-center gap-1 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />Private profile</p>
+            ) : (
+                <p className="nb-body truncate text-muted-foreground" title={profile.headline || undefined}>{profile.headline || "NetworkBase member"}</p>
+            )}
             aside={action}
-            body={
-                <>
-                    {isLocked ? (
-                        <p className="nb-compact flex items-center gap-1 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />Private profile</p>
-                    ) : (
-                        <p className="nb-body truncate text-muted-foreground" title={profile.headline || undefined}>{profile.headline || "NetworkBase member"}</p>
-                    )}
-
-                    {!isLocked && skills.length ? (
-                        <div className={PERSON_CARD_TAGS} aria-label="Skills">
-                            {skills.map((skillName) => {
-                                const skill = resolveClientSkill(skillName);
-                                return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
-                            })}
-                        </div>
-                    ) : null}
-                </>
-            }
+            body={!isLocked && skills.length ? (
+                <div className={PERSON_CARD_TAGS} aria-label="Skills">
+                    {skills.map((skillName) => {
+                        const skill = resolveClientSkill(skillName);
+                        return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
+                    })}
+                </div>
+            ) : null}
         />
     );
 }

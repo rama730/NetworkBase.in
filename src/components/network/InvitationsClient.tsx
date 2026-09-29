@@ -266,7 +266,9 @@ export default function InvitationsClient({
                                     key={invitation.id}
                                     className={PERSON_CARD_ITEM_HEIGHT}
                                     avatar={<Link href={profileHref(profile)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" /></Link>}
-                                    head={<InvitationHead href={profileHref(profile)} name={displayName} location={invitation.requesterLocation} />}
+                                    head={<InvitationName href={profileHref(profile)} name={displayName} />}
+                                    meta={[invitation.requesterLocation ? <LocationLine key="location" location={invitation.requesterLocation} /> : null]}
+                                    headline={<p className="nb-body truncate text-muted-foreground" title={invitation.requesterHeadline || undefined}>{invitation.requesterHeadline || "NetworkBase member"}</p>}
                                     aside={
                                         <InvitationActions
                                             name={displayName}
@@ -277,12 +279,7 @@ export default function InvitationsClient({
                                             onDecline={() => void declineConnection(invitation.id)}
                                         />
                                     }
-                                    body={
-                                        <>
-                                            <p className="nb-body truncate text-muted-foreground" title={invitation.requesterHeadline || undefined}>{invitation.requesterHeadline || "NetworkBase member"}</p>
-                                            <p className="nb-meta truncate" title={invitation.message || undefined}>{invitation.message || "Wants to connect and collaborate with you."}</p>
-                                        </>
-                                    }
+                                    body={<p className="nb-meta truncate" title={invitation.message || undefined}>{invitation.message || "Wants to connect and collaborate with you."}</p>}
                                 />
                             );
                         })}
@@ -303,7 +300,9 @@ export default function InvitationsClient({
                                     key={invitation.id}
                                     className={PERSON_CARD_ITEM_HEIGHT}
                                     avatar={<Link href={profileHref(actor)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={actor} size={48} fallbackClassName="text-base font-semibold" /></Link>}
-                                    head={<InvitationHead href={profileHref(actor)} name={displayName} meta={`Role · ${invitation.roleTitle}`} />}
+                                    head={<InvitationName href={profileHref(actor)} name={displayName} />}
+                                    meta={[<RoleLine key="role" role={invitation.roleTitle} />]}
+                                    headline={<p className="nb-body truncate text-muted-foreground">Invited you to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>}
                                     aside={
                                         <InvitationActions
                                             name={displayName}
@@ -314,12 +313,7 @@ export default function InvitationsClient({
                                             onDecline={() => void resolveProjectInvitation(invitation.id, "decline")}
                                         />
                                     }
-                                    body={
-                                        <>
-                                            <p className="nb-body truncate text-muted-foreground">Invited you to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>
-                                            <p><span className="nb-status" data-status="active">Project invitation</span></p>
-                                        </>
-                                    }
+                                    body={<p><span className="nb-status" data-status="active">Project invitation</span></p>}
                                 />
                             );
                         })}
@@ -340,7 +334,9 @@ export default function InvitationsClient({
                                     key={invitation.id}
                                     className={PERSON_CARD_ITEM_HEIGHT}
                                     avatar={<Link href={profileHref(candidate)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={candidate} size={48} fallbackClassName="text-base font-semibold" /></Link>}
-                                    head={<InvitationHead href={profileHref(candidate)} name={displayName} meta={`Role · ${invitation.roleTitle}`} />}
+                                    head={<InvitationName href={profileHref(candidate)} name={displayName} />}
+                                    meta={[<RoleLine key="role" role={invitation.roleTitle} />]}
+                                    headline={<p className="nb-body truncate text-muted-foreground">Invited to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>}
                                     aside={
                                         <CancelButton
                                             label={`Cancel project invitation to ${displayName}`}
@@ -348,17 +344,7 @@ export default function InvitationsClient({
                                             onClick={() => void handleCancelSentProjectInvitation(invitation)}
                                         />
                                     }
-                                    body={
-                                        <>
-                                            <p className="nb-body truncate text-muted-foreground">
-                                                Invited to join{" "}
-                                                <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">
-                                                    {invitation.projectTitle}
-                                                </Link>
-                                            </p>
-                                            <PendingResponse />
-                                        </>
-                                    }
+                                    body={<PendingResponse />}
                                 />
                             );
                         })}
@@ -399,7 +385,9 @@ export default function InvitationsClient({
                                     key={request.id}
                                     className={PERSON_CARD_ITEM_HEIGHT}
                                     avatar={<Link href={profileHref(profile)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" /></Link>}
-                                    head={<InvitationHead href={profileHref(profile)} name={displayName} location={request.addresseeLocation} />}
+                                    head={<InvitationName href={profileHref(profile)} name={displayName} />}
+                                    meta={[request.addresseeLocation ? <LocationLine key="location" location={request.addresseeLocation} /> : null]}
+                                    headline={<p className="nb-body truncate text-muted-foreground" title={request.addresseeHeadline || undefined}>{request.addresseeHeadline || "NetworkBase member"}</p>}
                                     aside={
                                         <CancelButton
                                             label={`Cancel connection request to ${displayName}`}
@@ -407,12 +395,7 @@ export default function InvitationsClient({
                                             onClick={() => void handleCancelConnection(request.id, displayName)}
                                         />
                                     }
-                                    body={
-                                        <>
-                                            <p className="nb-body truncate text-muted-foreground" title={request.addresseeHeadline || undefined}>{request.addresseeHeadline || "NetworkBase member"}</p>
-                                            <PendingResponse />
-                                        </>
-                                    }
+                                    body={<PendingResponse />}
                                 />
                             );
                         })}
@@ -426,24 +409,25 @@ export default function InvitationsClient({
 /** Same grid as the Suggested / Connections tabs. */
 const INVITATION_GRID = "grid grid-cols-1 gap-[14px] sm:grid-cols-2";
 
-function InvitationHead({ href, name, location, meta }: {
-    href: string;
-    name: string;
-    location?: string | null;
-    meta?: string;
-}) {
+function InvitationName({ href, name }: { href: string; name: string }) {
     return (
         <Link href={href} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <h3 className="nb-card-title min-w-0 truncate text-foreground" title={name}>{name}</h3>
-            {location ? (
-                <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={location}>
-                    <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-                    <span className="min-w-0 truncate">{location}</span>
-                </p>
-            ) : null}
-            {meta ? <p className="nb-meta mt-1 truncate" title={meta}>{meta}</p> : null}
         </Link>
     );
+}
+
+function LocationLine({ location }: { location: string }) {
+    return (
+        <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={location}>
+            <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 truncate">{location}</span>
+        </p>
+    );
+}
+
+function RoleLine({ role }: { role: string }) {
+    return <p className="nb-meta mt-1 truncate" title={role}>Role · {role}</p>;
 }
 
 function PendingResponse() {
