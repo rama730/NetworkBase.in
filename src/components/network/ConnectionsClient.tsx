@@ -149,28 +149,28 @@ function ConnectionCard({
                 <Link href={profileHref(user)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <h3 className="nb-card-title truncate text-foreground" title={displayName}>{displayName}</h3>
                     {user.location ? <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={user.location}><MapPin className="size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{user.location}</span></p> : null}
+                    <p className="nb-meta mt-1 truncate">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>
                 </Link>
             }
             body={
                 <>
-                    <p className="nb-body line-clamp-2 text-muted-foreground">{user.headline || "NetworkBase member"}</p>
+                    <p className="nb-body truncate text-muted-foreground" title={user.headline || undefined}>{user.headline || "NetworkBase member"}</p>
                     {skills.length ? <div className={PERSON_CARD_TAGS}>{skills.map((skillName) => {
                         const skill = resolveClientSkill(skillName);
                         return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
                     })}</div> : null}
-                    <p className="nb-meta truncate">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>
                 </>
             }
-            actions={
+            aside={
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <button type="button" className="nb-touch-target inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted" aria-label={`Connection actions for ${displayName}`}>
                             <Check className="size-4 text-[var(--status-success)]" aria-hidden="true" />
-                            <span>Connected</span>
+                            <span className="max-sm:sr-only">Connected</span>
                             <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
                         </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
+                    <DropdownMenuContent align="end">
                         {user.canSendMessage ? (
                             <>
                                 <DropdownMenuItem asChild>
