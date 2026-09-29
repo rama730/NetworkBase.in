@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkillIcon } from "@/components/skills";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { PersonCardLayout } from "@/components/network/PersonCard";
+import { PERSON_CARD_ITEM_HEIGHT, PERSON_CARD_TAGS, PersonCardLayout } from "@/components/network/PersonCard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useConnectionMutations, useConnections, type NetworkConnectionItem } from "@/hooks/useConnections";
 import { profileHref } from "@/lib/routing/identifiers";
@@ -25,7 +25,7 @@ const GridList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((pro
 GridList.displayName = "ConnectionsGrid";
 
 const GridItem = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
-    <div {...props} ref={ref} className="h-[158px]" />
+    <div {...props} ref={ref} className={PERSON_CARD_ITEM_HEIGHT} />
 ));
 GridItem.displayName = "ConnectionItem";
 
@@ -76,7 +76,7 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
         return (
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2" aria-label="Loading connections">
                 <span className="sr-only" role="status">Loading connections…</span>
-                {[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-[158px] rounded-lg border border-border" />)}
+                {[1, 2, 3, 4].map((item) => <Skeleton key={item} className={`${PERSON_CARD_ITEM_HEIGHT} rounded-lg border border-border`} />)}
             </div>
         );
     }
@@ -147,18 +147,18 @@ function ConnectionCard({
             }
             head={
                 <Link href={profileHref(user)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <h3 className="nb-card-title line-clamp-2 break-words text-foreground">{displayName}</h3>
+                    <h3 className="nb-card-title truncate text-foreground" title={displayName}>{displayName}</h3>
                     {user.location ? <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={user.location}><MapPin className="size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{user.location}</span></p> : null}
                 </Link>
             }
             body={
                 <>
                     <p className="nb-body line-clamp-2 text-muted-foreground">{user.headline || "NetworkBase member"}</p>
-                    {skills.length ? <div className="flex flex-wrap gap-1.5">{skills.map((skillName) => {
+                    {skills.length ? <div className={PERSON_CARD_TAGS}>{skills.map((skillName) => {
                         const skill = resolveClientSkill(skillName);
                         return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
                     })}</div> : null}
-                    <p className="nb-meta">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>
+                    <p className="nb-meta truncate">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>
                 </>
             }
             actions={

@@ -6,7 +6,7 @@ import { VirtuosoGrid } from "react-virtuoso";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
 
-import PersonCard from "@/components/network/PersonCard";
+import PersonCard, { PERSON_CARD_ITEM_HEIGHT } from "@/components/network/PersonCard";
 import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getConnectionRequestSuccessMessage, useConnectionMutations, useSuggestedPeople } from "@/hooks/useConnections";
@@ -22,7 +22,7 @@ const GridList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((pro
 GridList.displayName = "SuggestedPeopleGrid";
 
 const GridItem = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
-    <div {...props} ref={ref} className="h-[158px]" />
+    <div {...props} ref={ref} className={PERSON_CARD_ITEM_HEIGHT} />
 ));
 GridItem.displayName = "SuggestedPersonItem";
 
