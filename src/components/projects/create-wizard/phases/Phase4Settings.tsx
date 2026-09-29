@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { Check, ChevronDown, Globe, ImagePlus, Info, Lock, X } from 'lucide-react';
+import { Bell, Check, ChevronDown, FileText, Folder, Globe, ImageIcon, ImagePlus, Info, Link2, Lock, Users, Workflow, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { LifecycleEditor } from '@/components/projects/LifecycleEditor';
@@ -27,17 +28,18 @@ type Phase4SettingsProps = {
 };
 
 // Same order and names as Project settings, so what is chosen here is where it lives later (spec §18).
-const SECTIONS = [
-    { id: 'picture', eyebrow: 'Identity', label: 'Project picture' },
-    { id: 'access', eyebrow: 'Access and visibility', label: 'Access' },
-    { id: 'links', eyebrow: 'Links', label: 'Links' },
-    { id: 'documentation', eyebrow: 'Documentation', label: 'Documentation' },
-    { id: 'lifecycle', eyebrow: 'Lifecycle and workflow', label: 'Lifecycle' },
-    { id: 'permissions', eyebrow: 'Team permissions', label: 'Team permissions' },
-    { id: 'files', eyebrow: 'Files and storage', label: 'Files' },
-    { id: 'notifications', eyebrow: 'Notifications', label: 'Notifications' },
+// Icons match the Project settings rail for the same sections.
+const SECTIONS: ReadonlyArray<{ id: string; eyebrow: string; label: string; description: string; icon: ComponentType<{ className?: string }> }> = [
+    { id: 'picture', eyebrow: 'Identity', label: 'Project picture', description: 'Image on cards and header', icon: ImageIcon },
+    { id: 'access', eyebrow: 'Access and visibility', label: 'Access and visibility', description: 'Visibility and public tabs', icon: Globe },
+    { id: 'links', eyebrow: 'Links', label: 'Links', description: 'External destinations', icon: Link2 },
+    { id: 'documentation', eyebrow: 'Documentation', label: 'Documentation', description: 'Starter doc and editing', icon: FileText },
+    { id: 'lifecycle', eyebrow: 'Lifecycle and workflow', label: 'Lifecycle and workflow', description: 'Journey stages', icon: Workflow },
+    { id: 'permissions', eyebrow: 'Team permissions', label: 'Team permissions', description: 'Updates and uploads', icon: Users },
+    { id: 'files', eyebrow: 'Files and storage', label: 'Files and storage', description: 'Source and upload rules', icon: Folder },
+    { id: 'notifications', eyebrow: 'Notifications', label: 'Notifications', description: 'Team notification rules', icon: Bell },
 ] as const;
-type SectionId = (typeof SECTIONS)[number]['id'];
+type SectionId = 'picture' | 'access' | 'links' | 'documentation' | 'lifecycle' | 'permissions' | 'files' | 'notifications';
 
 const PUBLIC_TAB_ORDER: ProjectPublicTabId[] = ['dashboard', 'readme', 'updates', 'files', 'sprints', 'tasks'];
 const sectionAnchor = (id: SectionId) => `create-project-launch-${id}`;
@@ -63,7 +65,7 @@ function LaunchSection({ id, title, description, summary, collapsible, open, onT
     );
 
     return (
-        <section id={sectionAnchor(id)} aria-labelledby={`${sectionAnchor(id)}-heading`} className="scroll-mt-4 border-t border-border pt-6">
+        <section id={sectionAnchor(id)} data-launch-section={id} aria-labelledby={`${sectionAnchor(id)}-heading`} className="border-t border-border pt-6">
             {collapsible ? (
                 // Phones: each section is one summary line until opened, so eight sections stay scannable.
                 <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={`${sectionAnchor(id)}-body`} className="flex w-full min-w-0 items-start justify-between gap-3 text-left">
@@ -151,6 +153,44 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
 
     useEffect(() => () => onLinkComposerPending?.(false), [onLinkComposerPending]);
 
+    // The rail scrolls only the wizard body. scrollIntoView() would also scroll the app's
+    // overflow-hidden main area and push the page header out of view.
+    const rootRef = useRef<HTMLDivElement>(null);
+    const [activeSection, setActiveSection] = useState<SectionId>('picture');
+    const getScroller = useCallback(() => rootRef.current?.closest<HTMLElement>('[data-wizard-scroll]') ?? null, []);
+    useEffect(() => {
+        const scroller = getScroller();
+        if (!scroller) return;
+        let frame = 0;
+        const sync = () => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                const top = scroller.getBoundingClientRect().top;
+                const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+                let current: SectionId = 'picture';
+                for (const element of scroller.querySelectorAll<HTMLElement>('[data-launch-section]')) {
+                    if (element.getBoundingClientRect().top - top <= 96) current = element.dataset.launchSection as SectionId;
+                }
+                // The last sections can't reach the top of a short page; at the bottom, the last one is current.
+                setActiveSection(atBottom ? 'notifications' : current);
+            });
+        };
+        sync();
+        scroller.addEventListener('scroll', sync, { passive: true });
+        return () => { cancelAnimationFrame(frame); scroller.removeEventListener('scroll', sync); };
+    }, [getScroller]);
+    const goToSection = (id: SectionId) => {
+        const scroller = getScroller();
+        const target = document.getElementById(sectionAnchor(id));
+        if (!scroller || !target) return;
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        scroller.scrollTo({
+            top: scroller.scrollTop + target.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 16,
+            behavior: reduceMotion ? 'auto' : 'smooth',
+        });
+        setActiveSection(id);
+    };
+
     const imageInputRef = useRef<HTMLInputElement>(null);
     const imagePreviewUrl = useMemo(() => (projectImage ? URL.createObjectURL(projectImage) : null), [projectImage]);
     useEffect(() => () => { if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl); }, [imagePreviewUrl]);
@@ -180,24 +220,38 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     const sectionProps = (id: SectionId) => ({ id, collapsible: isPhone, open: isOpen(id), onToggle: () => toggleSection(id) });
 
     return (
-        <div className="min-w-0 w-full lg:grid lg:grid-cols-[10.5rem_minmax(0,1fr)] lg:gap-10">
-            {/* Desktop: a sticky index so eight sections stay one jump away. */}
-            <nav aria-label="Launch settings sections" className="sticky top-0 hidden self-start pt-1 lg:block">
-                <ol className="space-y-0.5 border-l border-border">
-                    {SECTIONS.map((section, index) => (
-                        <li key={section.id}>
+        <div ref={rootRef} className="min-w-0 w-full xl:grid xl:grid-cols-[248px_minmax(0,1fr)] xl:gap-8">
+            {/* Wide screens: the same section rail as Project settings (card, icon, label, description, active state). */}
+            <aside className="sticky top-0 hidden self-start rounded-lg border border-border bg-card p-2 xl:block">
+                <div className="px-3 pb-3 pt-2">
+                    <p className="nb-micro">Launch settings</p>
+                    <p className="nb-compact mt-1 text-muted-foreground">Jump to any section. All start at the Settings defaults.</p>
+                </div>
+                <nav aria-label="Launch settings sections" className="mt-1 space-y-1">
+                    {SECTIONS.map((section) => {
+                        const Icon = section.icon;
+                        const active = activeSection === section.id;
+                        return (
                             <button
+                                key={section.id}
                                 type="button"
-                                onClick={() => document.getElementById(sectionAnchor(section.id))?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })}
-                                className="-ml-px flex w-full items-center gap-2 border-l border-transparent py-1.5 pl-3 text-left text-[13px] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-current={active ? 'location' : undefined}
+                                onClick={() => goToSection(section.id as SectionId)}
+                                className={cn(
+                                    'group flex min-h-[44px] w-full items-start gap-2.5 rounded-md px-3 py-2 text-left transition-colors duration-[130ms] ease-[cubic-bezier(.2,.8,.3,1)]',
+                                    active ? 'bg-muted font-medium text-foreground' : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+                                )}
                             >
-                                <span className="font-mono text-[11px]">{String(index + 1).padStart(2, '0')}</span>
-                                {section.label}
+                                <Icon className={cn('mt-0.5 h-4 w-4 shrink-0 transition-colors', active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
+                                <span className="min-w-0 flex-1">
+                                    <span className="nb-ui-label block truncate text-[13px] leading-tight">{section.label}</span>
+                                    <span className={cn('mt-0.5 block truncate text-[11px] leading-snug', active ? 'text-foreground/80' : 'text-muted-foreground/70')}>{section.description}</span>
+                                </span>
                             </button>
-                        </li>
-                    ))}
-                </ol>
-            </nav>
+                        );
+                    })}
+                </nav>
+            </aside>
 
             <div className="min-w-0 w-full space-y-8 pb-6">
                 <div className="max-w-[65ch]">
