@@ -434,7 +434,7 @@ export function LoginForm({ redirect, error, mode: modeParam }: { redirect: stri
                                         setShowEmailFields(true)
                                         setTimeout(() => emailInputRef.current?.focus({ preventScroll: true }), 50)
                                     }}
-                                    className="bg-background px-3 text-muted-foreground hover:text-foreground font-medium text-[11px] tracking-wider transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-0 rounded py-0.5"
+                                    className="bg-background px-3 text-muted-foreground hover:text-foreground font-medium text-[11px] tracking-wider transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-0 rounded py-0.5 max-md:min-h-11"
                                 >
                                     Continue with email
                                 </button>
@@ -711,7 +711,7 @@ export function LoginForm({ redirect, error, mode: modeParam }: { redirect: stri
                                             type="button"
                                             tabIndex={-1}
                                             onClick={() => setSignUpShowPassword(!signUpShowPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
+                                            className="nb-touch-target inline-flex items-center justify-center absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
                                             aria-label={signUpShowPassword ? 'Hide password' : 'Show password'}
                                         >
                                             {signUpShowPassword ? (
@@ -813,7 +813,7 @@ export function LoginForm({ redirect, error, mode: modeParam }: { redirect: stri
                                             type="button"
                                             tabIndex={-1}
                                             onClick={() => setShowSignUpConfirmPassword(!showSignUpConfirmPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
+                                            className="nb-touch-target inline-flex items-center justify-center absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
                                             aria-label={showSignUpConfirmPassword ? 'Hide password' : 'Show password'}
                                         >
                                             {showSignUpConfirmPassword ? (
@@ -854,7 +854,7 @@ export function LoginForm({ redirect, error, mode: modeParam }: { redirect: stri
                                     </div>
                                 ) : (
                                     <div className="flex items-center justify-between p-3 rounded-lg border border-border/80 bg-muted/20 my-2 transition-colors">
-                                        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                                        <label className="flex items-center gap-2.5 cursor-pointer select-none max-md:min-h-11">
                                             <input
                                                 type="checkbox"
                                                 checked={Boolean(signUpCaptchaToken)}
