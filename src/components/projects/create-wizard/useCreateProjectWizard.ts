@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProjectSchema, type CreateProjectInput, type OpenRoleInput } from '@/lib/validations/project';
 import { generateSlug, generateProjectId } from '@/lib/utils/project-ids';
@@ -182,9 +182,11 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
     const [githubFolderEntries, setGithubFolderEntries] = useState<Record<string, GithubPreviewEntry[]>>({});
     const latestGithubPreviewRequestRef = useRef('');
 
-    const importSourceType = watch('import_source.type');
-    const watchedRepoUrl = watch('import_source.repoUrl');
-    const watchedBranch = watch('import_source.branch');
+    // useWatch, not watch(): whole-object import_source writes must still reset the GitHub preview.
+    const [importSourceType, watchedRepoUrl, watchedBranch] = useWatch({
+        control: methods.control,
+        name: ['import_source.type', 'import_source.repoUrl', 'import_source.branch'],
+    });
 
     const resetGithubPreview = useCallback(() => {
         latestGithubPreviewRequestRef.current = '';
