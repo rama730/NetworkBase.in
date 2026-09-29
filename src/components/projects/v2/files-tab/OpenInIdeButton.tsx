@@ -579,3 +579,21 @@ export function OpenInIdeButton({
     </>
   );
 }
+
+/** Phones reach the desktop IDE handoff from ⋯ menus; this sheet hosts the same button. `layered` lifts it above the task panel. */
+export function OpenInIdeSheet({
+  open,
+  onOpenChange,
+  layered = false,
+  ...buttonProps
+}: OpenInIdeButtonProps & { open: boolean; onOpenChange: (open: boolean) => void; layered?: boolean }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent overlayClassName={layered ? "z-[220]" : undefined} className={layered ? "z-[221] md:hidden" : "md:hidden"}>
+        <DialogTitle className="nb-card-title">Connect desktop IDE</DialogTitle>
+        <DialogDescription className="nb-compact text-muted-foreground">Open this work in your desktop editor.</DialogDescription>
+        <OpenInIdeButton {...buttonProps} />
+      </DialogContent>
+    </Dialog>
+  );
+}
