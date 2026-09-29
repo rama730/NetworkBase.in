@@ -238,7 +238,7 @@ export function ConversationListV2({
                         <button
                             type="button"
                             onClick={onToggleArchivedView}
-                            className="mt-4 rounded-[5px] border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                            className="nb-touch-target mt-4 rounded-[5px] border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted"
                         >
                             {archivedView ? 'Back to inbox' : 'View archived'}
                         </button>
@@ -258,7 +258,7 @@ export function ConversationListV2({
                     <button
                         type="button"
                         onClick={onToggleArchivedView}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+                        className="nb-touch-target inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
                     >
                         <Archive className="h-3.5 w-3.5" />
                         {archivedView ? 'Back to inbox' : 'Archived'}
@@ -461,14 +461,14 @@ export const ConversationItemV2 = React.memo(function ConversationItemV2({
                             <button
                                 type="button"
                                 onClick={() => { onArchive(conversation.id); close(); }}
-                                className="flex w-16 items-center justify-center bg-blue-500 text-white"
+                                className="flex w-16 items-center justify-center bg-secondary text-secondary-foreground"
                                 aria-label={archivedView ? 'Unarchive conversation' : 'Archive conversation'}
                             >
                                 <Archive className="h-5 w-5" />
                             </button>
                         ) : null}
                         {onMute ? (
-                            <button type="button" onClick={() => { onMute(conversation.id); close(); }} className="flex w-16 items-center justify-center bg-amber-500 text-white" aria-label={conversation.muted ? 'Unmute conversation' : 'Mute conversation'}>
+                            <button type="button" onClick={() => { onMute(conversation.id); close(); }} className="flex w-16 items-center justify-center bg-[var(--status-warning-soft)] text-[var(--status-warning)]" aria-label={conversation.muted ? 'Unmute conversation' : 'Mute conversation'}>
                                 {conversation.muted ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
                             </button>
                         ) : null}

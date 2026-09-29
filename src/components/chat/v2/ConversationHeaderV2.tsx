@@ -63,15 +63,16 @@ export function ConversationHeaderV2({
 
     return (
         <div className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between ${
-            isPopup ? 'h-14 px-3' : 'h-16 px-5'
+            isPopup ? 'h-14 px-3' : 'h-14 px-2 md:h-16 md:px-5'
         }`}>
             <div className="pointer-events-auto flex min-w-0 items-center gap-3">
-                {compact && onBack && (
+                {/* Page mode shows Back below md, where the list and thread alternate (spec §27). */}
+                {onBack && (
                     <button
                         type="button"
                         onClick={onBack}
-                        className={`rounded-full text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 ${
-                            isPopup ? 'p-1.5' : 'p-2'
+                        className={`nb-touch-target inline-flex items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 ${
+                            compact ? (isPopup ? 'p-1.5' : 'p-2') : 'p-2 md:hidden'
                         }`}
                         aria-label="Back"
                     >
@@ -163,7 +164,7 @@ export function ConversationHeaderV2({
                         <button
                             type="button"
                             disabled={actionLoading}
-                            className={`rounded-full bg-zinc-100 text-zinc-700 transition-colors hover:bg-zinc-200 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 ${
+                            className={`nb-touch-target inline-flex items-center justify-center rounded-full bg-zinc-100 text-zinc-700 transition-colors hover:bg-zinc-200 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 ${
                                 isPopup ? 'p-1.5' : 'p-2'
                             }`}
                             aria-label="Conversation actions"
