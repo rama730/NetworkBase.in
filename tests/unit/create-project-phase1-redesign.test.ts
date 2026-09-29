@@ -77,8 +77,8 @@ test("wizard shell is reactive, uses the project-setup exit dialog, and chunks u
   assert.match(wizard, /methods\.watch\('import_source\.metadata'\)/);
   assert.match(wizard, /<LeaveProjectSetupDialog/);
   assert.match(wizard, /app-scroll app-scroll-y app-scroll-gutter/);
-  // Full-page focus route (spec §18): full-height frame, content in the shared 1000px column.
-  assert.ok(wizard.includes("flex h-dvh min-h-0 w-full flex-col"));
+  // A page in the app shell (spec §18): fills the main area, content in the shared 1000px column.
+  assert.ok(wizard.includes("relative flex h-full min-h-0 w-full flex-col"));
   assert.ok(footer.includes("max-w-[1000px]"));
   assert.doesNotMatch(wizard, /presentation/);
   assert.match(hook, /offset \+= 200/);

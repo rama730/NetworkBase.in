@@ -13,20 +13,11 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
     const pathname = usePathname()
-    // Project creation is a full-page focus route: no sidebar, top bar or drawers (spec §18).
-    const focus = pathname === CREATE_PROJECT_PATH
 
+    // Closing the create-project page returns to wherever the user was before it.
     useEffect(() => {
-        if (!focus) rememberCreateProjectReturnPath(`${window.location.pathname}${window.location.search}`)
-    }, [focus, pathname])
-
-    if (focus) {
-        return (
-            <main id="main-content" tabIndex={-1} className="h-dvh min-h-0 overflow-hidden bg-card">
-                {children}
-            </main>
-        )
-    }
+        if (pathname !== CREATE_PROJECT_PATH) rememberCreateProjectReturnPath(`${window.location.pathname}${window.location.search}`)
+    }, [pathname])
 
     return (
         <div

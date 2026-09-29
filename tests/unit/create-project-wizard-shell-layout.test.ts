@@ -24,7 +24,7 @@ test("create-project shell keeps progress in a compact centered header and save 
   assert.match(wizard, /<WizardFooter[\s\S]*saveStatus=\{saveStatus\}[\s\S]*lastSaved=\{lastSaved\}/);
 });
 
-test("create-project is a full-page focus route: no modal, no app shell, one 1000px column", async () => {
+test("create-project is a normal page inside the app shell: no modal, one 1000px column", async () => {
   const [wizard, footer, layout, loading, hook, chat] = await Promise.all([
     readFile("src/components/projects/create-wizard/CreateProjectWizard.tsx", "utf8"),
     readFile("src/components/projects/create-wizard/WizardFooter.tsx", "utf8"),
@@ -35,11 +35,12 @@ test("create-project is a full-page focus route: no modal, no app shell, one 100
   ]);
 
   assert.doesNotMatch(wizard, /@\/components\/ui\/dialog|presentation/);
-  assert.match(wizard, /flex h-dvh min-h-0 w-full flex-col/);
+  assert.match(wizard, /relative flex h-full min-h-0 w-full flex-col/);
   assert.match(footer, /export const WIZARD_COLUMN = "mx-auto w-full max-w-\[1000px\]"/);
   assert.match(wizard, /\$\{WIZARD_COLUMN\} px-4 pb-6 pt-5 md:px-6 md:py-8/);
-  assert.match(layout, /const focus = pathname === CREATE_PROJECT_PATH/);
-  assert.match(layout, /if \(focus\) \{[\s\S]*<main id="main-content"/);
+  // Sidebar and top bar stay, exactly like every other page.
+  assert.doesNotMatch(layout, /if \(focus\)/);
+  assert.match(layout, /<AppSidebar \/>[\s\S]*<TopNav \/>[\s\S]*\{children\}/);
   assert.match(loading, /<CreateProjectShellSkeleton \/>/);
   assert.match(chat, /pathname === '\/projects\/new'/);
   // Browser Back keeps work: unsaved changes are saved as a draft on unmount unless the user chose to leave.

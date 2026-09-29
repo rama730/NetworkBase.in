@@ -11623,9 +11623,11 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
           <p>
             The small reference New project dialog supplies field styling and
             footer structure, not the scope of the real creation flow. Keep the
-            five-phase wizard. Project creation is a full-page focus route
-            (<code>/projects/new</code>) without the app shell: no sidebar, top
-            bar, drawers or chat button. Desktop: 64px header band (title,
+            five-phase wizard. Project creation is a normal page
+            (<code>/projects/new</code>) inside the app shell: sidebar and top
+            bar stay, and the wizard fills the main content area like any other
+            page (no modal; the chat button is hidden because the footer holds
+            Continue in that corner). Desktop: 64px header band (title,
             numbered stepper, close), one scrolling body with a 1000px content
             column, 72px footer band whose actions align to that column.
             Mobile: 56px header plus progress row, compact source rows, sticky
