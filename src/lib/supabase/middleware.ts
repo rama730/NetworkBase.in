@@ -236,28 +236,8 @@ export async function updateSession(request: NextRequest, options: UpdateSession
     }
 
     const url = request.nextUrl.clone()
-    const onboardingCompleteCookie = user ? request.cookies.get(`onboarding_complete_${user.id}`)?.value === 'true' : false
-    if (onboardingCompleteCookie) {
+    if (user && (hasOnboardingClaims(user) || request.cookies.get(onboardingCompleteCookieName(user.id))?.value === 'true')) {
         onboardingComplete = true
-    } else if (user) {
-        // ponytail: JWT claims and cookie bypass cross-region DB query (<4ms vs 185ms). ceiling: valid user session metadata. upgrade: fallback to profiles table query if claims missing.
-        const metadataOnboarding =
-            user.app_metadata?.onboarding_completed === true ||
-            user.user_metadata?.onboarding_completed === true ||
-            user.user_metadata?.onboarding_status === 'completed' ||
-            (typeof user.user_metadata?.username === 'string' && user.user_metadata.username.trim().length > 0)
-        if (metadataOnboarding) {
-            onboardingComplete = true
-            supabaseResponse.cookies.set({
-                name: `onboarding_complete_${user.id}`,
-                value: 'true',
-                httpOnly: true,
-                sameSite: 'lax',
-                secure: process.env.NODE_ENV === 'production',
-                path: '/',
-                maxAge: 60 * 60 * 24 * 365, // 1 year
-            })
-        }
     }
 
     if (!user && isProtectedAppRoute(pathname)) {
