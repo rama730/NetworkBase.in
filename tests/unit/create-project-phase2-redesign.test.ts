@@ -52,7 +52,9 @@ test('Phase 2 preserves draft safety; step 4 reuses the canonical Settings lifec
     assert.match(phase, /projectTagLimit = 8/);
     assert.match(phase, /font-mono text-\[11px\] uppercase tracking-\[0\.09em\]/);
     assert.doesNotMatch(phase, /variant="wizard"/);
-    assert.match(launch, /<LifecycleEditor[\s\S]*?showCurrentStage\s/);
+    // No current-stage picker at creation: new projects start at the first stage.
+    assert.match(launch, /showCurrentStage=\{false\}/);
+    assert.doesNotMatch(launch, /Where is the project now|current_stage_index/);
     assert.match(lifecycle, /showCurrentStage\?: boolean/);
     assert.match(lifecycle, /showCurrentStage && index === currentStageIndex/);
     assert.doesNotMatch(lifecycle, /Earlier/);

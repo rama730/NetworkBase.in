@@ -108,13 +108,13 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     const { control, setValue, formState: { errors } } = useFormContext<CreateProjectInput>();
     const [
         visibilityValue, publicTabsValue, externalLinksValue, readme, docEditPolicy, lifecycleStagesValue,
-        currentStageIndexValue, memberUpdatesEnabled, memberFileUploadDefault, notificationRowsValue,
+        memberUpdatesEnabled, memberFileUploadDefault, notificationRowsValue,
         importSource, projectType,
     ] = useWatch({
         control,
         name: [
             'visibility', 'public_tab_visibility', 'external_links', 'readme', 'doc_edit_policy', 'lifecycle_stages',
-            'current_stage_index', 'member_updates_enabled', 'member_file_upload_default', 'notification_rows',
+            'member_updates_enabled', 'member_file_upload_default', 'notification_rows',
             'import_source', 'project_type',
         ],
     });
@@ -123,7 +123,6 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     const externalLinks = socialLinkItemsFromStorage(externalLinksValue);
     const docMode = readme?.mode === 'skip' ? 'skip' : 'starter';
     const lifecycleStages = lifecycleStagesValue || [];
-    const currentStageIndex = Math.min(Math.max(Number(currentStageIndexValue) || 0, 0), Math.max(lifecycleStages.length - 1, 0));
     const notificationRows = { roles_applications: true, work: true, updates_docs: true, ...(notificationRowsValue || {}) };
     const sourceType = importSource?.type || 'scratch';
     const sourceMetadata = (importSource?.metadata || {}) as Record<string, unknown>;
@@ -356,29 +355,12 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     ) : null}
                 </LaunchSection>
 
-                <LaunchSection {...sectionProps('lifecycle')} title="Journey stages" description="Stages are suggested from the category. Rename, reorder, or add them, then mark where the project is now." summary={lifecycleStages.length ? `${lifecycleStages.length} stages · now: ${lifecycleStages[currentStageIndex]}` : 'No stages yet'}>
+                <LaunchSection {...sectionProps('lifecycle')} title="Journey stages" description="Stages are suggested from the category. Rename, reorder, or add them to match how the work will progress." summary={lifecycleStages.length ? `${lifecycleStages.length} stages` : 'No stages yet'}>
                     <LifecycleEditor
                         stages={lifecycleStages}
-                        onChange={(stages) => {
-                            set('lifecycle_stages', stages);
-                            if (currentStageIndex > Math.max(stages.length - 1, 0)) set('current_stage_index', Math.max(stages.length - 1, 0));
-                        }}
-                        currentStageIndex={currentStageIndex}
-                        showCurrentStage
+                        onChange={(stages) => set('lifecycle_stages', stages)}
+                        showCurrentStage={false}
                     />
-                    {lifecycleStages.length ? (
-                        <div className="mt-4 max-w-sm">
-                            <label htmlFor="create-project-current-stage" className="mb-2 block text-[13px] font-medium leading-[1.2] text-foreground">Where is the project now?</label>
-                            <select
-                                id="create-project-current-stage"
-                                value={currentStageIndex}
-                                onChange={(event) => set('current_stage_index', Number(event.target.value))}
-                                className="h-[var(--ui-control-height)] w-full rounded-md border border-input bg-card px-[var(--ui-control-px)] text-[14px] text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
-                            >
-                                {lifecycleStages.map((stage, index) => <option key={`${stage}-${index}`} value={index}>{stage}</option>)}
-                            </select>
-                        </div>
-                    ) : null}
                 </LaunchSection>
 
                 <LaunchSection {...sectionProps('permissions')} title="What members can do" description="Leaders can always do both. These apply to members who join later." summary={`Updates: ${memberUpdatesEnabled !== false ? 'members' : 'leaders only'} · Uploads: ${memberFileUploadDefault !== false ? 'members' : 'leaders only'}`}>

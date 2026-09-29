@@ -114,7 +114,6 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     const publicTabs = { ...DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY, ...(formData.public_tab_visibility || {}) };
     const publicTabLabels = PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => PROJECT_PUBLIC_TAB_LABELS[tab]);
     const docSkipped = formData.readme?.mode === 'skip';
-    const currentStageIndex = Math.min(Math.max(Number(formData.current_stage_index) || 0, 0), Math.max(lifecycleStages.length - 1, 0));
     const notificationRows = { roles_applications: true, work: true, updates_docs: true, ...(formData.notification_rows || {}) };
     const memberUpdates = formData.member_updates_enabled !== false;
     const memberUploads = formData.member_file_upload_default !== false;
@@ -272,7 +271,6 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                                 <li key={`${stage}-${index}`} className="flex items-center gap-2">
                                     <span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] border border-border font-mono text-[11px] text-muted-foreground">{index + 1}</span>
                                     <span className="nb-compact text-foreground">{stage}</span>
-                                    {index === currentStageIndex ? <DetailLabel>Now</DetailLabel> : null}
                                 </li>
                             ))}
                         </ol>
