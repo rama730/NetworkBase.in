@@ -46,7 +46,7 @@ export default function MobileMenu(props: {
                     showCloseButton={false}
                     onClick={closeOnNavigate}
                     style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
-                    className="left-0 right-auto top-0 flex h-dvh w-[min(320px,calc(100vw-32px))] max-w-none translate-x-0 translate-y-0 flex-col gap-4 rounded-none border-0 border-r border-border bg-sidebar p-4 md:hidden"
+                    className="left-0 right-auto top-0 flex h-dvh max-h-dvh! w-[min(320px,calc(100vw-32px))] max-w-none translate-x-0 translate-y-0 flex-col gap-3 rounded-none border-0 border-r border-border bg-sidebar p-4 md:hidden"
                 >
                 <DialogTitle className="sr-only">Mobile navigation</DialogTitle>
                 <DialogDescription className="sr-only">Navigate your workspace or sign out.</DialogDescription>
@@ -78,9 +78,10 @@ export default function MobileMenu(props: {
                         props.onClose();
                         props.onNewProject?.();
                     }}
-                    className="nb-ui-label inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[5px] border border-primary bg-primary px-4 text-primary-foreground transition-colors hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
+                    // 36px visual, 44px tap area via invisible hit padding (spec §05).
+                    className="relative inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[5px] border border-primary bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
                 >
-                    <Plus className="size-4" aria-hidden="true" />
+                    <Plus className="size-3.5" aria-hidden="true" />
                     New project
                 </button>
 

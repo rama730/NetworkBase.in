@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Ban, Check, ChevronDown, Clock, Loader2, Lock, MapPin, MessageSquare } from "lucide-react";
 
@@ -13,6 +13,7 @@ import { profileHref } from "@/lib/routing/identifiers";
 import { canonicalSkillKey, matchingSkillLabels } from "@/lib/skills/matching";
 import { useConnectionMutations } from "@/hooks/useConnections";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -20,6 +21,35 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+/**
+ * Shared Network person-card anatomy (profile-header style): avatar top-left with name beside it,
+ * details full width below, actions in a bottom row that lines up across a grid row.
+ */
+export function PersonCardLayout({
+    avatar,
+    head,
+    body,
+    actions,
+    className,
+}: {
+    avatar: ReactNode;
+    head: ReactNode;
+    body?: ReactNode;
+    actions?: ReactNode;
+    className?: string;
+}) {
+    return (
+        <article className={cn("flex h-full min-w-0 flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-input", className)}>
+            <div className="flex min-w-0 items-start gap-3">
+                {avatar}
+                <div className="min-w-0 flex-1 pt-0.5">{head}</div>
+            </div>
+            {body ? <div className="mt-3 min-w-0 space-y-2">{body}</div> : null}
+            {actions ? <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3 [&:not(:first-child)]:mt-4">{actions}</div> : null}
+        </article>
+    );
+}
 
 export interface PersonCardProps {
     profile: SuggestedProfile;
@@ -171,46 +201,49 @@ function PersonCard({
     ) : null;
 
     return (
-        <article className="flex h-full min-w-0 min-h-[158px] items-center gap-3.5 rounded-lg border border-border bg-card p-4 transition-colors hover:border-input">
-            <Link href={profileHref(profile)} className="relative inline-flex shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                <UserAvatar identity={profile} size={54} priority={priority} fallbackClassName="text-lg font-semibold" />
-                <PersonPresenceDot lastActiveAt={profile.lastActiveAt} />
-            </Link>
+        <PersonCardLayout
+            className="min-h-[158px]"
+            avatar={
+                <Link href={profileHref(profile)} className="relative inline-flex shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                    <UserAvatar identity={profile} size={48} priority={priority} fallbackClassName="text-base font-semibold" />
+                    <PersonPresenceDot lastActiveAt={profile.lastActiveAt} />
+                </Link>
+            }
+            head={
+                <Link href={profileHref(profile)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <h3 className="nb-card-title line-clamp-2 min-w-0 break-words text-foreground" title={displayName}>{displayName}</h3>
+                    {!isLocked && profile.location ? (
+                        <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={profile.location}>
+                            <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                            <span className="min-w-0 truncate">{profile.location}</span>
+                        </p>
+                    ) : null}
+                </Link>
+            }
+            body={
+                <>
+                    {isLocked ? (
+                        <p className="nb-compact flex items-center gap-1 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />Private profile</p>
+                    ) : (
+                        <p className="nb-body line-clamp-2 text-muted-foreground">{profile.headline || "NetworkBase member"}</p>
+                    )}
 
-            <Link href={profileHref(profile)} className="min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <h3 className="nb-card-title block min-w-0 truncate text-foreground" title={displayName}>{displayName}</h3>
+                    {!isLocked && skills.length ? (
+                        <div className="flex min-w-0 flex-wrap gap-1.5" aria-label="Skills">
+                            {skills.map((skillName) => {
+                                const skill = resolveClientSkill(skillName);
+                                return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
+                            })}
+                        </div>
+                    ) : null}
 
-                {isLocked ? (
-                    <p className="nb-compact mt-1 flex items-center gap-1 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />Private profile</p>
-                ) : profile.headline ? (
-                    <p className="nb-compact mt-1 truncate text-muted-foreground">{profile.headline}</p>
-                ) : (
-                    <p className="nb-compact mt-1 text-muted-foreground">NetworkBase member</p>
-                )}
-
-                {!isLocked && profile.location ? (
-                    <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={profile.location}>
-                        <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-                        <span className="min-w-0 truncate">{profile.location}</span>
-                    </p>
-                ) : null}
-
-                {!isLocked && skills.length ? (
-                    <div className="mt-2 flex min-w-0 flex-wrap gap-1.5" aria-label="Skills">
-                        {skills.map((skillName) => {
-                            const skill = resolveClientSkill(skillName);
-                            return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
-                        })}
-                    </div>
-                ) : null}
-
-                {!isLocked && (profile.mutualConnections ?? 0) > 0 ? (
-                    <p className="nb-meta mt-2">{profile.mutualConnections} shared connections</p>
-                ) : null}
-            </Link>
-
-            {action}
-        </article>
+                    {!isLocked && (profile.mutualConnections ?? 0) > 0 ? (
+                        <p className="nb-meta">{profile.mutualConnections} shared connections</p>
+                    ) : null}
+                </>
+            }
+            actions={action}
+        />
     );
 }
 

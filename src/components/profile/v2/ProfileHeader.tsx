@@ -37,7 +37,8 @@ function PresenceDot({ lastActiveAt }: { lastActiveAt?: string | Date | null }) 
 
     return (
         <span
-            className={cn('absolute -bottom-0.5 -right-0.5 size-[19px] rounded-full ring-2 ring-card', tone)}
+            // Phones: the dot sits just outside the photo's bottom-right corner (inside the 16px column gap) instead of covering it.
+            className={cn('absolute -bottom-0.5 -right-0.5 size-[19px] rounded-full ring-2 ring-card max-md:-right-3.5 max-md:bottom-0 max-md:size-3 max-md:ring-0', tone)}
             aria-label={activeLabel ?? 'Offline'}
             title={activeLabel ?? 'Offline'}
         />

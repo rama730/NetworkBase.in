@@ -17,6 +17,7 @@ import { resolveMessageWorkflowActionV2 } from "@/app/actions/messaging/collabor
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { PersonCardLayout } from "@/components/network/PersonCard";
 import { useConnectionMutations, usePendingRequests } from "@/hooks/useConnections";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import { queryKeys } from "@/lib/query-keys";
@@ -24,18 +25,14 @@ import { profileHref } from "@/lib/routing/identifiers";
 
 function InvitationCardSkeleton() {
     return (
-        <article className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:gap-3.5" aria-hidden="true">
-            <Skeleton className="size-[54px] shrink-0 rounded-full" />
-            <div className="min-w-0 flex-1 space-y-2">
-                <Skeleton className="h-4 w-40 rounded-sm" />
-                <Skeleton className="h-3.5 w-64 rounded-sm" />
-                <Skeleton className="h-3 w-32 rounded-sm" />
-            </div>
-            <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-                <Skeleton className="h-9 w-20 rounded-md" />
-                <Skeleton className="h-9 w-20 rounded-md" />
-            </div>
-        </article>
+        <div aria-hidden="true">
+            <PersonCardLayout
+                avatar={<Skeleton className="size-12 shrink-0 rounded-[8px]" />}
+                head={<div className="space-y-2"><Skeleton className="h-4 w-40 rounded-sm" /><Skeleton className="h-3 w-24 rounded-sm" /></div>}
+                body={<><Skeleton className="h-3.5 w-full max-w-64 rounded-sm" /><Skeleton className="h-3 w-32 rounded-sm" /></>}
+                actions={<><Skeleton className="h-9 w-20 rounded-md" /><Skeleton className="h-9 w-20 rounded-md" /></>}
+            />
+        </div>
     );
 }
 
@@ -265,26 +262,31 @@ export default function InvitationsClient({
                             const isProcessing = isAccepting || isDeclining;
 
                             return (
-                                <article key={invitation.id} className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:gap-3.5">
-                                    <Link href={profileHref(profile)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                        <UserAvatar identity={profile} size={54} fallbackClassName="text-lg font-semibold" />
-                                    </Link>
-                                    <Link href={profileHref(profile)} className="min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="nb-card-title text-foreground">{displayName}</h3>
-                                            <span className="inline-flex rounded-sm border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">Invited you</span>
-                                        </div>
-                                        {invitation.requesterHeadline ? <p className="mt-1 truncate text-sm max-md:text-[13px] text-muted-foreground">{invitation.requesterHeadline}</p> : null}
-                                        <p className="nb-meta mt-1.5 truncate">{invitation.message || "Wants to connect and collaborate with you."}</p>
-                                    </Link>
-                                    <InvitationActions
-                                        busy={isProcessing}
-                                        accepting={isAccepting}
-                                        declining={isDeclining}
-                                        onAccept={() => void acceptConnection(invitation.id, displayName.split(" ")[0] || displayName)}
-                                        onDecline={() => void declineConnection(invitation.id)}
-                                    />
-                                </article>
+                                <PersonCardLayout
+                                    key={invitation.id}
+                                    avatar={<Link href={profileHref(profile)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" /></Link>}
+                                    head={
+                                        <Link href={profileHref(profile)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                            <h3 className="nb-card-title line-clamp-2 break-words text-foreground">{displayName}</h3>
+                                            <span className="nb-status mt-1" data-status="active">Invited you</span>
+                                        </Link>
+                                    }
+                                    body={
+                                        <>
+                                            {invitation.requesterHeadline ? <p className="nb-body line-clamp-2 text-muted-foreground">{invitation.requesterHeadline}</p> : null}
+                                            <p className="nb-meta line-clamp-2">{invitation.message || "Wants to connect and collaborate with you."}</p>
+                                        </>
+                                    }
+                                    actions={
+                                        <InvitationActions
+                                            busy={isProcessing}
+                                            accepting={isAccepting}
+                                            declining={isDeclining}
+                                            onAccept={() => void acceptConnection(invitation.id, displayName.split(" ")[0] || displayName)}
+                                            onDecline={() => void declineConnection(invitation.id)}
+                                        />
+                                    }
+                                />
                             );
                         })}
                     </div>
@@ -300,26 +302,31 @@ export default function InvitationsClient({
                             const displayName = actor?.fullName || actor?.username || "NetworkBase member";
                             const busy = processingProject?.id === invitation.id;
                             return (
-                                <article key={invitation.id} className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:gap-3.5">
-                                    <Link href={profileHref(actor)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                        <UserAvatar identity={actor} size={54} fallbackClassName="text-lg font-semibold" />
-                                    </Link>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <Link href={profileHref(actor)} className="nb-card-title text-foreground hover:text-primary">{displayName}</Link>
-                                            <span className="inline-flex rounded-sm border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">Project invitation</span>
-                                        </div>
-                                        <p className="mt-1 text-sm max-md:text-[13px] text-muted-foreground">Invited you to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>
-                                        <p className="nb-meta mt-1.5">Role · {invitation.roleTitle}</p>
-                                    </div>
-                                    <InvitationActions
-                                        busy={busy}
-                                        accepting={busy && processingProject.action === "accept"}
-                                        declining={busy && processingProject.action === "decline"}
-                                        onAccept={() => void resolveProjectInvitation(invitation.id, "accept")}
-                                        onDecline={() => void resolveProjectInvitation(invitation.id, "decline")}
-                                    />
-                                </article>
+                                <PersonCardLayout
+                                    key={invitation.id}
+                                    avatar={<Link href={profileHref(actor)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={actor} size={48} fallbackClassName="text-base font-semibold" /></Link>}
+                                    head={
+                                        <>
+                                            <Link href={profileHref(actor)} className="nb-card-title line-clamp-2 break-words text-foreground hover:text-primary">{displayName}</Link>
+                                            <span className="nb-status mt-1" data-status="active">Project invitation</span>
+                                        </>
+                                    }
+                                    body={
+                                        <>
+                                            <p className="nb-body text-muted-foreground">Invited you to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>
+                                            <p className="nb-meta">Role · {invitation.roleTitle}</p>
+                                        </>
+                                    }
+                                    actions={
+                                        <InvitationActions
+                                            busy={busy}
+                                            accepting={busy && processingProject.action === "accept"}
+                                            declining={busy && processingProject.action === "decline"}
+                                            onAccept={() => void resolveProjectInvitation(invitation.id, "accept")}
+                                            onDecline={() => void resolveProjectInvitation(invitation.id, "decline")}
+                                        />
+                                    }
+                                />
                             );
                         })}
                     </div>
@@ -336,40 +343,39 @@ export default function InvitationsClient({
                             const isCancelling = cancellingProjectId === invitation.id;
 
                             return (
-                                <article key={invitation.id} className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:gap-3.5">
-                                    <Link href={profileHref(candidate)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                        <UserAvatar identity={candidate} size={54} fallbackClassName="text-lg font-semibold" />
-                                    </Link>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <Link href={profileHref(candidate)} className="nb-card-title text-foreground hover:text-primary">{displayName}</Link>
-                                        </div>
-                                        <p className="mt-1 text-sm max-md:text-[13px] text-muted-foreground">
-                                            Invited to join{" "}
-                                            <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">
-                                                {invitation.projectTitle}
-                                            </Link>
-                                        </p>
-                                        <div className="nb-meta mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                                            <span>Role · {invitation.roleTitle}</span>
-                                            <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                                <Clock className="size-3 shrink-0" aria-hidden="true" />
-                                                Pending response
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-                                        <button
-                                            type="button"
-                                            onClick={() => void handleCancelSentProjectInvitation(invitation)}
-                                            disabled={isCancelling}
-                                            className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
-                                        >
-                                            {isCancelling ? <Loader2 className="size-4 animate-spin text-muted-foreground mr-1.5" aria-hidden="true" /> : null}
-                                            Cancel invitation
-                                        </button>
-                                    </div>
-                                </article>
+                                <PersonCardLayout
+                                    key={invitation.id}
+                                    avatar={<Link href={profileHref(candidate)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={candidate} size={48} fallbackClassName="text-base font-semibold" /></Link>}
+                                    head={<Link href={profileHref(candidate)} className="nb-card-title line-clamp-2 break-words text-foreground hover:text-primary">{displayName}</Link>}
+                                    body={
+                                        <>
+                                            <p className="nb-body text-muted-foreground">
+                                                Invited to join{" "}
+                                                <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">
+                                                    {invitation.projectTitle}
+                                                </Link>
+                                            </p>
+                                            <div className="nb-meta flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                <span>Role · {invitation.roleTitle}</span>
+                                                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                                    <Clock className="size-3 shrink-0" aria-hidden="true" />
+                                                    Pending response
+                                                </span>
+                                            </div>
+                                        </>
+                                    }
+                                    actions={
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleCancelSentProjectInvitation(invitation)}
+                                        disabled={isCancelling}
+                                        className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                                    >
+                                        {isCancelling ? <Loader2 className="size-4 animate-spin text-muted-foreground mr-1.5" aria-hidden="true" /> : null}
+                                        Cancel invitation
+                                    </button>
+                                    }
+                                />
                             );
                         })}
                     </div>
@@ -405,32 +411,35 @@ export default function InvitationsClient({
                             );
 
                             return (
-                                <article key={request.id} className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:gap-3.5">
-                                    <Link href={profileHref(profile)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                        <UserAvatar identity={profile} size={54} fallbackClassName="text-lg font-semibold" />
-                                    </Link>
-                                    <Link href={profileHref(profile)} className="min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="nb-card-title text-foreground">{displayName}</h3>
-                                        </div>
-                                        {request.addresseeHeadline ? <p className="mt-1 truncate text-sm max-md:text-[13px] text-muted-foreground">{request.addresseeHeadline}</p> : null}
-                                        <p className="nb-meta mt-1.5 flex items-center gap-1.5 text-muted-foreground">
-                                            <Clock className="size-3 shrink-0" aria-hidden="true" />
-                                            <span>Pending response</span>
-                                        </p>
-                                    </Link>
-                                    <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-                                        <button
-                                            type="button"
-                                            onClick={() => void handleCancelConnection(request.id, displayName)}
-                                            disabled={isCancelling}
-                                            className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
-                                        >
-                                            {isCancelling ? <Loader2 className="size-4 animate-spin text-muted-foreground mr-1.5" aria-hidden="true" /> : null}
-                                            Cancel request
-                                        </button>
-                                    </div>
-                                </article>
+                                <PersonCardLayout
+                                    key={request.id}
+                                    avatar={<Link href={profileHref(profile)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" /></Link>}
+                                    head={
+                                        <Link href={profileHref(profile)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                            <h3 className="nb-card-title line-clamp-2 break-words text-foreground">{displayName}</h3>
+                                        </Link>
+                                    }
+                                    body={
+                                        <>
+                                            {request.addresseeHeadline ? <p className="nb-body line-clamp-2 text-muted-foreground">{request.addresseeHeadline}</p> : null}
+                                            <p className="nb-meta flex items-center gap-1.5 text-muted-foreground">
+                                                <Clock className="size-3 shrink-0" aria-hidden="true" />
+                                                <span>Pending response</span>
+                                            </p>
+                                        </>
+                                    }
+                                    actions={
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleCancelConnection(request.id, displayName)}
+                                        disabled={isCancelling}
+                                        className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                                    >
+                                        {isCancelling ? <Loader2 className="size-4 animate-spin text-muted-foreground mr-1.5" aria-hidden="true" /> : null}
+                                        Cancel request
+                                    </button>
+                                    }
+                                />
                             );
                         })}
                     </div>
@@ -448,7 +457,7 @@ function InvitationActions({ busy, accepting, declining, onAccept, onDecline }: 
     onDecline: () => void;
 }) {
     return (
-        <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+        <div className="flex items-center gap-2">
             <button type="button" onClick={onDecline} disabled={busy} className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50">
                 {declining ? <Loader2 className="size-4 animate-spin" aria-label="Declining" /> : "Decline"}
             </button>
