@@ -4,7 +4,7 @@ import { resolveAuthSnapshot, type AuthSnapshotResolution } from '@/lib/auth/sna
 import { logger } from '@/lib/logger'
 import { toPrivacySafeRouteMetric } from '@/lib/routing/route-metric'
 import { classifyRoute } from '@/lib/routing/route-class'
-import { resolveSupabasePublicEnv, resolveSupabaseServiceEnv } from '@/lib/supabase/env'
+import { authBoundedFetch, resolveSupabasePublicEnv, resolveSupabaseServiceEnv } from '@/lib/supabase/env'
 import { resolveSupabaseServerCookieOptions } from '@/lib/supabase/cookie-options'
 
 const AUTH_COOKIE_MARKERS = ['auth-token', 'sb-access-token', 'sb-refresh-token']
@@ -55,6 +55,7 @@ export async function createClient() {
         env.url,
         env.anonKey,
         {
+            global: { fetch: authBoundedFetch },
             cookieOptions: resolveSupabaseServerCookieOptions(),
             cookies: {
                 getAll() {
