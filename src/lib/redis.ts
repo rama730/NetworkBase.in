@@ -24,6 +24,8 @@ function createRedisClient() {
     return new Redis({
         url: process.env.UPSTASH_REDIS_REST_URL,
         token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        signal: () => AbortSignal.timeout(1_500),
+        retry: { retries: 1, backoff: () => 50 },
     })
 }
 

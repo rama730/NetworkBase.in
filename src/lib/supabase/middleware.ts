@@ -12,7 +12,7 @@ import {
     isProtectedAppRoute,
 } from '@/lib/routing/route-class'
 import { resolveSupabaseServerCookieOptions } from '@/lib/supabase/cookie-options'
-import { resolveSupabasePublicEnv } from '@/lib/supabase/env'
+import { authBoundedFetch, resolveSupabasePublicEnv } from '@/lib/supabase/env'
 import { hasOnboardingClaims, onboardingCompleteCookieName } from '@/lib/onboarding/state'
 
 const AUTH_DEGRADED_MODE_ENABLED = readBooleanFromEnv('AUTH_DEGRADED_MODE_ENABLED', true)
@@ -157,6 +157,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         supabaseEnv.url,
         supabaseEnv.anonKey,
         {
+            global: { fetch: authBoundedFetch },
             cookieOptions: resolveSupabaseServerCookieOptions(),
             cookies: {
                 getAll() {
