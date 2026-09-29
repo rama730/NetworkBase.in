@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useMemo, useState, type HTMLAttributes } from "react";
 import Link from "next/link";
-import { Ban, Check, ChevronDown, Loader2, MessageSquare, UserMinus, Users } from "lucide-react";
+import { Ban, Check, ChevronDown, Loader2, MapPin, MessageSquare, UserMinus, Users } from "lucide-react";
 import { VirtuosoGrid } from "react-virtuoso";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SkillIcon } from "@/components/skills";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { PersonCardLayout } from "@/components/network/PersonCard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useConnectionMutations, useConnections, type NetworkConnectionItem } from "@/hooks/useConnections";
 import { profileHref } from "@/lib/routing/identifiers";
@@ -136,35 +137,40 @@ function ConnectionCard({
     const skills = (user.skills ?? []).slice(0, 2);
 
     return (
-        <article className="flex h-full min-h-[158px] items-center gap-3.5 rounded-lg border border-border bg-card p-4 transition-colors hover:border-input">
-            <Link href={profileHref(user)} className="relative shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <UserAvatar identity={user} size={54} fallbackClassName="text-lg font-semibold" />
-                <PresenceDot lastActiveAt={user.lastActiveAt} />
-            </Link>
-
-            <Link href={profileHref(user)} className="min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <h3 className="nb-card-title break-words text-foreground">{displayName}</h3>
-                    {user.location ? <span className="nb-meta min-w-0 break-words">{user.location}</span> : null}
-                </div>
-                {user.headline ? <p className="mt-1 truncate text-sm max-md:text-[13px] text-muted-foreground">{user.headline}</p> : <p className="mt-1 text-sm max-md:text-[13px] text-muted-foreground">NetworkBase member</p>}
-                {skills.length ? <div className="mt-2 flex flex-wrap gap-1.5">{skills.map((skillName) => {
-                    const skill = resolveClientSkill(skillName);
-                    return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
-                })}</div> : null}
-                <p className="nb-meta mt-2">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>
-            </Link>
-
-            <div className="flex shrink-0 items-center">
+        <PersonCardLayout
+            className="min-h-[158px]"
+            avatar={
+                <Link href={profileHref(user)} className="relative shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <UserAvatar identity={user} size={48} fallbackClassName="text-base font-semibold" />
+                    <PresenceDot lastActiveAt={user.lastActiveAt} />
+                </Link>
+            }
+            head={
+                <Link href={profileHref(user)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <h3 className="nb-card-title line-clamp-2 break-words text-foreground">{displayName}</h3>
+                    {user.location ? <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={user.location}><MapPin className="size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{user.location}</span></p> : null}
+                </Link>
+            }
+            body={
+                <>
+                    <p className="nb-body line-clamp-2 text-muted-foreground">{user.headline || "NetworkBase member"}</p>
+                    {skills.length ? <div className="flex flex-wrap gap-1.5">{skills.map((skillName) => {
+                        const skill = resolveClientSkill(skillName);
+                        return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
+                    })}</div> : null}
+                    <p className="nb-meta">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>
+                </>
+            }
+            actions={
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <button type="button" className="nb-touch-target inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted" aria-label={`Connection actions for ${displayName}`}>
                             <Check className="size-4 text-[var(--status-success)]" aria-hidden="true" />
-                            <span className="hidden lg:inline">Connected</span>
+                            <span>Connected</span>
                             <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
                         </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="start">
                         {user.canSendMessage ? (
                             <>
                                 <DropdownMenuItem asChild>
@@ -178,7 +184,7 @@ function ConnectionCard({
                         <DropdownMenuItem onClick={() => void onBlock(user.id)} variant="destructive"><Ban className="size-4" />Block profile</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            </div>
-        </article>
+            }
+        />
     );
 }
