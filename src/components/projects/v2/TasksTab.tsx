@@ -54,7 +54,7 @@ import {
 } from "@/lib/projects/workflow-colors";
 import { queryKeys } from "@/lib/query-keys";
 import type { TaskPanelTab } from "@/hooks/useTaskPanelResource";
-import { OpenInIdeButton } from "@/components/projects/v2/files-tab/OpenInIdeButton";
+import { OpenInIdeButton, OpenInIdeSheet } from "@/components/projects/v2/files-tab/OpenInIdeButton";
 import { SkeletonTasks } from "@/components/projects/skeletons/SkeletonTasks";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 
@@ -827,13 +827,7 @@ export default function TasksTab({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Dialog open={ideSheetOpen} onOpenChange={setIdeSheetOpen}>
-              <DialogContent className="md:hidden">
-                <DialogTitle className="nb-card-title">Connect desktop IDE</DialogTitle>
-                <DialogDescription className="nb-compact text-muted-foreground">Open this project or task in your desktop editor.</DialogDescription>
-                <OpenInIdeButton projectId={projectId} projectSlug={projectSlug} taskId={editingTask?.id} />
-              </DialogContent>
-            </Dialog>
+            <OpenInIdeSheet open={ideSheetOpen} onOpenChange={setIdeSheetOpen} projectId={projectId} projectSlug={projectSlug} taskId={editingTask?.id} />
           </div>
         </div>
       </div>

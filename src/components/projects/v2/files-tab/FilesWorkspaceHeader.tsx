@@ -41,7 +41,7 @@ import { QuickOpenDialog } from "./quick-open/QuickOpenDialog";
 // ponytail: portal only controls, not state or mutation handlers. ceiling: single shared header slot. upgrade: separate floating toolbar if sub-panels require decoupled toolbars.
 import { FilesHeaderContext, FilesHeaderSlot } from "./FilesHeaderSlot";
 export { FilesHeaderSlot } from "./FilesHeaderSlot";
-import { OpenInIdeButton } from "./OpenInIdeButton";
+import { OpenInIdeButton, OpenInIdeSheet } from "./OpenInIdeButton";
 
 export function FilesWorkspaceHeader({
   projectId,
@@ -532,13 +532,7 @@ export function FilesWorkspaceMenu({
         />
       )}
       {header?.ide ? (
-        <Dialog open={surface === "ide"} onOpenChange={(open) => { if (!open) closeSurface(); }}>
-          <DialogContent className="md:hidden">
-            <DialogTitle>Connect desktop IDE</DialogTitle>
-            <DialogDescription>Open these files in your desktop editor.</DialogDescription>
-            <OpenInIdeButton {...header.ide} />
-          </DialogContent>
-        </Dialog>
+        <OpenInIdeSheet open={surface === "ide"} onOpenChange={(open) => { if (!open) closeSurface(); }} {...header.ide} />
       ) : null}
       <Dialog
         open={

@@ -69,7 +69,6 @@ function useMediaMatch(media: string) {
   return matches;
 }
 
-const useDesktopUpdatesRail = () => useMediaMatch("(min-width: 1280px)");
 
 export default function UpdatesTab({
   projectId,
@@ -91,7 +90,7 @@ export default function UpdatesTab({
   const [detailUpdateId, setDetailUpdateId] = useState<string | null>(
     initialUpdateId ?? null,
   );
-  const isDesktopUpdatesRail = useDesktopUpdatesRail();
+  const isDesktopUpdatesRail = useMediaMatch("(min-width: 1280px)");
   // Phones open an update in a full-screen drawer so the feed keeps its scroll position (spec §09/§25).
   const isPhone = useMediaMatch("(max-width: 767px)");
   const [shortcutsOpen, setShortcutsOpen] = useState(false);

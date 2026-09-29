@@ -40,7 +40,7 @@ import FilesTab from "./TaskDetailTabs/FilesTab";
 import SubtasksTab from "./TaskDetailTabs/SubtasksTab";
 import TaskPriorityBadge from "./badges/TaskPriorityBadge";
 import TaskStatusBadge from "./badges/TaskStatusBadge";
-import { OpenInIdeButton } from "@/components/projects/v2/files-tab/OpenInIdeButton";
+import { OpenInIdeButton, OpenInIdeSheet } from "@/components/projects/v2/files-tab/OpenInIdeButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -601,12 +601,7 @@ export default function TaskDetailPanel({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={ideSheetOpen} onOpenChange={setIdeSheetOpen}>
-        <DialogContent overlayClassName="z-[220]" className="z-[221] md:hidden">
-          <DialogTitle className="nb-card-title">Connect desktop IDE</DialogTitle>
-          <OpenInIdeButton projectId={projectId} projectSlug={projectSlug} taskId={resource.task.id} />
-        </DialogContent>
-      </Dialog>
+      <OpenInIdeSheet layered open={ideSheetOpen} onOpenChange={setIdeSheetOpen} projectId={projectId} projectSlug={projectSlug} taskId={resource.task.id} />
 
       <ConfirmDialog
         open={showDeleteConfirm}

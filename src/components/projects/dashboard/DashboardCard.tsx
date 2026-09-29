@@ -7,7 +7,6 @@ import { ReactNode } from "react";
 // Mobile card anatomy shared by project and profile cards (report F52).
 // ponytail: shared classes instead of merging card components; merging changes desktop, revisit when a desktop pass is approved.
 export const NB_CARD_HEADER_MOBILE = "max-md:px-4 max-md:py-3";
-export const NB_CARD_BODY_MOBILE = "max-md:px-4";
 
 interface DashboardCardProps {
     title: string;
