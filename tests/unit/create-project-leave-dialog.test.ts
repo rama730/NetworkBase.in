@@ -16,6 +16,8 @@ test("the project-setup exit dialog favors recovery and clearly isolates the des
   assert.match(dialog, /variant="destructive"[\s\S]*Leave setup/);
   assert.match(dialog, /autoFocus/);
   assert.match(dialog, /aria-describedby="leave-project-setup-description"/);
-  assert.match(wizard, /<LeaveProjectSetupDialog[\s\S]*onLeave=\{onClose\}/);
+  // "Leave setup" discards on purpose, so it skips the save-on-leave draft before closing.
+  assert.match(wizard, /const leaveSetup = \(\) => \{\s*markLeaving\(\);\s*onClose\(\);/);
+  assert.match(wizard, /<LeaveProjectSetupDialog[\s\S]*onLeave=\{leaveSetup\}/);
   assert.doesNotMatch(wizard, /<ConfirmDialog/);
 });

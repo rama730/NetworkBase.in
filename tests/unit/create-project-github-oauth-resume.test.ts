@@ -21,9 +21,10 @@ test('the GitHub OAuth return path preserves the current route and strips only w
     assert.equal(parseCreateProjectSource('invalid'), null);
 });
 
-test('GitHub authorization snapshots wizard input, restores the in-place modal, and resumes repository checks', () => {
+test('GitHub authorization snapshots wizard input, restores it on the create route, and resumes repository checks', () => {
     const phase = source('src/components/projects/create-wizard/phases/Phase1SourceSelection.tsx');
     const wizard = source('src/components/projects/create-wizard/CreateProjectWizard.tsx');
+    const route = source('src/components/projects/create-wizard/CreateProjectRouteClient.tsx');
     const topNav = source('src/components/layout/header/TopNav.tsx');
     const hub = source('src/components/discover/DiscoverClient.tsx');
 
@@ -32,7 +33,10 @@ test('GitHub authorization snapshots wizard input, restores the in-place modal, 
     assert.match(phase, /void loadGithubPreview\(repoUrl, branch \|\| null\)/);
     assert.match(wizard, /initialValues: githubOAuthResume\?\.values/);
     assert.match(wizard, /onGithubOAuthResumeRestored/);
-    assert.match(topNav, /readGithubOAuthResume\(returnPath\)/);
-    assert.match(topNav, /pathname === '\/discover'/);
-    assert.match(hub, /readGithubOAuthResume\(returnPath\)/);
+    // The create route is the wizard's only home, so it alone restores the hand-off.
+    assert.match(route, /readGithubOAuthResume\(returnPath\)/);
+    assert.match(route, /githubOAuthResume=\{handoff\.resume\}/);
+    assert.match(route, /router\.replace\(readCreateProjectReturnPath\(\) \?\? '\/discover'\)/);
+    assert.doesNotMatch(topNav, /readGithubOAuthResume/);
+    assert.doesNotMatch(hub, /readGithubOAuthResume/);
 });

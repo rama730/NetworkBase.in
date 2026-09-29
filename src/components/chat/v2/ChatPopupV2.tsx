@@ -99,7 +99,8 @@ export function ChatPopupV2() {
         wasVisibleRef.current = visible;
     }, [popupState]);
 
-    if (!user || isLoading || pathname.startsWith('/messages')) return null;
+    // Hidden where it would compete: the messages page itself and the full-page create-project focus route.
+    if (!user || isLoading || pathname.startsWith('/messages') || pathname === '/projects/new') return null;
 
     if (popupState !== 'open') {
         return (

@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useMemo, memo, useEffect, useCallback, useRef } from 'react';
-import dynamic from 'next/dynamic';
+import { useState, useMemo, memo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Search, Sparkles, CheckSquare, X } from 'lucide-react';
+import { Search, Plus, CheckSquare, X } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Hooks
-import { useSearchParams } from 'next/navigation';
 import { useDiscoverProjects } from '@/hooks/discover/useDiscoverProjects';
 import { useAuth } from '@/hooks/useAuth';
 import { useDiscoverSessionSeen } from '@/hooks/discover/useDiscoverSessionSeen';
@@ -35,55 +33,12 @@ import { ROUTES } from '@/constants/routes';
 import { User, Project } from '@/types/discover';
 
 // Dynamic Modals
-const CreateProjectWizard = dynamic(() => import('@/components/projects/create-wizard/CreateProjectWizard'), { ssr: false });
 
 import { toProjectCardViewModel, ProjectCardViewModel } from '@/lib/view-models/project-card';
 import { queryKeys } from '@/lib/query-keys';
 import type { ConnectionFeedPage, DiscoverConnectionItem } from '@/hooks/useConnections';
 import { toDiscoverUser } from '@/lib/view-models/discover-user';
-import {
-    clearGithubOAuthResume,
-    getCreateProjectReturnPath,
-    readGithubOAuthResume,
-    type CreateProjectGithubOAuthResume,
-} from '@/components/projects/create-wizard/github-oauth-resume';
 
-const CREATE_PROJECT_MODAL_STORAGE_KEY = 'discover:create-project-modal-state';
-
-type PersistedCreateProjectSource = 'scratch' | 'github' | 'upload' | null;
-
-type PersistedCreateProjectModalState = {
-    open: boolean;
-    source: PersistedCreateProjectSource;
-};
-
-function parsePersistedCreateProjectSource(raw: string | null | undefined): PersistedCreateProjectSource {
-    return raw === 'github' || raw === 'upload' || raw === 'scratch' ? raw : null;
-}
-
-function readPersistedCreateProjectModalState(): PersistedCreateProjectModalState | null {
-    if (typeof window === 'undefined') return null;
-    const raw = window.sessionStorage.getItem(CREATE_PROJECT_MODAL_STORAGE_KEY)?.trim();
-    if (!raw) return null;
-    try {
-        const parsed = JSON.parse(raw) as Partial<PersistedCreateProjectModalState>;
-        return {
-            open: parsed.open === true,
-            source: parsePersistedCreateProjectSource(parsed.source as string | null | undefined),
-        };
-    } catch {
-        return null;
-    }
-}
-
-function persistCreateProjectModalState(state: PersistedCreateProjectModalState | null): void {
-    if (typeof window === 'undefined') return;
-    if (!state) {
-        window.sessionStorage.removeItem(CREATE_PROJECT_MODAL_STORAGE_KEY);
-        return;
-    }
-    window.sessionStorage.setItem(CREATE_PROJECT_MODAL_STORAGE_KEY, JSON.stringify(state));
-}
 
 interface DiscoverClientProps {
     returnUserData: User | null;
@@ -102,8 +57,6 @@ const computeProjectItemKey = (_: number, project: Project) => project.id;
 const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialProjectsPage, initialPeopleSuggestions }: DiscoverClientProps) {
     const queryClient = useQueryClient();
     const { user } = useAuth();
-    const searchParams = useSearchParams();
-    const handledCreateProjectRequestRef = useRef<string | null>(null);
 
     // --- State ---
     // Essential UI State
@@ -111,10 +64,6 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
 
     // Selection & Modal State
 
-    // Dialog Visibility
-    const [showCreateModal, setShowCreateModal] = useState(false);
-    const [createModalInitialSource, setCreateModalInitialSource] = useState<'scratch' | 'github' | 'upload' | null>(null);
-    const [githubOAuthResume, setGithubOAuthResume] = useState<CreateProjectGithubOAuthResume | null>(null);
     const [profileChecklistItems, setProfileChecklistItems] = useState<string[]>([]);
     const [showProfileChecklist, setShowProfileChecklist] = useState(false);
 
@@ -153,46 +102,6 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
         }
     }, []);
 
-    useEffect(() => {
-        const liveParams =
-            typeof window !== 'undefined'
-                ? new URLSearchParams(window.location.search)
-                : new URLSearchParams(searchParams.toString());
-        const requestedSource = parsePersistedCreateProjectSource(liveParams.get('createProjectSource'));
-        const returnPath = typeof window !== 'undefined'
-            ? getCreateProjectReturnPath(window.location)
-            : '/discover';
-        const githubResume = readGithubOAuthResume(returnPath);
-        const persistedModalState = readPersistedCreateProjectModalState();
-        const source = requestedSource ?? githubResume?.values.import_source?.type ?? persistedModalState?.source ?? null;
-        const shouldOpenCreateModal =
-            liveParams.get('createProject') === '1'
-            || persistedModalState?.open === true;
-        if (!shouldOpenCreateModal) {
-            handledCreateProjectRequestRef.current = null;
-            return;
-        }
-
-        const requestKey = `${liveParams.get('createProject') === '1' ? 'url' : 'storage'}:${source ?? 'none'}`;
-
-        if (handledCreateProjectRequestRef.current === requestKey && showCreateModal) {
-            return;
-        }
-        handledCreateProjectRequestRef.current = requestKey;
-
-        persistCreateProjectModalState({ open: true, source });
-        setCreateModalInitialSource(source);
-        setGithubOAuthResume(githubResume);
-        setShowCreateModal(true);
-
-        if (typeof window !== 'undefined') {
-            const nextUrl = new URL(window.location.href);
-            nextUrl.searchParams.delete('createProject');
-            nextUrl.searchParams.delete('createProjectSource');
-            const nextHref = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
-            window.history.replaceState(window.history.state, '', nextHref);
-        }
-    }, [searchParams, showCreateModal]);
 
     // Construct Filters
     const currentFilters = useMemo(() => {
@@ -389,15 +298,6 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
         setScrollContainer((prev) => (prev === node ? prev : node));
     }, []);
 
-    // Creating Project
-    const handleProjectCreated = useCallback(() => {
-        persistCreateProjectModalState(null);
-        setShowCreateModal(false);
-        setCreateModalInitialSource(null);
-        setGithubOAuthResume(null);
-        queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
-        queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
-    }, [queryClient]);
 
     // Clear Filters
     const handleClearFilters = useCallback(() => {
@@ -518,14 +418,11 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
                                         <button onClick={handleClearFilters} className="inline-flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-[6px] text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform]">
                                             Clear Filters
                                         </button>
-                                        <button onClick={() => {
-                                            persistCreateProjectModalState({ open: true, source: null });
-                                            setCreateModalInitialSource(null);
-                                            setShowCreateModal(true);
-                                        }} className="inline-flex items-center gap-2 px-5 py-2.5 app-accent-solid hover:bg-primary/90 rounded-[6px] text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]">
-                                            <Sparkles className="w-4 h-4" />
-                                            Start New Project
-                                        </button>
+                                        {/* Same destination and label as the top bar: the full-page create route. */}
+                                        <Link href="/projects/new" className="inline-flex items-center gap-2 px-5 py-2.5 app-accent-solid hover:bg-primary/90 rounded-[6px] text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]">
+                                            <Plus className="w-4 h-4" aria-hidden="true" />
+                                            New project
+                                        </Link>
                                     </div>
                                 </div>
                             ) : (
@@ -556,29 +453,6 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
                             </div>
                         </AppScrollArea>
 
-                        {/* Modals & Drawers */}
-                        {showCreateModal && (
-                            <CreateProjectWizard
-                                onClose={() => {
-                                    handledCreateProjectRequestRef.current = null;
-                                    persistCreateProjectModalState(null);
-                                    setShowCreateModal(false);
-                                    setCreateModalInitialSource(null);
-                                    setGithubOAuthResume(null);
-                                }}
-                                onSuccess={handleProjectCreated}
-                                initialSource={createModalInitialSource}
-                                githubOAuthResume={githubOAuthResume}
-                                onGithubOAuthResumeRestored={(resumeId) => {
-                                    clearGithubOAuthResume(resumeId);
-                                    setGithubOAuthResume(null);
-                                }}
-                                onSourceChange={(source) => {
-                                    setCreateModalInitialSource(source);
-                                    persistCreateProjectModalState({ open: true, source });
-                                }}
-                            />
-                        )}
 
                     </div>
                 </div>
