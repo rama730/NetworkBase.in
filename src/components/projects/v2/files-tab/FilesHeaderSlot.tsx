@@ -8,6 +8,8 @@ export const FilesHeaderContext = createContext<{
   actions: HTMLDivElement | null;
   status: HTMLDivElement | null;
   canOpenGitHub: boolean;
+  /** Lets the Files ⋯ menu offer the desktop IDE handoff on phones, where the header button is hidden. */
+  ide?: { projectId: string; projectSlug?: string; location: import("./navigation").CurrentLocation | null; taskId?: string | null };
 } | null>(null);
 
 export function FilesHeaderSlot({

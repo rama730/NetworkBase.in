@@ -1724,7 +1724,7 @@ export default function ProjectSettingsTab({
                         </span>
                         <ChevronDown className="size-4 text-muted-foreground" />
                     </summary>
-                    <div className="mt-2 space-y-3 border-t border-border pt-2">
+                    <div className="mt-2 space-y-3 border-t border-border pt-2 max-md:max-h-[60dvh] max-md:overflow-y-auto max-md:overscroll-contain">
                         {SECTION_GROUPS.map((group) => {
                             const groupSections = sections.filter((s) => group.sectionIds.includes(s.id));
                             if (groupSections.length === 0) return null;

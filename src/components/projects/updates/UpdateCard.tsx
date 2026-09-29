@@ -271,7 +271,7 @@ function UpdateCard({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="-mt-1 flex h-7 w-7 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  className="nb-touch-target -mt-1 flex h-7 w-7 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   aria-label="Update options"
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -375,7 +375,7 @@ function UpdateCard({
                     : toast.error("Please log in to like updates")
                 }
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-rose-500",
+                  "nb-touch-target inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-rose-500",
                   update.likedByViewer && "text-rose-500 font-medium",
                 )}
               >
@@ -396,7 +396,7 @@ function UpdateCard({
                   }
                   onOpenDetail(update.id);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-foreground"
+                className="nb-touch-target inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs transition-colors hover:bg-muted hover:text-foreground"
               >
                 <MessageCircle className="h-3.5 w-3.5" />
                 <span>{update.commentCount}</span>

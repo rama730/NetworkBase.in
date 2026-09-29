@@ -256,12 +256,12 @@ export default function SubtasksTab({
 
         {/* Action Buttons on Hover */}
         {canEdit && !editing && !pending ? (
-          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
             <button
               type="button"
               onClick={() => copySubtaskTitle(subtask)}
               aria-label={`Copy title of ${subtask.title}`}
-              className="size-7 flex items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className="nb-touch-target size-7 flex items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
               title="Copy title"
             >
               {isCopied ? (
@@ -274,7 +274,7 @@ export default function SubtasksTab({
               type="button"
               onClick={() => startEditing(subtask)}
               aria-label={`Edit ${subtask.title}`}
-              className="size-7 flex items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              className="nb-touch-target size-7 flex items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
               title="Edit title"
             >
               <Edit2 className="size-3.5" />
@@ -283,7 +283,7 @@ export default function SubtasksTab({
               type="button"
               onClick={() => void deleteSubtask(subtask)}
               aria-label={`Delete ${subtask.title}`}
-              className="size-7 flex items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+              className="nb-touch-target size-7 flex items-center justify-center rounded-[3px] text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
               title="Delete subtask"
             >
               <Trash2 className="size-3.5" />
@@ -296,7 +296,7 @@ export default function SubtasksTab({
 
   return (
     <section
-      className="flex min-h-full flex-col p-6 space-y-4"
+      className="flex min-h-full flex-col p-6 space-y-4 max-md:p-4"
       aria-labelledby="subtasks-heading"
     >
       {/* Unboxed Architectural Header */}

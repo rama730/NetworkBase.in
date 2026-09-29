@@ -671,7 +671,7 @@ export default function CommentsTab({
   };
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 p-6 max-md:p-4">
       {focusedThread ? (
         <button
           type="button"

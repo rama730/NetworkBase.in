@@ -736,7 +736,7 @@ export function ProjectUpdateComposer({
                             : "Connect this post to active project work."}
                     </p>
                 </div>
-                <button type="button" onClick={() => setActivePanel(null)} className="size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Close composer panel">
+                <button type="button" onClick={() => setActivePanel(null)} className="nb-touch-target size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" aria-label="Close composer panel">
                     <X className="h-4 w-4" />
                 </button>
             </div>
@@ -940,7 +940,7 @@ export function ProjectUpdateComposer({
                     <button
                         type="button"
                         onClick={() => setExpanded(!expanded)}
-                        className="size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        className="nb-touch-target size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                         aria-label={expanded ? "Collapse composer" : "Expand composer"}
                     >
                         {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}

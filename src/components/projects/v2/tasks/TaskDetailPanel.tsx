@@ -3,11 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowLeft,
   Check,
   CheckCircle2,
   CheckSquare,
   Copy,
+  Laptop,
   MessageCircle,
+  MoreHorizontal,
   Paperclip,
   Trash2,
   X,
@@ -38,6 +41,13 @@ import SubtasksTab from "./TaskDetailTabs/SubtasksTab";
 import TaskPriorityBadge from "./badges/TaskPriorityBadge";
 import TaskStatusBadge from "./badges/TaskStatusBadge";
 import { OpenInIdeButton } from "@/components/projects/v2/files-tab/OpenInIdeButton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface TaskDetailPanelProps {
   task: TaskSurfaceRecord | any;
@@ -85,6 +95,7 @@ export default function TaskDetailPanel({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [copiedTaskId, setCopiedTaskId] = useState(false);
+  const [ideSheetOpen, setIdeSheetOpen] = useState(false);
 
   const normalizedTask = useMemo(
     () => normalizeTaskSurfaceRecord(task),
@@ -250,13 +261,22 @@ export default function TaskDetailPanel({
           <DialogTitle className="sr-only">{resource.task.title}</DialogTitle>
           <div className="flex-shrink-0 border-b border-border">
             {deleteError ? (
-              <div className="mx-6 mt-4 rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <div className="mx-4 mt-4 rounded-[5px] border border-destructive/20 md:mx-6 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {deleteError}
               </div>
             ) : null}
 
-            <div className="flex items-center justify-between px-6 py-4">
-              <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4">
+              <div className="flex items-center gap-3 min-w-0 max-md:gap-1">
+                {/* Phones: Back on the left; Delete moves into ⋯ away from dismiss (spec §09). */}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Back to tasks"
+                  className="-ml-2 inline-flex size-11 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+                >
+                  <ArrowLeft className="size-5" />
+                </button>
                 <div className="flex items-center gap-2.5 flex-wrap min-w-0">
                   <button
                     type="button"
@@ -305,11 +325,13 @@ export default function TaskDetailPanel({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <OpenInIdeButton
-                  projectId={projectId}
-                  projectSlug={projectSlug}
-                  taskId={resource.task.id}
-                />
+                <span className="hidden md:contents">
+                  <OpenInIdeButton
+                    projectId={projectId}
+                    projectSlug={projectSlug}
+                    taskId={resource.task.id}
+                  />
+                </span>
                 {isOwner ? (
                   <button
                     onClick={() => {
@@ -318,7 +340,7 @@ export default function TaskDetailPanel({
                     }}
                     disabled={isDeleting}
                     aria-label="Delete task"
-                    className="size-8 flex items-center justify-center rounded-[5px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                    className="size-8 flex items-center justify-center rounded-[5px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50 max-md:hidden"
                     title="Delete task"
                   >
                     <Trash2 className="size-4" />
@@ -327,17 +349,54 @@ export default function TaskDetailPanel({
                 <button
                   onClick={onClose}
                   aria-label="Close task details"
-                  className="size-8 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="size-8 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground max-md:hidden"
                 >
                   <X className="size-4" />
                 </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" aria-label="Task actions" className="inline-flex size-11 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted md:hidden">
+                      <MoreHorizontal className="size-5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="z-[210] w-52">
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        void navigator.clipboard?.writeText(`${window.location.origin}${window.location.pathname}?tab=tasks&taskId=${resource.task.id}`);
+                      }}
+                    >
+                      <Copy className="size-4" />
+                      Copy task link
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setIdeSheetOpen(true)}>
+                      <Laptop className="size-4" />
+                      Connect desktop IDE
+                    </DropdownMenuItem>
+                    {isOwner ? (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          disabled={isDeleting}
+                          onSelect={() => {
+                            setDeleteError(null);
+                            setShowDeleteConfirm(true);
+                          }}
+                        >
+                          <Trash2 className="size-4" />
+                          Delete task
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
             <div
               role="tablist"
               aria-label="Task details"
-              className="grid w-full grid-cols-4 items-center gap-1 overflow-visible px-3 pb-0 sm:px-4"
+              className="grid w-full grid-cols-4 items-center gap-1 overflow-visible px-3 pb-0 sm:px-4 max-md:flex max-md:overflow-x-auto"
             >
               {tabs.map((tab) => (
                 <button
@@ -370,7 +429,7 @@ export default function TaskDetailPanel({
                     );
                   }}
                   className={cn(
-                    "flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 pb-2.5 text-xs font-medium transition-colors",
+                    "flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 pb-2.5 text-xs font-medium transition-colors max-md:min-h-11 max-md:shrink-0 max-md:px-3 max-md:pb-0",
                     activeTab === tab.id
                       ? "border-primary text-foreground font-semibold"
                       : "border-transparent text-muted-foreground hover:text-foreground",
@@ -381,7 +440,7 @@ export default function TaskDetailPanel({
                   {tab.count !== undefined && tab.count > 0 ? (
                     <span
                       className={cn(
-                        "inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border px-1 font-mono text-[10px] font-semibold",
+                        "inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border px-1 font-mono text-[10px] font-semibold max-md:text-[11px]",
                         activeTab === tab.id
                           ? "border-primary/20 bg-primary/10 text-primary"
                           : "border-border bg-muted/60 text-muted-foreground",
@@ -539,6 +598,13 @@ export default function TaskDetailPanel({
             ) : null}
 
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={ideSheetOpen} onOpenChange={setIdeSheetOpen}>
+        <DialogContent overlayClassName="z-[220]" className="z-[221] md:hidden">
+          <DialogTitle className="nb-card-title">Connect desktop IDE</DialogTitle>
+          <OpenInIdeButton projectId={projectId} projectSlug={projectSlug} taskId={resource.task.id} />
         </DialogContent>
       </Dialog>
 

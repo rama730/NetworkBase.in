@@ -6,6 +6,10 @@ interface MobileProgressBarProps {
   stepLabels: string[]
   completedThrough: number
   justCompletedStep?: number | null
+  /** Mono prefix before the step name; the create-project wizard reuses this bar (spec §18). */
+  label?: string
+  ariaLabel?: string
+  className?: string
 }
 
 export function MobileProgressBar({
@@ -14,23 +18,27 @@ export function MobileProgressBar({
   stepLabels,
   completedThrough,
   justCompletedStep = null,
+  label = 'Setup',
+  ariaLabel = 'Onboarding progress',
+  className,
 }: MobileProgressBarProps) {
   return (
     <div
       className={cn(
         'sticky top-0 z-50 flex h-14 items-center justify-between px-4',
         'bg-card border-b border-border',
-        'lg:hidden'
+        'lg:hidden',
+        className
       )}
       role="progressbar"
-      aria-label="Onboarding progress"
+      aria-label={ariaLabel}
       aria-valuemin={0}
       aria-valuemax={totalSteps}
       aria-valuenow={completedThrough}
     >
       {/* Current step label */}
       <span className="min-w-0 truncate text-[13px] font-medium text-foreground">
-        <span className="mr-2 font-mono text-[11px] uppercase tracking-[.09em] text-primary">Setup</span>
+        <span className="mr-2 font-mono text-[11px] uppercase tracking-[.09em] text-primary">{label}</span>
         {stepLabels[currentStep - 1] ?? ''}
       </span>
 
