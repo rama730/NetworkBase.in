@@ -136,7 +136,7 @@ function CommentRow({
                 <Link
                   href={`/u/${c.author.username}`}
                  
-                  className="flex size-8 shrink-0 items-center justify-center transition-opacity hover:opacity-80"
+                  className="nb-touch-target flex size-8 shrink-0 items-center justify-center transition-opacity hover:opacity-80"
                 >
                   <UserAvatar
                     identity={{
@@ -216,7 +216,7 @@ function CommentRow({
                         <button
                           type="button"
                           onClick={() => onDelete(c.id)}
-                          className="ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          className="nb-touch-target ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                           aria-label="Delete comment"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -282,7 +282,7 @@ function CommentRow({
                       value={replyDraft}
                       onChange={(e) => setReplyDraft(e.target.value.slice(0, 1000))}
                       placeholder={`Write a reply...`}
-                      className="h-7 min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground text-foreground"
+                      className="nb-touch-target h-7 min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground text-foreground"
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                           e.preventDefault();
@@ -707,7 +707,7 @@ export function UpdateComments({
             <Link
               href={`/u/${c.author.username}`}
              
-              className="flex items-center justify-center shrink-0 transition-opacity hover:opacity-80 z-10 w-8 h-8"
+              className="nb-touch-target flex items-center justify-center shrink-0 transition-opacity hover:opacity-80 z-10 w-8 h-8"
             >
               <UserAvatar
                 identity={{
@@ -794,7 +794,7 @@ export function UpdateComments({
                     <button
                       type="button"
                       onClick={() => deleteCommentMutation.mutate(c.id)}
-                      className="ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      className="nb-touch-target ml-2 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                       aria-label="Delete comment"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -912,7 +912,7 @@ export function UpdateComments({
                           placeholder={`Reply to ${
                             c.author?.fullName || c.author?.username || "comment"
                           }...`}
-                          className="h-7 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+                          className="nb-touch-target h-7 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
                               e.preventDefault();
@@ -961,7 +961,7 @@ export function UpdateComments({
                   value={draft}
                   onChange={(event) => setDraft(event.target.value.slice(0, 1_000))}
                   placeholder="Write a comment..."
-                  className="h-8 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+                  className="nb-touch-target h-8 min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();

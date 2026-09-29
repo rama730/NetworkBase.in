@@ -358,7 +358,7 @@ const KanbanColumn = React.memo(
                 aria-label={`Reorder ${col.title}`}
                 {...attributes}
                 {...listeners}
-                className="size-7 flex items-center justify-center rounded-[5px] hover:bg-muted text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing transition-colors max-md:hidden"
+                className="nb-touch-target size-7 flex items-center justify-center rounded-[5px] hover:bg-muted text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing transition-colors max-md:hidden"
               >
                 <GripVertical className="size-4" />
               </button>
@@ -396,7 +396,7 @@ const KanbanColumn = React.memo(
                         ),
                       }))
                     }
-                    className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   >
                     Show more
                   </button>
@@ -997,7 +997,7 @@ export default function KanbanBoard({
             type="button"
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="h-[34px] rounded-[5px] border border-border bg-card px-4 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
+            className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-4 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
           >
             {isFetchingNextPage ? "Loading more tasks..." : "Load more tasks"}
           </button>

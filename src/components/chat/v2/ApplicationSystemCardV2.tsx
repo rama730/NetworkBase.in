@@ -365,14 +365,14 @@ export function ApplicationSystemCardV2({
                             <button
                                 onClick={() => void handleResolveWorkflow('decline')}
                                 disabled={workflowActionLoading}
-                                className="flex h-7 items-center gap-1 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                className="nb-touch-target flex h-7 items-center gap-1 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
                                 {workflowActionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Decline'}
                             </button>
                             <button
                                 onClick={() => void handleResolveWorkflow('accept')}
                                 disabled={workflowActionLoading}
-                                className="flex h-7 items-center gap-1 rounded-md bg-zinc-900 px-3 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                                className="nb-touch-target flex h-7 items-center gap-1 rounded-md bg-zinc-900 px-3 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
                             >
                                 {workflowActionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Accept'}
                             </button>
@@ -385,14 +385,14 @@ export function ApplicationSystemCardV2({
                             <button
                                 onClick={() => void handleAction('reject')}
                                 disabled={requestLoading !== null}
-                                className="flex h-7 items-center gap-1 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                className="nb-touch-target flex h-7 items-center gap-1 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
                                 {requestLoading === 'reject' ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Reject'}
                             </button>
                             <button
                                 onClick={() => void handleAction('accept')}
                                 disabled={requestLoading !== null}
-                                className="flex h-7 items-center gap-1 rounded-md bg-zinc-900 px-3 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                                className="nb-touch-target flex h-7 items-center gap-1 rounded-md bg-zinc-900 px-3 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
                             >
                                 {requestLoading === 'accept' ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Accept'}
                             </button>
@@ -404,14 +404,14 @@ export function ApplicationSystemCardV2({
                             <button
                                 onClick={() => void handleAction('withdraw')}
                                 disabled={requestLoading !== null || isEditSaving}
-                                className="flex h-7 items-center gap-1 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                className="nb-touch-target flex h-7 items-center gap-1 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
                                 {requestLoading === 'withdraw' ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Withdraw'}
                             </button>
                             <button
                                 onClick={handleEditOpen}
                                 disabled={requestLoading !== null || isEditSaving}
-                                className="h-7 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                className="nb-touch-target h-7 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
                                 Edit Message
                             </button>
@@ -423,14 +423,14 @@ export function ApplicationSystemCardV2({
                             <button
                                 onClick={() => void handleAction('decline_proposed')}
                                 disabled={requestLoading !== null}
-                                className="flex h-7 items-center gap-1 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                className="nb-touch-target flex h-7 items-center gap-1 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                             >
                                 {requestLoading === 'decline_proposed' ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Decline Proposal'}
                             </button>
                             <button
                                 onClick={() => void handleAction('accept_proposed')}
                                 disabled={requestLoading !== null}
-                                className="flex h-7 items-center gap-1 rounded-md bg-zinc-900 px-3 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                                className="nb-touch-target flex h-7 items-center gap-1 rounded-md bg-zinc-900 px-3 text-[11px] font-semibold text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
                             >
                                 {requestLoading === 'accept_proposed' ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Accept Proposed'}
                             </button>
@@ -441,7 +441,7 @@ export function ApplicationSystemCardV2({
                         <button
                             onClick={() => void handleAction('reopen')}
                             disabled={requestLoading !== null}
-                            className="flex h-7 items-center gap-1 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                            className="nb-touch-target flex h-7 items-center gap-1 rounded-md border border-zinc-200 px-3 text-[11px] font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                         >
                             {requestLoading === 'reopen' ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Reopen'}
                         </button>
@@ -450,7 +450,7 @@ export function ApplicationSystemCardV2({
                     {isAccepted && banner.activeProjectId ? (
                         <Link
                             href={`/projects/${banner.activeProjectId}`}
-                            className="inline-flex h-7 items-center gap-1 rounded-md bg-emerald-600 px-3 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700"
+                            className="nb-touch-target inline-flex h-7 items-center gap-1 rounded-md bg-emerald-600 px-3 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700"
                         >
                             Open Project
                             <ArrowRight className="h-3 w-3" />

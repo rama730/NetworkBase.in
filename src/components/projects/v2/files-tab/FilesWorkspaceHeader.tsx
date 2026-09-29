@@ -588,20 +588,20 @@ export function FilesWorkspaceMenu({
                   maxLength={256}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  className="mt-2 h-9 w-full rounded-[5px] border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D14E24]"
+                  className="nb-touch-target mt-2 h-9 w-full rounded-[5px] border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D14E24]"
                 />
               </label>
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={closeSurface}
-                  className="h-9 rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted"
+                  className="nb-touch-target h-9 rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-9 rounded-[5px] bg-primary px-3 text-xs font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                  className="nb-touch-target h-9 rounded-[5px] bg-primary px-3 text-xs font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                 >
                   Show results
                 </button>

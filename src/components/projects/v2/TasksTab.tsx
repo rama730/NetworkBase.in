@@ -757,7 +757,7 @@ export default function TasksTab({
                 value={searchInput}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="Filter tasks..."
-                className="h-[34px] w-36 rounded-[5px] border border-border bg-card pl-8 pr-7 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:w-48 transition-all max-md:h-11 max-md:w-full"
+                className="nb-touch-target h-[34px] w-36 rounded-[5px] border border-border bg-card pl-8 pr-7 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:w-48 transition-all max-md:h-11 max-md:w-full"
               />
               {searchInput ? (
                 <button
@@ -788,7 +788,7 @@ export default function TasksTab({
               <button
                 type="button"
                 onClick={handleAddColumn}
-                className="hidden h-[34px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:inline-flex"
+                className="nb-touch-target hidden h-[34px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:inline-flex"
               >
                 <Plus className="size-3.5" />
                 <span className="hidden sm:inline">New section</span>
@@ -800,7 +800,7 @@ export default function TasksTab({
               <button
                 type="button"
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex h-[34px] items-center gap-1.5 rounded-[5px] bg-primary px-3.5 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:h-11"
+                className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 rounded-[5px] bg-primary px-3.5 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:h-11"
               >
                 <Plus className="size-3.5" />
                 <span>New task</span>
@@ -924,7 +924,7 @@ export default function TasksTab({
                     value={sectionTitle}
                     onChange={(e) => setSectionTitle(e.target.value)}
                     placeholder="e.g. In Review"
-                    className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -967,7 +967,7 @@ export default function TasksTab({
                           | "done",
                       )
                     }
-                    className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <option value="todo">To do</option>
                     <option value="in_progress">In progress</option>
@@ -986,14 +986,14 @@ export default function TasksTab({
                 <button
                   type="button"
                   onClick={() => setIsAddSectionOpen(false)}
-                  className="h-[34px] rounded-[5px] border border-border bg-card px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground hover:bg-muted transition-colors"
+                  className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground hover:bg-muted transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isAddingSection}
-                  className="h-[34px] rounded-[5px] bg-primary px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="nb-touch-target h-[34px] rounded-[5px] bg-primary px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                   {isAddingSection ? "Adding..." : "Add Section"}
                 </button>

@@ -188,7 +188,7 @@ export default function SubtasksTab({
         )}
       >
         {/* Checkpoint Index */}
-        <span className="shrink-0 font-mono text-[10px] font-medium text-muted-foreground/60 w-5 text-center select-none">
+        <span className="shrink-0 font-mono text-[10px] max-md:text-[11px] font-medium text-muted-foreground/60 w-5 text-center select-none">
           #{index + 1}
         </span>
 
@@ -230,7 +230,7 @@ export default function SubtasksTab({
             onBlur={() => void saveTitle(subtask)}
             disabled={pending}
             aria-label="Subtask title"
-            className="h-[28px] min-w-0 flex-1 rounded-[3px] border border-primary bg-background px-2 text-[13px] font-medium text-foreground outline-none"
+            className="nb-touch-target h-[28px] min-w-0 flex-1 rounded-[3px] border border-primary bg-background px-2 text-[13px] font-medium text-foreground outline-none"
           />
         ) : (
           <span
@@ -313,7 +313,7 @@ export default function SubtasksTab({
               {completedCount}/{subtasks.length}
             </span>
             {completedCount === subtasks.length && subtasks.length > 0 ? (
-              <span className="inline-flex h-4 items-center rounded-[3px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 font-mono text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+              <span className="inline-flex h-4 items-center rounded-[3px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 font-mono text-[10px] max-md:text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
                 Complete
               </span>
             ) : null}
@@ -502,13 +502,13 @@ export default function SubtasksTab({
                 disabled={isSubmitting}
                 placeholder="Add a new subtask checkpoint…"
                 aria-label="Add a subtask"
-                className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground outline-none transition focus:border-primary placeholder:text-muted-foreground disabled:opacity-60"
+                className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground outline-none transition focus:border-primary placeholder:text-muted-foreground disabled:opacity-60"
               />
             </div>
             <button
               type="submit"
               disabled={!draft.trim() || isSubmitting}
-              className="inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[5px] bg-primary px-3.5 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="nb-touch-target inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-[5px] bg-primary px-3.5 text-xs font-medium text-primary-foreground shadow-2xs transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isSubmitting ? (
                 <Loader2 className="size-3.5 animate-spin" />
@@ -519,7 +519,7 @@ export default function SubtasksTab({
             </button>
           </div>
           <div className="flex items-center justify-between pt-1.5 px-0.5">
-            <span className="font-mono text-[10px] text-muted-foreground/60">
+            <span className="font-mono text-[10px] max-md:text-[11px] text-muted-foreground/60">
               Press Enter ↵ to add checkpoint
             </span>
           </div>

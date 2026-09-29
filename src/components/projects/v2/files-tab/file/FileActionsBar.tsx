@@ -374,7 +374,7 @@ export function FileActionsBar({
             type="button"
             variant="ghost"
             size="sm"
-            className="size-7 [@media(pointer:coarse)]:size-11 rounded-[5px] p-0 text-[#4C5A61] hover:bg-[#F3F0EA] hover:text-[#141A1E] dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
+            className="nb-touch-target size-7 [@media(pointer:coarse)]:size-11 rounded-[5px] p-0 text-[#4C5A61] hover:bg-[#F3F0EA] hover:text-[#141A1E] dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
             aria-label={`Actions for ${fileName || "file"}`}
             title="File actions"
             data-testid="files-tab-file-actions-dropdown-trigger"

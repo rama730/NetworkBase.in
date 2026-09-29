@@ -1482,7 +1482,7 @@ export default function ProjectSettingsTab({
                                 <select
                                     value={removalReassignToUserId}
                                     onChange={(event) => setRemovalReassignToUserId(event.target.value)}
-                                    className="mt-2 h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                    className="nb-touch-target mt-2 h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                 >
                                     {(preflight.reassignmentCandidates ?? []).map((candidate) => (
                                         <option key={candidate.id} value={candidate.id}>
@@ -1616,7 +1616,7 @@ export default function ProjectSettingsTab({
                         <select
                             value={removalReassignToUserId}
                             onChange={(event) => setRemovalReassignToUserId(event.target.value)}
-                            className="mt-2 h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                            className="nb-touch-target mt-2 h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                         >
                             {(removalPreflightDialog.reassignmentCandidates ?? []).map((candidate) => (
                                 <option key={candidate.id} value={candidate.id}>
@@ -1662,7 +1662,7 @@ export default function ProjectSettingsTab({
                         if (groupSections.length === 0) return null;
                         return (
                             <div key={group.id} className="space-y-1">
-                                <div className="px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                <div className="px-3 py-1 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                                     {group.label}
                                 </div>
                                 {groupSections.map((section) => {
@@ -1730,7 +1730,7 @@ export default function ProjectSettingsTab({
                             if (groupSections.length === 0) return null;
                             return (
                                 <div key={group.id} className="space-y-1">
-                                    <div className="px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                    <div className="px-3 py-1 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                                         {group.label}
                                     </div>
                                     {groupSections.map((section) => {
@@ -1895,7 +1895,7 @@ export default function ProjectSettingsTab({
                                             size="sm"
                                             onClick={() => void loadCollaborators("refresh")}
                                             disabled={collaboratorRefreshing}
-                                            className="h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
+                                            className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
                                         >
                                             <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", collaboratorRefreshing && "animate-spin")} />
                                             Sync directory
@@ -1926,7 +1926,7 @@ export default function ProjectSettingsTab({
                                                 aria-selected={collaboratorFilter === id}
                                                 onClick={() => setCollaboratorFilter(id)}
                                                 className={cn(
-                                                    "h-[28px] shrink-0 whitespace-nowrap rounded-[5px] px-3 text-xs font-medium transition-colors inline-flex items-center",
+                                                    "nb-touch-target h-[28px] shrink-0 whitespace-nowrap rounded-[5px] px-3 text-xs font-medium transition-colors inline-flex items-center",
                                                     collaboratorFilter === id
                                                         ? "bg-foreground text-background shadow-xs"
                                                         : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -1942,7 +1942,7 @@ export default function ProjectSettingsTab({
                                         size="sm"
                                         onClick={() => void loadCollaborators("refresh")}
                                         disabled={collaboratorRefreshing}
-                                        className="h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
+                                        className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
                                     >
                                         <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", collaboratorRefreshing && "animate-spin")} />
                                         Refresh
@@ -2082,7 +2082,7 @@ export default function ProjectSettingsTab({
                                             variant="outline"
                                             onClick={() => void loadCollaborators("more")}
                                             disabled={collaboratorLoadingMore}
-                                            className="h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground"
+                                            className="nb-touch-target h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground"
                                         >
                                             {collaboratorLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                             Load more collaborators
@@ -2116,7 +2116,7 @@ export default function ProjectSettingsTab({
                                                 size="sm"
                                                 onClick={handleCancelRoles}
                                                 disabled={!rolesDirty || savingSettings}
-                                                className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
+                                                className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
                                             >
                                                 Cancel
                                             </Button>
@@ -2125,7 +2125,7 @@ export default function ProjectSettingsTab({
                                                 size="sm"
                                                 onClick={handleSaveRoles}
                                                 disabled={!rolesDirty || savingSettings}
-                                                className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                                                className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                                             >
                                                 {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                                                 Save changes
@@ -2335,7 +2335,7 @@ export default function ProjectSettingsTab({
                                         size="sm"
                                         disabled={fileWorkspaceLoading}
                                         onClick={() => void loadFileWorkspaceSettings(true)}
-                                        className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium gap-2 self-start sm:self-auto border-border hover:bg-muted/50"
+                                        className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium gap-2 self-start sm:self-auto border-border hover:bg-muted/50"
                                     >
                                         <RefreshCw className={cn("size-3.5", fileWorkspaceLoading && "animate-spin")} />
                                         Refresh
@@ -2382,7 +2382,7 @@ export default function ProjectSettingsTab({
                                                 size="sm"
                                                 disabled={!notificationDirty || savingSettings}
                                                 onClick={handleCancelNotifications}
-                                                className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] border-border hover:bg-muted/50"
+                                                className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] border-border hover:bg-muted/50"
                                             >
                                                 Cancel
                                             </Button>
@@ -2391,7 +2391,7 @@ export default function ProjectSettingsTab({
                                                 size="sm"
                                                 disabled={!notificationDirty || savingSettings}
                                                 onClick={() => void handleSaveNotifications()}
-                                                className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] gap-1.5"
+                                                className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2] gap-1.5"
                                             >
                                                 {savingSettings ? <Loader2 className="size-3.5 animate-spin" /> : null}
                                                 Save changes
@@ -2420,7 +2420,7 @@ export default function ProjectSettingsTab({
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={toggleAllNotificationGroups}
-                                                className="h-[28px] rounded-[5px] px-2.5 text-xs font-medium border-border hover:bg-muted/50"
+                                                className="nb-touch-target h-[28px] rounded-[5px] px-2.5 text-xs font-medium border-border hover:bg-muted/50"
                                             >
                                                 {areAllNotificationGroupsExpanded ? "Collapse all" : "Expand all"}
                                             </Button>
@@ -2490,7 +2490,7 @@ export default function ProjectSettingsTab({
                                     size="sm"
                                     onClick={() => void loadDangerPreflight(true)}
                                     disabled={dangerPreflightLoading}
-                                    className="h-[28px] gap-1.5 rounded-[5px] border-border px-2.5 text-xs font-medium"
+                                    className="nb-touch-target h-[28px] gap-1.5 rounded-[5px] border-border px-2.5 text-xs font-medium"
                                 >
                                     <RefreshCw className={cn("size-3.5", dangerPreflightLoading && "animate-spin")} />
                                     Refresh checks
@@ -2528,7 +2528,7 @@ export default function ProjectSettingsTab({
                                             variant="outline"
                                             onClick={prepareArchive}
                                             disabled={confirmLoading || dangerPreflightLoading || !dangerPreflight || !preflightPolicy.canArchive}
-                                            className="h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium"
+                                            className="nb-touch-target h-[34px] gap-2 rounded-[5px] border-border px-3.5 text-[13px] font-medium"
                                         >
                                             <Archive className="h-4 w-4" />
                                             {preflightPolicy.status === "archived" ? "Archived" : "Archive project"}
@@ -2562,7 +2562,7 @@ export default function ProjectSettingsTab({
                                                 id="project-transfer-owner"
                                                 value={transferOwnerId}
                                                 onChange={(event) => setTransferOwnerId(event.target.value)}
-                                                className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none transition-colors focus:border-primary"
+                                                className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none transition-colors focus:border-primary"
                                                 disabled={confirmLoading || !isProjectOwner || rolePolicy.transferCandidates.length === 0}
                                             >
                                                 <option value="">Choose an existing member...</option>
@@ -2577,7 +2577,7 @@ export default function ProjectSettingsTab({
                                             variant="destructive"
                                             onClick={prepareTransfer}
                                             disabled={confirmLoading || !isProjectOwner || rolePolicy.transferCandidates.length === 0 || !transferOwnerId}
-                                            className="h-[34px] shrink-0 gap-2 rounded-[5px] px-3.5 text-[13px] font-medium"
+                                            className="nb-touch-target h-[34px] shrink-0 gap-2 rounded-[5px] px-3.5 text-[13px] font-medium"
                                         >
                                             <Crown className="h-4 w-4" />
                                             Transfer ownership
@@ -2591,7 +2591,7 @@ export default function ProjectSettingsTab({
                                         return (
                                             <div className="flex items-center justify-between rounded-[5px] border border-border bg-muted/20 px-3 py-2 text-xs">
                                                 <div className="flex items-center gap-2 min-w-0">
-                                                    <div className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-muted font-mono text-[10px] font-semibold text-muted-foreground uppercase">
+                                                    <div className="flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-muted font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground uppercase">
                                                         {getProjectMemberDisplayName(selectedMember).slice(0, 2)}
                                                     </div>
                                                     <span className="nb-ui-label truncate text-foreground font-medium">
@@ -2654,7 +2654,7 @@ export default function ProjectSettingsTab({
                                             variant="destructive"
                                             onClick={prepareDelete}
                                             disabled={confirmLoading || dangerPreflightLoading || !dangerPreflight || !isProjectOwner || !preflightPolicy.canDelete}
-                                            className="h-[34px] gap-2 rounded-[5px] px-3.5 text-[13px] font-medium"
+                                            className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-3.5 text-[13px] font-medium"
                                         >
                                             <Trash2 className="h-4 w-4" />
                                             Delete project

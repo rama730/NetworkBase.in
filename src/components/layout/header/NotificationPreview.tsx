@@ -203,7 +203,7 @@ export default function NotificationPreview(props: NotificationPreviewProps) {
                                 onClick={() => onFilterChange(filter.id)}
                                 onKeyDown={(event) => handleFilterKeyDown(event, index)}
                                 className={cn(
-                                    "nb-ui-label relative flex h-7 flex-1 items-center justify-center rounded-[6px] px-3 font-medium transition-[background-color,color,box-shadow] duration-[130ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                    "nb-touch-target nb-ui-label relative flex h-7 flex-1 items-center justify-center rounded-[6px] px-3 font-medium transition-[background-color,color,box-shadow] duration-[130ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                     activeFilter === filter.id
                                         ? "bg-card text-foreground shadow-2xs dark:bg-zinc-800"
                                         : "text-muted-foreground hover:text-foreground",

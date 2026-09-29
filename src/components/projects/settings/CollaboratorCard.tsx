@@ -138,7 +138,7 @@ export function CollaboratorCard({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-[28px] gap-1 rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground shrink-0 hover:bg-muted"
+                                className="nb-touch-target h-[28px] gap-1 rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground shrink-0 hover:bg-muted"
                             >
                                 Actions
                                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -171,7 +171,7 @@ export function CollaboratorCard({
                                             )}
                                             <span>Change role to {getProjectMemberRoleLabel(option)}</span>
                                             {role === option ? (
-                                                <span className="ml-auto text-[10px] text-muted-foreground">(Current)</span>
+                                                <span className="ml-auto text-[10px] max-md:text-[11px] text-muted-foreground">(Current)</span>
                                             ) : null}
                                         </DropdownMenuItem>
                                     );

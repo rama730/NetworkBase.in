@@ -72,7 +72,7 @@ function SuggestedPersonCard({
             <Check className="size-4" aria-hidden="true" /> Sent
         </span>
     ) : status === "pending_received" ? (
-        <Link href="/network?tab=invitations" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href="/network?tab=invitations" className="nb-touch-target inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Clock className="size-4" aria-hidden="true" /> Review
         </Link>
     ) : null;

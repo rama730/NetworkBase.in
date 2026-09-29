@@ -180,7 +180,7 @@ export function SprintLeftRail({
             <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
               Sprints
             </span>
-            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] font-semibold text-muted-foreground">
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground">
               {sprints.length}
             </span>
           </div>
@@ -265,7 +265,7 @@ export function SprintLeftRail({
                   </span>
                   <span
                     aria-label={`${groupedSprints.length} ${group.label.toLowerCase()} sprints`}
-                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] font-semibold text-muted-foreground"
+                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground"
                   >
                     {groupedSprints.length}
                   </span>
@@ -315,7 +315,7 @@ export function SprintLeftRail({
                           </div>
 
                           {dateRange ? (
-                            <span className="truncate pl-3.5 font-mono text-[10px] text-muted-foreground">
+                            <span className="truncate pl-3.5 font-mono text-[10px] max-md:text-[11px] text-muted-foreground">
                               {dateRange}
                             </span>
                           ) : null}

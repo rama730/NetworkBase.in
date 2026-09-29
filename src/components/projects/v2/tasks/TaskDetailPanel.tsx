@@ -340,7 +340,7 @@ export default function TaskDetailPanel({
                     }}
                     disabled={isDeleting}
                     aria-label="Delete task"
-                    className="size-8 flex items-center justify-center rounded-[5px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50 max-md:hidden"
+                    className="nb-touch-target size-8 flex items-center justify-center rounded-[5px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50 max-md:hidden"
                     title="Delete task"
                   >
                     <Trash2 className="size-4" />
@@ -349,7 +349,7 @@ export default function TaskDetailPanel({
                 <button
                   onClick={onClose}
                   aria-label="Close task details"
-                  className="size-8 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground max-md:hidden"
+                  className="nb-touch-target size-8 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground max-md:hidden"
                 >
                   <X className="size-4" />
                 </button>

@@ -247,7 +247,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                     type="button"
                                     onClick={onRedoStage}
                                     disabled={safeCurrentStageIndex === 0}
-                                    className="flex h-[28px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                                    className="nb-touch-target flex h-[28px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                     <ArrowLeft className="h-3 w-3" />
                                     Redo

@@ -244,7 +244,7 @@ export function FileWorkspaceMembers({
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search members by name or role..."
                             aria-label="Search members by name or role"
-                            className="h-[34px] w-full rounded-[5px] border border-border bg-background pl-9 pr-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                            className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background pl-9 pr-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                     </div>
 
@@ -260,7 +260,7 @@ export function FileWorkspaceMembers({
                                 aria-selected={filterStatus === "all"}
                                 onClick={() => setFilterStatus("all")}
                                 className={cn(
-                                    "h-[28px] rounded-[3px] px-2.5 text-[12px] font-medium transition-colors",
+                                    "nb-touch-target h-[28px] rounded-[3px] px-2.5 text-[12px] font-medium transition-colors",
                                     filterStatus === "all"
                                         ? "bg-foreground text-background font-semibold"
                                         : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -274,7 +274,7 @@ export function FileWorkspaceMembers({
                                 aria-selected={filterStatus === "enabled"}
                                 onClick={() => setFilterStatus("enabled")}
                                 className={cn(
-                                    "h-[28px] rounded-[3px] px-2.5 text-[12px] font-medium transition-colors",
+                                    "nb-touch-target h-[28px] rounded-[3px] px-2.5 text-[12px] font-medium transition-colors",
                                     filterStatus === "enabled"
                                         ? "bg-foreground text-background font-semibold"
                                         : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -288,7 +288,7 @@ export function FileWorkspaceMembers({
                                 aria-selected={filterStatus === "disabled"}
                                 onClick={() => setFilterStatus("disabled")}
                                 className={cn(
-                                    "h-[28px] rounded-[3px] px-2.5 text-[12px] font-medium transition-colors",
+                                    "nb-touch-target h-[28px] rounded-[3px] px-2.5 text-[12px] font-medium transition-colors",
                                     filterStatus === "disabled"
                                         ? "bg-foreground text-background font-semibold"
                                         : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -305,7 +305,7 @@ export function FileWorkspaceMembers({
                                     variant="outline"
                                     size="sm"
                                     disabled={bulkSaving || standardMembers.length === 0}
-                                    className="h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium text-foreground hover:bg-muted"
+                                    className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium text-foreground hover:bg-muted"
                                 >
                                     {bulkSaving ? <Loader2 className="size-3.5 animate-spin text-primary" /> : null}
                                     Bulk actions

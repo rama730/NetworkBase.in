@@ -39,7 +39,7 @@ export function TaskFilesActionMenu({
         data-testid="task-files-action-menu-trigger"
         title="Add files"
         disabled={isDisabled}
-        className="inline-flex h-8 items-center gap-2 rounded-[5px] bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+        className="nb-touch-target inline-flex h-8 items-center gap-2 rounded-[5px] bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <Upload className="h-3.5 w-3.5" />
         <span>Add files</span>
@@ -52,7 +52,7 @@ export function TaskFilesActionMenu({
         aria-label="Add files"
         title="Add files"
         disabled={isDisabled}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+        className="nb-touch-target inline-flex h-8 w-8 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>

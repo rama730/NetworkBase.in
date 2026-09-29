@@ -142,7 +142,7 @@ export function ApplicationsListV2({
                             <button
                                 type="button"
                                 className={cn(
-                                    "flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-none transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900",
+                                    "nb-touch-target flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-none transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900",
                                     statusFilter !== 'all' && "border-primary bg-primary/5 text-primary dark:border-primary dark:text-primary",
                                 )}
                                 aria-label="Filter applications by status"
@@ -168,7 +168,7 @@ export function ApplicationsListV2({
                         <DropdownMenuTrigger asChild>
                             <button
                                 type="button"
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-none transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                                className="nb-touch-target flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-none transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900"
                                 aria-label={`Sort applications by ${sortLabels[sortBy].toLowerCase()}`}
                             >
                                 <SortAsc className="h-4 w-4" />

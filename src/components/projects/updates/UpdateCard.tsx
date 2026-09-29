@@ -263,7 +263,7 @@ function UpdateCard({
                   · {updateRelativeTime(update.createdAt)}
                 </span>
                 {!isDeleted && update.editedAt ? (
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Edited</span>
+                  <span className="font-mono text-[10px] max-md:text-[11px] uppercase tracking-wider text-muted-foreground">Edited</span>
                 ) : null}
               </div>
             </div>

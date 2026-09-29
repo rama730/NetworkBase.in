@@ -91,7 +91,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                             onClose();
                         }}
                         className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-zinc-100 dark:hover:bg-zinc-800",
+                            "nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-zinc-100 dark:hover:bg-zinc-800",
                             selectedReactions.includes(emoji) && "bg-blue-100/50 dark:bg-blue-500/20 ring-1 ring-blue-500/30"
                         )}
                         aria-label={`React with ${emoji}`}
@@ -106,7 +106,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                             e.stopPropagation();
                             setShowExtended(true);
                         }}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300 text-sm font-semibold border border-dashed border-zinc-200 dark:border-zinc-800"
+                        className="nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300 text-sm font-semibold border border-dashed border-zinc-200 dark:border-zinc-800"
                         aria-label="More reactions"
                     >
                         +
@@ -125,7 +125,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                                 onClose();
                             }}
                             className={cn(
-                                "flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-zinc-100 dark:hover:bg-zinc-800",
+                                "nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-zinc-100 dark:hover:bg-zinc-800",
                                 selectedReactions.includes(emoji) && "bg-blue-100/50 dark:bg-blue-500/20 ring-1 ring-blue-500/30"
                             )}
                             aria-label={`React with ${emoji}`}

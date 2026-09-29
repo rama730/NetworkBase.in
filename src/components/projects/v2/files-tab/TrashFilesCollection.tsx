@@ -403,7 +403,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
             <button
               type="button"
               onClick={() => setEmptyTrashDialogOpen(true)}
-              className="flex h-8 items-center gap-1.5 rounded-[5px] border border-[#F2CAC5] bg-white px-2.5 text-xs font-semibold text-[#96201A] shadow-xs hover:bg-[#FCEDEB] hover:border-[#E8A59E] active:bg-[#F7D8D4] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#96201A] dark:border-red-900/50 dark:bg-card dark:text-red-400 dark:hover:bg-red-950/20"
+              className="nb-touch-target flex h-8 items-center gap-1.5 rounded-[5px] border border-[#F2CAC5] bg-white px-2.5 text-xs font-semibold text-[#96201A] shadow-xs hover:bg-[#FCEDEB] hover:border-[#E8A59E] active:bg-[#F7D8D4] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#96201A] dark:border-red-900/50 dark:bg-card dark:text-red-400 dark:hover:bg-red-950/20"
               aria-label="Empty trash"
             >
               <Trash2 className="size-3.5 text-[#96201A] dark:text-red-400" aria-hidden="true" />
@@ -455,7 +455,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
               <span>{item.label}</span>
               <span
                 className={cn(
-                  "text-[10px] tabular-nums",
+                  "text-[10px] max-md:text-[11px] tabular-nums",
                   categoryFilter === item.id
                     ? "text-white/80"
                     : "text-[#8E9AA1] dark:text-muted-foreground",
@@ -577,7 +577,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
                         </span>
                         {Boolean(node.metadata?.permanentDeleteRoot) && (
                           <span
-                            className="shrink-0 inline-flex items-center gap-1 rounded-[3px] bg-[#FCF0EA] px-1.5 py-0.5 text-[10px] font-mono font-medium text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]"
+                            className="shrink-0 inline-flex items-center gap-1 rounded-[3px] bg-[#FCF0EA] px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-mono font-medium text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]"
                           >
                             <span className="size-1 rounded-[1px] bg-[#B23F1C]" />
                             Deletion pending
@@ -666,7 +666,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
                       onClick={() => void restore(node.id)}
                       disabled={busy === node.id || !!node.metadata?.permanentDeleteRoot}
                       title="Restore to original location"
-                      className="hidden group-hover:inline-flex h-7 items-center gap-1 rounded-[4px] border border-[#DBD5C8] bg-white px-2 text-[11px] font-mono font-medium text-[#141A1E] hover:border-[#D14E24] hover:text-[#D14E24] dark:border-border dark:bg-card dark:text-foreground transition-colors disabled:opacity-50"
+                      className="nb-touch-target hidden group-hover:inline-flex h-7 items-center gap-1 rounded-[4px] border border-[#DBD5C8] bg-white px-2 text-[11px] font-mono font-medium text-[#141A1E] hover:border-[#D14E24] hover:text-[#D14E24] dark:border-border dark:bg-card dark:text-foreground transition-colors disabled:opacity-50"
                     >
                       <RotateCcw className="size-3 text-[#D14E24]" />
                       <span>Restore</span>
@@ -678,7 +678,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
                           type="button"
                           disabled={!!busy}
                           aria-label={`Actions for ${node.name}`}
-                          className="flex size-8 shrink-0 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#FAF8F4] dark:hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-[#D14E24] disabled:opacity-50"
+                          className="nb-touch-target flex size-8 shrink-0 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#FAF8F4] dark:hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-[#D14E24] disabled:opacity-50"
                         >
                           <MoreHorizontal aria-hidden="true" className="size-4" />
                         </button>
@@ -745,7 +745,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
               type="button"
               onClick={() => void handleBatchRestore()}
               disabled={batchOperating}
-              className="inline-flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="nb-touch-target inline-flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RotateCcw className="size-3.5" />
               <span>{batchOperating ? "Restoring…" : "Restore selected"}</span>
@@ -755,7 +755,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
                 type="button"
                 onClick={() => setBatchDeleteDialogOpen(true)}
                 disabled={batchOperating}
-                className="inline-flex h-8 items-center gap-1.5 rounded-[5px] border border-[#F2CAC5] bg-white px-3 text-xs font-semibold text-[#96201A] shadow-xs hover:bg-[#FCEDEB] active:bg-[#F7D8D4] disabled:opacity-50 cursor-pointer dark:border-red-900/50 dark:bg-card dark:text-red-400"
+                className="nb-touch-target inline-flex h-8 items-center gap-1.5 rounded-[5px] border border-[#F2CAC5] bg-white px-3 text-xs font-semibold text-[#96201A] shadow-xs hover:bg-[#FCEDEB] active:bg-[#F7D8D4] disabled:opacity-50 cursor-pointer dark:border-red-900/50 dark:bg-card dark:text-red-400"
               >
                 <Trash2 className="size-3.5" />
                 <span>Delete permanently</span>
@@ -765,7 +765,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
               type="button"
               onClick={() => setSelectedIds(new Set())}
               disabled={batchOperating}
-              className="h-8 rounded-[5px] px-2.5 text-xs font-medium text-[#6B7880] hover:text-[#141A1E] dark:hover:text-foreground cursor-pointer"
+              className="nb-touch-target h-8 rounded-[5px] px-2.5 text-xs font-medium text-[#6B7880] hover:text-[#141A1E] dark:hover:text-foreground cursor-pointer"
             >
               Cancel
             </button>
@@ -851,7 +851,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
                               }}
                               size={20}
                               roundedClassName="rounded-[3px]"
-                              fallbackClassName="text-[10px] font-mono bg-[#E8E3D9] text-[#141A1E] dark:bg-white/10 dark:text-foreground"
+                              fallbackClassName="text-[10px] max-md:text-[11px] font-mono bg-[#E8E3D9] text-[#141A1E] dark:bg-white/10 dark:text-foreground"
                             />
                             <span className="font-medium text-[#141A1E] dark:text-foreground">
                               {inspectedNode.deletedByName}
@@ -885,7 +885,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
                   type="button"
                   onClick={() => void restore(inspectedNode.id)}
                   disabled={busy === inspectedNode.id || !!inspectedNode.metadata?.permanentDeleteRoot}
-                  className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-[5px] bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="nb-touch-target inline-flex h-9 w-full items-center justify-center gap-2 rounded-[5px] bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RotateCcw className="size-3.5" />
                   <span>Restore to original location</span>
@@ -900,7 +900,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
                       (!!inspectedNode.metadata?.permanentDeleteRoot &&
                         inspectedNode.metadata.permanentDeleteRoot !== inspectedNode.id)
                     }
-                    className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-[5px] border border-[#F2CAC5] bg-white px-4 text-xs font-semibold text-[#96201A] shadow-xs hover:bg-[#FCEDEB] active:bg-[#F7D8D4] disabled:opacity-50 cursor-pointer dark:border-red-900/50 dark:bg-card dark:text-red-400"
+                    className="nb-touch-target inline-flex h-9 w-full items-center justify-center gap-2 rounded-[5px] border border-[#F2CAC5] bg-white px-4 text-xs font-semibold text-[#96201A] shadow-xs hover:bg-[#FCEDEB] active:bg-[#F7D8D4] disabled:opacity-50 cursor-pointer dark:border-red-900/50 dark:bg-card dark:text-red-400"
                   >
                     <Trash2 className="size-3.5" />
                     <span>

@@ -689,7 +689,7 @@ export function GeneralSettingsSection({
                                         size="sm"
                                         onClick={handleResetProjectImageDraft}
                                         disabled={uploadingCoverImage}
-                                        className="h-[28px] rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+                                        className="nb-touch-target h-[28px] rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
                                     >
                                         Reset
                                     </Button>
@@ -699,7 +699,7 @@ export function GeneralSettingsSection({
                                         size="sm"
                                         onClick={handleFitProjectImageDraft}
                                         disabled={uploadingCoverImage}
-                                        className="h-[28px] rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+                                        className="nb-touch-target h-[28px] rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
                                     >
                                         Fit
                                     </Button>
@@ -709,7 +709,7 @@ export function GeneralSettingsSection({
                                         size="sm"
                                         onClick={handleFillProjectImageDraft}
                                         disabled={uploadingCoverImage}
-                                        className="h-[28px] rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
+                                        className="nb-touch-target h-[28px] rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted"
                                     >
                                         Fill
                                     </Button>
@@ -717,7 +717,7 @@ export function GeneralSettingsSection({
                                 <label className="grid gap-2">
                                     <span className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.16em] text-foreground">
                                         <span>Zoom</span>
-                                        <span className="rounded-[3px] border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.09em]">
+                                        <span className="rounded-[3px] border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] text-muted-foreground uppercase tracking-[0.09em]">
                                             Drag image to position
                                         </span>
                                     </span>
@@ -748,7 +748,7 @@ export function GeneralSettingsSection({
                                     variant="outline"
                                     onClick={handleCancelCoverDraft}
                                     disabled={uploadingCoverImage}
-                                    className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
+                                    className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
                                 >
                                     Cancel
                                 </Button>
@@ -756,7 +756,7 @@ export function GeneralSettingsSection({
                                     type="button"
                                     onClick={() => void handlePublishCoverDraft()}
                                     disabled={uploadingCoverImage}
-                                    className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                                    className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                                 >
                                     {uploadingCoverImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                     Save avatar
@@ -784,7 +784,7 @@ export function GeneralSettingsSection({
                             size="sm"
                             onClick={handleCancelGeneral}
                             disabled={!identityDirty || savingSettings}
-                            className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
+                            className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
                         >
                             Cancel
                         </Button>
@@ -793,7 +793,7 @@ export function GeneralSettingsSection({
                             size="sm"
                             onClick={() => void handleSaveGeneral()}
                             disabled={!identityDirty || savingSettings}
-                            className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                            className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                         >
                             {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                             Save changes
@@ -860,7 +860,7 @@ export function GeneralSettingsSection({
                             size="sm"
                             onClick={handleCancelGeneral}
                             disabled={!identityDirty || savingSettings}
-                            className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
+                            className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
                         >
                             Cancel
                         </Button>
@@ -869,7 +869,7 @@ export function GeneralSettingsSection({
                             size="sm"
                             onClick={() => void handleSaveGeneral()}
                             disabled={!identityDirty || savingSettings}
-                            className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                            className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                         >
                             {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
                             Save changes

@@ -113,7 +113,7 @@ export function ProjectDocSmartBlockPreviewCard({ preview }: { preview: ProjectD
                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground">{preview.description}</p>
                         </div>
                         {preview.href && !preview.safeUnavailable ? (
-                            <a href={preview.href} className="inline-flex h-[28px] items-center justify-center rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted">
+                            <a href={preview.href} className="nb-touch-target inline-flex h-[28px] items-center justify-center rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted">
                                 Open
                             </a>
                         ) : null}

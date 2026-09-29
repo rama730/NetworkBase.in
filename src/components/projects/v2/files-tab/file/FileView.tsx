@@ -602,7 +602,7 @@ export function FileView({
               type="button"
               onClick={resetDragState}
               aria-label="Dismiss drop overlay"
-              className="absolute top-2.5 right-2.5 size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="nb-touch-target absolute top-2.5 right-2.5 size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
               <X className="size-4" />
             </button>
