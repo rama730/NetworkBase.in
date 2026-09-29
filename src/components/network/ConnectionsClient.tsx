@@ -148,19 +148,17 @@ function ConnectionCard({
             head={
                 <Link href={profileHref(user)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <h3 className="nb-card-title truncate text-foreground" title={displayName}>{displayName}</h3>
-                    {user.location ? <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={user.location}><MapPin className="size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{user.location}</span></p> : null}
-                    <p className="nb-meta mt-1 truncate">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>
                 </Link>
             }
-            body={
-                <>
-                    <p className="nb-body truncate text-muted-foreground" title={user.headline || undefined}>{user.headline || "NetworkBase member"}</p>
-                    {skills.length ? <div className={PERSON_CARD_TAGS}>{skills.map((skillName) => {
-                        const skill = resolveClientSkill(skillName);
-                        return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
-                    })}</div> : null}
-                </>
-            }
+            meta={[
+                user.location ? <p key="location" className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={user.location}><MapPin className="size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{user.location}</span></p> : null,
+                <p key="connected" className="nb-meta mt-1 truncate">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>,
+            ]}
+            headline={<p className="nb-body truncate text-muted-foreground" title={user.headline || undefined}>{user.headline || "NetworkBase member"}</p>}
+            body={skills.length ? <div className={PERSON_CARD_TAGS}>{skills.map((skillName) => {
+                const skill = resolveClientSkill(skillName);
+                return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
+            })}</div> : null}
             aside={
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
