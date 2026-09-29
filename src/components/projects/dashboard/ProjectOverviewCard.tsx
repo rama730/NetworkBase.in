@@ -1,7 +1,9 @@
 "use client";
 
 import { memo, useCallback, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import { SkillList } from "@/components/skills/SkillList";
+import { PROJECT_TYPE_OPTIONS } from "@/lib/projects/project-create-options";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ProjectOverviewCardProps {
@@ -59,6 +61,12 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
     project,
 }: ProjectOverviewCardProps) {
     const [statement, setStatement] = useState<StatementSelection>(null);
+    const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+    const categoryLabel = PROJECT_TYPE_OPTIONS.find((type) => type.id === project?.category)?.label ?? project?.category ?? null;
+    const openRoleTitles = (Array.isArray(project?.openRoles) ? project.openRoles : [])
+        .filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0)
+        .map((role: any) => role?.title || role?.role)
+        .filter(Boolean) as string[];
     const projectSkills = useMemo(() => normalizeProjectSkills(project), [project]);
     const problemStatement = project?.problemStatement;
     const solutionStatement = project?.solutionStatement;
@@ -77,21 +85,46 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
 
     return (
         <div className="flex h-fit flex-col overflow-hidden rounded-[8px] border border-border bg-card shadow-none">
-            <div className="p-5 sm:p-6">
-                <div className="grid grid-cols-1 gap-8">
+            <div className="p-4 md:p-6">
+                <div className="grid grid-cols-1 gap-6 md:gap-8">
+                    {/* Mobile key/value rows (spec §19: category and collaboration intent). */}
+                    {categoryLabel || openRoleTitles.length > 0 ? (
+                        <dl className="-mb-2 divide-y divide-border md:hidden">
+                            {categoryLabel ? (
+                                <div className="flex min-h-10 items-center justify-between gap-4">
+                                    <dt className="nb-micro">Category</dt>
+                                    <dd className="nb-compact text-right text-foreground">{categoryLabel}</dd>
+                                </div>
+                            ) : null}
+                            <div className="flex min-h-10 items-center justify-between gap-4">
+                                <dt className="nb-micro shrink-0">Looking for</dt>
+                                <dd className="nb-compact min-w-0 truncate text-right text-foreground">
+                                    {openRoleTitles.length > 0 ? openRoleTitles.join(", ") : "Not recruiting"}
+                                </dd>
+                            </div>
+                        </dl>
+                    ) : null}
                     {project?.description ? (
                         <section>
                             <h3 className="nb-section-title mb-3 text-foreground">
                                 Vision & Description
                             </h3>
-                            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/85">
+                            <p className={cn("whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/85", !descriptionExpanded && "max-md:line-clamp-6")}>
                                 {project.description}
                             </p>
+                            <button
+                                type="button"
+                                onClick={() => setDescriptionExpanded((value) => !value)}
+                                aria-expanded={descriptionExpanded}
+                                className="nb-touch-target nb-ui-label mt-2 inline-flex items-center text-primary md:hidden"
+                            >
+                                {descriptionExpanded ? "Show less" : "Read full description"}
+                            </button>
                         </section>
                     ) : null}
 
                     {(project?.problemStatement || project?.solutionStatement) ? (
-                        <div className="grid items-stretch gap-6 md:grid-cols-2">
+                        <div className="grid items-stretch gap-6 max-md:hidden md:grid-cols-2">
                             {project.problemStatement ? (
                                 <StatementBox
                                     title="The Problem"
@@ -111,11 +144,25 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                         </div>
                     ) : null}
 
-                    <div className="flex flex-wrap items-start gap-12 border-t border-border pt-5">
+                    {(project?.problemStatement || project?.solutionStatement) ? (
+                        <div className="divide-y divide-border rounded-[5px] border border-border md:hidden">
+                            {[["The problem", project.problemStatement], ["The solution", project.solutionStatement]].filter(([, text]) => text).map(([title, text]) => (
+                                <details key={title} className="group">
+                                    <summary className="nb-ui-label flex min-h-11 cursor-pointer list-none items-center justify-between px-3 text-foreground">
+                                        {title}
+                                        <span aria-hidden="true" className="text-muted-foreground transition-transform group-open:rotate-90">›</span>
+                                    </summary>
+                                    <p className="nb-compact whitespace-pre-wrap px-3 pb-3 text-muted-foreground">{text}</p>
+                                </details>
+                            ))}
+                        </div>
+                    ) : null}
+
+                    <div className="flex flex-wrap items-start gap-12 border-t border-border pt-5 max-md:flex-col max-md:gap-4">
                         {project?.tags?.length > 0 ? (
                             <div className="space-y-3">
                                 <h3 className="nb-micro">Tags</h3>
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="flex flex-wrap gap-1.5 max-md:[&>span:nth-child(n+7)]:hidden">
                                     {project.tags.map((tag: string) => (
                                         <span
                                             key={tag}
@@ -124,6 +171,9 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                                             #{tag}
                                         </span>
                                     ))}
+                                    {project.tags.length > 6 ? (
+                                        <b className="inline-flex items-center px-1 font-mono text-[11px] font-medium text-muted-foreground md:hidden">+{project.tags.length - 6}</b>
+                                    ) : null}
                                 </div>
                             </div>
                         ) : null}
@@ -131,7 +181,8 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                         {projectSkills.length > 0 ? (
                             <div className="space-y-3">
                                 <h3 className="nb-micro">{"Skills & Tech"}</h3>
-                                <SkillList skills={projectSkills} maxVisible={12} size="sm" />
+                                <SkillList skills={projectSkills} maxVisible={12} size="sm" className="max-md:hidden" />
+                                <SkillList skills={projectSkills} maxVisible={6} size="sm" className="md:hidden" />
                             </div>
                         ) : null}
 
