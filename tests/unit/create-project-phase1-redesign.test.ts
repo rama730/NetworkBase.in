@@ -74,7 +74,8 @@ test("wizard shell is reactive, uses the project-setup exit dialog, and chunks u
     readFile("src/components/projects/create-wizard/WizardFooter.tsx", "utf8"),
   ]);
 
-  assert.match(wizard, /methods\.watch\('import_source\.metadata'\)/);
+  // Reactive via a real subscription (useWatch); render-time watch() went stale after GitHub -> Scratch.
+  assert.match(wizard, /useWatch\(\{[\s\S]*'import_source\.metadata'\]/);
   assert.match(wizard, /<LeaveProjectSetupDialog/);
   assert.match(wizard, /app-scroll app-scroll-y app-scroll-gutter/);
   // A page in the app shell (spec §18): fills the main area, content in the shared 1000px column.

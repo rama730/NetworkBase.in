@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FormProvider } from 'react-hook-form';
+import { FormProvider, useWatch } from 'react-hook-form';
 import { Save } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -67,9 +67,13 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
     const restoredGithubOAuthResumeRef = useRef<string | null>(null);
     const [isResumingGithubOAuth] = useState(Boolean(githubOAuthResume));
     const handleReviewReady = useCallback(() => setIsReviewReady(true), [setIsReviewReady]);
-    const sourceType = methods.watch('import_source.type');
-    const sourceRepoUrl = methods.watch('import_source.repoUrl');
-    const sourceMetadata = methods.watch('import_source.metadata') as Record<string, unknown> | undefined;
+    // Subscribe, don't watch(): Phase 1 replaces the whole import_source object, which react-hook-form
+    // does not re-render this component for. A stale type kept Continue greyed out after GitHub -> Scratch.
+    const [sourceType, sourceRepoUrl, rawSourceMetadata] = useWatch({
+        control: methods.control,
+        name: ['import_source.type', 'import_source.repoUrl', 'import_source.metadata'],
+    });
+    const sourceMetadata = rawSourceMetadata as Record<string, unknown> | undefined;
 
     useEffect(() => {
         if (!githubOAuthResume || restoredGithubOAuthResumeRef.current === githubOAuthResume.id) return;
