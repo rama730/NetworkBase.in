@@ -983,7 +983,7 @@ export function MessagesWorkspaceV2({
                                         <button
                                             type="button"
                                             data-testid="messages-tab-trigger"
-                                            className="nb-card-title flex items-center gap-2 text-foreground transition-opacity hover:opacity-80"
+                                            className="nb-touch-target nb-card-title flex items-center gap-2 text-foreground transition-opacity hover:opacity-80"
                                         >
                                             {activeTab === 'chats' ? 'Chats' : activeTab === 'applications' ? 'Applications' : 'Project Groups'}
                                             <ChevronDown className="h-4 w-4 opacity-60" />

@@ -204,6 +204,8 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [hiddenForViewer, setHiddenForViewer] = useState(false);
     const [showReactionBar, setShowReactionBar] = useState(false);
+    // Touch has no hover: tapping the bubble reveals its action row (spec §09, no hover-only actions).
+    const [touchActionsOpen, setTouchActionsOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const reactionTriggerRef = useRef<HTMLButtonElement | null>(null);
     const [linkedWorkExpanded, setLinkedWorkExpanded] = useState(false);
@@ -524,6 +526,11 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
         >
             <div
                 className={`group flex w-full min-w-0 items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
+                onClick={(event) => {
+                    if (!window.matchMedia('(hover: none)').matches) return;
+                    if ((event.target as HTMLElement).closest('a, button, input, textarea, [role="menuitem"]')) return;
+                    setTouchActionsOpen((open) => !open);
+                }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
@@ -929,7 +936,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                 <div
                     className={cn(
                         'flex items-center gap-1 transition-opacity duration-[180ms] shrink-0 pb-1 z-20',
-                        showReactionBar || menuOpen
+                        showReactionBar || menuOpen || touchActionsOpen
                             ? 'pointer-events-auto opacity-100'
                             : 'pointer-events-none opacity-0 focus-within:pointer-events-auto focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
                     )}
@@ -943,7 +950,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                                 event.stopPropagation();
                                 setShowReactionBar((prev) => !prev);
                             }}
-                            className="rounded-full bg-background/90 p-1 text-zinc-400 shadow-none ring-1 ring-border/60 backdrop-blur-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-950/90 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                            className="nb-touch-target inline-flex items-center justify-center rounded-full bg-background/90 p-1 text-zinc-400 shadow-none ring-1 ring-border/60 backdrop-blur-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-950/90 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                             aria-label="Add reaction"
                         >
                             <SmilePlus className="h-4 w-4" />
@@ -963,7 +970,7 @@ export const MessageBubbleV2 = React.memo(function MessageBubbleV2({
                         <DropdownMenuTrigger asChild>
                             <button
                                 type="button"
-                                className="rounded-full bg-background/90 p-1 text-zinc-400 shadow-none ring-1 ring-border/60 backdrop-blur-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-950/90 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                                className="nb-touch-target inline-flex items-center justify-center rounded-full bg-background/90 p-1 text-zinc-400 shadow-none ring-1 ring-border/60 backdrop-blur-none transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:bg-zinc-950/90 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
                                 aria-label="Message actions"
                                 disabled={isActionLoading}
                             >

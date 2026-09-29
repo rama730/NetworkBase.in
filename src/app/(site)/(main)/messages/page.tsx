@@ -42,7 +42,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
             data-hardening-messages="v2"
             className="h-full min-h-0 overflow-hidden app-scroll app-scroll-y app-scroll-gutter bg-white dark:bg-zinc-950"
         >
-            <Suspense fallback={<div role="status" aria-live="polite" aria-label="Loading messages" className="grid h-full min-h-0 grid-cols-[minmax(18rem,30%)_1fr]"><span className="sr-only">Loading messages…</span><InboxListSkeletonV2 surface="page" /><ThreadSkeletonV2 surface="page" /></div>}>
+            <Suspense fallback={<div role="status" aria-live="polite" aria-label="Loading messages" className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[minmax(18rem,30%)_1fr]"><span className="sr-only">Loading messages…</span><InboxListSkeletonV2 surface="page" /><div className="hidden md:contents"><ThreadSkeletonV2 surface="page" /></div></div>}>
                 <MessagesWorkspaceV2
                     mode="page"
                     targetUserId={targetUserId}
