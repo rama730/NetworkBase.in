@@ -2,11 +2,9 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useCallback, useEffect, useState, Suspense } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { LogOut, Menu, Plus, UserRound } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
+import { LogOut, Menu, Plus, Search, UserRound } from "lucide-react";
 import Logo from "./Logo";
-import { toast } from "sonner";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,14 +12,18 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SignOutConfirmDialog } from "@/components/auth/SignOutConfirmDialog";
 
 import ThemeToggle from "./ThemeToggle";
 // Dynamic Imports for heavy interactive components
 import dynamic from "next/dynamic";
 const MobileMenu = dynamic(() => import("./MobileMenu"), { ssr: false });
 const CommandPalette = dynamic(() => import("./CommandPalette"), { ssr: false });
-const NotificationPreview = dynamic(() => import("./NotificationPreview"), { ssr: false });
+// The placeholder reserves the bell's slot so the mobile topbar does not shift on hydration.
+const NotificationPreview = dynamic(() => import("./NotificationPreview"), {
+    ssr: false,
+    loading: () => <span aria-hidden="true" className="inline-block size-[var(--ui-control-height)] shrink-0" />,
+});
 const CreateProjectWizard = dynamic(() => import("@/components/projects/create-wizard/CreateProjectWizard"), { ssr: false });
 
 import GlobalSearch from "./GlobalSearch";
@@ -33,7 +35,6 @@ import { OnlineIndicator } from "@/components/ui/OnlineIndicator";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useNotifications } from "@/hooks/useNotifications";
-import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import { ROUTES } from "@/constants/routes";
 import { resolveTopNavAuthUiState } from "./topnav-auth-state";
 
@@ -42,11 +43,7 @@ import {
     type GlobalSearchContext,
 } from "./global-search";
 import { useMessagesV2UiStore } from "@/stores/messagesV2UiStore";
-import { useMessageAttention } from "@/components/providers/MessageAttentionProvider";
-import { useUIStore } from "@/stores/ui-store";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
-import { getWorkspaceSummaryAction } from "@/app/actions/workspace";
-import { queryKeys } from "@/lib/query-keys";
 import {
     clearGithubOAuthResume,
     getCreateProjectReturnPath,
@@ -61,8 +58,6 @@ export default function TopNav() {
     const { user, isAuthenticated: isSignedIn, isLoading: authLoading, profile, signOut } = useAuth();
 
     const notifications = useNotifications();
-    const peopleNotifications = useNetworkNotifications();
-    const messageAttention = useMessageAttention();
     const { connectionHealth } = useRealtime();
 
     // Hydration fix: ensures we only render auth-dependent UI after mount
@@ -80,31 +75,10 @@ export default function TopNav() {
     const [commandPaletteContext, setCommandPaletteContext] = useState<GlobalSearchContext | undefined>();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-    const [isSigningOut, setIsSigningOut] = useState(false);
-
-    const handleSignOut = async () => {
-        if (isSigningOut) return;
-        setIsSigningOut(true);
-        try {
-            await signOut();
-            toast.info("Signed out successfully");
-        } finally {
-            setIsSigningOut(false);
-        }
-    };
+    const profileMenuTriggerRef = useRef<HTMLButtonElement>(null);
+    const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
     const setMessageSearchOpen = useMessagesV2UiStore((state) => state.setMessageSearchOpen);
-    const openWorkspace = useUIStore((state) => state.openWorkspace);
-    const workspaceSummary = useQuery({
-        queryKey: queryKeys.workspace.summary(),
-        queryFn: getWorkspaceSummaryAction,
-        enabled: Boolean(isSignedIn),
-        staleTime: 30_000,
-        refetchOnWindowFocus: false,
-    });
-    const workspaceActionCount = workspaceSummary.data?.success
-        ? workspaceSummary.data.taskCount + workspaceSummary.data.requestCount + peopleNotifications.pendingConnections
-        : peopleNotifications.pendingConnections;
     const isProjectDetailRoute = pathname.startsWith('/projects/');
 
     useEffect(() => {
@@ -187,7 +161,22 @@ export default function TopNav() {
             className="nb-topbar shrink-0 border-b border-border bg-card"
         >
             <div className="px-4 sm:px-5 flex min-w-0 items-center justify-between gap-3 h-[var(--ui-topnav-height)]">
-                <div className="flex shrink-0 items-center gap-4">
+                <div className="flex shrink-0 items-center gap-1 md:gap-4">
+                    {authUiState === "signed-in" && (
+                        <button
+                            ref={mobileMenuTriggerRef}
+                            onClick={() => setShowMobileMenu(true)}
+                            className="nb-mobile-menu-trigger relative -ml-2 inline-flex size-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted focus:outline-none md:hidden"
+                            aria-label="Open mobile menu"
+                            aria-expanded={showMobileMenu}
+                            aria-controls="mobile-menu"
+                        >
+                            <Menu className="size-5" aria-hidden="true" />
+                            {connectionHealth !== "healthy" ? (
+                                <span aria-hidden="true" className="absolute right-2 top-2 size-2 rounded-full bg-[var(--status-warning)]" />
+                            ) : null}
+                        </button>
+                    )}
                     <div className="md:hidden">
                         <Logo href={authUiState === "signed-in" ? ROUTES.DISCOVER : ROUTES.HOME} />
                     </div>
@@ -213,7 +202,7 @@ export default function TopNav() {
                                 setGithubOAuthResume(null);
                                 setShowCreateProject(true);
                             }}
-                            className={`nb-ui-label hidden h-[var(--ui-control-height)] items-center gap-2 rounded-md border px-4 transition-[background-color,border-color,color,transform] duration-150 ease-in-out active:translate-y-px sm:inline-flex ${isProjectDetailRoute
+                            className={`nb-ui-label hidden h-[var(--ui-control-height)] items-center gap-2 rounded-md border px-4 transition-[background-color,border-color,color,transform] duration-150 ease-in-out active:translate-y-px md:inline-flex ${isProjectDetailRoute
                                 ? 'border-border bg-card text-foreground hover:border-input hover:bg-muted'
                                 : 'border-primary bg-primary text-primary-foreground hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:border-[var(--primary-active)] active:bg-[var(--primary-active)]'}`}
                         >
@@ -221,7 +210,19 @@ export default function TopNav() {
                             New project
                         </button>
                     )}
-                    {authUiState === "signed-in" && <ConnectionStatusIndicator />}
+                    {authUiState === "signed-in" && (
+                        <span className="hidden md:contents"><ConnectionStatusIndicator /></span>
+                    )}
+                    {authUiState === "signed-in" && (
+                        <button
+                            type="button"
+                            onClick={() => openGlobalSearch()}
+                            className="inline-flex size-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+                            aria-label="Search"
+                        >
+                            <Search className="size-5" aria-hidden="true" />
+                        </button>
+                    )}
                     {authUiState === "signed-in" && (
                         <NotificationPreview
                             unreadCount={notifications.unreadCount}
@@ -246,18 +247,19 @@ export default function TopNav() {
                         />
                     )}
 
-                    <ThemeToggle />
+                    <span className="hidden md:contents"><ThemeToggle /></span>
 
                     {authUiState === "loading" ? (
-                        <div className="ml-1 border-l border-border pl-3">
+                        <div className="ml-1 hidden border-l border-border pl-3 md:block">
                             <div className="size-[34px] rounded-md bg-muted" />
                         </div>
                     ) : (
-                        <div className="relative ml-1 border-l border-border pl-3">
+                        <div className={`relative ml-1 border-l border-border pl-3 ${authUiState === "signed-in" ? "hidden md:block" : ""}`}>
                             {authUiState === "signed-in" ? (
                                 <DropdownMenu open={isProfileMenuOpen} onOpenChange={setIsProfileMenuOpen}>
                                     <DropdownMenuTrigger asChild>
                                         <button
+                                            ref={profileMenuTriggerRef}
                                             type="button"
                                             className="group inline-flex size-10 items-center justify-center rounded-[5px] transition-colors hover:bg-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                                             aria-label="User menu"
@@ -270,11 +272,14 @@ export default function TopNav() {
                                         </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent
+                                        side="bottom"
                                         align="end"
-                                        sideOffset={8}
-                                        className="w-56 overflow-hidden rounded-[8px] border border-border bg-popover p-1 text-popover-foreground shadow-lg duration-[180ms] data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100"
+                                        sideOffset={12}
+                                        alignOffset={0}
+                                        collisionPadding={12}
+                                        className="w-48 overflow-hidden rounded-[8px] border border-border bg-popover p-1 text-popover-foreground shadow-lg duration-[180ms] data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100"
                                     >
-                                        <div className="px-2.5 py-2">
+                                        <div className="px-2 py-1.5">
                                             <p className="truncate text-xs font-semibold text-foreground">
                                                 {profile?.fullName || profile?.username || "Account"}
                                             </p>
@@ -305,7 +310,7 @@ export default function TopNav() {
                                             className="flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors"
                                         >
                                             <LogOut className="size-4 shrink-0" aria-hidden="true" />
-                                            <span>Sign Out</span>
+                                            <span>Sign out</span>
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
@@ -320,17 +325,7 @@ export default function TopNav() {
                         </div>
                     )}
 
-                    {authUiState === "signed-in" && (
-                        <button
-                            onClick={() => setShowMobileMenu(true)}
-                            className="nb-mobile-menu-trigger inline-flex size-10 items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none md:hidden"
-                            aria-label="Open mobile menu"
-                            aria-expanded={showMobileMenu}
-                            aria-controls="mobile-menu"
-                        >
-                            <Menu className="size-4" aria-hidden="true" />
-                        </button>
-                    )}
+
                 </div>
 
                 {mounted && authUiState === "signed-in" && (
@@ -338,23 +333,14 @@ export default function TopNav() {
                         <MobileMenu
                             isOpen={showMobileMenu}
                             onClose={() => setShowMobileMenu(false)}
+                            returnFocusRef={mobileMenuTriggerRef}
                             profile={profile}
                             onSignOut={signOut}
-                            notificationUnreadCount={notifications.unreadImportantCount}
-                            messageUnreadCount={messageAttention.unreadCount}
-                            onOpenNotifications={() => {
-                                setShowMobileMenu(false);
-                                notifications.openTray();
+                            onNewProject={() => {
+                                setCreateProjectInitialSource(null);
+                                setGithubOAuthResume(null);
+                                setShowCreateProject(true);
                             }}
-                            onOpenSearch={() => {
-                                setShowMobileMenu(false);
-                                openGlobalSearch();
-                            }}
-                            onOpenWorkspace={() => {
-                                setShowMobileMenu(false);
-                                openWorkspace("tasks");
-                            }}
-                            workspaceActionCount={workspaceActionCount}
                             connectionHealth={connectionHealth}
                         />
                     </Suspense>
@@ -389,15 +375,11 @@ export default function TopNav() {
                         }}
                     />
                 )}
-                <ConfirmDialog
+                <SignOutConfirmDialog
                     open={showSignOutConfirm}
                     onOpenChange={setShowSignOutConfirm}
-                    title="Sign out of your account?"
-                    description="You will be signed out on this device. Unsaved offline changes or drafts may be lost."
-                    confirmLabel="Sign out"
-                    variant="destructive"
-                    loading={isSigningOut}
-                    onConfirm={handleSignOut}
+                    returnFocusRef={profileMenuTriggerRef}
+                    onConfirm={signOut}
                 />
             </div>
         </header>

@@ -219,6 +219,10 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(topNav, /recentSearchOwnerId=\{user\?\.id\}/);
   assert.match(mobileMenu, /<Dialog open=\{props\.isOpen\}/);
   assert.match(mobileMenu, /p-4 md:hidden/);
+  // Mobile quick nav renders the sidebar's own nav body so destinations, order and counts cannot drift.
+  assert.match(mobileMenu, /import \{ SidebarNav \} from "@\/components\/layout\/AppSidebar"/);
+  assert.match(mobileMenu, /<SidebarNav \/>/);
+  assert.match(source("src/components/layout/AppSidebar.tsx"), /<SidebarNav \/>/);
   assert.match(notifications, /href=\{settingsTabHref\("notifications"\)\}/);
   assert.match(notifications, /onItemsViewed/);
   assert.match(notifications, /data-\[state=open\]/);

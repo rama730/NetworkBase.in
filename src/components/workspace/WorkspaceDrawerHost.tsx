@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -57,6 +57,14 @@ export function WorkspaceDrawerHost() {
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isOpen, setWorkspaceOpen]);
+
+    // Below md the drawer is full screen, so a route change (including browser Back) must not leave it covering the new page.
+    const previousPathnameRef = useRef(pathname);
+    useEffect(() => {
+        if (previousPathnameRef.current === pathname) return;
+        previousPathnameRef.current = pathname;
+        if (window.matchMedia("(max-width: 767px)").matches) setWorkspaceOpen(false);
+    }, [pathname, setWorkspaceOpen]);
 
     // Keep the lazily loaded host after its first open so Radix can
     // play the closed-state animation instead of being unmounted immediately.

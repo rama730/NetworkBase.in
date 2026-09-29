@@ -109,7 +109,7 @@ export function ChatPopupV2() {
                 onClick={() => setPopupState('open')}
                 onMouseEnter={handleLauncherPrewarm}
                 onFocus={handleLauncherPrewarm}
-                className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full app-accent-solid shadow-lg transition-[color,background-color,border-color,box-shadow,opacity,transform] hover:scale-100 hover:bg-primary/90"
+                className="fixed bottom-6 right-6 z-50 hidden h-14 w-14 md:flex items-center justify-center rounded-full app-accent-solid shadow-lg transition-[color,background-color,border-color,box-shadow,opacity,transform] hover:scale-100 hover:bg-primary/90"
                 aria-label={hasUnreadMessages ? `Open messages, ${unreadCount} unread messages` : 'Open messages'}
             >
                 <MessageSquare className="h-6 w-6" />
@@ -124,7 +124,7 @@ export function ChatPopupV2() {
     }
 
     return (
-        <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
+        <div className="fixed bottom-4 right-4 z-50 hidden md:bottom-6 md:right-6 md:block">
 
 
             <div
