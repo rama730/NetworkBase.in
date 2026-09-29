@@ -25,7 +25,6 @@ export default function MobileMenu(props: {
         avatarUrl?: string | null;
     } | null;
     onSignOut?: () => void | Promise<void>;
-    onNewProject?: () => void;
     connectionHealth?: RealtimeHealthState;
 }) {
     const pathname = usePathname();
@@ -72,18 +71,14 @@ export default function MobileMenu(props: {
                     </button>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={() => {
-                        props.onClose();
-                        props.onNewProject?.();
-                    }}
-                    // 36px visual, 44px tap area via invisible hit padding (spec §05).
+                {/* Full-page create route; closeOnNavigate shuts the drawer. 36px visual, 44px tap area via invisible hit padding (spec §05). */}
+                <Link
+                    href="/projects/new"
                     className="relative inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[5px] border border-primary bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
                 >
                     <Plus className="size-3.5" aria-hidden="true" />
                     New project
-                </button>
+                </Link>
 
                 <SidebarNav />
 

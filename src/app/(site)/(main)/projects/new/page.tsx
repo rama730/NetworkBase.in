@@ -7,7 +7,7 @@ import { getViewerAuthContext } from '@/lib/server/viewer-context'
 const VALID_CREATE_PROJECT_SOURCES = new Set(['scratch', 'github', 'upload'] as const)
 
 export const metadata: Metadata = buildRouteMetadata({
-    title: 'Create Project | NetworkBase',
+    title: 'Create project | NetworkBase',
     description: 'Start a new project on NetworkBase.',
     path: '/projects/new',
 })
@@ -31,8 +31,9 @@ export default async function NewProjectPage({
         ? (rawSource as 'scratch' | 'github' | 'upload')
         : null
 
+    // Full-page focus route: MainLayout drops the app shell here; the wizard body is the only scroller.
     return (
-        <div data-scroll-root="route">
+        <div data-scroll-root="route" className="h-dvh min-h-0">
             <CreateProjectRouteClient initialSource={initialSource} />
         </div>
     )

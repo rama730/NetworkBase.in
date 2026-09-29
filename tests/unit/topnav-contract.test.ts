@@ -214,7 +214,8 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(topNav, /<div className="md:hidden">\s*<Logo/);
   assert.match(topNav, /className="nb-mobile-menu-trigger[^\"]*md:hidden"\s+aria-label="Open mobile menu"/);
   assert.match(globals, /@media \(min-width:768px\) \{[\s\S]*?\.nb-mobile-menu-trigger \{ display:none; \}/);
-  assert.match(topNav, /createProject=1/);
+  assert.doesNotMatch(topNav, /createProject=1/);
+  assert.match(topNav, /href="\/projects\/new"/);
   assert.match(topNav, /className="flex shrink-0 items-center gap-2"/);
   assert.match(topNav, /recentSearchOwnerId=\{user\?\.id\}/);
   assert.match(mobileMenu, /<Dialog open=\{props\.isOpen\}/);

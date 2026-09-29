@@ -454,6 +454,22 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
     const hasUnsavedWizardChanges = isDirty
         || Boolean(uploadFiles?.length);
 
+    // Leaving without the confirm dialog (browser Back) keeps the work: unsaved changes become a
+    // draft on unmount. "Leave setup" and a successful create opt out via markLeaving().
+    const skipDraftOnUnmountRef = useRef(false);
+    const hasUnsavedRef = useRef(hasUnsavedWizardChanges);
+    const saveDraftRef = useRef(saveDraft);
+    useEffect(() => {
+        hasUnsavedRef.current = hasUnsavedWizardChanges;
+        saveDraftRef.current = saveDraft;
+    }, [hasUnsavedWizardChanges, saveDraft]);
+    useEffect(() => () => {
+        if (hasUnsavedRef.current && !skipDraftOnUnmountRef.current) void saveDraftRef.current(true);
+    }, []);
+    const markLeaving = useCallback(() => {
+        skipDraftOnUnmountRef.current = true;
+    }, []);
+
     useEffect(() => {
         if (phase !== TOTAL_PHASES) setIsReviewReady(false);
     }, [phase]);
@@ -793,10 +809,10 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
 
             const { draftStore } = await import('@/lib/storage/draft-store');
             await draftStore.clear();
-            if (createdProjectId) {
-                onSuccess?.(createdProjectId);
-            }
-            onClose();
+            skipDraftOnUnmountRef.current = true;
+            // Success navigates to the new project; closing as well would navigate away from it.
+            if (createdProjectId && onSuccess) onSuccess(createdProjectId);
+            else onClose();
         } catch (error: any) {
             // If upload import failed after project creation, mark syncStatus=failed so Files tab can show retry UI.
             try {
@@ -822,7 +838,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
         isPhaseTransitioning, isReviewReady, setIsReviewReady,
         uploadFiles, setUploadFiles, uploadProgress, setUploadProgress,
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
-        handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt,
+        handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt, markLeaving, hasUnsavedWizardChanges,
         githubPreview,
         githubFolderEntries,
         loadGithubFolder,

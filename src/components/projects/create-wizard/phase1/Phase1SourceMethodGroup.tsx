@@ -53,7 +53,7 @@ export function Phase1SourceMethodGroup({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
         {SOURCE_OPTIONS.map((option) => {
           const Icon = option.icon;
           const selected = value === option.type;
@@ -63,7 +63,7 @@ export function Phase1SourceMethodGroup({
               key={option.type}
               data-testid={`create-project-source-card-${option.type}`}
               className={cn(
-                "group relative flex min-h-44 cursor-pointer items-start gap-3 rounded-lg border p-6 text-left transition-[background-color,border-color,box-shadow] duration-[130ms] ease-[cubic-bezier(.2,.8,.3,1)]",
+                "group relative flex cursor-pointer items-start gap-3 rounded-lg border p-4 text-left md:p-6 transition-[background-color,border-color,box-shadow] duration-[130ms] ease-[cubic-bezier(.2,.8,.3,1)]",
                 selected
                   ? "border-primary bg-secondary"
                   : "border-border bg-card hover:border-input hover:bg-muted/60",

@@ -1,6 +1,5 @@
 'use client';
 
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { Save } from 'lucide-react';
@@ -13,10 +12,10 @@ import { useCreateProjectWizard } from './useCreateProjectWizard';
 
 // Shared Components
 import WizardHeader from './WizardHeader';
-import WizardFooter from './WizardFooter';
+import WizardFooter, { WIZARD_COLUMN } from './WizardFooter';
 import { Button } from '@/components/ui/button';
 import LeaveProjectSetupDialog from './LeaveProjectSetupDialog';
-import type { CreateProjectGithubOAuthResume } from './github-oauth-resume';
+import { getCreateProjectReturnPath, readGithubOAuthResume, type CreateProjectGithubOAuthResume } from './github-oauth-resume';
 
 // Dynamic Phase Imports with Consistent Loading States
 const PhaseLoadingPlaceholder = () => (
@@ -36,7 +35,6 @@ const Phase4Settings = dynamic(() => import('./phases/Phase4Settings'), { loadin
 const Phase5Review = dynamic(() => import('./phases/Phase5Review'), { loading: PhaseLoadingPlaceholder, ssr: false });
 
 interface Props {
-    presentation?: 'modal' | 'page';
     onClose: () => void;
     onSuccess?: (projectId: string) => void;
     draftId?: string;
@@ -46,14 +44,14 @@ interface Props {
     onGithubOAuthResumeRestored?: (resumeId: string) => void;
 }
 
-export default function CreateProjectWizard({ presentation = 'modal', onClose, onSuccess, draftId, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored }: Props) {
+export default function CreateProjectWizard({ onClose, onSuccess, draftId, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored }: Props) {
     const {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
         uploadFiles, setUploadFiles, uploadProgress,
         githubPreview, githubFolderEntries, loadGithubFolder, startGithubRootPreview,
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
-        handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt,
+        handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt, markLeaving, hasUnsavedWizardChanges,
         onSubmit, draftInfo, restoreDraft, deleteDraft
     } = useCreateProjectWizard({
         onClose,
@@ -65,6 +63,7 @@ export default function CreateProjectWizard({ presentation = 'modal', onClose, o
 
     const { handleSubmit } = methods;
     const scrollBodyRef = useRef<HTMLDivElement>(null);
+    const headingRef = useRef<HTMLHeadingElement>(null);
     const restoredGithubOAuthResumeRef = useRef<string | null>(null);
     const [isResumingGithubOAuth] = useState(Boolean(githubOAuthResume));
     const handleReviewReady = useCallback(() => setIsReviewReady(true), [setIsReviewReady]);
@@ -131,6 +130,24 @@ export default function CreateProjectWizard({ presentation = 'modal', onClose, o
         scrollBodyRef.current?.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     }, [phase]);
 
+    // Full-page route: move focus to the page heading so screen readers start at the top of the flow.
+    useEffect(() => {
+        headingRef.current?.focus({ preventScroll: true });
+    }, []);
+
+    // Refresh or tab close with unsaved work gets the browser's own prompt. The GitHub sign-in
+    // hand-off is exempt: it snapshots the form first and restores it on return.
+    useEffect(() => {
+        if (!hasUnsavedWizardChanges) return;
+        const onBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (readGithubOAuthResume(getCreateProjectReturnPath(window.location))) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [hasUnsavedWizardChanges]);
+
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
@@ -174,16 +191,15 @@ export default function CreateProjectWizard({ presentation = 'modal', onClose, o
     }, [handleCloseAttempt, setShowExitConfirm, showExitConfirm]);
 
     const content = (
-            <div
-                className={`relative flex min-h-0 w-full flex-col overflow-hidden bg-card ${presentation === 'page' ? 'h-[calc(100dvh-var(--ui-topnav-height)-48px)]' : 'h-full max-h-full'}`}
-                onClick={(e) => e.stopPropagation()}
-            >
+            // Full-page focus screen (spec §18): header and footer bands, one scrolling body.
+            <div className="relative flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-card motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150">
                     <FormProvider {...methods}>
                         {/* Header */}
-                        <WizardHeader currentPhase={phase} onClose={handleCloseAttempt} />
+                        <WizardHeader currentPhase={phase} onClose={handleCloseAttempt} headingRef={headingRef} />
 
                         {/* Content */}
-                        <div ref={scrollBodyRef} className="app-scroll app-scroll-y app-scroll-gutter min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-6">
+                        <div ref={scrollBodyRef} className="app-scroll app-scroll-y app-scroll-gutter min-h-0 flex-1 scroll-pb-32 overflow-y-auto overscroll-contain">
+                        <div className={`${WIZARD_COLUMN} px-4 pb-6 pt-5 md:px-6 md:py-8`}>
                             {uploadProgress?.isUploading && (
                                 <div className="mb-4 rounded-lg border border-border bg-secondary/45 p-4" role="status" aria-live="polite">
                                     <div className="flex items-center justify-between gap-4">
@@ -238,11 +254,12 @@ export default function CreateProjectWizard({ presentation = 'modal', onClose, o
                                 </div>
                             </form>
                         </div>
+                        </div>
 
                         {/* Draft Recovery Banner */}
                         {draftInfo?.exists && (
-                            <div className="flex-shrink-0 border-t border-border bg-secondary/45 px-5 py-4 sm:px-6">
-                                <div className="flex items-center justify-between gap-4">
+                            <div className="flex-shrink-0 border-t border-border bg-secondary/45">
+                                <div className={`${WIZARD_COLUMN} flex items-center justify-between gap-4 px-4 py-4 md:px-6 max-sm:flex-col max-sm:items-stretch max-sm:gap-3`}>
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className="flex size-9 flex-shrink-0 items-center justify-center rounded-md border border-border bg-card">
                                             <Save className="size-4 text-muted-foreground" />
@@ -256,7 +273,7 @@ export default function CreateProjectWizard({ presentation = 'modal', onClose, o
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                    <div className="flex flex-shrink-0 items-center gap-2 max-sm:grid max-sm:grid-cols-2">
                                         <Button
                                             type="button"
                                             variant="ghost"
@@ -298,36 +315,19 @@ export default function CreateProjectWizard({ presentation = 'modal', onClose, o
 
                 </div>
     );
-    const exitConfirmation = (
-        <LeaveProjectSetupDialog
-            open={showExitConfirm}
-            onOpenChange={setShowExitConfirm}
-            onLeave={onClose}
-        />
-    );
-
-    if (presentation === 'page') {
-        return (
-            <>
-                <section className="mx-auto max-w-[1000px] p-4 sm:p-6">{content}</section>
-                {exitConfirmation}
-            </>
-        );
-    }
+    const leaveSetup = () => {
+        markLeaving();
+        onClose();
+    };
 
     return (
         <>
-            <Dialog open onOpenChange={open => { if (!open) handleCloseAttempt(); }}>
-                <DialogContent
-                    showCloseButton={false}
-                    className="inset-0 left-0 top-0 flex h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:left-1/2 sm:top-1/2 sm:h-[calc(100dvh-48px)] sm:max-h-[calc(100dvh-48px)] sm:w-[calc(100vw-48px)] sm:max-w-[1000px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:border"
-                    onEscapeKeyDown={event => { event.preventDefault(); if (showExitConfirm) setShowExitConfirm(false); else handleCloseAttempt(); }}
-                >
-                    <DialogTitle className="sr-only">Create project</DialogTitle>
-                    {content}
-                </DialogContent>
-            </Dialog>
-            {exitConfirmation}
+            {content}
+            <LeaveProjectSetupDialog
+                open={showExitConfirm}
+                onOpenChange={setShowExitConfirm}
+                onLeave={leaveSetup}
+            />
         </>
     );
 }

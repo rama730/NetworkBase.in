@@ -1,15 +1,33 @@
 'use client'
 
-import { type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
 import { WorkspaceDrawerHost } from '@/components/workspace/WorkspaceDrawerHost'
+import { CREATE_PROJECT_PATH, rememberCreateProjectReturnPath } from '@/components/projects/create-wizard/create-project-return'
 
 interface MainLayoutProps {
     children: ReactNode
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+    const pathname = usePathname()
+    // Project creation is a full-page focus route: no sidebar, top bar or drawers (spec §18).
+    const focus = pathname === CREATE_PROJECT_PATH
+
+    useEffect(() => {
+        if (!focus) rememberCreateProjectReturnPath(`${window.location.pathname}${window.location.search}`)
+    }, [focus, pathname])
+
+    if (focus) {
+        return (
+            <main id="main-content" tabIndex={-1} className="h-dvh min-h-0 overflow-hidden bg-card">
+                {children}
+            </main>
+        )
+    }
+
     return (
         <div
             className="h-dvh min-h-0 overflow-hidden bg-background flex flex-col"

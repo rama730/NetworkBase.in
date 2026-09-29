@@ -38,8 +38,9 @@ test("phase 1 keeps one named radio source selector and a flat accessible reposi
   assert.match(selector, /Choose a starting point/);
   assert.match(selector, /border-primary bg-secondary/);
   assert.match(selector, /md:grid-cols-2 lg:grid-cols-3/);
-  assert.match(selector, /min-h-44/);
-  assert.match(selector, /p-6 text-left/);
+  // Tiles size to their content (compact rows on phones), no fixed minimum height.
+  assert.doesNotMatch(selector, /min-h-44/);
+  assert.match(selector, /p-4 text-left md:p-6/);
   assert.doesNotMatch(selector, /size-2 rounded-full bg-primary/);
   assert.doesNotMatch(selector, /rounded-full border/);
   assert.match(phase, /role="treeitem"/);
@@ -76,10 +77,10 @@ test("wizard shell is reactive, uses the project-setup exit dialog, and chunks u
   assert.match(wizard, /methods\.watch\('import_source\.metadata'\)/);
   assert.match(wizard, /<LeaveProjectSetupDialog/);
   assert.match(wizard, /app-scroll app-scroll-y app-scroll-gutter/);
-  assert.ok(wizard.includes("sm:h-[calc(100dvh-48px)]"));
-  assert.ok(wizard.includes("sm:max-h-[calc(100dvh-48px)]"));
-  assert.ok(wizard.includes("sm:max-w-[1000px]"));
-  assert.match(wizard, /presentation === 'page'.*: 'h-full max-h-full'/);
+  // Full-page focus route (spec §18): full-height frame, content in the shared 1000px column.
+  assert.ok(wizard.includes("flex h-dvh min-h-0 w-full flex-col"));
+  assert.ok(footer.includes("max-w-[1000px]"));
+  assert.doesNotMatch(wizard, /presentation/);
   assert.match(hook, /offset \+= 200/);
   assert.match(hook, /uploadUrlRequests\.slice\(offset, offset \+ 200\)/);
   assert.match(hook, /branchOverride \?\? watchedBranch/);

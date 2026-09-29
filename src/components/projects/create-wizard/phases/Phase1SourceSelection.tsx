@@ -917,7 +917,7 @@ export default function Phase1SourceSelection({
                         Start with an empty project, then add its details, team, settings, and review it before publishing.
                     </p>
                 </div>
-                <dl className="border-l border-border pl-5">
+                <dl className="border-l border-border pl-5 max-md:border-l-0 max-md:border-t max-md:pl-0 max-md:pt-4">
                     <dt className="nb-label">Project source</dt>
                     <dd className="nb-card-title mt-2 text-foreground">Empty project</dd>
                     <dd className="nb-compact mt-1 text-muted-foreground">

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { LogOut, Menu, Plus, Search, UserRound } from "lucide-react";
@@ -24,7 +24,6 @@ const NotificationPreview = dynamic(() => import("./NotificationPreview"), {
     ssr: false,
     loading: () => <span aria-hidden="true" className="inline-block size-[var(--ui-control-height)] shrink-0" />,
 });
-const CreateProjectWizard = dynamic(() => import("@/components/projects/create-wizard/CreateProjectWizard"), { ssr: false });
 
 import GlobalSearch from "./GlobalSearch";
 
@@ -44,17 +43,9 @@ import {
 } from "./global-search";
 import { useMessagesV2UiStore } from "@/stores/messagesV2UiStore";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
-import {
-    clearGithubOAuthResume,
-    getCreateProjectReturnPath,
-    parseCreateProjectSource,
-    readGithubOAuthResume,
-    type CreateProjectGithubOAuthResume,
-} from "@/components/projects/create-wizard/github-oauth-resume";
 
 export default function TopNav() {
     const pathname = usePathname();
-    const router = useRouter();
     const { user, isAuthenticated: isSignedIn, isLoading: authLoading, profile, signOut } = useAuth();
 
     const notifications = useNotifications();
@@ -67,9 +58,6 @@ export default function TopNav() {
     }, []);
 
     const [showMobileMenu, setShowMobileMenu] = useState(false);
-    const [showCreateProject, setShowCreateProject] = useState(false);
-    const [createProjectInitialSource, setCreateProjectInitialSource] = useState<'scratch' | 'github' | 'upload' | null>(null);
-    const [githubOAuthResume, setGithubOAuthResume] = useState<CreateProjectGithubOAuthResume | null>(null);
     const [showCommandPalette, setShowCommandPalette] = useState(false);
     const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
     const [commandPaletteContext, setCommandPaletteContext] = useState<GlobalSearchContext | undefined>();
@@ -81,24 +69,6 @@ export default function TopNav() {
     const setMessageSearchOpen = useMessagesV2UiStore((state) => state.setMessageSearchOpen);
     const isProjectDetailRoute = pathname.startsWith('/projects/');
 
-    useEffect(() => {
-        // The Hub owns its own query-driven wizard. Every other page restores the
-        // wizard here so a GitHub callback returns to the place it was launched (createProject=1).
-        if (pathname === '/discover' || typeof window === 'undefined') return;
-        const currentSearchParams = new URLSearchParams(window.location.search);
-        if (currentSearchParams.get('createProject') !== '1') return;
-
-        const returnPath = getCreateProjectReturnPath(window.location);
-        const resume = readGithubOAuthResume(returnPath);
-        setCreateProjectInitialSource(
-            parseCreateProjectSource(currentSearchParams.get('createProjectSource'))
-            ?? resume?.values.import_source?.type
-            ?? null,
-        );
-        setGithubOAuthResume(resume);
-        setShowCreateProject(true);
-        window.history.replaceState(window.history.state, '', returnPath);
-    }, [pathname]);
 
     const closeGlobalSearch = useCallback(() => {
         setShowCommandPalette(false);
@@ -195,20 +165,16 @@ export default function TopNav() {
 
                 <div className="flex shrink-0 items-center gap-2">
                     {authUiState === "signed-in" && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setCreateProjectInitialSource(null);
-                                setGithubOAuthResume(null);
-                                setShowCreateProject(true);
-                            }}
+                        // Project creation is a full-page focus route (spec §18), not a modal.
+                        <Link
+                            href="/projects/new"
                             className={`nb-ui-label hidden h-[var(--ui-control-height)] items-center gap-2 rounded-md border px-4 transition-[background-color,border-color,color,transform] duration-150 ease-in-out active:translate-y-px md:inline-flex ${isProjectDetailRoute
                                 ? 'border-border bg-card text-foreground hover:border-input hover:bg-muted'
                                 : 'border-primary bg-primary text-primary-foreground hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:border-[var(--primary-active)] active:bg-[var(--primary-active)]'}`}
                         >
                             <Plus className="size-4" aria-hidden="true" />
                             New project
-                        </button>
+                        </Link>
                     )}
                     {authUiState === "signed-in" && (
                         <span className="hidden md:contents"><ConnectionStatusIndicator /></span>
@@ -336,11 +302,6 @@ export default function TopNav() {
                             returnFocusRef={mobileMenuTriggerRef}
                             profile={profile}
                             onSignOut={signOut}
-                            onNewProject={() => {
-                                setCreateProjectInitialSource(null);
-                                setGithubOAuthResume(null);
-                                setShowCreateProject(true);
-                            }}
                             connectionHealth={connectionHealth}
                         />
                     </Suspense>
@@ -353,26 +314,6 @@ export default function TopNav() {
                         initialQuery={commandPaletteQuery}
                         context={commandPaletteContext}
                         recentSearchOwnerId={user?.id}
-                    />
-                )}
-                {showCreateProject && (
-                    <CreateProjectWizard
-                        onClose={() => {
-                            setShowCreateProject(false);
-                            setCreateProjectInitialSource(null);
-                            setGithubOAuthResume(null);
-                        }}
-                        onSuccess={(projectId) => {
-                            setShowCreateProject(false);
-                            setGithubOAuthResume(null);
-                            router.push(`/projects/${projectId}`);
-                        }}
-                        initialSource={createProjectInitialSource}
-                        githubOAuthResume={githubOAuthResume}
-                        onGithubOAuthResumeRestored={(resumeId) => {
-                            clearGithubOAuthResume(resumeId);
-                            setGithubOAuthResume(null);
-                        }}
                     />
                 )}
                 <SignOutConfirmDialog
