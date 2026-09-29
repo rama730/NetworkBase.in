@@ -2,6 +2,7 @@
 
 import { useId, useState, type ReactNode } from 'react'
 import Link from 'next/link'
+import { NB_CARD_HEADER_MOBILE } from '@/components/projects/dashboard/DashboardCard'
 import { cn } from '@/lib/utils'
 import { FolderKanban, Link2, Sparkles, MessageSquare, Pencil } from 'lucide-react'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
@@ -28,11 +29,11 @@ function RailCard({
             id={id}
             className={cn('rounded-lg border border-border bg-card text-card-foreground shadow-none', className)}
         >
-            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+            <div className={cn("px-5 py-4 border-b border-border flex items-center gap-2", NB_CARD_HEADER_MOBILE)}>
                 {icon ? <span className="text-muted-foreground [&_svg]:size-[18px]">{icon}</span> : null}
                 <h2 id={headingId} className="nb-card-title text-foreground">{title}</h2>
             </div>
-            <div className="px-5 py-4">{children}</div>
+            <div className="px-5 py-4 max-md:px-4">{children}</div>
         </section>
     )
 }
@@ -68,7 +69,7 @@ export function ProfileRightRail({
         <>
             <RailCard title="Links" icon={<Link2 className="w-4 h-4" />}>
                 {links.length ? (
-                    <div className={cn("grid gap-2", links.length > 4 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2")}>
+                    <div className={cn("grid gap-2 max-md:grid-cols-1", links.length > 4 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2")}>
                         {visibleLinks.map((l) => (
                             <div key={l.id || l.canonicalKey} className="min-w-0">
                                 <a
@@ -93,7 +94,7 @@ export function ProfileRightRail({
                             <button
                                 type="button"
                                 onClick={() => setShowAllLinks((value) => !value)}
-                                className="nb-ui-label col-span-full justify-self-start rounded-[3px] border border-border bg-card px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                className="nb-touch-target nb-ui-label col-span-full justify-self-start rounded-[3px] border border-border bg-card px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                 aria-expanded={showAllLinks}
                             >
                                 {showAllLinks ? 'Show less' : `+${links.length - 4} more`}
@@ -106,7 +107,7 @@ export function ProfileRightRail({
                             <button
                                 type="button"
                                 onClick={() => onEditSection('social')}
-                                className="nb-ui-label text-primary hover:text-primary/80 transition-colors"
+                                className="nb-ui-label text-primary hover:text-primary/80 transition-colors max-md:inline-flex max-md:min-h-11 max-md:items-center"
                             >
                                 Add your first link
                             </button>
@@ -118,7 +119,8 @@ export function ProfileRightRail({
             </RailCard>
 
             {isOwner ? (
-                <RailCard title="Profile Completeness" icon={<Sparkles className="w-4 h-4" />}>
+                // Phones get the completion prompt in the profile header instead (spec §17).
+                <RailCard title="Profile Completeness" icon={<Sparkles className="w-4 h-4" />} className="max-md:hidden">
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <span className="nb-compact text-muted-foreground">Completion</span>
@@ -154,7 +156,8 @@ export function ProfileRightRail({
                 </RailCard>
             ) : null}
 
-            <RailCard title="Shortcuts" icon={<FolderKanban className="w-4 h-4" />}>
+            {/* Duplicates the header actions and Portfolio tab; desktop-only. */}
+            <RailCard title="Shortcuts" icon={<FolderKanban className="w-4 h-4" />} className="max-md:hidden">
                 <div className={cn('grid gap-2', isOwner || canMessage ? 'grid-cols-2' : 'grid-cols-1')}>
                     {isOwner ? (
                         <>

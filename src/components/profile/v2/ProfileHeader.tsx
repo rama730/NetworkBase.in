@@ -98,6 +98,9 @@ export function ProfileHeader({
     const isOpenToCollaborate = (vm.openTo || []).length > 0 || Boolean(vm.hoursPerWeek)
     const connectionsCount = stats?.connectionsCount ?? vm.connectionsCount ?? 0
     const projectsCount = stats?.projectsCount ?? vm.projectsCount ?? 0
+    // Own-profile completion prompt (spec §17 / §08); phones get it here instead of the rail card.
+    const completionScore = Math.max(0, Math.min(100, Number((vm as any).profileStrength || 0)))
+    const completionHint: string | undefined = Array.isArray(profile?.completionMissing) ? profile.completionMissing[0] : undefined
 
     const connectLabel =
         connectionState === 'accepted'
@@ -184,9 +187,10 @@ export function ProfileHeader({
 
     return (
         <div data-testid="profile-summary-header" className="overflow-hidden rounded-lg border border-border bg-card shadow-none">
-            <div className="p-5 sm:p-6">
+            <div className="p-4 md:p-6">
                 <div className="flex flex-col items-start justify-between gap-5 md:flex-row">
-                    <div className="flex min-w-0 flex-1 items-start gap-5">
+                    {/* Below md the details column dissolves into a 2-column grid: avatar + name on row one, everything else full width (spec §17). */}
+                    <div className="flex min-w-0 flex-1 items-start gap-5 max-md:grid max-md:w-full max-md:grid-cols-[72px_minmax(0,1fr)] max-md:gap-x-4 max-md:gap-y-0">
                         <div className="relative shrink-0">
                             <UserAvatar
                                 identity={vm}
@@ -198,8 +202,8 @@ export function ProfileHeader({
                             />
                             <PresenceDot lastActiveAt={vm.lastActiveAt} />
                         </div>
-                        <div className="min-w-0 flex-1 pb-1">
-                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
+                        <div className="min-w-0 flex-1 pb-1 max-md:contents">
+                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 max-md:self-center">
                                 <h1 className="nb-page-title text-foreground">{name}</h1>
                                 {username ? (
                                     <span className="nb-meta break-all normal-case tracking-normal">
@@ -213,16 +217,16 @@ export function ProfileHeader({
                                     </span>
                                 ) : null}
                             </div>
-                            {headline ? <p className="text-[15px] leading-normal font-normal mt-2 text-muted-foreground">{headline}</p> : null}
+                            {headline ? <p className="text-[15px] leading-normal font-normal mt-2 text-muted-foreground max-md:col-span-2 max-md:mt-3">{headline}</p> : null}
 
                             {mutualCount > 0 ? (
-                                <div className="nb-meta mt-2 flex items-center gap-2 text-muted-foreground">
+                                <div className="nb-meta mt-2 flex items-center gap-2 text-muted-foreground max-md:col-span-2">
                                     <Users className="w-3 h-3 inline mr-1" />
                                     <span>{mutualCount} mutual connections</span>
                                 </div>
                             ) : null}
 
-                            <div className="nb-meta mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                            <div data-profile-details className="nb-meta mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 max-md:col-span-2 max-md:gap-y-0">
                                 {lockLabel ? (
                                     <span className="nb-status border border-border/60 bg-muted/60 text-muted-foreground">
                                         <Lock className="w-3.5 h-3.5" />
@@ -240,7 +244,7 @@ export function ProfileHeader({
                                     onClick={onConnectionsClick}
                                     disabled={!onConnectionsClick}
                                     aria-label={`View ${connectionsCount} ${connectionsCount === 1 ? 'connection' : 'connections'}`}
-                                    className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none"
+                                    className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
                                 >
                                     {connectionsCount} connections
                                 </button>
@@ -249,7 +253,7 @@ export function ProfileHeader({
                                     onClick={onProjectsClick}
                                     disabled={!onProjectsClick}
                                     aria-label={`View ${projectsCount} ${projectsCount === 1 ? 'project' : 'projects'}`}
-                                    className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none"
+                                    className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
                                 >
                                     {projectsCount} projects
                                 </button>
@@ -258,7 +262,7 @@ export function ProfileHeader({
                                         href={vm.website}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 hover:text-primary"
+                                        className="inline-flex items-center gap-1 hover:text-primary max-md:min-h-11"
                                     >
                                         <Link2 className="size-3.5" />
                                         Website
@@ -266,7 +270,7 @@ export function ProfileHeader({
                                 ) : null}
                             </div>
                             {skills.length > 0 ? (
-                                <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Profile skills">
+                                <div className="mt-3 flex flex-wrap gap-1.5 max-md:col-span-2" aria-label="Profile skills">
                                     {skills.map((name: string) => {
                                         const skill = resolveClientSkill(name)
                                         return (
@@ -281,15 +285,15 @@ export function ProfileHeader({
                         </div>
                     </div>
 
-                    <div className="flex shrink-0 flex-col items-start gap-2.5 md:items-end">
+                    <div className="flex shrink-0 flex-col items-start gap-2.5 md:items-end max-md:w-full">
                         {isOwner ? (
                             <>
-                                <div className="flex flex-wrap gap-2">
-                                    <Button onClick={onShare} variant="outline" size="sm">
+                                <div className="flex flex-wrap gap-2 max-md:w-full max-md:flex-nowrap">
+                                    <Button onClick={onShare} variant="outline" size="sm" aria-label="Share profile">
                                         <Share2 className="size-4" />
-                                        Share
+                                        <span className="max-md:sr-only">Share</span>
                                     </Button>
-                                    <Button onClick={onEdit} size="sm">
+                                    <Button onClick={onEdit} size="sm" className="max-md:flex-1">
                                         <Pencil className="size-4" />
                                         Edit profile
                                     </Button>
@@ -299,7 +303,7 @@ export function ProfileHeader({
                                     role="switch"
                                     aria-checked={isOpenToCollaborate}
                                     onClick={onAvailabilityEdit ?? onEdit}
-                                    className="nb-ui-label inline-flex items-center gap-2 text-foreground"
+                                    className="nb-ui-label inline-flex items-center gap-2 text-foreground max-md:min-h-11"
                                     title="Manage collaboration preferences"
                                 >
                                     <span
@@ -320,6 +324,22 @@ export function ProfileHeader({
                                     </span>
                                     Open to collaborators
                                 </button>
+                                {completionScore > 0 && completionScore < 100 ? (
+                                    <button
+                                        type="button"
+                                        onClick={onEdit}
+                                        className="w-full space-y-1.5 border-t border-border pt-3 text-left md:hidden"
+                                        aria-label={`Profile ${completionScore}% complete${completionHint ? `. Next: ${completionHint}` : ''}`}
+                                    >
+                                        <span className="nb-compact flex items-center justify-between gap-3 text-muted-foreground">
+                                            <span className="min-w-0 truncate"><span className="font-mono text-foreground">{completionScore}%</span> complete{completionHint ? ` · ${completionHint}` : ''}</span>
+                                            <span aria-hidden="true">›</span>
+                                        </span>
+                                        <span className="block h-1.5 overflow-hidden rounded-[3px] bg-muted" aria-hidden="true">
+                                            <span className="block h-full bg-primary" style={{ width: `${completionScore}%` }} />
+                                        </span>
+                                    </button>
+                                ) : null}
                             </>
                         ) : isLoadingConnection ? (
                             <div aria-hidden="true" className="nb-skeleton h-10 w-28 rounded-[3px] border border-border/40" />
