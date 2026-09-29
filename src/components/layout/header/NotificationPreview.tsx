@@ -145,7 +145,7 @@ export default function NotificationPreview(props: NotificationPreviewProps) {
             <DropdownMenuContent
                 align="end"
                 sideOffset={8}
-                className="mr-2 flex w-[min(26rem,calc(100vw-1.5rem))] max-w-[26rem] flex-col overflow-hidden rounded-xl border border-border bg-card p-0 text-card-foreground shadow-xl duration-[180ms] data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 md:mr-0 dark:border-border dark:bg-card"
+                className="mr-2 flex w-[min(26rem,calc(100vw-1.5rem))] max-w-[26rem] flex-col overflow-hidden rounded-xl border border-border bg-card p-0 text-card-foreground shadow-xl duration-[180ms] data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 md:mr-0 dark:border-border dark:bg-card max-md:mr-0 max-md:h-[calc(100dvh-var(--ui-topnav-height)-8px)] max-md:!max-h-none max-md:w-screen max-md:max-w-none max-md:rounded-none max-md:border-x-0 max-md:shadow-none"
                 style={{ maxHeight: "min(38rem, calc(100dvh - var(--ui-topnav-height) - 1rem))" }}
             >
                 <div role="status" aria-live="polite" className="sr-only">

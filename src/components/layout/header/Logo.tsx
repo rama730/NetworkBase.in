@@ -3,7 +3,7 @@ import { BrandMark } from "@/components/brand/BrandMark";
 
 export default function Logo({ href = "/", size }: { href?: string; size?: number }) {
     return (
-        <Link href={href} className="nb-wordmark" aria-label="NetworkBase home">
+        <Link href={href} className="nb-wordmark max-md:min-h-11 max-md:items-center" aria-label="NetworkBase home">
             <BrandMark size={size} />
         </Link>
     );

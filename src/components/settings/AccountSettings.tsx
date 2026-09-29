@@ -66,7 +66,7 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
           <div className="divide-y divide-border">
             <SettingsRow title="Name" right={<span className="nb-compact text-foreground">{profile?.fullName || normalizeIdentityFields(user?.user_metadata).fullName || "Not set"}</span>} />
             <SettingsRow title="Email" right={<span className="nb-compact text-foreground">{profile?.email || user?.email || "Not available"}</span>} />
-            <SettingsRow title="Username" right={<span className="nb-meta text-foreground">{profile?.username ? `@${profile.username}` : "Not set"}</span>} />
+            <SettingsRow title="Username" right={<span className="nb-meta text-foreground">{profile?.username ? `@${profile.username}` : profile ? "Not set" : "…"}</span>} />
           </div>
         </SettingsSectionCard>
 

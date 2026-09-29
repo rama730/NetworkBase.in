@@ -59,7 +59,7 @@ export function IncomingProjectApplicationRow({
         <div className="flex flex-wrap items-center gap-1.5">
           <Link
             href={profileHref(actor)}
-            className="truncate text-sm font-semibold text-foreground transition-colors hover:text-primary"
+            className="truncate text-sm max-md:text-[13px] font-semibold text-foreground transition-colors hover:text-primary"
           >
             {actorName}
           </Link>

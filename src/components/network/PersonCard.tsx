@@ -115,7 +115,7 @@ function PersonCard({
                 <button
                     type="button"
                     disabled={cancelling}
-                    className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 transition-colors"
+                    className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 transition-colors"
                     aria-label={`Options for connection request to ${displayName}`}
                 >
                     {cancelling ? (
@@ -161,11 +161,11 @@ function PersonCard({
             </DropdownMenuContent>
         </DropdownMenu>
     ) : status === "pending_received" ? (
-        <Link href="/network?tab=invitations" className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-primary hover:bg-muted">
+        <Link href="/network?tab=invitations" className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 rounded-md border border-border px-3 text-sm max-md:text-[13px] font-medium text-primary hover:bg-muted">
             <Clock className="size-4" aria-hidden="true" /> Review
         </Link>
     ) : status === "connected" ? (
-        <span className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 px-2 text-sm font-medium text-[var(--status-success)]">
+        <span className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 px-2 text-sm max-md:text-[13px] font-medium text-[var(--status-success)]">
             <Check className="size-4" aria-hidden="true" /> Connected
         </span>
     ) : null;

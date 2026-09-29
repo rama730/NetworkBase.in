@@ -86,7 +86,7 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
                 icon={Users}
                 title={debouncedSearch ? "No connections match your search." : "Your connections live here"}
                 description={debouncedSearch ? "Try a different name, skill, or location." : "People you connect with will appear here."}
-                action={!debouncedSearch ? <Link href="/network?tab=suggested" className="text-sm font-medium text-primary hover:underline">Find people to connect with</Link> : undefined}
+                action={!debouncedSearch ? <Link href="/network?tab=suggested" className="text-sm max-md:text-[13px] font-medium text-primary hover:underline">Find people to connect with</Link> : undefined}
             />
         );
     }
@@ -147,7 +147,7 @@ function ConnectionCard({
                     <h3 className="nb-card-title break-words text-foreground">{displayName}</h3>
                     {user.location ? <span className="nb-meta min-w-0 break-words">{user.location}</span> : null}
                 </div>
-                {user.headline ? <p className="mt-1 truncate text-sm text-muted-foreground">{user.headline}</p> : <p className="mt-1 text-sm text-muted-foreground">NetworkBase member</p>}
+                {user.headline ? <p className="mt-1 truncate text-sm max-md:text-[13px] text-muted-foreground">{user.headline}</p> : <p className="mt-1 text-sm max-md:text-[13px] text-muted-foreground">NetworkBase member</p>}
                 {skills.length ? <div className="mt-2 flex flex-wrap gap-1.5">{skills.map((skillName) => {
                     const skill = resolveClientSkill(skillName);
                     return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
@@ -158,7 +158,7 @@ function ConnectionCard({
             <div className="flex shrink-0 items-center">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm font-medium text-foreground hover:bg-muted" aria-label={`Connection actions for ${displayName}`}>
+                        <button type="button" className="nb-touch-target inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted" aria-label={`Connection actions for ${displayName}`}>
                             <Check className="size-4 text-[var(--status-success)]" aria-hidden="true" />
                             <span className="hidden lg:inline">Connected</span>
                             <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
