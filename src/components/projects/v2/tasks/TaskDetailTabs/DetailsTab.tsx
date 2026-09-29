@@ -247,7 +247,7 @@ export default function DetailsTab({
   };
 
   return (
-    <div className="min-w-0 space-y-6 p-6">
+    <div className="min-w-0 space-y-6 p-6 max-md:p-4">
       {mutationError ? (
         <div className="rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {mutationError}
@@ -874,7 +874,7 @@ export default function DetailsTab({
                 type="button"
                 disabled={!canEdit || isMutating}
                 onClick={() => setDueDatePreset(0)}
-                className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
+                className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
               >
                 Today
               </button>
@@ -882,7 +882,7 @@ export default function DetailsTab({
                 type="button"
                 disabled={!canEdit || isMutating}
                 onClick={() => setDueDatePreset(7)}
-                className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
+                className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
               >
                 +1 Week
               </button>
@@ -890,7 +890,7 @@ export default function DetailsTab({
                 type="button"
                 disabled={!canEdit || isMutating}
                 onClick={() => setDueDatePreset(14)}
-                className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
+                className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
               >
                 +2 Weeks
               </button>
@@ -899,7 +899,7 @@ export default function DetailsTab({
                   type="button"
                   disabled={!canEdit || isMutating}
                   onClick={() => setDueDatePreset(null)}
-                  className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition disabled:opacity-50"
+                  className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition disabled:opacity-50"
                 >
                   Clear
                 </button>

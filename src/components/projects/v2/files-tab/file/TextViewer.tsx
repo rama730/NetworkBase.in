@@ -350,7 +350,7 @@ export function TextViewer({
         data-testid="files-tab-text-viewer-raw"
         className={cn(
           "h-full min-h-0 w-full overflow-auto whitespace-pre-wrap break-words",
-          "bg-background p-4 font-mono text-[13px] leading-[1.55] text-foreground",
+          "bg-background p-4 font-mono text-[13px] leading-[1.55] text-foreground pointer-coarse:text-[14px]",
         )}
       >
         {savedContent}
@@ -376,7 +376,7 @@ export function TextViewer({
             }
             height="100%"
             width="100%"
-            className="h-full font-mono text-[13px] leading-[1.55]"
+            className="h-full font-mono text-[13px] leading-[1.55] pointer-coarse:text-[14px]"
             basicSetup={{
               lineNumbers: true,
               foldGutter: false,
@@ -435,7 +435,7 @@ export function TextViewer({
               onClick={onCancel}
               disabled={isSaving}
               data-testid="files-tab-text-viewer-cancel"
-              className="h-[28px] rounded-[5px] border-[#DBD5C8] px-2.5 text-xs font-medium hover:bg-[#F3F0EA] dark:border-white/10 dark:hover:bg-white/5"
+              className="nb-touch-target h-[28px] rounded-[5px] border-[#DBD5C8] px-2.5 text-xs font-medium hover:bg-[#F3F0EA] dark:border-white/10 dark:hover:bg-white/5"
             >
               Cancel
             </Button>
@@ -446,7 +446,7 @@ export function TextViewer({
             onClick={handleSaveClick}
             disabled={!canEdit || !isDirty || isSaving}
             data-testid="files-tab-text-viewer-save"
-            className="h-[28px] rounded-[5px] bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+            className="nb-touch-target h-[28px] rounded-[5px] bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
           >
             {isSaving ? "Saving…" : "Save"}
           </Button>
@@ -488,7 +488,7 @@ export function TextViewer({
           }
           height="100%"
           width="100%"
-          className="h-full font-mono text-[13px] leading-[1.55]"
+          className="h-full font-mono text-[13px] leading-[1.55] pointer-coarse:text-[14px]"
           // Thinned basicSetup. No language extensions, no search keymap,
           // no lint keymap, no completion — the Edit surface is a plain
           // text editor, not an IDE.

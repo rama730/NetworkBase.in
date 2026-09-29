@@ -112,7 +112,7 @@ export function ProjectDocCommandBlock({
                 {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
                 <span className="sr-only" aria-live="polite">{copied ? "Copied" : "Copy command"}</span>
             </button>
-            <pre className="whitespace-pre-wrap break-words px-4 py-4 pr-12 font-mono text-[13px] leading-[1.6] [overflow-wrap:anywhere]">
+            <pre className="whitespace-pre-wrap break-words px-4 py-4 pr-12 font-mono text-[13px] leading-[1.6] [overflow-wrap:anywhere] pointer-coarse:text-[14px]">
                 <code className="break-words [overflow-wrap:anywhere]">
                     {codeLines.map((line, index) => {
                         const target = lineTargetByStartLine.get(index);

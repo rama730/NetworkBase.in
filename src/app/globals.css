@@ -1011,6 +1011,10 @@ svg.lucide { stroke-width:1.75; }
   [data-slot="dialog-content"][data-presentation="center"] { max-width:calc(100vw - 16px); }
 }
 @media (pointer:coarse) {
+/* Preflight gives <code>/<pre> a ui-monospace stack; phones use the spec mono (JetBrains Mono). */
+@media (max-width:767px) {
+  code, kbd, samp, pre { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; }
+}
   /* :root[data-density] out-specifies the density presets, which are always set. */
   :root, :root[data-density] { --ui-control-height-sm:44px; --ui-control-height:44px; --ui-control-height-lg:48px; --ui-nav-item-height:44px; }
   .nb-icon-button, .nb-tab, .nb-touch-target, .nb-avatar-trigger, [data-slot="tabs-trigger"] { min-width:44px; min-height:44px; }

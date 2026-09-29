@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { createProjectUpdateAction, readProjectUpdateAction, readProjectUpdatesAction, type ProjectUpdateView } from "@/app/actions/project/updates";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
 import { queryKeys } from "@/lib/query-keys";
@@ -53,20 +54,22 @@ const ProjectUpdateComposer = dynamic(
   },
 );
 
-function useDesktopUpdatesRail() {
+function useMediaMatch(media: string) {
   const [matches, setMatches] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
-    const query = window.matchMedia("(min-width: 1280px)");
+    const query = window.matchMedia(media);
     const update = () => setMatches(query.matches);
     update();
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
-  }, []);
+  }, [media]);
 
   return matches;
 }
+
+const useDesktopUpdatesRail = () => useMediaMatch("(min-width: 1280px)");
 
 export default function UpdatesTab({
   projectId,
@@ -89,6 +92,9 @@ export default function UpdatesTab({
     initialUpdateId ?? null,
   );
   const isDesktopUpdatesRail = useDesktopUpdatesRail();
+  // Phones open an update in a full-screen drawer so the feed keeps its scroll position (spec §09/§25).
+  const isPhone = useMediaMatch("(max-width: 767px)");
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const mobileDetailRef = useRef<HTMLDivElement | null>(null);
   const [feedScrollParent, setFeedScrollParent] = useState<HTMLElement | null>(null);
 
@@ -409,7 +415,7 @@ export default function UpdatesTab({
       )}
     >
       <main className="min-w-0">
-        <div className="px-1 pb-3 pt-2">
+        <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-2">
           <div>
             <h2 className="nb-section-title text-foreground">
               Project feed
@@ -418,6 +424,13 @@ export default function UpdatesTab({
               Progress posts for followers and project visitors.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setShortcutsOpen(true)}
+            className="nb-ui-label inline-flex min-h-11 shrink-0 items-center rounded-[5px] border border-border bg-card px-3 text-foreground md:hidden"
+          >
+            Shortcuts
+          </button>
         </div>
 
         {isDesktopUpdatesRail === false ? (
@@ -434,7 +447,7 @@ export default function UpdatesTab({
           />
         ) : null}
 
-        {detailUpdate ? (
+        {detailUpdate && isPhone === false ? (
           <div ref={mobileDetailRef} className="xl:hidden">
             <UpdateDetailPanel
               projectId={projectId}
@@ -451,6 +464,41 @@ export default function UpdatesTab({
               className="mb-4 animate-in fade-in slide-in-from-bottom-2 border-y border-border py-4 duration-[180ms]"
             />
           </div>
+        ) : null}
+
+        {isPhone ? (
+          <>
+            <Dialog open={Boolean(detailUpdate)} onOpenChange={(open) => { if (!open) setDetailUpdateId(null); }}>
+              <DialogContent presentation="right-drawer" className="gap-0 overflow-y-auto p-4">
+                <DialogTitle className="sr-only">Update</DialogTitle>
+                {detailUpdate ? (
+                  <UpdateDetailPanel
+                    projectId={projectId}
+                    projectSlug={projectSlug}
+                    update={detailUpdate}
+                    updatesQueryKey={updatesQueryKey}
+                    onClose={() => setDetailUpdateId(null)}
+                    currentUserId={currentUserId}
+                    currentUserName={currentUserName}
+                    currentUserAvatarUrl={currentUserAvatarUrl}
+                    highlightedCommentId={detailUpdate.id === initialUpdateId ? initialCommentId : null}
+                  />
+                ) : null}
+              </DialogContent>
+            </Dialog>
+            <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
+              <DialogContent presentation="right-drawer" className="overflow-y-auto p-4">
+                <DialogTitle className="nb-card-title">Shortcuts</DialogTitle>
+                <UpdatesRightRail
+                  updates={visibleUpdates}
+                  onOpenDetail={(updateId) => {
+                    setShortcutsOpen(false);
+                    openDetail(updateId);
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          </>
         ) : null}
 
         {feed}

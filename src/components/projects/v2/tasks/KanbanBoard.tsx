@@ -8,6 +8,8 @@ import {
   type SemanticColor,
 } from "@/lib/projects/workflow-colors";
 import {
+  ArrowLeft,
+  ArrowRight,
   Check,
   MoreHorizontal,
   Pencil,
@@ -23,6 +25,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragStartEvent,
@@ -151,6 +154,9 @@ const KanbanColumn = React.memo(
     onRenameColumn,
     onChangeColor,
     onRemoveColumn,
+    onMoveColumn,
+    columnIndex,
+    columnCount,
     isLeader,
     currentUserId,
     isTaskDragLocked,
@@ -211,7 +217,7 @@ const KanbanColumn = React.memo(
         role="region"
         aria-label={`${col.title} column, ${colTasks.length} tasks`}
         className={cn(
-          "group h-max w-[300px] shrink-0 rounded-[8px] border flex flex-col transition-colors",
+          "group h-max w-[min(300px,calc(100vw-48px))] shrink-0 rounded-[8px] border flex flex-col transition-colors max-md:snap-start md:w-[300px]",
           "bg-muted border-border",
           isDragging && "opacity-45 border-primary/30",
         )}
@@ -245,7 +251,7 @@ const KanbanColumn = React.memo(
                 </h3>
                 <span
                   className={cn(
-                    "inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border px-1 font-mono text-[10px] font-semibold",
+                    "inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border px-1 font-mono text-[10px] font-semibold max-md:text-[11px]",
                     colors.bg.replace("/50", ""),
                     colors.border,
                     colors.text,
@@ -259,7 +265,7 @@ const KanbanColumn = React.memo(
           <div className="flex items-center gap-1">
             {isLeader ? (
               <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-                <DropdownMenuTrigger aria-label={`Options for ${col.title}`} className="size-7 flex items-center justify-center rounded-[5px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                <DropdownMenuTrigger aria-label={`Options for ${col.title}`} className="nb-touch-target size-7 flex items-center justify-center rounded-[5px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                   <MoreHorizontal className="size-4" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -321,6 +327,19 @@ const KanbanColumn = React.memo(
                       </DropdownMenuSub>
                     </>
                   )}
+                  {canReorderColumns && onMoveColumn ? (
+                    <>
+                      {/* Below md the drag handle is hidden; menu moves replace it (touch drag competes with board scroll). */}
+                      <DropdownMenuItem className="cursor-pointer text-xs font-medium md:hidden" disabled={columnIndex <= 0} onSelect={() => onMoveColumn(col.id, -1)}>
+                        <ArrowLeft className="size-3.5 mr-2" />
+                        Move left
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer text-xs font-medium md:hidden" disabled={columnIndex >= columnCount - 1} onSelect={() => onMoveColumn(col.id, 1)}>
+                        <ArrowRight className="size-3.5 mr-2" />
+                        Move right
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
                   {!col.isDefault && isLeader && (
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive cursor-pointer text-xs font-medium"
@@ -339,7 +358,7 @@ const KanbanColumn = React.memo(
                 aria-label={`Reorder ${col.title}`}
                 {...attributes}
                 {...listeners}
-                className="size-7 flex items-center justify-center rounded-[5px] hover:bg-muted text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing transition-colors"
+                className="size-7 flex items-center justify-center rounded-[5px] hover:bg-muted text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing transition-colors max-md:hidden"
               >
                 <GripVertical className="size-4" />
               </button>
@@ -476,9 +495,21 @@ export default function KanbanBoard({
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    // Touch drags need a press-and-hold so a swipe scrolls the board instead of grabbing a card.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
+  );
+
+  const moveColumn = React.useCallback(
+    (columnId: string, direction: -1 | 1) => {
+      const from = workflow.findIndex((column) => column.id === columnId);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= workflow.length) return;
+      onReorderColumns(arrayMove(workflow, from, to));
+    },
+    [onReorderColumns, workflow],
   );
 
   const getWorkflowColumnId = React.useCallback(
@@ -881,10 +912,10 @@ export default function KanbanBoard({
         >
           <div
             ref={scrollContainerRef}
-            className="flex items-start gap-4 overflow-x-auto overscroll-x-contain overscroll-y-auto pb-4 app-scroll app-scroll-x"
+            className="flex items-start gap-4 overflow-x-auto overscroll-x-contain overscroll-y-auto pb-4 app-scroll app-scroll-x max-md:snap-x max-md:snap-mandatory"
           >
             <div className="my-auto ml-auto shrink-0" aria-hidden="true" />
-            {workflow.map((col) => {
+            {workflow.map((col, columnIndex) => {
               const visibleLimit = visibleCounts[col.id] || DEFAULT_VISIBLE;
               return (
                 <KanbanColumn
@@ -899,6 +930,9 @@ export default function KanbanBoard({
                   onRenameColumn={onRenameColumn}
                   onChangeColor={onChangeColor}
                   onRemoveColumn={onRemoveColumn}
+                  onMoveColumn={moveColumn}
+                  columnIndex={columnIndex}
+                  columnCount={workflow.length}
                   isLeader={isLeader}
                   currentUserId={currentUserId}
                   isTaskDragLocked={hasNextPage || isTaskMovePending}
