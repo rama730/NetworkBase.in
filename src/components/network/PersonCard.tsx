@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useState, type ReactNode } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Ban, Check, ChevronDown, Clock, Loader2, Lock, MapPin, MessageSquare } from "lucide-react";
 
@@ -23,13 +23,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 /**
- * Shared Network person-card anatomy (profile-header style): avatar top-left with name beside it,
- * the primary action beside the name, details full width below.
- * The headline fills the space beside the avatar unless two meta lines already sit there.
+ * Shared Network person-card anatomy (profile-header style): avatar top-left, name and primary action beside it.
+ * Placement rule: the one line under the name is the location, else the real headline; the headline drops
+ * full width below the avatar only when a location took that line. Cards size to their content.
  */
 export function PersonCardLayout({
     avatar,
     head,
+    location,
     meta = [],
     headline,
     aside,
@@ -38,42 +39,89 @@ export function PersonCardLayout({
 }: {
     avatar: ReactNode;
     head: ReactNode;
-    /** Keyed mono lines under the name (location, "Connected …"); falsy entries are skipped. */
+    /** Mono location line; when present it owns the slot under the name. */
+    location?: ReactNode;
+    /** Keyed mono lines after the slot ("shared connections", "Connected …", "Role · …"); falsy entries are skipped. */
     meta?: ReactNode[];
+    /** Real headline only; never filler text. */
     headline?: ReactNode;
-    /** Primary action beside the name (grid cards); keeps the card compact. */
+    /** Primary action beside the name; keeps the card compact. */
     aside?: ReactNode;
     body?: ReactNode;
     className?: string;
 }) {
-    const metaLines = meta.filter(Boolean);
-    const headlineBesideAvatar = metaLines.length < 2;
+    const headlineBelow = location ? headline : null;
     return (
-        <article className={cn("flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card p-4 transition-colors hover:border-input", className)}>
-            <div className="flex min-w-0 shrink-0 items-start gap-3">
+        <article className={cn("flex h-full min-w-0 flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-input", className)}>
+            <div className="flex min-w-0 items-start gap-3">
                 {avatar}
                 <div className="min-w-0 flex-1 pt-0.5">
                     {head}
-                    {metaLines}
-                    {headlineBesideAvatar && headline ? <div className="mt-1 min-w-0">{headline}</div> : null}
+                    {location ?? (headline ? <div className="mt-1 min-w-0">{headline}</div> : null)}
+                    {meta.filter(Boolean)}
                 </div>
                 {aside ? <div className="flex shrink-0 items-center">{aside}</div> : null}
             </div>
-            {/* Body absorbs spare height and clips, so fixed-height grid items never overflow. */}
-            <div className="mt-3 min-h-0 min-w-0 flex-1 space-y-2 overflow-hidden">
-                {headlineBesideAvatar ? null : headline}
-                {body}
-            </div>
+            {headlineBelow || body ? (
+                <div className="mt-3 min-w-0 space-y-2">
+                    {headlineBelow}
+                    {body}
+                </div>
+            ) : null}
         </article>
     );
 }
 
-// ponytail: VirtuosoGrid needs uniform item heights, so grid cards use one fixed height sized for the fullest card:
-// 34 (padding+border) + 62 (name, location, meta beside the avatar and action) + 12 + 22.5 (1-line headline) + 8 + 24 (tag row) ≈ 163px.
-// Upgrade: variable-height Virtuoso list.
-export const PERSON_CARD_ITEM_HEIGHT = "h-[168px]";
+// ponytail: no virtualization; the DOM grows by one page (20–50 cards) per scroll and content-visibility skips
+// off-screen paint. Upgrade: a Virtuoso list of 2-card rows if a user ever reaches thousands of connections.
+export function PersonCardGrid<T>({
+    items,
+    getKey,
+    renderItem,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    loadingLabel,
+}: {
+    items: T[];
+    getKey: (item: T) => string;
+    renderItem: (item: T, index: number) => ReactNode;
+    hasNextPage: boolean;
+    isFetchingNextPage: boolean;
+    fetchNextPage: () => unknown;
+    loadingLabel: string;
+}) {
+    const sentinelRef = useRef<HTMLDivElement>(null);
 
-/** One-row tag strip: tags that would wrap to a second row are hidden, keeping the card height fixed. */
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel || !hasNextPage || isFetchingNextPage) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0]?.isIntersecting) void fetchNextPage();
+        }, { rootMargin: "600px" });
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    return (
+        <div className="pb-8">
+            {/* Rows stretch to their tallest card, so a sparse card beside a rich one stays aligned. */}
+            <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+                {items.map((item, index) => (
+                    <div key={getKey(item)} className="[contain-intrinsic-size:auto_150px] [content-visibility:auto]">
+                        {renderItem(item, index)}
+                    </div>
+                ))}
+            </div>
+            <div ref={sentinelRef} aria-hidden="true" />
+            {isFetchingNextPage ? (
+                <div className="flex justify-center py-6"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={loadingLabel} /></div>
+            ) : null}
+        </div>
+    );
+}
+
+/** One-row tag strip: tags that would wrap to a second row are hidden, keeping card heights even. */
 export const PERSON_CARD_TAGS = "flex h-6 min-w-0 flex-wrap gap-1.5 overflow-hidden";
 
 export interface PersonCardProps {
@@ -98,6 +146,7 @@ function PersonCard({
     const status = localStatus ?? profile.connectionStatus;
     const isLocked = Boolean(profile.isLockedProfile);
     const displayName = profile.fullName || profile.username || "User";
+    const headline = profile.headline?.trim();
     const matchingSkills = matchingSkillLabels(profile.skills ?? [], viewerSkills ?? []);
     const matchingSkillKeys = new Set(matchingSkills.map(canonicalSkillKey));
     const skills = [...(profile.skills ?? [])]
@@ -227,7 +276,6 @@ function PersonCard({
 
     return (
         <PersonCardLayout
-            className="min-h-[158px]"
             avatar={
                 <Link href={profileHref(profile)} className="relative inline-flex shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                     <UserAvatar identity={profile} size={48} priority={priority} fallbackClassName="text-base font-semibold" />
@@ -239,22 +287,22 @@ function PersonCard({
                     <h3 className="nb-card-title min-w-0 truncate text-foreground" title={displayName}>{displayName}</h3>
                 </Link>
             }
+            location={!isLocked && profile.location ? (
+                <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={profile.location}>
+                    <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 truncate">{profile.location}</span>
+                </p>
+            ) : null}
             meta={isLocked ? [] : [
-                profile.location ? (
-                    <p key="location" className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={profile.location}>
-                        <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-                        <span className="min-w-0 truncate">{profile.location}</span>
-                    </p>
-                ) : null,
                 (profile.mutualConnections ?? 0) > 0 ? (
                     <p key="shared" className="nb-meta mt-1 truncate">{profile.mutualConnections} shared connections</p>
                 ) : null,
             ]}
             headline={isLocked ? (
                 <p className="nb-compact flex items-center gap-1 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />Private profile</p>
-            ) : (
-                <p className="nb-body truncate text-muted-foreground" title={profile.headline || undefined}>{profile.headline || "NetworkBase member"}</p>
-            )}
+            ) : headline ? (
+                <p className="nb-body truncate text-muted-foreground" title={headline}>{headline}</p>
+            ) : null}
             aside={action}
             body={!isLocked && skills.length ? (
                 <div className={PERSON_CARD_TAGS} aria-label="Skills">
