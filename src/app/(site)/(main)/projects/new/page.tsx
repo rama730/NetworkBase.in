@@ -31,9 +31,9 @@ export default async function NewProjectPage({
         ? (rawSource as 'scratch' | 'github' | 'upload')
         : null
 
-    // Full-page focus route: MainLayout drops the app shell here; the wizard body is the only scroller.
+    // A normal page in the app shell: fills the main content area; the wizard body is the only scroller.
     return (
-        <div data-scroll-root="route" className="h-dvh min-h-0">
+        <div data-scroll-root="route" className="h-full min-h-0">
             <CreateProjectRouteClient initialSource={initialSource} />
         </div>
     )

@@ -22,7 +22,7 @@ interface CreateProjectRouteClientProps {
 
 type Handoff = { source: CreateProjectSource | null; resume: CreateProjectGithubOAuthResume | null }
 
-/** The only home of the create-project wizard: a full-page focus route (spec §18). */
+/** The only home of the create-project wizard: the /projects/new page (spec §18). */
 export function CreateProjectRouteClient({
     initialSource = null,
 }: CreateProjectRouteClientProps) {

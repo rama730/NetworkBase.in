@@ -191,8 +191,8 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
     }, [handleCloseAttempt, setShowExitConfirm, showExitConfirm]);
 
     const content = (
-            // Full-page focus screen (spec §18): header and footer bands, one scrolling body.
-            <div className="relative flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-card motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150">
+            // A normal page in the app shell (spec §18): fills the main content area; header and footer bands, one scrolling body.
+            <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-card motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150">
                     <FormProvider {...methods}>
                         {/* Header */}
                         <WizardHeader currentPhase={phase} onClose={handleCloseAttempt} headingRef={headingRef} />
