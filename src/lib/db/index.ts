@@ -31,8 +31,9 @@ function resolveConnectionString(raw: string) {
 const connectionString = resolveConnectionString(env.DATABASE_URL)
 const globalForDb = globalThis as unknown as { conn: postgres.Sql | undefined }
 
+const prepare = !usesTransactionPooler(connectionString)
 const client = globalForDb.conn ?? postgres(connectionString, {
-    prepare: !usesTransactionPooler(connectionString),
+    prepare,
     fetch_types: false,
     max: env.NODE_ENV === 'development' ? 5 : 10,
     idle_timeout: 300,
@@ -45,6 +46,13 @@ const client = globalForDb.conn ?? postgres(connectionString, {
     },
     onnotice: (notice) => logger.debug('pg notice', { module: 'db', message: notice.message }),
 })
+
+// ponytail: drizzle runs every query through unsafe(), which postgres.js never prepares, so each parameterised query pays a Describe round trip. ceiling: transactions and the transaction pooler (6543) still pay it. upgrade: session pooler or a DB-region deploy for production.
+if (prepare && !globalForDb.conn) {
+    const unsafe = client.unsafe.bind(client)
+    client.unsafe = ((query: string, args?: postgres.ParameterOrJSON<never>[], options?: postgres.UnsafeQueryOptions) =>
+        unsafe(query, args, { prepare: true, ...options })) as typeof client.unsafe
+}
 
 globalForDb.conn = client
 
