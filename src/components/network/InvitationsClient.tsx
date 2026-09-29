@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Clock, Loader2, UserPlus } from "lucide-react";
+import { Clock, Loader2, MapPin, UserPlus, X } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
@@ -17,7 +17,7 @@ import { resolveMessageWorkflowActionV2 } from "@/app/actions/messaging/collabor
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { PersonCardLayout } from "@/components/network/PersonCard";
+import { PERSON_CARD_ITEM_HEIGHT, PersonCardLayout } from "@/components/network/PersonCard";
 import { useConnectionMutations, usePendingRequests } from "@/hooks/useConnections";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import { queryKeys } from "@/lib/query-keys";
@@ -25,12 +25,12 @@ import { profileHref } from "@/lib/routing/identifiers";
 
 function InvitationCardSkeleton() {
     return (
-        <div aria-hidden="true">
+        <div aria-hidden="true" className={PERSON_CARD_ITEM_HEIGHT}>
             <PersonCardLayout
                 avatar={<Skeleton className="size-12 shrink-0 rounded-[8px]" />}
-                head={<div className="space-y-2"><Skeleton className="h-4 w-40 rounded-sm" /><Skeleton className="h-3 w-24 rounded-sm" /></div>}
+                head={<div className="space-y-2"><Skeleton className="h-4 w-32 rounded-sm" /><Skeleton className="h-3 w-20 rounded-sm" /></div>}
+                aside={<div className="flex gap-2"><Skeleton className="size-9 rounded-md" /><Skeleton className="h-9 w-[72px] rounded-md" /></div>}
                 body={<><Skeleton className="h-3.5 w-full max-w-64 rounded-sm" /><Skeleton className="h-3 w-32 rounded-sm" /></>}
-                actions={<><Skeleton className="h-9 w-20 rounded-md" /><Skeleton className="h-9 w-20 rounded-md" /></>}
             />
         </div>
     );
@@ -217,7 +217,7 @@ export default function InvitationsClient({
 
     if (isInitialLoading) {
         return (
-            <div className="grid max-w-[620px] gap-3" aria-label="Loading invitations" role="status">
+            <div className={INVITATION_GRID} aria-label="Loading invitations" role="status">
                 <span className="sr-only">Loading invitations…</span>
                 {[1, 2].map((item) => <InvitationCardSkeleton key={item} />)}
             </div>
@@ -247,13 +247,13 @@ export default function InvitationsClient({
     }
 
     return (
-        <div className="grid max-w-[620px] gap-6">
+        <div className="grid gap-6">
             {connectionInvitations.length ? (
                 <section aria-labelledby="connection-invitations-heading">
                     {projectInvitations.length || sentConnectionRequests.length || sentProjectInvitations.length ? (
                         <h2 id="connection-invitations-heading" className="nb-micro mb-3">Connection invitations</h2>
                     ) : null}
-                    <div className="grid gap-3">
+                    <div className={INVITATION_GRID}>
                         {connectionInvitations.map((invitation) => {
                             const profile = { id: invitation.requesterId, username: invitation.requesterUsername, fullName: invitation.requesterFullName, avatarUrl: invitation.requesterAvatarUrl };
                             const displayName = invitation.requesterFullName || invitation.requesterUsername || "NetworkBase member";
@@ -264,27 +264,24 @@ export default function InvitationsClient({
                             return (
                                 <PersonCardLayout
                                     key={invitation.id}
+                                    className={PERSON_CARD_ITEM_HEIGHT}
                                     avatar={<Link href={profileHref(profile)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" /></Link>}
-                                    head={
-                                        <Link href={profileHref(profile)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                            <h3 className="nb-card-title line-clamp-2 break-words text-foreground">{displayName}</h3>
-                                            <span className="nb-status mt-1" data-status="active">Invited you</span>
-                                        </Link>
-                                    }
-                                    body={
-                                        <>
-                                            {invitation.requesterHeadline ? <p className="nb-body line-clamp-2 text-muted-foreground">{invitation.requesterHeadline}</p> : null}
-                                            <p className="nb-meta line-clamp-2">{invitation.message || "Wants to connect and collaborate with you."}</p>
-                                        </>
-                                    }
-                                    actions={
+                                    head={<InvitationHead href={profileHref(profile)} name={displayName} location={invitation.requesterLocation} />}
+                                    aside={
                                         <InvitationActions
+                                            name={displayName}
                                             busy={isProcessing}
                                             accepting={isAccepting}
                                             declining={isDeclining}
                                             onAccept={() => void acceptConnection(invitation.id, displayName.split(" ")[0] || displayName)}
                                             onDecline={() => void declineConnection(invitation.id)}
                                         />
+                                    }
+                                    body={
+                                        <>
+                                            <p className="nb-body truncate text-muted-foreground" title={invitation.requesterHeadline || undefined}>{invitation.requesterHeadline || "NetworkBase member"}</p>
+                                            <p className="nb-meta truncate" title={invitation.message || undefined}>{invitation.message || "Wants to connect and collaborate with you."}</p>
+                                        </>
                                     }
                                 />
                             );
@@ -296,7 +293,7 @@ export default function InvitationsClient({
             {projectInvitations.length ? (
                 <section aria-labelledby="project-invitations-heading">
                     <h2 id="project-invitations-heading" className="nb-micro mb-3">Project invitations</h2>
-                    <div className="grid gap-3">
+                    <div className={INVITATION_GRID}>
                         {projectInvitations.map((invitation) => {
                             const actor = invitation.actor ?? invitation.applicant;
                             const displayName = actor?.fullName || actor?.username || "NetworkBase member";
@@ -304,27 +301,24 @@ export default function InvitationsClient({
                             return (
                                 <PersonCardLayout
                                     key={invitation.id}
+                                    className={PERSON_CARD_ITEM_HEIGHT}
                                     avatar={<Link href={profileHref(actor)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={actor} size={48} fallbackClassName="text-base font-semibold" /></Link>}
-                                    head={
-                                        <>
-                                            <Link href={profileHref(actor)} className="nb-card-title line-clamp-2 break-words text-foreground hover:text-primary">{displayName}</Link>
-                                            <span className="nb-status mt-1" data-status="active">Project invitation</span>
-                                        </>
-                                    }
-                                    body={
-                                        <>
-                                            <p className="nb-body text-muted-foreground">Invited you to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>
-                                            <p className="nb-meta">Role · {invitation.roleTitle}</p>
-                                        </>
-                                    }
-                                    actions={
+                                    head={<InvitationHead href={profileHref(actor)} name={displayName} meta={`Role · ${invitation.roleTitle}`} />}
+                                    aside={
                                         <InvitationActions
+                                            name={displayName}
                                             busy={busy}
                                             accepting={busy && processingProject.action === "accept"}
                                             declining={busy && processingProject.action === "decline"}
                                             onAccept={() => void resolveProjectInvitation(invitation.id, "accept")}
                                             onDecline={() => void resolveProjectInvitation(invitation.id, "decline")}
                                         />
+                                    }
+                                    body={
+                                        <>
+                                            <p className="nb-body truncate text-muted-foreground">Invited you to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>
+                                            <p><span className="nb-status" data-status="active">Project invitation</span></p>
+                                        </>
                                     }
                                 />
                             );
@@ -336,44 +330,34 @@ export default function InvitationsClient({
             {sentProjectInvitations.length ? (
                 <section aria-labelledby="sent-project-invitations-heading">
                     <h2 id="sent-project-invitations-heading" className="nb-micro mb-3">Sent project invitations</h2>
-                    <div className="grid gap-3">
+                    <div className={INVITATION_GRID}>
                         {sentProjectInvitations.map((invitation) => {
                             const candidate = invitation.candidate;
                             const displayName = candidate.fullName || candidate.username || "NetworkBase member";
-                            const isCancelling = cancellingProjectId === invitation.id;
 
                             return (
                                 <PersonCardLayout
                                     key={invitation.id}
+                                    className={PERSON_CARD_ITEM_HEIGHT}
                                     avatar={<Link href={profileHref(candidate)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={candidate} size={48} fallbackClassName="text-base font-semibold" /></Link>}
-                                    head={<Link href={profileHref(candidate)} className="nb-card-title line-clamp-2 break-words text-foreground hover:text-primary">{displayName}</Link>}
+                                    head={<InvitationHead href={profileHref(candidate)} name={displayName} meta={`Role · ${invitation.roleTitle}`} />}
+                                    aside={
+                                        <CancelButton
+                                            label={`Cancel project invitation to ${displayName}`}
+                                            busy={cancellingProjectId === invitation.id}
+                                            onClick={() => void handleCancelSentProjectInvitation(invitation)}
+                                        />
+                                    }
                                     body={
                                         <>
-                                            <p className="nb-body text-muted-foreground">
+                                            <p className="nb-body truncate text-muted-foreground">
                                                 Invited to join{" "}
                                                 <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">
                                                     {invitation.projectTitle}
                                                 </Link>
                                             </p>
-                                            <div className="nb-meta flex flex-wrap items-center gap-x-3 gap-y-1">
-                                                <span>Role · {invitation.roleTitle}</span>
-                                                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                                                    <Clock className="size-3 shrink-0" aria-hidden="true" />
-                                                    Pending response
-                                                </span>
-                                            </div>
+                                            <PendingResponse />
                                         </>
-                                    }
-                                    actions={
-                                    <button
-                                        type="button"
-                                        onClick={() => void handleCancelSentProjectInvitation(invitation)}
-                                        disabled={isCancelling}
-                                        className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
-                                    >
-                                        {isCancelling ? <Loader2 className="size-4 animate-spin text-muted-foreground mr-1.5" aria-hidden="true" /> : null}
-                                        Cancel invitation
-                                    </button>
                                     }
                                 />
                             );
@@ -397,7 +381,7 @@ export default function InvitationsClient({
                             </button>
                         ) : null}
                     </div>
-                    <div className="grid gap-3">
+                    <div className={INVITATION_GRID}>
                         {sentConnectionRequests.map((request) => {
                             const profile = {
                                 id: request.addresseeId,
@@ -413,31 +397,21 @@ export default function InvitationsClient({
                             return (
                                 <PersonCardLayout
                                     key={request.id}
+                                    className={PERSON_CARD_ITEM_HEIGHT}
                                     avatar={<Link href={profileHref(profile)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" /></Link>}
-                                    head={
-                                        <Link href={profileHref(profile)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                            <h3 className="nb-card-title line-clamp-2 break-words text-foreground">{displayName}</h3>
-                                        </Link>
+                                    head={<InvitationHead href={profileHref(profile)} name={displayName} location={request.addresseeLocation} />}
+                                    aside={
+                                        <CancelButton
+                                            label={`Cancel connection request to ${displayName}`}
+                                            busy={isCancelling}
+                                            onClick={() => void handleCancelConnection(request.id, displayName)}
+                                        />
                                     }
                                     body={
                                         <>
-                                            {request.addresseeHeadline ? <p className="nb-body line-clamp-2 text-muted-foreground">{request.addresseeHeadline}</p> : null}
-                                            <p className="nb-meta flex items-center gap-1.5 text-muted-foreground">
-                                                <Clock className="size-3 shrink-0" aria-hidden="true" />
-                                                <span>Pending response</span>
-                                            </p>
+                                            <p className="nb-body truncate text-muted-foreground" title={request.addresseeHeadline || undefined}>{request.addresseeHeadline || "NetworkBase member"}</p>
+                                            <PendingResponse />
                                         </>
-                                    }
-                                    actions={
-                                    <button
-                                        type="button"
-                                        onClick={() => void handleCancelConnection(request.id, displayName)}
-                                        disabled={isCancelling}
-                                        className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
-                                    >
-                                        {isCancelling ? <Loader2 className="size-4 animate-spin text-muted-foreground mr-1.5" aria-hidden="true" /> : null}
-                                        Cancel request
-                                    </button>
                                     }
                                 />
                             );
@@ -449,7 +423,41 @@ export default function InvitationsClient({
     );
 }
 
-function InvitationActions({ busy, accepting, declining, onAccept, onDecline }: {
+/** Same grid as the Suggested / Connections tabs. */
+const INVITATION_GRID = "grid grid-cols-1 gap-[14px] sm:grid-cols-2";
+
+function InvitationHead({ href, name, location, meta }: {
+    href: string;
+    name: string;
+    location?: string | null;
+    meta?: string;
+}) {
+    return (
+        <Link href={href} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <h3 className="nb-card-title min-w-0 truncate text-foreground" title={name}>{name}</h3>
+            {location ? (
+                <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={location}>
+                    <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 truncate">{location}</span>
+                </p>
+            ) : null}
+            {meta ? <p className="nb-meta mt-1 truncate" title={meta}>{meta}</p> : null}
+        </Link>
+    );
+}
+
+function PendingResponse() {
+    return (
+        <p className="nb-meta flex items-center gap-1.5 text-muted-foreground">
+            <Clock className="size-3 shrink-0" aria-hidden="true" />
+            <span>Pending response</span>
+        </p>
+    );
+}
+
+// Accept reads like Connect on the person card; Decline is a compact icon button beside it.
+function InvitationActions({ name, busy, accepting, declining, onAccept, onDecline }: {
+    name: string;
     busy: boolean;
     accepting: boolean;
     declining: boolean;
@@ -458,12 +466,35 @@ function InvitationActions({ busy, accepting, declining, onAccept, onDecline }: 
 }) {
     return (
         <div className="flex items-center gap-2">
-            <button type="button" onClick={onDecline} disabled={busy} className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50">
-                {declining ? <Loader2 className="size-4 animate-spin" aria-label="Declining" /> : "Decline"}
+            <button
+                type="button"
+                onClick={onDecline}
+                disabled={busy}
+                title="Decline"
+                aria-label={`Decline invitation from ${name}`}
+                className="nb-touch-target inline-flex size-[var(--ui-control-height)] shrink-0 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            >
+                {declining ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <X className="size-4" aria-hidden="true" />}
             </button>
-            <button type="button" onClick={onAccept} disabled={busy} className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-primary bg-primary px-3 text-sm max-md:text-[13px] font-medium text-primary-foreground transition-[background-color,border-color,color] duration-150 ease-in-out hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:border-[var(--primary-active)] active:bg-[var(--primary-active)] disabled:opacity-50">
-                {accepting ? <Loader2 className="size-4 animate-spin" aria-label="Accepting" /> : "Accept"}
+            <button type="button" onClick={onAccept} disabled={busy} className="nb-person-connect" aria-label={`Accept invitation from ${name}`}>
+                {accepting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+                Accept
             </button>
         </div>
+    );
+}
+
+function CancelButton({ label, busy, onClick }: { label: string; busy: boolean; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={busy}
+            aria-label={label}
+            className="nb-touch-target inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+        >
+            {busy ? <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden="true" /> : null}
+            Cancel
+        </button>
     );
 }
