@@ -24,14 +24,13 @@ import {
 
 /**
  * Shared Network person-card anatomy (profile-header style): avatar top-left with name beside it,
- * details full width below, actions in a bottom row that lines up across a grid row.
+ * the primary action beside the name, details full width below.
  */
 export function PersonCardLayout({
     avatar,
     head,
     aside,
     body,
-    actions,
     className,
 }: {
     avatar: ReactNode;
@@ -39,8 +38,6 @@ export function PersonCardLayout({
     /** Primary action beside the name (grid cards); keeps the card compact. */
     aside?: ReactNode;
     body?: ReactNode;
-    /** Multi-button action row under the details (invitations). */
-    actions?: ReactNode;
     className?: string;
 }) {
     return (
@@ -50,9 +47,8 @@ export function PersonCardLayout({
                 <div className="min-w-0 flex-1 pt-0.5">{head}</div>
                 {aside ? <div className="flex shrink-0 items-center">{aside}</div> : null}
             </div>
-            {/* Body absorbs spare height (and clips before the action row, never over it). */}
+            {/* Body absorbs spare height and clips, so fixed-height grid items never overflow. */}
             <div className="mt-3 min-h-0 min-w-0 flex-1 space-y-2 overflow-hidden">{body}</div>
-            {actions ? <div className="mt-4 flex shrink-0 flex-wrap items-center gap-2 border-t border-border pt-3">{actions}</div> : null}
         </article>
     );
 }
