@@ -1,7 +1,6 @@
 import { type ReactNode, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { Plus, X } from 'lucide-react';
-import { LifecycleEditor } from '@/components/projects/LifecycleEditor';
 import { SkillPicker } from '@/components/skills/SkillPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -336,21 +335,6 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                 </div>
             </section>
 
-            <section aria-labelledby="project-journey-heading" className="border-t border-border pt-6">
-                <SectionHeading
-                    id="project-journey-heading"
-                    eyebrow="Project journey"
-                    title="Outline the stages ahead"
-                    description="We suggest stages from the category you choose. Edit their names or order to match how the work will progress."
-                />
-                <div className="mt-5 border-t border-border pt-5">
-                    <LifecycleEditor
-                        stages={watch('lifecycle_stages') || []}
-                        onChange={(stages) => setValue('lifecycle_stages', stages, { shouldDirty: true, shouldValidate: true })}
-                        showCurrentStage={false}
-                    />
-                </div>
-            </section>
         </div>
     );
 }

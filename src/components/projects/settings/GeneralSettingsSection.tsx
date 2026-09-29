@@ -23,7 +23,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { clearProjectCoverImageAction, createProjectCoverImageUploadUrlAction, finalizeProjectCoverImageUploadAction, updateProject } from "@/app/actions/project";
+import { clearProjectCoverImageAction, updateProject } from "@/app/actions/project";
+import {
+    ALLOWED_PROJECT_IMAGE_MIME_TYPES,
+    PROJECT_IMAGE_OUTPUT_SIZE,
+    PROJECT_IMAGE_PREVIEW_SIZE,
+    PROJECT_IMAGE_UPLOAD_MAX_BYTES,
+    uploadProjectImage,
+} from "@/lib/upload/project-image-upload-client";
 import {
     isKnownProjectType,
     OTHER_PROJECT_TYPE_ID,
@@ -73,14 +80,10 @@ type ScrollSnapshot = {
     windowScrollY: number;
 };
 
-const PROJECT_IMAGE_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
-const PROJECT_IMAGE_OUTPUT_SIZE = 1024;
-const PROJECT_IMAGE_PREVIEW_SIZE = 224;
 const PROJECT_IMAGE_MIN_ZOOM = 1;
 const PROJECT_IMAGE_MAX_ZOOM = 2.5;
 const PROJECT_TAG_LIMIT = 8;
 const PROJECT_SKILL_LIMIT = 12;
-const ALLOWED_PROJECT_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 function clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));
@@ -453,42 +456,15 @@ export function GeneralSettingsSection({
         if (!coverDraft) return;
         setUploadingCoverImage(true);
         try {
-            const [{ prepareProjectImageForUpload }, { uploadToSupabaseSignedUrl }] = await Promise.all([
-                import("@/lib/upload/image-prep-client"),
-                import("@/lib/upload/supabase-signed-upload-client"),
-            ]);
-            const isGif = coverDraft.file.type === "image/gif" || coverDraft.file.name.toLowerCase().endsWith(".gif");
-            const preparedImage = await prepareProjectImageForUpload(coverDraft.file, {
-                maxBytes: PROJECT_IMAGE_UPLOAD_MAX_BYTES,
-                size: PROJECT_IMAGE_OUTPUT_SIZE,
-                previewSize: PROJECT_IMAGE_PREVIEW_SIZE,
+            const finalized = await uploadProjectImage(projectId, coverDraft.file, {
                 zoom: coverDraft.zoom,
                 offsetX: coverDraft.offsetX,
                 offsetY: coverDraft.offsetY,
-                outputType: isGif ? undefined : "image/jpeg",
             });
-            const uploadSession = await createProjectCoverImageUploadUrlAction({
-                projectId,
-                mimeType: preparedImage.contentType,
-                sizeBytes: preparedImage.blob.size,
-            });
-            if (!uploadSession.success) {
-                throw new Error(uploadSession.error || "Failed to prepare project avatar upload");
-            }
-
-            await uploadToSupabaseSignedUrl(uploadSession, preparedImage.blob, { cacheProfile: "immutable" });
-
-            const finalized = await finalizeProjectCoverImageUploadAction({
-                projectId,
-                uploadIntentId: uploadSession.uploadIntentId,
-            });
-            if (!finalized.success) {
-                throw new Error(finalized.error || "Failed to finalize project avatar upload");
-            }
 
             setCoverImage(finalized.publicUrl);
             setCoverDraft(null);
-            toast.success(preparedImage.optimized ? "Project avatar optimized and updated." : "Project avatar updated.");
+            toast.success(finalized.optimized ? "Project avatar optimized and updated." : "Project avatar updated.");
             onProjectUpdated({ coverImage: finalized.publicUrl });
             broadcastProjectUpdated(projectId, { coverImage: finalized.publicUrl });
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });

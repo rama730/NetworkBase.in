@@ -168,8 +168,11 @@ test("Animated GIF avatar architecture: bypass canvas rasterization, preserve fr
     assert.match(prepSource, /prepareProjectImageForUpload[\s\S]*?file\.type === "image\/gif"[\s\S]*?contentType:\s*"image\/gif"/);
 
     // 2. ProjectSettingsTab must preserve GIF type and avoid forcing outputType: "image/jpeg"
-    assert.match(settingsSource, /const isGif = coverDraft\.file\.type === "image\/gif"/);
-    assert.match(settingsSource, /outputType:\s*isGif \? undefined : "image\/jpeg"/);
+    // GIFs keep their frames: the shared upload helper (Settings and create step 4) skips JPEG output for them.
+    const uploadHelperSource = readFileSync(resolve(ROOT, "src/lib/upload/project-image-upload-client.ts"), "utf-8");
+    assert.match(uploadHelperSource, /const isGif = file\.type === "image\/gif"/);
+    assert.match(uploadHelperSource, /outputType:\s*isGif \? undefined : "image\/jpeg"/);
+    assert.match(settingsSource, /await uploadProjectImage\(projectId, coverDraft\.file,/);
 
     // 3. ProjectAvatar must use unoptimized so browser's native engine plays the animated GIF
     assert.match(avatarSource, /<Image[\s\S]*?src=\{avatarUrl\}[\s\S]*?unoptimized/);

@@ -81,8 +81,9 @@ async function readProjectForUpdate(executor: ProjectCollaboratorExecutor, proje
         title: string | null;
         slug: string | null;
         conversation_id: string | null;
+        member_file_upload_default: boolean | null;
     }>(sql`
-        SELECT id, owner_id, title, slug, conversation_id
+        SELECT id, owner_id, title, slug, conversation_id, member_file_upload_default
         FROM ${projects}
         WHERE id = ${projectId} AND deleted_at IS NULL
         FOR UPDATE
@@ -95,6 +96,7 @@ async function readProjectForUpdate(executor: ProjectCollaboratorExecutor, proje
         title: row.title,
         slug: row.slug,
         conversationId: row.conversation_id,
+        memberFileUploadDefault: row.member_file_upload_default !== false,
     };
 }
 
@@ -268,6 +270,8 @@ export async function addProjectMemberInternal(
             projectId: params.projectId,
             userId: params.userId,
             role: nextRole === "owner" ? "member" : nextRole,
+            // New members start with the project's upload default (Settings or create step 4).
+            fileUploadEnabled: project.memberFileUploadDefault,
         });
         changed = true;
     } else if (

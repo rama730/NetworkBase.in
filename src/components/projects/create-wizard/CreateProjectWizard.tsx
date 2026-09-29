@@ -48,7 +48,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
     const {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
-        uploadFiles, setUploadFiles, uploadProgress,
+        uploadFiles, setUploadFiles, uploadProgress, projectImage, setProjectImage,
         githubPreview, githubFolderEntries, loadGithubFolder, startGithubRootPreview,
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
         handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt, markLeaving, hasUnsavedWizardChanges,
@@ -258,8 +258,8 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                                         )}
                                         {phase === 2 && <Phase2Information showValidationSummary={phase2ValidationAttempted} />}
                                         {phase === 3 && <Phase3TeamRoles wizardContext={wizardContext} showValidationSummary={phase3ValidationAttempted} />}
-                                        {phase === 4 && <Phase4Settings showValidationSummary={phase4ValidationAttempted} linkComposerPending={phase4LinkComposerPending} onLinkComposerPending={setPhase4LinkComposerPending} onEditRoles={() => goToPhase(3)} />}
-                                        {phase === 5 && <Phase5Review goToPhase={goToPhase} onReady={handleReviewReady} />}
+                                        {phase === 4 && <Phase4Settings showValidationSummary={phase4ValidationAttempted} linkComposerPending={phase4LinkComposerPending} onLinkComposerPending={setPhase4LinkComposerPending} projectImage={projectImage} onProjectImageChange={setProjectImage} />}
+                                        {phase === 5 && <Phase5Review goToPhase={goToPhase} onReady={handleReviewReady} projectImage={projectImage} />}
                                 </div>
                             </form>
                         </div>

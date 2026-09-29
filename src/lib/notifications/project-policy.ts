@@ -964,3 +964,30 @@ export function summarizeProjectNotificationPolicy(policy: ProjectNotificationPo
         optionalEnabledCount: enabled.filter((entry) => !entry.mandatory).length,
     };
 }
+
+/**
+ * Create-project step 4 shows three plain switches over the real policy groups. Membership and
+ * security stay on (mandatory events are never switched off). Switched-off rows disable the
+ * non-mandatory events in their groups; switched-on rows keep the balanced defaults.
+ */
+export const CREATE_PROJECT_NOTIFICATION_ROWS = [
+    { id: "roles_applications", label: "Roles and applications", description: "Applications, decisions, and role changes.", groups: ["roles_applications"] },
+    { id: "work", label: "Tasks and workflow", description: "Assignments, lifecycle stages, and file reviews.", groups: ["tasks_workflow", "project_lifecycle", "files_workspace"] },
+    { id: "updates_docs", label: "Updates and doc changes", description: "Progress posts and documentation publishing.", groups: ["updates", "readme"] },
+] as const satisfies ReadonlyArray<{ id: string; label: string; description: string; groups: readonly ProjectNotificationGroupId[] }>;
+
+export type CreateProjectNotificationRowId = (typeof CREATE_PROJECT_NOTIFICATION_ROWS)[number]["id"];
+
+export function buildCreateProjectNotificationPolicy(
+    rows: Partial<Record<CreateProjectNotificationRowId, boolean>> | null | undefined,
+): ProjectNotificationPolicy {
+    const policy = buildDefaultProjectNotificationPolicy("balanced");
+    const offGroups = new Set<ProjectNotificationGroupId>(
+        CREATE_PROJECT_NOTIFICATION_ROWS.filter((row) => rows?.[row.id] === false).flatMap((row) => row.groups),
+    );
+    for (const key of PROJECT_NOTIFICATION_EVENT_KEYS) {
+        const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[key];
+        if (!entry.mandatory && offGroups.has(entry.group)) policy.rules[key].enabled = false;
+    }
+    return policy;
+}

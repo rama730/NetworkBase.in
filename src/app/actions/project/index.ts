@@ -115,6 +115,7 @@ import { buildProjectOwnerPresentation } from "@/lib/privacy/presentation";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
 import {
+  buildCreateProjectNotificationPolicy,
   buildDefaultProjectNotificationPolicy,
   normalizeProjectMemberNotificationOverrides,
   normalizeProjectNotificationPolicy,
@@ -1121,6 +1122,7 @@ const projectDetailProjectSchema = z.object({
   }),
   lookingForCollaborators: z.boolean(),
   memberUpdatesEnabled: z.boolean(),
+  memberFileUploadDefault: z.boolean(),
   maxCollaborators: z.string().nullable(),
   status: z.enum(["draft", "active", "completed", "archived"]),
   lifecycleStages: z.array(z.string()),
@@ -1336,6 +1338,7 @@ async function resolveProjectDetailTarget(
           publicTabVisibility: projects.publicTabVisibility,
           lookingForCollaborators: projects.lookingForCollaborators,
           memberUpdatesEnabled: projects.memberUpdatesEnabled,
+          memberFileUploadDefault: projects.memberFileUploadDefault,
           maxCollaborators: projects.maxCollaborators,
           status: projects.status,
           lifecycleStages: projects.lifecycleStages,
@@ -2028,6 +2031,7 @@ export async function readProjectDetailShell(input: {
           ),
           lookingForCollaborators: !!project.lookingForCollaborators,
           memberUpdatesEnabled: !!project.memberUpdatesEnabled,
+          memberFileUploadDefault: project.memberFileUploadDefault !== false,
           maxCollaborators: project.maxCollaborators || null,
           status: normalizedStatus,
           lifecycleStages: Array.isArray(project.lifecycleStages)
@@ -2318,6 +2322,11 @@ export async function createProjectAction(
           externalLinks: externalLinksSplit.links,
           externalLinkMetadata: externalLinksSplit.metadata,
           visibility,
+          // Create step 4 launch settings (all editable later in Project settings).
+          publicTabVisibility: normalizeProjectPublicTabVisibility(input.public_tab_visibility),
+          memberUpdatesEnabled: input.member_updates_enabled !== false,
+          memberFileUploadDefault: input.member_file_upload_default !== false,
+          notificationPreferences: buildCreateProjectNotificationPolicy(input.notification_rows),
           status: mapStatus(input.status),
           lookingForCollaborators,
           openRolesCount: openRoles.length,
@@ -2724,6 +2733,8 @@ export async function updateProject(projectId: string, data: any) {
         updateValues.memberUpdatesEnabled = raw.memberUpdatesEnabled;
       else if (raw.member_updates_enabled !== undefined)
         updateValues.memberUpdatesEnabled = raw.member_updates_enabled;
+      if (typeof raw.memberFileUploadDefault === "boolean")
+        updateValues.memberFileUploadDefault = raw.memberFileUploadDefault;
 
       await tx
         .update(projects)

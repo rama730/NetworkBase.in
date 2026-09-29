@@ -14,7 +14,8 @@ test('Phase 2 uses the flat NetworkBase project-information composition', () => 
     assert.match(phase, /Name and classify the project/);
     assert.match(phase, /Explain the work/);
     assert.match(phase, /Make the project easier to find/);
-    assert.match(phase, /Outline the stages ahead/);
+    // Journey stages moved to step 4 (Lifecycle and workflow), matching Project settings.
+    assert.doesNotMatch(phase, /Outline the stages ahead|LifecycleEditor/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
     assert.match(phase, /border-t border-border pt-6/);
     assert.doesNotMatch(phase, /rounded-lg border border-border bg-card p-6/);
@@ -39,18 +40,19 @@ test('Phase 2 fields expose density-aware controls, field labels, limits, and se
     assert.doesNotMatch(select, /h-\[var\(--radix-select-trigger-height\)\]/);
 });
 
-test('Phase 2 preserves draft safety and reuses the canonical Settings lifecycle editor', () => {
+test('Phase 2 preserves draft safety; step 4 reuses the canonical Settings lifecycle editor', () => {
     const phase = source('src/components/projects/create-wizard/phases/Phase2Information.tsx');
+    const launch = source('src/components/projects/create-wizard/phases/Phase4Settings.tsx');
     const lifecycle = source('src/components/projects/LifecycleEditor.tsx');
     const skills = source('src/components/skills/SkillPicker.tsx');
 
     assert.match(phase, /setValue\('tags', \[\.\.\.tags, tag\], \{ shouldDirty: true, shouldValidate: true \}\)/);
-    assert.match(phase, /setValue\('lifecycle_stages', stages, \{ shouldDirty: true, shouldValidate: true \}\)/);
+    assert.match(launch, /set\('lifecycle_stages', stages\)/);
     assert.match(phase, /progressive/);
     assert.match(phase, /projectTagLimit = 8/);
     assert.match(phase, /font-mono text-\[11px\] uppercase tracking-\[0\.09em\]/);
     assert.doesNotMatch(phase, /variant="wizard"/);
-    assert.match(phase, /showCurrentStage=\{false\}/);
+    assert.match(launch, /<LifecycleEditor[\s\S]*?showCurrentStage\s/);
     assert.match(lifecycle, /showCurrentStage\?: boolean/);
     assert.match(lifecycle, /showCurrentStage && index === currentStageIndex/);
     assert.doesNotMatch(lifecycle, /Earlier/);
