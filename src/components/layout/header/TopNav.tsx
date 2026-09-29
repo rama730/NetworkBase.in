@@ -68,6 +68,7 @@ export default function TopNav() {
 
     const setMessageSearchOpen = useMessagesV2UiStore((state) => state.setMessageSearchOpen);
     const isProjectDetailRoute = pathname.startsWith('/projects/');
+    const isCreateProjectRoute = pathname === '/projects/new';
 
 
     const closeGlobalSearch = useCallback(() => {
@@ -165,10 +166,13 @@ export default function TopNav() {
 
                 <div className="flex shrink-0 items-center gap-2">
                     {authUiState === "signed-in" && (
-                        // Project creation is a full-page focus route (spec §18), not a modal.
+                        // Project creation is its own page (spec §18), not a modal. On that page the button reads as "you are here".
                         <Link
                             href="/projects/new"
-                            className={`nb-ui-label hidden h-[var(--ui-control-height)] items-center gap-2 rounded-md border px-4 transition-[background-color,border-color,color,transform] duration-150 ease-in-out active:translate-y-px md:inline-flex ${isProjectDetailRoute
+                            aria-current={isCreateProjectRoute ? 'page' : undefined}
+                            className={`nb-ui-label hidden h-[var(--ui-control-height)] items-center gap-2 rounded-md border px-4 transition-[background-color,border-color,color,transform] duration-150 ease-in-out active:translate-y-px md:inline-flex ${isCreateProjectRoute
+                                ? 'pointer-events-none border-border bg-muted text-muted-foreground'
+                                : isProjectDetailRoute
                                 ? 'border-border bg-card text-foreground hover:border-input hover:bg-muted'
                                 : 'border-primary bg-primary text-primary-foreground hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:border-[var(--primary-active)] active:bg-[var(--primary-active)]'}`}
                         >

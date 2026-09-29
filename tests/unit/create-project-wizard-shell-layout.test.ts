@@ -20,7 +20,7 @@ test("create-project shell keeps progress in a compact centered header and save 
   assert.match(footer, /sm:grid-cols-\[minmax\(8rem,1fr\)_auto_minmax\(8rem,1fr\)\]/);
   assert.match(footer, /sm:col-start-2 sm:row-start-1 sm:justify-self-center/);
 
-  assert.match(wizard, /<WizardHeader currentPhase=\{phase\} onClose=\{handleCloseAttempt\} headingRef=\{headingRef\} \/>/);
+  assert.match(wizard, /<WizardHeader\s+currentPhase=\{phase\}\s+onClose=\{handleCloseAttempt\}[\s\S]*?headingRef=\{headingRef\}\s*\/>/);
   assert.match(wizard, /<WizardFooter[\s\S]*saveStatus=\{saveStatus\}[\s\S]*lastSaved=\{lastSaved\}/);
 });
 
@@ -47,3 +47,41 @@ test("create-project is a normal page inside the app shell: no modal, one 1000px
   assert.match(hook, /if \(hasUnsavedRef\.current && !skipDraftOnUnmountRef\.current\) void saveDraftRef\.current\(true\)/);
   assert.match(hook, /if \(createdProjectId && onSuccess\) onSuccess\(createdProjectId\);\s*else onClose\(\);/);
 });
+
+test("create-project page refinements: no Esc close, clickable finished steps, current-page button, quiet saving, draft choice first, one mobile header row", async () => {
+  const [wizard, header, footer, topNav, mobileMenu] = await Promise.all([
+    readFile("src/components/projects/create-wizard/CreateProjectWizard.tsx", "utf8"),
+    readFile("src/components/projects/create-wizard/WizardHeader.tsx", "utf8"),
+    readFile("src/components/projects/create-wizard/WizardFooter.tsx", "utf8"),
+    readFile("src/components/layout/header/TopNav.tsx", "utf8"),
+    readFile("src/components/layout/header/MobileMenu.tsx", "utf8"),
+  ]);
+
+  // 1. A page, not a dialog: no Esc-to-close; an explicit Cancel.
+  assert.doesNotMatch(wizard, /'Escape'/);
+  assert.match(header, /aria-label="Cancel project setup"/);
+  assert.match(header, /<span className="max-md:hidden">Cancel<\/span>/);
+
+  // 2. Finished steps jump back; later steps stay locked.
+  assert.match(header, /completed && onStepSelect \? \(/);
+  assert.match(header, /onClick=\{\(\) => onStepSelect\(wizardPhase\.id\)\}/);
+  assert.match(wizard, /onStepSelect=\{goToPhase\}/);
+
+  // 3. New project reads as the current page on /projects/new.
+  assert.match(topNav, /aria-current=\{isCreateProjectRoute \? 'page' : undefined\}/);
+  assert.match(mobileMenu, /aria-current=\{pathname === "\/projects\/new" \? "page" : undefined\}/);
+
+  // 4. Autosave is primary: no Save draft button, a quiet "Save now" in the status line.
+  assert.doesNotMatch(footer, /Save draft<\/span>|<Save /);
+  assert.match(footer, /Save now/);
+
+  // 5. The saved-draft choice sits above the form, not above the footer.
+  assert.ok(wizard.indexOf("Continue your saved draft?") < wizard.indexOf("ref={scrollBodyRef}"));
+  assert.match(wizard, /flex-shrink-0 border-b border-border bg-secondary\/45/);
+
+  // 6. Phones: one 56px header row (title + step) and a thin progress line, not a second progress row.
+  assert.doesNotMatch(header, /MobileProgressBar/);
+  assert.match(header, /Step \{currentPhase\} of \{WIZARD_PHASES\.length\}/);
+  assert.match(header, /role="progressbar"[\s\S]*className="h-0\.5 bg-muted md:hidden"/);
+});
+

@@ -11628,14 +11628,21 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             bar stay, and the wizard fills the main content area like any other
             page (no modal; the chat button is hidden because the footer holds
             Continue in that corner). Desktop: 64px header band (title,
-            numbered stepper, close), one scrolling body with a 1000px content
+            numbered stepper, Cancel), one scrolling body with a 1000px content
             column, 72px footer band whose actions align to that column.
-            Mobile: 56px header plus progress row, compact source rows, sticky
-            safe-area footer with a full-width Continue. Every New project
-            entry is a link to this route. Close/Esc confirm when unsaved and
-            return to the originating page; browser Back leaves immediately and
-            saves a draft; a successful create replaces the route with the new
-            project.
+            Finished steps in the stepper are buttons back to that step; later
+            steps stay locked until Continue validates. Mobile: one 56px header
+            row (title with &ldquo;Step N of 5 &middot; Label&rdquo; under it,
+            icon Cancel) plus a 2px progress line, compact source rows, sticky
+            safe-area footer with a full-width Continue. Drafts autosave: the
+            footer shows a quiet &ldquo;Saved &hellip; &middot; Save now&rdquo;
+            status instead of a Save draft button, and the &ldquo;Continue your
+            saved draft?&rdquo; strip sits above the form. Every New project
+            entry is a link to this route; on the route itself it shows as the
+            current page. Cancel confirms when unsaved and returns to the
+            originating page; Esc does not close the page; browser Back leaves
+            immediately and saves a draft; a successful create replaces the
+            route with the new project.
           </p>
           <div class="table-wrap">
             <table>

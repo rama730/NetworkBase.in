@@ -5,7 +5,7 @@ import { FormProvider } from 'react-hook-form';
 import { Save } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
-import { TOTAL_PHASES } from '@/constants/project-wizard';
+import { TOTAL_PHASES, WIZARD_PHASES } from '@/constants/project-wizard';
 
 // Hook
 import { useCreateProjectWizard } from './useCreateProjectWizard';
@@ -148,54 +148,59 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, [hasUnsavedWizardChanges]);
 
-    useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            if (event.defaultPrevented) return;
+    // No Esc-to-close: this is a page, not a dialog, and a stray Esc must not drop a 5-step form. Cancel is explicit.
 
-            const target = event.target instanceof Element ? event.target : null;
-            if (
-                target instanceof HTMLInputElement
-                || target instanceof HTMLTextAreaElement
-                || target instanceof HTMLSelectElement
-                || target?.closest('[contenteditable="true"]')
-            ) {
-                return;
-            }
-
-            const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
-            const hasNestedEscapeHandler = path.some((node) => (
-                node instanceof Element
-                && node !== document.body
-                && node !== document.documentElement
-                && (
-                    node.hasAttribute('data-escape-handled')
-                    || node.getAttribute('role') === 'menu'
-                    || node.getAttribute('role') === 'listbox'
-                    || node.getAttribute('role') === 'alertdialog'
-                    || node.hasAttribute('data-radix-popper-content-wrapper')
-                )
-            ));
-            if (hasNestedEscapeHandler) return;
-
-            event.preventDefault();
-            if (showExitConfirm) {
-                setShowExitConfirm(false);
-                return;
-            }
-            handleCloseAttempt();
-        };
-
-        window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [handleCloseAttempt, setShowExitConfirm, showExitConfirm]);
+    const draftPhaseLabel = draftInfo ? WIZARD_PHASES[draftInfo.phase - 1]?.label : undefined;
 
     const content = (
             // A normal page in the app shell (spec §18): fills the main content area; header and footer bands, one scrolling body.
             <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-card motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150">
                     <FormProvider {...methods}>
                         {/* Header */}
-                        <WizardHeader currentPhase={phase} onClose={handleCloseAttempt} headingRef={headingRef} />
+                        <WizardHeader
+                            currentPhase={phase}
+                            onClose={handleCloseAttempt}
+                            onStepSelect={goToPhase}
+                            stepsDisabled={isSubmitting || isPhaseTransitioning}
+                            headingRef={headingRef}
+                        />
+
+                        {/* Draft recovery: a choice to make before starting, so it sits above the form, not above the footer. */}
+                        {draftInfo?.exists && (
+                            <div className="flex-shrink-0 border-b border-border bg-secondary/45">
+                                <div className={`${WIZARD_COLUMN} flex items-center justify-between gap-4 px-4 py-4 md:px-6 max-sm:flex-col max-sm:items-stretch max-sm:gap-3`}>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="flex size-9 flex-shrink-0 items-center justify-center rounded-md border border-border bg-card">
+                                            <Save className="size-4 text-muted-foreground" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="nb-card-title truncate text-foreground">
+                                                Continue your saved draft?
+                                            </p>
+                                            <p className="nb-meta text-muted-foreground">
+                                                Stopped at step {draftInfo.phase}{draftPhaseLabel ? ` · ${draftPhaseLabel}` : ''}{draftInfo.savedAt ? ` · ${draftInfo.savedAt.toLocaleDateString()}` : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-shrink-0 items-center gap-2 max-sm:grid max-sm:grid-cols-2">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={deleteDraft}
+                                        >
+                                            Delete draft
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            onClick={restoreDraft}
+                                        >
+                                            Continue with the draft
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
 
                         {/* Content */}
                         <div ref={scrollBodyRef} className="app-scroll app-scroll-y app-scroll-gutter min-h-0 flex-1 scroll-pb-32 overflow-y-auto overscroll-contain">
@@ -255,42 +260,6 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                             </form>
                         </div>
                         </div>
-
-                        {/* Draft Recovery Banner */}
-                        {draftInfo?.exists && (
-                            <div className="flex-shrink-0 border-t border-border bg-secondary/45">
-                                <div className={`${WIZARD_COLUMN} flex items-center justify-between gap-4 px-4 py-4 md:px-6 max-sm:flex-col max-sm:items-stretch max-sm:gap-3`}>
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="flex size-9 flex-shrink-0 items-center justify-center rounded-md border border-border bg-card">
-                                            <Save className="size-4 text-muted-foreground" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="nb-card-title truncate text-foreground">
-                                                Continue your saved draft?
-                                            </p>
-                                            <p className="nb-meta text-muted-foreground">
-                                                Last open at phase {draftInfo.phase}{draftInfo.savedAt ? ` · ${draftInfo.savedAt.toLocaleDateString()}` : ''}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-shrink-0 items-center gap-2 max-sm:grid max-sm:grid-cols-2">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            onClick={deleteDraft}
-                                        >
-                                            Delete draft
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            onClick={restoreDraft}
-                                        >
-                                            Continue with the draft
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
 
                         {/* Footer */}
                         <div className="flex-shrink-0">

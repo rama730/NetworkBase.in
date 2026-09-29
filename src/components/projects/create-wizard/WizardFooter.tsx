@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Loader2, Save } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { Button } from "@/components/ui/button";
 
@@ -47,18 +47,28 @@ export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSav
           ) : null}
         </div>
 
-        {/* Phones: status on its own line above the buttons; short landscape screens drop it. */}
-        <p id="create-project-next-help" role="status" aria-live="polite" className="nb-meta col-span-2 row-start-1 text-center text-muted-foreground sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:justify-self-center [@media(max-height:500px)]:sr-only">
-          <span>{phaseMessage}</span>
-          {saveMessage ? <span className={saveStatus === "error" ? "text-[var(--status-danger)]" : undefined}> · {saveMessage}</span> : null}
-        </p>
+        {/* Drafts autosave, so saving is a quiet status with an optional "Save now", not a primary button.
+            Phones: status on its own line above the buttons; short landscape screens drop it. */}
+        <div className="nb-meta col-span-2 row-start-1 flex min-w-0 flex-wrap items-center justify-center gap-x-1 text-center text-muted-foreground sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:justify-self-center [@media(max-height:500px)]:sr-only">
+          <p id="create-project-next-help" role="status" aria-live="polite">
+            <span>{phaseMessage}</span>
+            {saveMessage ? <span className={saveStatus === "error" ? "text-[var(--status-danger)]" : undefined}> · {saveMessage}</span> : null}
+          </p>
+          <span aria-hidden="true">·</span>
+          <button
+            type="button"
+            onClick={onSaveDraft}
+            disabled={isSavingDraft || isSubmitting || isPhaseTransitioning}
+            aria-busy={isSavingDraft}
+            // Invisible hit padding keeps a 44px tap target without making the status line taller (spec §05).
+            className="relative inline-flex items-center gap-1 rounded-sm font-medium after:absolute after:-inset-x-2 after:-inset-y-3 after:content-[''] text-foreground underline-offset-2 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          >
+            {isSavingDraft ? <Loader2 className="size-3 animate-spin" aria-hidden="true" /> : null}
+            Save now
+          </button>
+        </div>
 
         <div className={`row-start-2 flex items-center gap-2 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:justify-self-end ${phase > 1 ? "col-start-2" : "col-span-2 col-start-1"}`}>
-          <Button type="button" variant="ghost" onClick={onSaveDraft} disabled={isSavingDraft || isSubmitting || isPhaseTransitioning} aria-busy={isSavingDraft} aria-label="Save draft" className="nb-touch-target">
-            {isSavingDraft ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
-            <span className="hidden sm:inline">Save draft</span>
-          </Button>
-
           {isLastPhase ? (
             <Button type="submit" form="create-project-form" disabled={isSubmitting || isPhaseTransitioning || !isReviewReady} aria-busy={isSubmitting || isPhaseTransitioning} className="max-sm:flex-1">
               {isSubmitting ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}

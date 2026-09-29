@@ -71,10 +71,14 @@ export default function MobileMenu(props: {
                     </button>
                 </div>
 
-                {/* Full-page create route; closeOnNavigate shuts the drawer. 36px visual, 44px tap area via invisible hit padding (spec §05). */}
+                {/* Create-project page; closeOnNavigate shuts the drawer. 36px visual, 44px tap area via invisible hit padding (spec §05).
+                    On that page it reads as "you are here" instead of a call to action. */}
                 <Link
                     href="/projects/new"
-                    className="relative inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[5px] border border-primary bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"
+                    aria-current={pathname === "/projects/new" ? "page" : undefined}
+                    className={`relative inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[5px] border px-3 text-[13px] font-medium transition-colors after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] ${pathname === "/projects/new"
+                        ? "border-border bg-muted text-muted-foreground"
+                        : "border-primary bg-primary text-primary-foreground hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)]"}`}
                 >
                     <Plus className="size-3.5" aria-hidden="true" />
                     New project
