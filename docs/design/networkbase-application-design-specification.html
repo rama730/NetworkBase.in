@@ -10862,6 +10862,16 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             trailing region. In a 320px rail, use a stacked/header-first variant
             rather than squeezing long names between avatar and button.
           </p>
+          <p>
+            <strong>Placement rule.</strong> Exactly one line sits under the
+            name: the location if present, otherwise the real headline. The
+            headline drops full width below the avatar only when a location
+            took that line; secondary mono meta (shared connections,
+            &ldquo;Connected&nbsp;&hellip;&rdquo;, role) follows it. Never show
+            filler headlines or messages: omit the line instead. Cards size to
+            their content; in a grid, each row aligns to its tallest card. A
+            fixed card height to suit a virtualizer is not allowed.
+          </p>
           <div class="table-wrap">
             <table>
               <thead>
@@ -10875,8 +10885,9 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
                 <tr>
                   <td>Network suggestions</td>
                   <td>
-                    Two columns at adequate width; avatar/name above skills; one
-                    compact connection action.
+                    One column below 640px, two above; avatar with name,
+                    location-or-headline line and action beside it; skills
+                    below; one compact connection action. Content-sized cards.
                   </td>
                   <td>
                     Not connected, pending outgoing, pending incoming,
@@ -10907,8 +10918,10 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
                 <tr>
                   <td>Invitation/application</td>
                   <td>
-                    Identity left; project/role context in middle; actions right
-                    or next row.
+                    Same anatomy as the person card: Accept/Decline or Cancel
+                    beside the name; location-or-headline line (project
+                    invites use &ldquo;Invited to join&nbsp;&hellip;&rdquo;) and
+                    role under it; real message or pending state below.
                   </td>
                   <td>
                     Accept/decline/request details retain pending and failure
