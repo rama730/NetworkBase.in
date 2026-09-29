@@ -40,16 +40,24 @@ export function PersonCardLayout({
     className?: string;
 }) {
     return (
-        <article className={cn("flex h-full min-w-0 flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-input", className)}>
-            <div className="flex min-w-0 items-start gap-3">
+        <article className={cn("flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card p-4 transition-colors hover:border-input", className)}>
+            <div className="flex min-w-0 shrink-0 items-start gap-3">
                 {avatar}
                 <div className="min-w-0 flex-1 pt-0.5">{head}</div>
             </div>
-            {body ? <div className="mt-3 min-w-0 space-y-2">{body}</div> : null}
-            {actions ? <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-3 [&:not(:first-child)]:mt-4">{actions}</div> : null}
+            {/* Body absorbs spare height (and clips before the action row, never over it). */}
+            <div className="mt-3 min-h-0 min-w-0 flex-1 space-y-2 overflow-hidden">{body}</div>
+            {actions ? <div className="mt-4 flex shrink-0 flex-wrap items-center gap-2 border-t border-border pt-3">{actions}</div> : null}
         </article>
     );
 }
+
+// ponytail: VirtuosoGrid needs uniform item heights, so grid cards use one fixed height sized for the fullest card
+// (48px avatar row + 2-line headline + 1 tag row + meta + 44px touch action ≈ 268px). Upgrade: variable-height Virtuoso list.
+export const PERSON_CARD_ITEM_HEIGHT = "h-[272px]";
+
+/** One-row tag strip: tags that would wrap to a second row are hidden, keeping the card height fixed. */
+export const PERSON_CARD_TAGS = "flex h-6 min-w-0 flex-wrap gap-1.5 overflow-hidden";
 
 export interface PersonCardProps {
     profile: SuggestedProfile;
@@ -211,7 +219,7 @@ function PersonCard({
             }
             head={
                 <Link href={profileHref(profile)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <h3 className="nb-card-title line-clamp-2 min-w-0 break-words text-foreground" title={displayName}>{displayName}</h3>
+                    <h3 className="nb-card-title min-w-0 truncate text-foreground" title={displayName}>{displayName}</h3>
                     {!isLocked && profile.location ? (
                         <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={profile.location}>
                             <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
@@ -229,7 +237,7 @@ function PersonCard({
                     )}
 
                     {!isLocked && skills.length ? (
-                        <div className="flex min-w-0 flex-wrap gap-1.5" aria-label="Skills">
+                        <div className={PERSON_CARD_TAGS} aria-label="Skills">
                             {skills.map((skillName) => {
                                 const skill = resolveClientSkill(skillName);
                                 return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
@@ -238,7 +246,7 @@ function PersonCard({
                     ) : null}
 
                     {!isLocked && (profile.mutualConnections ?? 0) > 0 ? (
-                        <p className="nb-meta">{profile.mutualConnections} shared connections</p>
+                        <p className="nb-meta truncate">{profile.mutualConnections} shared connections</p>
                     ) : null}
                 </>
             }
