@@ -450,6 +450,7 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
                                             <DiscoverHeader
                                                 filterView={filterView}
                                                 onSelectView={handleSelectView}
+                                                people={currentUser?.id ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="compact" /> : null}
                                             />
                                         </div>
                                     </div>

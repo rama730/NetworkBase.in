@@ -27,14 +27,14 @@ export default function CookieConsentPanel({
       aria-describedby="cookie-consent-description"
       aria-label="Cookie settings"
       aria-live="polite"
-      className="fixed inset-x-4 bottom-4 z-[70] w-auto rounded-lg border border-border bg-background p-5 text-foreground shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:inset-x-auto sm:right-5 sm:w-[26rem] dark:shadow-[0_24px_70px_rgba(0,0,0,0.55)]"
+      className="fixed inset-x-4 bottom-4 z-[70] w-auto rounded-lg border border-border bg-background p-5 text-foreground max-sm:inset-x-2 max-sm:bottom-2 max-sm:max-h-[40dvh] max-sm:overflow-y-auto max-sm:p-4 shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:inset-x-auto sm:right-5 sm:w-[26rem] dark:shadow-[0_24px_70px_rgba(0,0,0,0.55)]"
       role="dialog"
     >
       {hasDecision ? (
         <button
           type="button"
           aria-label="Close cookie settings"
-          className="absolute right-4 top-4 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="nb-touch-target absolute right-4 top-4 inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground max-sm:right-2 max-sm:top-2 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={onClose}
         >
           <X className="h-4 w-4" />
@@ -70,8 +70,8 @@ function CookieConsentSummary({
 }) {
   return (
     <>
-      <h2 className="pr-8 text-lg font-semibold tracking-tight">Cookie settings</h2>
-      <p id="cookie-consent-description" className="mt-3 text-sm leading-6 text-muted-foreground">
+      <h2 className="pr-8 text-lg font-semibold tracking-tight max-sm:text-[17px]">Cookie settings</h2>
+      <p id="cookie-consent-description" className="mt-3 text-sm leading-6 text-muted-foreground max-sm:mt-1.5 max-sm:text-[13px] max-sm:leading-5">
         We use essential cookies to secure your account and provide NetworkBase. With your permission, we also use analytics to understand and improve the service. Read our{" "}
         <a href="/cookies" className="font-medium text-foreground underline underline-offset-4">
           Cookie and Storage Notice
@@ -79,8 +79,9 @@ function CookieConsentSummary({
         .
       </p>
 
-      <div className="mt-5 grid gap-2.5">
-        <Button type="button" variant="secondary" className="h-11 w-full" onClick={onCustomize}>
+      {/* Phones: tighter spacing and a quieter Customize row keep the banner near a third of the screen (§31 mobile fit). */}
+      <div className="mt-5 grid gap-2.5 max-sm:mt-3 max-sm:gap-2">
+        <Button type="button" variant="secondary" className="h-11 w-full max-sm:h-10 max-sm:bg-transparent max-sm:underline max-sm:underline-offset-4" onClick={onCustomize}>
           Customize cookie settings
         </Button>
         <div className="grid grid-cols-2 gap-2.5">

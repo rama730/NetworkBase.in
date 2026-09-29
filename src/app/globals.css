@@ -1014,6 +1014,8 @@ svg.lucide { stroke-width:1.75; }
 /* Preflight gives <code>/<pre> a ui-monospace stack; phones use the spec mono (JetBrains Mono). */
 @media (max-width:767px) {
   code, kbd, samp, pre { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; }
+  /* Toasts sit above a mounted composer or wizard footer instead of covering it (spec §09 R12). */
+  body:has(.nb-message-composer, .nb-wizard-footer) [data-sonner-toaster][data-y-position="bottom"] { bottom: calc(96px + env(safe-area-inset-bottom)) !important; }
 }
   /* :root[data-density] out-specifies the density presets, which are always set. */
   :root, :root[data-density] { --ui-control-height-sm:44px; --ui-control-height:44px; --ui-control-height-lg:48px; --ui-nav-item-height:44px; }

@@ -231,8 +231,8 @@ export default function InvitationsClient({
         return (
             <div className="max-w-[620px] rounded-lg border border-border bg-card p-8 text-center">
                 <h2 className="nb-card-title text-foreground">Invitations could not be loaded.</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Please try again.</p>
-                <button type="button" onClick={() => void Promise.all([connectionQuery.refetch(), projectQuery.refetch(), sentProjectQuery.refetch()])} className="mt-4 text-sm font-medium text-primary hover:underline">Retry</button>
+                <p className="mt-1 text-sm max-md:text-[13px] text-muted-foreground">Please try again.</p>
+                <button type="button" onClick={() => void Promise.all([connectionQuery.refetch(), projectQuery.refetch(), sentProjectQuery.refetch()])} className="mt-4 text-sm max-md:text-[13px] font-medium text-primary hover:underline">Retry</button>
             </div>
         );
     }
@@ -274,7 +274,7 @@ export default function InvitationsClient({
                                             <h3 className="nb-card-title text-foreground">{displayName}</h3>
                                             <span className="inline-flex rounded-sm border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">Invited you</span>
                                         </div>
-                                        {invitation.requesterHeadline ? <p className="mt-1 truncate text-sm text-muted-foreground">{invitation.requesterHeadline}</p> : null}
+                                        {invitation.requesterHeadline ? <p className="mt-1 truncate text-sm max-md:text-[13px] text-muted-foreground">{invitation.requesterHeadline}</p> : null}
                                         <p className="nb-meta mt-1.5 truncate">{invitation.message || "Wants to connect and collaborate with you."}</p>
                                     </Link>
                                     <InvitationActions
@@ -309,7 +309,7 @@ export default function InvitationsClient({
                                             <Link href={profileHref(actor)} className="nb-card-title text-foreground hover:text-primary">{displayName}</Link>
                                             <span className="inline-flex rounded-sm border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">Project invitation</span>
                                         </div>
-                                        <p className="mt-1 text-sm text-muted-foreground">Invited you to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>
+                                        <p className="mt-1 text-sm max-md:text-[13px] text-muted-foreground">Invited you to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>
                                         <p className="nb-meta mt-1.5">Role · {invitation.roleTitle}</p>
                                     </div>
                                     <InvitationActions
@@ -344,7 +344,7 @@ export default function InvitationsClient({
                                         <div className="flex flex-wrap items-center gap-2">
                                             <Link href={profileHref(candidate)} className="nb-card-title text-foreground hover:text-primary">{displayName}</Link>
                                         </div>
-                                        <p className="mt-1 text-sm text-muted-foreground">
+                                        <p className="mt-1 text-sm max-md:text-[13px] text-muted-foreground">
                                             Invited to join{" "}
                                             <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">
                                                 {invitation.projectTitle}
@@ -363,7 +363,7 @@ export default function InvitationsClient({
                                             type="button"
                                             onClick={() => void handleCancelSentProjectInvitation(invitation)}
                                             disabled={isCancelling}
-                                            className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                                            className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
                                         >
                                             {isCancelling ? <Loader2 className="size-4 animate-spin text-muted-foreground mr-1.5" aria-hidden="true" /> : null}
                                             Cancel invitation
@@ -413,7 +413,7 @@ export default function InvitationsClient({
                                         <div className="flex flex-wrap items-center gap-2">
                                             <h3 className="nb-card-title text-foreground">{displayName}</h3>
                                         </div>
-                                        {request.addresseeHeadline ? <p className="mt-1 truncate text-sm text-muted-foreground">{request.addresseeHeadline}</p> : null}
+                                        {request.addresseeHeadline ? <p className="mt-1 truncate text-sm max-md:text-[13px] text-muted-foreground">{request.addresseeHeadline}</p> : null}
                                         <p className="nb-meta mt-1.5 flex items-center gap-1.5 text-muted-foreground">
                                             <Clock className="size-3 shrink-0" aria-hidden="true" />
                                             <span>Pending response</span>
@@ -424,7 +424,7 @@ export default function InvitationsClient({
                                             type="button"
                                             onClick={() => void handleCancelConnection(request.id, displayName)}
                                             disabled={isCancelling}
-                                            className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                                            className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50 transition-colors"
                                         >
                                             {isCancelling ? <Loader2 className="size-4 animate-spin text-muted-foreground mr-1.5" aria-hidden="true" /> : null}
                                             Cancel request
@@ -449,10 +449,10 @@ function InvitationActions({ busy, accepting, declining, onAccept, onDecline }: 
 }) {
     return (
         <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-            <button type="button" onClick={onDecline} disabled={busy} className="inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50">
+            <button type="button" onClick={onDecline} disabled={busy} className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-50">
                 {declining ? <Loader2 className="size-4 animate-spin" aria-label="Declining" /> : "Decline"}
             </button>
-            <button type="button" onClick={onAccept} disabled={busy} className="inline-flex h-9 items-center justify-center rounded-md border border-primary bg-primary px-3 text-sm font-medium text-primary-foreground transition-[background-color,border-color,color] duration-150 ease-in-out hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:border-[var(--primary-active)] active:bg-[var(--primary-active)] disabled:opacity-50">
+            <button type="button" onClick={onAccept} disabled={busy} className="nb-touch-target inline-flex h-9 items-center justify-center rounded-md border border-primary bg-primary px-3 text-sm max-md:text-[13px] font-medium text-primary-foreground transition-[background-color,border-color,color] duration-150 ease-in-out hover:border-[var(--primary-hover)] hover:bg-[var(--primary-hover)] active:border-[var(--primary-active)] active:bg-[var(--primary-active)] disabled:opacity-50">
                 {accepting ? <Loader2 className="size-4 animate-spin" aria-label="Accepting" /> : "Accept"}
             </button>
         </div>

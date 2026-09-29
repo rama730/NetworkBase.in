@@ -31,7 +31,7 @@ export function RequestProfileRow({
         <UserAvatar identity={profile} size={40} />
       </Link>
       <Link href={profileHref(profile)} className="min-w-0 flex-1">
-        <h3 className="truncate text-sm font-semibold text-foreground hover:text-primary">{name}</h3>
+        <h3 className="truncate text-sm max-md:text-[13px] font-semibold text-foreground hover:text-primary">{name}</h3>
         {profile.headline ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{profile.headline}</p> : null}
         {profile.location ? <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{profile.location}</p> : null}
       </Link>
