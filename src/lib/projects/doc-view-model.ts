@@ -76,6 +76,7 @@ export type ProjectDocViewModel = {
 };
 
 const VIEW_MODEL_CACHE_LIMIT = 12;
+// ponytail: per-process LRU Maps (12 here, qualityCache 24, DOC_METADATA_CACHE 200). ceiling: each replica warms its own copy. upgrade: shared cache only if doc renders show up in p95.
 const viewModelCache = new Map<string, ProjectDocViewModel>();
 
 function stableReadmeHash(value: string) {
