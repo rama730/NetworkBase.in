@@ -76,7 +76,7 @@ export function LifecycleSettingsEditor({
                             variant="outline"
                             onClick={handleCancel}
                             disabled={!isDirty || isSaving}
-                            className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                            className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                         >
                             Cancel
                         </Button>
@@ -84,7 +84,7 @@ export function LifecycleSettingsEditor({
                             type="button"
                             onClick={() => void handleSave()}
                             disabled={!isDirty || isSaving || stages.length === 0}
-                            className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                            className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                         >
                             {isSaving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
                             Save changes

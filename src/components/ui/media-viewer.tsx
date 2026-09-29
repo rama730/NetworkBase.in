@@ -240,7 +240,7 @@ export function MediaViewerModal({
                                 <button
                                     type="button"
                                     onClick={() => setViewerMuted((current) => !current)}
-                                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border-0 bg-white/10 text-white transition-colors hover:bg-white/20 focus:outline-none focus-visible:bg-white/25"
+                                    className="nb-touch-target inline-flex h-9 w-9 items-center justify-center rounded-full border-0 bg-white/10 text-white transition-colors hover:bg-white/20 focus:outline-none focus-visible:bg-white/25"
                                     aria-label={viewerMuted ? 'Turn audio on' : 'Turn audio off'}
                                     aria-pressed={!viewerMuted}
                                 >

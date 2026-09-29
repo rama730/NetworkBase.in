@@ -387,7 +387,7 @@ export const FolderListRow = React.memo(function FolderListRow({
                     <span
                       data-testid="file-role-badge-deliverable"
                       className={cn(
-                        "inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[10px] font-medium tracking-wide",
+                        "inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-medium tracking-wide",
                         subtitle.includes("Approved")
                           ? "bg-[#EDF5F0] text-[#245A41] dark:bg-[#245A41]/20 dark:text-[#EDF5F0]"
                           : "bg-[#FCF0EA] text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]",
@@ -398,14 +398,14 @@ export const FolderListRow = React.memo(function FolderListRow({
                   ) : subtitle === "Working file" ? (
                     <span
                       data-testid="file-role-badge-working"
-                      className="inline-flex items-center rounded-[3px] bg-[#EEF4FD] px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-[#2563C9] dark:bg-[#2563C9]/20 dark:text-[#EEF4FD]"
+                      className="inline-flex items-center rounded-[3px] bg-[#EEF4FD] px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-medium tracking-wide text-[#2563C9] dark:bg-[#2563C9]/20 dark:text-[#EEF4FD]"
                     >
                       Working file
                     </span>
                   ) : subtitle === "Reference" ? (
                     <span
                       data-testid="file-role-badge-reference"
-                      className="inline-flex items-center rounded-[3px] bg-[#F3F0EA] px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-[#6B7880] dark:bg-muted dark:text-muted-foreground"
+                      className="inline-flex items-center rounded-[3px] bg-[#F3F0EA] px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-medium tracking-wide text-[#6B7880] dark:bg-muted dark:text-muted-foreground"
                     >
                       Reference
                     </span>
@@ -430,7 +430,7 @@ export const FolderListRow = React.memo(function FolderListRow({
                     onBlur={commitLabelEdit}
                     onKeyDown={handleLabelKeyDown}
                     placeholder="Label..."
-                    className="w-32 bg-transparent font-mono text-[10px] font-medium text-[#141A1E] dark:text-foreground outline-none placeholder:text-[#6B7880] dark:placeholder:text-muted-foreground"
+                    className="w-32 bg-transparent font-mono text-[10px] max-md:text-[11px] font-medium text-[#141A1E] dark:text-foreground outline-none placeholder:text-[#6B7880] dark:placeholder:text-muted-foreground"
                   />
                   <button
                     type="button"
@@ -461,7 +461,7 @@ export const FolderListRow = React.memo(function FolderListRow({
                     }
                   }}
                   className={cn(
-                    "inline-flex max-w-[320px] truncate shrink-0 items-center rounded-[3px] border border-[#DBD5C8] bg-[#F3F0EA] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#374349] dark:border-border dark:bg-muted dark:text-muted-foreground",
+                    "inline-flex max-w-[320px] truncate shrink-0 items-center rounded-[3px] border border-[#DBD5C8] bg-[#F3F0EA] px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold text-[#374349] dark:border-border dark:bg-muted dark:text-muted-foreground",
                     canEdit && onTaskLabelChange &&
                       "cursor-text hover:border-[#B8AF9E] hover:bg-[#E8E3D9] hover:text-[#141A1E] dark:hover:bg-muted/80 dark:hover:text-foreground transition-colors",
                   )}
@@ -478,7 +478,7 @@ export const FolderListRow = React.memo(function FolderListRow({
                     if (onStartEditTaskLabel) onStartEditTaskLabel();
                     else setLocalEditingLabel(true);
                   }}
-                  className="hidden group-hover:inline-flex items-center rounded-[3px] border border-dashed border-[#DBD5C8] px-1.5 py-0.5 font-mono text-[10px] text-[#6B7880] hover:border-[#141A1E] hover:text-[#141A1E] dark:border-border dark:text-muted-foreground dark:hover:border-foreground dark:hover:text-foreground transition-colors"
+                  className="hidden group-hover:inline-flex items-center rounded-[3px] border border-dashed border-[#DBD5C8] px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] text-[#6B7880] hover:border-[#141A1E] hover:text-[#141A1E] dark:border-border dark:text-muted-foreground dark:hover:border-foreground dark:hover:text-foreground transition-colors"
                 >
                   + label
                 </button>
@@ -534,7 +534,7 @@ export const FolderListRow = React.memo(function FolderListRow({
           <button
             type="button"
             aria-label={`Actions for ${displayName}`}
-            className="flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
+            className="nb-touch-target flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
             onClick={handleContextMenu}
           >
             <MoreHorizontal aria-hidden="true" className="size-4" />

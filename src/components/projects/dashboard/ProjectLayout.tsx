@@ -522,7 +522,7 @@ export default function ProjectLayout({
                                             data-testid="files-tab-sync-badge"
                                             title={filesSyncBadge.tooltip || `GitHub sync: ${filesSyncBadge.status}`}
                                             className={cn(
-                                                "ml-1 inline-flex items-center justify-center text-[10px] font-mono font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]",
+                                                "ml-1 inline-flex items-center justify-center text-[10px] max-md:text-[11px] font-mono font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]",
                                                 filesSyncBadge.status === "syncing" && "size-2 rounded-full bg-[var(--status-info)] animate-none",
                                                 filesSyncBadge.status === "incoming" && "min-w-4 h-4 px-1 rounded-[3px] bg-amber-500 text-white leading-none",
                                                 filesSyncBadge.status === "failed" && "size-2 rounded-full bg-red-500",

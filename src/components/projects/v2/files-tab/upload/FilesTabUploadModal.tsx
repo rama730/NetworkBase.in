@@ -777,7 +777,7 @@ export function FilesTabUploadModal({
             type="button"
             disabled={isProcessing}
             onClick={onCancel}
-            className="h-[34px] rounded-[5px] border border-border bg-background px-3.5 text-[13px] font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50 cursor-pointer dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
+            className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-background px-3.5 text-[13px] font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50 cursor-pointer dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
           >
             Cancel
           </button>
@@ -790,7 +790,7 @@ export function FilesTabUploadModal({
               (isTaskCategory && !activeTaskId && !selectedTaskId)
             }
             onClick={handleConfirm}
-            className="flex h-[34px] items-center justify-center gap-1.5 rounded-[5px] bg-primary px-4 text-[13px] font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="nb-touch-target flex h-[34px] items-center justify-center gap-1.5 rounded-[5px] bg-primary px-4 text-[13px] font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isProcessing && <Loader2 className="size-3.5 animate-spin" />}
             Confirm

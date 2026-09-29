@@ -89,7 +89,7 @@ export function MemberNotificationSettingsEditor({
                             disabled={!data.canEdit}
                             onClick={() => onDraftChange((current) => ({ ...current, mode }))}
                             className={cn(
-                                "h-[28px] inline-flex items-center shrink-0 whitespace-nowrap rounded-[5px] px-3 text-xs font-medium transition-colors",
+                                "nb-touch-target h-[28px] inline-flex items-center shrink-0 whitespace-nowrap rounded-[5px] px-3 text-xs font-medium transition-colors",
                                 draft.mode === mode
                                     ? "bg-foreground text-background shadow-xs"
                                     : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -135,7 +135,7 @@ export function MemberNotificationSettingsEditor({
                     variant="outline"
                     disabled={isSaving || !data.canEdit}
                     onClick={() => void onReset()}
-                    className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium border-border hover:bg-muted/50"
+                    className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium border-border hover:bg-muted/50"
                 >
                     Reset to project defaults
                 </Button>
@@ -143,7 +143,7 @@ export function MemberNotificationSettingsEditor({
                     type="button"
                     disabled={isSaving || !data.canEdit}
                     onClick={() => void onSave()}
-                    className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
+                    className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
                 >
                     {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                     Save member settings

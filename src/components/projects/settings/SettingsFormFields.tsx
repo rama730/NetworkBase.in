@@ -75,7 +75,7 @@ export function TextField({
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={placeholder}
-                className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
         </label>
     );
@@ -136,7 +136,7 @@ export function ReadOnlySlugField({ slug }: { slug: string }) {
                     </p>
                 </div>
                 {slug.trim() ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => void handleCopy()} className="h-[28px] shrink-0 rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted">
+                    <Button type="button" variant="outline" size="sm" onClick={() => void handleCopy()} className="nb-touch-target h-[28px] shrink-0 rounded-[5px] border-border px-2.5 text-xs font-medium text-foreground hover:bg-muted">
                         {copied ? "Copied" : "Copy"}
                     </Button>
                 ) : null}
@@ -166,7 +166,7 @@ export function CategorySelector({
                 <select
                     value={choice}
                     onChange={(event) => onChoiceChange(event.target.value)}
-                    className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                     <option value="">Choose a category</option>
                     {PROJECT_TYPE_OPTIONS.map((type) => (
@@ -268,7 +268,7 @@ export function ChipEditor({
                             event.preventDefault();
                             addValue(draft);
                         }}
-                        className="h-[34px] min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="nb-touch-target h-[34px] min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         placeholder={placeholder}
                         disabled={values.length >= limit}
                     />

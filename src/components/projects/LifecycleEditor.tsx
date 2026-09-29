@@ -122,13 +122,13 @@ export function LifecycleEditor({ stages, onChange, currentStageIndex = 0, showC
                             maxLength={35}
                             aria-describedby={errorMsg ? "lifecycle-stage-error" : undefined}
                             placeholder="Add a stage (e.g. 'Beta Testing', 'Design Review')..."
-                            className="h-[34px] flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            className="nb-touch-target h-[34px] flex-1 rounded-[5px] border border-border bg-card px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         />
                         <Button
                             type="button"
                             onClick={handleAdd}
                             disabled={!newStage.trim() || !!errorMsg}
-                            className="h-[34px] gap-1.5 rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                            className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
                         >
                             <Plus className="h-3.5 w-3.5" />
                             Add stage
@@ -178,7 +178,7 @@ export function LifecycleEditor({ stages, onChange, currentStageIndex = 0, showC
                                 value={stage}
                                 onChange={(event) => handleStageChange(index, event.target.value)}
                                 maxLength={35}
-                                className="h-[28px] flex-1 rounded-[5px] border border-transparent bg-transparent px-2 text-[13px] font-medium leading-[1.5] text-foreground transition hover:border-border/60 focus:border-border focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                                className="nb-touch-target h-[28px] flex-1 rounded-[5px] border border-transparent bg-transparent px-2 text-[13px] font-medium leading-[1.5] text-foreground transition hover:border-border/60 focus:border-border focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
                                 aria-label={`Stage ${index + 1} name`}
                             />
 

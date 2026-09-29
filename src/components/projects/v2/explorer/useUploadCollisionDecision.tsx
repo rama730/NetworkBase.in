@@ -41,9 +41,9 @@ export function useUploadCollisionDecision() {
         </ul>
         <p className="text-[11px] text-zinc-500 dark:text-zinc-400">To revise an existing file, use its “Upload revision” action instead.</p>
         <DialogFooter className="bg-[#F3F0EA] dark:bg-white/5 border-t border-[#DBD5C8] dark:border-white/10 -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex-wrap gap-2">
-          <Button variant="outline" className="h-[34px] rounded-[5px] text-xs font-medium" onClick={() => finish("cancel")}>Cancel</Button>
-          <Button variant="outline" className="h-[34px] rounded-[5px] text-xs font-medium" onClick={() => finish("skip")}>{pending?.copies ? "Skip existing" : "Continue"}</Button>
-          {pending?.copies && <Button className="h-[34px] rounded-[5px] text-xs font-medium bg-[#D14E24] hover:bg-[#B23F1C] text-white" onClick={() => finish("keep_both")}>Keep both</Button>}
+          <Button variant="outline" className="nb-touch-target h-[34px] rounded-[5px] text-xs font-medium" onClick={() => finish("cancel")}>Cancel</Button>
+          <Button variant="outline" className="nb-touch-target h-[34px] rounded-[5px] text-xs font-medium" onClick={() => finish("skip")}>{pending?.copies ? "Skip existing" : "Continue"}</Button>
+          {pending?.copies && <Button className="nb-touch-target h-[34px] rounded-[5px] text-xs font-medium bg-[#D14E24] hover:bg-[#B23F1C] text-white" onClick={() => finish("keep_both")}>Keep both</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>

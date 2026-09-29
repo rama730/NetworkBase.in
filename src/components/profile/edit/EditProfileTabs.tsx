@@ -176,7 +176,7 @@ export function EditProfileTabs({
             orientation="vertical"
         >
             <aside aria-label="Profile edit sections" className="w-full md:w-[220px] shrink-0 border-r border-border bg-card p-3 flex flex-col gap-1 overflow-y-auto">
-                <div className="px-2.5 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <div className="px-2.5 py-1.5 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Profile Sections
                 </div>
                 {EDIT_SECTIONS.map((tab) => {
@@ -859,7 +859,7 @@ function ProjectContributionsList({
                                     ) : null}
                                     {item.kind === "external" ? (
                                         <div className="flex justify-end">
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteExternal(item.draftId)} className="h-8 px-2 text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30">
+                                            <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteExternal(item.draftId)} className="nb-touch-target h-8 px-2 text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30">
                                                 <Trash2 className="mr-1.5 h-4 w-4" /> Remove
                                             </Button>
                                         </div>

@@ -889,7 +889,7 @@ export function GitHubSyncWorkspace({
                               <Pencil className="size-3" />
                               Change target
                             </button>
-                            <span className="rounded-[3px] border border-[var(--status-success-border)] bg-[var(--status-success-soft)] px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.09em] text-[var(--status-success)]">
+                            <span className="rounded-[3px] border border-[var(--status-success-border)] bg-[var(--status-success-soft)] px-2 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--status-success)]">
                               <span className="size-1.5 rounded-[1px] bg-[#1E7E34]" />
                               Connected
                             </span>
@@ -915,7 +915,7 @@ export function GitHubSyncWorkspace({
                                 }}
                               />
                               <div className="absolute left-0 z-50 mt-1.5 w-64 rounded-[6px] border border-[#DBD5C8] bg-white p-2 shadow-xl dark:border-border dark:bg-card space-y-1.5 text-left">
-                                <div className="flex items-center justify-between px-2 py-1 text-[10px] font-mono font-semibold uppercase tracking-[0.09em] text-[#6B7880] border-b border-[#E8E3D9] dark:border-border">
+                                <div className="flex items-center justify-between px-2 py-1 text-[10px] max-md:text-[11px] font-mono font-semibold uppercase tracking-[0.09em] text-[#6B7880] border-b border-[#E8E3D9] dark:border-border">
                                   <span>Target Branch</span>
                                   {loadingBranches ? (
                                     <Loader2 className="size-3 animate-spin text-[#6B7880]" />
@@ -1132,7 +1132,7 @@ export function GitHubSyncWorkspace({
                                   {member.avatarUrl ? (
                                     <img src={member.avatarUrl} alt="" className="size-6 rounded-[5px] object-cover" />
                                   ) : (
-                                    <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-[5px] border border-[var(--border-default)] bg-[var(--surface-sunken)] text-[10px] font-semibold text-[var(--text-body)]">{member.name.charAt(0)}</span>
+                                    <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-[5px] border border-[var(--border-default)] bg-[var(--surface-sunken)] text-[10px] max-md:text-[11px] font-semibold text-[var(--text-body)]">{member.name.charAt(0)}</span>
                                   )}
                                   <span className="min-w-0">
                                     <span className="block truncate font-medium text-[var(--text-strong)]">{member.name}</span>
@@ -1360,7 +1360,7 @@ export function GitHubSyncWorkspace({
                             >
                               <ArrowUpToLine className="size-4 mb-1" />
                               <span>Push to GitHub</span>
-                              <span className="text-[10px] font-normal opacity-80 mt-0.5">Workspace &rarr; Remote</span>
+                              <span className="text-[10px] max-md:text-[11px] font-normal opacity-80 mt-0.5">Workspace &rarr; Remote</span>
                             </button>
                             <button
                               type="button"
@@ -1373,7 +1373,7 @@ export function GitHubSyncWorkspace({
                             >
                               <ArrowDownToLine className="size-4 mb-1" />
                               <span>Pull into NetworkBase</span>
-                              <span className="text-[10px] font-normal opacity-80 mt-0.5">Remote &rarr; Workspace</span>
+                              <span className="text-[10px] max-md:text-[11px] font-normal opacity-80 mt-0.5">Remote &rarr; Workspace</span>
                             </button>
                           </div>
                           {direction === "push" && (
@@ -1964,7 +1964,7 @@ export function GitHubSyncWorkspace({
 
                     <button
                       type="button"
-                      className={`${button} bg-blue-600 text-white font-medium px-5 min-h-9 h-9 text-xs shadow-xs`}
+                      className={`nb-touch-target ${button} bg-blue-600 text-white font-medium px-5 min-h-9 h-9 text-xs shadow-xs`}
                       disabled={busy || !selectedCount || unresolved || !message.trim() || !!detectedSecurityRisk}
                       onClick={() => void prepare()}
                     >

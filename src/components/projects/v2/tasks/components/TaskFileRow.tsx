@@ -284,7 +284,7 @@ export function TaskFileRow({
                     if (canEdit) setIsEditingLabel(true);
                   }}
                   className={cn(
-                    "inline-flex shrink-0 items-center rounded-[3px] border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground",
+                    "inline-flex shrink-0 items-center rounded-[3px] border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground",
                     canEdit &&
                       "cursor-text hover:bg-muted hover:text-foreground transition-colors",
                   )}
@@ -318,7 +318,7 @@ export function TaskFileRow({
               type="button"
               data-testid="task-file-row-overflow"
               aria-label={`Options for ${node.name}`}
-              className="flex size-8 items-center justify-center rounded-[4px] text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="nb-touch-target flex size-8 items-center justify-center rounded-[4px] text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <MoreHorizontal className="h-4 w-4" />
             </button>

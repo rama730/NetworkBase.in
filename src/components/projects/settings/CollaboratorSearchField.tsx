@@ -21,7 +21,7 @@ export function CollaboratorSearchField({ onCommit }: { onCommit: (value: string
                 onChange={(event) => setDraft(event.target.value)}
                 placeholder="Search collaborators by name, username, or role..."
                 aria-label="Search collaborators"
-                className="h-[34px] w-full rounded-[5px] border border-border bg-background pl-9 pr-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground"
+                className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background pl-9 pr-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground"
             />
         </div>
     );

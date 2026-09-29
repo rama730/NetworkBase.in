@@ -747,7 +747,7 @@ export function ProjectUpdateComposer({
                         value={contextQuery}
                         onChange={(event) => setContextQuery(event.target.value)}
                         placeholder={`Find ${activeContextKind}`}
-                        className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] outline-none transition focus:border-foreground/30 placeholder:text-muted-foreground"
+                        className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] outline-none transition focus:border-foreground/30 placeholder:text-muted-foreground"
                     />
                     <div className="mt-3 grid gap-2">
                         {contextOptionsQuery.isLoading ? (
@@ -784,7 +784,7 @@ export function ProjectUpdateComposer({
                                     </div>
                                     {option.kind === "task" && option.description ? (
                                         <span className={cn(
-                                            "shrink-0 inline-flex h-5 items-center rounded-[3px] border px-[6px] font-mono text-[10px] font-medium uppercase tracking-[0.09em] leading-none",
+                                            "shrink-0 inline-flex h-5 items-center rounded-[3px] border px-[6px] font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.09em] leading-none",
                                             isInProgress
                                                 ? "border-amber-500/20 bg-amber-500/10 text-amber-600"
                                                 : isDone
@@ -821,7 +821,7 @@ export function ProjectUpdateComposer({
                             placeholder="Paste URL here (e.g. https://github.com/org/repo)"
                             inputMode="url"
                             autoComplete="url"
-                            className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] outline-none transition focus:border-foreground/30 placeholder:text-muted-foreground"
+                            className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] outline-none transition focus:border-foreground/30 placeholder:text-muted-foreground"
                         />
                     </div>
 
@@ -843,7 +843,7 @@ export function ProjectUpdateComposer({
                                             {linkPreview.description}
                                         </p>
                                     ) : null}
-                                    <span className="block font-mono text-[10px] text-muted-foreground">
+                                    <span className="block font-mono text-[10px] max-md:text-[11px] text-muted-foreground">
                                         {linkPreview.domain}
                                     </span>
                                 </div>
@@ -875,7 +875,7 @@ export function ProjectUpdateComposer({
                                         ? "Finding destination name…"
                                         : linkPreview?.title || "Display name (optional)"
                                 }
-                                className="h-[34px] flex-1 rounded-[5px] border border-border bg-background px-3 text-[13px] outline-none transition focus:border-foreground/30 placeholder:text-muted-foreground"
+                                className="nb-touch-target h-[34px] flex-1 rounded-[5px] border border-border bg-background px-3 text-[13px] outline-none transition focus:border-foreground/30 placeholder:text-muted-foreground"
                             />
                             {linkPreviewQuery.isFetching ? (
                                 <span className="flex h-[34px] w-[34px] items-center justify-center rounded-[5px] border border-border bg-muted/30 text-muted-foreground">
@@ -890,7 +890,7 @@ export function ProjectUpdateComposer({
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-[32px] rounded-[5px] border-border px-3 text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                            className="nb-touch-target h-[32px] rounded-[5px] border-border px-3 text-[12px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                             onClick={() => {
                                 setMediaUrl("");
                                 setMediaLabel("");
@@ -902,7 +902,7 @@ export function ProjectUpdateComposer({
                         <Button
                             type="button"
                             size="sm"
-                            className="h-[32px] rounded-[5px] px-3 text-[12px] font-medium"
+                            className="nb-touch-target h-[32px] rounded-[5px] px-3 text-[12px] font-medium"
                             disabled={!mediaUrl.trim()}
                             onClick={() => addMediaFromPanel("link")}
                         >
@@ -960,7 +960,7 @@ export function ProjectUpdateComposer({
                             {draftPreview || `Share a project update for ${projectName}...`}
                         </span>
                         {draftPreview ? (
-                            <span className="mt-1 inline-block font-mono text-[10px] font-semibold uppercase tracking-[0.09em] text-primary">Draft saved</span>
+                            <span className="mt-1 inline-block font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-[0.09em] text-primary">Draft saved</span>
                         ) : null}
                     </button>
                 ) : (
@@ -1009,7 +1009,7 @@ export function ProjectUpdateComposer({
                                         <button type="button" onClick={() => clearPendingUpload(item.id)} className="absolute right-2 top-2 size-6 rounded-[3px] flex items-center justify-center bg-foreground/80 p-1 text-background hover:bg-foreground transition-colors" aria-label="Remove image">
                                             <X className="h-3.5 w-3.5" />
                                         </button>
-                                        <div className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] rounded-[3px] border border-border/50 bg-background/90 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.09em] text-foreground shadow-sm">
+                                        <div className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] rounded-[3px] border border-border/50 bg-background/90 px-2 py-0.5 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.09em] text-foreground shadow-sm">
                                             {item.error
                                                 ? "Upload failed"
                                                 : `${item.phase} · ${item.progress}%`}
@@ -1077,7 +1077,7 @@ export function ProjectUpdateComposer({
                                     type="button"
                                     variant="outline"
                                     onClick={resetAfterPost}
-                                    className="h-[34px] rounded-[5px] border-border px-3 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    className="nb-touch-target h-[34px] rounded-[5px] border-border px-3 text-[13px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                                 >
                                     Discard
                                 </Button>
@@ -1097,7 +1097,7 @@ export function ProjectUpdateComposer({
                                         });
                                         resetAfterPost();
                                     }}
-                                    className="h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
+                                    className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium"
                                 >
                                     {isPosting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                                     Post

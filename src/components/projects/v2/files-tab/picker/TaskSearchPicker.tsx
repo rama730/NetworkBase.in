@@ -207,7 +207,7 @@ export function TaskSearchPicker({
             onKeyDown={onInputKeyDown}
             placeholder="Search tasks by title..."
             aria-label="Search tasks"
-            className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-[#8E9AA1] text-[#141A1E] dark:text-foreground"
+            className="nb-touch-target h-8 w-full bg-transparent text-sm outline-none placeholder:text-[#8E9AA1] text-[#141A1E] dark:text-foreground"
             role="combobox"
             aria-expanded="true"
             aria-controls="task-search-picker-listbox"

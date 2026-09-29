@@ -63,7 +63,7 @@ export function UpdateDetailPanel({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="nb-touch-target flex h-7 w-7 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           aria-label="Close detail"
         >
           <X className="h-4 w-4" />

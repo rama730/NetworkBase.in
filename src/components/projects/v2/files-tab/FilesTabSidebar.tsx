@@ -640,7 +640,7 @@ export function FilesTabSidebar({
             aria-label={collapsedToggleLabel}
             title={collapsedToggleLabel}
             data-testid="files-tab-sidebar-collapse"
-            className="flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:bg-[#F3F0EA] hover:text-[#141A1E] focus-visible:ring-2 focus-visible:ring-[#D14E24] dark:hover:bg-muted dark:hover:text-foreground"
+            className="nb-touch-target flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:bg-[#F3F0EA] hover:text-[#141A1E] focus-visible:ring-2 focus-visible:ring-[#D14E24] dark:hover:bg-muted dark:hover:text-foreground"
           >
             <PanelLeftClose aria-hidden="true" className="size-4" />
           </button>

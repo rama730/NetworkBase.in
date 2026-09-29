@@ -198,7 +198,7 @@ const FolderListRowItem = React.memo(function FolderListRowItem({
           <button
             type="button"
             aria-label={`Actions for ${node.name}`}
-            className="flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
+            className="nb-touch-target flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
           >
             <MoreHorizontal aria-hidden="true" className="size-4" />
           </button>
@@ -1046,7 +1046,7 @@ export function FolderListView({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                  className="nb-touch-target flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                   aria-label="Upload files or folder"
                 >
                   <Upload className="size-3.5" aria-hidden="true" />
@@ -1069,7 +1069,7 @@ export function FolderListView({
               <button
                 type="button"
                 onClick={() => openCreateInFolder(folderId, "folder")}
-                className="flex h-8 items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                className="nb-touch-target flex h-8 items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                 aria-label="New folder"
               >
                 <FolderPlus className="size-3.5" aria-hidden="true" />
@@ -1265,7 +1265,7 @@ export function FolderListView({
               type="button"
               onClick={resetDragState}
               aria-label="Dismiss drop overlay"
-              className="absolute top-2.5 right-2.5 size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[#F3F0EA] dark:hover:bg-muted transition-colors"
+              className="nb-touch-target absolute top-2.5 right-2.5 size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[#F3F0EA] dark:hover:bg-muted transition-colors"
             >
               <X className="size-4" />
             </button>

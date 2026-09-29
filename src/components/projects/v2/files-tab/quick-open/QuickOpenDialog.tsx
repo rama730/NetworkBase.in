@@ -284,7 +284,7 @@ export function QuickOpenDialog({
             data-testid="files-tab-quick-open-input"
             autoFocus
             type="text"
-            className="w-full h-9 px-3 rounded-[6px] border border-border bg-background text-sm text-foreground outline-none"
+            className="nb-touch-target w-full h-9 px-3 rounded-[6px] border border-border bg-background text-sm text-foreground outline-none"
             placeholder={onApplyQuery ? "Search filenames across the project…" : "Quick open files..."}
             aria-label={onApplyQuery ? "Search project files" : "Quick open files"}
             value={query}
