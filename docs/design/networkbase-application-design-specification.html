@@ -11623,11 +11623,17 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
           <p>
             The small reference New project dialog supplies field styling and
             footer structure, not the scope of the real creation flow. Keep the
-            five-phase wizard. Proposed desktop dialog max 1000px, 12px radius,
-            viewport margin 24px, max-height calc(100dvh−48px), white body,
-            paper footer. Route-based creation uses the same inner composition
-            without an extra backdrop. Mobile is full screen with safe-area
-            footer.
+            five-phase wizard. Project creation is a full-page focus route
+            (<code>/projects/new</code>) without the app shell: no sidebar, top
+            bar, drawers or chat button. Desktop: 64px header band (title,
+            numbered stepper, close), one scrolling body with a 1000px content
+            column, 72px footer band whose actions align to that column.
+            Mobile: 56px header plus progress row, compact source rows, sticky
+            safe-area footer with a full-width Continue. Every New project
+            entry is a link to this route. Close/Esc confirm when unsaved and
+            return to the originating page; browser Back leaves immediately and
+            saves a draft; a successful create replaces the route with the new
+            project.
           </p>
           <div class="table-wrap">
             <table>
