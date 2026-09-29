@@ -329,6 +329,7 @@ function consumeTestRateLimit(identifier: string, limit: number, windowSeconds: 
     }
 }
 
+// ponytail: Upstash token bucket per IP/user, kept only on abuse surfaces. ceiling: one region Redis. upgrade: none needed below ~1k rps.
 export async function consumeRateLimitPolicy(policy: RateLimitPolicy): Promise<RateLimitResult> {
     const burst = Math.max(1, Math.trunc(policy.burst))
     const refillRate = Math.max(1 / burst, policy.refillRate)

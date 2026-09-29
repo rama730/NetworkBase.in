@@ -39,6 +39,7 @@ const client = globalForDb.conn ?? postgres(connectionString, {
     max_lifetime: 60 * 30,
     connect_timeout: 10,
     connection: {
+        // ponytail: 8 s statement cap. ceiling: slow report queries fail. upgrade: per-query SET LOCAL for known long jobs.
         statement_timeout: 8000,
         idle_in_transaction_session_timeout: 5000,
     },

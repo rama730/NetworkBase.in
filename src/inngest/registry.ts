@@ -66,6 +66,7 @@ function getWorkerOnlyFunctions() {
   ] as const;
 }
 
+// ponytail: a separate worker isolates GitHub imports from web memory. ceiling: two services to run. upgrade: merge them if imports move to streaming.
 export function getInngestExecutionRole(): InngestExecutionRole {
   const configured = process.env.INNGEST_EXECUTION_ROLE?.trim().toLowerCase();
   if (configured === "web" || configured === "worker") {
