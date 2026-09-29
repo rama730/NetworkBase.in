@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   APPEARANCE_STORAGE_KEYS,
   areAppearanceSnapshotsEquivalent,
-  choosePreferredSnapshot,
+  chooseAppearanceSync,
   createAppearanceSnapshot,
   DEFAULT_APPEARANCE_SNAPSHOT,
   parseAppearanceSnapshot,
@@ -80,7 +80,7 @@ test("readLocalAppearanceSnapshot falls back to legacy keys", () => {
   assert.equal(snapshot.accentColor, "forest");
   assert.equal(snapshot.density, "comfortable");
   assert.equal(snapshot.reduceMotion, true);
-  assert.equal(snapshot.updatedAt, nowIso);
+  assert.equal(snapshot.updatedAt, DEFAULT_APPEARANCE_SNAPSHOT.updatedAt);
 });
 
 test("readLocalAppearanceSnapshot normalizes legacy accent aliases", () => {
@@ -100,20 +100,27 @@ test("readLocalAppearanceSnapshot normalizes legacy accent aliases", () => {
   assert.equal(snapshot.accentColor, "orchid");
 });
 
-test("choosePreferredSnapshot keeps newest snapshot", () => {
-  const local = createAppearanceSnapshot({
-    ...DEFAULT_APPEARANCE_SNAPSHOT,
-    theme: "light",
-    updatedAt: "2026-03-09T00:00:00.000Z",
-  });
-  const remote = createAppearanceSnapshot({
-    ...DEFAULT_APPEARANCE_SNAPSHOT,
-    theme: "dark",
-    updatedAt: "2026-03-10T00:00:00.000Z",
-  });
+test("chooseAppearanceSync pulls a newer account snapshot", () => {
+  const local = createAppearanceSnapshot({ theme: "light", updatedAt: "2026-03-09T00:00:00.000Z" });
+  const remote = createAppearanceSnapshot({ theme: "dark", updatedAt: "2026-03-10T00:00:00.000Z" });
+  assert.equal(chooseAppearanceSync(local, remote, false), "pull");
+});
 
-  const preferred = choosePreferredSnapshot(local, remote);
-  assert.equal(preferred.theme, "dark");
+test("chooseAppearanceSync pushes only a real local change", () => {
+  const remote = createAppearanceSnapshot({ theme: "dark", updatedAt: "2026-03-09T00:00:00.000Z" });
+  const changed = createAppearanceSnapshot({ theme: "light", updatedAt: "2026-03-10T00:00:00.000Z" });
+  const same = createAppearanceSnapshot({ theme: "dark", updatedAt: "2026-03-10T00:00:00.000Z" });
+  assert.equal(chooseAppearanceSync(changed, remote, false), "push");
+  assert.equal(chooseAppearanceSync(changed, null, false), "push");
+  assert.equal(chooseAppearanceSync(same, remote, false), "none");
+  assert.equal(chooseAppearanceSync(changed, remote, true), "none");
+});
+
+test("chooseAppearanceSync never pushes untouched local defaults over the account", () => {
+  const fresh = readLocalAppearanceSnapshot(() => null);
+  const remote = createAppearanceSnapshot({ theme: "dark", updatedAt: "2026-03-09T00:00:00.000Z" });
+  assert.equal(chooseAppearanceSync(fresh, remote, false), "pull");
+  assert.equal(chooseAppearanceSync(fresh, null, false), "none");
 });
 
 test("areAppearanceSnapshotsEquivalent ignores updatedAt when values match", () => {

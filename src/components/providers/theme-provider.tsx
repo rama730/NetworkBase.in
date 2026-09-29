@@ -12,9 +12,8 @@ import {
     type ResolvedTheme,
     type ThemeMode,
     areAppearanceSnapshotsEquivalent,
-    choosePreferredSnapshot,
+    chooseAppearanceSync,
     createAppearanceSnapshot,
-    isSnapshotNewer,
     normalizeThemeMode,
     readLocalAppearanceSnapshot,
     writeAppearanceSnapshot,
@@ -56,6 +55,24 @@ function persistLocalSnapshot(snapshot: AppearanceSnapshot) {
     } catch {}
 }
 
+function syncedMarker(userId: string, snapshot: AppearanceSnapshot) {
+    return `${userId}:${snapshot.updatedAt}`
+}
+
+function readSyncedMarker() {
+    try {
+        return localStorage.getItem(APPEARANCE_STORAGE_KEYS.synced)
+    } catch {
+        return null
+    }
+}
+
+function writeSyncedMarker(value: string) {
+    try {
+        localStorage.setItem(APPEARANCE_STORAGE_KEYS.synced, value)
+    } catch {}
+}
+
 function ensureThemeColorMeta(content: string) {
     let meta = document.querySelector('meta[data-app-theme-color="true"]') as HTMLMetaElement | null
     if (!meta) {
@@ -92,7 +109,9 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
         pendingSyncRef.current = null
         setSyncState('saving')
         try {
-            const saved = (await writeAppearanceSettings(snapshot)).snapshot ?? snapshot
+            const result = await writeAppearanceSettings(snapshot)
+            const saved = result.snapshot ?? snapshot
+            if (result.remoteSynced) writeSyncedMarker(syncedMarker(viewerId, saved))
             lastSyncedSnapshotRef.current = saved
             setLastSyncedAt(saved.updatedAt)
             setSyncState('saved')
@@ -200,19 +219,21 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         let cancelled = false
-        const localSnapshot = readLocalAppearanceSnapshot((key) => localStorage.getItem(key), new Date().toISOString())
+        const localSnapshot = readLocalAppearanceSnapshot((key) => localStorage.getItem(key))
         applySnapshot(localSnapshot)
 
         const bootstrapRemote = () => {
             if (!isProtectedAppRoute(window.location.pathname)) return
             readAppearanceSettings().then((result) => {
                 if (cancelled || !result.userId) return
-                lastSyncedSnapshotRef.current = result.snapshot
-                if (result.snapshot && isSnapshotNewer(result.snapshot, localSnapshot)) {
-                    applySnapshot(choosePreferredSnapshot(localSnapshot, result.snapshot))
+                const alreadySynced = readSyncedMarker() === syncedMarker(result.userId, localSnapshot)
+                lastSyncedSnapshotRef.current = alreadySynced ? localSnapshot : result.snapshot
+                const decision = chooseAppearanceSync(localSnapshot, result.snapshot, alreadySynced)
+                if (decision === 'pull' && result.snapshot) {
+                    applySnapshot(result.snapshot)
                     setLastSyncedAt(result.snapshot.updatedAt)
                     setSyncState('saved')
-                } else {
+                } else if (decision === 'push') {
                     pendingSyncRef.current = localSnapshot
                 }
                 setViewerId(result.userId)

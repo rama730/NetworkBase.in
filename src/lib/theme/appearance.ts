@@ -22,6 +22,7 @@ export const APPEARANCE_STORAGE_KEYS = {
   accent: "app-accent-color",
   density: "app-density",
   reduceMotion: "app-reduce-motion",
+  synced: "app-appearance-synced-v1",
 } as const;
 
 const THEME_MODES: ReadonlyArray<ThemeMode> = ["light", "dark", "system"];
@@ -137,9 +138,14 @@ export function isSnapshotNewer(candidate: AppearanceSnapshot, baseline: Appeara
   return toMs(candidate) > toMs(baseline);
 }
 
-export function choosePreferredSnapshot(local: AppearanceSnapshot, remote: AppearanceSnapshot | null): AppearanceSnapshot {
-  if (!remote) return local;
-  return isSnapshotNewer(remote, local) ? remote : local;
+export function chooseAppearanceSync(
+  local: AppearanceSnapshot,
+  remote: AppearanceSnapshot | null,
+  alreadySynced: boolean,
+): "pull" | "push" | "none" {
+  if (remote && isSnapshotNewer(remote, local)) return "pull";
+  if (alreadySynced || areAppearanceSnapshotsEquivalent(local, remote)) return "none";
+  return isSnapshotNewer(local, remote ?? DEFAULT_APPEARANCE_SNAPSHOT) ? "push" : "none";
 }
 
 export function areAppearanceSnapshotsEquivalent(
@@ -157,7 +163,6 @@ export function areAppearanceSnapshotsEquivalent(
 
 export function readLocalAppearanceSnapshot(
   readStorage: (key: string) => string | null,
-  nowIso: string = new Date().toISOString(),
 ): AppearanceSnapshot {
   const fromSnapshot = parseAppearanceSnapshotFromJson(readStorage(APPEARANCE_STORAGE_KEYS.snapshot));
   if (fromSnapshot) return fromSnapshot;
@@ -172,9 +177,8 @@ export function readLocalAppearanceSnapshot(
       accentColor: legacyAccent,
       density: legacyDensity,
       reduceMotion: readStorage(APPEARANCE_STORAGE_KEYS.reduceMotion) === "true",
-      updatedAt: nowIso,
+      updatedAt: DEFAULT_APPEARANCE_SNAPSHOT.updatedAt,
     },
-    nowIso,
   );
 }
 
