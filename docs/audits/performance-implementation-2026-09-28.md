@@ -41,9 +41,9 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 |---|---|---|
 | T1.1 Railway runtime on main | done | `88948db4` |
 | T2.1 Docs table migration | done | `a6ee03a3` (`0175`): archives the 6 unpublished drafts, the draft contributor row and any assets into `app_private.retired_domain_archive`, then drops the asset and draft-contributor tables, draft columns, the asset function and enum, two unused version indexes, and the stale settings keys |
-| T2.2 · T2.3 Docs env and one action per open | done | `5ce27149`, `7554bca0` |
-| T3.1–T3.5 proxy, rate limits, landing, appearance, Tailwind | done | `69e414c5` … `84c3a6ba` |
-| T4.1 · T4.2 single proxy, local auth only | done | `7286eda0`, `4f964302` |
+| T2.2 · T2.3 Docs env and one action per open | done | `5ce27149`, `7554bca0`; `ec3a4955` loads project, membership and docs in one statement |
+| T3.1–T3.5 proxy, rate limits, landing, appearance, Tailwind | done | `69e414c5` … `84c3a6ba`; `ca235736` removes `RATE_LIMIT_MODE` (one fail-closed default, `health` allow, `publicRead` stale-or-shed) |
+| T4.1 · T4.2 single proxy, local auth only | done | `7286eda0`, `4f964302`; `231b33f3` moves the onboarding profile read out of the proxy into the main layout and `/authorize` (claims, then cookie, then one cached DB read) |
 | T5.1 Realtime publication | done | `87fdc7c6` (migration `0168`) |
 | T5.2 DB pool | done | `60c7ad43` |
 | T5.3 indexes | done | `2b59766d` (`0169`); dm_pairs duplicate already handled by `0154` |
@@ -53,7 +53,7 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 | T5.7 SQL naming | done | `a133287b` (`0171`, tested on a local Postgres) |
 | T5.8 drop unused objects | done | `a6ee03a3` (`0174`): archives rows (20 in `profile_interests`) then drops 4 tables and 1 view; orphan `0152` and its exception removed. `nb_validate_dm_conversation` is **in use** by two triggers — kept |
 | T5.9 single node-events table | done | `284a7304` (`0173`, tested locally) |
-| T5.10 query shape | done | `9ebf645c`; badge count was already one FILTER query; E2E already refuses the app database |
+| T5.10 query shape | done | `9ebf645c`, `ab2e7863` (GitHub sync parent folders, bulk file move, task approval, task-delete recovery and recovery-session resolve now batch their writes); badge count was already one FILTER query; E2E already refuses the app database |
 | T6.1 Discover / Network / My profile | done | `dca2efb8`; 308 redirects kept |
 | T6.2 duplicate and hidden routes | done | `a446ffdd`; production calls `/api/inngest` (103k/week), so that path was kept and the v1 alias removed; `admin/notifications` kept |
 | T6.3 merge privacy and sessions routes | done | `191898b0` |
@@ -70,13 +70,13 @@ The trace counts the six Settings loaders because they remain as the refresh pat
 | T8.5 timers, polls, fonts | done | `9a28b9c3`; `1651ae60` drops `prefetch={false}` and manual route warming for default `Link` prefetch |
 | T8.6 motion, dates, theme | done (local) | `cc2c8c05`, `2ffc732c`, `c5b210ae`, `1507b410` (theme provider 490 → 277 lines, same sync behaviour) |
 | T9.1 packages and lockfiles | done | `1300b331` |
-| T9.2 test-only code | done | `cce70b55` (−2,247 lines) |
+| T9.2 test-only code | done | `cce70b55` (−2,247 lines); `eaa3e3a5` removes the remaining dead exports and server actions (sync preview, import retry) and 9 unused CodeMirror / sql-formatter packages |
 | T9.3 telemetry, scale tooling, env knobs | done | `021c1cda`; `MOCK_USER_ID` auth bypass removed; bloom filter was write-only |
 | T9.4 conventions and build config | done (local) | `c1642aab`; `84a9a38f` drops the action barrels (callers import from each module); `57574316` replaces the E2E alias with one auth route that 404s in production builds. Turbopack builds 5× faster but ships ~60 KB more JS per page — webpack kept |
 | T9.5 clutter | done (local) | `44ad74dd`, `c9b57c2e`: screenshots, scratch/, tmp/, checkpoints/, graphify-out/, .agents/, skills/ and Playwright MCP logs moved to `~/nb-s3-clutter-archive/` (not deleted); QA matrices to `docs/qa/` |
 | T10.1 skill workflow | done | `65dc6310` |
 | T11.1 re-measure | done | this file; analyzer fix `994d3419` |
-| T11.2 stale markers | done | all seven listed markers are gone |
+| T11.2 stale markers | done | all seven listed markers are gone; `eaa3e3a5`, `9bb1e1a5`: every `ponytail:` marker names a ceiling and an upgrade (rate limits, 8 s statement timeout, separate worker, doc LRU caches added). The doc caches were already LRU-capped (12 / 24 / 200), so the audit's "no caps" note is out of date |
 
 ## Production rollout (2026-09-28)
 
@@ -103,6 +103,10 @@ Commits `c9b57c2e` … `8a757ed6`. Checks on the final state:
 - `check:db:remigration-replay` still needs `DATABASE_URL_FRESH` (a disposable SSL Supabase database).
 - Real defects fixed on the way: push notifications lost their badge icon (`icon-ink-64.png` was deleted); the attachment presign POST/PUT had no CSRF check; attachment redirects could be served for up to an hour after their signed URL expired; the scroll contract checked zero pages; Google One Tap's stylesheet was blocked by the CSP.
 - Not verified here: signed-in screens (settings, updates, files, messages, create wizard, main layout). The component splits move code without changing it, but click through those screens before pushing.
+
+## Verification round (not pushed)
+
+Commits `ca235736` … `9bb1e1a5`. A task-by-task pass over the plan found six gaps, now fixed (see T2.3, T3.2, T4.2, T5.10, T9.2 and T11.2 above). Typecheck, lint, build, every offline contract and the unit suite pass. `RATE_LIMIT_MODE`, if still set in Railway, is now ignored.
 
 ## Remaining production steps (yours)
 
