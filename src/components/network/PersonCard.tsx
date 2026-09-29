@@ -29,13 +29,17 @@ import {
 export function PersonCardLayout({
     avatar,
     head,
+    aside,
     body,
     actions,
     className,
 }: {
     avatar: ReactNode;
     head: ReactNode;
+    /** Primary action beside the name (grid cards); keeps the card compact. */
+    aside?: ReactNode;
     body?: ReactNode;
+    /** Multi-button action row under the details (invitations). */
     actions?: ReactNode;
     className?: string;
 }) {
@@ -44,6 +48,7 @@ export function PersonCardLayout({
             <div className="flex min-w-0 shrink-0 items-start gap-3">
                 {avatar}
                 <div className="min-w-0 flex-1 pt-0.5">{head}</div>
+                {aside ? <div className="flex shrink-0 items-center">{aside}</div> : null}
             </div>
             {/* Body absorbs spare height (and clips before the action row, never over it). */}
             <div className="mt-3 min-h-0 min-w-0 flex-1 space-y-2 overflow-hidden">{body}</div>
@@ -52,9 +57,10 @@ export function PersonCardLayout({
     );
 }
 
-// ponytail: VirtuosoGrid needs uniform item heights, so grid cards use one fixed height sized for the fullest card
-// (48px avatar row + 2-line headline + 1 tag row + meta + 44px touch action ≈ 268px). Upgrade: variable-height Virtuoso list.
-export const PERSON_CARD_ITEM_HEIGHT = "h-[272px]";
+// ponytail: VirtuosoGrid needs uniform item heights, so grid cards use one fixed height sized for the fullest card:
+// 34 (padding+border) + 62 (name, location, meta beside the avatar and action) + 12 + 22.5 (1-line headline) + 8 + 24 (tag row) ≈ 163px.
+// Upgrade: variable-height Virtuoso list.
+export const PERSON_CARD_ITEM_HEIGHT = "h-[168px]";
 
 /** One-row tag strip: tags that would wrap to a second row are hidden, keeping the card height fixed. */
 export const PERSON_CARD_TAGS = "flex h-6 min-w-0 flex-wrap gap-1.5 overflow-hidden";
@@ -161,7 +167,7 @@ function PersonCard({
                     ) : (
                         <Clock className="size-4 text-muted-foreground" aria-hidden="true" />
                     )}
-                    <span>Requested</span>
+                    <span className="max-sm:sr-only">Requested</span>
                     <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
                 </button>
             </DropdownMenuTrigger>
@@ -204,7 +210,7 @@ function PersonCard({
         </Link>
     ) : status === "connected" ? (
         <span className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 px-2 text-sm max-md:text-[13px] font-medium text-[var(--status-success)]">
-            <Check className="size-4" aria-hidden="true" /> Connected
+            <Check className="size-4" aria-hidden="true" /> <span className="max-sm:sr-only">Connected</span>
         </span>
     ) : null;
 
@@ -226,14 +232,18 @@ function PersonCard({
                             <span className="min-w-0 truncate">{profile.location}</span>
                         </p>
                     ) : null}
+                    {!isLocked && (profile.mutualConnections ?? 0) > 0 ? (
+                        <p className="nb-meta mt-1 truncate">{profile.mutualConnections} shared connections</p>
+                    ) : null}
                 </Link>
             }
+            aside={action}
             body={
                 <>
                     {isLocked ? (
                         <p className="nb-compact flex items-center gap-1 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />Private profile</p>
                     ) : (
-                        <p className="nb-body line-clamp-2 text-muted-foreground">{profile.headline || "NetworkBase member"}</p>
+                        <p className="nb-body truncate text-muted-foreground" title={profile.headline || undefined}>{profile.headline || "NetworkBase member"}</p>
                     )}
 
                     {!isLocked && skills.length ? (
@@ -244,13 +254,8 @@ function PersonCard({
                             })}
                         </div>
                     ) : null}
-
-                    {!isLocked && (profile.mutualConnections ?? 0) > 0 ? (
-                        <p className="nb-meta truncate">{profile.mutualConnections} shared connections</p>
-                    ) : null}
                 </>
             }
-            actions={action}
         />
     );
 }
