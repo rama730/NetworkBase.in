@@ -18,10 +18,7 @@ const APPEARANCE_SYNC_TIMEOUT_MS = Math.max(
     1_000,
     Number.isFinite(parsedAppearanceSyncTimeoutMs) ? parsedAppearanceSyncTimeoutMs : 4_000,
 );
-const APPEARANCE_CACHE_HEADERS = {
-    "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400",
-    Vary: "Cookie",
-} as const;
+const APPEARANCE_CACHE_HEADERS = { "Cache-Control": "private, no-store" } as const;
 
 function appearanceSyncDegradedSuccess(userId: string, snapshot: AppearanceSnapshot, message: string) {
     return jsonSuccess(
@@ -74,18 +71,6 @@ export async function GET(request: Request) {
 
     try {
         const snapshot = readAppearanceSnapshotFromMetadata(auth.user);
-        const etag = `W/"app-${auth.user.id}-${snapshot?.theme ?? 'default'}-${snapshot?.accentColor ?? 'default'}"`;
-        const ifNoneMatch = request.headers.get("if-none-match");
-        if (ifNoneMatch && (ifNoneMatch === etag || ifNoneMatch.includes(etag))) {
-            return new Response(null, {
-                status: 304,
-                headers: {
-                    ETag: etag,
-                    ...APPEARANCE_CACHE_HEADERS,
-                },
-            });
-        }
-
         logApiRoute(request, {
             requestId,
             action: "appearance.get",
@@ -100,7 +85,7 @@ export async function GET(request: Request) {
                 snapshot,
             },
             undefined,
-            { headers: { ...APPEARANCE_CACHE_HEADERS, ETag: etag } },
+            { headers: APPEARANCE_CACHE_HEADERS },
         );
     } catch (error) {
         logger.error("[api/v1/appearance] failed to load settings", { module: 'api', error: error instanceof Error ? error.message : String(error) });
