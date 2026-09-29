@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProjectSchema, type CreateProjectInput, type OpenRoleInput } from '@/lib/validations/project';
+import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY } from '@/lib/projects/settings-policies';
 import { generateSlug, generateProjectId } from '@/lib/utils/project-ids';
 import { toast } from 'sonner';
 import { TOTAL_PHASES, WizardPhaseId } from '@/constants/project-wizard';
@@ -39,6 +40,8 @@ interface UseCreateProjectWizardProps {
 export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
     const [phase, setPhase] = useState<WizardPhaseId>(initialPhase);
     const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
+    // Step 4 project picture: held in memory, uploaded right after the project exists.
+    const [projectImage, setProjectImage] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState<{
         percent: number;
         currentFile: string;
@@ -88,8 +91,14 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             roles: [],
             import_source: { type: 'scratch' },
             external_links: [],
+            // Step 4 launch settings; defaults match Project settings so Continue works untouched.
+            public_tab_visibility: { ...DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY },
+            member_updates_enabled: true,
+            member_file_upload_default: true,
+            doc_edit_policy: 'leaders',
+            notification_rows: { roles_applications: true, work: true, updates_docs: true },
             readme: {
-                mode: 'skip',
+                mode: 'starter',
                 sourcePath: null,
                 publishOnCreate: false,
                 includeRoles: true,
@@ -454,7 +463,8 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
     // project dirty, so closing after restoring all values must not prompt.
     // Keep the two non-form inputs that would otherwise be lost in the check.
     const hasUnsavedWizardChanges = isDirty
-        || Boolean(uploadFiles?.length);
+        || Boolean(uploadFiles?.length)
+        || Boolean(projectImage);
 
     // Leaving without the confirm dialog (browser Back) keeps the work: unsaved changes become a
     // draft on unmount. "Leave setup" and a successful create opt out via markLeaving().
@@ -642,6 +652,25 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             }
         };
 
+        // Step 4 settings that need the project to exist first. Failures never undo creation;
+        // both stay editable in Project settings.
+        const applyLaunchSettingsAfterCreate = async (projectId: string) => {
+            if (projectImage) {
+                try {
+                    const { uploadProjectImage } = await import('@/lib/upload/project-image-upload-client');
+                    await uploadProjectImage(projectId, projectImage);
+                } catch (error) {
+                    console.warn('[create-project] Project picture upload failed', error);
+                    toast.warning('Project created, but the picture didn’t upload. Add it from Project settings.');
+                }
+            }
+            if (readmeIntent.mode !== 'skip' && data.doc_edit_policy === 'members') {
+                const { updateProjectDocSettingsAction } = await import('@/app/actions/project/doc');
+                const result = await updateProjectDocSettingsAction(projectId, { editPolicy: 'members' });
+                if (!result.success) toast.warning('Project created, but doc editing is still leaders only. Change it from Project settings.');
+            }
+        };
+
         try {
             if (importType === 'upload') {
                 if (!uploadFiles || uploadFiles.length === 0) {
@@ -808,6 +837,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             if (createdProjectId && !readmeApplied) {
                 await applyReadmeSetup(createdProjectId);
             }
+            if (createdProjectId) await applyLaunchSettingsAfterCreate(createdProjectId);
 
             const { draftStore } = await import('@/lib/storage/draft-store');
             await draftStore.clear();
@@ -832,13 +862,13 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             submissionRef.current = false;
             setIsSubmitting(false);
         }
-    }, [onSuccess, onClose, phase, isReviewReady, uploadFiles]);
+    }, [onSuccess, onClose, phase, isReviewReady, uploadFiles, projectImage]);
 
     return {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending,
         isPhaseTransitioning, isReviewReady, setIsReviewReady,
-        uploadFiles, setUploadFiles, uploadProgress, setUploadProgress,
+        uploadFiles, setUploadFiles, uploadProgress, setUploadProgress, projectImage, setProjectImage,
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
         handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt, markLeaving, hasUnsavedWizardChanges,
         githubPreview,

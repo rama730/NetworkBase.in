@@ -227,6 +227,7 @@ function resetSettingsFromProject(project: any) {
         visibility: normalizeProjectVisibility(project?.visibility),
         publicTabVisibility: normalizeProjectPublicTabVisibility(project?.publicTabVisibility ?? project?.public_tab_visibility),
         memberUpdatesEnabled: project?.memberUpdatesEnabled ?? project?.member_updates_enabled ?? true,
+        memberFileUploadDefault: project?.memberFileUploadDefault ?? project?.member_file_upload_default ?? true,
     };
 }
 
@@ -422,6 +423,8 @@ export default function ProjectSettingsTab({
     const [savedPublicTabVisibility, setSavedPublicTabVisibility] = useState<ProjectPublicTabVisibility>(initialSettings.publicTabVisibility);
     const [savingPublicTabId, setSavingPublicTabId] = useState<ProjectPublicTabId | null>(null);
     const [memberUpdatesEnabled, setMemberUpdatesEnabled] = useState<boolean>(initialSettings.memberUpdatesEnabled);
+    const [memberFileUploadDefault, setMemberFileUploadDefault] = useState<boolean>(initialSettings.memberFileUploadDefault);
+    const [savingMemberFileUploadDefault, setSavingMemberFileUploadDefault] = useState(false);
     const [projectTitle, setProjectTitle] = useState(initialIdentity.title);
     const [deletedRoleIds, setDeletedRoleIds] = useState<string[]>([]);
     const {
@@ -446,6 +449,7 @@ export default function ProjectSettingsTab({
         setSavedVisibility(initialSettings.visibility);
         setSavedPublicTabVisibility(initialSettings.publicTabVisibility);
         setMemberUpdatesEnabled(initialSettings.memberUpdatesEnabled);
+        setMemberFileUploadDefault(initialSettings.memberFileUploadDefault);
     }, [initialSettings]);
 
     useEffect(() => {
@@ -1256,6 +1260,28 @@ export default function ProjectSettingsTab({
             toast.error(error instanceof Error ? error.message : "Failed to save updates settings.");
         } finally {
             setSavingMemberUpdates(false);
+        }
+    };
+
+    // Starting upload permission for members who join later (set at creation in step 4).
+    const handleToggleMemberFileUploadDefault = async (enabled: boolean) => {
+        const previous = memberFileUploadDefault;
+        setMemberFileUploadDefault(enabled);
+        setSavingMemberFileUploadDefault(true);
+        try {
+            const result = await updateProject(projectId, { memberFileUploadDefault: enabled });
+            if (!result?.success) {
+                setMemberFileUploadDefault(previous);
+                toast.error("Failed to update the upload default for new members.");
+                return;
+            }
+            toast.success("Upload default for new members updated.");
+            onProjectUpdated();
+        } catch (error) {
+            setMemberFileUploadDefault(previous);
+            toast.error(error instanceof Error ? error.message : "Failed to update the upload default for new members.");
+        } finally {
+            setSavingMemberFileUploadDefault(false);
         }
     };
 
@@ -2343,6 +2369,18 @@ export default function ProjectSettingsTab({
                                 </div>
                             }
                         >
+                            <div className="mb-4 flex items-start justify-between gap-4 border-b border-border pb-4">
+                                <div className="min-w-0">
+                                    <p className="nb-ui-label text-foreground">New members can upload files</p>
+                                    <p className="nb-compact mt-1 text-muted-foreground">The starting upload permission for people who join. Existing members keep their own setting below.</p>
+                                </div>
+                                <SettingsSwitch
+                                    checked={memberFileUploadDefault}
+                                    disabled={savingMemberFileUploadDefault}
+                                    aria-label="New members can upload files"
+                                    onCheckedChange={(checked) => void handleToggleMemberFileUploadDefault(checked)}
+                                />
+                            </div>
                             <FileWorkspaceMembers
                                 data={fileWorkspaceData}
                                 isLoading={fileWorkspaceLoading && !fileWorkspaceData}

@@ -801,6 +801,10 @@ export const projects = pgTable(
     memberUpdatesEnabled: boolean("member_updates_enabled")
       .default(true)
       .notNull(),
+    // Default for project_members.file_upload_enabled when someone joins (set at creation, editable in Settings).
+    memberFileUploadDefault: boolean("member_file_upload_default")
+      .default(true)
+      .notNull(),
     maxCollaborators: text("max_collaborators"),
     lifecycleStages: jsonb("lifecycle_stages").$type<string[]>().default([]),
     currentStageIndex: integer("current_stage_index").default(0),
