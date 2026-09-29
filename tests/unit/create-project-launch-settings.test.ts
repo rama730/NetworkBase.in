@@ -76,3 +76,22 @@ test('step 4 shows the eight Project settings sections in order; picture and doc
     assert.match(hook, /updateProjectDocSettingsAction\(projectId, \{ editPolicy: 'members' \}\)/);
     assert.match(hook, /if \(createdProjectId\) await applyLaunchSettingsAfterCreate\(createdProjectId\);/);
 });
+
+test('step 4 section rail matches Project settings and scrolls only the wizard body', () => {
+    const phase = read('src/components/projects/create-wizard/phases/Phase4Settings.tsx');
+    const settings = read('src/components/projects/tabs/ProjectSettingsTab.tsx');
+    const wizard = read('src/components/projects/create-wizard/CreateProjectWizard.tsx');
+    const settingsRow = 'group flex min-h-[44px] w-full items-start gap-2.5 rounded-md px-3 py-2 text-left transition-colors duration-[130ms] ease-[cubic-bezier(.2,.8,.3,1)]';
+
+    // Same row design as the Project settings rail.
+    assert.ok(settings.includes(settingsRow));
+    assert.ok(phase.includes(settingsRow));
+    assert.match(phase, /rounded-lg border border-border bg-card p-2 xl:block/);
+    assert.match(phase, /active \? 'bg-muted font-medium text-foreground'/);
+
+    // Regression: scrollIntoView also scrolled the app's overflow-hidden main and hid the page header.
+    assert.doesNotMatch(phase, /\.scrollIntoView\(/);
+    assert.match(phase, /closest<HTMLElement>\('\[data-wizard-scroll\]'\)/);
+    assert.match(phase, /scroller\.scrollTo\(\{/);
+    assert.match(wizard, /data-wizard-scroll/);
+});
