@@ -21,7 +21,12 @@ test("application sidebar supports a persisted accessible icon-only state", () =
   assert.match(sidebar, /PanelLeftOpen/);
   assert.match(sidebar, /PanelLeftClose/);
   assert.match(sidebar, /aria-label="Settings and sidebar controls"/);
+  assert.match(sidebar, /nb-sidebar-scroll app-scroll app-scroll-y min-h-0 flex-1 space-y-3 pr-1/);
+  assert.match(sidebar, /<section className="nb-sidebar-workspace space-y-3"/);
+  assert.doesNotMatch(sidebar, /nb-sidebar-scroll app-scroll app-scroll-y min-h-0 flex-1 space-y-5 pr-1/);
+  assert.doesNotMatch(sidebar, /<section className="nb-sidebar-workspace space-y-2"/);
   assert.match(sidebar, /<h2[^>]*>Workspaces<\/h2>/);
+  assert.match(sidebar, /<div className="flex items-center gap-3 px-2">\s*<h2 id="sidebar-workspace-heading" className="nb-micro whitespace-nowrap">Workspaces<\/h2>\s*<div className="h-px min-w-0 flex-1 bg-border" aria-hidden="true" \/>/);
   assert.ok(
     sidebar.indexOf("<WorkspaceIndicator />") > sidebar.indexOf('aria-label="My profile"')
       && sidebar.indexOf("<WorkspaceIndicator />") < sidebar.indexOf('className="nb-sidebar-workspace'),
@@ -61,4 +66,3 @@ test("workspace project links in application sidebar render titles without file/
   assert.match(sidebar, /<section className="nb-sidebar-workspace[\s\S]*?\{projects\.map\(\(project\) => \{/);
   assert.match(sidebar, /<Link key=\{project\.id\} href=\{project\.href\} className="nb-nav-link"[^>]*>\s*<span className="nb-sidebar-label truncate">\{project\.title\}<\/span>\s*<\/Link>/);
 });
-

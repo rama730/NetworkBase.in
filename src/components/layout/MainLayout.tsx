@@ -3,7 +3,6 @@
 import { type ReactNode } from 'react'
 import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
-import { useAuth } from '@/hooks/useAuth'
 import { WorkspaceDrawerHost } from '@/components/workspace/WorkspaceDrawerHost'
 
 interface MainLayoutProps {
@@ -11,8 +10,6 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-    const { user } = useAuth();
-
     return (
         <div
             className="h-dvh min-h-0 overflow-hidden bg-background flex flex-col"
