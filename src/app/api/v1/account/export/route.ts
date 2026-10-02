@@ -1,5 +1,5 @@
-import { exportAccountData } from '@/app/actions/account';
 import { getRequestId, jsonError, logApiRoute, requireAuthenticatedUser } from '@/app/api/v1/_shared';
+import { createAccountExportStream } from '@/lib/account/export-stream';
 import { logger } from '@/lib/logger';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 
@@ -45,23 +45,7 @@ export async function GET(request: Request) {
             );
         }
 
-        const result = await exportAccountData();
-
-        if (!result.success) {
-            logApiRoute(request, {
-                requestId,
-                action: 'account.export',
-                startedAt,
-                success: false,
-                status: 500,
-                errorCode: 'INTERNAL_ERROR',
-            });
-            return jsonError(
-                result.error || 'Failed to export account data',
-                500,
-                'INTERNAL_ERROR',
-            );
-        }
+        const stream = await createAccountExportStream(user.id, request.signal);
 
         logApiRoute(request, {
             requestId,
@@ -71,8 +55,7 @@ export async function GET(request: Request) {
             status: 200,
         });
 
-        // Return as downloadable JSON
-        return new Response(JSON.stringify(result.data), {
+        return new Response(stream, {
             status: 200,
             headers: {
                 'Content-Type': 'application/json',

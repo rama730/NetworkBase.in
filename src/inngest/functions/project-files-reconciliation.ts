@@ -109,7 +109,7 @@ export const reconcileProjectFiles = inngest.createFunction(
 
         let missingObjects = 0;
         let orphanObjects = 0;
-        let attachedObjects = 0;
+        const attachedObjects = 0;
         let mismatchedObjects = 0;
         let emittedEvents = 0;
         let queuedEvents = 0;
@@ -215,7 +215,7 @@ export const reconcileProjectFiles = inngest.createFunction(
                     && (!expectedMime || !objectMime || objectMime === expectedMime)
                 );
                 const reconciliationKey = metadataMatches
-                    ? `attached:${candidate.file.nodeId}:${candidate.key}`
+                    ? `unclaimed-candidate:${candidate.file.nodeId}:${candidate.key}`
                     : `path-mismatch:${candidate.file.nodeId}:${candidate.key}`;
 
                 if (!metadataMatches) {
@@ -231,19 +231,22 @@ export const reconcileProjectFiles = inngest.createFunction(
                     continue;
                 }
 
-                const attached = await db
-                    .update(projectNodes)
-                    .set({ s3Key: candidate.key, updatedAt: new Date() })
-                    .where(and(eq(projectNodes.id, candidate.file.nodeId), isNull(projectNodes.s3Key)))
-                    .returning({ id: projectNodes.id });
-                if (attached.length === 0) continue;
-                attachedObjects += 1;
+                // A matching path and provider metadata are discovery evidence,
+                // not proof that this object belongs to the node. Keep the
+                // candidate quarantined until a verified manifest or operator
+                // repair binds its full digest and asset identity.
+                mismatchedObjects += 1;
                 events.push({
                     projectId,
                     nodeId: candidate.file.nodeId,
                     actorId: null,
-                    type: "storage_reconcile_attached_object",
-                    metadata: { s3Key: candidate.key, reconciliationKey },
+                    type: "storage_reconcile_unclaimed_candidate",
+                    metadata: {
+                        s3Key: candidate.key,
+                        reconciliationKey,
+                        metadataMatched: true,
+                        quarantineRequired: true,
+                    },
                     createdAt: new Date(),
                 });
             }

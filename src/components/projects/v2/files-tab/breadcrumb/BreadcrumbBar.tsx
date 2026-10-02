@@ -303,6 +303,7 @@ export function BreadcrumbBar({
             type: "folder" as const,
             name: row.name,
             s3Key: null,
+            assetId: null,
             size: 0,
             mimeType: null,
             currentVersion: 1,

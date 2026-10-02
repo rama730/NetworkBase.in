@@ -705,7 +705,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     import('@/app/actions/upload-import'),
                 ]);
 
-                const { getBatchUploadUrls, getUploadPresignedUrl } = uploadActions;
+                const { getUploadPresignedUrl } = uploadActions;
                 const { registerUploadedFolderAction, updateUploadSessionAction } = importActions;
                 const uploadProjectId = createdProjectId;
                 if (!uploadProjectId) {
@@ -749,21 +749,15 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     importEventId,
                 });
 
-                // Keep the server's per-request signing boundary while supporting large folders.
-                const urlMap: Record<string, string> = {};
-                const uploadUrlRequests = meta.map((m) => ({ key: m.key, contentType: m.mimeType, sizeBytes: m.size }));
-                for (let offset = 0; offset < uploadUrlRequests.length; offset += 200) {
-                    const batchRes = await getBatchUploadUrls(uploadUrlRequests.slice(offset, offset + 200), { sessionId });
-                    if ('error' in batchRes) throw new Error(batchRes.error);
-                    Object.assign(urlMap, batchRes.urls || {});
-                }
-
                 const getPresignedUrl = async (key: string, contentType: string, sizeBytes: number) => {
-                    const cached = urlMap[key];
-                    if (cached) return cached;
                     const single = await getUploadPresignedUrl(key, contentType, sizeBytes, { sessionId });
                     if ('error' in single) throw new Error(single.error);
-                    return single.url;
+                    return {
+                        url: single.url,
+                        uploadToken: single.token,
+                        storageKey: single.storageKey,
+                        uploadIntentId: single.uploadIntentId,
+                    };
                 };
 
                 const uploadRes = await uploadFolder(
@@ -780,19 +774,26 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     {
                         sessionId,
                         manifestHash,
-                        retryBudget: Math.max(8, Math.ceil(meta.length * 0.25)),
                     }
                 );
 
                 // Register ONLY successfully uploaded files so Files tab never references missing keys
-                const uploadedSet = new Set(uploadRes.uploadedKeys);
+                const uploadedByRequestKey = new Map(
+                    uploadRes.uploadedAssets.map((asset) => [asset.requestKey, asset]),
+                );
                 const manifest = meta
-                    .filter((m) => uploadedSet.has(m.key))
-                    .map((m) => ({
-                        relativePath: m.relativePath,
-                        size: m.size,
-                        mimeType: m.mimeType,
-                    }));
+                    .map((m) => {
+                        const uploaded = uploadedByRequestKey.get(m.key);
+                        if (!uploaded) return null;
+                        return {
+                            relativePath: m.relativePath,
+                            size: m.size,
+                            mimeType: m.mimeType,
+                            storageKey: uploaded.storageKey,
+                            uploadIntentId: uploaded.uploadIntentId,
+                        };
+                    })
+                    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
                 await updateUploadSessionAction(uploadProjectId, {
                     sessionId,

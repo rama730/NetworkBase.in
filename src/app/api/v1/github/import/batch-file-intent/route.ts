@@ -1,14 +1,21 @@
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
-import { importJobs, importJobFiles, uploadIntents } from '@/lib/db/schema';
-import { eq, and, inArray, sql } from 'drizzle-orm';
+import { importJobs, importJobFiles } from '@/lib/db/schema';
+import { eq, and, inArray } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
 import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
-import { randomUUID } from 'crypto';
+import { buildProjectFileKey } from '@/lib/storage/project-file-key';
+import { createUploadIntents } from '@/lib/upload/upload-intents';
+import {
+  normalizeAndValidateFileSize,
+  normalizeAndValidateMimeType,
+  normalizeAndValidateUploadRelativePath,
+  PROJECT_UPLOAD_MAX_FILE_BYTES,
+} from '@/lib/upload/security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,13 +32,12 @@ const batchFileIntentSchema = z.object({
       }),
     )
     .min(1)
-    .max(200),
+    .max(50),
 });
 
 /**
  * POST /api/v1/github/import/batch-file-intent
- * Registers up to 200 file upload intents in a single batched operation,
- * reducing round-trips from ~25,000 to ~125 for large repo imports.
+ * Registers up to 50 file upload intents in one bounded operation.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -64,7 +70,16 @@ export async function POST(request: NextRequest) {
       return jsonError('Invalid request body', 400, 'BAD_REQUEST');
     }
 
-    const { jobId, files } = parsed.data;
+    const { jobId } = parsed.data;
+    const files = parsed.data.files.map((file) => ({
+      path: normalizeAndValidateUploadRelativePath(file.path),
+      size: normalizeAndValidateFileSize(file.size, PROJECT_UPLOAD_MAX_FILE_BYTES),
+      mimeType: normalizeAndValidateMimeType(file.mimeType),
+      checksum: file.checksum.toLowerCase(),
+    }));
+    if (new Set(files.map((file) => file.path)).size !== files.length) {
+      return jsonError('Duplicate file paths are not allowed', 400, 'BAD_REQUEST');
+    }
 
     // 1. Validate active import job and user project permissions once
     const job = await db.query.importJobs.findFirst({
@@ -88,112 +103,89 @@ export async function POST(request: NextRequest) {
 
     const jobFileByPath = new Map(jobFileRows.map((r) => [r.path, r]));
     for (const file of files) {
-      if (!jobFileByPath.has(file.path)) {
+      const registered = jobFileByPath.get(file.path);
+      if (!registered) {
         return jsonError(`File path not registered in job manifest: ${file.path}`, 404, 'NOT_FOUND');
+      }
+      if (registered.size !== file.size || registered.checksum.toLowerCase() !== file.checksum) {
+        return jsonError(`File does not match the registered manifest: ${file.path}`, 400, 'BAD_REQUEST');
       }
     }
 
-    // 3. Generate signed upload URLs in bounded concurrent batches of 10
+    // 3. Reserve immutable lifecycle identities before issuing credentials.
     const bucket = 'project-files';
     const adminClient = await createAdminClient();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     type IntentPrepared = {
       file: (typeof files)[0];
       jobFileId: string;
-      fileId: string;
       storageKey: string;
+      uploadIntentId: string;
       signedUrl: string;
     };
 
+    const allocations = files.map((file) => {
+      const jobFile = jobFileByPath.get(file.path)!;
+      return {
+        file,
+        jobFileId: jobFile.id,
+        storageKey: buildProjectFileKey(job.projectId, `imports/${jobId}/${jobFile.id}-${file.checksum}`),
+      };
+    });
+    const intents = await createUploadIntents(allocations.map((item) => ({
+      userId: user.id,
+      projectId: job.projectId,
+      bucket,
+      storageKey: item.storageKey,
+      scope: 'project_file' as const,
+      kind: 'file' as const,
+      expectedMimeType: item.file.mimeType,
+      expectedSize: item.file.size,
+      idempotencyKey: `github-import:${jobId}:${item.jobFileId}:${item.file.checksum}`,
+      metadata: {
+        jobId,
+        path: item.file.path,
+        checksum: item.file.checksum,
+        jobFileId: item.jobFileId,
+      },
+    })));
+    const intentByStorageKey = new Map(intents.map((intent) => [intent.storageKey, intent.id]));
     const prepared: IntentPrepared[] = [];
-    const CONCURRENCY = 10;
-
-    for (let i = 0; i < files.length; i += CONCURRENCY) {
-      const slice = files.slice(i, i + CONCURRENCY);
-      const urlResults = await Promise.all(
-        slice.map(async (file) => {
-          const fileId = randomUUID();
-          const storageKey = `imports/${jobId}/files/${fileId}-${file.checksum}`;
+    for (let i = 0; i < allocations.length; i += 10) {
+      const urlResults = await Promise.all(allocations.slice(i, i + 10).map(async (item) => {
           const { data: session, error } = await adminClient.storage
             .from(bucket)
-            .createSignedUploadUrl(storageKey);
+            .createSignedUploadUrl(item.storageKey, { upsert: false });
 
           if (error || !session?.signedUrl) {
-            throw new Error(`Failed to generate signed URL for ${file.path}: ${error?.message || 'unknown'}`);
+            throw new Error(`Failed to generate signed URL for ${item.file.path}: ${error?.message || 'unknown'}`);
           }
-
-          const jobFile = jobFileByPath.get(file.path)!;
           return {
-            file,
-            jobFileId: jobFile.id,
-            fileId,
-            storageKey,
+            ...item,
+            uploadIntentId: intentByStorageKey.get(item.storageKey)!,
             signedUrl: session.signedUrl,
           };
-        }),
-      );
+        }));
       prepared.push(...urlResults);
     }
 
-    // 4. Batch insert upload intents and update import_job_files in a single atomic transaction
-    const results = await db.transaction(async (tx) => {
-      const intentValues = prepared.map((item) => ({
-        userId: user.id,
-        projectId: job.projectId,
-        bucket,
-        storageKey: item.storageKey,
-        scope: 'project_file' as const,
-        kind: 'file' as const,
-        expectedMimeType: item.file.mimeType,
-        expectedSize: item.file.size,
-        status: 'pending' as const,
-        expiresAt,
-        metadata: {
-          jobId,
-          path: item.file.path,
-          checksum: item.file.checksum,
-          fileId: item.fileId,
-        },
-      }));
-
-      const insertedIntents = await tx
-        .insert(uploadIntents)
-        .values(intentValues)
-        .returning({ id: uploadIntents.id, storageKey: uploadIntents.storageKey });
-
-      const intentByStorageKey = new Map(insertedIntents.map((it) => [it.storageKey, it.id]));
-
-      // Single batched update for import_job_files via jsonb_to_recordset
-      const updatesPayload = JSON.stringify(
-        prepared.map((item) => ({
-          id: item.jobFileId,
-          upload_intent_id: intentByStorageKey.get(item.storageKey),
-          s3_key: item.storageKey,
-        })),
-      );
-
-      await tx.execute(sql`
-        UPDATE import_job_files AS ijf
-        SET 
-          status = 'uploading',
-          upload_intent_id = r.upload_intent_id::uuid,
-          s3_key = r.s3_key
-        FROM jsonb_to_recordset(${updatesPayload}::jsonb) AS r(
-          id uuid,
-          upload_intent_id uuid,
-          s3_key text
-        )
-        WHERE ijf.id = r.id
-      `);
-
-      return prepared.map((item) => ({
-        path: item.file.path,
-        uploadIntentId: intentByStorageKey.get(item.storageKey)!,
-        signedUrl: item.signedUrl,
-        storagePath: item.storageKey,
-      }));
+    await db.transaction(async (tx) => {
+      for (const item of prepared) {
+        await tx.update(importJobFiles).set({
+          status: 'uploading',
+          uploadIntentId: item.uploadIntentId,
+          s3Key: item.storageKey,
+          errorMessage: null,
+        }).where(eq(importJobFiles.id, item.jobFileId));
+      }
     });
+
+    const results = prepared.map((item) => ({
+      path: item.file.path,
+      uploadIntentId: item.uploadIntentId,
+      signedUrl: item.signedUrl,
+      storagePath: item.storageKey,
+    }));
 
     return jsonSuccess({ items: results });
   } catch (error) {

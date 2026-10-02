@@ -7,7 +7,7 @@ import {
 } from "@/app/api/v1/extension/_file-revision";
 import { getProjectAccessById } from "@/lib/data/project-access";
 import { createAdminClient } from "@/lib/supabase/server";
-import { createUploadIntent } from "@/lib/upload/upload-intents";
+import { createUploadIntents } from "@/lib/upload/upload-intents";
 import { validateCsrf } from "@/lib/security/csrf";
 
 export const runtime = "nodejs";
@@ -57,17 +57,24 @@ export async function POST(request: Request) {
     const uploadSessionId = crypto.randomUUID();
     const adminClient = await createAdminClient();
 
-    // 2. Resolve all files and generate presigned S3 upload URLs concurrently in 1 round trip
-    const results = await Promise.all(
-      files.map(async (file) => {
+    const resolvedFiles: Array<{
+      file: (typeof files)[number];
+      node: NonNullable<Awaited<ReturnType<typeof resolveWritableExtensionFile>>["node"]>;
+      storageKey: string;
+    }> = [];
+    for (let offset = 0; offset < files.length; offset += 8) {
+      resolvedFiles.push(...await Promise.all(files.slice(offset, offset + 8).map(async (file) => {
         const resolved = await resolveWritableExtensionFile(projectId, file.path, user.id);
         if (resolved.response || !resolved.node) {
           throw new Error(`Failed to resolve file: ${file.path}`);
         }
         const node = resolved.node;
-        const storageKey = buildExtensionRevisionStorageKey(projectId, node.id, file.path, file.contentHash);
-
-        const intent = await createUploadIntent({
+        const operationIdentity = operationId ?? uploadSessionId;
+        const storageKey = buildExtensionRevisionStorageKey(projectId, node.id, file.path, file.contentHash, operationIdentity);
+        return { file, node, storageKey };
+      })));
+    }
+    const intents = await createUploadIntents(resolvedFiles.map(({ file, node, storageKey }) => ({
           userId: user.id,
           projectId,
           bucket: "project-files",
@@ -76,6 +83,7 @@ export async function POST(request: Request) {
           kind: "file",
           expectedMimeType: file.mimeType,
           expectedSize: file.size,
+          idempotencyKey: `extension:${user.id}:${projectId}:${node.id}:${operationId ?? uploadSessionId}:${file.contentHash.toLowerCase()}`,
           metadata: {
             nodeId: node.id,
             path: file.path,
@@ -86,11 +94,23 @@ export async function POST(request: Request) {
             operationId: operationId ?? uploadSessionId,
             comment: file.comment ?? null,
           },
-        });
-
+        })));
+    const intentByStorageKey = new Map(intents.map((intent) => [intent.storageKey, intent]));
+    const results: Array<{
+      path: string;
+      nodeId: string;
+      uploadIntentId: string;
+      storageKey: string;
+      uploadUrl: string;
+      token: string;
+    }> = [];
+    for (let offset = 0; offset < resolvedFiles.length; offset += 10) {
+      results.push(...await Promise.all(resolvedFiles.slice(offset, offset + 10).map(async ({ file, node, storageKey }) => {
+        const intent = intentByStorageKey.get(storageKey);
+        if (!intent) throw new Error(`Upload intent allocation failed for ${file.path}`);
         const { data: signed, error: signedError } = await adminClient.storage
           .from("project-files")
-          .createSignedUploadUrl(storageKey);
+          .createSignedUploadUrl(storageKey, { upsert: false });
 
         if (signedError || !signed) {
           throw new Error(`Failed to create signed URL for ${file.path}: ${signedError?.message}`);
@@ -104,8 +124,8 @@ export async function POST(request: Request) {
           uploadUrl: signed.signedUrl,
           token: signed.token,
         };
-      }),
-    );
+      })));
+    }
 
     return jsonSuccess({
       uploadSessionId,

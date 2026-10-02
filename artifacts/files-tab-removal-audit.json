@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-27T08:50:55.766Z",
-  "searchTool": "git-grep",
+  "generatedAt": "2026-10-02T00:56:45.511Z",
+  "searchTool": "rg",
   "repoRoot": "/Users/chrama/Downloads/nb-s3",
   "notes": "Best-effort audit: `unexpected` counts are logged for Task 13 review but do NOT fail the build while `filesTabV3Enabled` is ramping. Task 13.4 / 13.5 must re-run this audit and confirm zero `unexpected` references before any deletion lands.",
   "summary": {
-    "searchTool": "git-grep",
+    "searchTool": "rg",
     "totalTargets": 40,
-    "totalReferences": 291,
+    "totalReferences": 260,
     "counts": {
       "allowed-self": 0,
       "allowed-legacy": 0,
-      "allowed-spec": 230,
-      "likely-collision": 57,
+      "allowed-spec": 227,
+      "likely-collision": 29,
       "unexpected": 4
     }
   },
@@ -170,6 +170,12 @@
           "slice": "workspaceSlice",
           "references": [
             {
+              "file": "tests/unit/files-tab/removal-audit.test.ts",
+              "line": 142,
+              "text": "      { kind: \"store-method\", slice: \"workspaceSlice\", name: \"closeOtherTabs\" },",
+              "classification": "allowed-spec"
+            },
+            {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 437,
               "text": "- `openTab`, `closeTab`, `setActiveTab`, `reorderTabs`, `moveTabToPane`, `pruneGhostTabs`, `pinTab`, `closeOtherTabs`, `closeTabsToRight`",
@@ -191,12 +197,6 @@
               "file": ".kiro/specs/files-tab-github-redesign/tasks.md",
               "line": 497,
               "text": "- `workspaceSlice`: `setSplitEnabled`, `setSplitRatio`, `pinTab`, `closeOtherTabs`, `closeTabsToRight`, `openTab`, `closeTab`, `setActiveTab`, `reorderTabs`, `moveTabToPane`, `pruneGhostTabs`",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/files-tab/removal-audit.test.ts",
-              "line": 142,
-              "text": "      { kind: \"store-method\", slice: \"workspaceSlice\", name: \"closeOtherTabs\" },",
               "classification": "allowed-spec"
             }
           ],
@@ -260,6 +260,18 @@
           "slice": "workspaceSlice",
           "references": [
             {
+              "file": ".kiro/specs/task-files-version-control-v3/tasks.md",
+              "line": 269,
+              "text": "    - Remove: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other V2-only methods identified in import-graph audit",
+              "classification": "allowed-spec"
+            },
+            {
+              "file": ".kiro/specs/task-files-version-control-v3/requirements.md",
+              "line": 287,
+              "text": "1. THE implementation team SHALL remove the following methods from the workspace store: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other methods identified as V2-only during the import-graph audit.",
+              "classification": "allowed-spec"
+            },
+            {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 437,
               "text": "- `openTab`, `closeTab`, `setActiveTab`, `reorderTabs`, `moveTabToPane`, `pruneGhostTabs`, `pinTab`, `closeOtherTabs`, `closeTabsToRight`",
@@ -284,155 +296,17 @@
               "classification": "allowed-spec"
             },
             {
-              "file": ".kiro/specs/task-files-version-control-v3/requirements.md",
-              "line": 287,
-              "text": "1. THE implementation team SHALL remove the following methods from the workspace store: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other methods identified as V2-only during the import-graph audit.",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": ".kiro/specs/task-files-version-control-v3/tasks.md",
-              "line": 269,
-              "text": "    - Remove: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other V2-only methods identified in import-graph audit",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 97,
-              "text": "    openTab: ProjectDocRailTabId | null;",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 110,
-              "text": "            return { ...state, openTab: state.openTab === action.id ? null : action.id };",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 112,
-              "text": "            return { ...state, openTab: null };",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 114,
-              "text": "            return { selectedActionId: action.actionId, openTab: action.closePanel ? null : state.openTab };",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 116,
-              "text": "            return state.openTab && !action.availableTabIds.includes(state.openTab)",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 117,
-              "text": "                ? { ...state, openTab: null }",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 585,
-              "text": "    openTab,",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 607,
-              "text": "    onOpenTabChange?: (openTab: ProjectDocRailTabId | null) => void;",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 609,
-              "text": "    openTab?: ProjectDocRailTabId | null;",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 705,
-              "text": "    const [localRailState, dispatchRail] = useReducer(readmeRailReducer, { openTab: null, selectedActionId: null });",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 707,
-              "text": "        openTab: openTab !== undefined ? openTab : localRailState.openTab,",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 724,
-              "text": "        if (railState.openTab && !availableTabIds.includes(railState.openTab)) {",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 730,
-              "text": "    }, [availableTabIds, onOpenTabChange, railState.openTab]);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 737,
-              "text": "        const nextOpenTab = variant === \"compact\" ? null : railState.openTab;",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 761,
-              "text": "    }, [onOpenTabChange, onRailAction, onSelectedActionChange, railState.openTab, variant]);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 787,
-              "text": "        const nextOpenTab = railState.openTab === id ? null : id;",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 1129,
-              "text": "    const activeTab = tabs.find((tab) => tab.id === railState.openTab) ?? null;",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/doc/ProjectDocQuickConsole.tsx",
-              "line": 1158,
-              "text": "                        active={railState.openTab === tab.id}",
-              "classification": "likely-collision"
-            },
-            {
               "file": "tests/unit/files-tab/removal-audit.test.ts",
               "line": 144,
               "text": "      { kind: \"store-method\", slice: \"workspaceSlice\", name: \"openTab\" },",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/project-doc.test.ts",
-              "line": 1003,
-              "text": "    assert.match(rail, /openTab !== undefined \\? openTab : localRailState\\.openTab/, \"controlled null should keep every rail tab closed instead of falling back to stale local state\");",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/project-doc.test.ts",
-              "line": 1005,
-              "text": "    assert.match(rail, /openTab:\\s*null/, \"rail tabs should be closed by default\");",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/project-doc.test.ts",
-              "line": 1006,
-              "text": "    assert.match(rail, /state\\.openTab === action\\.id \\? null : action\\.id/, \"clicking the active tab should close it\");",
               "classification": "allowed-spec"
             }
           ],
           "counts": {
             "allowed-self": 0,
             "allowed-legacy": 0,
-            "allowed-spec": 10,
-            "likely-collision": 18,
+            "allowed-spec": 7,
+            "likely-collision": 0,
             "unexpected": 0
           }
         },
@@ -442,6 +316,12 @@
           "searchQuery": "closeTab",
           "slice": "workspaceSlice",
           "references": [
+            {
+              "file": "tests/unit/files-tab/removal-audit.test.ts",
+              "line": 145,
+              "text": "      { kind: \"store-method\", slice: \"workspaceSlice\", name: \"closeTab\" },",
+              "classification": "allowed-spec"
+            },
             {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 437,
@@ -482,12 +362,6 @@
               "file": ".kiro/specs/files-tab-github-redesign/tasks.md",
               "line": 497,
               "text": "- `workspaceSlice`: `setSplitEnabled`, `setSplitRatio`, `pinTab`, `closeOtherTabs`, `closeTabsToRight`, `openTab`, `closeTab`, `setActiveTab`, `reorderTabs`, `moveTabToPane`, `pruneGhostTabs`",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/files-tab/removal-audit.test.ts",
-              "line": 145,
-              "text": "      { kind: \"store-method\", slice: \"workspaceSlice\", name: \"closeTab\" },",
               "classification": "allowed-spec"
             }
           ],
@@ -530,99 +404,21 @@
               "classification": "allowed-spec"
             },
             {
-              "file": "scratch/fix_hub_client.py",
-              "line": 6,
-              "text": "old_state = \"\"\"    const [activeTab, setActiveTab] = useState<TabKey>(getInitialTab);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "scratch/fix_hub_client.py",
-              "line": 9,
-              "text": "            setActiveTab(tabParam as TabKey);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "scratch/fix_hub_client.py",
-              "line": 11,
-              "text": "            setActiveTab(activeTabOverride);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "scratch/fix_hub_client.py",
-              "line": 19,
-              "text": "# Need to check if setActiveTab is used anywhere else",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "scratch/fix_hub_client.py",
+              "file": "src/components/workspace/WorkspaceDrawer.tsx",
               "line": 20,
-              "text": "content = content.replace(\"setActiveTab(\", \"// setActiveTab(\")",
+              "text": "  const setActiveTab = useUIStore((s) => s.setWorkspaceTab);",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 162,
-              "text": "    const setActiveTab = useMessagesV2UiStore((state) => state.setActiveTab);",
+              "file": "src/components/workspace/WorkspaceDrawer.tsx",
+              "line": 43,
+              "text": "    setActiveTab(next.id);",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 332,
-              "text": "            if (initialTab) setActiveTab(initialTab);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 342,
-              "text": "            if (initialTab) setActiveTab(initialTab);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 349,
-              "text": "        setActiveTab,",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 397,
-              "text": "        setActiveTab('chats');",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 449,
-              "text": "        setActiveTab,",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 828,
-              "text": "        setActiveTab(options?.tab ?? 'chats');",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 855,
-              "text": "        setActiveTab,",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 1052,
-              "text": "                                        <DropdownMenuItem data-testid=\"messages-tab-chats\" onClick={() => setActiveTab('chats')}>",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 1055,
-              "text": "                                        <DropdownMenuItem data-testid=\"messages-tab-applications\" onClick={() => setActiveTab('applications')}>",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
-              "line": 1058,
-              "text": "                                        <DropdownMenuItem data-testid=\"messages-tab-projects\" onClick={() => setActiveTab('projects')}>",
+              "file": "src/components/workspace/WorkspaceDrawer.tsx",
+              "line": 98,
+              "text": "                onClick={() => setActiveTab(tab.id)}",
               "classification": "likely-collision"
             },
             {
@@ -644,147 +440,93 @@
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 118,
-              "text": "    const [activeTab, setActiveTab] = useState(\"essentials\");",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/components/projects/EditProjectModal.tsx",
-              "line": 253,
-              "text": "                                        onClick={() => setActiveTab(tab.id)}",
-              "classification": "likely-collision"
-            },
-            {
               "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 239,
+              "line": 238,
               "text": "    const [activeTab, setActiveTab] = useState(() => resolvedActiveTab);",
               "classification": "unexpected"
             },
             {
               "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 576,
+              "line": 571,
               "text": "            setActiveTab(tabId);",
               "classification": "unexpected"
             },
             {
               "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 663,
+              "line": 658,
               "text": "        setActiveTab((prev) => (prev === nextTab ? prev : nextTab));",
               "classification": "unexpected"
             },
             {
               "file": "src/components/projects/dashboard/ProjectDashboardClient.tsx",
-              "line": 918,
+              "line": 909,
               "text": "        setActiveTab('dashboard');",
               "classification": "unexpected"
             },
             {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 80,
-              "text": "  const [activeTab, setActiveTab] = useState<TaskPanelTab>(",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 112,
+              "text": "    const setActiveTab = useMessagesV2UiStore((state) => state.setActiveTab);",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 146,
-              "text": "    setActiveTab(initialTab ?? \"details\");",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 282,
+              "text": "            if (initialTab) setActiveTab(initialTab);",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 353,
-              "text": "                  onClick={() => setActiveTab(tab.id)}",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 292,
+              "text": "            if (initialTab) setActiveTab(initialTab);",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 369,
-              "text": "                    setActiveTab(next.id);",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 299,
+              "text": "        setActiveTab,",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
-              "line": 431,
-              "text": "                  onOpenTab={setActiveTab}",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 347,
+              "text": "        setActiveTab('chats');",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/settings/SettingsLayout.tsx",
-              "line": 45,
-              "text": "  const [activeTab, setActiveTab] = useState(requestedTab);",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 399,
+              "text": "        setActiveTab,",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/settings/SettingsLayout.tsx",
-              "line": 72,
-              "text": "    if (isInitialMount) setActiveTab(requestedTab);",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 775,
+              "text": "        setActiveTab(options?.tab ?? 'chats');",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/settings/SettingsLayout.tsx",
-              "line": 96,
-              "text": "      setActiveTab(closest);",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 802,
+              "text": "        setActiveTab,",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/workspace/WorkspaceDrawer.tsx",
-              "line": 20,
-              "text": "  const setActiveTab = useUIStore((s) => s.setWorkspaceTab);",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 993,
+              "text": "                                        <DropdownMenuItem data-testid=\"messages-tab-chats\" onClick={() => setActiveTab('chats')}>",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/workspace/WorkspaceDrawer.tsx",
-              "line": 43,
-              "text": "    setActiveTab(next.id);",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 996,
+              "text": "                                        <DropdownMenuItem data-testid=\"messages-tab-applications\" onClick={() => setActiveTab('applications')}>",
               "classification": "likely-collision"
             },
             {
-              "file": "src/components/workspace/WorkspaceDrawer.tsx",
-              "line": 96,
-              "text": "                onClick={() => setActiveTab(tab.id)}",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/stores/messagesV2UiStore.ts",
-              "line": 53,
-              "text": "    setActiveTab: (tab: InboxTab) => void;",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "src/stores/messagesV2UiStore.ts",
-              "line": 79,
-              "text": "            setActiveTab: (activeTab) => set({ activeTab }),",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "test_out.log",
-              "line": 341,
-              "text": "      '    const setActiveTab = useMessagesV2UiStore((state) => state.setActiveTab);\\n' +",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "test_out.log",
-              "line": 575,
-              "text": "        const setActiveTab = useMessagesV2UiStore((state) => state.setActiveTab);",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "test_out.log",
-              "line": 1248,
-              "text": "                                            <DropdownMenuItem onClick={() => setActiveTab('chats')}>",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "test_out.log",
-              "line": 1251,
-              "text": "                                            <DropdownMenuItem onClick={() => setActiveTab('applications')}>",
-              "classification": "likely-collision"
-            },
-            {
-              "file": "test_out.log",
-              "line": 1254,
-              "text": "                                            <DropdownMenuItem onClick={() => setActiveTab('projects')}>",
+              "file": "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+              "line": 999,
+              "text": "                                        <DropdownMenuItem data-testid=\"messages-tab-projects\" onClick={() => setActiveTab('projects')}>",
               "classification": "likely-collision"
             },
             {
@@ -828,13 +570,85 @@
               "line": 480,
               "text": "  // `setActiveTab` still hit unrelated local React `useState` setters; those",
               "classification": "allowed-spec"
+            },
+            {
+              "file": "src/components/settings/SettingsLayout.tsx",
+              "line": 43,
+              "text": "  const [activeTab, setActiveTab] = useState(requestedTab);",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/settings/SettingsLayout.tsx",
+              "line": 70,
+              "text": "    if (isInitialMount) setActiveTab(requestedTab);",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/settings/SettingsLayout.tsx",
+              "line": 94,
+              "text": "      setActiveTab(closest);",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/stores/messagesV2UiStore.ts",
+              "line": 53,
+              "text": "    setActiveTab: (tab: InboxTab) => void;",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/stores/messagesV2UiStore.ts",
+              "line": 79,
+              "text": "            setActiveTab: (activeTab) => set({ activeTab }),",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
+              "line": 90,
+              "text": "  const [activeTab, setActiveTab] = useState<TaskPanelTab>(",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
+              "line": 155,
+              "text": "    setActiveTab(initialTab ?? \"details\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
+              "line": 410,
+              "text": "                  onClick={() => setActiveTab(tab.id)}",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
+              "line": 426,
+              "text": "                    setActiveTab(next.id);",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/v2/tasks/TaskDetailPanel.tsx",
+              "line": 488,
+              "text": "                  onOpenTab={setActiveTab}",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/EditProjectModal.tsx",
+              "line": 115,
+              "text": "    const [activeTab, setActiveTab] = useState(\"essentials\");",
+              "classification": "likely-collision"
+            },
+            {
+              "file": "src/components/projects/EditProjectModal.tsx",
+              "line": 242,
+              "text": "                                        onClick={() => setActiveTab(tab.id)}",
+              "classification": "likely-collision"
             }
           ],
           "counts": {
             "allowed-self": 0,
             "allowed-legacy": 0,
             "allowed-spec": 11,
-            "likely-collision": 39,
+            "likely-collision": 29,
             "unexpected": 4
           }
         },
@@ -1025,6 +839,12 @@
           "slice": "workspaceSlice",
           "references": [
             {
+              "file": "tests/unit/files-tab/removal-audit.test.ts",
+              "line": 153,
+              "text": "      { kind: \"store-method\", slice: \"workspaceSlice\", name: \"setBottomPanelTab\" },",
+              "classification": "allowed-spec"
+            },
+            {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 439,
               "text": "- `toggleBottomPanel`, `setBottomPanelTab`, `setBottomPanelHeight`",
@@ -1046,12 +866,6 @@
               "file": ".kiro/specs/files-tab-github-redesign/tasks.md",
               "line": 498,
               "text": "- `uiSlice`: `toggleBottomPanel`, `setBottomPanelTab`, `setBottomPanelHeight`, `setLastExecutionOutput`, `setLastExecutionSettingsHref`, `setStdinInputText`, `setProblems`, `clearProblems`, `applyQuickFix`, `pushCommandToHistory`, `setSidebarWidth`, `toggleZenMode`, `setSearchReplaceOpen`, `setCommandPaletteOpen`, `setOutputFilterMode`",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/files-tab/removal-audit.test.ts",
-              "line": 153,
-              "text": "      { kind: \"store-method\", slice: \"workspaceSlice\", name: \"setBottomPanelTab\" },",
               "classification": "allowed-spec"
             }
           ],
@@ -1461,13 +1275,13 @@
             },
             {
               "file": "tests/unit/files-tab/sidebar.test.ts",
-              "line": 279,
+              "line": 278,
               "text": "      /setSidebarWidth\\s*\\(/,",
               "classification": "allowed-spec"
             },
             {
               "file": "tests/unit/files-tab/sidebar.test.ts",
-              "line": 280,
+              "line": 279,
               "text": "      \"the v3 sidebar must not call setSidebarWidth (Req 15.14)\",",
               "classification": "allowed-spec"
             }
@@ -1667,6 +1481,24 @@
           "slice": "explorerSlice",
           "references": [
             {
+              "file": "tests/unit/files-tab/sidebar.test.ts",
+              "line": 327,
+              "text": "      \"saveCurrentView\",",
+              "classification": "allowed-spec"
+            },
+            {
+              "file": "tests/unit/files-tab/removal-audit.test.ts",
+              "line": 169,
+              "text": "      { kind: \"store-method\", slice: \"explorerSlice\", name: \"saveCurrentView\" },",
+              "classification": "allowed-spec"
+            },
+            {
+              "file": ".kiro/specs/task-files-version-control-v3/tasks.md",
+              "line": 269,
+              "text": "    - Remove: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other V2-only methods identified in import-graph audit",
+              "classification": "allowed-spec"
+            },
+            {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 442,
               "text": "- `saveCurrentView`, `applySavedView`, `deleteSavedView`",
@@ -1676,12 +1508,6 @@
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 636,
               "text": "- `explorerSlice.ts`: `saveCurrentView`, `applySavedView`, `deleteSavedView`",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": ".kiro/specs/files-tab-github-redesign/requirements.md",
-              "line": 267,
-              "text": "18. THE Files_Tab SHALL NOT render a Saved Views UI, and SHALL NOT invoke `applySavedView`, `saveCurrentView`, or `deleteSavedView` on the files workspace store.",
               "classification": "allowed-spec"
             },
             {
@@ -1703,21 +1529,9 @@
               "classification": "allowed-spec"
             },
             {
-              "file": ".kiro/specs/task-files-version-control-v3/tasks.md",
-              "line": 269,
-              "text": "    - Remove: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other V2-only methods identified in import-graph audit",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/files-tab/removal-audit.test.ts",
-              "line": 169,
-              "text": "      { kind: \"store-method\", slice: \"explorerSlice\", name: \"saveCurrentView\" },",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/files-tab/sidebar.test.ts",
-              "line": 328,
-              "text": "      \"saveCurrentView\",",
+              "file": ".kiro/specs/files-tab-github-redesign/requirements.md",
+              "line": 267,
+              "text": "18. THE Files_Tab SHALL NOT render a Saved Views UI, and SHALL NOT invoke `applySavedView`, `saveCurrentView`, or `deleteSavedView` on the files workspace store.",
               "classification": "allowed-spec"
             }
           ],
@@ -1736,6 +1550,30 @@
           "slice": "explorerSlice",
           "references": [
             {
+              "file": "tests/unit/files-tab/sidebar.test.ts",
+              "line": 328,
+              "text": "      \"applySavedView\",",
+              "classification": "allowed-spec"
+            },
+            {
+              "file": "tests/unit/files-tab/removal-audit.test.ts",
+              "line": 170,
+              "text": "      { kind: \"store-method\", slice: \"explorerSlice\", name: \"applySavedView\" },",
+              "classification": "allowed-spec"
+            },
+            {
+              "file": ".kiro/specs/task-files-version-control-v3/tasks.md",
+              "line": 269,
+              "text": "    - Remove: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other V2-only methods identified in import-graph audit",
+              "classification": "allowed-spec"
+            },
+            {
+              "file": ".kiro/specs/task-files-version-control-v3/requirements.md",
+              "line": 287,
+              "text": "1. THE implementation team SHALL remove the following methods from the workspace store: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other methods identified as V2-only during the import-graph audit.",
+              "classification": "allowed-spec"
+            },
+            {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 442,
               "text": "- `saveCurrentView`, `applySavedView`, `deleteSavedView`",
@@ -1745,12 +1583,6 @@
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 636,
               "text": "- `explorerSlice.ts`: `saveCurrentView`, `applySavedView`, `deleteSavedView`",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": ".kiro/specs/files-tab-github-redesign/requirements.md",
-              "line": 267,
-              "text": "18. THE Files_Tab SHALL NOT render a Saved Views UI, and SHALL NOT invoke `applySavedView`, `saveCurrentView`, or `deleteSavedView` on the files workspace store.",
               "classification": "allowed-spec"
             },
             {
@@ -1766,27 +1598,9 @@
               "classification": "allowed-spec"
             },
             {
-              "file": ".kiro/specs/task-files-version-control-v3/requirements.md",
-              "line": 287,
-              "text": "1. THE implementation team SHALL remove the following methods from the workspace store: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other methods identified as V2-only during the import-graph audit.",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": ".kiro/specs/task-files-version-control-v3/tasks.md",
-              "line": 269,
-              "text": "    - Remove: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other V2-only methods identified in import-graph audit",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/files-tab/removal-audit.test.ts",
-              "line": 170,
-              "text": "      { kind: \"store-method\", slice: \"explorerSlice\", name: \"applySavedView\" },",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/files-tab/sidebar.test.ts",
-              "line": 329,
-              "text": "      \"applySavedView\",",
+              "file": ".kiro/specs/files-tab-github-redesign/requirements.md",
+              "line": 267,
+              "text": "18. THE Files_Tab SHALL NOT render a Saved Views UI, and SHALL NOT invoke `applySavedView`, `saveCurrentView`, or `deleteSavedView` on the files workspace store.",
               "classification": "allowed-spec"
             }
           ],
@@ -1805,6 +1619,12 @@
           "slice": "explorerSlice",
           "references": [
             {
+              "file": "tests/unit/files-tab/sidebar.test.ts",
+              "line": 329,
+              "text": "      \"deleteSavedView\",",
+              "classification": "allowed-spec"
+            },
+            {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 442,
               "text": "- `saveCurrentView`, `applySavedView`, `deleteSavedView`",
@@ -1814,12 +1634,6 @@
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 636,
               "text": "- `explorerSlice.ts`: `saveCurrentView`, `applySavedView`, `deleteSavedView`",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": ".kiro/specs/files-tab-github-redesign/requirements.md",
-              "line": 267,
-              "text": "18. THE Files_Tab SHALL NOT render a Saved Views UI, and SHALL NOT invoke `applySavedView`, `saveCurrentView`, or `deleteSavedView` on the files workspace store.",
               "classification": "allowed-spec"
             },
             {
@@ -1835,15 +1649,15 @@
               "classification": "allowed-spec"
             },
             {
-              "file": "tests/unit/files-tab/removal-audit.test.ts",
-              "line": 171,
-              "text": "      { kind: \"store-method\", slice: \"explorerSlice\", name: \"deleteSavedView\" },",
+              "file": ".kiro/specs/files-tab-github-redesign/requirements.md",
+              "line": 267,
+              "text": "18. THE Files_Tab SHALL NOT render a Saved Views UI, and SHALL NOT invoke `applySavedView`, `saveCurrentView`, or `deleteSavedView` on the files workspace store.",
               "classification": "allowed-spec"
             },
             {
-              "file": "tests/unit/files-tab/sidebar.test.ts",
-              "line": 330,
-              "text": "      \"deleteSavedView\",",
+              "file": "tests/unit/files-tab/removal-audit.test.ts",
+              "line": 171,
+              "text": "      { kind: \"store-method\", slice: \"explorerSlice\", name: \"deleteSavedView\" },",
               "classification": "allowed-spec"
             }
           ],
@@ -1952,6 +1766,24 @@
           "slice": "editorSlice",
           "references": [
             {
+              "file": "tests/unit/files-tab/removal-audit.test.ts",
+              "line": 176,
+              "text": "      { kind: \"store-method\", slice: \"editorSlice\", name: \"requestScrollTo\" },",
+              "classification": "allowed-spec"
+            },
+            {
+              "file": ".kiro/specs/task-files-version-control-v3/tasks.md",
+              "line": 269,
+              "text": "    - Remove: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other V2-only methods identified in import-graph audit",
+              "classification": "allowed-spec"
+            },
+            {
+              "file": ".kiro/specs/task-files-version-control-v3/requirements.md",
+              "line": 287,
+              "text": "1. THE implementation team SHALL remove the following methods from the workspace store: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other methods identified as V2-only during the import-graph audit.",
+              "classification": "allowed-spec"
+            },
+            {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 438,
               "text": "- `setFileState`, `setActiveFileSymbols`, `requestScrollTo`, `clearScrollRequest`",
@@ -1973,24 +1805,6 @@
               "file": ".kiro/specs/files-tab-github-redesign/tasks.md",
               "line": 500,
               "text": "- `editorSlice`: `setFileState`, `setActiveFileSymbols`, `requestScrollTo`, `clearScrollRequest`",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": ".kiro/specs/task-files-version-control-v3/requirements.md",
-              "line": 287,
-              "text": "1. THE implementation team SHALL remove the following methods from the workspace store: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other methods identified as V2-only during the import-graph audit.",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": ".kiro/specs/task-files-version-control-v3/tasks.md",
-              "line": 269,
-              "text": "    - Remove: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other V2-only methods identified in import-graph audit",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/files-tab/removal-audit.test.ts",
-              "line": 176,
-              "text": "      { kind: \"store-method\", slice: \"editorSlice\", name: \"requestScrollTo\" },",
               "classification": "allowed-spec"
             }
           ],
@@ -2009,6 +1823,12 @@
           "slice": "editorSlice",
           "references": [
             {
+              "file": "tests/unit/files-tab/removal-audit.test.ts",
+              "line": 177,
+              "text": "      { kind: \"store-method\", slice: \"editorSlice\", name: \"clearScrollRequest\" },",
+              "classification": "allowed-spec"
+            },
+            {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 438,
               "text": "- `setFileState`, `setActiveFileSymbols`, `requestScrollTo`, `clearScrollRequest`",
@@ -2030,12 +1850,6 @@
               "file": ".kiro/specs/files-tab-github-redesign/tasks.md",
               "line": 500,
               "text": "- `editorSlice`: `setFileState`, `setActiveFileSymbols`, `requestScrollTo`, `clearScrollRequest`",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/files-tab/removal-audit.test.ts",
-              "line": 177,
-              "text": "      { kind: \"store-method\", slice: \"editorSlice\", name: \"clearScrollRequest\" },",
               "classification": "allowed-spec"
             }
           ],
@@ -2144,6 +1958,18 @@
           "slice": "gitSlice",
           "references": [
             {
+              "file": ".kiro/specs/task-files-version-control-v3/tasks.md",
+              "line": 269,
+              "text": "    - Remove: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other V2-only methods identified in import-graph audit",
+              "classification": "allowed-spec"
+            },
+            {
+              "file": ".kiro/specs/task-files-version-control-v3/requirements.md",
+              "line": 287,
+              "text": "1. THE implementation team SHALL remove the following methods from the workspace store: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other methods identified as V2-only during the import-graph audit.",
+              "classification": "allowed-spec"
+            },
+            {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 447,
               "text": "- `setGitSyncStatus`, `setGitCommitMessage`, `setGitBranches`, `setGitLastSync` — no git toolbar means no writers. The one remaining writer is the single `getGitStatus` fetch in `useFilesTabStartupStage` stage \"diagnostics\".",
@@ -2165,18 +1991,6 @@
               "file": ".kiro/specs/files-tab-github-redesign/tasks.md",
               "line": 502,
               "text": "- `gitSlice`: `setGitSyncStatus`, `setGitCommitMessage`, `setGitBranches`, `setGitLastSync`, `clearGitState`",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": ".kiro/specs/task-files-version-control-v3/requirements.md",
-              "line": 287,
-              "text": "1. THE implementation team SHALL remove the following methods from the workspace store: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other methods identified as V2-only during the import-graph audit.",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": ".kiro/specs/task-files-version-control-v3/tasks.md",
-              "line": 269,
-              "text": "    - Remove: `openTab`, `saveCurrentView`, `applySavedView`, `setGitSyncStatus`, `requestScrollTo`, and any other V2-only methods identified in import-graph audit",
               "classification": "allowed-spec"
             },
             {
@@ -2291,6 +2105,12 @@
           "slice": "gitSlice",
           "references": [
             {
+              "file": "tests/unit/files-tab/removal-audit.test.ts",
+              "line": 187,
+              "text": "      { kind: \"store-method\", slice: \"gitSlice\", name: \"setGitLastSync\" },",
+              "classification": "allowed-spec"
+            },
+            {
               "file": ".kiro/specs/files-tab-github-redesign/design.md",
               "line": 447,
               "text": "- `setGitSyncStatus`, `setGitCommitMessage`, `setGitBranches`, `setGitLastSync` — no git toolbar means no writers. The one remaining writer is the single `getGitStatus` fetch in `useFilesTabStartupStage` stage \"diagnostics\".",
@@ -2312,12 +2132,6 @@
               "file": ".kiro/specs/files-tab-github-redesign/tasks.md",
               "line": 502,
               "text": "- `gitSlice`: `setGitSyncStatus`, `setGitCommitMessage`, `setGitBranches`, `setGitLastSync`, `clearGitState`",
-              "classification": "allowed-spec"
-            },
-            {
-              "file": "tests/unit/files-tab/removal-audit.test.ts",
-              "line": 187,
-              "text": "      { kind: \"store-method\", slice: \"gitSlice\", name: \"setGitLastSync\" },",
               "classification": "allowed-spec"
             }
           ],

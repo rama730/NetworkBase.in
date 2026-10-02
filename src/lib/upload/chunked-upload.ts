@@ -1,6 +1,7 @@
 'use client';
 
 import { buildProjectFileKey } from '@/lib/storage/project-file-key';
+import { uploadToSupabaseSignedUrl } from '@/lib/upload/supabase-signed-upload-client';
 
 export interface UploadProgress {
     totalFiles: number;
@@ -14,14 +15,21 @@ export interface UploadProgress {
 export interface UploadResult {
     success: boolean;
     uploadedKeys: string[];
+    uploadedAssets: Array<{ requestKey: string; storageKey: string; uploadIntentId: string }>;
     failedFiles: string[];
 }
+
+export type PreparedFolderUpload = {
+    url: string;
+    uploadToken: string;
+    storageKey: string;
+    uploadIntentId: string;
+};
 
 export interface UploadFolderOptions {
     signal?: AbortSignal;
     sessionId?: string;
     manifestHash?: string;
-    retryBudget?: number;
     maxConcurrency?: number;
     alreadyUploadedKeys?: Iterable<string>;
 }
@@ -32,12 +40,8 @@ type UploadTask = {
     s3Key: string;
 };
 
-const LARGE_FILE_BYTES = 20 * 1024 * 1024;
-const MEDIUM_FILE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_MIN_CONCURRENCY = 2;
-const DEFAULT_MAX_CONCURRENCY = 8;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const DEFAULT_MAX_CONCURRENCY = 4;
 
 function resolveUploadOptions(signalOrOptions?: AbortSignal | UploadFolderOptions): UploadFolderOptions {
     if (!signalOrOptions) return {};
@@ -60,17 +64,6 @@ function detectAdaptiveConcurrency(): number {
         }
     }
     return Math.min(DEFAULT_MAX_CONCURRENCY, Math.max(DEFAULT_MIN_CONCURRENCY, base));
-}
-
-function getFileMaxAttempts(fileSize: number): number {
-    if (fileSize >= LARGE_FILE_BYTES) return 2;
-    if (fileSize >= MEDIUM_FILE_BYTES) return 3;
-    return 4;
-}
-
-function computeBackoffMs(attempt: number): number {
-    const jitter = Math.floor(Math.random() * 150);
-    return Math.min(1500, 200 * attempt * attempt + jitter);
 }
 
 function createTasks(files: FileList, projectId: string): UploadTask[] {
@@ -100,7 +93,7 @@ export async function uploadFolder(
     files: FileList,
     projectId: string,
     onProgress: (progress: UploadProgress) => void,
-    getPresignedUrl: (fileName: string, contentType: string, sizeBytes: number) => Promise<string>,
+    getPresignedUrl: (fileName: string, contentType: string, sizeBytes: number) => Promise<PreparedFolderUpload>,
     signalOrOptions?: AbortSignal | UploadFolderOptions,
 ): Promise<UploadResult> {
     const options = resolveUploadOptions(signalOrOptions);
@@ -112,6 +105,7 @@ export async function uploadFolder(
     const result: UploadResult = {
         success: true,
         uploadedKeys: Array.from(uploadedKeysFromResume),
+        uploadedAssets: [],
         failedFiles: [],
     };
 
@@ -131,9 +125,6 @@ export async function uploadFolder(
         .filter((task) => uploadedKeysFromResume.has(task.s3Key))
         .reduce((sum, task) => sum + task.file.size, 0);
     let uploadedFiles = uploadedKeysFromResume.size;
-    let retryBudget = Number.isFinite(options.retryBudget)
-        ? Math.max(0, Math.floor(options.retryBudget!))
-        : Math.max(8, Math.ceil(tasks.length * 0.25));
     const inFlightBytes = new Map<string, number>();
     let currentFile = '';
 
@@ -159,62 +150,49 @@ export async function uploadFolder(
     const runTask = async (task: UploadTask) => {
         if (signal?.aborted) throw new Error('Upload cancelled');
 
-        let attempt = 0;
-        const maxAttempts = getFileMaxAttempts(task.file.size);
-        while (true) {
-            if (signal?.aborted) throw new Error('Upload cancelled');
-            currentFile = task.relativePath;
+        currentFile = task.relativePath;
+        emitProgress();
+        try {
+            const contentType = task.file.type || 'application/octet-stream';
+            const prepared = await getPresignedUrl(task.s3Key, contentType, task.file.size);
+            await uploadToSupabaseSignedUrl({
+                bucket: 'project-files',
+                storagePath: prepared.storageKey,
+                uploadToken: prepared.uploadToken,
+                uploadUrl: prepared.url,
+                contentType,
+                operationId: prepared.uploadIntentId,
+                accountScope: options.sessionId,
+            }, task.file, {
+                cacheProfile: 'immutable',
+                signal,
+                onProgress: (uploaded) => {
+                    inFlightBytes.set(task.s3Key, uploaded);
+                    currentFile = task.relativePath;
+                    emitProgress();
+                },
+            });
+            inFlightBytes.delete(task.s3Key);
+            completedBytes += task.file.size;
+            uploadedFiles += 1;
+            result.uploadedKeys.push(task.s3Key);
+            result.uploadedAssets.push({
+                requestKey: task.s3Key,
+                storageKey: prepared.storageKey,
+                uploadIntentId: prepared.uploadIntentId,
+            });
             emitProgress();
-
-            try {
-                const presignedUrl = await getPresignedUrl(
-                    task.s3Key,
-                    task.file.type || 'application/octet-stream',
-                    task.file.size,
-                );
-                if (signal?.aborted) throw new Error('Upload cancelled');
-
-                await uploadFileWithProgress(
-                    task.file,
-                    presignedUrl,
-                    (uploaded) => {
-                        inFlightBytes.set(task.s3Key, uploaded);
-                        currentFile = task.relativePath;
-                        emitProgress();
-                    },
-                    signal,
-                );
-
-                inFlightBytes.delete(task.s3Key);
-                completedBytes += task.file.size;
-                uploadedFiles += 1;
-                result.uploadedKeys.push(task.s3Key);
-                emitProgress();
-                return;
-            } catch (error: any) {
-                inFlightBytes.delete(task.s3Key);
-                if (error?.message === 'Upload cancelled' || signal?.aborted) {
-                    throw new Error('Upload cancelled');
-                }
-
-                const canRetry = attempt + 1 < maxAttempts && retryBudget > 0;
-                if (canRetry) {
-                    attempt += 1;
-                    retryBudget -= 1;
-                    await sleep(computeBackoffMs(attempt));
-                    continue;
-                }
-
-                console.error('Failed to upload file', {
-                    relativePath: task.relativePath,
-                    sessionId: options.sessionId || null,
-                    manifestHash: options.manifestHash || null,
-                    error,
-                });
-                result.failedFiles.push(task.relativePath);
-                emitProgress();
-                return;
-            }
+        } catch (error) {
+            inFlightBytes.delete(task.s3Key);
+            if (signal?.aborted) throw new Error('Upload cancelled');
+            console.error('Failed to upload file', {
+                relativePath: task.relativePath,
+                sessionId: options.sessionId || null,
+                manifestHash: options.manifestHash || null,
+                error,
+            });
+            result.failedFiles.push(task.relativePath);
+            emitProgress();
         }
     };
 
@@ -244,73 +222,6 @@ export async function uploadFolder(
     });
 
     return result;
-}
-
-async function uploadFileWithProgress(
-    file: File,
-    presignedUrl: string,
-    onBytesUploaded: (bytes: number) => void,
-    signal?: AbortSignal,
-): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        let settled = false;
-        let onAbort: (() => void) | null = null;
-
-        const cleanupAbortListener = () => {
-            if (signal && onAbort) {
-                signal.removeEventListener('abort', onAbort);
-            }
-            onAbort = null;
-        };
-
-        const resolveOnce = () => {
-            if (settled) return;
-            settled = true;
-            cleanupAbortListener();
-            resolve();
-        };
-
-        const rejectOnce = (error: Error) => {
-            if (settled) return;
-            settled = true;
-            cleanupAbortListener();
-            reject(error);
-        };
-
-        if (signal) {
-            onAbort = () => {
-                xhr.abort();
-                rejectOnce(new Error('Upload cancelled'));
-            };
-            signal.addEventListener('abort', onAbort, { once: true });
-            if (signal.aborted) {
-                onAbort();
-                return;
-            }
-        }
-
-        xhr.upload.addEventListener('progress', (event) => {
-            if (event.lengthComputable) {
-                onBytesUploaded(event.loaded);
-            }
-        });
-
-        xhr.addEventListener('load', () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                resolveOnce();
-            } else {
-                rejectOnce(new Error(`Upload failed: ${xhr.status}`));
-            }
-        });
-
-        xhr.addEventListener('error', () => rejectOnce(new Error('Upload failed')));
-        xhr.addEventListener('abort', () => rejectOnce(new Error('Upload cancelled')));
-
-        xhr.open('PUT', presignedUrl);
-        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-        xhr.send(file);
-    });
 }
 
 export function formatBytes(bytes: number): string {

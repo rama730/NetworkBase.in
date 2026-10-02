@@ -29,7 +29,7 @@ import {
   Trash2,
   Upload,
   X,
-  MoreHorizontal, Download, Info, History, ListTodo, ArrowDownWideNarrow, BookOpenText, FileUp, Link2, Tag,
+  MoreHorizontal, Download, Info, History, ListTodo, ArrowDownWideNarrow, FileUp, Link2, Tag,
 } from "lucide-react";
 
 import {
@@ -520,12 +520,10 @@ export function FolderListView({
       setPendingRevisionFile(null);
 
       try {
-        const [{ saveFileRevision }, { createClient }, { logger }] = await Promise.all([
+        const [{ saveFileRevision }, { logger }] = await Promise.all([
           import("@/hooks/useFileVersions"),
-          import("@/lib/supabase/client"),
           import("@/lib/logger"),
         ]);
-        const supabaseClient = createClient();
         const result = await saveFileRevision({
           projectId,
           nodeId: node.id,
@@ -533,7 +531,6 @@ export function FolderListView({
           mode: choice.option === "commit" ? "new_revision" : "active_revision",
           comment: choice.comment || (choice.option === "commit" ? "Uploaded via Files Tab" : null),
           baseVersion: node.currentVersion,
-          supabase: supabaseClient,
         });
 
         if (result.success) {
@@ -658,14 +655,11 @@ export function FolderListView({
         try {
           const file = filesToUpload[0]!;
           const { saveFileRevision } = await import("@/hooks/useFileVersions");
-          const { createClient } = await import("@/lib/supabase/client");
-          const supabase = createClient();
           const saveRes = await saveFileRevision({
             projectId,
             nodeId: result.versionNodeId,
             file,
             mode: "new_revision",
-            supabase,
           });
           if (!saveRes.success) {
             throw new Error(saveRes.error || "Failed to save new version");
@@ -879,38 +873,6 @@ export function FolderListView({
                     <DropdownMenuItem onSelect={() => setAttachTaskNode(menuNode)}>
                       <ListTodo className="mr-2 size-4" />
                       Attach task…
-                    </DropdownMenuItem>
-                  )}
-                  {canEdit && (/\.(md|mdx|markdown|txt)$/i.test(menuNode.name) || /^readme(\.|$)/i.test(menuNode.name)) && (
-                    <DropdownMenuItem
-                      onSelect={async () => {
-                        try {
-                          const { normalizeProjectDocSlug } = await import("@/lib/projects/doc");
-                          const { linkProjectDocAction } = await import("@/app/actions/project/doc");
-                          const docSlug = normalizeProjectDocSlug(menuNode.name, "doc");
-                          const res = await linkProjectDocAction(projectId, menuNode.id, docSlug);
-                          if (res?.error) {
-                            toast.error(res.error);
-                          } else {
-                            toast.success("File linked to Doc successfully", {
-                              action: {
-                                label: "View in Docs",
-                                onClick: () => {
-                                  const url = new URL(window.location.href);
-                                  url.searchParams.set("tab", "docs");
-                                  url.searchParams.set("doc", docSlug);
-                                  window.location.href = url.toString();
-                                },
-                              },
-                            });
-                          }
-                        } catch {
-                          toast.error("Failed to link file to Doc");
-                        }
-                      }}
-                    >
-                      <BookOpenText className="mr-2 size-4" />
-                      Use as a doc
                     </DropdownMenuItem>
                   )}
                   {workspace?.canReadTasks && (
@@ -1329,4 +1291,3 @@ export function FolderListView({
 }
 
 export default FolderListView;
-

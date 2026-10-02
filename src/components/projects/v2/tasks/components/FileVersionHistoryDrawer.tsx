@@ -4,8 +4,8 @@ import { toast } from "sonner";
 /**
  * Version-history side drawer for a single file node.
  *
- * Lists every row in `file_versions` for a node (capped at 200 by the
- * server action), with affordances to:
+ * Lists `file_versions` for a node using bounded keyset pages, with
+ * affordances to:
  *   • Download a specific historical blob via a short-lived signed URL.
  *   • Restore a historical version — writes a NEW row (never rewrites),
  *     pointing the node back at the old `s3Key`. Old blobs are retained,
@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
 import type { FileVersion, ProjectNode } from "@/lib/db/schema";
 import {
   getVersionSignedUrl,
-  listFileVersions,
+  listFileVersionsPage,
   restoreFileVersion,
 } from "@/app/actions/files/versions";
 
@@ -82,7 +82,7 @@ export interface FileVersionHistoryDrawerProps {
 type State =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "loaded"; versions: FileVersion[] }
+  | { kind: "loaded"; versions: FileVersion[]; nextCursor: number | null }
   | { kind: "error"; message: string };
 
 export function FileVersionHistoryDrawer({
@@ -100,14 +100,34 @@ export function FileVersionHistoryDrawer({
   const refresh = useCallback(async () => {
     setState({ kind: "loading" });
     try {
-      const rows = await listFileVersions(projectId, node.id);
-      setState({ kind: "loaded", versions: rows });
+      const page = await listFileVersionsPage(projectId, node.id, { limit: 50 });
+      setState({ kind: "loaded", versions: page.versions, nextCursor: page.nextCursor });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to load versions";
       setState({ kind: "error", message });
     }
   }, [node.id, projectId]);
+
+  const loadMore = useCallback(async () => {
+    if (state.kind !== "loaded" || state.nextCursor == null || pendingAction === "load-more") return;
+    setPendingAction("load-more");
+    try {
+      const page = await listFileVersionsPage(projectId, node.id, {
+        limit: 50,
+        beforeVersion: state.nextCursor,
+      });
+      setState({
+        kind: "loaded",
+        versions: [...state.versions, ...page.versions],
+        nextCursor: page.nextCursor,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to load older versions");
+    } finally {
+      setPendingAction(null);
+    }
+  }, [node.id, pendingAction, projectId, state]);
 
   // Load once when the drawer opens; reset to idle when it closes so we
   // don't hold stale data while the parent mutates the node.
@@ -318,6 +338,19 @@ export function FileVersionHistoryDrawer({
                   </li>
                 );
               })}
+              {state.nextCursor != null ? (
+                <li className="flex justify-center bg-transparent px-4 py-3">
+                  <button
+                    type="button"
+                    disabled={pendingAction === "load-more"}
+                    onClick={() => void loadMore()}
+                    className="inline-flex min-h-9 items-center gap-2 rounded-[4px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  >
+                    {pendingAction === "load-more" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    Load older versions
+                  </button>
+                </li>
+              ) : null}
             </ul>
           )}
         </div>

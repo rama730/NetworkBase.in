@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { cancelAttachmentUpload, uploadAttachment } from '@/app/actions/messaging';
+import { cancelAttachmentUpload } from '@/app/actions/messaging';
 import type { UploadedAttachment } from '@/app/actions/messaging';
 import { useDirectAttachmentUpload } from '@/hooks/useDirectAttachmentUpload';
 import { compressImage, generateTinyThumbnail } from '@/lib/messages/image-compression';
@@ -276,56 +276,20 @@ export function useMessageComposerAttachments({
                             }),
                         );
                     })
-                    .catch((_directErr) => {
-                        // Resilient Fallback to Server Action if direct upload fails
-                        const formData = new FormData();
-                        formData.append('file', attachment.file);
-                        formData.append('clientUploadId', attachment.id);
-                        formData.append('conversationId', conversationId);
-                        if (attachment.width && attachment.height) {
-                            formData.append('width', String(attachment.width));
-                            formData.append('height', String(attachment.height));
-                        }
-                        if (attachment.tinyBase64) {
-                            formData.append('tinyBase64', attachment.tinyBase64);
-                        }
-
-                        void uploadAttachment(formData)
-                            .then((result) => {
-                                setAttachments((prev) =>
-                                    prev.map((item) => {
-                                        if (item.id !== attachment.id) return item;
-                                        if (!result.success || !result.attachment) {
-                                            return {
-                                                ...item,
-                                                status: 'failed',
-                                                progress: 0,
-                                                attempts: item.attempts + 1,
-                                                error: result.error || 'Upload failed',
-                                            };
-                                        }
-                                        return {
-                                            ...item,
-                                            status: 'uploaded',
-                                            progress: 100,
-                                            uploaded: {
-                                                ...result.attachment,
-                                                localUrl: item.preview,
-                                            },
-                                            error: undefined,
-                                        };
-                                    }),
-                                );
-                            })
-                            .catch(() => {
-                                setAttachments((prev) =>
-                                    prev.map((item) =>
-                                        item.id === attachment.id
-                                            ? { ...item, status: 'failed', progress: 0, attempts: item.attempts + 1, error: 'Upload failed' }
-                                            : item,
-                                    ),
-                                );
-                            });
+                    .catch((directError) => {
+                        setAttachments((prev) =>
+                            prev.map((item) =>
+                                item.id === attachment.id
+                                    ? {
+                                        ...item,
+                                        status: 'failed',
+                                        progress: 0,
+                                        attempts: item.attempts + 1,
+                                        error: directError instanceof Error ? directError.message : 'Upload failed',
+                                    }
+                                    : item,
+                            ),
+                        );
                     })
                     .finally(() => {
                         activeUploadIdsRef.current.delete(attachment.id);

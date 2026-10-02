@@ -49,7 +49,7 @@ export function RevisionControlModal({
         <div role="radiogroup" aria-label="How to save this revision" className="flex flex-col gap-3 my-4">
           {/* Commit as New Revision */}
           <label
-            className={`flex items-start gap-3 p-3 rounded-[6px] border cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] focus-within:ring-1 focus-within:ring-[#D14E24] ${
+            className={`flex items-start gap-3 p-3 rounded-[6px] border cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] focus-within:bg-muted/30 ${
               selected === "commit"
                 ? "border-[#D14E24] bg-[#FCF0EA]/40 dark:bg-[#D14E24]/10"
                 : "border-border hover:border-border/80"
@@ -69,7 +69,7 @@ export function RevisionControlModal({
 
           {/* Overwrite Active Revision */}
           <label
-            className={`flex items-start gap-3 p-3 rounded-[6px] border cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] focus-within:ring-1 focus-within:ring-[#D14E24] ${
+            className={`flex items-start gap-3 p-3 rounded-[6px] border cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,transform] focus-within:bg-muted/30 ${
               selected === "overwrite"
                 ? "border-amber-500/50 bg-amber-50/40 dark:bg-amber-950/20"
                 : "border-border hover:border-border/80"

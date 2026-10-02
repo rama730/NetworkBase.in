@@ -1,0 +1,357 @@
+import "server-only";
+
+import { and, asc, eq, gt, inArray, isNull, lte, or } from "drizzle-orm";
+
+import { db } from "@/lib/db";
+import { sanitizeAccountExportMessage } from "@/lib/account/export-contract";
+import {
+  collections,
+  connections,
+  conversationParticipants,
+  legalAcceptances,
+  messages,
+  profileContributionSkills,
+  profileProjectContributions,
+  profiles,
+  projects,
+  skills,
+} from "@/lib/db/schema";
+
+const EXPORT_PAGE_SIZE = 250;
+const MESSAGE_PAGE_SIZE = 500;
+const encoder = new TextEncoder();
+
+function assertActive(signal: AbortSignal) {
+  if (signal.aborted) throw signal.reason ?? new Error("Account export cancelled");
+}
+
+function json(value: unknown) {
+  return JSON.stringify(value) ?? "null";
+}
+
+async function* streamAccountExport(input: {
+  userId: string;
+  exportedAt: Date;
+  profile: unknown;
+  signal: AbortSignal;
+}): AsyncGenerator<string> {
+  const { userId, exportedAt, signal } = input;
+  yield `{"exportedAt":${json(exportedAt.toISOString())},"selectionCutoff":${json(exportedAt.toISOString())},"profile":${json(input.profile)},"projectContributions":`;
+
+  yield "[";
+  let written = 0;
+  let contributionCursor: string | null = null;
+  while (true) {
+    assertActive(signal);
+    const page = await db
+      .select({
+        id: profileProjectContributions.id,
+        projectId: profileProjectContributions.projectId,
+        externalKey: profileProjectContributions.externalKey,
+        projectTitle: profileProjectContributions.projectTitle,
+        platformProjectTitle: projects.title,
+        roleTitle: profileProjectContributions.roleTitle,
+        summary: profileProjectContributions.summary,
+        projectUrl: profileProjectContributions.projectUrl,
+        repositoryUrl: profileProjectContributions.repositoryUrl,
+        startedAt: profileProjectContributions.startedAt,
+        endedAt: profileProjectContributions.endedAt,
+        visibility: profileProjectContributions.visibility,
+        version: profileProjectContributions.version,
+        source: profileProjectContributions.source,
+      })
+      .from(profileProjectContributions)
+      .leftJoin(projects, eq(projects.id, profileProjectContributions.projectId))
+      .where(and(
+        eq(profileProjectContributions.profileId, userId),
+        isNull(profileProjectContributions.deletedAt),
+        lte(profileProjectContributions.createdAt, exportedAt),
+        contributionCursor ? gt(profileProjectContributions.id, contributionCursor) : undefined,
+      ))
+      .orderBy(asc(profileProjectContributions.id))
+      .limit(EXPORT_PAGE_SIZE);
+    if (page.length === 0) break;
+    const skillRows = await db
+      .select({
+        contributionId: profileContributionSkills.contributionId,
+        name: skills.name,
+        displayOrder: profileContributionSkills.displayOrder,
+      })
+      .from(profileContributionSkills)
+      .innerJoin(skills, eq(skills.id, profileContributionSkills.skillId))
+      .where(inArray(profileContributionSkills.contributionId, page.map((row) => row.id)))
+      .orderBy(asc(profileContributionSkills.displayOrder));
+    const skillNames = new Map<string, string[]>();
+    for (const skill of skillRows) {
+      const names = skillNames.get(skill.contributionId) ?? [];
+      if (!names.includes(skill.name)) names.push(skill.name);
+      skillNames.set(skill.contributionId, names);
+    }
+    for (const row of page) {
+      if (written++) yield ",";
+      yield json({
+        id: row.id,
+        kind: row.projectId ? "platform" : "external",
+        projectId: row.projectId,
+        externalKey: row.externalKey,
+        projectTitle: row.platformProjectTitle || row.projectTitle,
+        roleTitle: row.roleTitle,
+        summary: row.summary,
+        projectUrl: row.projectUrl,
+        repositoryUrl: row.repositoryUrl,
+        startedAt: row.startedAt,
+        endedAt: row.endedAt,
+        visibility: row.visibility,
+        version: row.version,
+        source: row.source,
+        skills: skillNames.get(row.id) ?? [],
+      });
+    }
+    contributionCursor = page.at(-1)!.id;
+    if (page.length < EXPORT_PAGE_SIZE) break;
+  }
+  yield "],\"projects\":";
+
+  yield "[";
+  written = 0;
+  let projectCursor: string | null = null;
+  while (true) {
+    assertActive(signal);
+    const page = await db
+      .select({
+        id: projects.id,
+        title: projects.title,
+        slug: projects.slug,
+        description: projects.description,
+        category: projects.category,
+        status: projects.status,
+        visibility: projects.visibility,
+        tags: projects.tags,
+        skills: projects.skills,
+        createdAt: projects.createdAt,
+      })
+      .from(projects)
+      .where(and(
+        eq(projects.ownerId, userId),
+        lte(projects.createdAt, exportedAt),
+        projectCursor ? gt(projects.id, projectCursor) : undefined,
+      ))
+      .orderBy(asc(projects.id))
+      .limit(EXPORT_PAGE_SIZE);
+    if (page.length === 0) break;
+    for (const row of page) {
+      if (written++) yield ",";
+      yield json(row);
+    }
+    projectCursor = page.at(-1)!.id;
+    if (page.length < EXPORT_PAGE_SIZE) break;
+  }
+  yield "],\"connections\":";
+
+  yield "[";
+  written = 0;
+  let connectionCursor: string | null = null;
+  while (true) {
+    assertActive(signal);
+    const page = await db
+      .select({
+        id: connections.id,
+        requesterId: connections.requesterId,
+        status: connections.status,
+        createdAt: connections.createdAt,
+      })
+      .from(connections)
+      .where(and(
+        or(eq(connections.requesterId, userId), eq(connections.addresseeId, userId)),
+        lte(connections.createdAt, exportedAt),
+        connectionCursor ? gt(connections.id, connectionCursor) : undefined,
+      ))
+      .orderBy(asc(connections.id))
+      .limit(EXPORT_PAGE_SIZE);
+    if (page.length === 0) break;
+    for (const row of page) {
+      if (written++) yield ",";
+      yield json({
+        direction: row.requesterId === userId ? "sent" : "received",
+        status: row.status,
+        createdAt: row.createdAt,
+      });
+    }
+    connectionCursor = page.at(-1)!.id;
+    if (page.length < EXPORT_PAGE_SIZE) break;
+  }
+  yield "],\"messages\":{\"items\":";
+
+  yield "[";
+  written = 0;
+  let redacted = false;
+  let participantCursor: string | null = null;
+  while (true) {
+    assertActive(signal);
+    const participantPage = await db
+      .select({ conversationId: conversationParticipants.conversationId })
+      .from(conversationParticipants)
+      .where(and(
+        eq(conversationParticipants.userId, userId),
+        lte(conversationParticipants.joinedAt, exportedAt),
+        participantCursor ? gt(conversationParticipants.conversationId, participantCursor) : undefined,
+      ))
+      .orderBy(asc(conversationParticipants.conversationId))
+      .limit(EXPORT_PAGE_SIZE);
+    if (participantPage.length === 0) break;
+    for (const participant of participantPage) {
+      let messageCursor: { createdAt: Date; id: string } | null = null;
+      while (true) {
+        assertActive(signal);
+        const page = await db
+          .select({
+            id: messages.id,
+            conversationId: messages.conversationId,
+            content: messages.content,
+            type: messages.type,
+            createdAt: messages.createdAt,
+            senderId: messages.senderId,
+          })
+          .from(messages)
+          .where(and(
+            eq(messages.conversationId, participant.conversationId),
+            lte(messages.createdAt, exportedAt),
+            messageCursor
+              ? or(
+                  gt(messages.createdAt, messageCursor.createdAt),
+                  and(
+                    eq(messages.createdAt, messageCursor.createdAt),
+                    gt(messages.id, messageCursor.id),
+                  ),
+                )
+              : undefined,
+          ))
+          .orderBy(asc(messages.createdAt), asc(messages.id))
+          .limit(MESSAGE_PAGE_SIZE);
+        if (page.length === 0) break;
+        for (const row of page) {
+          const sanitized = sanitizeAccountExportMessage(row, userId);
+          redacted ||= sanitized.redacted;
+          if (written++) yield ",";
+          yield json(sanitized);
+        }
+        messageCursor = {
+          createdAt: page.at(-1)!.createdAt,
+          id: page.at(-1)!.id,
+        };
+        if (page.length < MESSAGE_PAGE_SIZE) break;
+      }
+    }
+    participantCursor = participantPage.at(-1)!.conversationId;
+    if (participantPage.length < EXPORT_PAGE_SIZE) break;
+  }
+  yield `],"count":${written},"exportedCount":${written},"truncated":false`;
+  if (redacted) {
+    yield `,"note":${json("Received message content and sender identity are redacted to protect other participants.")}`;
+  }
+  yield "},\"collections\":";
+
+  yield "[";
+  written = 0;
+  let collectionCursor: string | null = null;
+  while (true) {
+    assertActive(signal);
+    const page = await db
+      .select({ id: collections.id, name: collections.name, createdAt: collections.createdAt })
+      .from(collections)
+      .where(and(
+        eq(collections.ownerId, userId),
+        lte(collections.createdAt, exportedAt),
+        collectionCursor ? gt(collections.id, collectionCursor) : undefined,
+      ))
+      .orderBy(asc(collections.id))
+      .limit(EXPORT_PAGE_SIZE);
+    if (page.length === 0) break;
+    for (const row of page) {
+      if (written++) yield ",";
+      yield json(row);
+    }
+    collectionCursor = page.at(-1)!.id;
+    if (page.length < EXPORT_PAGE_SIZE) break;
+  }
+  yield "],\"legalAcceptances\":";
+
+  yield "[";
+  written = 0;
+  let legalCursor: string | null = null;
+  while (true) {
+    assertActive(signal);
+    const page = await db
+      .select({
+        id: legalAcceptances.id,
+        termsVersion: legalAcceptances.termsVersion,
+        eulaVersion: legalAcceptances.eulaVersion,
+        privacyNoticeVersion: legalAcceptances.privacyNoticeVersion,
+        context: legalAcceptances.context,
+        acceptedAt: legalAcceptances.acceptedAt,
+        retentionExpiresAt: legalAcceptances.retentionExpiresAt,
+      })
+      .from(legalAcceptances)
+      .where(and(
+        eq(legalAcceptances.userId, userId),
+        lte(legalAcceptances.acceptedAt, exportedAt),
+        legalCursor ? gt(legalAcceptances.id, legalCursor) : undefined,
+      ))
+      .orderBy(asc(legalAcceptances.id))
+      .limit(EXPORT_PAGE_SIZE);
+    if (page.length === 0) break;
+    for (const row of page) {
+      if (written++) yield ",";
+      const { id: _id, ...exported } = row;
+      yield json(exported);
+    }
+    legalCursor = page.at(-1)!.id;
+    if (page.length < EXPORT_PAGE_SIZE) break;
+  }
+  yield "]}";
+}
+
+export async function createAccountExportStream(userId: string, signal: AbortSignal) {
+  const exportedAt = new Date();
+  const [profile] = await db
+    .select({
+      email: profiles.email,
+      username: profiles.username,
+      fullName: profiles.fullName,
+      bio: profiles.bio,
+      headline: profiles.headline,
+      location: profiles.location,
+      website: profiles.website,
+      skills: profiles.skills,
+      interests: profiles.interests,
+      education: profiles.education,
+      openTo: profiles.openTo,
+      socialLinks: profiles.socialLinks,
+      experienceLevel: profiles.experienceLevel,
+      pronouns: profiles.pronouns,
+      createdAt: profiles.createdAt,
+    })
+    .from(profiles)
+    .where(eq(profiles.id, userId))
+    .limit(1);
+  if (!profile) throw new Error("Profile not found");
+
+  const iterator = streamAccountExport({ userId, exportedAt, profile, signal });
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const next = await iterator.next();
+        if (next.done) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(encoder.encode(next.value));
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    async cancel() {
+      await iterator.return(undefined);
+    },
+  });
+}

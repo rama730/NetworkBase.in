@@ -7,7 +7,7 @@
 // For any input field, the `.onb-input` CSS class must provide correct
 // visual treatment for each state:
 //   - Default (Req 17.1): 1px border using `border` token, `background` fill
-//   - Focus (Req 17.2): 2px ring offset using `ring` token (box-shadow)
+//   - Focus (Req 17.2): neutral border with a subtle tonal background
 //   - Error (Req 17.3): 1.5px `destructive` border, `destructive/5` background
 //     (via aria-invalid="true" or .onb-input--error)
 //   - Disabled (Req 17.4): border at 50% opacity, `muted` background
@@ -73,12 +73,12 @@ function getInputVisualProperties(state: InputState): InputVisualProperties {
         cursor: "auto",
       };
     case "focus":
-      // Req 17.2: 2px ring offset using ring token
+      // Req 17.2: neutral, line-free tonal focus treatment
       return {
         borderWidth: "1px",
-        borderColor: "var(--ring)",
-        backgroundColor: "var(--card)",
-        boxShadow: "0 0 0 2px var(--background), 0 0 0 4px var(--ring)",
+        borderColor: "var(--input)",
+        backgroundColor: "color-mix(in srgb, var(--muted) 20%, var(--card))",
+        boxShadow: null,
         pointerEvents: "auto",
         cursor: "auto",
       };
@@ -206,32 +206,29 @@ describe("InputStates — Property 13: Input Field State Rendering (Task 8.2)", 
     );
   });
 
-  it("focus state applies ring token via box-shadow (Req 17.2)", () => {
+  it("focus state has no outer box-shadow (Req 17.2)", () => {
     // **Validates: Requirements 17.2**
     fc.assert(
       fc.property(fieldNameArb, (fieldName) => {
         const props = getInputVisualProperties("focus");
-        assert.ok(
-          props.boxShadow !== null,
-          `Focus state for field "${fieldName}" must have a box-shadow`,
-        );
-        assert.ok(
-          props.boxShadow!.includes("var(--ring)"),
-          `Focus state for field "${fieldName}" must use --ring token in box-shadow`,
+        assert.strictEqual(
+          props.boxShadow,
+          null,
+          `Focus state for field "${fieldName}" must not have an outer box-shadow`,
         );
       }),
       { numRuns: 100 },
     );
   });
 
-  it("focus state uses ring token for border color (Req 17.2)", () => {
+  it("focus state keeps the neutral input border color (Req 17.2)", () => {
     // **Validates: Requirements 17.2**
     fc.assert(
       fc.property(fieldNameArb, (fieldName) => {
         const props = getInputVisualProperties("focus");
         assert.ok(
-          props.borderColor.includes("var(--ring)"),
-          `Focus state for field "${fieldName}" must use --ring token for border color`,
+          props.borderColor.includes("var(--input)"),
+          `Focus state for field "${fieldName}" must keep the --input border token`,
         );
       }),
       { numRuns: 100 },
@@ -382,24 +379,17 @@ describe("InputStates — Property 13: Input Field State Rendering (Task 8.2)", 
     );
   });
 
-  it("only focus state has a non-null box-shadow", () => {
+  it("no input state uses an outer box-shadow", () => {
     // **Validates: Requirements 17.2**
     fc.assert(
       fc.property(inputStateArb, (state) => {
         const props = getInputVisualProperties(state);
 
-        if (state === "focus") {
-          assert.ok(
-            props.boxShadow !== null,
-            `Focus state must have a box-shadow for the ring effect`,
-          );
-        } else {
-          assert.strictEqual(
-            props.boxShadow,
-            null,
-            `State "${state}" must NOT have a box-shadow (only focus uses ring)`,
-          );
-        }
+        assert.strictEqual(
+          props.boxShadow,
+          null,
+          `State "${state}" must not have an outer box-shadow`,
+        );
       }),
       { numRuns: 100 },
     );
@@ -482,27 +472,27 @@ describe("InputStates — source-level structural contracts (Req 17.1, 17.2, 17.
 
   // ─── Focus state (Req 17.2) ───
 
-  it("defines .onb-input:focus-visible with box-shadow using --ring token (Req 17.2)", () => {
+  it("defines .onb-input:focus-visible without an outer shadow (Req 17.2)", () => {
     assert.match(
       CSS_SOURCE,
-      /\.onb-input:focus-visible\s*\{[^}]*box-shadow:[^}]*var\(--ring\)/,
-      ".onb-input:focus-visible must define box-shadow using --ring token (Req 17.2)",
+      /\.onb-input:focus-visible\s*\{[^}]*box-shadow:\s*none/,
+      ".onb-input:focus-visible must not render an outer shadow (Req 17.2)",
     );
   });
 
-  it("defines .onb-input:focus-visible with 2px ring offset (Req 17.2)", () => {
-    assert.match(
+  it("defines .onb-input:focus-visible without a ring token (Req 17.2)", () => {
+    assert.doesNotMatch(
       CSS_SOURCE,
-      /\.onb-input:focus-visible\s*\{[^}]*box-shadow:\s*0 0 0 2px/,
-      ".onb-input:focus-visible must define 2px ring offset in box-shadow (Req 17.2)",
+      /\.onb-input:focus-visible\s*\{[^}]*(?:box-shadow|border-color):[^}]*var\(--ring\)/,
+      ".onb-input:focus-visible must not use the accent ring token (Req 17.2)",
     );
   });
 
-  it("defines .onb-input:focus-visible with border-color using --ring token (Req 17.2)", () => {
+  it("defines .onb-input:focus-visible with neutral border color (Req 17.2)", () => {
     assert.match(
       CSS_SOURCE,
-      /\.onb-input:focus-visible\s*\{[^}]*border-color:\s*var\(--ring\)/,
-      ".onb-input:focus-visible must set border-color to --ring token (Req 17.2)",
+      /\.onb-input:focus-visible\s*\{[^}]*border-color:\s*var\(--input\)/,
+      ".onb-input:focus-visible must keep the neutral input border (Req 17.2)",
     );
   });
 

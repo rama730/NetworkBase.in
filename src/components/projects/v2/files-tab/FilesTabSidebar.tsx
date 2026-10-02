@@ -31,7 +31,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  BookOpenText,
   FilePlus2,
   FileUp,
   FolderOpen,
@@ -834,29 +833,6 @@ export function FilesTabSidebar({
                       >
                         <ListTodo className="w-4 h-4 mr-2" />
                         Attach to task…
-                      </DropdownMenuItem>
-                    )}
-                    {canEdit && (/\.(md|mdx|markdown|txt)$/i.test(contextMenuState.node.name) || /^readme(\.|$)/i.test(contextMenuState.node.name)) && (
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          if (!contextMenuState.node) return;
-                          try {
-                            const { normalizeProjectDocSlug } = await import("@/lib/projects/doc");
-                            const { linkProjectDocAction } = await import("@/app/actions/project/doc");
-                            const docSlug = normalizeProjectDocSlug(contextMenuState.node.name, "doc");
-                            const res = await linkProjectDocAction(projectId, contextMenuState.node.id, docSlug);
-                            if (res?.error) {
-                              toast.error(res.error);
-                            } else {
-                              toast.success("File linked to Doc successfully");
-                            }
-                          } catch {
-                            toast.error("Failed to link file to Doc");
-                          }
-                        }}
-                      >
-                        <BookOpenText className="w-4 h-4 mr-2" />
-                        Use as Doc
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem

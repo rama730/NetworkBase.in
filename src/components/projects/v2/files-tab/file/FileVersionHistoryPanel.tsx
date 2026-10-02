@@ -109,8 +109,16 @@ export function FileVersionHistoryPanel({
   onVersionChanged,
   onClose,
 }: FileVersionHistoryPanelProps): React.JSX.Element {
-  const { versions, isLoading, error, listVersions, restoreVersion, deleteVersion } =
-    useFileVersions(projectId, nodeId);
+  const {
+    versions,
+    isLoading,
+    error,
+    hasMore,
+    listVersions,
+    loadMoreVersions,
+    restoreVersion,
+    deleteVersion,
+  } = useFileVersions(projectId, nodeId);
 
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
   const [pendingDeleteVersion, setPendingDeleteVersion] =
@@ -333,7 +341,7 @@ export function FileVersionHistoryPanel({
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {isLoading ? (
+        {isLoading && versions.length === 0 ? (
           <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Loading versions…
@@ -527,6 +535,19 @@ export function FileVersionHistoryPanel({
                 </li>
               );
             })}
+            {hasMore ? (
+              <li className="flex justify-center py-2">
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => void loadMoreVersions()}
+                  className="nb-touch-target inline-flex min-h-9 items-center justify-center gap-2 rounded-[5px] border border-[#DBD5C8] bg-white px-3 text-xs font-medium text-[#141A1E] transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
+                >
+                  {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Load older versions
+                </button>
+              </li>
+            ) : null}
           </ul>
         )}
       </div>

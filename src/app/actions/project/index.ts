@@ -28,6 +28,7 @@ import {
   projectGuidanceAppointments,
   taskReadReceipts,
   githubSyncConnections,
+  storageAssets,
 } from "@/lib/db/schema";
 import {
   eq,
@@ -44,6 +45,7 @@ import {
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
 import { redis, getCachedData, cacheData } from "@/lib/redis";
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { getViewerIdentityContext } from "@/lib/server/viewer-context";
@@ -276,6 +278,7 @@ async function assertProjectOwnerForSettings(
       coverImage: projects.coverImage,
       coverImageBucket: projects.coverImageBucket,
       coverImageKey: projects.coverImageKey,
+      coverImageAssetId: projects.coverImageAssetId,
     })
     .from(projects)
     .where(eq(projects.id, projectId))
@@ -325,147 +328,13 @@ function projectCoverStorageKeyFromPublicUrl(
     : null;
 }
 
-async function cleanupProjectCoverImages(params: {
-  userId: string;
-  projectId: string;
-  keepStorageKey?: string | null;
-  keepBucket?: string | null;
-  previousBucket?: string | null;
-  previousStorageKey?: string | null;
-  previousCoverImage?: string | null;
-}) {
-  try {
-    const admin = await createAdminClient();
-    const keepBucket = params.keepBucket ?? PROJECT_COVER_UPLOAD_BUCKET;
-    const staleKeysByBucket = new Map<string, Set<string>>();
-    const addStale = (bucket: string, key: string | null | undefined) => {
-      if (!key || (bucket === keepBucket && key === params.keepStorageKey))
-        return;
-      const existing = staleKeysByBucket.get(bucket) ?? new Set<string>();
-      existing.add(key);
-      staleKeysByBucket.set(bucket, existing);
-    };
-
-    addStale(
-      params.previousBucket ?? PROJECT_COVER_UPLOAD_BUCKET,
-      params.previousStorageKey,
-    );
-    addStale(
-      PROJECT_COVER_UPLOAD_BUCKET,
-      projectCoverStorageKeyFromPublicUrl(
-        params.previousCoverImage,
-        params.userId,
-        params.projectId,
-        PROJECT_COVER_UPLOAD_BUCKET,
-      ),
-    );
-    addStale(
-      LEGACY_PROJECT_COVER_UPLOAD_BUCKET,
-      projectCoverStorageKeyFromPublicUrl(
-        params.previousCoverImage,
-        params.userId,
-        params.projectId,
-        LEGACY_PROJECT_COVER_UPLOAD_BUCKET,
-      ),
-    );
-
-    const foldersByBucket = new Map<string, string[]>([
-      [
-        PROJECT_COVER_UPLOAD_BUCKET,
-        [`projects/${params.projectId}/project-images/${params.userId}`],
-      ],
-      [
-        LEGACY_PROJECT_COVER_UPLOAD_BUCKET,
-        PROJECT_IMAGE_STORAGE_FOLDERS.map(
-          (folder) => `${params.userId}/${folder}/${params.projectId}`,
-        ),
-      ],
-    ]);
-
-    const pageSize = 100;
-    for (const [bucket, folders] of foldersByBucket) {
-      for (const folder of folders) {
-        let offset = 0;
-        while (true) {
-          const { data: existingObjects, error: listError } =
-            await admin.storage
-              .from(bucket)
-              .list(folder, { limit: pageSize, offset });
-
-          if (listError) {
-            logger.warn("project.cover_cleanup_list_failed", {
-              module: "projects",
-              projectId: params.projectId,
-              userId: params.userId,
-              bucket,
-              folder,
-              error: listError.message,
-            });
-            break;
-          }
-
-          if (!existingObjects || existingObjects.length === 0) {
-            break;
-          }
-
-          for (const object of existingObjects) {
-            if (!object.name) continue;
-            addStale(bucket, `${folder}/${object.name}`);
-          }
-
-          if (existingObjects.length < pageSize) {
-            break;
-          }
-          offset += pageSize;
-        }
-      }
-    }
-
-    let staleCount = 0;
-    for (const keys of staleKeysByBucket.values()) staleCount += keys.size;
-    if (staleCount === 0) {
-      return { removed: 0 };
-    }
-
-    let removedCount = 0;
-    for (const [bucket, keys] of staleKeysByBucket) {
-      if (keys.size === 0) continue;
-      const { data: removed, error: removeError } = await admin.storage
-        .from(bucket)
-        .remove(Array.from(keys));
-
-      if (removeError) {
-        logger.error("project.cover_cleanup_failed", {
-          module: "projects",
-          projectId: params.projectId,
-          userId: params.userId,
-          bucket,
-          count: keys.size,
-          error: removeError.message,
-        });
-        continue;
-      }
-      removedCount += removed?.length ?? keys.size;
-    }
-
-    return { removed: removedCount };
-  } catch (error) {
-    logger.error("project.cover_cleanup_unexpected_failed", {
-      module: "projects",
-      projectId: params.projectId,
-      userId: params.userId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return { removed: 0, error: "Cleanup failed" };
-  }
-}
-
 async function migrateLegacyProjectImageToManagedStorage(params: {
   projectId: string;
   userId: string;
   coverImage: string | null;
   coverImageBucket?: string | null;
   coverImageKey?: string | null;
+  coverImageAssetId?: string | null;
 }) {
   if (params.coverImageBucket && params.coverImageKey) {
     return {
@@ -473,6 +342,7 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
       key: params.coverImageKey,
       url: buildProjectImageRoute(params.projectId, params.coverImageKey),
       migrated: false,
+      assetId: params.coverImageAssetId ?? null,
     };
   }
 
@@ -504,34 +374,157 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
   const extension = legacyKey.split(".").pop()?.toLowerCase() || "bin";
   const nextKey = `projects/${params.projectId}/project-images/${params.userId}/${Date.now()}-${randomUUID()}.${extension}`;
   const admin = await createAdminClient();
-  const { data: file, error: downloadError } = await admin.storage
+  const { data: legacyInfo, error: legacyInfoError } = await admin.storage
     .from(legacyBucket)
-    .download(legacyKey);
-  if (downloadError || !file) {
+    .info(legacyKey);
+  const legacySize = Number(legacyInfo?.size);
+  if (legacyInfoError || !legacyInfo || !Number.isFinite(legacySize) || legacySize <= 0 || legacySize > PROJECT_COVER_UPLOAD_MAX_FILE_BYTES) {
+    logger.warn("project.cover_migration_invalid_source", {
+      module: "projects",
+      projectId: params.projectId,
+      userId: params.userId,
+      size: Number.isFinite(legacySize) ? legacySize : null,
+      error: legacyInfoError?.message ?? null,
+    });
+    return null;
+  }
+  let sourceBytes: Buffer;
+  try {
+    sourceBytes = Buffer.from(await readBoundedStorageBytes({
+      bucket: legacyBucket,
+      storageKey: legacyKey,
+      maxBytes: PROJECT_COVER_UPLOAD_MAX_FILE_BYTES,
+    }));
+  } catch (error) {
     logger.warn("project.cover_migration_download_failed", {
       module: "projects",
       projectId: params.projectId,
       userId: params.userId,
       bucket: legacyBucket,
-      error: downloadError?.message || "Missing file",
+      error: error instanceof Error ? error.message : "Missing file",
     });
     return null;
   }
-
-  const { error: uploadError } = await admin.storage
-    .from(PROJECT_COVER_UPLOAD_BUCKET)
-    .upload(nextKey, file, {
-      upsert: false,
-      contentType: file.type || undefined,
-      cacheControl: "31536000",
-    });
-  if (uploadError) {
-    logger.warn("project.cover_migration_upload_failed", {
+  if (sourceBytes.byteLength <= 0) {
+    logger.warn("project.cover_migration_invalid_size", {
       module: "projects",
       projectId: params.projectId,
       userId: params.userId,
-      error: uploadError.message,
+      size: sourceBytes.byteLength,
     });
+    return null;
+  }
+  const sourceHash = createHash("sha256").update(sourceBytes).digest("hex");
+  const legacyMimeType = legacyInfo.metadata?.mimetype;
+  const mimeType = typeof legacyMimeType === "string" && legacyMimeType.length > 0
+    ? legacyMimeType
+    : "application/octet-stream";
+  const [insertedLegacyAsset] = await db.insert(storageAssets).values({
+    ownerUserId: params.userId,
+    projectId: params.projectId,
+    bucket: legacyBucket,
+    storageKey: legacyKey,
+    purpose: "legacy_project_cover:source",
+    state: "verified",
+    declaredMimeType: mimeType,
+    declaredSize: sourceBytes.byteLength,
+    verifiedMimeType: mimeType,
+    verifiedSize: sourceBytes.byteLength,
+    contentHash: sourceHash,
+    metadata: { source: "legacy_project_cover_registration" },
+    expiresAt: new Date(),
+    verifiedAt: new Date(),
+    backupState: "pending",
+  }).onConflictDoNothing().returning({ id: storageAssets.id });
+  const legacyAsset = insertedLegacyAsset ?? await db.query.storageAssets.findFirst({
+    where: and(
+      eq(storageAssets.bucket, legacyBucket),
+      eq(storageAssets.storageKey, legacyKey),
+      eq(storageAssets.state, "verified"),
+    ),
+    columns: { id: true },
+  });
+  if (!legacyAsset) return null;
+
+  const { error: uploadError } = await admin.storage
+    .from(PROJECT_COVER_UPLOAD_BUCKET)
+    .upload(nextKey, sourceBytes, {
+      upsert: false,
+      contentType: mimeType === "application/octet-stream" ? undefined : mimeType,
+      cacheControl: "31536000",
+    });
+  if (uploadError) {
+    const { data: committedObject } = await admin.storage.from(PROJECT_COVER_UPLOAD_BUCKET).info(nextKey);
+    if (!committedObject) {
+      logger.warn("project.cover_migration_upload_failed", {
+        module: "projects",
+        projectId: params.projectId,
+        userId: params.userId,
+        error: uploadError.message,
+      });
+      return null;
+    }
+  }
+
+  let copiedBytes: Uint8Array;
+  try {
+    copiedBytes = await readBoundedStorageBytes({
+      bucket: PROJECT_COVER_UPLOAD_BUCKET,
+      storageKey: nextKey,
+      maxBytes: PROJECT_COVER_UPLOAD_MAX_FILE_BYTES,
+    });
+  } catch (error) {
+    await admin.storage.from(PROJECT_COVER_UPLOAD_BUCKET).remove([nextKey]);
+    logger.warn("project.cover_migration_verification_failed", {
+      module: "projects",
+      projectId: params.projectId,
+      userId: params.userId,
+      error: error instanceof Error ? error.message : "Copied object unavailable",
+    });
+    return null;
+  }
+  if (copiedBytes.byteLength !== sourceBytes.byteLength) {
+    await admin.storage.from(PROJECT_COVER_UPLOAD_BUCKET).remove([nextKey]);
+    logger.warn("project.cover_migration_verification_failed", {
+      module: "projects",
+      projectId: params.projectId,
+      userId: params.userId,
+      error: "Copied size mismatch",
+    });
+    return null;
+  }
+  const copiedHash = createHash("sha256")
+    .update(copiedBytes)
+    .digest("hex");
+  if (copiedHash !== sourceHash) {
+    await admin.storage.from(PROJECT_COVER_UPLOAD_BUCKET).remove([nextKey]);
+    logger.warn("project.cover_migration_verification_failed", {
+      module: "projects",
+      projectId: params.projectId,
+      userId: params.userId,
+      error: "Copied digest mismatch",
+    });
+    return null;
+  }
+  const [asset] = await db.insert(storageAssets).values({
+    ownerUserId: params.userId,
+    projectId: params.projectId,
+    bucket: PROJECT_COVER_UPLOAD_BUCKET,
+    storageKey: nextKey,
+    purpose: "project_cover:cover",
+    state: "verified",
+    declaredMimeType: mimeType,
+    declaredSize: sourceBytes.byteLength,
+    verifiedMimeType: mimeType,
+    verifiedSize: sourceBytes.byteLength,
+    contentHash: sourceHash,
+    metadata: { source: "legacy_project_cover_migration", legacyBucket, legacyKey },
+    expiresAt: new Date(),
+    verifiedAt: new Date(),
+    backupState: "pending",
+  }).returning({ id: storageAssets.id });
+  if (!asset) {
+    await admin.storage.from(PROJECT_COVER_UPLOAD_BUCKET).remove([nextKey]);
     return null;
   }
 
@@ -540,8 +533,10 @@ async function migrateLegacyProjectImageToManagedStorage(params: {
     key: nextKey,
     url: buildProjectImageRoute(params.projectId, nextKey),
     migrated: true,
+    assetId: asset.id,
     previousBucket: legacyBucket,
     previousKey: legacyKey,
+    previousAssetId: legacyAsset.id,
   };
 }
 
@@ -2618,18 +2613,9 @@ export async function updateProject(projectId: string, data: any) {
         );
       }
       if (raw.status !== undefined) updateValues.status = raw.status;
-      const nextCoverImage =
-        raw.coverImage !== undefined
-          ? raw.coverImage
-          : raw.cover_image !== undefined
-            ? raw.cover_image
-            : undefined;
-      if (nextCoverImage !== undefined) {
-        updateValues.coverImage = nextCoverImage;
-        if (nextCoverImage === null) {
-          updateValues.coverImageBucket = null;
-          updateValues.coverImageKey = null;
-        }
+      const nextCoverImage = raw.coverImage ?? raw.cover_image;
+      if (raw.coverImage !== undefined || raw.cover_image !== undefined) {
+        throw new Error("Project images must be changed through the verified image upload flow.");
       }
 
       // Tagline
@@ -2947,21 +2933,6 @@ export async function updateProject(projectId: string, data: any) {
         nextCoverImage,
         openRoles,
       }) => {
-        if (
-          nextCoverImage !== undefined &&
-          previousCoverImage !== nextCoverImage
-        ) {
-          await cleanupProjectCoverImages({
-            userId: user.id,
-            projectId: id,
-            keepStorageKey: projectCoverStorageKeyFromPublicUrl(
-              nextCoverImage,
-              user.id,
-              id,
-            ),
-            previousCoverImage,
-          });
-        }
         revalidatePath(`/projects/${slug}`);
         revalidatePath(`/projects/${id}`);
         await invalidateProjectPublicCaches(id);
@@ -3024,6 +2995,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       success: true;
       uploadUrl: string;
       uploadIntentId: string;
+      operationId: string;
       storagePath: string;
       contentType: string;
       bucket: string;
@@ -3073,8 +3045,8 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       projectId: input.projectId,
       bucket: PROJECT_COVER_UPLOAD_BUCKET,
       storageKey: storagePath,
-      scope: "profile_image",
-      kind: "banner",
+      scope: "project_cover",
+      kind: "cover",
       expectedMimeType: normalizedMimeType,
       expectedSize,
       metadata: {
@@ -3104,6 +3076,7 @@ export async function createProjectCoverImageUploadUrlAction(input: {
       success: true,
       uploadUrl: data.signedUrl,
       uploadIntentId: intent.id,
+      operationId: intent.id,
       storagePath,
       contentType: normalizedMimeType,
       bucket: PROJECT_COVER_UPLOAD_BUCKET,
@@ -3150,37 +3123,56 @@ export async function finalizeProjectCoverImageUploadAction(input: {
       bucket: PROJECT_COVER_UPLOAD_BUCKET,
       userId: user.id,
       projectId: input.projectId,
-      expectedScope: "profile_image",
-      expectedKind: "banner",
+      expectedScope: "project_cover",
+      expectedKind: "cover",
     });
+    if (!intent.assetId) throw new Error("Verified project image is missing lifecycle identity");
+    const assetId = intent.assetId;
     const imageUrl = buildProjectImageRoute(input.projectId, intent.storageKey);
 
-    const [updated] = await db
-      .update(projects)
-      .set({
-        coverImage: imageUrl,
-        coverImageBucket: PROJECT_COVER_UPLOAD_BUCKET,
-        coverImageKey: intent.storageKey,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(eq(projects.id, input.projectId), eq(projects.ownerId, user.id)),
-      )
-      .returning({ id: projects.id });
+    const updated = await db.transaction(async (tx) => {
+      const [publishableAsset] = await tx.update(storageAssets)
+        .set({
+          backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(storageAssets.id, assetId), eq(storageAssets.state, "verified")))
+        .returning({ id: storageAssets.id });
+      if (!publishableAsset) throw new Error("Project image is no longer publishable");
+
+      const [row] = await tx
+        .update(projects)
+        .set({
+          coverImage: imageUrl,
+          coverImageBucket: PROJECT_COVER_UPLOAD_BUCKET,
+          coverImageKey: intent.storageKey,
+          coverImageAssetId: assetId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(projects.id, input.projectId), eq(projects.ownerId, user.id)),
+        )
+        .returning({ id: projects.id });
+      if (!row) return null;
+
+      if (project.coverImageAssetId && project.coverImageAssetId !== assetId) {
+        await tx.update(storageAssets)
+          .set({
+            state: "delete_pending",
+            deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(storageAssets.id, project.coverImageAssetId),
+            eq(storageAssets.state, "verified"),
+          ));
+      }
+      return row;
+    });
 
     if (!updated) {
       return { success: false, error: "Failed to publish project image." };
     }
-
-    const cleanup = await cleanupProjectCoverImages({
-      userId: user.id,
-      projectId: input.projectId,
-      keepStorageKey: intent.storageKey,
-      keepBucket: PROJECT_COVER_UPLOAD_BUCKET,
-      previousBucket: project.coverImageBucket,
-      previousStorageKey: project.coverImageKey,
-      previousCoverImage: project.coverImage,
-    });
 
     await revalidateProjectPaths(input.projectId);
     await invalidateProjectPublicCaches(input.projectId);
@@ -3190,7 +3182,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
       publicUrl: imageUrl,
       storagePath: intent.storageKey,
       uploadIntentId: intent.id,
-      removedPreviousImages: cleanup.removed,
+      removedPreviousImages: 0,
     };
   } catch (error) {
     logger.error("project.cover_upload_finalize_failed", {
@@ -3226,35 +3218,41 @@ export async function clearProjectCoverImageAction(
       return { success: true, removedPreviousImages: 0 };
     }
 
-    const [updated] = await db
-      .update(projects)
-      .set({
-        coverImage: null,
-        coverImageBucket: null,
-        coverImageKey: null,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id)))
-      .returning({ id: projects.id });
+    const [updated] = await db.transaction(async (tx) => {
+      const rows = await tx
+        .update(projects)
+        .set({
+          coverImage: null,
+          coverImageBucket: null,
+          coverImageKey: null,
+          coverImageAssetId: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id)))
+        .returning({ id: projects.id });
+      if (project.coverImageAssetId) {
+        await tx.update(storageAssets)
+          .set({
+            state: "delete_pending",
+            deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(storageAssets.id, project.coverImageAssetId),
+            eq(storageAssets.state, "verified"),
+          ));
+      }
+      return rows;
+    });
 
     if (!updated) {
       return { success: false, error: "Failed to clear project image." };
     }
 
-    const cleanup = await cleanupProjectCoverImages({
-      userId: user.id,
-      projectId,
-      keepStorageKey: null,
-      keepBucket: null,
-      previousBucket: project.coverImageBucket,
-      previousStorageKey: project.coverImageKey,
-      previousCoverImage: project.coverImage,
-    });
-
     await revalidateProjectPaths(projectId);
     await invalidateProjectPublicCaches(projectId);
 
-    return { success: true, removedPreviousImages: cleanup.removed };
+    return { success: true, removedPreviousImages: 0 };
   } catch (error) {
     logger.error("project.cover_clear_failed", {
       module: "projects",
@@ -3270,6 +3268,7 @@ type ProjectSettingsErrorCode =
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "INVALID_INPUT"
+  | "STORAGE_MIGRATION_PENDING"
   | "INTERNAL_ERROR";
 
 type ProjectSettingsMutationResult =
@@ -3551,6 +3550,7 @@ async function loadOwnedProjectForSettings(projectId: string, userId: string) {
       coverImage: projects.coverImage,
       coverImageBucket: projects.coverImageBucket,
       coverImageKey: projects.coverImageKey,
+      coverImageAssetId: projects.coverImageAssetId,
     })
     .from(projects)
     .where(eq(projects.id, projectId))
@@ -3976,6 +3976,7 @@ export async function updateProjectVisibilityAction(
             coverImage: owned.project.coverImage,
             coverImageBucket: owned.project.coverImageBucket,
             coverImageKey: owned.project.coverImageKey,
+            coverImageAssetId: owned.project.coverImageAssetId,
           })
         : null;
 
@@ -3989,6 +3990,7 @@ export async function updateProjectVisibilityAction(
                 coverImage: imageMigration.url,
                 coverImageBucket: imageMigration.bucket,
                 coverImageKey: imageMigration.key,
+                coverImageAssetId: imageMigration.assetId,
               }
             : {}),
           updatedAt: new Date(),
@@ -4024,16 +4026,18 @@ export async function updateProjectVisibilityAction(
       });
     });
 
-    if (imageMigration?.migrated) {
-      await cleanupProjectCoverImages({
-        userId: user.id,
-        projectId,
-        keepStorageKey: imageMigration.key,
-        keepBucket: imageMigration.bucket,
-        previousBucket: imageMigration.previousBucket,
-        previousStorageKey: imageMigration.previousKey,
-        previousCoverImage: owned.project.coverImage,
-      });
+    if (imageMigration?.migrated && imageMigration.previousAssetId) {
+      await db.update(storageAssets)
+        .set({
+          state: "delete_pending",
+          deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+          lastErrorCode: "LEGACY_COVER_REPLACED",
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(storageAssets.id, imageMigration.previousAssetId),
+          eq(storageAssets.state, "verified"),
+        ));
     }
 
     await revalidateProjectPaths(projectId);
@@ -6000,6 +6004,81 @@ export async function archiveProjectAction(
   }
 }
 
+async function countUnregisteredProjectStorage(projectId: string) {
+  const rows = await db.execute<{ legacy_count: number }>(sql`
+    SELECT (
+      (SELECT count(*) FROM public.projects project
+        WHERE project.id = ${projectId}
+          AND (project.cover_image_key IS NOT NULL OR project.cover_image LIKE '%/storage/v1/object/%')
+          AND project.cover_image_asset_id IS NULL)
+      + (SELECT count(*) FROM public.project_nodes node
+        WHERE node.project_id = ${projectId}
+          AND node.s3_key IS NOT NULL
+          AND node.asset_id IS NULL)
+      + (SELECT count(*) FROM public.file_versions version
+          JOIN public.project_nodes node ON node.id = version.node_id
+        WHERE node.project_id = ${projectId}
+          AND version.s3_key <> ''
+          AND version.asset_id IS NULL)
+      + (SELECT count(*) FROM public.project_updates update_row
+        WHERE update_row.project_id = ${projectId}
+          AND jsonb_array_length(update_row.media) > (
+            SELECT count(*) FROM public.project_update_media_assets media_ref
+            WHERE media_ref.update_id = update_row.id
+          ))
+      + (SELECT count(*) FROM public.project_update_drafts draft
+        WHERE draft.project_id = ${projectId}
+          AND jsonb_array_length(draft.media) > (
+            SELECT count(*) FROM public.project_update_draft_media_assets media_ref
+            WHERE media_ref.project_id = draft.project_id
+              AND media_ref.user_id = draft.user_id
+          ))
+      + (SELECT count(*) FROM public.message_attachments attachment
+          JOIN public.messages message ON message.id = attachment.message_id
+          JOIN public.projects project ON project.conversation_id = message.conversation_id
+        WHERE project.id = ${projectId}
+          AND attachment.storage_path IS NOT NULL
+          AND attachment.asset_id IS NULL)
+      + (SELECT count(*) FROM public.import_jobs import_job
+        WHERE import_job.project_id = ${projectId}
+          AND import_job.manifest_s3_key IS NOT NULL
+          AND import_job.manifest_asset_id IS NULL)
+      + (SELECT count(*) FROM public.github_sync_runs sync_run
+          CROSS JOIN LATERAL jsonb_array_elements(
+            COALESCE(sync_run.manifest->'files', '[]'::jsonb)
+          ) AS sync_file
+        WHERE sync_run.project_id = ${projectId}
+          AND sync_file->>'snapshotKey' LIKE (${projectId}::text || '/sync-snapshots/' || sync_run.id::text || '/%')
+          AND NOT EXISTS (
+            SELECT 1 FROM public.github_sync_snapshot_assets snapshot_ref
+            WHERE snapshot_ref.run_id = sync_run.id
+              AND snapshot_ref.path = sync_file->>'path'
+          ))
+    )::int AS legacy_count
+  `);
+  return rows[0]?.legacy_count ?? 0;
+}
+
+async function scheduleProjectStorageDeletion(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  projectId: string,
+) {
+  await tx.update(storageAssets)
+    .set({
+      state: "delete_pending",
+      deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+      metadata: sql`${storageAssets.metadata} || jsonb_build_object(
+        'projectDeletionId', ${projectId},
+        'projectCleanupScheduledAt', now()
+      )`,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(storageAssets.projectId, projectId),
+      inArray(storageAssets.state, ["pending", "verified"]),
+    ));
+}
+
 // --- Delete Action ---
 export async function deleteProject(
   projectId: string,
@@ -6047,21 +6126,18 @@ export async function deleteProject(
       };
     }
 
-    // 1. Get ALL S3 keys for this project before deleting nodes
-    const fileNodes = await db
-      .select({ s3Key: projectNodes.s3Key })
-      .from(projectNodes)
-      .where(
-        and(
-          eq(projectNodes.projectId, projectId),
-          isNotNull(projectNodes.s3Key),
-        ),
-      );
+    const unregisteredStorage = await countUnregisteredProjectStorage(projectId);
+    if (unregisteredStorage > 0) {
+      return {
+        success: false,
+        errorCode: "STORAGE_MIGRATION_PENDING",
+        message: `Project deletion is waiting for ${unregisteredStorage} storage references to be registered.`,
+      };
+    }
 
-    const s3Keys = fileNodes.map((n) => n.s3Key!).filter(Boolean);
-
-    // 2. Hard-Delete Transaction
+    // Preserve deletion evidence before domain rows cascade away.
     await db.transaction(async (tx) => {
+      await scheduleProjectStorageDeletion(tx, projectId);
       // A. Update application messages to show "project_deleted" status
       await tx.execute(sql`
                 UPDATE ${messages}
@@ -6099,21 +6175,6 @@ export async function deleteProject(
           .where(eq(profiles.id, user.id));
       }
     });
-
-    // 3. Delete files from S3 Storage (Best Effort, outside transaction)
-    if (s3Keys.length > 0) {
-      try {
-        const adminClient = await createAdminClient();
-        await adminClient.storage.from("project-files").remove(s3Keys);
-      } catch (storageError) {
-        console.error(
-          "Failed to cleanup S3 files for project:",
-          projectId,
-          storageError,
-        );
-        // Don't fail the whole action if storage cleanup fails
-      }
-    }
 
     logger.metric("project.settings.delete.result", {
       projectId,
@@ -6169,8 +6230,17 @@ export async function deleteProjectDraftAction(
     if (!project) return { success: true }; // Already gone
     if (project.ownerId !== user.id) throw new Error("Unauthorized");
 
-    // 2. Wipe DB (Atomic transition)
+    const unregisteredStorage = await countUnregisteredProjectStorage(projectId);
+    if (unregisteredStorage > 0) {
+      return {
+        success: false,
+        error: `Draft deletion is waiting for ${unregisteredStorage} storage references to be registered.`,
+      };
+    }
+
+    // Preserve object tombstones before project rows cascade away.
     await db.transaction(async (tx) => {
+      await scheduleProjectStorageDeletion(tx, projectId);
       // Delete project (cascades to members, roles, etc.)
       await tx.delete(projects).where(eq(projects.id, projectId));
       await tx
@@ -6183,44 +6253,6 @@ export async function deleteProjectDraftAction(
           .where(eq(conversations.id, project.conversationId));
       }
     });
-
-    // 3. Wipe S3 (Best Effort - Deep recursive wipe of entire project prefix)
-    try {
-      const adminClient = await createAdminClient();
-
-      // Recursive list and delete helper
-      const purgeFolder = async (folderPath: string) => {
-        const { data: files, error } = await adminClient.storage
-          .from("project-files")
-          .list(folderPath, {
-            limit: 1000,
-          });
-
-        if (error || !files || files.length === 0) return;
-
-        const filesToDelete = files
-          .filter((f) => f.id) // Only files have IDs in some Supabase versions, or check metadata
-          .map((f) => `${folderPath}/${f.name}`);
-
-        const subFolders = files
-          .filter((f) => !f.id || f.metadata === null) // Folders
-          .map((f) => `${folderPath}/${f.name}`);
-
-        // Delete files in this level
-        if (filesToDelete.length > 0) {
-          await adminClient.storage.from("project-files").remove(filesToDelete);
-        }
-
-        // Recurse into subfolders (Pure optimization: Parallel recursion)
-        if (subFolders.length > 0) {
-          await Promise.all(subFolders.map((sf) => purgeFolder(sf)));
-        }
-      };
-
-      await purgeFolder(projectId);
-    } catch (storageError) {
-      console.error("S3 recursive draft cleanup failed:", storageError);
-    }
 
     revalidatePath("/discover");
     return { success: true };

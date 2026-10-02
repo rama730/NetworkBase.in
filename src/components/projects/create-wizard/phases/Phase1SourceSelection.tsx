@@ -1375,7 +1375,7 @@ export default function Phase1SourceSelection({
                                         warnings={preflightState.warnings}
                                         errorMessage={preflightState.error || githubPreview.errorMessage}
                                         branchControl={hasLoadedGithubRepo ? (
-                                            <div className="flex h-[var(--ui-control-height-sm)] items-center gap-1.5 rounded-md border border-input bg-card pl-2 pr-1 text-foreground focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
+                                            <div className="flex h-[var(--ui-control-height-sm)] items-center gap-1.5 rounded-md border border-input bg-card pl-2 pr-1 text-foreground focus-within:bg-muted/20">
                                                 <GitBranch className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                                                 <label htmlFor="create-project-github-resolved-branch" className="sr-only">Repository branch</label>
                                                 <select

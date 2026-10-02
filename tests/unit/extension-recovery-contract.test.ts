@@ -25,12 +25,13 @@ describe("extension crash recovery contract", () => {
     assert.match(route, /requireAuthenticatedUser/);
     assert.match(route, /getProjectAccessById/);
     assert.match(route, /createSignedUploadUrl/);
-    assert.match(route, /createSignedUrl/);
+    assert.match(route, /streamPrivateObject/);
+    assert.match(route, /finalizeUploadIntent/);
     assert.match(route, /sha256/);
     assert.match(route, /MAX_RECOVERY_DRAFT_BYTES/);
   });
 
-  it("retains only finalized generations and removes expired/account-owned blobs", () => {
+  it("retains finalized generations and schedules expired assets through the lifecycle", () => {
     const route = source("src/app/api/v1/extension/recovery-drafts/route.ts");
     const helper = source("src/lib/extension/recovery-drafts.ts");
     const retention = source("src/inngest/functions/extension-recovery-retention.ts");
@@ -46,7 +47,9 @@ describe("extension crash recovery contract", () => {
     assert.match(helper, /EXTENSION_RECOVERY_BUCKET = "extension-recovery-drafts"/);
     assert.match(registry, /extensionRecoveryRetention/);
     assert.match(hardDelete, /extensionRecoveryDrafts/);
-    assert.match(hardDelete, /extension-recovery-drafts/);
+    assert.match(helper, /state: "delete_pending"/);
+    assert.match(helper, /RECOVERY_DRAFT_DETACHED/);
+    assert.match(hardDelete, /extensionRecoveryDrafts\.assetId/);
     assert.match(hardDelete, /createAdminClient/);
     assert.doesNotMatch(hardDelete, /delete_auth_user/);
   });

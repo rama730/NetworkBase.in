@@ -178,7 +178,7 @@ test("Animated GIF avatar architecture: bypass canvas rasterization, preserve fr
     assert.match(avatarSource, /<Image[\s\S]*?src=\{avatarUrl\}[\s\S]*?unoptimized/);
 });
 
-test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, immutable edge caching, compositor throttling, and async decoding", () => {
+test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, revocable caching, compositor throttling, and async decoding", () => {
     const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const routeSource = readFileSync(resolve(ROOT, "src/app/api/v1/projects/[id]/image/route.ts"), "utf-8");
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
@@ -191,9 +191,10 @@ test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, immutabl
     assert.match(settingsSource, /const isDraftGif = coverDraft\.file\.type === "image\/gif"/);
     assert.match(settingsSource, /Animated GIF · 1:1 Direct Upload/);
 
-    // 3. Immutable edge caching for versioned avatars (1M scale DB offload)
-    assert.match(routeSource, /const hasMatchingVersion = request\.nextUrl\.searchParams\.get\("v"\) === version/);
-    assert.match(routeSource, /public, max-age=31536000, s-maxage=31536000, immutable/);
+    // 3. Versioned cover responses remain inside the five-minute visibility-revocation budget.
+    assert.match(routeSource, /request\.nextUrl\.searchParams\.get\("v"\) !== version/);
+    assert.match(routeSource, /public, max-age=300, s-maxage=300, must-revalidate/);
+    assert.match(routeSource, /private, no-store/);
 
     // 4. Compositor throttling: content-visibility: auto on project cards prevents offscreen GIF decoding
     assert.match(globalsCss, /\.nb-project-card\s*\{[\s\S]*?content-visibility:\s*auto;[\s\S]*?contain-intrinsic-size:\s*auto 240px;/);
@@ -271,4 +272,3 @@ test("Discovery feed smooth scrolling & Virtuoso stability contract", () => {
     assert.match(hubClientSource, /increaseViewportBy=\{VIRTUOSO_INCREASE_VIEWPORT_BY\}/);
     assert.match(hubClientSource, /const VIRTUOSO_INCREASE_VIEWPORT_BY = \{\s*top:\s*1200,\s*bottom:\s*800\s*\}\s*as const;/);
 });
-

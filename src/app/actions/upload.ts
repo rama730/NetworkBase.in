@@ -10,8 +10,9 @@ import {
     PROJECT_UPLOAD_MAX_FILE_BYTES,
 } from '@/lib/upload/security';
 import { createUploadIntent, createUploadIntents } from '@/lib/upload/upload-intents';
+import { allocateProjectObjectKey } from '@/lib/upload/project-upload-allocation';
 
-const MAX_BATCH_UPLOAD_KEYS = 200;
+const MAX_BATCH_UPLOAD_KEYS = 50;
 
 const UPLOAD_ERROR_CODES = {
     KEY_FORMAT_INVALID: 'KEY_FORMAT_INVALID',
@@ -65,6 +66,7 @@ export async function getUploadPresignedUrl(
         const projectId = await assertUploadAccessForKey(key, user.id);
         const normalizedMimeType = normalizeAndValidateMimeType(contentType);
         const normalizedSize = normalizeAndValidateFileSize(sizeBytes, PROJECT_UPLOAD_MAX_FILE_BYTES);
+        const storageKey = allocateProjectObjectKey(projectId, key, normalizedMimeType);
 
         const supabase = await createAdminClient();
 
@@ -72,17 +74,17 @@ export async function getUploadPresignedUrl(
             userId: user.id,
             projectId,
             bucket: 'project-files',
-            storageKey: key,
+            storageKey,
             scope: 'project_file',
             kind: 'file',
             expectedMimeType: normalizedMimeType,
             expectedSize: normalizedSize,
-            metadata: { sessionId: options?.sessionId ?? null },
+            metadata: { sessionId: options?.sessionId ?? null, requestedKey: key },
         });
 
         const { data, error } = await supabase.storage
             .from('project-files')
-            .createSignedUploadUrl(key, { upsert: true });
+            .createSignedUploadUrl(storageKey, { upsert: false });
 
         if (error) {
             console.error('Failed to create signed URL:', error);
@@ -103,7 +105,7 @@ export async function getUploadPresignedUrl(
             url: data.signedUrl,
             token: data.token,
             uploadIntentId: intent.id,
-            storageKey: key
+            storageKey,
         };
     } catch (e) {
         if (e instanceof Error && e.message === UPLOAD_ERROR_CODES.KEY_FORMAT_INVALID) {
@@ -124,7 +126,12 @@ export async function getUploadPresignedUrl(
 export async function getBatchUploadUrls(
     keys: { key: string; contentType: string; sizeBytes: number }[],
     options?: { sessionId?: string | null }
-): Promise<{ urls: Record<string, string>; uploadIntentIds: Record<string, string> } | { error: string; code?: string }> {
+): Promise<{
+    urls: Record<string, string>;
+    uploadTokens: Record<string, string>;
+    uploadIntentIds: Record<string, string>;
+    storageKeys: Record<string, string>;
+} | { error: string; code?: string }> {
     const startedAt = Date.now();
     try {
         const authClient = await createClient();
@@ -134,7 +141,7 @@ export async function getBatchUploadUrls(
         }
 
         if (!keys || keys.length === 0) {
-            return { urls: {}, uploadIntentIds: {} };
+            return { urls: {}, uploadTokens: {}, uploadIntentIds: {}, storageKeys: {} };
         }
         if (keys.length > MAX_BATCH_UPLOAD_KEYS) {
             return { error: `Too many files in one request. Max ${MAX_BATCH_UPLOAD_KEYS}.` };
@@ -145,6 +152,9 @@ export async function getBatchUploadUrls(
             contentType: normalizeAndValidateMimeType(item.contentType),
             sizeBytes: normalizeAndValidateFileSize(item.sizeBytes, PROJECT_UPLOAD_MAX_FILE_BYTES),
         }));
+        if (new Set(normalizedItems.map((item) => item.key)).size !== normalizedItems.length) {
+            return { error: 'Duplicate upload request identities are not allowed' };
+        }
 
         const firstParsed = parseProjectFileKey(normalizedItems[0]?.key || '');
         if (!firstParsed || !isCanonicalProjectFileKey(normalizedItems[0]?.key || '')) {
@@ -164,33 +174,39 @@ export async function getBatchUploadUrls(
 
         const supabase = await createAdminClient();
         const urls: Record<string, string> = {};
+        const uploadTokens: Record<string, string> = {};
         const uploadIntentIds: Record<string, string> = {};
+        const storageKeys: Record<string, string> = {};
+        const allocatedItems = normalizedItems.map((item) => ({
+            ...item,
+            storageKey: allocateProjectObjectKey(firstProjectId, item.key, item.contentType),
+        }));
 
-        const intents = await createUploadIntents(normalizedItems.map(({ key, contentType, sizeBytes }) => ({
+        const intents = await createUploadIntents(allocatedItems.map(({ key, storageKey, contentType, sizeBytes }) => ({
             userId: user.id,
             projectId: firstProjectId,
             bucket: 'project-files',
-            storageKey: key,
+            storageKey,
             scope: 'project_file',
             kind: 'file',
             expectedMimeType: contentType,
             expectedSize: sizeBytes,
-            metadata: { sessionId: options?.sessionId ?? null },
+            metadata: { sessionId: options?.sessionId ?? null, requestedKey: key },
         })));
 
-        const intentIdsByKey = new Map(intents.map(intent => [intent.storageKey, intent.id]));
+        const intentIdsByStorageKey = new Map(intents.map(intent => [intent.storageKey, intent.id]));
 
         const CONCURRENCY_LIMIT = 10;
-        const results: Array<{ key: string; url?: string; error: unknown; intentId: string }> = [];
-        for (let i = 0; i < normalizedItems.length; i += CONCURRENCY_LIMIT) {
-            const chunk = normalizedItems.slice(i, i + CONCURRENCY_LIMIT);
+        const results: Array<{ key: string; storageKey: string; url?: string; token?: string; error: unknown; intentId: string }> = [];
+        for (let i = 0; i < allocatedItems.length; i += CONCURRENCY_LIMIT) {
+            const chunk = allocatedItems.slice(i, i + CONCURRENCY_LIMIT);
             const chunkResults = await Promise.all(
-                chunk.map(async ({ key }) => {
-                    const intentId = intentIdsByKey.get(key) || '';
+                chunk.map(async ({ key, storageKey }) => {
+                    const intentId = intentIdsByStorageKey.get(storageKey) || '';
                     const { data, error } = await supabase.storage
                         .from('project-files')
-                        .createSignedUploadUrl(key, { upsert: true });
-                    return { key, url: data?.signedUrl, error, intentId };
+                        .createSignedUploadUrl(storageKey, { upsert: false });
+                    return { key, storageKey, url: data?.signedUrl, token: data?.token, error, intentId };
                 })
             );
             results.push(...chunkResults);
@@ -199,7 +215,9 @@ export async function getBatchUploadUrls(
         for (const result of results) {
             if (result.url) {
                 urls[result.key] = result.url;
+                if (result.token) uploadTokens[result.key] = result.token;
                 uploadIntentIds[result.key] = result.intentId;
+                storageKeys[result.key] = result.storageKey;
             }
         }
 
@@ -212,7 +230,7 @@ export async function getBatchUploadUrls(
             durationMs: Date.now() - startedAt,
         });
 
-        return { urls, uploadIntentIds };
+        return { urls, uploadTokens, uploadIntentIds, storageKeys };
     } catch (e) {
         if (e instanceof Error && isUploadValidationError(e.message)) {
             return { error: e.message, code: UPLOAD_ERROR_CODES.UPLOAD_VALIDATION_FAILED };

@@ -28,6 +28,7 @@ export type ProjectUpdateEntityRefs = {
 };
 
 export type ProjectUpdateMediaItem = {
+    assetId?: string | null;
     type: "image" | "file" | "link";
     url?: string | null;
     label?: string | null;
@@ -108,6 +109,17 @@ export const PROJECT_UPDATE_ALLOWED_IMAGE_MIME_TYPES = new Set([
     "image/gif",
 ]);
 export const PROJECT_UPDATE_MAX_SYNC_NOTIFICATION_RECIPIENTS = 120;
+
+export function projectUpdateMediaApplicationUrl(
+    bucket: unknown,
+    storageKey: unknown,
+): string | null {
+    if (bucket !== PROJECT_UPDATE_MEDIA_BUCKET || typeof storageKey !== "string") return null;
+    const key = storageKey.trim();
+    const match = /^projects\/([0-9a-f-]{36})\/update-media\//i.exec(key);
+    if (!match || key.includes("..")) return null;
+    return `/api/v1/projects/${encodeURIComponent(match[1]!)}/update-media?key=${encodeURIComponent(key)}`;
+}
 
 export const PROJECT_UPDATE_PERFORMANCE_BUDGETS = {
     readMs: 100,
@@ -331,19 +343,23 @@ export function normalizeProjectUpdateMediaItems(value: unknown, maxItems = PROJ
         const source = item as Record<string, unknown>;
         const type = source.type === "image" || source.type === "file" || source.type === "link" ? source.type : null;
         if (!type) return [];
-        const url = typeof source.url === "string" ? source.url.trim().slice(0, 2_000) : null;
-        if (url && !isSafeProjectUpdateUrl(url)) return [];
+        const storageKey = typeof source.storageKey === "string" ? source.storageKey.trim().slice(0, 1_024) : null;
+        const bucket = typeof source.bucket === "string" ? source.bucket.trim().slice(0, 160) : null;
+        const storedMediaUrl = projectUpdateMediaApplicationUrl(bucket, storageKey);
+        const sourceUrl = typeof source.url === "string" ? source.url.trim().slice(0, 2_000) : null;
+        if (!storedMediaUrl && sourceUrl && !isSafeProjectUpdateUrl(sourceUrl)) return [];
         return [{
             type,
-            url,
+            assetId: typeof source.assetId === "string" ? source.assetId.trim().slice(0, 64) : null,
+            url: storedMediaUrl ?? sourceUrl,
             label: typeof source.label === "string" ? source.label.trim().slice(0, 160) : null,
             altText: typeof source.altText === "string" ? source.altText.trim().slice(0, 240) : null,
             mimeType: typeof source.mimeType === "string" ? source.mimeType.trim().slice(0, 160) : null,
             size: typeof source.size === "number" && Number.isFinite(source.size) ? Math.max(0, Math.trunc(source.size)) : null,
             width: typeof source.width === "number" && Number.isFinite(source.width) ? Math.max(0, Math.trunc(source.width)) : null,
             height: typeof source.height === "number" && Number.isFinite(source.height) ? Math.max(0, Math.trunc(source.height)) : null,
-            bucket: typeof source.bucket === "string" ? source.bucket.trim().slice(0, 160) : null,
-            storageKey: typeof source.storageKey === "string" ? source.storageKey.trim().slice(0, 1_024) : null,
+            bucket,
+            storageKey,
         }];
     });
 }

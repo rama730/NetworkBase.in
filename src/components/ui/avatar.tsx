@@ -3,6 +3,11 @@
 import * as React from "react"
 import * as AvatarPrimitive from "@radix-ui/react-avatar"
 
+import {
+  avatarVariantSizeForDisplay,
+  publicAvatarVariantUrl,
+  type PublicAvatarVariantSize,
+} from "@/lib/profile/avatar-variants"
 import { getPersonAvatarTone, PERSON_AVATAR_TONE_STYLES } from "@/lib/ui/avatar"
 import { cn } from "@/lib/utils"
 
@@ -24,12 +29,15 @@ function Avatar({
 
 function AvatarImage({
   className,
+  sourceSize = avatarVariantSizeForDisplay(64),
+  src,
   ...props
-}: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+}: React.ComponentProps<typeof AvatarPrimitive.Image> & { sourceSize?: PublicAvatarVariantSize }) {
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
       className={cn("aspect-square size-full", className)}
+      src={typeof src === "string" ? publicAvatarVariantUrl(src, sourceSize) : src}
       {...props}
     />
   )

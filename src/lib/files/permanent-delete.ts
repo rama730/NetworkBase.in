@@ -5,9 +5,9 @@ import {
   projectDocs,
   projectNodes,
   projects,
+  storageAssets,
   taskNodeLinks,
 } from "@/lib/db/schema";
-import { createAdminClient } from "@/lib/supabase/server";
 import { parseProjectFileKey } from "@/lib/storage/project-file-key";
 import { recordNodeEvent } from "./internal-helpers";
 
@@ -74,7 +74,7 @@ export async function inspectPermanentDelete(
     );
   const versions = await tx.query.fileVersions.findMany({
     where: inArray(fileVersions.nodeId, ids),
-    columns: { s3Key: true },
+    columns: { s3Key: true, assetId: true },
     limit: MAX_PURGE_KEYS + 1,
   });
   if (versions.length > MAX_PURGE_KEYS)
@@ -93,6 +93,18 @@ export async function inspectPermanentDelete(
     throw new Error(
       "A storage key could not be safely verified. No files were deleted.",
     );
+  if (
+    nodes.some((node) => Boolean(node.s3Key) && !node.assetId)
+    || versions.some((version) => Boolean(version.s3Key) && !version.assetId)
+  ) {
+    throw new Error(
+      "Storage registration is still pending for part of this deletion.",
+    );
+  }
+  const assetIds = Array.from(new Set([
+    ...nodes.flatMap((node) => node.assetId ? [node.assetId] : []),
+    ...versions.flatMap((version) => version.assetId ? [version.assetId] : []),
+  ]));
   const [links, docs] = await Promise.all([
     tx
       .select({ count: sql<number>`count(*)::int` })
@@ -107,6 +119,7 @@ export async function inspectPermanentDelete(
     nodes,
     ids,
     keys,
+    assetIds,
     versions: versions.length,
     taskLinks: links[0]?.count ?? 0,
     documentLinks: docs[0]?.count ?? 0,
@@ -114,11 +127,9 @@ export async function inspectPermanentDelete(
 }
 
 /**
- * A committed tombstone is the durable work item. Storage is removed before
- * the final DB delete, under the same project lock used by all file writers.
- * On timeout/crash the tombstone survives, restoration is blocked, and the
- * idempotent worker retries. Shared blobs are retained, including references
- * from trashed nodes and older versions, not only current active files.
+ * A committed tombstone is the durable work item. Domain references are
+ * detached atomically and eligible assets are scheduled for the fenced
+ * storage worker. No provider I/O runs while database locks are held.
  */
 export async function finishPermanentDelete(projectId: string, nodeId: string) {
   return db.transaction(async (tx) => {
@@ -142,45 +153,6 @@ export async function finishPermanentDelete(projectId: string, nodeId: string) {
       plan.nodes.some((node) => node.metadata?.permanentDeleteRoot !== nodeId)
     )
       throw new Error("The deletion scope changed. Contact the project owner.");
-    const referenced = new Set<string>();
-    for (let offset = 0; offset < plan.keys.length; offset += 100) {
-      const keys = plan.keys.slice(offset, offset + 100);
-      const [otherNodes, otherVersions] = await Promise.all([
-        tx
-          .select({ key: projectNodes.s3Key })
-          .from(projectNodes)
-          .where(
-            and(
-              inArray(projectNodes.s3Key, keys),
-              notInArray(projectNodes.id, plan.ids),
-            ),
-          ),
-        tx
-          .select({ key: fileVersions.s3Key })
-          .from(fileVersions)
-          .where(
-            and(
-              inArray(fileVersions.s3Key, keys),
-              notInArray(fileVersions.nodeId, plan.ids),
-            ),
-          ),
-      ]);
-      for (const row of [...otherNodes, ...otherVersions])
-        if (row.key) referenced.add(row.key);
-    }
-    const removable = plan.keys.filter((key) => !referenced.has(key));
-    if (removable.length) {
-      const admin = await createAdminClient();
-      for (let offset = 0; offset < removable.length; offset += 100) {
-        const { error } = await admin.storage
-          .from("project-files")
-          .remove(removable.slice(offset, offset + 100));
-        if (error)
-          throw new Error(
-            "Storage cleanup is incomplete; deletion will be retried.",
-          );
-      }
-    }
     // nodeId must be null: the audit record must survive its target's removal.
     await recordNodeEvent(
       projectId,
@@ -194,8 +166,7 @@ export async function finishPermanentDelete(projectId: string, nodeId: string) {
         deletedIds: plan.ids,
         actorId: root.metadata.permanentDeleteActor,
         versions: plan.versions,
-        removedObjects: removable.length,
-        retainedSharedObjects: referenced.size,
+        scheduledAssets: plan.assetIds.length,
       },
       tx,
     );
@@ -207,6 +178,32 @@ export async function finishPermanentDelete(projectId: string, nodeId: string) {
           inArray(projectNodes.id, plan.ids),
         ),
       );
+    if (plan.assetIds.length > 0) {
+      await tx.update(storageAssets)
+        .set({
+          state: "delete_pending",
+          deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+          lastErrorCode: "PERMANENT_DELETE_DETACHED",
+          updatedAt: new Date(),
+        })
+        .where(and(
+          inArray(storageAssets.id, plan.assetIds),
+          eq(storageAssets.state, "verified"),
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${projectNodes}
+            WHERE ${projectNodes.assetId} = ${storageAssets.id}
+          )`,
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${fileVersions}
+            WHERE ${fileVersions.assetId} = ${storageAssets.id}
+          )`,
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${storageAssets} derivative
+            WHERE derivative.source_asset_id = ${storageAssets.id}
+              AND derivative.state NOT IN ('deleted', 'missing')
+          )`,
+        ));
+    }
     return { deletedIds: plan.ids };
   });
 }

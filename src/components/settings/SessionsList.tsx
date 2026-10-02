@@ -45,15 +45,14 @@ export function SessionsList({
       const contentType = res.headers.get("content-type") || "";
       const json = contentType.includes("application/json") ? await res.json() : null;
       if (!res.ok || json?.success === false) {
-        throw new Error(json?.message || `Failed to log out this device (${res.status})`);
+        throw new Error(json?.message || `Failed to sign out this device (${res.status})`);
       }
 
       window.location.assign("/login");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to log out this device");
+      throw error instanceof Error ? error : new Error("Failed to sign out this device");
     } finally {
       setBusy(false);
-      setPendingAction(null);
     }
   };
 
@@ -64,13 +63,13 @@ export function SessionsList({
       const contentType = res.headers.get("content-type") || "";
       const json = contentType.includes("application/json") ? await res.json() : null;
       if (!res.ok || json?.success === false) {
-        throw new Error(json?.message || `Failed to log out other devices (${res.status})`);
+        throw new Error(json?.message || `Failed to sign out other devices (${res.status})`);
       }
 
       setSessions((prev) => prev.filter((session) => session.is_current));
-      toast.success("Other devices were logged out");
+      toast.success("Other devices were signed out");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to log out other devices");
+      toast.error(error instanceof Error ? error.message : "Failed to sign out other devices");
     } finally {
       setBusy(false);
       setPendingAction(null);
@@ -100,10 +99,10 @@ export function SessionsList({
             {busy && pendingAction?.type === "others" ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Logging out...
+                Signing out…
               </>
             ) : (
-              "Log out other devices"
+              "Sign out other devices"
             )}
           </Button>
         ) : null}
@@ -147,7 +146,7 @@ export function SessionsList({
                   <Button
                     variant="ghost"
                     size="sm"
-                    aria-label="Log out this device"
+                    aria-label="Sign out this device"
                     disabled={busy}
                     onClick={() => setPendingAction({ type: "current", id: session.id })}
                   >
@@ -163,14 +162,17 @@ export function SessionsList({
       <ConfirmDialog
         open={pendingAction?.type === "current"}
         onOpenChange={(open) => { if (!open) setPendingAction(null); }}
-        title="Log out this device?"
+        title="Sign out on this device?"
         description="You will need to sign in again on this device."
-        confirmLabel="Log out"
+        confirmLabel="Sign out"
+        pendingLabel="Signing out…"
         variant="destructive"
+        loading={busy}
         onConfirm={() => {
           if (pendingAction?.type === "current") {
-            void handleLogOutCurrent(pendingAction.id);
+            return handleLogOutCurrent(pendingAction.id);
           }
+          return Promise.resolve();
         }}
       />
 

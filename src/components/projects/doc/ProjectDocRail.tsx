@@ -1,88 +1,161 @@
 "use client";
 
-import { useMemo } from "react";
-import { FileText, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { FileText, Loader2, Plus, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
+import { AddDocDialog } from "@/components/projects/doc/AddDocDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { normalizeProjectDocSlug } from "@/lib/projects/doc";
-import { useProjectDocList } from "@/hooks/projects/useProjectDocData";
+import type { ProjectDocListItem } from "@/lib/projects/doc";
+import {
+    PROJECT_DOC_LIST_QUERY_KEY,
+    PROJECT_DOCS_QUERY_KEY,
+    useProjectDocList,
+} from "@/hooks/projects/useProjectDocData";
 import { cn } from "@/lib/utils";
+
+const ACTIVE_ITEM = "border-foreground/20 bg-muted text-foreground font-semibold";
+const IDLE_ITEM = "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-muted/40";
+
+// One state machine for the desktop rail and the mobile bar: select, add, remove.
+function useDocRail(projectId: string, activeSlug: string) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const queryClient = useQueryClient();
+    const { data: docs = [], isLoading } = useProjectDocList(projectId);
+    const [addOpen, setAddOpen] = useState(false);
+    const [removing, setRemoving] = useState<ProjectDocListItem | null>(null);
+
+    const navigate = (slug: string | null) => {
+        const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
+        params.set("tab", "docs");
+        if (slug) params.set("doc", normalizeProjectDocSlug(slug));
+        else params.delete("doc");
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    };
+
+    const confirmRemove = async () => {
+        if (!removing) return;
+        const { unlinkProjectDocAction } = await import("@/app/actions/project/doc");
+        const result = await unlinkProjectDocAction(projectId, removing.slug);
+        if (!result.success) throw new Error(result.error);
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId) }),
+            queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) }),
+        ]);
+        if (removing.slug === activeSlug) navigate(null);
+        toast.success("Removed from Docs");
+    };
+
+    const dialogs = (
+        <>
+            <AddDocDialog projectId={projectId} open={addOpen} onOpenChange={setAddOpen} />
+            <ConfirmDialog
+                open={removing !== null}
+                onOpenChange={(open) => !open && setRemoving(null)}
+                title={`Remove ${removing?.filename ?? "doc"} from Docs?`}
+                description="The file stays in Files."
+                confirmLabel="Remove"
+                variant="destructive"
+                onConfirm={confirmRemove}
+            />
+        </>
+    );
+
+    return { docs, isLoading, navigate, openAdd: () => setAddOpen(true), askRemove: setRemoving, dialogs };
+}
+
+function AddDocButton({ onClick, className }: { onClick: () => void; className?: string }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label="Add doc"
+            title="Add doc"
+            className={cn("inline-flex items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground", className)}
+        >
+            <Plus className="size-3.5" />
+        </button>
+    );
+}
 
 export function ProjectDocRail({
     projectId,
     activeSlug,
+    canEdit = false,
 }: {
     projectId: string;
     activeSlug: string;
+    canEdit?: boolean;
 }) {
-    const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-
-    const { data: markdowns = [], isLoading } = useProjectDocList(projectId);
-
-    const sortedMarkdowns = useMemo(() => {
-        return [...markdowns].sort((a, b) => {
-            if (a.slug === "readme") return -1;
-            if (b.slug === "readme") return 1;
-            return a.filename.localeCompare(b.filename, undefined, { sensitivity: "base", numeric: true });
-        });
-    }, [markdowns]);
-
-    const handleSelect = (slug: string) => {
-        const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
-        params.set("tab", "docs");
-        params.set("doc", normalizeProjectDocSlug(slug));
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    };
+    const rail = useDocRail(projectId, activeSlug);
 
     return (
         <aside className="hidden w-full xl:block xl:w-[260px] shrink-0 border-l border-border pl-6" aria-label="Project documents">
             <div className="sticky top-[calc(var(--project-tabs-height,42px)+1rem)] space-y-2">
-                <div className="flex items-center justify-between pb-2">
+                <div className="flex items-center justify-between gap-2 pb-2">
                     <span className="nb-ui-label flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
                         <FileText className="size-3.5 text-muted-foreground" />
                         Documents
                     </span>
-                    {isLoading ? (
-                        <Loader2 className="size-3 animate-spin text-muted-foreground" />
-                    ) : (
-                        <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] font-semibold text-muted-foreground">
-                            {sortedMarkdowns.length}
-                        </span>
-                    )}
+                    <span className="flex items-center gap-1.5">
+                        {rail.isLoading ? (
+                            <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                        ) : (
+                            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground">
+                                {rail.docs.length}
+                            </span>
+                        )}
+                        {canEdit ? <AddDocButton onClick={rail.openAdd} className="size-6" /> : null}
+                    </span>
                 </div>
 
                 <nav className="space-y-1" aria-label="Documents list">
-                    {isLoading ? (
+                    {rail.isLoading ? (
                         <div className="space-y-1.5">
                             <div aria-hidden="true" className="nb-skeleton h-[34px] w-full rounded-[5px]" />
                             <div aria-hidden="true" className="nb-skeleton h-[34px] w-full rounded-[5px]" />
                         </div>
                     ) : (
-                        sortedMarkdowns.map((doc) => {
+                        rail.docs.map((doc) => {
                             const isActive = doc.slug === activeSlug;
                             return (
-                                <button
-                                    key={doc.id}
-                                    type="button"
-                                    onClick={() => handleSelect(doc.slug)}
-                                    aria-current={isActive ? "page" : undefined}
-                                    className={cn(
-                                        "flex w-full items-center gap-2 rounded-[5px] border px-2.5 py-2 text-left text-[13px] font-medium transition-colors select-none",
-                                        isActive
-                                            ? "border-primary bg-primary/10 text-primary font-semibold shadow-xs"
-                                            : "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-muted/40",
-                                    )}
-                                >
-                                    <FileText className={cn("size-3.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
-                                    <span className="truncate">{doc.filename}</span>
-                                </button>
+                                <div key={doc.id} className="group relative">
+                                    <button
+                                        type="button"
+                                        onClick={() => rail.navigate(doc.slug)}
+                                        aria-current={isActive ? "page" : undefined}
+                                        className={cn(
+                                            "flex w-full items-center gap-2 rounded-[5px] border px-2.5 py-2 text-left text-[13px] font-medium transition-colors select-none",
+                                            canEdit && "pr-8",
+                                            isActive ? ACTIVE_ITEM : IDLE_ITEM,
+                                        )}
+                                    >
+                                        <FileText className={cn("size-3.5 shrink-0", isActive ? "text-foreground" : "text-muted-foreground")} />
+                                        <span className="truncate">{doc.filename}</span>
+                                    </button>
+                                    {canEdit ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => rail.askRemove(doc)}
+                                            aria-label={`Remove ${doc.filename} from Docs`}
+                                            title="Remove from Docs"
+                                            className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-[4px] text-muted-foreground opacity-0 pointer-coarse:opacity-100 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                                        >
+                                            <X className="size-3.5" />
+                                        </button>
+                                    ) : null}
+                                </div>
                             );
                         })
                     )}
                 </nav>
             </div>
+            {canEdit ? rail.dialogs : null}
         </aside>
     );
 }
@@ -90,54 +163,36 @@ export function ProjectDocRail({
 export function ProjectDocMobileBar({
     projectId,
     activeSlug,
+    canEdit = false,
 }: {
     projectId: string;
     activeSlug: string;
+    canEdit?: boolean;
 }) {
-    const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
+    const rail = useDocRail(projectId, activeSlug);
 
-    const { data: markdowns = [], isLoading } = useProjectDocList(projectId);
-
-    const sortedMarkdowns = useMemo(() => {
-        return [...markdowns].sort((a, b) => {
-            if (a.slug === "readme") return -1;
-            if (b.slug === "readme") return 1;
-            return a.filename.localeCompare(b.filename, undefined, { sensitivity: "base", numeric: true });
-        });
-    }, [markdowns]);
-
-    const handleSelect = (slug: string) => {
-        const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
-        params.set("tab", "docs");
-        params.set("doc", normalizeProjectDocSlug(slug));
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    };
-
-    if (sortedMarkdowns.length <= 1 && !isLoading) return null;
+    if (rail.docs.length <= 1 && !rail.isLoading && !canEdit) return null;
 
     return (
-        <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-border pb-4 xl:hidden">
-            {isLoading ? (
+        <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-border pb-4 xl:hidden max-md:flex-nowrap max-md:overflow-x-auto max-md:snap-x">
+            {rail.isLoading ? (
                 <div className="flex h-[32px] items-center justify-center px-3 text-muted-foreground text-xs gap-1.5 shrink-0">
-                    <Loader2 className="size-3.5 animate-spin text-primary" />
+                    <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
                     Loading documents...
                 </div>
             ) : (
-                sortedMarkdowns.map((doc) => {
+                rail.docs.map((doc) => {
                     const isActive = doc.slug === activeSlug;
                     return (
                         <button
                             key={doc.id}
                             type="button"
-                            onClick={() => handleSelect(doc.slug)}
+                            onClick={() => rail.navigate(doc.slug)}
                             aria-current={isActive ? "page" : undefined}
+                            ref={isActive ? (element) => element?.scrollIntoView({ block: "nearest", inline: "nearest" }) : undefined}
                             className={cn(
-                                "inline-flex h-[32px] items-center justify-center rounded-[5px] border px-3 text-[12px] font-medium transition-colors truncate shrink-0 select-none",
-                                isActive
-                                    ? "border-primary bg-primary/10 text-primary font-semibold shadow-xs"
-                                    : "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-muted/40",
+                                "nb-touch-target inline-flex h-[32px] items-center justify-center rounded-[5px] border px-3 text-[12px] font-medium transition-colors truncate shrink-0 select-none max-md:snap-start",
+                                isActive ? ACTIVE_ITEM : IDLE_ITEM,
                             )}
                         >
                             <FileText className="size-3.5 shrink-0 mr-1.5 text-muted-foreground" />
@@ -146,6 +201,12 @@ export function ProjectDocMobileBar({
                     );
                 })
             )}
+            {canEdit ? (
+                <>
+                    <AddDocButton onClick={rail.openAdd} className="nb-touch-target h-[32px] w-[32px] shrink-0" />
+                    {rail.dialogs}
+                </>
+            ) : null}
         </div>
     );
 }

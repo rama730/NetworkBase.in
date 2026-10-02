@@ -14,6 +14,7 @@ import { canonicalSkillKey, matchingSkillLabels } from "@/lib/skills/matching";
 import { useConnectionMutations } from "@/hooks/useConnections";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { boundPersonCardItems } from "@/lib/network/person-card-bounds";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -72,8 +73,6 @@ export function PersonCardLayout({
     );
 }
 
-// ponytail: no virtualization; the DOM grows by one page (20–50 cards) per scroll and content-visibility skips
-// off-screen paint. Upgrade: a Virtuoso list of 2-card rows if a user ever reaches thousands of connections.
 export function PersonCardGrid<T>({
     items,
     getKey,
@@ -92,6 +91,7 @@ export function PersonCardGrid<T>({
     loadingLabel: string;
 }) {
     const sentinelRef = useRef<HTMLDivElement>(null);
+    const boundedItems = boundPersonCardItems(items);
 
     useEffect(() => {
         const sentinel = sentinelRef.current;
@@ -107,7 +107,7 @@ export function PersonCardGrid<T>({
         <div className="pb-8">
             {/* Rows stretch to their tallest card, so a sparse card beside a rich one stays aligned. */}
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
-                {items.map((item, index) => (
+                {boundedItems.map((item, index) => (
                     <div key={getKey(item)} className="[contain-intrinsic-size:auto_150px] [content-visibility:auto]">
                         {renderItem(item, index)}
                     </div>

@@ -22,12 +22,12 @@ export async function enqueueSupersededProfileImages(userId: string, urls: Array
   const results = await Promise.allSettled(storageKeys.map((storageKey) =>
     inngest.send({ name: "storage/profile-image.cleanup", data: { userId, storageKey } })
   ));
-  results.forEach((result, index) => {
+  results.forEach((result) => {
     if (result.status === "rejected") {
       logger.warn("profile.image.cleanup_enqueue_failed", {
         module: "profile",
         userId,
-        storageKey: storageKeys[index],
+        count: 1,
         error: result.reason instanceof Error ? result.reason.message : String(result.reason),
       });
     }

@@ -9,10 +9,6 @@ import {
   profiles,
   projects,
 } from "@/lib/db/schema";
-import {
-  deleteExtensionRecoveryDraftsForUser,
-  EXTENSION_RECOVERY_BUCKET,
-} from "@/lib/extension/recovery-drafts";
 import { logger } from "@/lib/logger";
 import { verifySignedJobRequestToken } from "@/lib/security/job-request";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -96,21 +92,20 @@ export async function executeHardDelete(
     }
 
     if (deletion.cleanupStatus === "completed") {
-      // Recovery drafts contain unpublished source text. Remove their private
-      // storage objects before deleting auth/DB ownership so the cleanup remains
-      // retryable and cannot leave ownerless draft bytes behind.
+      // A recovery draft without a lifecycle record would lose its cleanup
+      // evidence when the profile cascade runs. Registration must finish first.
       const recoveryDraftCount = await db
         .select({ id: extensionRecoveryDrafts.id })
         .from(extensionRecoveryDrafts)
-        .where(eq(extensionRecoveryDrafts.userId, userId));
+        .where(and(
+          eq(extensionRecoveryDrafts.userId, userId),
+          isNull(extensionRecoveryDrafts.assetId),
+        ));
       if (recoveryDraftCount.length > 0) {
-        await deleteExtensionRecoveryDraftsForUser(userId);
-        logger.info("account.hard-delete.extension-recovery-drafts.removed", {
-          module: "account",
-          userId,
-          bucket: EXTENSION_RECOVERY_BUCKET,
-          count: recoveryDraftCount.length,
-        });
+        return {
+          success: false,
+          error: `Storage registration pending for ${recoveryDraftCount.length} recovery drafts`,
+        };
       }
 
       // Database cleanup is the durable first phase. `in_progress` means this

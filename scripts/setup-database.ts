@@ -76,6 +76,7 @@ async function ensureJournalTable() {
       tag text PRIMARY KEY,
       applied_at timestamptz NOT NULL DEFAULT now(),
       checksum text,
+      journal_index integer,
       status text NOT NULL DEFAULT 'completed',
       started_at timestamptz,
       completed_at timestamptz,
@@ -84,6 +85,7 @@ async function ensureJournalTable() {
 
     ALTER TABLE public.${JOURNAL_TABLE}
       ADD COLUMN IF NOT EXISTS checksum text,
+      ADD COLUMN IF NOT EXISTS journal_index integer,
       ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'completed',
       ADD COLUMN IF NOT EXISTS started_at timestamptz,
       ADD COLUMN IF NOT EXISTS completed_at timestamptz,
@@ -108,7 +110,23 @@ async function ensureJournalTable() {
       END IF;
     END
     $journal_constraint$;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS app_migration_journal_index_unique
+      ON public.${JOURNAL_TABLE} (journal_index)
+      WHERE journal_index IS NOT NULL;
   `);
+}
+
+async function reconcileJournalIndexes(entries: JournalEntry[]) {
+  const tags = entries.map((entry) => entry.tag);
+  const indexes = entries.map((entry) => entry.idx);
+  await sql`
+    UPDATE public.app_migration_journal AS applied
+    SET journal_index = expected.journal_index
+    FROM unnest(${tags}::text[], ${indexes}::integer[]) AS expected(tag, journal_index)
+    WHERE applied.tag = expected.tag
+      AND applied.journal_index IS DISTINCT FROM expected.journal_index
+  `;
 }
 
 async function ensureAuthUidHelper() {
@@ -428,6 +446,7 @@ async function setupDatabase() {
   await acquireMigrationLock();
   try {
     await ensureAuthUidHelper();
+    await reconcileJournalIndexes(journal.entries);
     let appliedMigrations = await readAppliedMigrations();
     const hasExistingSchema = await databaseHasExistingApplicationSchema();
 
@@ -474,6 +493,10 @@ async function setupDatabase() {
     if (appliedCount === 0) {
       console.log("✅ Database already matches the migration journal.");
     } else {
+      // PostgREST caches the database catalog. Reload it only after the full
+      // migration batch commits so newly added tables and columns become
+      // available to Supabase clients as one coherent schema.
+      await sql.unsafe("NOTIFY pgrst, 'reload schema'");
       console.log(`✅ Applied ${appliedCount} migration${appliedCount === 1 ? "" : "s"} from the journal.`);
     }
 

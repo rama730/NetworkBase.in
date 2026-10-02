@@ -1,9 +1,16 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { fileVersions, profiles, projectNodes, type FileVersion } from "@/lib/db/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import {
+  fileVersions,
+  profiles,
+  projectNodes,
+  storageAssets,
+  type FileVersion,
+} from "@/lib/db/schema";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { createClient } from "@/lib/supabase/server";
+import { readBoundedStorageText } from "@/lib/storage/bounded-object-read";
 import { after } from "next/server";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/logger";
@@ -82,12 +89,18 @@ async function enqueueProjectFileVersionNotification(input: Parameters<typeof en
   }
 }
 
-export async function listFileVersions(
+export async function listFileVersionsPage(
   projectId: string,
   nodeId: string,
-  limit: number = 50,
-): Promise<(FileVersion & { uploadedByName?: string | null; uploadedByUsername?: string | null })[]> {
-  const effectiveLimit = Math.max(1, Math.min(Math.trunc(limit), LIST_VERSIONS_MAX));
+  options?: { limit?: number; beforeVersion?: number | null },
+): Promise<{
+  versions: (FileVersion & { uploadedByName?: string | null; uploadedByUsername?: string | null })[];
+  nextCursor: number | null;
+}> {
+  const requestedLimit = Math.max(1, Math.min(Math.trunc(options?.limit ?? 50), LIST_VERSIONS_MAX));
+  const beforeVersion = options?.beforeVersion == null
+    ? null
+    : Math.max(1, Math.trunc(options.beforeVersion));
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const actorId = user?.id ?? null;
@@ -103,27 +116,44 @@ export async function listFileVersions(
   if (node.type !== "file") throw new Error("Versions are tracked only on files");
 
   const rows = await db
-    .select({
-      id: fileVersions.id,
-      nodeId: fileVersions.nodeId,
-      version: fileVersions.version,
-      s3Key: fileVersions.s3Key,
-      size: fileVersions.size,
-      mimeType: fileVersions.mimeType,
-      contentHash: fileVersions.contentHash,
-      uploadedBy: fileVersions.uploadedBy,
-      uploadedAt: fileVersions.uploadedAt,
-      comment: fileVersions.comment,
-      attribution: fileVersions.attribution,
-      uploadedByName: profiles.fullName,
-      uploadedByUsername: profiles.username,
-    })
-    .from(fileVersions)
-    .leftJoin(profiles, eq(fileVersions.uploadedBy, profiles.id))
-    .where(eq(fileVersions.nodeId, nodeId))
-    .orderBy(desc(fileVersions.version))
-    .limit(effectiveLimit);
-  return rows;
+      .select({
+        id: fileVersions.id,
+        nodeId: fileVersions.nodeId,
+        version: fileVersions.version,
+        s3Key: fileVersions.s3Key,
+        assetId: fileVersions.assetId,
+        size: fileVersions.size,
+        mimeType: fileVersions.mimeType,
+        contentHash: fileVersions.contentHash,
+        uploadedBy: fileVersions.uploadedBy,
+        uploadedAt: fileVersions.uploadedAt,
+        comment: fileVersions.comment,
+        attribution: fileVersions.attribution,
+        uploadedByName: profiles.fullName,
+        uploadedByUsername: profiles.username,
+      })
+      .from(fileVersions)
+      .leftJoin(profiles, eq(fileVersions.uploadedBy, profiles.id))
+      .where(and(
+        eq(fileVersions.nodeId, nodeId),
+        beforeVersion == null ? undefined : lt(fileVersions.version, beforeVersion),
+      ))
+      .orderBy(desc(fileVersions.version))
+      .limit(requestedLimit + 1);
+  const versions = rows.slice(0, requestedLimit);
+  return {
+    versions,
+    nextCursor: rows.length > requestedLimit ? versions.at(-1)?.version ?? null : null,
+  };
+}
+
+export async function listFileVersions(
+  projectId: string,
+  nodeId: string,
+  limit: number = LIST_VERSIONS_MAX,
+) {
+  const page = await listFileVersionsPage(projectId, nodeId, { limit });
+  return page.versions;
 }
 
 /**
@@ -155,13 +185,12 @@ export async function getVersionSignedUrl(
     throw new Error("Version key does not belong to this project");
   }
 
-  const admin = await createAdminClient();
-  const { data, error } = await admin.storage
-    .from("project-files")
-    .createSignedUrl(version_row.s3Key, clampedTtl, { download });
-  if (error || !data?.signedUrl) throw new Error("Failed to create signed URL");
-
-  return { url: data.signedUrl, expiresAt: Date.now() + clampedTtl * 1000 };
+  const params = new URLSearchParams({ revision: String(version) });
+  if (download) params.set("download", "1");
+  return {
+    url: `/api/v1/projects/${projectId}/files/${nodeId}/preview?${params.toString()}`,
+    expiresAt: Date.now() + Math.min(clampedTtl, 240) * 1000,
+  };
 }
 
 /**
@@ -433,11 +462,11 @@ export async function getFileVersionContentAction(
     throw new Error("File version too large for line diff comparison.");
   }
 
-  const adminClient = await createAdminClient();
-  const { data, error } = await adminClient.storage.from("project-files").download(versionRow.s3Key);
-  if (error) throw error;
-  
-  const text = await data.text();
+  const text = await readBoundedStorageText({
+    bucket: "project-files",
+    storageKey: versionRow.s3Key,
+    maxBytes: MAX_INLINE_BYTES,
+  });
   return { success: true, content: text };
 }
 
@@ -473,6 +502,7 @@ export async function deleteFileVersionAction(
           s3Key: true,
           size: true,
           mimeType: true,
+          assetId: true,
         },
         orderBy: desc(fileVersions.version),
         limit: 100,
@@ -480,6 +510,9 @@ export async function deleteFileVersionAction(
       if (versions.length <= 1) throw new Error("Cannot delete the only remaining version of this file.");
       const target = versions.find((version) => version.version === versionNumber);
       if (!target) throw new Error("Version not found");
+      if (!target.assetId) {
+        throw new Error("Storage registration is pending for this file version");
+      }
       await tx.delete(fileVersions).where(eq(fileVersions.id, target.id));
 
       let nextActiveVersion: number | null = null;
@@ -494,25 +527,35 @@ export async function deleteFileVersionAction(
             s3Key: remaining.s3Key,
             size: remaining.size,
             mimeType: remaining.mimeType,
+            assetId: remaining.assetId,
             currentVersion: remaining.version,
             updatedAt: new Date(),
           })
           .where(eq(projectNodes.id, nodeId))
           .returning();
       }
+      await tx.update(storageAssets)
+        .set({
+          state: "delete_pending",
+          deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+          lastErrorCode: "FILE_VERSION_DETACHED",
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(storageAssets.id, target.assetId),
+          eq(storageAssets.state, "verified"),
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${fileVersions}
+            WHERE ${fileVersions.assetId} = ${target.assetId}
+          )`,
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${projectNodes}
+            WHERE ${projectNodes.assetId} = ${target.assetId}
+          )`,
+        ));
       return { target, nextActiveVersion, updatedNode };
     }),
   );
-
-  const [versionReference, nodeReference] = await Promise.all([
-    db.query.fileVersions.findFirst({ where: eq(fileVersions.s3Key, mutation.target.s3Key), columns: { id: true } }),
-    db.query.projectNodes.findFirst({ where: eq(projectNodes.s3Key, mutation.target.s3Key), columns: { id: true } }),
-  ]);
-  // Copies and trashed files may still refer to a blob without a version row.
-  if (!versionReference && !nodeReference && parseProjectFileKey(mutation.target.s3Key)?.projectId === projectId) {
-    const adminClient = await createAdminClient();
-    await adminClient.storage.from("project-files").remove([mutation.target.s3Key]).catch(() => null);
-  }
 
   await recordNodeEvent(projectId, user.id, nodeId, "delete_file_version", {
     deletedVersion: versionNumber,

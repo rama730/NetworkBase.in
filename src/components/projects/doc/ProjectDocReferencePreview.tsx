@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, FileText, ListTodo, Timer, Users } from "lucide-react";
+import { AlertTriangle, FileText, ListTodo, Timer, Users } from "lucide-react";
 import Image from "next/image";
 
 import type { ProjectDocReferenceOption, ProjectDocSmartBlockPreview } from "@/lib/projects/doc-blocks";
@@ -20,15 +20,7 @@ function referenceMeta(option: ProjectDocReferenceOption) {
     return option.context || [option.status, option.meta, option.subtitle].filter(Boolean).join(" · ") || "Project reference";
 }
 
-export function ProjectDocReferenceOptionCard({
-    option,
-    selected = false,
-    onSelect,
-}: {
-    option: ProjectDocReferenceOption;
-    selected?: boolean;
-    onSelect?: () => void;
-}) {
+export function ProjectDocReferenceOptionCard({ option }: { option: ProjectDocReferenceOption }) {
     const Icon = KIND_ICON[option.kind] ?? FileText;
     const titlePresentation = option.kind === "tasks"
         ? getTaskTitlePresentation(option)
@@ -67,28 +59,10 @@ export function ProjectDocReferenceOptionCard({
                     </div>
                 ) : null}
             </div>
-            {selected ? <CheckCircle2 className="size-4 shrink-0 text-primary" /> : null}
         </div>
     );
 
-    if (!onSelect) {
-        return <div className="rounded-[5px] border border-border bg-card px-3 py-2">{content}</div>;
-    }
-
-    return (
-        <button
-            type="button"
-            onClick={onSelect}
-            className={cn(
-                "w-full rounded-[5px] border px-3 py-2 text-left transition-colors",
-                selected
-                    ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                    : "border-border bg-card hover:border-foreground/20 hover:bg-muted/40",
-            )}
-        >
-            {content}
-        </button>
-    );
+    return <div className="rounded-[5px] border border-border bg-card px-3 py-2">{content}</div>;
 }
 
 export function ProjectDocSmartBlockPreviewCard({ preview }: { preview: ProjectDocSmartBlockPreview }) {
@@ -104,7 +78,7 @@ export function ProjectDocSmartBlockPreviewCard({ preview }: { preview: ProjectD
         >
             <div className="flex items-start gap-3">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-[5px] border border-border bg-muted/50">
-                    <Icon className={cn("size-4", preview.safeUnavailable ? "text-amber-500" : "text-primary")} />
+                    <Icon className={cn("size-4", preview.safeUnavailable ? "text-amber-500" : "text-muted-foreground")} />
                 </span>
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center justify-between gap-2">

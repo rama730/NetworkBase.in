@@ -8,7 +8,6 @@ function getWorkerOnlyFunctions() {
   const { flushUpdateLikes } = loadModule("./functions/flush-likes");
   const { cleanupProjectUpdate } = loadModule("./functions/cleanup-update");
   const { gitPull, gitPush, gitSyncRecovery, lockCleanup, uploadIntentCleanup } = loadModule("./functions/git-sync");
-  const { migrateProjectFileLegacyKeys } = loadModule("./functions/project-files-key-migration");
   const { finishPendingFileDeletions } = loadModule("./functions/project-files-permanent-delete");
   const { reconcileProjectFiles } = loadModule("./functions/project-files-reconciliation");
   const { onboardingClaimsRepair } = loadModule("./functions/onboarding-claims-repair");
@@ -30,6 +29,8 @@ function getWorkerOnlyFunctions() {
   const { reconcileSprintSchedule } = loadModule("./functions/sprint-schedule");
   const { cleanupSupersededProfileImage } = loadModule("./functions/profile-image-cleanup");
   const { dataLifecycleRetention } = loadModule("./functions/data-lifecycle-retention");
+  const { storageAssetDeletion } = loadModule("./functions/storage-asset-deletion");
+  const { storageAssetBackup } = loadModule("./functions/storage-asset-backup");
 
   return [
     projectImport,
@@ -45,7 +46,6 @@ function getWorkerOnlyFunctions() {
     cleanupProjectUpdate,
     reconcileProjectFiles,
     finishPendingFileDeletions,
-    migrateProjectFileLegacyKeys,
     projectImportStaleReconcile,
     reconcileWorkspaceProfileCounters,
     workspaceCountersRefresh,
@@ -63,6 +63,8 @@ function getWorkerOnlyFunctions() {
     reconcileSprintSchedule,
     cleanupSupersededProfileImage,
     dataLifecycleRetention,
+    storageAssetDeletion,
+    storageAssetBackup,
   ] as const;
 }
 

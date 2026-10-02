@@ -48,10 +48,11 @@ test("QRY-024..030 maintenance workers are bounded, durable, and starvation-safe
   assert.match(reconciliation, /jobHeartbeats\.lastPayload/);
   assert.match(reconciliation, /projectNodes\.projectId\}, \$\{projectNodes\.id\}\) >/);
   assert.match(stale, /lt\(projects\.updatedAt, staleBefore\)/);
-  assert.match(cleanup, /createAdminClient/);
-  assert.match(cleanup, /gt\(projects\.id, cursor\)/);
-  assert.match(cleanup, /deleteStoragePrefix\(supabase, bucket, prefix\)/);
-  assert.match(cleanup, /gt\(messageAttachments\.id, cursor\)/);
+  assert.match(cleanup, /unregisteredStorageReferences/);
+  assert.match(cleanup, /storageAssets\.state/);
+  assert.match(cleanup, /"delete_pending"/);
+  assert.match(cleanup, /physicalDeletionOwner: "storage-asset-deletion"/);
+  assert.doesNotMatch(cleanup, /\.storage\.from\(|deleteStoragePrefix/);
   assert.match(hardDelete, /orderBy\(asc\(accountDeletions\.hardDeleteAt\), asc\(accountDeletions\.id\)\)/);
   assert.match(hardDelete, /\.limit\(100\)/);
   assert.match(hashes, /gt\(fileVersions\.id, afterId\)/);
@@ -70,15 +71,11 @@ test("QRY-031 legacy normalization is explicit, set-based, and cycle-guarded", (
   assert.doesNotMatch(backfill, /db\.select\(\)\.from\(projects\)|function buildPath/);
 });
 
-test("QRY-032 migration uses deterministic objects and transactional metadata cleanup", () => {
-  const migration = source("scripts/migrate-task-files-to-project-files.ts");
-
-  assert.match(migration, /legacy-task-files\/\$\{legacy\.id\}/);
-  assert.match(migration, /upsert:\s*true/);
-  assert.match(migration, /sql\.begin/);
-  assert.match(migration, /pg_advisory_xact_lock/);
-  assert.match(migration, /SELECT id FROM project_nodes WHERE s3_key = \$\{copiedPath\}/);
-  assert.match(migration, /from\("project-files"\)\.remove\(\[copiedPath\]\)/);
+test("QRY-032 obsolete task-file migration is retired", () => {
+  assert.equal(
+    fs.existsSync(path.join(root, "scripts/migrate-task-files-to-project-files.ts")),
+    false,
+  );
 });
 
 test("QRY-033 validates concurrent replacement indexes before an atomic name swap", () => {

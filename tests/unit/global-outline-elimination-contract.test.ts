@@ -7,30 +7,30 @@ function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("application enforces universal elimination of outer orange focus outline lines", () => {
+test("application focus never renders an outer orange line", () => {
   const globals = source("src/app/globals.css");
   const button = source("src/components/ui/button.tsx");
   const input = source("src/components/ui/input.tsx");
+  const select = source("src/components/ui/select.tsx");
 
-  // globals.css must never contain outline: 2px solid var(--ring)
-  assert.doesNotMatch(globals, /outline:\s*2px\s+solid\s+var\(--ring\)/);
-  assert.doesNotMatch(globals, /outline:\s*.*var\(--ring\)/);
-
-  // globals.css base layer enforces outline: none !important
-  assert.match(globals, /\*:focus,\s*\*:focus-visible\s*\{\s*outline:\s*none\s*!important;\s*\}/);
-
-  // Complete elimination rule covers all interactive elements, dialogs, buttons, inputs, tabs, and nav links
-  assert.match(globals, /outline:\s*none\s*!important;\s*outline-width:\s*0\s*!important;\s*outline-color:\s*transparent\s*!important;\s*box-shadow:\s*none\s*!important;/);
+  assert.doesNotMatch(globals, /0 0 0 4px var\(--ring\)/);
+  assert.match(globals, /Final focus-chrome guard/);
+  assert.match(globals, /\*:focus,\s*\*:focus-visible,[\s\S]*\.nb-command-input[\s\S]*\[data-command-palette-dialog\][\s\S]*\{/);
+  assert.match(globals, /outline-width:\s*0\s*!important;/);
+  assert.match(globals, /--tw-ring-shadow:\s*0 0 #0000\s*!important;/);
+  assert.match(globals, /box-shadow:\s*none\s*!important;/);
 
   // Project cards do not turn orange on focus
   assert.doesNotMatch(globals, /\.nb-project-card:focus-within\s*\{\s*border-color:var\(--ring\)/);
   assert.match(globals, /\.nb-project-card:focus-within\s*\{\s*border-color:var\(--border\)/);
 
-  // Button variants do not carry orange ring focus styles
-  assert.doesNotMatch(button, /focus-visible:ring-ring/);
+  // Shared controls use tonal focus states, never an outer halo.
   assert.doesNotMatch(button, /focus-visible:ring-2/);
-
-  // Input does not carry orange ring focus styles
-  assert.doesNotMatch(input, /focus-visible:ring-ring/);
-  assert.doesNotMatch(input, /focus-visible:ring-2/);
+  assert.doesNotMatch(button, /focus-visible:ring-ring/);
+  assert.match(button, /focus-visible:brightness-\[0\.92\]/);
+  assert.match(button, /focus-visible:shadow-none!/);
+  assert.doesNotMatch(input, /focus-visible:(?:border-ring|ring-)/);
+  assert.match(input, /focus-visible:bg-muted\/20/);
+  assert.doesNotMatch(select, /focus-visible:(?:border-ring|ring-)/);
+  assert.match(select, /focus-visible:bg-muted\/20/);
 });

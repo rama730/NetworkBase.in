@@ -13,6 +13,7 @@ import {
     messageReadReceipts,
     messageDeliveryReceipts,
     attachmentUploads,
+    storageAssets,
     messageHiddenForUsers,
     messageEditLogs,
     messagePins,
@@ -21,7 +22,7 @@ import {
     projects,
     roleApplications,
 } from '@/lib/db/schema';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { getAuthUser } from '@/lib/supabase/auth-user';
 import { eq, and, asc, desc, lt, gt, ne, isNull, inArray, sql, or } from 'drizzle-orm';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
@@ -42,10 +43,6 @@ import {
 import { buildConversationParticipantPreview } from '@/lib/messages/preview-authority';
 import { buildMessageAttachmentAccessUrl } from '@/lib/messages/attachment-access';
 import { resolveAttachmentStoragePath } from '@/lib/messages/attachment-storage-path';
-import {
-    MESSAGE_MEDIA_PREVIEW_MAX_WIDTH,
-    normalizeMediaDimensions,
-} from '@/lib/messages/media-metadata';
 import { isTemporaryMessageId } from '@/lib/messages/utils';
 import { emitMessageBurstNotifications } from '@/lib/notifications/emitters';
 import {
@@ -63,12 +60,6 @@ import {
     type MessageDeliveryState,
     withDeliveryMetadata,
 } from '@/lib/messages/delivery-state';
-import {
-    ATTACHMENT_UPLOAD_MAX_FILE_BYTES,
-    normalizeAndValidateFileSize,
-    normalizeAndValidateMimeType,
-    validateUploadedFileMagicBytes,
-} from '@/lib/upload/security';
 import { isUuid } from '@/lib/validations/uuid';
 import { APPLICATION_BANNER_HIDE_AFTER_MS } from '@/lib/chat/banner-lifecycle';
 import {
@@ -237,8 +228,6 @@ export async function isDirectMessagingAllowed(viewerId: string, otherUserId: st
     return { allowed: false, error: 'You can only message your connections' };
 }
 
-const ATTACHMENTS_BUCKET = 'chat-attachments';
-const ATTACHMENT_SIGNED_URL_TTL_SECONDS = 60 * 15;
 const MESSAGE_EDIT_WINDOW_MINUTES = 15;
 const MAX_MESSAGE_CONTENT_LENGTH = 4000;
 const MAX_SEARCH_TEXT_QUERY_LENGTH = 256;
@@ -987,48 +976,6 @@ type NormalizedAttachmentInput = UploadedAttachment & {
     storagePath: string;
 };
 
-function buildImageThumbnailUrl(signedUrl: string): string {
-    return signedUrl.replace('/object/sign/', '/render/image/sign/')
-        + `&width=${MESSAGE_MEDIA_PREVIEW_MAX_WIDTH}&resize=contain&format=origin`;
-}
-
-async function resolveSignedAttachmentUrls(paths: string[]): Promise<Map<string, string>> {
-    const uniquePaths = Array.from(new Set(paths.filter(Boolean)));
-    if (uniquePaths.length === 0) return new Map();
-
-    const buildSignedMap = async (source: 'admin' | 'user') => {
-        const client = source === 'admin' ? await createAdminClient() : await createClient();
-        const { data, error } = await client.storage
-            .from(ATTACHMENTS_BUCKET)
-            .createSignedUrls(uniquePaths, ATTACHMENT_SIGNED_URL_TTL_SECONDS);
-
-        if (error || !data) {
-            throw error || new Error(`Signed URL generation failed (${source})`);
-        }
-
-        const signedByPath = new Map<string, string>();
-        data.forEach((item, index) => {
-            const path = item.path || uniquePaths[index];
-            if (path && item.signedUrl) {
-                signedByPath.set(path, item.signedUrl);
-            }
-        });
-        return signedByPath;
-    };
-
-    try {
-        return await buildSignedMap('admin');
-    } catch (error) {
-        console.error('Failed to generate signed attachment URLs with admin client:', error);
-        try {
-            return await buildSignedMap('user');
-        } catch (fallbackError) {
-            console.error('Failed to generate signed attachment URLs with user client:', fallbackError);
-            return new Map();
-        }
-    }
-}
-
 async function hydrateAttachmentUrls(attachmentRows: AttachmentRowForResolution[]) {
     if (attachmentRows.length === 0) return [];
 
@@ -1121,6 +1068,7 @@ async function claimAttachmentUploadsForMessage(
         ))
         .returning({
             clientUploadId: attachmentUploads.clientUploadId,
+            assetId: attachmentUploads.assetId,
             storagePath: attachmentUploads.storagePath,
             filename: attachmentUploads.filename,
             mimeType: attachmentUploads.mimeType,
@@ -1145,6 +1093,7 @@ async function claimAttachmentUploadsForMessage(
                 : 'file';
         return {
             ...input,
+            assetId: upload.assetId,
             type,
             storagePath: upload.storagePath,
             filename: upload.filename,
@@ -3038,241 +2987,6 @@ export interface UploadedAttachment {
     localUrl?: string;
 }
 
-export async function uploadAttachment(
-    formData: FormData
-): Promise<{ success: boolean; error?: string; attachment?: UploadedAttachment }> {
-    try {
-        const user = await getAuthUser();
-        if (!user) return { success: false, error: 'Not authenticated' };
-
-        const file = formData.get('file') as File;
-        if (!file) return { success: false, error: 'No file provided' };
-        const mediaDimensions = normalizeMediaDimensions(
-            formData.get('width'),
-            formData.get('height'),
-        );
-        const clientUploadIdRaw = formData.get('clientUploadId');
-        const clientUploadId =
-            typeof clientUploadIdRaw === 'string' && clientUploadIdRaw.trim().length > 0
-                ? clientUploadIdRaw.trim()
-                : (typeof crypto !== 'undefined' && 'randomUUID' in crypto
-                    ? crypto.randomUUID()
-                    : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
-        if (clientUploadId.length > 160) {
-            return { success: false, error: 'Invalid upload id' };
-        }
-        const conversationIdRaw = formData.get('conversationId');
-        const candidateConversationId = typeof conversationIdRaw === 'string'
-            ? conversationIdRaw.trim()
-            : '';
-        const conversationId = (
-            candidateConversationId
-            && candidateConversationId !== 'new'
-            && !candidateConversationId.startsWith('draft:')
-        )
-            ? candidateConversationId
-            : null;
-        if (conversationId && !isUuid(conversationId)) {
-            return { success: false, error: 'Invalid conversation' };
-        }
-        if (conversationId && !await getConversationMembershipId(conversationId, user.id)) {
-            return { success: false, error: 'Conversation not found' };
-        }
-
-        const maxAttachmentSizeMb = Math.floor(ATTACHMENT_UPLOAD_MAX_FILE_BYTES / (1024 * 1024));
-        let normalizedSize = 0;
-        try {
-            normalizedSize = normalizeAndValidateFileSize(file.size, ATTACHMENT_UPLOAD_MAX_FILE_BYTES);
-        } catch {
-            return { success: false, error: `File too large. Maximum size is ${maxAttachmentSizeMb}MB.` };
-        }
-
-        let mimeType = '';
-        try {
-            mimeType = normalizeAndValidateMimeType(file.type || 'application/octet-stream');
-        } catch {
-            return { success: false, error: 'Unsupported file type.' };
-        }
-
-        try {
-            await validateUploadedFileMagicBytes(file, mimeType);
-        } catch {
-            return { success: false, error: 'Uploaded file contents do not match the declared type.' };
-        }
-
-        const ext = (file.name.split('.').pop() || '').toLowerCase();
-        const allowedDocumentMimes = new Set([
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'text/plain',
-        ]);
-        const allowedDocumentExtensions = new Set(['pdf', 'doc', 'docx', 'txt']);
-        const isAllowedMime =
-            mimeType.startsWith('image/') ||
-            mimeType.startsWith('video/') ||
-            allowedDocumentMimes.has(mimeType);
-        const isAllowedByExtension = allowedDocumentExtensions.has(ext);
-
-        if (!isAllowedMime && !isAllowedByExtension) {
-            return {
-                success: false,
-                error: 'Unsupported file type. Please upload image, video, PDF, DOC, DOCX, or TXT files.',
-            };
-        }
-
-        // Determine file type
-        let fileType: 'image' | 'video' | 'file' = 'file';
-        if (mimeType.startsWith('image/')) {
-            fileType = 'image';
-        } else if (mimeType.startsWith('video/')) {
-            fileType = 'video';
-        }
-
-        const uploadSession = await db
-            .insert(attachmentUploads)
-            .values({
-                userId: user.id,
-                clientUploadId,
-                conversationId,
-                filename: file.name,
-                mimeType,
-                sizeBytes: normalizedSize,
-                status: 'uploading',
-                error: null,
-                updatedAt: new Date(),
-                expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
-            })
-            .onConflictDoUpdate({
-                target: [attachmentUploads.userId, attachmentUploads.clientUploadId],
-                set: {
-                    conversationId,
-                    filename: file.name,
-                    mimeType,
-                    sizeBytes: normalizedSize,
-                    status: 'uploading',
-                    error: null,
-                    storagePath: null,
-                    updatedAt: new Date(),
-                    expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
-                },
-                setWhere: sql`${attachmentUploads.status} IN ('queued', 'failed', 'canceled', 'expired')`,
-            })
-            .returning({ id: attachmentUploads.id });
-        if (uploadSession.length !== 1) {
-            return { success: false, error: 'This upload reference has already been used.' };
-        }
-
-        // Generate unique filename
-        const timestamp = Date.now();
-        const uniqueName = `${timestamp}-${Math.random().toString(36).substring(7)}.${ext || 'bin'}`;
-        const storagePath = `${user.id}/${uniqueName}`;
-
-        // Upload with user-scoped client for RLS-compliant write.
-        const supabase = await createClient();
-        const { error: uploadError } = await supabase.storage
-            .from(ATTACHMENTS_BUCKET)
-            .upload(storagePath, file, {
-                contentType: mimeType || undefined,
-                // Object keys are immutable; replacements always receive a new key.
-                cacheControl: '31536000',
-                upsert: false,
-            });
-
-        if (uploadError) {
-            console.error('Storage upload error:', uploadError);
-            await db
-                .update(attachmentUploads)
-                .set({
-                    status: 'failed',
-                    error: uploadError.message || 'Failed to upload file',
-                    updatedAt: new Date(),
-                })
-                .where(
-                    and(
-                        eq(attachmentUploads.userId, user.id),
-                        eq(attachmentUploads.clientUploadId, clientUploadId),
-                        eq(attachmentUploads.status, 'uploading'),
-                    )
-                );
-            return { success: false, error: 'Failed to upload file' };
-        }
-
-        // Record the durable object path immediately after Storage succeeds.
-        // Signing is an optional presentation step; retention can now always
-        // locate and remove the object if anything below fails.
-        const uploadedTransition = await db
-            .update(attachmentUploads)
-            .set({
-                status: 'uploaded',
-                storagePath,
-                error: null,
-                updatedAt: new Date(),
-            })
-            .where(
-                and(
-                    eq(attachmentUploads.userId, user.id),
-                    eq(attachmentUploads.clientUploadId, clientUploadId),
-                    eq(attachmentUploads.status, 'uploading'),
-                )
-            )
-            .returning({ id: attachmentUploads.id });
-        if (uploadedTransition.length !== 1) {
-            const admin = await createAdminClient();
-            await admin.storage.from(ATTACHMENTS_BUCKET).remove([storagePath]);
-            return { success: false, error: 'Upload was canceled before it completed.' };
-        }
-
-        // Generate short-lived URL for optimistic rendering in sender UI.
-        // Durable source-of-truth is storagePath persisted with the message.
-        const signedByPath = await resolveSignedAttachmentUrls([storagePath]);
-        const signedUrl = signedByPath.get(storagePath);
-        if (!signedUrl) {
-            await db
-                .update(attachmentUploads)
-                .set({
-                    error: 'Failed to generate file URL',
-                    updatedAt: new Date(),
-                })
-                .where(
-                    and(
-                        eq(attachmentUploads.userId, user.id),
-                        eq(attachmentUploads.clientUploadId, clientUploadId),
-                        eq(attachmentUploads.status, 'uploaded'),
-                    )
-                );
-            return { success: false, error: 'Failed to generate file URL' };
-        }
-
-        // Generate thumbnail URL for images
-        const tinyBase64 = formData.get('tinyBase64');
-        let thumbnailUrl: string | null = null;
-        if (typeof tinyBase64 === 'string' && tinyBase64.startsWith('data:image/')) {
-            thumbnailUrl = tinyBase64;
-        } else if (fileType === 'image') {
-            thumbnailUrl = buildImageThumbnailUrl(signedUrl);
-        }
-
-        const attachment: UploadedAttachment = {
-            id: clientUploadId,
-            storagePath,
-            type: fileType,
-            url: signedUrl,
-            filename: file.name,
-            sizeBytes: normalizedSize,
-            mimeType: mimeType || 'application/octet-stream',
-            thumbnailUrl,
-            width: mediaDimensions?.width ?? null,
-            height: mediaDimensions?.height ?? null,
-        };
-
-        return { success: true, attachment };
-    } catch (error) {
-        console.error('Error uploading attachment:', error);
-        return { success: false, error: 'Failed to upload attachment' };
-    }
-}
-
 export async function cancelAttachmentUpload(
     clientUploadId: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -3297,23 +3011,25 @@ export async function cancelAttachmentUpload(
             )
             .returning({
                 id: attachmentUploads.id,
+                assetId: attachmentUploads.assetId,
                 storagePath: attachmentUploads.storagePath,
             });
 
-        if (canceled[0]?.storagePath) {
-            const admin = await createAdminClient();
-            const { error } = await admin.storage
-                .from(ATTACHMENTS_BUCKET)
-                .remove([canceled[0].storagePath]);
-            if (error) {
-                await db
-                    .update(attachmentUploads)
-                    .set({
-                        error: `cleanup_pending:${error.message}`,
-                        updatedAt: new Date(),
-                    })
-                    .where(eq(attachmentUploads.id, canceled[0].id));
-            }
+        if (canceled[0]?.assetId) {
+            // The issued credential can remain valid until the intent expires.
+            // Hide the session now and let the fenced lifecycle worker remove
+            // bytes after that recreation window closes.
+            await db
+                .update(storageAssets)
+                .set({
+                    state: 'delete_pending',
+                    deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+                    updatedAt: new Date(),
+                })
+                .where(and(
+                    eq(storageAssets.id, canceled[0].assetId),
+                    inArray(storageAssets.state, ['pending', 'verified']),
+                ));
         }
 
         if (canceled.length === 0) {
@@ -3556,12 +3272,32 @@ export async function sendMessageWithAttachments(
 
             let insertedAttachments: Array<typeof messageAttachments.$inferSelect> = [];
             if (attachmentsWithIds.length > 0) {
+                const publishedAssetIds = attachmentsWithIds.flatMap((attachment) =>
+                    attachment.assetId ? [attachment.assetId] : []
+                );
+                if (publishedAssetIds.length > 0) {
+                    const publishableAssets = await tx
+                        .update(storageAssets)
+                        .set({
+                            backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+                            updatedAt: new Date(),
+                        })
+                        .where(and(
+                            inArray(storageAssets.id, publishedAssetIds),
+                            eq(storageAssets.state, 'verified'),
+                        ))
+                        .returning({ id: storageAssets.id });
+                    if (publishableAssets.length !== new Set(publishedAssetIds).size) {
+                        throw new Error('ATTACHMENT_ASSET_NOT_PUBLISHABLE');
+                    }
+                }
                 insertedAttachments = await tx
                     .insert(messageAttachments)
                     .values(
                         attachmentsWithIds.map(att => ({
                             id: att.id,
                             messageId: msg!.id,
+                            assetId: att.assetId,
                             storagePath: att.storagePath,
                             type: att.type,
                             url: null,

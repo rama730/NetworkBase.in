@@ -18,7 +18,6 @@ const compiled = ts.transpileModule(source, {
 // No credential, network request, or project file is touched by these tests.
 function fixture(
   options: {
-    storageError?: boolean;
     active?: boolean;
     system?: boolean;
     foreignKey?: boolean;
@@ -27,6 +26,7 @@ function fixture(
     scopeChanged?: boolean;
     missing?: boolean;
     count?: number;
+    unregistered?: boolean;
   } = {},
 ) {
   const events: string[] = [];
@@ -36,6 +36,7 @@ function fixture(
     projectId: project,
     deletedAt: options.active ? null : new Date(),
     s3Key: `${options.foreignKey ? "22222222-2222-4222-8222-222222222222" : project}/current`,
+    assetId: options.unregistered ? null : "asset-current",
     metadata: {
       isSystem: options.system,
       permanentDeleteRoot: options.missingIntent ? undefined : "root",
@@ -63,6 +64,7 @@ function fixture(
     projects: table("projects"),
     projectDocs: table("docs"),
     taskNodeLinks: table("links"),
+    storageAssets: table("assets"),
   };
   const tx = {
     execute: async () =>
@@ -83,8 +85,8 @@ function fixture(
       },
       fileVersions: {
         findMany: async () => [
-          { s3Key: `${project}/old` },
-          { s3Key: `${project}/shared` },
+          { s3Key: `${project}/old`, assetId: options.unregistered ? null : "asset-old" },
+          { s3Key: `${project}/shared`, assetId: options.unregistered ? null : "asset-shared" },
         ],
       },
     },
@@ -111,6 +113,13 @@ function fixture(
         events.push("delete");
       },
     }),
+    update: (target: { table: string }) => ({
+      set: () => ({
+        where: async () => {
+          if (target.table === "assets") events.push("schedule");
+        },
+      }),
+    }),
   };
   const orm = Object.fromEntries(
     ["and", "eq", "inArray", "notInArray"].map((name) => [
@@ -132,24 +141,6 @@ function fixture(
         assert.equal(id, null, "audit survives target deletion");
         events.push("audit");
       },
-    },
-    "@/lib/supabase/server": {
-      createAdminClient: async () => ({
-        storage: {
-          from: (bucket: string) => {
-            assert.equal(bucket, "project-files");
-            return {
-              remove: async (keys: string[]) => {
-                removed.push(...keys);
-                events.push("storage");
-                return {
-                  error: options.storageError ? new Error("unavailable") : null,
-                };
-              },
-            };
-          },
-        },
-      }),
     },
   };
   const serviceModule = {
@@ -175,17 +166,18 @@ function fixture(
   };
 }
 
-test("purge retains blobs referenced by other nodes or versions, including Trash", async () => {
+test("purge detaches rows and schedules registered assets for fenced cleanup", async () => {
   const f = fixture();
   assert.deepEqual(Array.from((await f.run()).deletedIds), ["root"]);
-  assert.deepEqual(f.removed, [`${project}/old`]);
-  assert.deepEqual(f.events, ["lock", "storage", "audit", "delete"]);
+  assert.deepEqual(f.removed, []);
+  assert.deepEqual(f.events, ["lock", "audit", "delete", "schedule"]);
 });
 
-test("storage failure leaves the durable tombstone intact for retry", async () => {
-  const f = fixture({ storageError: true });
-  await assert.rejects(f.run(), /cleanup is incomplete/);
-  assert.deepEqual(f.events, ["lock", "storage"]);
+test("provider I/O never runs while the permanent-delete transaction is locked", async () => {
+  const f = fixture();
+  await f.run();
+  assert.equal(f.events.includes("storage"), false);
+  assert.deepEqual(f.events, ["lock", "audit", "delete", "schedule"]);
 });
 
 test("repeating a completed deletion is an idempotent no-op", async () => {
@@ -202,6 +194,7 @@ for (const [options, message] of [
   [{ alias: true }, /depends on this original/],
   [{ missingIntent: true }, /not authorized/],
   [{ scopeChanged: true }, /scope changed/],
+  [{ unregistered: true }, /registration is still pending/],
   [{ count: 501 }, /more than 500/],
 ] as const)
   test(`purge rejects unsafe scope: ${JSON.stringify(options)}`, async () => {

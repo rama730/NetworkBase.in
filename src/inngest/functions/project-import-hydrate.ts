@@ -1,15 +1,19 @@
+import { createHash } from "node:crypto";
+
 import { inngest } from "../client";
 import { db } from "@/lib/db";
-import { projectNodes, projects } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { fileVersions, projectNodes, projects, storageAssets } from "@/lib/db/schema";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { fetchAndParseTarball } from "@/lib/github/tarball-stream";
 import { createAdminClient } from "@/lib/supabase/server";
 import { buildProjectFileKey } from "@/lib/storage/project-file-key";
+import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
+import { PROJECT_UPLOAD_MAX_FILE_BYTES } from "@/lib/upload/security";
 
 const UPLOAD_CONCURRENCY = 5;
 
 export const projectImportHydrate = inngest.createFunction(
-    { id: "project-import-hydrate", concurrency: 2, retries: 0 },
+    { id: "project-import-hydrate", concurrency: 2, retries: 3 },
     { event: "project/import.hydrate" },
     async ({ event, step }) => {
         const { projectId, importSource, userId } = event.data;
@@ -61,6 +65,7 @@ export const projectImportHydrate = inngest.createFunction(
             const stream = fetchAndParseTarball(importSource.repoUrl, branch, token);
             let inFlight: Promise<void>[] = [];
             let uploaded = 0;
+            let failed = 0;
             let lastReportedUploadCount = 0;
 
             for await (const file of stream) {
@@ -68,24 +73,125 @@ export const projectImportHydrate = inngest.createFunction(
                 // Skip if we don't have a virtual node or if it's already hydrated
                 if (!node || node.s3Key) continue;
 
-                const s3Key = buildProjectFileKey(projectId, file.path);
-
                 const uploadTask = async () => {
-                    const { error } = await adminClient.storage
-                        .from('project-files')
-                        .upload(s3Key, file.content, {
-                            contentType: node.mimeType || 'application/octet-stream',
-                            cacheControl: '3600',
-                            upsert: true
+                    try {
+                        const size = file.content.byteLength;
+                        if (size > PROJECT_UPLOAD_MAX_FILE_BYTES) {
+                            throw new Error(`File exceeds ${PROJECT_UPLOAD_MAX_FILE_BYTES} byte import limit`);
+                        }
+                        const mimeType = node.mimeType || 'application/octet-stream';
+                        const contentHash = createHash("sha256").update(file.content).digest("hex");
+                        const operationIdentity = createHash("sha256")
+                            .update(`${event.id || projectId}:${node.id}`)
+                            .digest("hex")
+                            .slice(0, 32);
+                        const extension = file.path.split(".").pop()?.toLowerCase();
+                        const suffix = extension && /^[a-z0-9]{1,16}$/.test(extension)
+                            ? `.${extension}`
+                            : "";
+                        const s3Key = buildProjectFileKey(
+                            projectId,
+                            `nodes/${node.id}/imports/${contentHash}-${operationIdentity}${suffix}`,
+                        );
+                        const intent = await createUploadIntent({
+                            userId,
+                            projectId,
+                            bucket: "project-files",
+                            storageKey: s3Key,
+                            scope: "project_file",
+                            kind: "file",
+                            expectedMimeType: mimeType,
+                            expectedSize: size,
+                            idempotencyKey: `github-hydrate:${event.id || projectId}:${node.id}`,
+                            metadata: {
+                                source: "github_hydration",
+                                nodeId: node.id,
+                                path: file.path,
+                                operationId: event.id || null,
+                            },
                         });
-                    
-                    if (!error) {
-                        await db.update(projectNodes)
-                            .set({ s3Key, updatedAt: new Date() })
-                            .where(eq(projectNodes.id, node.id));
-                        uploaded++;
-                    } else {
-                        console.error(`[Hydrate] Failed to upload ${file.path}`, error);
+                        if (intent.status === "pending") {
+                            const { error } = await adminClient.storage
+                                .from("project-files")
+                                .upload(intent.storageKey, file.content, {
+                                    contentType: mimeType,
+                                    cacheControl: "31536000",
+                                    upsert: false,
+                                });
+                            if (error) {
+                                const { data: existingObject } = await adminClient.storage
+                                    .from("project-files")
+                                    .info(intent.storageKey);
+                                if (!existingObject) throw error;
+                            }
+                        }
+                        const verifiedIntent = await finalizeUploadIntent({
+                            intentId: intent.id,
+                            bucket: intent.bucket,
+                            storageKey: intent.storageKey,
+                            userId,
+                            projectId,
+                            expectedScope: "project_file",
+                            expectedKind: "file",
+                        });
+                        if (!verifiedIntent.assetId) throw new Error("Hydrated asset is unavailable");
+
+                        const published = await db.transaction(async (tx) => {
+                            await tx.execute(sql`
+                                SELECT id FROM project_nodes
+                                WHERE id = ${node.id} AND project_id = ${projectId}
+                                FOR UPDATE
+                            `);
+                            const current = await tx.query.projectNodes.findFirst({
+                                where: and(eq(projectNodes.id, node.id), eq(projectNodes.projectId, projectId)),
+                            });
+                            if (!current || current.deletedAt) return false;
+                            if (current.s3Key) return current.assetId === verifiedIntent.assetId;
+                            const [asset] = await tx.update(storageAssets)
+                                .set({
+                                    backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+                                    updatedAt: new Date(),
+                                })
+                                .where(and(
+                                    eq(storageAssets.id, verifiedIntent.assetId!),
+                                    eq(storageAssets.state, "verified"),
+                                    eq(storageAssets.contentHash, contentHash),
+                                ))
+                                .returning({ id: storageAssets.id });
+                            if (!asset) throw new Error("Hydrated bytes failed content verification");
+                            const [version] = await tx.insert(fileVersions)
+                                .values({
+                                    nodeId: node.id,
+                                    version: current.currentVersion,
+                                    s3Key: intent.storageKey,
+                                    assetId: asset.id,
+                                    size,
+                                    mimeType,
+                                    contentHash,
+                                    uploadedBy: userId,
+                                    attribution: { source: "github_hydration", eventId: event.id || null },
+                                })
+                                .onConflictDoNothing()
+                                .returning({ id: fileVersions.id });
+                            if (!version) throw new Error("Hydration version already has different content");
+                            const updated = await tx.update(projectNodes)
+                                .set({
+                                    s3Key: intent.storageKey,
+                                    assetId: asset.id,
+                                    size,
+                                    mimeType,
+                                    syncStatus: "merged",
+                                    updatedAt: new Date(),
+                                })
+                                .where(and(eq(projectNodes.id, node.id), isNull(projectNodes.s3Key)))
+                                .returning({ id: projectNodes.id });
+                            if (updated.length !== 1) throw new Error("Hydration publication lost its node race");
+                            return true;
+                        });
+                        if (published) uploaded += 1;
+                    } catch (error) {
+                        failed += 1;
+                        console.error(`[Hydrate] Failed to publish ${file.path}`, error);
                     }
                 };
 
@@ -126,8 +232,9 @@ export const projectImportHydrate = inngest.createFunction(
             });
             const finalImportSource = finalProj?.importSource as any;
             if (finalImportSource?.metadata?.hydration) {
-                finalImportSource.metadata.hydration.status = "done";
+                finalImportSource.metadata.hydration.status = failed > 0 ? "partial" : "done";
                 finalImportSource.metadata.hydration.completed = uploaded;
+                finalImportSource.metadata.hydration.failed = failed;
             }
 
             await db.update(projects)
@@ -138,7 +245,7 @@ export const projectImportHydrate = inngest.createFunction(
                 })
                 .where(eq(projects.id, projectId));
 
-            return { uploaded };
+            return { uploaded, failed };
         });
     }
 );

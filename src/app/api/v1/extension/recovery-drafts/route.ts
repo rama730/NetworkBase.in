@@ -10,7 +10,12 @@ import {
   requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { extensionRecoveryDrafts, extensionRecoverySessions, projectNodes } from "@/lib/db/schema";
+import {
+  extensionRecoveryDrafts,
+  extensionRecoverySessions,
+  projectNodes,
+  storageAssets,
+} from "@/lib/db/schema";
 import { getProjectAccessById, getProjectAccessByIds } from "@/lib/data/project-access";
 import {
   deleteExtensionRecoveryDraftRows,
@@ -23,9 +28,11 @@ import { recordExtensionMetric } from "@/lib/extension/observability";
 import { recoveryIncidentReason } from "@/lib/extension/recovery-session-state";
 import { resolveRecoverySessionsWithoutDrafts } from "@/lib/extension/recovery-sessions";
 import { logger } from "@/lib/logger";
+import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { buildProjectFileKey, normalizeProjectFileRelativePath } from "@/lib/storage/project-file-key";
 import { createAdminClient } from "@/lib/supabase/server";
 import { validateCsrf } from "@/lib/security/csrf";
+import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -124,6 +131,26 @@ async function createIntent(userId: string, body: z.infer<typeof intentSchema>) 
   }
   const expiresAt = new Date(capturedAt.getTime() + RECOVERY_DRAFT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
+  const intent = await createUploadIntent({
+    userId,
+    projectId: body.projectId,
+    bucket: EXTENSION_RECOVERY_BUCKET,
+    storageKey,
+    scope: "recovery_draft",
+    kind: "draft",
+    expectedMimeType: body.mimeType,
+    expectedSize: body.size,
+    idempotencyKey: `recovery-draft:${draftId}`,
+    metadata: {
+      draftId,
+      deviceId: body.deviceId,
+      sessionId: body.sessionId,
+      nodeId: node.id,
+      filePath,
+    },
+  });
+  if (!intent.assetId) throw new Error("Recovery upload did not reserve an asset");
+
   await db.insert(extensionRecoveryDrafts).values({
     id: draftId,
     userId,
@@ -133,6 +160,7 @@ async function createIntent(userId: string, body: z.infer<typeof intentSchema>) 
     sessionId: body.sessionId,
     filePath,
     storageKey,
+    assetId: intent.assetId,
     size: body.size,
     mimeType: body.mimeType,
     contentHash: body.contentHash.toLowerCase(),
@@ -164,6 +192,8 @@ async function createIntent(userId: string, body: z.infer<typeof intentSchema>) 
   });
   return jsonSuccess({
     draftId,
+    assetId: intent.assetId,
+    uploadIntentId: intent.id,
     signedUrl: data.signedUrl,
     uploadToken: data.token,
     storagePath: storageKey,
@@ -181,7 +211,15 @@ async function finalizeIntent(userId: string, body: z.infer<typeof finalizeSchem
     ),
   });
   if (!draft) return jsonError("Recovery draft not found", 404, "NOT_FOUND");
-  if (draft.status === "finalized") return jsonSuccess({ draftId: draft.id, finalized: true });
+  const accessError = await requireProjectAccess(draft.projectId, userId, true);
+  if (accessError) return accessError;
+  if (draft.status === "finalized") {
+    return jsonSuccess({
+      draftId: draft.id,
+      finalized: true,
+      finalizedAt: draft.finalizedAt?.toISOString() ?? null,
+    });
+  }
   if (draft.status !== "pending" || draft.expiresAt.getTime() <= Date.now()) {
     return jsonError("Recovery upload is no longer usable", 409, "CONFLICT");
   }
@@ -189,33 +227,84 @@ async function finalizeIntent(userId: string, body: z.infer<typeof finalizeSchem
     return jsonError("Recovery checksum does not match the intent", 400, "BAD_REQUEST");
   }
 
-  const admin = await createAdminClient();
-  const { data: info, error: infoError } = await admin.storage.from(EXTENSION_RECOVERY_BUCKET).info(draft.storageKey);
-  if (infoError || !info) {
-    await db.update(extensionRecoveryDrafts).set({
-      status: "failed",
-      failureReason: infoError?.message || "Uploaded object is missing",
-      updatedAt: new Date(),
-    }).where(eq(extensionRecoveryDrafts.id, draft.id));
-    return jsonError("Uploaded recovery draft is missing", 400, "BAD_REQUEST");
+  let verifiedIntent;
+  try {
+    verifiedIntent = await finalizeUploadIntent({
+      bucket: EXTENSION_RECOVERY_BUCKET,
+      storageKey: draft.storageKey,
+      userId,
+      projectId: draft.projectId,
+      expectedScope: "recovery_draft",
+      expectedKind: "draft",
+    });
+  } catch (error) {
+    return jsonError(
+      error instanceof Error ? error.message : "Recovery upload verification failed",
+      409,
+      "CONFLICT",
+    );
   }
-  if (info.size !== draft.size) {
-    await db.update(extensionRecoveryDrafts).set({
-      status: "failed",
-      failureReason: "Uploaded object failed size validation",
-      updatedAt: new Date(),
-    }).where(eq(extensionRecoveryDrafts.id, draft.id));
-    await admin.storage.from(EXTENSION_RECOVERY_BUCKET).remove([draft.storageKey]);
+  if (!draft.assetId || verifiedIntent.assetId !== draft.assetId) {
+    return jsonError("Recovery upload asset binding is invalid", 409, "CONFLICT");
+  }
+  const assetId = draft.assetId;
+
+  const [asset] = await db.select({
+    state: storageAssets.state,
+    contentHash: storageAssets.contentHash,
+    verifiedSize: storageAssets.verifiedSize,
+  }).from(storageAssets).where(eq(storageAssets.id, assetId)).limit(1);
+  if (
+    asset?.state !== "verified"
+    || asset.verifiedSize !== draft.size
+    || asset.contentHash !== draft.contentHash
+  ) {
+    await db.transaction(async (tx) => {
+      await tx.delete(extensionRecoveryDrafts).where(and(
+        eq(extensionRecoveryDrafts.id, draft.id),
+        eq(extensionRecoveryDrafts.status, "pending"),
+      ));
+      await tx.update(storageAssets).set({
+        state: "delete_pending",
+        deleteAfter: draft.expiresAt,
+        lastErrorCode: "CONTENT_HASH_MISMATCH",
+        updatedAt: new Date(),
+      }).where(and(
+        eq(storageAssets.id, assetId),
+        eq(storageAssets.state, "verified"),
+      ));
+    });
     return jsonError("Uploaded recovery draft failed validation", 400, "BAD_REQUEST");
   }
 
   const finalizedAt = new Date();
-  await db.update(extensionRecoveryDrafts).set({
-    status: "finalized",
-    finalizedAt,
-    failureReason: null,
-    updatedAt: finalizedAt,
-  }).where(eq(extensionRecoveryDrafts.id, draft.id));
+  await db.transaction(async (tx) => {
+    const finalized = await tx.update(extensionRecoveryDrafts).set({
+      status: "finalized",
+      finalizedAt,
+      failureReason: null,
+      updatedAt: finalizedAt,
+    }).where(and(
+      eq(extensionRecoveryDrafts.id, draft.id),
+      eq(extensionRecoveryDrafts.assetId, assetId),
+      eq(extensionRecoveryDrafts.status, "pending"),
+    )).returning({ id: extensionRecoveryDrafts.id });
+    if (finalized.length === 0) {
+      const [current] = await tx.select({ status: extensionRecoveryDrafts.status })
+        .from(extensionRecoveryDrafts)
+        .where(eq(extensionRecoveryDrafts.id, draft.id))
+        .limit(1);
+      if (current?.status !== "finalized") throw new Error("Recovery draft publication raced with another operation");
+    }
+    await tx.update(storageAssets).set({
+      backupState: "pending",
+      expiresAt: draft.expiresAt,
+      updatedAt: finalizedAt,
+    }).where(and(
+      eq(storageAssets.id, assetId),
+      eq(storageAssets.state, "verified"),
+    ));
+  });
   void pruneExtensionRecoveryGenerations({
     userId,
     deviceId: draft.deviceId,
@@ -237,6 +326,46 @@ async function finalizeIntent(userId: string, body: z.infer<typeof finalizeSchem
     sizeBytes: draft.size,
   });
   return jsonSuccess({ draftId: draft.id, finalized: true, finalizedAt: finalizedAt.toISOString() });
+}
+
+async function streamRecoveryDraft(request: Request, userId: string, draftId: string) {
+  const [row] = await db.select({
+    projectId: extensionRecoveryDrafts.projectId,
+    filePath: extensionRecoveryDrafts.filePath,
+    storageKey: extensionRecoveryDrafts.storageKey,
+    size: extensionRecoveryDrafts.size,
+    mimeType: extensionRecoveryDrafts.mimeType,
+    assetId: extensionRecoveryDrafts.assetId,
+    contentHash: storageAssets.contentHash,
+  }).from(extensionRecoveryDrafts)
+    .innerJoin(storageAssets, eq(storageAssets.id, extensionRecoveryDrafts.assetId))
+    .where(and(
+      eq(extensionRecoveryDrafts.id, draftId),
+      eq(extensionRecoveryDrafts.userId, userId),
+      eq(extensionRecoveryDrafts.status, "finalized"),
+      gt(extensionRecoveryDrafts.expiresAt, new Date()),
+      eq(storageAssets.state, "verified"),
+    ))
+    .limit(1);
+  if (!row || !row.assetId || !row.contentHash) return jsonError("Draft not found", 404, "NOT_FOUND");
+  const accessError = await requireProjectAccess(row.projectId, userId, false);
+  if (accessError) return accessError;
+
+  const admin = await createAdminClient();
+  const { data, error } = await admin.storage
+    .from(EXTENSION_RECOVERY_BUCKET)
+    .createSignedUrl(row.storageKey, 60);
+  if (error || !data?.signedUrl) return jsonError("Recovery content is unavailable", 503, "UNAVAILABLE");
+  const filename = row.filePath.split("/").pop() || "recovery-draft";
+  return streamPrivateObject({
+    request,
+    signedUrl: data.signedUrl,
+    totalSize: row.size,
+    mimeType: row.mimeType,
+    filename,
+    disposition: "attachment",
+    etag: `\"${row.assetId}:${row.contentHash}\"`,
+  });
 }
 
 export async function POST(request: Request) {
@@ -277,16 +406,25 @@ export async function GET(request: Request) {
   const draftId = url.searchParams.get("draftId");
   if (draftId) {
     if (!z.string().uuid().safeParse(draftId).success) return jsonError("Invalid draft id", 400, "BAD_REQUEST");
+    if (url.searchParams.get("content") === "1") {
+      return streamRecoveryDraft(request, auth.user.id, draftId);
+    }
     const row = await db.query.extensionRecoveryDrafts.findFirst({
-      where: and(eq(extensionRecoveryDrafts.id, draftId), eq(extensionRecoveryDrafts.userId, auth.user.id)),
+      where: and(
+        eq(extensionRecoveryDrafts.id, draftId),
+        eq(extensionRecoveryDrafts.userId, auth.user.id),
+        eq(extensionRecoveryDrafts.status, "finalized"),
+        gt(extensionRecoveryDrafts.expiresAt, new Date()),
+      ),
     });
     if (!row) return jsonError("Draft not found", 404, "NOT_FOUND");
     const accessError = await requireProjectAccess(row.projectId, auth.user.id, false);
     if (accessError) return accessError;
-    const admin = await createAdminClient();
-    const { data, error } = await admin.storage.from(EXTENSION_RECOVERY_BUCKET).createSignedUrl(row.storageKey, 5 * 60);
-    if (error || !data?.signedUrl) return jsonError("Failed to sign URL", 500, "INTERNAL_ERROR");
-    return jsonSuccess({ signedUrl: data.signedUrl });
+    const contentUrl = new URL(request.url);
+    contentUrl.search = "";
+    contentUrl.searchParams.set("draftId", row.id);
+    contentUrl.searchParams.set("content", "1");
+    return jsonSuccess({ contentUrl: contentUrl.toString(), signedUrl: contentUrl.toString() });
   }
 
   const projectId = url.searchParams.get("projectId");
@@ -337,6 +475,10 @@ export async function GET(request: Request) {
   
   const drafts = visible.map((row) => {
     const draft = row.draft;
+    const contentUrl = new URL(request.url);
+    contentUrl.search = "";
+    contentUrl.searchParams.set("draftId", draft.id);
+    contentUrl.searchParams.set("content", "1");
     return {
       id: draft.id,
       projectId: draft.projectId,
@@ -352,7 +494,7 @@ export async function GET(request: Request) {
       taskContext: draft.taskContext,
       capturedAt: draft.capturedAt.toISOString(),
       expiresAt: draft.expiresAt.toISOString(),
-      storageKey: draft.storageKey,
+      contentUrl: contentUrl.toString(),
       source: "cloud" as const,
       incidentReason: row.incidentReason,
     };
@@ -393,6 +535,7 @@ export async function DELETE(request: Request) {
     .select({
       id: extensionRecoveryDrafts.id,
       storageKey: extensionRecoveryDrafts.storageKey,
+      assetId: extensionRecoveryDrafts.assetId,
       sessionId: extensionRecoveryDrafts.sessionId,
     })
     .from(extensionRecoveryDrafts)
@@ -415,4 +558,14 @@ export async function DELETE(request: Request) {
     count: resolvedSessions,
   });
   return jsonSuccess({ deleted, resolvedSessions });
+}
+
+export async function HEAD(request: Request) {
+  const auth = await requireAuthenticatedUser();
+  if (auth.response || !auth.user) return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  const draftId = new URL(request.url).searchParams.get("draftId");
+  if (!draftId || !z.string().uuid().safeParse(draftId).success) {
+    return jsonError("Invalid draft id", 400, "BAD_REQUEST");
+  }
+  return streamRecoveryDraft(request, auth.user.id, draftId);
 }

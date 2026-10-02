@@ -32,42 +32,21 @@ function ErrorFallback({ message, url }: { message: string; url: string }) {
 }
 
 function PdfPreview({ name, previewUrl }: { name: string; previewUrl: string }) {
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    let nextObjectUrl: string | null = null;
-    setObjectUrl(null);
     setError(false);
-
-    void fetch(previewUrl, { credentials: "same-origin" })
-      .then(async (response) => {
-        const contentType = response.headers.get("content-type") || "";
-        if (!response.ok || !contentType.toLowerCase().includes("pdf")) {
-          throw new Error("PDF preview is unavailable");
-        }
-        const blob = await response.blob();
-        if (blob.size === 0) throw new Error("PDF preview is empty");
-        nextObjectUrl = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
-        if (!cancelled) setObjectUrl(nextObjectUrl);
-        else URL.revokeObjectURL(nextObjectUrl);
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      });
-
-    return () => {
-      cancelled = true;
-      if (nextObjectUrl) URL.revokeObjectURL(nextObjectUrl);
-    };
   }, [previewUrl]);
 
   if (error) return <ErrorFallback message="Unable to load this PDF preview." url={previewUrl} />;
-  if (!objectUrl) {
-    return <div className="h-full flex items-center justify-center text-sm text-zinc-500">Loading PDF…</div>;
-  }
-  return <iframe title={name} src={objectUrl} className="h-full w-full border-0 bg-white" />;
+  return (
+    <iframe
+      title={name}
+      src={previewUrl}
+      className="h-full w-full border-0 bg-white"
+      onError={() => setError(true)}
+    />
+  );
 }
 
 export default function AssetPreview({

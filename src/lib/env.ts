@@ -17,6 +17,12 @@ const envSchema = z.object({
     JOB_REQUEST_SECRET: z.string().min(1).optional(),
     GITHUB_WEBHOOK_SECRET: z.string().min(1).optional(),
     INNGEST_SIGNING_KEY: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_SESSION_TOKEN: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_REGION: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_BUCKET: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_ENDPOINT: z.string().url().optional(),
     E2E_AUTH_FALLBACK: z.string().optional(),
     NEXT_PUBLIC_E2E_AUTH_FALLBACK: z.string().optional(),
 
@@ -51,6 +57,10 @@ function assertProductionSecurityEnv(env: Env) {
         ['GITHUB_WEBHOOK_SECRET', env.GITHUB_WEBHOOK_SECRET],
         ['INNGEST_EVENT_KEY', env.INNGEST_EVENT_KEY],
         ['INNGEST_SIGNING_KEY', env.INNGEST_SIGNING_KEY],
+        ['STORAGE_BACKUP_AWS_ACCESS_KEY_ID', env.STORAGE_BACKUP_AWS_ACCESS_KEY_ID],
+        ['STORAGE_BACKUP_AWS_SECRET_ACCESS_KEY', env.STORAGE_BACKUP_AWS_SECRET_ACCESS_KEY],
+        ['STORAGE_BACKUP_AWS_REGION', env.STORAGE_BACKUP_AWS_REGION],
+        ['STORAGE_BACKUP_AWS_BUCKET', env.STORAGE_BACKUP_AWS_BUCKET],
     ] as const
 
     const missing = requiredSecrets

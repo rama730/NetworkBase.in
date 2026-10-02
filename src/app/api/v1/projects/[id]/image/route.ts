@@ -3,17 +3,16 @@ import { createHash } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { projects } from "@/lib/db/schema";
+import { projects, storageAssets } from "@/lib/db/schema";
 import { getProjectAccessById } from "@/lib/data/project-access";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { jsonError } from "@/app/api/v1/_shared";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const PRIVATE_CACHE_SECONDS = 5 * 60;
 
 function coverVersion(storageKey: string) {
     return createHash("sha256").update(storageKey).digest("base64url").slice(0, 16);
@@ -52,16 +51,12 @@ export async function GET(
     }
 
     const version = coverVersion(project.key);
-    const hasMatchingVersion = request.nextUrl.searchParams.get("v") === version;
     const isPublicRequest = !user && access.canRead;
-    // ponytail: versioned project avatars are immutable; cache at CDN edge and browser memory. ceiling: an avatar change needs a new version URL. upgrade: none needed while URLs carry the version.
-    const cacheControl = hasMatchingVersion
-        ? (isPublicRequest
-            ? "public, max-age=31536000, s-maxage=31536000, immutable"
-            : "private, max-age=86400, stale-while-revalidate=3600")
-        : (isPublicRequest
-            ? "public, max-age=300, s-maxage=86400, stale-while-revalidate=3600"
-            : `private, max-age=${PRIVATE_CACHE_SECONDS}, stale-while-revalidate=60`);
+    // Object identity is immutable, but project visibility can change without
+    // changing the key. Keep public caches inside the revocation budget.
+    const cacheControl = isPublicRequest
+        ? "public, max-age=300, s-maxage=300, must-revalidate"
+        : "private, no-store";
     if (request.nextUrl.searchParams.get("v") !== version) {
         const canonicalUrl = request.nextUrl.clone();
         canonicalUrl.searchParams.set("v", version);
@@ -72,13 +67,6 @@ export async function GET(
     }
 
     const etag = `"project-cover-${projectId}-${version}"`;
-    if (request.headers.get("if-none-match") === etag) {
-        return new Response(null, {
-            status: 304,
-            headers: { ETag: etag, "Cache-Control": cacheControl, Vary: "Cookie, Authorization" },
-        });
-    }
-
     const admin = await createAdminClient();
     const { data: signedData, error: signError } = await admin.storage
         .from(project.bucket)
@@ -95,16 +83,36 @@ export async function GET(
         return jsonError("Not found", 404, "NOT_FOUND");
     }
 
-    // ponytail: redirect to Supabase storage instead of proxying bytes. ceiling: clients see the storage host. upgrade: proxy through the app only if the storage host must stay hidden.
-    const response = new Response(null, {
-        status: 302,
-        headers: {
-            Location: signedData.signedUrl,
-            "Cache-Control": cacheControl,
-            ETag: etag,
-            Vary: "Cookie, Authorization",
-            "X-Content-Type-Options": "nosniff",
-        },
+    const [asset] = await db
+        .select({ size: storageAssets.verifiedSize, mimeType: storageAssets.verifiedMimeType })
+        .from(storageAssets)
+        .where(and(
+            eq(storageAssets.bucket, project.bucket),
+            eq(storageAssets.storageKey, project.key),
+            eq(storageAssets.state, "verified"),
+        ))
+        .limit(1);
+    let totalSize = asset?.size ?? null;
+    if (totalSize === null) {
+        const { data: info } = await admin.storage.from(project.bucket).info(project.key);
+        totalSize = typeof info?.size === "number" ? info.size : null;
+    }
+
+    return streamPrivateObject({
+        request,
+        signedUrl: signedData.signedUrl,
+        totalSize,
+        mimeType: asset?.mimeType || "application/octet-stream",
+        filename: project.key.split("/").pop() || "project-cover",
+        disposition: "inline",
+        etag,
+        cacheControl,
     });
-    return response;
+}
+
+export async function HEAD(
+    request: NextRequest,
+    context: { params: Promise<{ id: string }> },
+) {
+    return GET(request, context);
 }

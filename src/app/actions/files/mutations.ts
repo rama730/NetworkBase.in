@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { readFileSubtree } from "@/lib/files/permanent-delete";
 import { permanentlyDeleteTrashedNode } from "./trash";
-import { profiles, projectFileIndex, projectNodeEvents, projectNodeLocks, projectNodes, taskActivityEvents, taskNodeLinks, tasks, uploadIntents } from "@/lib/db/schema";
+import { fileVersions, profiles, projectFileIndex, projectNodeEvents, projectNodeLocks, projectNodes, storageAssets, taskActivityEvents, taskNodeLinks, tasks, uploadIntents } from "@/lib/db/schema";
 import type { ProjectNode } from "@/lib/db/schema";
 import { eq, and, or, isNull, isNotNull, ilike, inArray, sql, gt, ne, type SQL } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -272,9 +272,25 @@ export async function createFileNode(projectId: string, parentId: string | null,
     const canonicalS3Key = buildProjectFileKey(projectId, normalizedRelativePath);
     const normalizedSize = normalizeAndValidateFileSize(finalizedIntent.finalizedSize ?? file.size, PROJECT_UPLOAD_MAX_FILE_BYTES);
     const normalizedMimeType = normalizeAndValidateMimeType(finalizedIntent.finalizedMimeType ?? file.mimeType);
+    if (!finalizedIntent.assetId) throw new Error("Verified file asset is unavailable");
+    const assetId = finalizedIntent.assetId;
 
     const node = await db.transaction(async (tx) => {
         await assertProjectUploadAccessTx(tx, projectId, user.id);
+        const [publishableAsset] = await tx.update(storageAssets)
+            .set({
+                backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+                updatedAt: new Date(),
+            })
+            .where(and(
+                eq(storageAssets.id, assetId),
+                eq(storageAssets.state, "verified"),
+                eq(storageAssets.ownerUserId, user.id),
+                eq(storageAssets.projectId, projectId),
+            ))
+            .returning({ id: storageAssets.id, contentHash: storageAssets.contentHash });
+        if (!publishableAsset) throw new Error("File asset is no longer publishable");
+        if (!publishableAsset.contentHash) throw new Error("Verified file digest is unavailable");
         if (file.taskId) {
             const [task] = await tx.select({ id: tasks.id }).from(tasks).where(and(eq(tasks.id, file.taskId), eq(tasks.projectId, projectId), isNull(tasks.deletedAt))).limit(1).for("update");
             if (!task) throw new Error("Task not found");
@@ -290,12 +306,24 @@ export async function createFileNode(projectId: string, parentId: string | null,
             name: safeName,
             path: nodePath,
             s3Key: canonicalS3Key,
+            assetId,
             size: normalizedSize,
             mimeType: normalizedMimeType,
             createdBy: user.id,
             taskId: file.taskId || null,
             canonicalNodeId: file.canonicalNodeId || null,
         }).returning();
+        await tx.insert(fileVersions).values({
+            nodeId: created!.id,
+            version: created!.currentVersion,
+            s3Key: canonicalS3Key,
+            assetId,
+            size: normalizedSize,
+            mimeType: normalizedMimeType,
+            contentHash: publishableAsset.contentHash,
+            uploadedBy: user.id,
+            attribution: { source: "direct_upload" },
+        });
         if (file.taskLink && file.taskId) {
             const [last] = await tx.select({ order: sql<number>`coalesce(max(${taskNodeLinks.order}), 0)` }).from(taskNodeLinks).where(eq(taskNodeLinks.taskId, file.taskId));
             await tx.insert(taskNodeLinks).values({ taskId: file.taskId, nodeId: created!.id, createdBy: user.id, order: Number(last?.order ?? 0) + 1,
@@ -333,7 +361,7 @@ export async function createFileNode(projectId: string, parentId: string | null,
     };
 }
 
-// ponytail: 2PC batch finalization commits up to 100 files in 1 transaction. ceiling: 100 files per batch RPC. upgrade: chunk into parallel 100-file batches if client exceeds limit.
+// Finalization stays within the shared 50-item server batch boundary.
 export async function finalizeBatchUpload(
     projectId: string,
     parentId: string | null,
@@ -346,7 +374,7 @@ export async function finalizeBatchUpload(
     }>,
 ) {
     if (!files.length) return [];
-    if (files.length > 100) throw new Error("Batch upload exceeds maximum of 100 files");
+    if (files.length > 50) throw new Error("Batch upload exceeds maximum of 50 files");
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -366,7 +394,7 @@ export async function finalizeBatchUpload(
     if (intentIds.length > 0) intentConditions.push(inArray(uploadIntents.id, intentIds));
     if (storageKeys.length > 0) intentConditions.push(inArray(uploadIntents.storageKey, storageKeys));
 
-    // ponytail: single batch query preloads all upload intents (cuts 100 sequential SELECT queries to 1). ceiling: 100 files per batch. upgrade: stream intents in chunks of 100 if batch size increases.
+    // One bounded query preloads the upload intents for this batch.
     const preloadedIntents = intentConditions.length > 0
         ? await db.query.uploadIntents.findMany({
             where: and(
@@ -379,8 +407,15 @@ export async function finalizeBatchUpload(
     const intentById = new Map(preloadedIntents.map((i) => [i.id, i]));
     const intentByStorageKey = new Map(preloadedIntents.map((i) => [i.storageKey, i]));
 
-    const validatedFiles = await Promise.all(
-        files.map(async (file) => {
+    const validatedFiles: Array<{
+        safeName: string;
+        canonicalS3Key: string;
+        normalizedSize: number;
+        normalizedMimeType: string;
+        assetId: string | null | undefined;
+    }> = [];
+    for (let offset = 0; offset < files.length; offset += 8) {
+        validatedFiles.push(...await Promise.all(files.slice(offset, offset + 8).map(async (file) => {
             const safeName = normalizeNodeName(file.name);
             assertValidNodeName(safeName);
 
@@ -412,13 +447,31 @@ export async function finalizeBatchUpload(
                 canonicalS3Key,
                 normalizedSize,
                 normalizedMimeType,
+                assetId: finalizedIntent.assetId,
             };
-        })
-    );
+        })));
+    }
+
+    if (validatedFiles.some((file) => !file.assetId)) {
+        throw new Error("One or more verified file assets are unavailable");
+    }
+    const assetIds = validatedFiles.map((file) => file.assetId!);
+    const verifiedAssets = await db.select({
+        id: storageAssets.id,
+        contentHash: storageAssets.contentHash,
+    }).from(storageAssets).where(and(
+        inArray(storageAssets.id, assetIds),
+        eq(storageAssets.state, "verified"),
+        eq(storageAssets.ownerUserId, user.id),
+        eq(storageAssets.projectId, projectId),
+    ));
+    const assetById = new Map(verifiedAssets.map((asset) => [asset.id, asset]));
+    if (assetById.size !== new Set(assetIds).size || verifiedAssets.some((asset) => !asset.contentHash)) {
+        throw new Error("One or more file assets are no longer publishable");
+    }
 
     const createdNodes = await db.transaction(async (tx) => {
         await assertProjectUploadAccessTx(tx, projectId, user.id);
-
         let parentPath = "";
         if (parentId) {
             const [parent] = await tx
@@ -453,6 +506,8 @@ export async function finalizeBatchUpload(
             s3Key: string;
             size: number;
             mimeType: string;
+            assetId: string;
+            contentHash: string | null;
             createdBy: string;
         }>();
         for (const f of validatedFiles) {
@@ -467,15 +522,50 @@ export async function finalizeBatchUpload(
                 name: f.safeName,
                 path: `${parentPath}/${f.safeName}`,
                 s3Key: f.canonicalS3Key,
+                assetId: f.assetId!,
                 size: f.normalizedSize,
                 mimeType: f.normalizedMimeType,
+                contentHash: assetById.get(f.assetId!)?.contentHash ?? null,
                 createdBy: user.id,
             });
         }
         const valuesToInsert = Array.from(uniqueValuesMap.values());
         if (!valuesToInsert.length) return [];
 
-        const inserted = await tx.insert(projectNodes).values(valuesToInsert).returning();
+        const attachedAssetIds = [...new Set(valuesToInsert.map((value) => value.assetId))];
+        const publishedAssets = await tx.update(storageAssets)
+            .set({
+                backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+                updatedAt: new Date(),
+            })
+            .where(and(
+                inArray(storageAssets.id, attachedAssetIds),
+                eq(storageAssets.state, "verified"),
+                eq(storageAssets.ownerUserId, user.id),
+                eq(storageAssets.projectId, projectId),
+            ))
+            .returning({ id: storageAssets.id });
+        if (publishedAssets.length !== attachedAssetIds.length) {
+            throw new Error("One or more file assets are no longer publishable");
+        }
+
+        const inserted = await tx.insert(projectNodes).values(valuesToInsert.map(({ contentHash: _contentHash, ...value }) => value)).returning();
+        const valueByKey = new Map(valuesToInsert.map((value) => [value.s3Key, value]));
+        await tx.insert(fileVersions).values(inserted.map((node) => {
+            const source = valueByKey.get(node.s3Key!);
+            if (!source) throw new Error("File publication mapping changed");
+            return {
+                nodeId: node.id,
+                version: node.currentVersion,
+                s3Key: source.s3Key,
+                assetId: source.assetId,
+                size: source.size,
+                mimeType: source.mimeType,
+                contentHash: source.contentHash,
+                uploadedBy: user.id,
+                attribution: { source: "batch_upload" },
+            };
+        }));
         return inserted;
     });
 
@@ -498,7 +588,7 @@ export async function finalizeBatchUpload(
         columns: { fullName: true, username: true, avatarUrl: true },
     });
 
-    // ponytail: batch record node events in 1 round-trip instead of N sequential calls. ceiling: 100 events per call. upgrade: background queue if multi-thousand batch uploads added.
+    // Record this bounded batch in one round trip.
     await recordNodeEventsBatch(
         projectId,
         user.id,
@@ -1330,9 +1420,14 @@ export async function bulkCreateFolderTree(
             }
         }
 
-        // 3. Batch insert all files in one massive query
-        const fileInserts: (typeof projectNodes.$inferInsert)[] = [];
-        const resultMappings: { path: string; fileId: string; s3Key: string; name: string }[] = [];
+        // Return publication targets only. File rows are created after their
+        // exact server-allocated assets have been uploaded and verified.
+        const resultMappings: {
+            path: string;
+            parentId: string | null;
+            requestKey: string;
+            name: string;
+        }[] = [];
 
         for (const f of normalizedFiles) {
             const parts = f.path.split('/');
@@ -1342,58 +1437,16 @@ export async function bulkCreateFolderTree(
             const parentVirtualPath = parts.join('/');
 
             const parentId = targetParentId ? (parentVirtualPath ? pathToId.get(parentVirtualPath) : targetParentId) : (parentVirtualPath ? pathToId.get(parentVirtualPath) : null);
-            const fileExt = safeName.includes(".") ? safeName.split(".").pop() : "bin";
-            const s3Key = buildProjectFileKey(projectId, `${randomUUID()}.${fileExt}`);
-
-            const parentNodePath = parentVirtualPath ? (pathToNodePath.get(parentVirtualPath) || "") : (pathToNodePath.get("") || "");
-            const filePath = `${parentNodePath}/${safeName}`;
-
-            fileInserts.push({
-                projectId,
+            resultMappings.push({
+                path: f.path,
                 parentId: parentId || null,
-                type: 'file',
+                requestKey: buildProjectFileKey(projectId, f.path),
                 name: safeName,
-                path: filePath,
-                s3Key: s3Key,
-                size: f.size,
-                mimeType: f.mimeType,
-                createdBy: user.id
             });
-        }
-
-        // Drizzle allows massive batch inserts
-        if (fileInserts.length > 0) {
-            // Chunk inserts if extremely large (e.g. > 1000 parameters)
-            const chunkSize = 500;
-            for (let i = 0; i < fileInserts.length; i += chunkSize) {
-                const chunk = fileInserts.slice(i, i + chunkSize);
-                const inserted = await tx.insert(projectNodes).values(chunk).returning({ id: projectNodes.id, s3Key: projectNodes.s3Key, name: projectNodes.name });
-
-                for (let j = 0; j < chunk.length; j++) {
-                    resultMappings.push({
-                        path: normalizedFiles[i + j]!.path,
-                        fileId: inserted[j]!.id,
-                        s3Key: inserted[j]!.s3Key!,
-                        name: inserted[j]!.name
-                    });
-                }
-            }
         }
 
         return resultMappings;
     });
-    if (result.length > 0) {
-        await enqueueFileNotificationBestEffort({
-            projectId,
-            actorUserId: user.id,
-            ...actorNotificationSnapshot(user),
-            eventKey: result.length === 1 ? "files.uploaded" : "files.bulk_uploaded",
-            title: result.length === 1 ? `File uploaded: ${result[0]?.name ?? "File"}` : `${result.length} files uploaded`,
-            sourceEventId: `bulk:${Date.now()}`,
-            aggregateCount: result.length,
-            entityRefs: { projectId, fileId: result[0]?.fileId ?? null },
-        });
-    }
     return result;
 }
 
@@ -1461,4 +1514,3 @@ export async function getOrCreateTaskSystemFolderAction(projectId: string, taskI
         return createdId;
     });
 }
-

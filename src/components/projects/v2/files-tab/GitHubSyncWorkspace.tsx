@@ -32,6 +32,7 @@ import {
 } from "@/lib/github/import-client";
 import type { GithubImportAccessState } from "@/lib/github/import-types";
 import { startGithubRepositoryAuthorization } from "@/lib/github/oauth-client";
+import { publicAvatarVariantUrl } from "@/lib/profile/avatar-variants";
 import {
   GITHUB_SYNC_LIMITS,
   formatSyncMegabytes,
@@ -1130,7 +1131,7 @@ export function GitHubSyncWorkspace({
                               <li key={member.userId} className="flex items-center justify-between gap-3 py-2.5 text-xs">
                                 <div className="flex min-w-0 items-center gap-2">
                                   {member.avatarUrl ? (
-                                    <img src={member.avatarUrl} alt="" className="size-6 rounded-[5px] object-cover" />
+                                    <img src={publicAvatarVariantUrl(member.avatarUrl, 64)} alt="" className="size-6 rounded-[5px] object-cover" />
                                   ) : (
                                     <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-[5px] border border-[var(--border-default)] bg-[var(--surface-sunken)] text-[10px] max-md:text-[11px] font-semibold text-[var(--text-body)]">{member.name.charAt(0)}</span>
                                   )}

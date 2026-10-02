@@ -519,8 +519,8 @@ export default function OnboardingPage() {
             return
         }
 
-        if (file.size > 10 * 1024 * 1024) {
-            setError('Image must be less than 10MB')
+        if (file.size > 2 * 1024 * 1024) {
+            setError('Image must be 2MB or smaller')
             return
         }
 
@@ -547,7 +547,7 @@ export default function OnboardingPage() {
                     throw new Error(uploadSession.error || 'Failed to prepare avatar upload')
                 }
 
-                await uploadToSupabaseSignedUrl(uploadSession, compressedBlob, { cacheProfile: 'immutable' })
+                await uploadToSupabaseSignedUrl(uploadSession, compressedBlob, { cacheProfile: 'public' })
 
                 const finalized = await finalizeProfileImageUploadAction({
                     uploadIntentId: uploadSession.uploadIntentId,
