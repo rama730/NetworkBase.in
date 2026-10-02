@@ -3,6 +3,8 @@ import type { ChatBootstrap, ChatChannelSummary, ChatPerson } from "@/lib/messag
 // Pure grouping of the bootstrap into the rail and sidebar (report 7.10).
 // Switching projects re-runs this in memory; it never fetches.
 
+// ponytail: tiles by recent activity, 8 DMs per project sidebar (L-30).
+// ceiling: long project lists. upgrade: pin/reorder and rail search past ~12 projects.
 export const DM_SIDEBAR_LIMIT = 8;
 
 export function personName(person: ChatPerson | null | undefined) {

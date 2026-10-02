@@ -12,6 +12,8 @@ import { ProjectSwitcherSheet } from "@/components/messages/ProjectSwitcherSheet
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 import { ThreadPane } from "@/components/messages/ThreadPane";
 
+// ponytail: fixed size and position, no shortcut, no auto-open (L-26).
+// upgrade: a movable window or shortcut when power users ask.
 /**
  * 400px window above the launcher (C4/C5): the mobile List screen first, then
  * a conversation, then a thread, each with Back. Non-modal; Esc minimizes.

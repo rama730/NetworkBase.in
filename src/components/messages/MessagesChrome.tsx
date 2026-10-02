@@ -12,6 +12,9 @@ import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 const InviteCollaboratorModal = dynamic(() => import("@/components/projects/dashboard/InviteCollaboratorModal"), { ssr: false });
 
 /** Dialogs shared by every /messages screen; opened through the chat UI store. */
+// ponytail: dvh + visualViewport for the soft keyboard (L-23). ceiling: iOS
+// ignores interactive-widget. upgrade: a dedicated keyboard offset hook if a
+// device still hides the composer.
 /**
  * Browsers that don't shrink the layout viewport for the on-screen keyboard
  * would hide the composer; track visualViewport instead (report 7.12 B11).
