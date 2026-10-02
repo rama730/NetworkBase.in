@@ -1,4 +1,4 @@
-export const TRAILING_LINK_PUNCTUATION_REGEX = /[),.;!?]+$/;
+const TRAILING_LINK_PUNCTUATION_REGEX = /[),.;!?]+$/;
 const URL_WHITESPACE_REGEX = /\s/;
 
 export function normalizeSafeExternalUrl(rawValue: string): string | null {

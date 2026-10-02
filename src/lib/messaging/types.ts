@@ -142,21 +142,3 @@ export type ChatCardView =
   | TaskCardView
   | InviteCardView
   | { kind: ChatCardKind; id: string; restricted: true };
-
-/** Realtime events on chat:channel:<id>. */
-export type ChatChannelEvent =
-  | { event: "message.new"; payload: ChatMessageView }
-  | { event: "message.edit"; payload: { channel_id: string; seq: number; body: string; edited_at: string } }
-  | { event: "message.delete"; payload: { channel_id: string; seq: number } }
-  | { event: "reaction.add" | "reaction.remove"; payload: { channel_id: string; seq: number; emoji: string; user_id: string } }
-  | { event: "pin.changed"; payload: { channel_id: string; seq: number; pinned: boolean } }
-  | { event: "member.changed"; payload: { channel_id: string } }
-  | { event: "channel.updated"; payload: { channel_id: string } }
-  | { event: "card.changed"; payload: { kind: ChatCardKind; ref_id: string; seq: number } }
-  | { event: "typing"; payload: { channel_id: string; user_id: string; name: string } };
-
-/** Realtime events on chat:user:<id>. */
-export type ChatUserEvent =
-  | { event: "hint"; payload: { channel_id: string; seq: number; mention: boolean; thread_root_seq: number | null } }
-  | { event: "read.moved"; payload: { channel_id: string; seq: number } }
-  | { event: "membership.changed"; payload: { channel_id: string } };

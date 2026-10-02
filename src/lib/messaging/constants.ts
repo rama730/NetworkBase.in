@@ -2,8 +2,6 @@
 // The database is authoritative; these exist for client-side validation and copy.
 export const CHAT_MAX_BODY = 4000;
 export const CHAT_MAX_ATTACHMENTS = 10;
-export const CHAT_MAX_MEMBERS = 500;
-export const CHAT_MAX_CHANNELS_PER_PROJECT = 200;
 export const CHAT_MAX_DESCRIPTION = 250;
 export const CHAT_MAX_GROUP_OTHERS = 8;
 export const CHAT_CHANNEL_NAME_PATTERN = /^[a-z0-9-]{1,80}$/;
@@ -14,7 +12,6 @@ export const CHAT_BROADCAST_MENTION_MAX_MEMBERS = 100;
 // ceiling: 50 typers per room. upgrade: server-side aggregation.
 export const CHAT_TYPING_MAX_MEMBERS = 50;
 export const CHAT_TYPING_THROTTLE_MS = 3_500;
-export const CHAT_PREVIEW_MAX = 120;
 export const CHAT_PAGE_SIZE = 50;
 export const CHAT_READ_DEBOUNCE_MS = 3_000;
 // ponytail: background unread by poll (L-2), not per-channel live topics.

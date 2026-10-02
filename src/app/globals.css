@@ -75,9 +75,6 @@
   --shadow-xl: 0 18px 44px -16px rgb(13 17 20 / 26%);
   --shadow-2xl: 0 18px 44px -16px rgb(13 17 20 / 26%);
 
-  --color-msg-own-fg: var(--msg-own-fg);
-  --color-msg-peer-bg: var(--msg-peer-bg);
-  --color-msg-peer-fg: var(--msg-peer-fg);
 }
 
 @theme {
@@ -225,19 +222,6 @@
   --ui-list-row-py: 12px;
   --ui-section-gap: 16px;
   --ui-topnav-height: 56px;
-  --msg-rail-width: 320px;
-  --msg-bubble-radius: 8px;
-  --msg-tail-radius: 5px;
-  --msg-bubble-pad-x: 12px;
-  --msg-bubble-pad-y: 8px;
-  --msg-action-rail-width: 0px;
-  --msg-own-bg: var(--accent);
-  --msg-own-fg: var(--foreground);
-  --msg-peer-bg: var(--card);
-  --msg-peer-fg: var(--foreground);
-  --msg-date-pill-bg: var(--background);
-  --msg-shadow: none;
-  --msg-shadow-lg: 0 18px 44px -16px rgb(13 17 20 / 26%);
   /* Content loading is intentionally neutral: it never inherits an accent. */
   --skeleton-base: color-mix(in srgb, var(--muted) 88%, var(--background));
   --skeleton-highlight: color-mix(in srgb, var(--card) 72%, var(--muted));
@@ -619,74 +603,6 @@ html[data-reduce-motion="true"] .nb-skeleton {
   }
 }
 
-@keyframes message-appear {
-  0% {
-    transform: translateY(8px);
-    opacity: 0;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.msg-message-enter {
-  animation: message-appear 260ms cubic-bezier(.2,.8,.3,1);
-}
-
-.msg-message-row,
-.msg-bubble-lane {
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: clip;
-}
-
-@supports not (overflow: clip) {
-  .msg-message-row,
-  .msg-bubble-lane {
-    overflow-x: hidden;
-  }
-}
-
-.msg-action-rail {
-  flex: 0 0 var(--msg-action-rail-width);
-  width: var(--msg-action-rail-width);
-  max-width: var(--msg-action-rail-width);
-}
-
-.msg-bubble-stack {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: min(36rem, 78%);
-}
-
-.msg-bubble-stack[data-surface="popup"] {
-  max-width: min(20rem, 100%);
-}
-
-.msg-bubble-shell {
-  position: relative;
-  border-radius: var(--msg-bubble-radius);
-  padding: var(--msg-bubble-pad-y) var(--msg-bubble-pad-x);
-  box-shadow: var(--msg-shadow);
-  width: fit-content;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: break-word;
-  word-break: normal;
-}
-
-.msg-bubble-shell[data-rich="true"] {
-  width: 100%;
-  max-width: 380px;
-}
-
-.msg-message-text {
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  word-break: normal;
-}
-
 .msg-rich-content {
   min-width: 0;
   max-width: 100%;
@@ -697,99 +613,6 @@ html[data-reduce-motion="true"] .nb-skeleton {
   width: max-content;
   max-width: min(18rem, calc(100vw - 2rem));
   overflow-x: visible;
-}
-
-.msg-bubble-shell[data-pending="true"] {
-  opacity: 0.72;
-}
-
-.msg-date-pill {
-  background: var(--msg-date-pill-bg);
-  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
-  color: var(--muted-foreground);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.03em;
-  border-radius: 3px;
-  padding: 2px 8px;
-  font-weight: 500;
-}
-
-.msg-date-group-header {
-  pointer-events: none;
-  transform: translateZ(0);
-  will-change: transform;
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-    .typing-dot,
-    .animate-none,
-    .animate-spin {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-    }
-    * {
-        transition-duration: 0.01ms !important;
-    }
-}
-
-/* Blur-only edge treatment for the header and composer overlap. */
-.msg-thread-mask {
-  --_blur-top: 3.25rem;
-  --_blur-bottom: var(--msg-thread-composer-blur, 4.75rem);
-  --_blur-strength: 5px;
-  position: relative;
-  contain: content;
-  will-change: transform;
-  transform: translate3d(0, 0, 0);
-}
-
-/* Smooth fade edges via mask-image — no GPU white-line artifacts unlike backdrop-filter */
-.msg-thread-mask {
-  position: relative;
-  contain: content;
-  will-change: transform;
-  transform: translate3d(0, 0, 0);
-  --_blur-top: var(--msg-thread-header-blur, 3rem);
-  --_blur-bottom: var(--msg-thread-composer-blur, 4.25rem);
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    black var(--_blur-top),
-    black calc(100% - var(--_blur-bottom)),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    black var(--_blur-top),
-    black calc(100% - var(--_blur-bottom)),
-    transparent 100%
-  );
-}
-
-/* Row-level layout isolation for ultra-fast scrolling */
-.msg-message-row {
-  /* Removed content-visibility: auto as it fatally breaks React Virtuoso's ability to measure off-screen elements during overscan, causing severe scroll jitter */
-}
-
-/* Script element visibility override for debugging script payloads in chat */
-script.debug-script-view {
-  display: block;
-  white-space: pre;
-  font-family: var(--font-mono, monospace);
-  background: #f4f4f4;
-  padding: 0.5rem;
-  border-radius: 0.25rem;
-}
-
-/* Popup header and composer are shorter than the page surface. */
-[data-surface="popup"] .msg-thread-mask,
-.msg-thread-mask[data-surface="popup"] {
-  --_blur-top: 2.875rem;
-  --_blur-bottom: var(--msg-thread-composer-blur, 4.25rem);
-  --_blur-strength: 4px;
 }
 
 /* ── Tiptap Collaborative Cursors & Selections Styling ── */

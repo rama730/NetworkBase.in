@@ -115,3 +115,22 @@ export function initials(title: string) {
   const words = title.trim().split(/\s+/).filter(Boolean);
   return ((words[0]?.[0] ?? "") + (words[1]?.[0] ?? "")).toUpperCase() || "?";
 }
+
+/**
+ * Chat timestamps: "clock" = 9:42 AM, "ago" = 5m ago, "auto" = clock today,
+ * otherwise a short date (Oct 2).
+ */
+export function formatChatTime(value: string, mode: "clock" | "ago" | "auto" = "auto") {
+  const date = new Date(value);
+  if (mode === "ago") {
+    const minutes = Math.round((Date.now() - date.getTime()) / 60_000);
+    if (minutes < 1) return "just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 1440) return `${Math.round(minutes / 60)}h ago`;
+    return `${Math.round(minutes / 1440)}d ago`;
+  }
+  if (mode === "clock" || date.toDateString() === new Date().toDateString()) {
+    return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}

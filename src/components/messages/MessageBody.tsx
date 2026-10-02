@@ -85,5 +85,5 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
 /** The first safe external link, for the link preview. */
 export function firstLink(body: string) {
   const match = body.match(/https?:\/\/[^\s<>()]+/);
-  return match ? normalizeSafeExternalUrl(match[0].replace(/[),.;!?]+$/, "")) : null;
+  return match ? normalizeSafeExternalUrl(match[0]) : null;
 }

@@ -35,6 +35,6 @@ test('PNG alpha detection preserves transparency while allowing opaque conversio
     assert.equal(pixelsHaveTransparency(new Uint8ClampedArray([1, 2, 3, 254])), true);
     assert.match(compression, /file\.type === 'image\/png' && !transparentPng\s*\? 'image\/webp'/);
     assert.match(compression, /transparentPng[\s\S]*: file\.type === 'image\/png' \? 'image\/png'/);
-    assert.equal((compression.match(/finally \{/g) ?? []).length, 2);
-    assert.equal((compression.match(/bitmap\?\.close\(\)/g) ?? []).length, 2);
+    assert.equal((compression.match(/finally \{/g) ?? []).length, 1);
+    assert.equal((compression.match(/bitmap\?\.close\(\)/g) ?? []).length, 1);
 });

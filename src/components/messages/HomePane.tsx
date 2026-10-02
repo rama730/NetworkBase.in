@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { MessageSquare } from "lucide-react";
 
+import { ListScreen } from "@/components/messages/ListScreen";
+
 /** The main pane when no conversation is open (desktop). */
 export function HomePane() {
   return (
@@ -14,5 +16,15 @@ export function HomePane() {
         <Link href="/messages/new" className="inline-flex h-[var(--ui-control-height)] items-center rounded-[5px] bg-primary px-4 text-[13px] font-medium text-primary-foreground">New message</Link>
       </div>
     </div>
+  );
+}
+
+/** The List screen below 1024px; the empty main pane at 1024px+ (the sidebar lists conversations). */
+export function ListOrHome() {
+  return (
+    <>
+      <div className="h-full lg:hidden"><ListScreen /></div>
+      <div className="hidden h-full lg:block"><HomePane /></div>
+    </>
   );
 }

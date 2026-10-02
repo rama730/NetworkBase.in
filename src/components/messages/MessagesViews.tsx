@@ -11,22 +11,16 @@ import { listActivity, listDirectMessages, listThreads } from "@/app/actions/cha
 import { browseChannels, joinChannel } from "@/app/actions/chat/channels";
 import { useChatUi, readChatUi } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
-import { HomePane } from "@/components/messages/HomePane";
-import { ListScreen } from "@/components/messages/ListScreen";
+import { ListOrHome } from "@/components/messages/HomePane";
 import { ViewScreen } from "@/components/messages/ViewScreen";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, isUnread, personName, rowCount } from "@/lib/messaging/channel-view";
+import { channelTitle, formatChatTime, isUnread, personName, rowCount } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { tokensToPlainText } from "@/lib/messaging/tokens";
 import { queryKeys } from "@/lib/query-keys";
 
-function when(value: string | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  const sameDay = date.toDateString() === new Date().toDateString();
-  return sameDay ? date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
+const when = (value: string | null) => (value ? formatChatTime(value) : "");
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="px-4 py-10 text-center text-[13px] text-muted-foreground">{children}</p>;
@@ -45,12 +39,7 @@ export function ProjectLanding({ projectId }: { projectId: string }) {
     const target = inProject.find((c) => c.id === last) ?? inProject.find((c) => c.is_default) ?? inProject[0];
     if (target) router.replace(`/messages/${target.id}`);
   }, [data, projectId, router]);
-  return (
-    <>
-      <div className="h-full lg:hidden"><ListScreen /></div>
-      <div className="hidden h-full lg:block"><HomePane /></div>
-    </>
-  );
+  return <ListOrHome />;
 }
 
 /** Public channels in a project, client-side filter, Join (D5). Private channels are never listed. */

@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useLinkPreview } from "@/hooks/useLinkPreview";
-import { personName } from "@/lib/messaging/channel-view";
+import { formatChatTime, personName } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { applyReaction, patchPages } from "@/lib/messaging/timeline";
 import { encodeMentions, tokensToDraft } from "@/lib/messaging/tokens";
@@ -31,18 +31,6 @@ function toViewerAttachment(attachment: ChatAttachmentView): ChatAttachmentV2 {
   const url = `/api/v1/chat/attachments/${attachment.asset_id}`;
   const type = attachment.mime.startsWith("image/") ? "image" : attachment.mime.startsWith("video/") ? "video" : "file";
   return { id: attachment.asset_id, type, url, filename: attachment.name || "file", sizeBytes: attachment.size, mimeType: attachment.mime, thumbnailUrl: null, width: attachment.width, height: attachment.height };
-}
-
-function time(value: string) {
-  return new Date(value).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
-
-function relative(value: string) {
-  const minutes = Math.round((Date.now() - Date.parse(value)) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (minutes < 1440) return `${Math.round(minutes / 60)}h ago`;
-  return `${Math.round(minutes / 1440)}d ago`;
 }
 
 function LinkPreview({ body }: { body: string }) {
@@ -122,7 +110,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     return (
       <div className="px-4 py-1 pl-[58px] text-[13px] text-muted-foreground" data-seq={message.seq}>
         <span className="font-medium text-foreground">{authorName}</span> {message.body}
-        <span className="ml-2 font-mono text-[12px]">{time(message.created_at)}</span>
+        <span className="ml-2 font-mono text-[12px]">{formatChatTime(message.created_at, "clock")}</span>
       </div>
     );
   }
@@ -143,7 +131,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       <div className="flex gap-2.5">
         <div className="w-[34px] flex-none">
           {grouped ? (
-            <span className="hidden pt-1 font-mono text-[11px] text-muted-foreground group-hover/msg:block">{time(message.created_at)}</span>
+            <span className="hidden pt-1 font-mono text-[11px] text-muted-foreground group-hover/msg:block">{formatChatTime(message.created_at, "clock")}</span>
           ) : (
             <UserAvatar identity={message.author} size={34} roundedClassName="rounded-[5px]" />
           )}
@@ -152,7 +140,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           {grouped ? null : (
             <div className="flex items-baseline gap-2">
               <span className="text-[13px] font-medium">{authorName}</span>
-              <span className="font-mono text-[12px] text-muted-foreground">{time(message.created_at)}</span>
+              <span className="font-mono text-[12px] text-muted-foreground">{formatChatTime(message.created_at, "clock")}</span>
               {message.pinned ? <Pin size={12} aria-label="Pinned" className="text-muted-foreground" /> : null}
             </div>
           )}
@@ -207,7 +195,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           {!ctx.inThread && message.reply_count > 0 ? (
             <button type="button" onClick={() => ctx.openThread(message.seq)} className="mt-1 inline-flex min-h-7 items-center gap-2 rounded-[5px] px-1 text-[13px] font-medium text-primary hover:bg-card hover:underline">
               {message.reply_count} {message.reply_count === 1 ? "reply" : "replies"}
-              {message.last_reply_at ? <span className="font-normal text-muted-foreground">last reply {relative(message.last_reply_at)}</span> : null}
+              {message.last_reply_at ? <span className="font-normal text-muted-foreground">last reply {formatChatTime(message.last_reply_at, "ago")}</span> : null}
             </button>
           ) : null}
         </div>

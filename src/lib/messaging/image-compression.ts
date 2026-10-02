@@ -97,37 +97,3 @@ export async function compressImage(file: File, options?: CompressionOptions): P
         bitmap?.close();
     }
 }
-
-export async function generateTinyThumbnail(file: File): Promise<string | null> {
-    if (!file.type.startsWith('image/')) return null;
-    if (file.type === 'image/gif' || file.type === 'image/svg+xml') return null;
-
-    let bitmap: ImageBitmap | null = null;
-    try {
-        bitmap = await createImageBitmap(file);
-
-        // 16x16 tiny canvas for extreme compression (looks great when blurred)
-        const canvas = new OffscreenCanvas(16, 16);
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return null;
-
-        ctx.drawImage(bitmap, 0, 0, 16, 16);
-
-        // Native base64 extraction at 0.1 quality for minimum byte size
-        const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.1 });
-        const buffer = await blob.arrayBuffer();
-
-        // Convert to base64 string
-        let binary = '';
-        const bytes = new Uint8Array(buffer);
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]!);
-        }
-        return `data:image/jpeg;base64,${btoa(binary)}`;
-    } catch (error) {
-        console.error('Failed to generate tiny thumbnail:', error);
-        return null;
-    } finally {
-        bitmap?.close();
-    }
-}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -8,15 +8,15 @@ import { UserMinus, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { archiveChannel, leaveChannel } from "@/app/actions/chat/channels";
-import { addMembers, removeMember, searchPeople, setMemberState } from "@/app/actions/chat/members";
+import { addMembers, removeMember, setMemberState } from "@/app/actions/chat/members";
+import { usePeopleSearch } from "@/components/messages/usePeopleSearch";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ConversationContext } from "@/components/messages/conversation-context";
-import { MessageRow } from "@/components/messages/MessageRow";
+import { Pins } from "@/components/messages/ConversationView";
 import { useChannelDetails, useChannelMembers } from "@/components/messages/useConversation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { listPins } from "@/app/actions/chat/messages";
 import { personName } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import type { ChatNotify } from "@/lib/messaging/types";
@@ -28,15 +28,7 @@ type Tab = (typeof TABS)[number];
 function AddPeople({ channelId, existing }: { channelId: string; existing: Set<string> }) {
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
-  const results = useQuery({
-    queryKey: queryKeys.chat.people(query.trim().toLowerCase()),
-    enabled: query.trim().length >= 2,
-    queryFn: async () => {
-      const result = await searchPeople({ query: query.trim() });
-      return result.success ? result.people : [];
-    },
-    staleTime: 60_000,
-  });
+  const results = usePeopleSearch(query);
   const add = async (userId: string) => {
     const result = await addMembers({ channelId, userIds: [userId] });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
@@ -76,14 +68,6 @@ export function DetailsPane({ channelId }: { channelId: string }) {
   const initial = params?.get("tab");
   const [confirm, setConfirm] = useState<"leave" | "archive" | null>(null);
   const [tab, setTab] = useState<Tab>(TABS.includes(initial as Tab) ? (initial as Tab) : "about");
-  const pins = useQuery({
-    queryKey: queryKeys.chat.pins(channelId),
-    enabled: tab === "pins",
-    queryFn: async () => {
-      const result = await listPins({ channelId });
-      return result.success ? result.messages : [];
-    },
-  });
   if (!channel) return <div role="status" aria-label="Loading details" className="flex-1" />;
   const isDm = channel.kind === "dm";
   const isGroup = channel.kind === "private" && channel.name === null;
@@ -192,7 +176,7 @@ export function DetailsPane({ channelId }: { channelId: string }) {
             nameOf: (id) => personName((members.data ?? []).find((m) => m.id === id)), channelNameOf: () => undefined,
             editingSeq: null, setEditingSeq: () => undefined, openThread: (seq) => router.push(`/messages/${channelId}/thread/${seq}`), inThread: false,
           }}>
-            {pins.data?.length ? pins.data.map((m) => <MessageRow key={m.seq} message={m} grouped={false} />) : <p className="p-6 text-center text-[13px] text-muted-foreground">{pins.isLoading ? "Loading…" : "Nothing pinned yet."}</p>}
+            <Pins channelId={channelId} />
           </ConversationContext.Provider>
         ) : settings}
       </div>

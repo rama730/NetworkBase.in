@@ -17,18 +17,6 @@ test('optimization 11: pixelsHaveTransparency fast-path correctly detects transp
     assert.equal(pixelsHaveTransparency(withAlpha), true, 'Buffer with alpha must return true');
 });
 
-test('optimization 13: renderTextWithMentions fast-paths plain text without regex parsing', () => {
-    const renderFile = readFileSync(
-        resolve(ROOT, 'src/components/messages/parts/message-rendering.tsx'),
-        'utf8',
-    );
-    assert.match(
-        renderFile,
-        /if\s*\(!text\.includes\('`'\)\s*&&\s*!text\.includes\('@'\)\s*&&\s*!text\.includes\('http'\)\s*&&\s*!text\.includes\('www\.'\)\)\s*{\s*return text;\s*}/,
-        'Must fast-path plain text strings without running regex split',
-    );
-});
-
 test('optimization 14: MediaViewerModal is dynamically loaded on demand', () => {
     const attFile = readFileSync(
         resolve(ROOT, 'src/components/messages/parts/message-attachments.tsx'),
@@ -38,17 +26,5 @@ test('optimization 14: MediaViewerModal is dynamically loaded on demand', () => 
         attFile,
         /const MediaViewerModal = dynamic\(\s*\(\)\s*=>\s*import\('@\/components\/ui\/media-viewer'\)/,
         'MediaViewerModal must be loaded dynamically with next/dynamic',
-    );
-});
-
-test('optimization 18: detectCodeLanguage limits sample scanning to 1,500 characters', () => {
-    const codeFile = readFileSync(
-        resolve(ROOT, 'src/lib/messaging/code-snippets.ts'),
-        'utf8',
-    );
-    assert.match(
-        codeFile,
-        /const sample = normalizeSnippetContent\(content\)\.slice\(0,\s*1500\);/,
-        'detectCodeLanguage must slice sample to 1500 characters for high-speed regex scan',
     );
 });

@@ -73,7 +73,7 @@ function Intro({ channel, meId, onEdit, onCreateTask }: { channel: ChannelDetail
   );
 }
 
-function Pins({ channelId }: { channelId: string }) {
+export function Pins({ channelId }: { channelId: string }) {
   const pins = useQuery({
     queryKey: queryKeys.chat.pins(channelId),
     queryFn: async () => {
