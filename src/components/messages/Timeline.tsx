@@ -44,6 +44,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   const items = useMemo(() => buildTimeline(messages, { lastReadSeq: dividerSeq, meId }), [dividerSeq, meId, messages]);
   const [atBottom, setAtBottom] = useState(true);
   const [unseen, setUnseen] = useState(0);
+  // ponytail: a floating day label, no jump-to-date (L-29). upgrade: seq-by-date lookup per channel.
   const [topDay, setTopDay] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<number | null>(highlightSeq ?? null);
 

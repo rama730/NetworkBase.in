@@ -104,6 +104,7 @@ export function ThreadPane({ channelId, rootSeq }: { channelId: string; rootSeq:
           })}
         </div>
         {details.data?.is_member && !details.data.channel_archived_at ? (
+          // ponytail: no "also send to the channel" (L-31). upgrade: when requested.
           <Composer channelId={channelId} threadRootSeq={rootSeq} placeholder="Reply…" people={people} allowBroadcast={false} canCreateTask={false} onSent={onSent} />
         ) : null}
       </div>

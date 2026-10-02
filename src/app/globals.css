@@ -1185,6 +1185,7 @@ svg.lucide { stroke-width:1.75; }
 .nb-chat-list .nb-chat-row { min-height:44px; font-size:15px; }
 .nb-chat-list .nb-chat-row-preview { min-height:64px; }
 @media (pointer:coarse) { .nb-chat-row { min-height:44px; } }
+/* ponytail: tablets use the single-pane pattern for Messages (L-22). ceiling: Messages only. upgrade: split pane at >=900px if tablet data shows wasted space. */
 @media (min-width:768px) and (max-width:1023px) { .nb-shell--messages .nb-chat-sidebar { display:none; } }
 .nb-shell--messages { height:var(--chat-vvh, 100dvh); }
 .nb-chat-swipe { position:relative; overflow:hidden; border-radius:5px; }

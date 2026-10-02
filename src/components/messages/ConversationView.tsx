@@ -245,6 +245,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           )}
         </header>
 
+        {/* ponytail: Messages and Pins only, no Files tab (L-27); no search icon until message search exists (L-28). */}
         {!isDirect && isMember && surface === "page" ? (
           <div className="flex h-10 flex-none items-end gap-4 border-b border-border px-4" role="tablist" aria-label="Conversation views">
             {(["messages", "pins"] as const).map((value) => (
