@@ -3,30 +3,29 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AtSign, ChevronDown, FileText, Hash, Lock, MessagesSquare, MoreHorizontal, Plus, UserPlus, Users } from "lucide-react";
+import { AtSign, Check, ChevronDown, FileText, Hash, Lock, MessagesSquare, MoreHorizontal, Plus, SquarePen, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { getOrCreateDm, setMemberState } from "@/app/actions/chat/members";
-import { readChatUi, writeChatUi } from "@/components/messages/chat-ui-store";
+import { markRead } from "@/app/actions/chat/read";
+import { readChatUi, useChatUi, writeChatUi } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useSelectedProject } from "@/components/messages/useSelectedProject";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
-import { DM_SIDEBAR_LIMIT, channelTitle, formatChatTime, isDirectLike, isUnread, rowCount, sectionsFor } from "@/lib/messaging/channel-view";
+import { DM_SIDEBAR_LIMIT, channelTitle, formatChatTime, initials, isDirectLike, isUnread, projectBadges, projectsByActivity, rowCount, sectionsFor } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
 
 export type ChatSectionsVariant = "sidebar" | "list";
 
 type Props = {
-  projectId: string | null;
   variant: ChatSectionsVariant;
-  unreadOnly?: boolean;
   /** Launcher: open in the window instead of navigating. */
   onSelect?: (channelId: string) => void;
-  onCreateChannel?: () => void;
-  onInvite?: () => void;
+  onNewMessage?: () => void;
 };
 
 export function channelHref(channelId: string) {
@@ -189,12 +188,129 @@ function Section({ id, title, count, collapsed, onToggle, action, children }: {
   );
 }
 
+function ProjectTile({ title }: { title: string }) {
+  return (
+    <span aria-hidden="true" className="grid size-5 flex-none place-items-center rounded-[4px] bg-secondary font-mono text-[10px] font-semibold text-foreground">
+      {initials(title)}
+    </span>
+  );
+}
+
+/**
+ * Projects (report 7.10, revised 2026-10): every project is listed; opening one
+ * collapses the list to its name, with its channels and applications below.
+ * The name's dropdown switches projects or returns to the full list.
+ */
+function ProjectsBlock({ row, onSelect }: { row: (channel: ChatChannelSummary) => ReactNode; onSelect?: Props["onSelect"] }) {
+  const { data, refresh } = useChatShell();
+  const projectId = useSelectedProject();
+  const setProject = useChatUi((state) => state.setProject);
+  const setCreateFor = useChatUi((state) => state.setCreateChannelFor);
+  const setInviteFor = useChatUi((state) => state.setInviteFor);
+  const projects = projectsByActivity(data);
+  const badges = projectBadges(data);
+  const open = projects.find((project) => project.id === projectId) ?? null;
+  const sections = sectionsFor(data, open?.id ?? null);
+  const canManage = open?.role === "owner" || open?.role === "admin";
+  const inPage = !onSelect;
+
+  const markAllRead = async () => {
+    if (!open) return;
+    const unread = (data?.channels ?? []).filter((c) => c.project_id === open.id && isUnread(c));
+    await Promise.all(unread.map((c) => markRead({ channelId: c.id, seq: c.last_seq })));
+    refresh();
+  };
+
+  if (!projects.length) {
+    return (
+      <p className="px-2.5 py-1 text-[13px] text-muted-foreground">
+        No projects yet. {inPage ? <Link href="/projects/new" className="font-medium text-primary hover:underline">Create one</Link> : null}
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="space-y-px">
+        {projects.map((project) => {
+          const count = badges.get(project.id) ?? 0;
+          return (
+            <button
+              key={project.id}
+              type="button"
+              className="nb-chat-row"
+              data-unread={count ? "true" : undefined}
+              data-testid={`chat-project-${project.id}`}
+              aria-label={`${project.title}${count ? `, ${count} unread` : ""}`}
+              onClick={() => setProject(project.id)}
+            >
+              <ProjectTile title={project.title} />
+              <span className="min-w-0 flex-1 truncate">{project.title}</span>
+              {count ? <span className="nb-chat-count">{count > 99 ? "99+" : count}</span> : null}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-px" data-testid={`chat-project-open-${open.id}`}>
+      <DropdownMenu>
+        <DropdownMenuTrigger className="nb-chat-row font-semibold text-foreground" aria-label={`${open.title}, switch project`}>
+          <ProjectTile title={open.title} />
+          <span className="min-w-0 flex-1 truncate text-left">{open.title}</span>
+          <ChevronDown size={14} aria-hidden="true" className="flex-none" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-60">
+          <DropdownMenuLabel>Switch project</DropdownMenuLabel>
+          {projects.map((project) => {
+            const count = badges.get(project.id) ?? 0;
+            return (
+              <DropdownMenuItem key={project.id} onSelect={() => setProject(project.id)}>
+                <ProjectTile title={project.title} />
+                <span className="min-w-0 flex-1 truncate">{project.title}</span>
+                {count ? <span className="nb-chat-count">{count > 99 ? "99+" : count}</span> : null}
+                {project.id === open.id ? <Check size={14} aria-label="Open" /> : null}
+              </DropdownMenuItem>
+            );
+          })}
+          <DropdownMenuItem onSelect={() => setProject(null)}>Show all projects</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => void markAllRead()}>Mark all read</DropdownMenuItem>
+          {inPage && canManage ? <DropdownMenuItem onSelect={() => setInviteFor(open.id)}>Invite people</DropdownMenuItem> : null}
+          {inPage && canManage ? (
+            <DropdownMenuItem asChild><Link href={`/projects/${open.slug ?? open.id}?tab=settings`}>Project settings</Link></DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <div className="ml-[18px] space-y-px border-l border-border pl-1.5">
+        {sections.channels.map(row)}
+        {sections.channels.length === 0 ? <p className="px-2.5 py-1 text-[13px] text-muted-foreground">No channels yet</p> : null}
+        {inPage ? (
+          <>
+            <button type="button" className="nb-chat-row" onClick={() => setCreateFor(open.id)}><Plus size={16} aria-hidden="true" /><span>Add channel</span></button>
+            <Link href={`/messages/p/${open.id}/browse`} className="nb-chat-row"><Hash size={16} aria-hidden="true" /><span>Browse channels</span></Link>
+          </>
+        ) : null}
+        {sections.applications.length ? (
+          <>
+            <p className="nb-chat-section-title pt-2">Applications</p>
+            {sections.applications.map(row)}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /** The sectioned list shared by the desktop sidebar, the mobile List screen and the launcher window. */
-export function ChatSections({ projectId, variant, unreadOnly = false, onSelect, onCreateChannel, onInvite }: Props) {
-  const { data, pending, refresh } = useChatShell();
-  const { user } = useAuth();
+export function ChatSections({ variant, onSelect, onNewMessage }: Props) {
+  const { data, pending, loadError, refresh } = useChatShell();
+  const { user, profile } = useAuth();
   const router = useRouter();
   const meId = user?.id ?? null;
+  const projectId = useSelectedProject();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   useEffect(() => setCollapsed(readChatUi().collapsed ?? {}), []);
   const toggle = (id: string) => {
@@ -205,21 +321,13 @@ export function ChatSections({ projectId, variant, unreadOnly = false, onSelect,
     });
   };
 
-  const sections = useMemo(() => {
-    const all = sectionsFor(data, projectId);
-    if (!unreadOnly) return all;
-    const keep = (channel: ChatChannelSummary) => isUnread(channel) || channel.mention_count > 0;
-    return { starred: all.starred.filter(keep), channels: all.channels.filter(keep), applications: all.applications.filter(keep), dms: all.dms.filter(keep) };
-  }, [data, projectId, unreadOnly]);
-
+  const sections = useMemo(() => sectionsFor(data, projectId), [data, projectId]);
   const dmRows = variant === "sidebar" ? sections.dms.slice(0, DM_SIDEBAR_LIMIT) : sections.dms;
   const presenceIds = useMemo(
     () => dmRows.filter((c) => c.kind === "dm" && c.dm_user && c.dm_user.id !== meId).slice(0, 3).map((c) => c.dm_user!.id),
     [dmRows, meId],
   );
   const online = useOnlineUsers(presenceIds);
-  const project = data?.projects?.find((p) => p.id === projectId) ?? null;
-  const canInvite = project?.role === "owner" || project?.role === "admin";
   const mentions = data?.channels.reduce((sum, c) => sum + (c.notify === "mute" ? 0 : c.mention_count), 0) ?? 0;
   // The self-DM ("You (notes to self)") is created on first open.
   const openSelf = async () => {
@@ -237,6 +345,19 @@ export function ChatSections({ projectId, variant, unreadOnly = false, onSelect,
     return variant === "list" && !onSelect ? <SwipeActions key={channel.id} channel={channel}>{element}</SwipeActions> : element;
   };
 
+  if (!data) {
+    return loadError ? (
+      <div role="alert" className="space-y-2 px-2.5 py-3 text-[13px]">
+        <p className="text-foreground">Conversations didn&apos;t load.</p>
+        <p className="font-mono text-[11px] text-muted-foreground">{loadError}</p>
+        <button type="button" onClick={refresh} className="rounded-[5px] border border-border px-3 py-1.5 font-medium">Retry</button>
+      </div>
+    ) : (
+      <p role="status" className="px-2.5 py-3 text-[13px] text-muted-foreground">Loading conversations…</p>
+    );
+  }
+
+  const selfIdentity = profile ? { id: profile.id, username: profile.username, fullName: profile.fullName, avatarUrl: profile.avatarUrl } : null;
   return (
     <div className="space-y-4">
       <div className="space-y-px">
@@ -251,34 +372,13 @@ export function ChatSections({ projectId, variant, unreadOnly = false, onSelect,
         <Section id="starred" title="Starred" collapsed={Boolean(collapsed.starred)} onToggle={toggle}>{sections.starred.map(row)}</Section>
       ) : null}
 
-      {projectId ? (
-        <Section
-          id="channels"
-          title="Channels"
-          collapsed={Boolean(collapsed.channels)}
-          onToggle={toggle}
-          action={onCreateChannel ? (
-            <button type="button" className="grid size-6 place-items-center rounded-[5px] opacity-100 hover:bg-[var(--muted)] md:opacity-0 md:group-hover/section:opacity-100 md:focus-visible:opacity-100" aria-label="Create channel" onClick={onCreateChannel}>
-              <Plus size={14} aria-hidden="true" />
-            </button>
-          ) : null}
-        >
-          {sections.channels.map(row)}
-          {onSelect ? null : (
-            <Link href={`/messages/p/${projectId}/browse`} className="nb-chat-row"><Plus size={16} aria-hidden="true" /><span>Browse channels</span></Link>
-          )}
-        </Section>
-      ) : null}
+      <Section id="projects" title="Projects" collapsed={Boolean(collapsed.projects)} onToggle={toggle}>
+        <ProjectsBlock row={row} onSelect={onSelect} />
+      </Section>
 
-      {sections.applications.length ? (
-        <Section
-          id="applications"
-          title={projectId ? "Applications" : "My applications"}
-          count={projectId ? sections.applications.filter(isUnread).length : pending.applications}
-          collapsed={Boolean(collapsed.applications)}
-          onToggle={toggle}
-        >
-          {sections.applications.map(row)}
+      {sections.myApplications.length ? (
+        <Section id="applications" title="My applications" count={pending.applications} collapsed={Boolean(collapsed.applications)} onToggle={toggle}>
+          {sections.myApplications.map(row)}
         </Section>
       ) : null}
 
@@ -289,12 +389,14 @@ export function ChatSections({ projectId, variant, unreadOnly = false, onSelect,
         ) : null}
         {meId && !sections.dms.some((c) => c.kind === "dm" && c.dm_user?.id === meId) ? (
           <button type="button" className="nb-chat-row" onClick={() => void openSelf()}>
-            <UserAvatar identity={user} size={20} roundedClassName="rounded-[3px]" /><span>You</span>
+            <UserAvatar identity={selfIdentity} size={20} roundedClassName="rounded-[3px]" /><span>You</span>
           </button>
         ) : null}
-        {canInvite && onInvite ? (
-          <button type="button" className="nb-chat-row" onClick={onInvite}><UserPlus size={16} aria-hidden="true" /><span>Invite people</span></button>
-        ) : null}
+        {onNewMessage ? (
+          <button type="button" className="nb-chat-row" onClick={onNewMessage}><SquarePen size={16} aria-hidden="true" /><span>New message</span></button>
+        ) : (
+          <Link href="/messages/new" className="nb-chat-row"><SquarePen size={16} aria-hidden="true" /><span>New message</span></Link>
+        )}
       </Section>
     </div>
   );

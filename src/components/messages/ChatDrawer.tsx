@@ -27,12 +27,16 @@ export function ChatDrawer({ channelId, title, subtitle, children }: { channelId
       className="fixed inset-0 z-40 flex flex-col bg-card lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 lg:z-30 lg:w-[320px] lg:border-l lg:border-border lg:shadow-md"
     >
       <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2">
-        <button type="button" onClick={close} className="nb-icon-button nb-touch-target lg:hidden" aria-label="Back"><ArrowLeft size={18} /></button>
+        <span className="contents lg:hidden">
+          <button type="button" onClick={close} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={18} /></button>
+        </span>
         <div className="min-w-0 flex-1 px-1">
           <h2 ref={heading} tabIndex={-1} className="truncate text-[17px] font-semibold outline-none">{title}</h2>
           {subtitle ? <p className="truncate text-[13px] text-muted-foreground">{subtitle}</p> : null}
         </div>
-        <button type="button" onClick={close} className="nb-icon-button nb-touch-target hidden lg:grid" aria-label="Close"><X size={18} /></button>
+        <span className="hidden lg:contents">
+          <button type="button" onClick={close} className="nb-icon-button nb-touch-target" aria-label="Close"><X size={18} /></button>
+        </span>
       </header>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </aside>

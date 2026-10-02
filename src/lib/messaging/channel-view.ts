@@ -1,10 +1,10 @@
 import type { ChatBootstrap, ChatChannelSummary, ChatPerson } from "@/lib/messaging/types";
 
-// Pure grouping of the bootstrap into the rail and sidebar (report 7.10).
-// Switching projects re-runs this in memory; it never fetches.
+// Pure grouping of the bootstrap into the sidebar (report 7.10). Opening a
+// project re-runs this in memory; it never fetches.
 
-// ponytail: tiles by recent activity, 8 DMs per project sidebar (L-30).
-// ceiling: long project lists. upgrade: pin/reorder and rail search past ~12 projects.
+// ponytail: projects by recent activity, 8 DMs in the sidebar (L-30).
+// ceiling: long project lists. upgrade: pin/reorder and project search past ~12 projects.
 export const DM_SIDEBAR_LIMIT = 8;
 
 export function personName(person: ChatPerson | null | undefined) {
@@ -57,45 +57,45 @@ function attention(channel: ChatChannelSummary) {
 
 export type ChatSections = {
   starred: ChatChannelSummary[];
+  /** Channels and application threads of the selected project. */
   channels: ChatChannelSummary[];
   applications: ChatChannelSummary[];
+  /** Applications you sent to projects you are not in. */
+  myApplications: ChatChannelSummary[];
   dms: ChatChannelSummary[];
 };
 
-/** projectId null = Home: all DMs plus the applications you sent. */
+/** DMs, your applications and starred rows always; channels only for the open project. */
 export function sectionsFor(data: ChatBootstrap | undefined, projectId: string | null): ChatSections {
-  const sections: ChatSections = { starred: [], channels: [], applications: [], dms: [] };
+  const sections: ChatSections = { starred: [], channels: [], applications: [], myApplications: [], dms: [] };
   if (!data) return sections;
   const memberOf = new Set((data.projects ?? []).map((project) => project.id));
   for (const channel of data.channels) {
     if (!visible(channel)) continue;
-    const direct = isDirectLike(channel);
-    const inScope = direct || (projectId === null
-      ? Boolean(channel.application_id) && !memberOf.has(channel.project_id ?? "")
-      : channel.project_id === projectId);
-    if (!inScope) continue;
     if (channel.starred) sections.starred.push(channel);
-    if (direct) sections.dms.push(channel);
+    if (isDirectLike(channel)) sections.dms.push(channel);
+    else if (channel.application_id && !memberOf.has(channel.project_id ?? "")) sections.myApplications.push(channel);
+    else if (channel.project_id !== projectId) continue;
     else if (channel.application_id) sections.applications.push(channel);
     else sections.channels.push(channel);
   }
   sections.starred.sort(byName);
-  sections.channels.sort(byName);
+  sections.channels.sort((a, b) => Number(b.is_default) - Number(a.is_default) || byName(a, b));
   sections.applications.sort(byRecent);
+  sections.myApplications.sort(byRecent);
   sections.dms.sort(byRecent);
   return sections;
 }
 
-/** Rail badges: Home = DMs and your applications; a project = its channels and applications. */
-export function railBadges(data: ChatBootstrap | undefined) {
-  const badges = new Map<string | null, number>();
+/** Unread attention per project (its channels and application threads). */
+export function projectBadges(data: ChatBootstrap | undefined) {
+  const badges = new Map<string, number>();
   if (!data) return badges;
   const memberOf = new Set((data.projects ?? []).map((project) => project.id));
   for (const channel of data.channels) {
-    if (!visible(channel)) continue;
-    const owner = isDirectLike(channel) || !channel.project_id || !memberOf.has(channel.project_id) ? null : channel.project_id;
+    if (!visible(channel) || isDirectLike(channel) || !channel.project_id || !memberOf.has(channel.project_id)) continue;
     const count = attention(channel);
-    if (count) badges.set(owner, (badges.get(owner) ?? 0) + count);
+    if (count) badges.set(channel.project_id, (badges.get(channel.project_id) ?? 0) + count);
   }
   return badges;
 }

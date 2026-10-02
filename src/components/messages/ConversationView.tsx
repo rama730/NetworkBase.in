@@ -12,6 +12,7 @@ import { setMemberState } from "@/app/actions/chat/members";
 import { listPins } from "@/app/actions/chat/messages";
 import { markRead } from "@/app/actions/chat/read";
 import { useChatUi, writeChatUi, writeDraft } from "@/components/messages/chat-ui-store";
+import { useBack } from "@/components/messages/useBack";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { Composer } from "@/components/messages/Composer";
 import { ConversationContext, type ConversationContextValue } from "@/components/messages/conversation-context";
@@ -88,6 +89,7 @@ export function Pins({ channelId }: { channelId: string }) {
 
 export function ConversationView({ channelId, around = null, surface = "page", onBack, onOpenThread, windowActions }: Props) {
   const router = useRouter();
+  const goBack = useBack();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const meId = user?.id ?? null;
@@ -185,12 +187,18 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           {surface === "window" || onBack ? (
             <button type="button" onClick={onBack ?? (() => router.push("/messages"))} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={18} /></button>
           ) : (
-            <Link href="/messages" className="nb-icon-button nb-touch-target lg:hidden" aria-label="Back to conversations"><ArrowLeft size={18} /></Link>
+            // The sidebar is the way back at 1024px+; the wrapper hides it there
+            // (.nb-icon-button's display would override lg:hidden on the button).
+            <span className="contents lg:hidden">
+              <button type="button" onClick={goBack} className="nb-icon-button nb-touch-target" aria-label="Back to conversations"><ArrowLeft size={18} /></button>
+            </span>
           )}
           {isMember && !isDirect ? (
-            <button type="button" onClick={() => void setState({ starred: !channel.starred })} className="nb-icon-button hidden size-9 sm:grid" aria-label={channel.starred ? "Unstar" : "Star"} aria-pressed={channel.starred}>
-              <Star size={16} fill={channel.starred ? "currentColor" : "none"} />
-            </button>
+            <span className="hidden sm:contents">
+              <button type="button" onClick={() => void setState({ starred: !channel.starred })} className="nb-icon-button size-9" aria-label={channel.starred ? "Unstar" : "Star"} aria-pressed={channel.starred}>
+                <Star size={16} fill={channel.starred ? "currentColor" : "none"} />
+              </button>
+            </span>
           ) : null}
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {channel.kind === "dm" ? <UserAvatar identity={channel.dm_user} size={34} roundedClassName="rounded-[5px]" /> : isDirect ? <Users size={18} aria-hidden="true" /> : <Icon size={18} aria-hidden="true" />}
@@ -211,8 +219,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 </Link>
               ) : null}
               {isMember ? (
+                <span className="hidden sm:contents">
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="nb-icon-button hidden size-9 sm:grid" aria-label="Notifications">
+                  <DropdownMenuTrigger className="nb-icon-button size-9" aria-label="Notifications">
                     {channel.notify === "mute" ? <BellOff size={16} /> : <Bell size={16} />}
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -223,6 +232,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                </span>
               ) : null}
               <Link href={`/messages/${channelId}/details`} className="nb-icon-button nb-touch-target" aria-label="Details"><Info size={16} /></Link>
               {isMember ? (

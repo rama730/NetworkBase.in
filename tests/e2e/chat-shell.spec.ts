@@ -7,26 +7,29 @@ test.describe("Chat shell", () => {
   test.skip(!chatV3Ready, chatV3SkipReason);
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test("app navigation stays; chat sidebar sits beside it; project switch makes no request", async ({ page }) => {
+  test("projects list opens in place, shows channels, switches from the name dropdown, without a request", async ({ page }) => {
     await login(page);
-    await page.goto("/messages");
+    await page.goto("/messages/home");
     await expect(page.locator("#application-sidebar")).toBeVisible();
     const aside = page.getByRole("complementary", { name: "Conversations" });
-    await expect(aside).toBeVisible();
-    await aside.getByRole("button", { name: /Home|Switch project/ }).first().click();
-    await page.getByRole("menuitem", { name: "Switch project" }).click();
-    const sheet = page.getByRole("dialog", { name: "Switch project" });
-    const projects = sheet.getByRole("button").filter({ hasNotText: "Home" });
+    const projects = aside.locator("[data-testid^='chat-project-']");
     test.skip((await projects.count()) < 1, "Needs at least one project.");
 
     const requests: string[] = [];
     page.on("request", (request) => {
       if (request.method() === "POST") requests.push(request.url());
     });
+    const id = (await projects.first().getAttribute("data-testid"))!.replace("chat-project-", "");
     await projects.first().click();
-    await page.waitForTimeout(500);
-    expect(requests, "switching projects is in memory").toEqual([]);
-    await expect(aside.getByRole("button", { name: "Channels" })).toBeVisible();
+    const open = aside.getByTestId(`chat-project-open-${id}`);
+    await expect(open).toBeVisible();
+    await expect(open.locator("[data-testid^='chat-row-']").first()).toBeVisible();
+    await expect(aside.locator("[data-testid^='chat-project-']").filter({ hasNot: open })).toHaveCount(0);
+    expect(requests, "opening a project is in memory").toEqual([]);
+
+    await open.getByRole("button", { name: /switch project/ }).click();
+    await page.getByRole("menuitem", { name: "Show all projects" }).click();
+    await expect(aside.locator("[data-testid^='chat-project-']").first()).toBeVisible();
   });
 
   test("quick switcher opens with Cmd/Ctrl+K and filters", async ({ page }) => {

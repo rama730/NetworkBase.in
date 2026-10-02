@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { channelTitle, projectsByActivity, railBadges, rowCount, sectionsFor } from "@/lib/messaging/channel-view";
+import { channelTitle, projectBadges, projectsByActivity, rowCount, sectionsFor } from "@/lib/messaging/channel-view";
 import type { ChatBootstrap, ChatChannelSummary } from "@/lib/messaging/types";
 
 function channel(id: string, patch: Partial<ChatChannelSummary> = {}): ChatChannelSummary {
@@ -37,22 +37,25 @@ const data: ChatBootstrap = {
   ],
 };
 
-test("project sections split channels, applications and DMs, hiding archived rows", () => {
+test("an open project shows its channels (#general first) and applications; DMs always show", () => {
   const sections = sectionsFor(data, "p1");
-  assert.deepEqual(sections.channels.map((c) => c.id), ["design", "general", "muted"]);
+  assert.deepEqual(sections.channels.map((c) => c.id), ["general", "design", "muted"]);
   assert.deepEqual(sections.applications.map((c) => c.id), ["app-review"]);
+  assert.deepEqual(sections.dms.map((c) => c.id), ["dm", "self"]);
+  assert.deepEqual(sections.myApplications.map((c) => c.id), ["app-mine"]);
+  assert.deepEqual(sections.starred.map((c) => c.id), ["design"]);
+});
+
+test("with no project open there are no channels, but DMs, starred and your applications remain", () => {
+  const sections = sectionsFor(data, null);
+  assert.deepEqual(sections.channels, []);
+  assert.deepEqual(sections.applications, []);
+  assert.deepEqual(sections.myApplications.map((c) => c.id), ["app-mine"]);
   assert.deepEqual(sections.dms.map((c) => c.id), ["dm", "self"]);
   assert.deepEqual(sections.starred.map((c) => c.id), ["design"]);
 });
 
-test("home shows every DM plus applications to projects you are not in", () => {
-  const sections = sectionsFor(data, null);
-  assert.deepEqual(sections.channels, []);
-  assert.deepEqual(sections.applications.map((c) => c.id), ["app-mine"]);
-  assert.deepEqual(sections.dms.map((c) => c.id), ["dm", "self"]);
-});
-
-test("titles, counts and rail badges follow the report rules", () => {
+test("titles, counts and project badges follow the report rules", () => {
   const byId = new Map(data.channels.map((c) => [c.id, c]));
   assert.equal(channelTitle(byId.get("dm")!, "me"), "Priya Shah");
   assert.equal(channelTitle(byId.get("self")!, "me"), "You");
@@ -60,10 +63,10 @@ test("titles, counts and rail badges follow the report rules", () => {
   assert.equal(rowCount(byId.get("dm")!), 3, "DMs count unread messages");
   assert.equal(rowCount(byId.get("general")!), 2, "channels count mentions only");
   assert.equal(rowCount(byId.get("muted")!), 0);
-  const badges = railBadges(data);
+  const badges = projectBadges(data);
   assert.equal(badges.get("p1"), 2 + 1, "general mentions + unread application");
-  assert.equal(badges.get(null), 1, "unread DM");
   assert.equal(badges.get("p2"), undefined);
+  assert.equal(badges.size, 1, "DMs never count toward a project");
 });
 
 test("projects order by latest activity", () => {

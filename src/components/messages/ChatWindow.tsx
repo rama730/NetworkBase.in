@@ -8,7 +8,6 @@ import { useChatWindow } from "@/components/messages/chat-window-store";
 import { ConversationView } from "@/components/messages/ConversationView";
 import { ListScreen } from "@/components/messages/ListScreen";
 import { NewMessage } from "@/components/messages/NewMessage";
-import { ProjectSwitcherSheet } from "@/components/messages/ProjectSwitcherSheet";
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 import { ThreadPane } from "@/components/messages/ThreadPane";
 
@@ -75,7 +74,6 @@ export default function ChatWindow({ onMinimize }: { onMinimize: () => void }) {
         {screen.type === "thread" ? <ThreadPane key={`${screen.channelId}:${screen.rootSeq}`} channelId={screen.channelId} rootSeq={screen.rootSeq} /> : null}
       </div>
       <QuickSwitcher onSelect={openChannel} />
-      <ProjectSwitcherSheet />
     </section>
   );
 }
