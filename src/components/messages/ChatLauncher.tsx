@@ -47,7 +47,7 @@ export default function ChatLauncher() {
         aria-expanded={open}
         aria-controls="chat-window"
         data-testid="chat-launcher"
-        className="fixed bottom-6 right-6 z-20 grid size-14 place-items-center rounded-full bg-[var(--chat-chrome-bg)] text-[var(--chat-chrome-text)] shadow-md"
+        className="fixed bottom-6 right-6 z-20 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-md"
       >
         <MessageCircle size={22} aria-hidden="true" />
         {badge ? <span className="nb-chat-count absolute -right-1 -top-1 m-0" aria-hidden="true">{badge > 99 ? "99+" : badge}</span> : null}

@@ -218,8 +218,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(topNav, /className="flex shrink-0 items-center gap-2"/);
   assert.match(topNav, /recentSearchOwnerId=\{user\?\.id\}/);
   assert.match(mobileMenu, /<Dialog open=\{props\.isOpen\}/);
-  // The drawer is phone-only, except on /messages where the rail's NB mark opens it on desktop.
-  assert.match(mobileMenu, /p-4 \$\{pathname\?\.startsWith\("\/messages"\) \? "" : "md:hidden"\}/);
+  assert.match(mobileMenu, /p-4 md:hidden/);
   // Mobile quick nav renders the sidebar's own nav body so destinations, order and counts cannot drift.
   assert.match(mobileMenu, /import \{ SidebarNav \} from "@\/components\/layout\/AppSidebar"/);
   assert.match(mobileMenu, /<SidebarNav \/>/);

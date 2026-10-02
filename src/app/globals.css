@@ -5,10 +5,6 @@
 
 @theme inline {
   --color-background: var(--background);
-  --color-chat-chrome: var(--chat-chrome-bg);
-  --color-chat-chrome-raised: var(--chat-chrome-raised);
-  --color-chat-chrome-text: var(--chat-chrome-text);
-  --color-chat-chrome-muted: var(--chat-chrome-muted);
   --color-chat-accent: var(--chat-accent);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-instrument-sans);
@@ -145,11 +141,7 @@
   --nb-brand-hover: var(--primary-hover);
   --nb-sidebar-width: 224px;
   --nb-sidebar-collapsed-width: 64px;
-  /* Messages rail and sidebar: inverse chrome, identical in light and dark (report 7.10 D1). */
-  --chat-chrome-bg: #141A1E;
-  --chat-chrome-raised: #212A30;
-  --chat-chrome-text: #FAF8F4;
-  --chat-chrome-muted: #A9B4B9;
+  /* Chat counts and the Send button (report 7.11). */
   --chat-accent: #D14E24;
   --nb-page-inset: 24px;
   --nb-workspace-inset: 20px;
@@ -1159,34 +1151,18 @@ svg.lucide { stroke-width:1.75; }
 .nb-message-composer, .nb-wizard-footer { padding-bottom:max(16px,env(safe-area-inset-bottom)); }
 
 /* ── Messages (report 7.10–7.13) ─────────────────────────────────────────────
-   Rail 64 + sidebar 248 replace the global sidebar slot on /messages*. The
-   chrome is inverse in both themes. Rows are 32px, 44px on touch. */
-.nb-shell--messages { --nb-sidebar-width: 312px; }
-.nb-chat-aside { flex-direction:row; background:var(--chat-chrome-bg); color:var(--chat-chrome-muted); border-right:0; }
-.nb-chat-rail { width:64px; flex:none; display:flex; flex-direction:column; align-items:center; gap:8px; padding:8px 0; }
-.nb-chat-rail-scroll { display:flex; flex:1; min-height:0; flex-direction:column; align-items:center; gap:8px; overflow-y:auto; scrollbar-width:none; padding:2px 0; }
-.nb-chat-tile { position:relative; display:grid; place-items:center; width:40px; height:40px; flex:none; border-radius:5px; background:var(--chat-chrome-raised); color:var(--chat-chrome-text); font:600 13px var(--font-instrument-sans),sans-serif; overflow:visible; }
-.nb-chat-tile > img { width:40px; height:40px; border-radius:5px; object-fit:cover; }
-.nb-chat-tile[aria-current="true"] { box-shadow:0 0 0 2px var(--chat-chrome-bg), 0 0 0 4px var(--chat-chrome-text); }
-.nb-chat-tile:hover, .nb-chat-icon:hover { background:color-mix(in srgb, var(--chat-chrome-raised) 70%, var(--chat-chrome-text)); }
-.nb-chat-icon { display:grid; place-items:center; width:40px; height:40px; border-radius:5px; color:var(--chat-chrome-text); }
-.nb-chat-tile .nb-chat-count, .nb-chat-icon .nb-chat-count { position:absolute; top:-5px; right:-7px; margin:0; }
-.nb-chat-sidebar { width:248px; flex:none; display:flex; min-height:0; flex-direction:column; border-left:1px solid var(--chat-chrome-raised); }
-.nb-chat-row { --row-fg:var(--chat-row-fg, var(--chat-chrome-muted)); --row-strong:var(--chat-row-strong, var(--chat-chrome-text)); --row-hover:var(--chat-row-hover, var(--chat-chrome-raised));
-  display:flex; align-items:center; gap:8px; min-height:32px; width:100%; padding:0 10px; border-radius:5px; color:var(--row-fg); font-size:14px; text-align:left; }
-.nb-chat-row:hover, .nb-chat-row:focus-visible { background:var(--row-hover); color:var(--row-strong); }
-.nb-chat-row[aria-current="page"] { background:var(--row-hover); color:var(--row-strong); }
-.nb-chat-row[data-unread="true"] { color:var(--row-strong); font-weight:600; }
+   Chat sidebar rows follow the theme. Rows are 32px, 44px on touch. */
+.nb-chat-row { display:flex; align-items:center; gap:8px; min-height:32px; width:100%; padding:0 10px; border-radius:5px; color:var(--muted-foreground); font-size:14px; text-align:left; }
+.nb-chat-row:hover, .nb-chat-row:focus-visible { background:var(--muted); color:var(--foreground); }
+.nb-chat-row[aria-current="page"] { background:var(--accent); color:var(--accent-foreground); }
+.nb-chat-row[data-unread="true"] { color:var(--foreground); font-weight:600; }
 .nb-chat-row[data-muted="true"] { opacity:.55; }
 .nb-chat-row-preview { min-height:64px; padding:10px 12px; align-items:flex-start; }
 .nb-chat-count { margin-left:auto; padding:1px 5px; border-radius:3px; background:var(--chat-accent); color:#fff; font:11px var(--font-jetbrains-mono),monospace; line-height:16px; }
-.nb-chat-section-title { display:flex; align-items:center; gap:4px; min-height:28px; padding:0 6px; font:11px var(--font-jetbrains-mono),monospace; text-transform:uppercase; letter-spacing:.04em; color:var(--chat-row-fg, var(--chat-chrome-muted)); }
-.nb-chat-list { --chat-row-fg:var(--muted-foreground); --chat-row-strong:var(--foreground); --chat-row-hover:var(--muted); }
+.nb-chat-section-title { display:flex; align-items:center; gap:4px; min-height:28px; padding:0 6px; font:11px var(--font-jetbrains-mono),monospace; text-transform:uppercase; letter-spacing:.04em; color:var(--muted-foreground); }
 .nb-chat-list .nb-chat-row { min-height:44px; font-size:15px; }
 .nb-chat-list .nb-chat-row-preview { min-height:64px; }
 @media (pointer:coarse) { .nb-chat-row { min-height:44px; } }
-/* ponytail: tablets use the single-pane pattern for Messages (L-22). ceiling: Messages only. upgrade: split pane at >=900px if tablet data shows wasted space. */
-@media (min-width:768px) and (max-width:1023px) { .nb-shell--messages .nb-chat-sidebar { display:none; } }
 .nb-shell--messages { height:var(--chat-vvh, 100dvh); }
 .nb-chat-swipe { position:relative; overflow:hidden; border-radius:5px; }
 .nb-chat-swipe-actions { position:absolute; inset:0 0 0 auto; display:flex; }

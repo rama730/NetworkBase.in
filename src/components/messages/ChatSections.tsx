@@ -41,7 +41,7 @@ function ChannelIcon({ channel, meId, online }: { channel: ChatChannelSummary; m
         {online !== undefined && channel.dm_user?.id !== meId ? (
           <span
             aria-hidden="true"
-            className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-[var(--chat-row-hover,var(--chat-chrome-bg))] ${online ? "bg-[var(--status-success)]" : "bg-transparent ring-1 ring-current"}`}
+            className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full border border-[var(--card)] ${online ? "bg-[var(--status-success)]" : "bg-transparent ring-1 ring-current"}`}
           />
         ) : null}
       </span>
@@ -258,7 +258,7 @@ export function ChatSections({ projectId, variant, unreadOnly = false, onSelect,
           collapsed={Boolean(collapsed.channels)}
           onToggle={toggle}
           action={onCreateChannel ? (
-            <button type="button" className="grid size-6 place-items-center rounded-[5px] opacity-100 hover:bg-[var(--chat-row-hover,var(--chat-chrome-raised))] md:opacity-0 md:group-hover/section:opacity-100 md:focus-visible:opacity-100" aria-label="Create channel" onClick={onCreateChannel}>
+            <button type="button" className="grid size-6 place-items-center rounded-[5px] opacity-100 hover:bg-[var(--muted)] md:opacity-0 md:group-hover/section:opacity-100 md:focus-visible:opacity-100" aria-label="Create channel" onClick={onCreateChannel}>
               <Plus size={14} aria-hidden="true" />
             </button>
           ) : null}
