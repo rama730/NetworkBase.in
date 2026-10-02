@@ -27,11 +27,11 @@ test("ProjectLayout conditionally renders ProjectAvatar scoped to two lines with
     assert.match(layoutSource, /<ProjectAvatar\s+project=\{project\}\s+size="detail"/);
 
     // Verify 2-line lockup: avatar is beside Title and Tagline only, with metadata below
-    assert.match(layoutSource, /<div className="flex (?:items-start|items-center) gap-4 sm:gap-5">\s*<ProjectAvatar[\s\S]*?nb-page-title/);
+    assert.match(layoutSource, /<div className="flex (?:min-w-0 )?(?:items-start|items-center) gap-4 sm:gap-5[^"]*">\s*<ProjectAvatar[\s\S]*?nb-page-title/);
     assert.match(layoutSource, /<\/div>\s*\{projectIdentityMetadata\}/);
 
     // Zero-presence fallback: when no avatar, renders flush without avatar container
-    assert.match(layoutSource, /:\s*\(\s*<div className="flex min-w-0 flex-1 flex-col items-start gap-3">\s*<div className="flex min-w-0 flex-wrap items-center gap-3">\s*<h1 className="nb-page-title/);
+    assert.match(layoutSource, /:\s*\(\s*<div className="flex min-w-0 flex-1 flex-col items-start gap-3[^"]*">\s*<div className="flex min-w-0 flex-wrap items-center gap-3">\s*<h1 className="nb-page-title/);
 
     // Line 3: update date removed completely
     assert.doesNotMatch(layoutSource, /data-testid="project-presence-indicator"/);
@@ -138,7 +138,7 @@ test("Header architecture: Created by and Guided by are completely removed, team
 
     // 3. Verify clean right actions column
     assert.match(layoutSource, /Right: Actions/);
-    assert.match(layoutSource, /<div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1">/);
+    assert.match(layoutSource, /<div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1[^"]*">/);
 });
 
 test("Discovery page ProjectCard and detail page ProjectStatsBar: last updated date removed from card, unified X-platform view icon (BarChart2)", () => {
@@ -156,7 +156,7 @@ test("Discovery page ProjectCard and detail page ProjectStatsBar: last updated d
 
     // 3. ProjectStatsBar on detail page also uses BarChart2 (unified with card)
     assert.match(statsSource, /import\s*\{[^}]*BarChart2[^}]*\}\s*from\s*"lucide-react"/);
-    assert.match(statsSource, /<BarChart2\s+className=\{iconClass\}\s+aria-hidden="true"\s*\/>/);
+    assert.match(statsSource, /<BarChart2\s+className=\{(?:iconClass|cn\(iconClass, "max-md:hidden"\))\}\s+aria-hidden="true"\s*\/>/);
 });
 
 test("Animated GIF avatar architecture: bypass canvas rasterization, preserve frames as image/gif, and render unoptimized", () => {

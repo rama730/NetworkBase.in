@@ -163,5 +163,5 @@ it("keeps actionable workspace state visible without task-tab scaffolding", () =
   assert.match(tasks, /API's urgency-aware task order/);
   assert.match(tasks, /grid-cols-1 gap-2/);
   assert.match(tasks, /Load more tasks/);
-  assert.match(drawer, /px-6 pb-6 pt-2/);
+  assert.match(drawer, /px-4 pb-6 pt-2 pb-\[max\(1\.5rem,env\(safe-area-inset-bottom\)\)\] md:px-6/);
 });

@@ -386,7 +386,7 @@ test("updates tab owns one composer placement and refreshes realtime posts direc
     const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const composerSource = readFileSync(path.join(process.cwd(), "src/components/projects/updates/ProjectUpdateComposer.tsx"), "utf8");
 
-    assert.match(tabSource, /useDesktopUpdatesRail/);
+    assert.match(tabSource, /const isDesktopUpdatesRail = useMediaMatch\("\(min-width: 1280px\)"\)/);
     assert.match(tabSource, /isDesktopUpdatesRail === false/);
     assert.match(tabSource, /isDesktopUpdatesRail === true/);
     assert.match(tabSource, /invalidateQueries\(\{ queryKey: updatesQueryKey \}\)/);

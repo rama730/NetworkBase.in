@@ -272,7 +272,8 @@ test("task file move dialog is roomy and layered above the detail panel", () => 
   assert.match(panel, /sm:max-w-\[520px\]/);
   assert.match(panel, /grid-cols-4/);
   assert.match(panel, /overflow-visible/);
-  assert.doesNotMatch(panel, /overflow-x-auto/);
+  // Only phones may scroll the tab strip sideways.
+  assert.doesNotMatch(panel, /(?<!max-md:)overflow-x-auto/);
   assert.match(dialogs, /overlayClassName="z-\[300\]/);
   assert.match(dialogs, /className="z-\[301\]/);
   assert.match(dialogs, /className="z-\[301\] flex max-h-\[88vh\] flex-col sm:max-w-\[460px\]/);
