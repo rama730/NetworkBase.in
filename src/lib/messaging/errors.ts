@@ -24,6 +24,9 @@ const MESSAGES: Record<string, string> = {
   chat_not_editable: "This message can't be edited.",
   chat_not_deletable: "This message can't be deleted.",
   chat_not_allowed_to_pin: "Only channel admins can pin here.",
+  chat_task_needs_project: "Tasks can only be created in project channels.",
+  chat_task_create_failed: "The task couldn't be created.",
+  chat_attachment_not_ready: "An attachment is still uploading.",
   chat_group_size: "Group chats have up to 9 people.",
 };
 
