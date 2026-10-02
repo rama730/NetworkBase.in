@@ -8,6 +8,7 @@ import { FolderKanban, Link2, Sparkles, MessageSquare, Pencil } from 'lucide-rea
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { normalizeSocialLinks as normalizeSocialLinksShared } from '@/lib/profile/normalization'
 import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon'
+import { messageUserInWindow } from '@/components/messages/message-user'
 
 function RailCard({
     title,
@@ -180,6 +181,7 @@ export function ProfileRightRail({
                             {canMessage ? (
                                 <Link
                                     href={vm?.id ? `/messages?userId=${vm.id}` : '/messages'}
+                                    onClick={(event) => { if (vm?.id) messageUserInWindow(vm.id, event); }}
                                     className="nb-ui-label rounded-[3px] border border-border bg-card px-3 py-2 text-foreground hover:bg-muted transition-colors flex items-center gap-2"
                                 >
                                     <MessageSquare className="w-4 h-4 text-muted-foreground" />

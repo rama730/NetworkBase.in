@@ -22,6 +22,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { messageUserInWindow } from "@/components/messages/message-user";
 
 /**
  * Shared Network person-card anatomy (profile-header style): avatar top-left, name and primary action beside it.
@@ -236,6 +237,7 @@ function PersonCard({
                     <DropdownMenuItem asChild>
                         <Link
                             href={`/messages?userId=${profile.id}`}
+                            onClick={(event) => messageUserInWindow(profile.id, event)}
                             className="flex items-center gap-2 cursor-pointer w-full"
                         >
                             <MessageSquare className="size-4" />

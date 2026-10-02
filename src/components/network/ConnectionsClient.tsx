@@ -17,6 +17,7 @@ import { profileHref } from "@/lib/routing/identifiers";
 import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { formatLastActive } from "@/lib/ui/date-formatting";
 import { formatDistanceToNow } from "@/lib/utils/date";
+import { messageUserInWindow } from "@/components/messages/message-user";
 
 function PresenceDot({ lastActiveAt }: { lastActiveAt?: string | null }) {
     const activeLabel = formatLastActive(lastActiveAt);
@@ -143,7 +144,7 @@ function ConnectionCard({
                         {user.canSendMessage ? (
                             <>
                                 <DropdownMenuItem asChild>
-                                    <Link href={`/messages?userId=${user.id}`}><MessageSquare className="size-4" />Message</Link>
+                                    <Link href={`/messages?userId=${user.id}`} onClick={(event) => messageUserInWindow(user.id, event)}><MessageSquare className="size-4" />Message</Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                             </>

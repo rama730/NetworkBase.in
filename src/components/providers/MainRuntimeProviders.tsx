@@ -16,6 +16,9 @@ const ChatPopupV2 = dynamic(
   { ssr: false },
 );
 
+// Chat v3 replaces the old popup with the launcher (report 7.13).
+const ChatLauncher = dynamic(() => import('@/components/messages/ChatLauncher'), { ssr: false });
+
 const LazyChatProvider = dynamic(
   () => import('@/components/chat/ChatProvider').then((mod) => mod.ChatProvider),
   { ssr: false },
@@ -34,7 +37,7 @@ export function MainRuntimeProviders({
         <NetworkNotificationsProvider>
           <AttentionProvider>
             {children}
-            <ChatPopupV2 />
+            {CHAT_V3 ? <ChatLauncher /> : <ChatPopupV2 />}
             <LazyChatProvider presenceEnabled={true} />
           </AttentionProvider>
         </NetworkNotificationsProvider>
