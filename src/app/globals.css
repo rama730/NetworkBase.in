@@ -5,6 +5,11 @@
 
 @theme inline {
   --color-background: var(--background);
+  --color-chat-chrome: var(--chat-chrome-bg);
+  --color-chat-chrome-raised: var(--chat-chrome-raised);
+  --color-chat-chrome-text: var(--chat-chrome-text);
+  --color-chat-chrome-muted: var(--chat-chrome-muted);
+  --color-chat-accent: var(--chat-accent);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-instrument-sans);
   --font-serif: var(--font-instrument-serif);
@@ -140,6 +145,12 @@
   --nb-brand-hover: var(--primary-hover);
   --nb-sidebar-width: 224px;
   --nb-sidebar-collapsed-width: 64px;
+  /* Messages rail and sidebar: inverse chrome, identical in light and dark (report 7.10 D1). */
+  --chat-chrome-bg: #141A1E;
+  --chat-chrome-raised: #212A30;
+  --chat-chrome-text: #FAF8F4;
+  --chat-chrome-muted: #A9B4B9;
+  --chat-accent: #D14E24;
   --nb-page-inset: 24px;
   --nb-workspace-inset: 20px;
   --nb-grid-line: rgb(33 42 48 / 7%);
