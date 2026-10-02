@@ -39,6 +39,9 @@ const RealtimeContext = createContext<RealtimeContextType>({
 });
 
 import { normalizeProfileRecord } from '@/lib/profile/browser-profile';
+import { isChatV3Enabled } from '@/lib/messaging/flag';
+
+const CHAT_V3 = isChatV3Enabled();
 
 function hasProfileDetailsChanged(next: Record<string, unknown>, currentProfile: any | null) {
     if (!currentProfile) return true;
@@ -155,14 +158,18 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        const bothConnected = notificationStatus === 'connected' && messagingStatus === 'connected';
+        // With the new chat, messaging has no postgres_changes channel here
+        // (ChatShellProvider owns chat:user), so only notifications count.
+        const messagingConnected = CHAT_V3 || messagingStatus === 'connected';
+        const messagingDisconnected = CHAT_V3 || messagingStatus === 'disconnected';
+        const bothConnected = notificationStatus === 'connected' && messagingConnected;
         if (bothConnected) {
             setConnectionHealth('healthy');
             return;
         }
 
         const nextState: RealtimeHealthState =
-            notificationStatus === 'disconnected' && messagingStatus === 'disconnected'
+            notificationStatus === 'disconnected' && messagingDisconnected
                 ? 'unavailable'
                 : 'reconnecting';
 
@@ -243,7 +250,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     }, [handleUserNotification, isLoading, reconnectNonce, session?.access_token, user?.id]);
 
     useEffect(() => {
-        if (!user) {
+        if (!user || CHAT_V3) {
             messagingConnectionTokenRef.current += 1;
             setMessagingStatus('idle');
             return;
