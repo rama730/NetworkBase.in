@@ -63,13 +63,13 @@ test("message attachments use canonical direct uploads and private application s
 });
 
 test("missing message media exposes a terminal unavailable state", () => {
-  const attachments = read("src/components/chat/v2/message-attachments.tsx");
+  const attachments = read("src/components/messages/parts/message-attachments.tsx");
   assert.match(attachments, /Media unavailable/);
   assert.doesNotMatch(attachments, /Download media/);
 });
 
 test("PDF preview reuses the stable attachment route instead of cloning a full blob", () => {
-  const attachments = read("src/components/chat/v2/message-attachments.tsx");
+  const attachments = read("src/components/messages/parts/message-attachments.tsx");
   assert.match(attachments, /src=\{sourceUrl\}/);
   assert.doesNotMatch(attachments, /const loadPdf|res\.blob\(\)|URL\.createObjectURL\(new Blob/);
 });

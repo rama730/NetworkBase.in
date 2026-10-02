@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { cancelAttachmentUpload } from '@/app/actions/messaging';
 import type { UploadedAttachment } from '@/app/actions/messaging';
 import { useDirectAttachmentUpload } from '@/hooks/useDirectAttachmentUpload';
-import { compressImage, generateTinyThumbnail } from '@/lib/messages/image-compression';
-import { readMediaDimensions, type MediaDimensions } from '@/lib/messages/media-metadata';
+import { compressImage, generateTinyThumbnail } from '@/lib/messaging/image-compression';
+import { readMediaDimensions, type MediaDimensions } from '@/lib/messaging/media-metadata';
 import {
     MAX_UPLOAD_RETRIES,
     type PendingAttachment,

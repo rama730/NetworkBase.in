@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { MessageWithSender } from '@/app/actions/messaging';
-import { playMessageSound } from '@/lib/messages/notification-sound';
+import { playMessageSound } from '@/lib/messaging/notification-sound';
 import {
     getConversationSummariesV2,
     getConversationSummaryV2,

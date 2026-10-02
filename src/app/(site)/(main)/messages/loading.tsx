@@ -1,4 +1,4 @@
-import { InboxListSkeletonV2, ThreadSkeletonV2 } from "@/components/chat/v2/MessagesSurfaceSkeletons";
+import { InboxListSkeletonV2, ThreadSkeletonV2 } from "@/components/messages/parts/MessagesSurfaceSkeletons";
 
 export default function MessagesLoading() {
   return (

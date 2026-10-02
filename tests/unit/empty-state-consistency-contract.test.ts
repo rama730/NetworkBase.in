@@ -39,7 +39,7 @@ test("Empty state architectural contract: My Profile surfaces", () => {
 
 test("Empty state architectural contract: Messages surfaces", () => {
     const convList = readFileSync(resolve(ROOT, "src/components/chat/v2/ConversationListV2.tsx"), "utf-8");
-    const emptyConv = readFileSync(resolve(ROOT, "src/components/chat/v2/EmptyConversation.tsx"), "utf-8");
+    const emptyConv = readFileSync(resolve(ROOT, "src/components/messages/parts/EmptyConversation.tsx"), "utf-8");
     const messagesWs = readFileSync(resolve(ROOT, "src/components/chat/v2/MessagesWorkspaceV2.tsx"), "utf-8");
 
     assert.match(convList, /className=["'][^"']*nb-empty-state nb-grid-ground/);

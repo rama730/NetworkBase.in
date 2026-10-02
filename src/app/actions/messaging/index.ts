@@ -61,7 +61,7 @@ import {
     withDeliveryMetadata,
 } from '@/lib/messages/delivery-state';
 import { isUuid } from '@/lib/validations/uuid';
-import { APPLICATION_BANNER_HIDE_AFTER_MS } from '@/lib/chat/banner-lifecycle';
+import { APPLICATION_BANNER_HIDE_AFTER_MS } from '@/lib/applications/banner-lifecycle';
 import {
     deleteMessageSchema,
     editMessageSchema,

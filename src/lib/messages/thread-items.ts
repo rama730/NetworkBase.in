@@ -1,5 +1,5 @@
 import type { MessageWithSender } from '@/app/actions/messaging';
-import { getMessageCalendarDay } from '@/lib/messages/date-buckets';
+import { getMessageCalendarDay } from '@/lib/messaging/date-buckets';
 import { mergeMessages } from '@/lib/messages/utils';
 
 export type MessageThreadItem =

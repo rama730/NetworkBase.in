@@ -48,13 +48,13 @@ import {
     CodeSegmentV2,
     MESSAGE_TEXT_BASE_CLASS,
     renderTextWithMentions,
-} from './message-rendering';
+} from '@/components/messages/parts/message-rendering';
 import {
     MessageAttachmentsV2,
     type ChatAttachmentV2,
-} from './message-attachments';
+} from '@/components/messages/parts/message-attachments';
 import { ApplicationSystemCardV2 } from './ApplicationSystemCardV2';
-import { parseMessageSegments, type MessageSegment } from '@/lib/messages/code-snippets';
+import { parseMessageSegments, type MessageSegment } from '@/lib/messaging/code-snippets';
 import {
     getReplyPreviewBadge,
     getReplyPreviewText,
@@ -64,9 +64,9 @@ import {
     getStructuredMessageFromMetadata,
     type WorkflowResolutionAction,
 } from '@/lib/messages/structured';
-import { ReactionQuickBar } from './ReactionQuickBar';
-import { ReactionPillRow } from './ReactionPillRow';
-import { LinkPreviewCard } from './LinkPreviewCard';
+import { ReactionQuickBar } from '@/components/messages/parts/ReactionQuickBar';
+import { ReactionPillRow } from '@/components/messages/parts/ReactionPillRow';
+import { LinkPreviewCard } from '@/components/messages/parts/LinkPreviewCard';
 import { useLinkPreview, extractFirstUrl, type LinkPreview } from '@/hooks/useLinkPreview';
 import { MessageContextChipRowV2 } from './MessageContextChipRowV2';
 import { StructuredMessageCardV2 } from './StructuredMessageCardV2';

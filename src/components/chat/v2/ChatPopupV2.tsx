@@ -14,7 +14,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { getConversationThreadPageV2 } from '@/app/actions/messaging/v2';
-import { InboxListSkeletonV2 } from './MessagesSurfaceSkeletons';
+import { InboxListSkeletonV2 } from '@/components/messages/parts/MessagesSurfaceSkeletons';
 
 const PopupMessagesWorkspace = dynamic(
     () => import('./MessagesWorkspaceV2').then((mod) => mod.MessagesWorkspaceV2),

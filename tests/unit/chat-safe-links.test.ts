@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { normalizeSafeExternalUrl, parseSafeLinkToken } from '../../src/lib/messages/safe-links';
+import { normalizeSafeExternalUrl, parseSafeLinkToken } from '../../src/lib/messaging/safe-links';
 
 describe('safe-links', () => {
     test('normalizes bare social links to https', () => {

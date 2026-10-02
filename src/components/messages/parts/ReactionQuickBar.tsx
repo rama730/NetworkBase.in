@@ -78,7 +78,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
             ref={ref}
             role="toolbar"
             aria-label="Quick reactions"
-            className="msg-reaction-quick-bar fixed z-[130] flex flex-col rounded-lg border border-zinc-200 bg-white p-1.5 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+            className="msg-reaction-quick-bar fixed z-[130] flex flex-col rounded-lg border border-border bg-popover p-1.5 shadow-lg"
         >
             <div className="flex items-center gap-1">
                 {QUICK_REACTIONS.map((emoji) => (
@@ -91,8 +91,8 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                             onClose();
                         }}
                         className={cn(
-                            "nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-zinc-100 dark:hover:bg-zinc-800",
-                            selectedReactions.includes(emoji) && "bg-blue-100/50 dark:bg-blue-500/20 ring-1 ring-blue-500/30"
+                            "nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-muted",
+                            selectedReactions.includes(emoji) && "bg-accent/50 ring-1 ring-ring/30"
                         )}
                         aria-label={`React with ${emoji}`}
                     >
@@ -106,7 +106,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                             e.stopPropagation();
                             setShowExtended(true);
                         }}
-                        className="nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300 text-sm font-semibold border border-dashed border-zinc-200 dark:border-zinc-800"
+                        className="nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground text-sm font-semibold border border-dashed border-border"
                         aria-label="More reactions"
                     >
                         +
@@ -114,7 +114,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                 )}
             </div>
             {showExtended && (
-                <div className="grid grid-cols-6 gap-1 p-1 border-t border-zinc-100 dark:border-zinc-800 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-[180ms]">
+                <div className="grid grid-cols-6 gap-1 p-1 border-t border-border mt-1.5 animate-in fade-in slide-in-from-top-1 duration-[180ms]">
                     {EXTENDED_REACTIONS.map((emoji) => (
                         <button
                             key={emoji}
@@ -125,8 +125,8 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                                 onClose();
                             }}
                             className={cn(
-                                "nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-zinc-100 dark:hover:bg-zinc-800",
-                                selectedReactions.includes(emoji) && "bg-blue-100/50 dark:bg-blue-500/20 ring-1 ring-blue-500/30"
+                                "nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-muted",
+                                selectedReactions.includes(emoji) && "bg-accent/50 ring-1 ring-ring/30"
                             )}
                             aria-label={`React with ${emoji}`}
                         >

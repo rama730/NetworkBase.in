@@ -14,12 +14,12 @@ import {
     analyzeDraftCodeSnippet,
     formatDraftWithCodeSnippet,
     looksLikeCodeSnippet,
-} from '@/lib/messages/code-snippets';
+} from '@/lib/messaging/code-snippets';
 import { cn } from '@/lib/utils';
 import { ComposerAttachmentsPanel } from './ComposerAttachmentsPanel';
 import { ComposerReplyBanner } from './ComposerReplyBanner';
 import { ComposerWorkflowNotice } from './ComposerWorkflowNotice';
-import { MentionDropdown } from './MentionDropdown';
+import { MentionDropdown } from '@/components/messages/parts/MentionDropdown';
 import {
     MAX_UPLOAD_RETRIES,
 } from './message-composer-v2-shared';

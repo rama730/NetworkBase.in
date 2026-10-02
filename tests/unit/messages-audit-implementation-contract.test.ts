@@ -193,7 +193,7 @@ test("reply interactions use direction-aware gestures and retry virtual-list foc
 });
 
 test("message reactions remain compact, accessible, and anchored to the bubble edge", () => {
-  const reactionRow = readProjectFile("src/components/chat/v2/ReactionPillRow.tsx");
+  const reactionRow = readProjectFile("src/components/messages/parts/ReactionPillRow.tsx");
   const bubble = readProjectFile("src/components/ui/bubble.tsx");
   const messageBubble = readProjectFile("src/components/chat/v2/MessageBubbleV2.tsx");
 

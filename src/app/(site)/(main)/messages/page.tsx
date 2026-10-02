@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { MessagesWorkspaceV2 } from '@/components/chat/v2/MessagesWorkspaceV2';
-import { InboxListSkeletonV2, ThreadSkeletonV2 } from '@/components/chat/v2/MessagesSurfaceSkeletons';
+import { InboxListSkeletonV2, ThreadSkeletonV2 } from '@/components/messages/parts/MessagesSurfaceSkeletons';
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata';
 
 export function generateMetadata() {

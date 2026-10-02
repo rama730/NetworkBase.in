@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import { pixelsHaveTransparency } from '@/lib/messages/image-compression';
+import { pixelsHaveTransparency } from '@/lib/messaging/image-compression';
 
 function readProjectFile(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 }
 
 test('historical message videos wait for explicit viewer intent', () => {
-    const attachments = readProjectFile('src/components/chat/v2/message-attachments.tsx');
+    const attachments = readProjectFile('src/components/messages/parts/message-attachments.tsx');
 
     assert.doesNotMatch(attachments, /IntersectionObserver/);
     assert.doesNotMatch(attachments, /loop=\{true\}/);
@@ -37,7 +37,7 @@ test('conversation rows do not fetch full threads on pointer hover', () => {
 });
 
 test('PNG alpha detection preserves transparency while allowing opaque conversion', () => {
-    const compression = readProjectFile('src/lib/messages/image-compression.ts');
+    const compression = readProjectFile('src/lib/messaging/image-compression.ts');
 
     assert.equal(pixelsHaveTransparency(new Uint8ClampedArray([1, 2, 3, 255])), false);
     assert.equal(pixelsHaveTransparency(new Uint8ClampedArray([1, 2, 3, 254])), true);

@@ -9,7 +9,7 @@ import { buildIdentityPresentation } from '@/lib/ui/identity';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 import { useApplicationsInbox } from '@/hooks/useMessagesV2';
 import { getMyPendingProjectInvitationsAction, resolveProjectInvitationAction } from '@/app/actions/project/guidance';
-import { InboxListSkeletonV2 } from './MessagesSurfaceSkeletons';
+import { InboxListSkeletonV2 } from '@/components/messages/parts/MessagesSurfaceSkeletons';
 import {
     DropdownMenu,
     DropdownMenuContent,

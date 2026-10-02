@@ -47,9 +47,9 @@ test('realtime presence-client: preserves incoming payload.profile and populates
 });
 
 test('video attachments: chat tiles show thumbnails and the media viewer owns playback', () => {
-    const tiles = fs.readFileSync(path.join(process.cwd(), 'src/components/chat/v2/message-attachments.tsx'), 'utf8');
+    const tiles = fs.readFileSync(path.join(process.cwd(), 'src/components/messages/parts/message-attachments.tsx'), 'utf8');
     const viewer = fs.readFileSync(path.join(process.cwd(), 'src/components/ui/media-viewer.tsx'), 'utf8');
-    const player = fs.readFileSync(path.join(process.cwd(), 'src/components/chat/v2/resolved-video-player.tsx'), 'utf8');
+    const player = fs.readFileSync(path.join(process.cwd(), 'src/components/messages/parts/resolved-video-player.tsx'), 'utf8');
 
     assert.ok(!tiles.includes('<video'), 'Chat tiles must not start a video-body request');
     assert.ok(viewer.includes('<ResolvedVideoPlayer'), 'The media viewer must play videos');

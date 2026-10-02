@@ -4,7 +4,7 @@ import {
     fitMediaWithinBounds,
     MESSAGE_MEDIA_INLINE_BOUNDS,
     normalizeMediaDimensions,
-} from '../../src/lib/messages/media-metadata';
+} from '../../src/lib/messaging/media-metadata';
 
 test('normalizes complete positive media dimensions only', () => {
     assert.deepEqual(normalizeMediaDimensions('493', '739'), { width: 493, height: 739 });

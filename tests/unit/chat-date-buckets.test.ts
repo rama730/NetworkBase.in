@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
     formatMessageCalendarLabel,
     getMessageCalendarDay,
-} from '@/lib/messages/date-buckets';
+} from '@/lib/messaging/date-buckets';
 
 test('message date buckets use the viewer calendar day, not the UTC day', () => {
     const sentAt = '2026-05-01T23:33:18.464Z';
