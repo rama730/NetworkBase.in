@@ -25,6 +25,7 @@
     "check:db:runtime-role": "tsx scripts/check-runtime-database-role.ts",
     "check:db:ponytail-hardening": "tsx scripts/check-ponytail-database-hardening.ts",
     "check:db-catalog-drift": "tsx scripts/check-db-catalog-drift.ts",
+    "check:chat:db": "tsx scripts/check-chat-database.ts",
     "skills:generate": "tsx scripts/generate-skill-catalog.ts",
     "skills:backfill": "node --env-file=.env.local --import tsx scripts/backfill-market-skills.ts",
     "check:skills:catalog": "tsx scripts/check-skill-catalog.ts",
