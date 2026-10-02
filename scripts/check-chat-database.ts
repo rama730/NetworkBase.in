@@ -457,6 +457,34 @@ async function main() {
       const sendRefused = await denied(() => asUser(owner, (tx) => tx`INSERT INTO realtime.messages (topic, extension, event, payload, private) VALUES (${topic}, 'broadcast', 'hint', '{}', true)`, topic));
       return mine > 0 && theirs === 0 && sendRefused;
     });
+    // Report 10.3: after 0181 nothing of the old system is left.
+    await check("old messaging system is gone (report 10.3)", async () => {
+      const rows = await sql`
+        SELECT 'table' AS k, tablename AS n FROM pg_tables
+         WHERE schemaname = 'public' AND tablename ~ 'conversation|^message|^dm_pairs|typing_ind|attachment_uploads'
+        UNION ALL
+        SELECT 'func', p.proname FROM pg_proc p JOIN pg_namespace s ON s.oid = p.pronamespace
+         WHERE s.nspname IN ('public', 'app_private') AND p.proname ~ 'conversation|^handle_message|typing'
+        UNION ALL
+        SELECT 'col', table_name || '.' || column_name FROM information_schema.columns
+         WHERE table_schema = 'public' AND (column_name ~ 'conversation_id' OR column_name = 'message_workflow_item_id')
+        UNION ALL
+        SELECT 'trigger', tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname ~ 'conversation|messages_after_insert|typing'
+        UNION ALL
+        SELECT 'policy', policyname FROM pg_policies WHERE policyname ~ 'conversation|^message_|^messages_|dm_pairs'
+        UNION ALL
+        SELECT 'pub', tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename ~ 'conversation|message|typing'
+        UNION ALL
+        SELECT 'topic-policy', policyname FROM pg_policies
+         WHERE schemaname = 'realtime' AND (qual ~ 'conversation' OR with_check ~ 'conversation')
+      `;
+      if (rows.length) console.error("    leftovers:", rows.map((r: { k: string; n: string }) => `${r.k}:${r.n}`).join(", "));
+      return rows.length === 0;
+    });
+    await check("presence visibility follows shared DMs, not old conversations", async () => {
+      const body = (await sql`SELECT prosrc FROM pg_proc WHERE proname = 'nb_can_observe_user_presence'`)[0]?.prosrc ?? "";
+      return body.includes("chat_channel_members") && !body.includes("conversation_participants");
+    });
   } finally {
     await sql`DELETE FROM chat_channels WHERE project_id IN (${projectId}, ${otherProject}) OR id IN (
       SELECT channel_id FROM chat_channel_members WHERE user_id = ANY(${users}::uuid[])
