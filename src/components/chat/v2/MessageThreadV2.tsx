@@ -11,11 +11,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMessageReceiptBuffer } from '@/hooks/useMessageReceiptBuffer';
 import { recordDeliveryReceipts } from '@/app/actions/messaging/features';
 import { useMessageWorkLinks } from '@/hooks/useMessageWorkLinks';
-import { formatMessageCalendarLabel } from '@/lib/messages/date-buckets';
+import { formatMessageCalendarLabel } from '@/lib/messaging/date-buckets';
 import { buildMessageThreadModel, type MessageThreadItem } from '@/lib/messages/thread-items';
 import { MessageBubbleV2 } from './MessageBubbleV2';
-import { ScrollToBottomFab } from './ScrollToBottomFab';
-import { EmptyConversation } from './EmptyConversation';
+import { ScrollToBottomFab } from '@/components/messages/parts/ScrollToBottomFab';
+import { EmptyConversation } from '@/components/messages/parts/EmptyConversation';
 import { Marker } from '@/components/ui/message';
 import { cn } from '@/lib/utils';
 import { buildIdentityPresentation } from '@/lib/ui/identity';
@@ -24,7 +24,7 @@ import { useToggleReaction, useMessagesActions } from '@/hooks/useMessagesV2';
 import type { WorkflowResolutionAction } from '@/lib/messages/structured';
 import dynamic from 'next/dynamic';
 
-const ReportMessageDialog = dynamic(() => import('./ReportMessageDialog').then(m => m.ReportMessageDialog), { ssr: false });
+const ReportMessageDialog = dynamic(() => import('@/components/messages/parts/ReportMessageDialog').then(m => m.ReportMessageDialog), { ssr: false });
 
 type ThreadItem = MessageThreadItem | { type: 'typing-indicator'; id: string; typingUsers: ReadonlyArray<TypingUser> };
 
@@ -749,9 +749,12 @@ export function MessageThreadV2({
 
             {dialogTarget?.type === 'report' && (
                 <ReportMessageDialog
-                    messageId={dialogTarget.message.id}
                     isOpen={true}
                     onClose={() => setDialogTarget(null)}
+                    onSubmit={async (reason, details) => {
+                        const { reportMessage } = await import('@/app/actions/messaging/features');
+                        return reportMessage(dialogTarget.message.id, reason, details);
+                    }}
                 />
             )}
         </div>

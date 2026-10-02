@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { parseSafeLinkToken } from '@/lib/messages/safe-links';
+import { parseSafeLinkToken } from '@/lib/messaging/safe-links';
 import { cn } from '@/lib/utils';
 
 const LINK_OR_MENTION_REGEX = /((?<!\S)@[a-zA-Z0-9_]{2,32}\b|(?:https?:\/\/|www\.)[^\s]+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/[^\s]*)?)/g;
@@ -63,7 +63,7 @@ export function renderTextWithMentions(text: string, isOwn: boolean) {
                         'rounded px-1.5 py-0.5 font-mono text-[0.9em]',
                         isOwn
                             ? 'bg-black/25 text-white'
-                            : 'bg-zinc-200 text-zinc-950 dark:bg-zinc-800 dark:text-zinc-100',
+                            : 'bg-secondary text-foreground',
                     )}
                 >
                     {part.slice(1, -1)}
@@ -163,11 +163,11 @@ export function CodeSegmentV2({
     return (
         <div
             className={cn(
-                'msg-rich-content max-w-full min-w-0 overflow-hidden rounded-lg border border-zinc-700 bg-card shadow-none',
-                isOwn ? 'text-zinc-100' : 'text-zinc-100',
+                'msg-rich-content max-w-full min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-none',
+                isOwn ? 'text-foreground' : 'text-foreground',
             )}
         >
-            <div className="flex items-center justify-between border-b border-white/10 bg-black/50 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-zinc-300">
+            <div className="flex items-center justify-between border-b border-white/10 bg-black/50 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground">
                 <span>{getDisplayLanguage(language)}</span>
                 <button
                     type="button"
@@ -182,18 +182,18 @@ export function CodeSegmentV2({
                 "relative overflow-hidden transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[260ms] ease-in-out",
                 isLongContent ? (isCollapsed ? "max-h-[280px]" : "max-h-[4000px]") : ""
             )}>
-                <pre className="max-w-full overflow-x-auto px-3 py-2 text-[12px] leading-5 text-zinc-100">
+                <pre className="max-w-full overflow-x-auto px-3 py-2 text-[12px] leading-5 text-foreground">
                     <code>{code}</code>
                 </pre>
                 {isLongContent && isCollapsed && (
-                    <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-zinc-950/95 to-transparent pointer-events-none" />
+                    <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/95 to-transparent pointer-events-none" />
                 )}
             </div>
             {isLongContent && (
                 <button
                     type="button"
                     onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="w-full border-t border-white/5 bg-black/20 py-2 text-xs font-medium text-zinc-400 hover:bg-black/40 hover:text-zinc-200 focus-visible:outline-none focus-visible:bg-black/40 transition-colors"
+                    className="w-full border-t border-white/5 bg-black/20 py-2 text-xs font-medium text-muted-foreground hover:bg-black/40 hover:text-foreground focus-visible:outline-none focus-visible:bg-black/40 transition-colors"
                 >
                     {isCollapsed ? "Show more" : "Show less"}
                 </button>

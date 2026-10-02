@@ -58,7 +58,7 @@ import { MessageComposerV2 } from './MessageComposerV2';
 import { MessageThreadV2 } from './MessageThreadV2';
 import { findLatestApplicationEvent } from '@/lib/chat/application-events';
 import { formatMessagePreview } from '@/lib/messages/preview';
-import { ThreadSkeletonV2 } from './MessagesSurfaceSkeletons';
+import { ThreadSkeletonV2 } from '@/components/messages/parts/MessagesSurfaceSkeletons';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { MessageWithSender } from '@/app/actions/messaging';
 import { getSearchHighlightTerm, pickNewestLastMessage, renderHighlightedSearchText } from '@/components/chat/v2/messages-workspace-helpers';

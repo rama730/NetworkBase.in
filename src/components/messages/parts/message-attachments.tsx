@@ -11,7 +11,7 @@ import {
     MESSAGE_MEDIA_INLINE_BOUNDS,
     normalizeMediaDimensions,
     type MediaDimensions,
-} from '@/lib/messages/media-metadata';
+} from '@/lib/messaging/media-metadata';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import type { MediaItem } from '@/components/ui/media-viewer';
@@ -233,8 +233,7 @@ function MediaAttachmentTileV2({
     return (
         <div
             className={cn(
-                'msg-media-frame group/video relative max-w-full overflow-hidden rounded-lg bg-zinc-100',
-                'dark:bg-zinc-800',
+                'msg-media-frame group/video relative max-w-full overflow-hidden rounded-lg bg-muted',
             )}
             style={frameStyle}
             data-media-orientation={getMediaOrientation(dimensions)}
@@ -259,11 +258,11 @@ function MediaAttachmentTileV2({
             {attachment.type === 'image' ? (
                 <div
                     className={cn(
-                        'pointer-events-none absolute inset-0 flex items-center justify-center bg-zinc-200 transition-opacity duration-[180ms] dark:bg-zinc-800',
+                        'pointer-events-none absolute inset-0 flex items-center justify-center bg-secondary transition-opacity duration-[180ms]',
                         loaded ? 'opacity-0' : 'animate-none opacity-100',
                     )}
                 >
-                    <ImageIcon className="h-8 w-8 text-zinc-400/50 dark:text-zinc-500/50" />
+                    <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
                 </div>
             ) : null}
 
@@ -286,8 +285,8 @@ function MediaAttachmentTileV2({
                         className="absolute inset-0 block h-full w-full rounded-[inherit] object-cover transition-opacity duration-[180ms]"
                     />
                 ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-200 dark:bg-zinc-800">
-                        <Video className="h-8 w-8 text-zinc-400/70 dark:text-zinc-500/70" aria-hidden="true" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-secondary">
+                        <Video className="h-8 w-8 text-muted-foreground/70" aria-hidden="true" />
                     </div>
                 )
             ) : (
@@ -319,8 +318,8 @@ function MediaAttachmentTileV2({
             )}
 
             {hasError ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400">
-                    <File className="h-6 w-6 mb-1 text-zinc-400" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-muted text-muted-foreground">
+                    <File className="h-6 w-6 mb-1 text-muted-foreground" />
                     <p className="text-[11px] font-semibold">Media unavailable</p>
                     <p className="mt-0.5 max-w-full truncate px-2 text-[11px]">{attachment.filename}</p>
                 </div>
@@ -343,11 +342,11 @@ function FileAttachmentCardV2({
                 <File className="h-5 w-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-                <p className="truncate break-all text-sm font-medium text-zinc-900 dark:text-white">
+                <p className="truncate break-all text-sm font-medium text-foreground dark:text-white">
                     {attachment.filename}
                 </p>
                 {attachment.sizeBytes ? (
-                    <p className="text-xs text-zinc-500">{formatFileSize(attachment.sizeBytes)}</p>
+                    <p className="text-xs text-muted-foreground">{formatFileSize(attachment.sizeBytes)}</p>
                 ) : null}
             </div>
         </>
@@ -358,7 +357,7 @@ function FileAttachmentCardV2({
             <button
                 type="button"
                 onClick={onPreview}
-                className="flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-lg bg-zinc-100 p-3 text-left transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                className="flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-lg bg-muted p-3 text-left transition-colors hover:bg-secondary"
             >
                 {content}
             </button>
@@ -371,7 +370,7 @@ function FileAttachmentCardV2({
             target="_blank"
             rel="noopener noreferrer"
             download={attachment.filename}
-            className="flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-lg bg-zinc-100 p-3 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+            className="flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-lg bg-muted p-3 transition-colors hover:bg-secondary"
         >
             {content}
         </a>
@@ -389,15 +388,15 @@ export function PdfViewerV2({ attachment }: { attachment: { localUrl?: string; u
 
     if (error) {
         return (
-            <div className="flex h-full flex-col items-center justify-center p-4 text-center text-zinc-900">
-                <File className="mb-2 h-12 w-12 text-zinc-400" />
-                <p className="mb-4 text-sm font-medium text-zinc-600">Security restrictions prevent inline viewing.</p>
+            <div className="flex h-full flex-col items-center justify-center p-4 text-center text-foreground">
+                <File className="mb-2 h-12 w-12 text-muted-foreground" />
+                <p className="mb-4 text-sm font-medium text-muted-foreground">Security restrictions prevent inline viewing.</p>
                 <a
                     href={attachment.url || attachment.localUrl || '#'}
                     download={attachment.filename}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                    className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary"
                 >
                     Download PDF
                 </a>

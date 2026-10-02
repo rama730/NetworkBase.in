@@ -1,5 +1,5 @@
 import type { ApplicationLifecycleStatus } from '@/lib/applications/status';
-import { normalizeSafeExternalUrl } from '@/lib/messages/safe-links';
+import { normalizeSafeExternalUrl } from '@/lib/messaging/safe-links';
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 

@@ -220,7 +220,7 @@ test('optimization 10: mergeMessageCollections performs single-pass merge across
 });
 
 test('optimization 11: pixelsHaveTransparency fast-path correctly detects transparent pixels', async () => {
-    const { pixelsHaveTransparency } = await import('@/lib/messages/image-compression');
+    const { pixelsHaveTransparency } = await import('@/lib/messaging/image-compression');
     // 64 pixels (256 bytes), all opaque
     const opaque = new Uint8ClampedArray(256).fill(255);
     assert.equal(pixelsHaveTransparency(opaque), false, 'Opaque buffer must return false');
@@ -250,7 +250,7 @@ test('optimization 12: useMessageReceiptBuffer bounds in-memory receipts at 2,00
 
 test('optimization 13: renderTextWithMentions fast-paths plain text without regex parsing', () => {
     const renderFile = readFileSync(
-        resolve(ROOT, 'src/components/chat/v2/message-rendering.tsx'),
+        resolve(ROOT, 'src/components/messages/parts/message-rendering.tsx'),
         'utf8',
     );
     assert.match(
@@ -262,7 +262,7 @@ test('optimization 13: renderTextWithMentions fast-paths plain text without rege
 
 test('optimization 14: MediaViewerModal is dynamically loaded on demand', () => {
     const attFile = readFileSync(
-        resolve(ROOT, 'src/components/chat/v2/message-attachments.tsx'),
+        resolve(ROOT, 'src/components/messages/parts/message-attachments.tsx'),
         'utf8',
     );
     assert.match(
@@ -315,7 +315,7 @@ test('optimization 17: useDeliveryAcks wrapper eliminated and MessageThreadV2 ca
 
 test('optimization 18: detectCodeLanguage limits sample scanning to 1,500 characters', () => {
     const codeFile = readFileSync(
-        resolve(ROOT, 'src/lib/messages/code-snippets.ts'),
+        resolve(ROOT, 'src/lib/messaging/code-snippets.ts'),
         'utf8',
     );
     assert.match(

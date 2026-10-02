@@ -57,7 +57,7 @@ export function MentionDropdown({ query, participants, onSelect, onClose }: Ment
     if (filtered.length === 0) return null;
 
     return (
-        <div ref={listRef} className="absolute bottom-full left-0 z-30 mb-1 w-64 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+        <div ref={listRef} className="absolute bottom-full left-0 z-30 mb-1 w-64 rounded-lg border border-border bg-popover py-1 shadow-lg">
             {filtered.map((participant, index) => {
                 const identity = buildIdentityPresentation(participant);
                 return (
@@ -69,13 +69,13 @@ export function MentionDropdown({ query, participants, onSelect, onClose }: Ment
                             onSelect(participant);
                         }}
                         className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
-                            index === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                            index === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
                         }`}
                     >
                         <UserAvatar identity={participant} size={24} unoptimized fallbackClassName="text-[11px] font-medium" />
                         <div className="min-w-0">
-                            <div className="truncate font-medium text-zinc-900 dark:text-zinc-100">{identity.displayName}</div>
-                            {identity.usernameLabel && <div className="truncate text-xs text-zinc-500">{identity.usernameLabel}</div>}
+                            <div className="truncate font-medium text-foreground">{identity.displayName}</div>
+                            {identity.usernameLabel && <div className="truncate text-xs text-muted-foreground">{identity.usernameLabel}</div>}
                         </div>
                     </button>
                 );

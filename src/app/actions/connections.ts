@@ -16,7 +16,7 @@ import {
     type ConnectionRequestHistoryStatus,
 } from '@/lib/applications/status';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
-import { APPLICATION_BANNER_HIDE_AFTER_MS } from '@/lib/chat/banner-lifecycle';
+import { APPLICATION_BANNER_HIDE_AFTER_MS } from '@/lib/applications/banner-lifecycle';
 import { redis, getCachedData, cacheData } from '@/lib/redis';
 import {
     applyConnectionPairsToRedis,

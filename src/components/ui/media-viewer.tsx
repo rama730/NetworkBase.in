@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, VolumeX, Volume2, X, ChevronLeft, ChevronRight, Image as ImageIcon, Video } from 'lucide-react';
-import ResolvedVideoPlayer from '@/components/chat/v2/resolved-video-player';
-import { PdfViewerV2 } from '@/components/chat/v2/message-attachments'; 
+import ResolvedVideoPlayer from '@/components/messages/parts/resolved-video-player';
+import { PdfViewerV2 } from '@/components/messages/parts/message-attachments'; 
 import { cn } from '@/lib/utils';
 
 export interface MediaItem {

@@ -21,7 +21,7 @@ import { formatConversationPreview, shouldShowConversationReactionPreview } from
 import { buildConversationDisplay } from '@/lib/messages/conversation-display';
 import { createVisibilityAwareInterval } from '@/lib/utils/visibility';
 import { DeliveryIndicator } from './MessageBubbleV2';
-import { InboxListSkeletonV2 } from './MessagesSurfaceSkeletons';
+import { InboxListSkeletonV2 } from '@/components/messages/parts/MessagesSurfaceSkeletons';
 
 interface ConversationListV2Props {
     surface?: 'page' | 'popup';

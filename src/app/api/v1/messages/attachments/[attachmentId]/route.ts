@@ -13,7 +13,7 @@ import {
 } from "@/lib/db/schema";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { isUuid } from "@/lib/validations/uuid";
-import { MESSAGE_MEDIA_PREVIEW_MAX_WIDTH } from "@/lib/messages/media-metadata";
+import { MESSAGE_MEDIA_PREVIEW_MAX_WIDTH } from "@/lib/messaging/media-metadata";
 import { resolveAttachmentStoragePath } from "@/lib/messages/attachment-storage-path";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import {

@@ -45,8 +45,8 @@ export const ReactionPillRow = React.memo(function ReactionPillRow({
                     className={cn(
                         "inline-flex shrink-0 items-center gap-1 rounded-full font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 px-1.5 py-0.5",
                         reaction.viewerReacted
-                            ? "text-primary hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                            : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                            ? "text-primary hover:bg-muted"
+                            : "text-muted-foreground hover:bg-muted"
                     )}
                     aria-label={`${reaction.emoji}, ${reaction.count} reaction${reaction.count === 1 ? '' : 's'}${reaction.viewerReacted ? ' (you reacted)' : ''}`}
                     aria-pressed={reaction.viewerReacted}

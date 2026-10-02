@@ -11,7 +11,7 @@ import { buildIdentityPresentation } from '@/lib/ui/identity';
 import { StackedAvatars } from '@/components/ui/StackedAvatars';
 import { formatMessagePreview } from '@/lib/messages/preview';
 import { createVisibilityAwareInterval } from '@/lib/utils/visibility';
-import { InboxListSkeletonV2 } from './MessagesSurfaceSkeletons';
+import { InboxListSkeletonV2 } from '@/components/messages/parts/MessagesSurfaceSkeletons';
 
 interface ProjectGroupsListV2Props {
     surface?: 'page' | 'popup';

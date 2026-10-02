@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
     formatDraftWithCodeSnippet,
     parseMessageSegments,
-} from '@/lib/messages/code-snippets';
+} from '@/lib/messaging/code-snippets';
 
 test('message code snippets keep a fenced code block before a normal caption', () => {
     const content = [
