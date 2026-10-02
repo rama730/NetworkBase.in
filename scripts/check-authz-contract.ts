@@ -59,6 +59,18 @@ async function main() {
     ],
   ];
 
+  // Every exported chat server action authenticates first (requireChatUser) and
+  // performs its permission checks in the app_private SQL functions.
+  const chatActionFiles = ["channels", "members", "messages", "read", "activity"];
+  for (const name of chatActionFiles) {
+    const source = await readWorkspaceFile(`src/app/actions/chat/${name}.ts`);
+    const exportsList = [...source.matchAll(/export async function (\w+)\([^)]*\)[^{]*\{([\s\S]*?)\n\}/g)];
+    checks.push([
+      `chat/${name}.ts: every action starts with requireChatUser()`,
+      exportsList.length > 0 && exportsList.every(([, , body]) => /^\s*const user = await requireChatUser\(\);\s*\n\s*if \(!user\) return unauthorized;/.test(body ?? "")),
+    ]);
+  }
+
   const failed = checks.filter(([, passed]) => !passed);
   if (failed.length > 0) {
     throw new Error(`Authorization contract failed: ${failed.map(([label]) => label).join(", ")}`);

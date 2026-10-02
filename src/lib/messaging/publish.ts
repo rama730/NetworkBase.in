@@ -1,0 +1,86 @@
+import { after } from "next/server";
+import { sql } from "drizzle-orm";
+
+import { logger } from "@/lib/logger";
+import { channelTopic, userTopic } from "@/lib/messaging/constants";
+import { chatPushTopic, createPushSuppressor } from "@/lib/messaging/push-policy";
+import { chatRows, uuidArray } from "@/lib/messaging/server";
+import { tokensToPlainText } from "@/lib/messaging/tokens";
+import type { ChatMessageView } from "@/lib/messaging/types";
+import {
+  isNotificationPauseActive,
+  isQuietHoursActive,
+  normalizeNotificationPreferences,
+} from "@/lib/notifications/preferences";
+import { sendPushToUser } from "@/lib/notifications/web-push";
+import { broadcast, type ServerBroadcast } from "@/lib/realtime/server-broadcast";
+
+const allowPush = createPushSuppressor(30_000);
+
+/** Publish one channel event after the response is sent (never blocks the action). */
+export function publishChannel(channelId: string, event: string, payload: Record<string, unknown>) {
+  after(() => broadcast([{ topic: channelTopic(channelId), event, payload }]));
+}
+
+/** Publish one event to a user's own topic (multi-tab sync, membership changes). */
+export function publishUser(userId: string, event: string, payload: Record<string, unknown>) {
+  after(() => broadcast([{ topic: userTopic(userId), event, payload }]));
+}
+
+/**
+ * After a send: one REST batch with message.new for open viewers plus a hint
+ * for every user to notify (DM partners, mentions, thread followers), then web
+ * push for the ones whose preferences allow it.
+ */
+export function publishSentMessage(input: {
+  message: ChatMessageView;
+  notify: string[];
+  mentioned: string[];
+  channelName: string | null;
+}) {
+  const { message, notify, mentioned } = input;
+  after(async () => {
+    const events: ServerBroadcast[] = [
+      { topic: channelTopic(message.channel_id), event: "message.new", payload: message as unknown as Record<string, unknown> },
+      ...notify.map((userId) => ({
+        topic: userTopic(userId),
+        event: "hint",
+        payload: {
+          channel_id: message.channel_id,
+          seq: message.seq,
+          mention: mentioned.includes(userId),
+          thread_root_seq: message.thread_root_seq,
+        },
+      })),
+    ];
+    await broadcast(events);
+    if (notify.length === 0) return;
+
+    try {
+      const recipients = await chatRows<{ id: string; notification_preferences: unknown }>(sql`
+        SELECT id, notification_preferences FROM profiles WHERE id = ANY(${uuidArray(notify)})
+      `);
+      const authorName = message.author?.full_name || message.author?.username || "Someone";
+      const title = input.channelName ? `${authorName} in #${input.channelName}` : authorName;
+      const body = tokensToPlainText(message.body).slice(0, 240) || (message.attachments.length ? "Sent an attachment" : "New message");
+      const now = new Date();
+      await Promise.all(recipients.map(async (recipient) => {
+        const prefs = normalizeNotificationPreferences(recipient.notification_preferences);
+        const isMention = mentioned.includes(recipient.id);
+        if (!prefs.delivery.push || isNotificationPauseActive(prefs, now) || isQuietHoursActive(prefs, now)) return;
+        if (isMention ? !prefs.mentions : !prefs.messages) return;
+        if (!allowPush(recipient.id, message.channel_id)) return;
+        await sendPushToUser(recipient.id, {
+          id: `${message.channel_id}:${message.seq}`,
+          title,
+          body,
+          href: `/messages/${message.channel_id}?m=${message.seq}`,
+          icon: message.author?.avatar_url ?? null,
+          tag: `chat:${message.channel_id}`,
+        }, { notificationId: null, topic: chatPushTopic(message.channel_id), recordDeliveries: false });
+      }));
+    } catch (error) {
+      logger.warn("chat.push_failed", { module: "chat", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+}
