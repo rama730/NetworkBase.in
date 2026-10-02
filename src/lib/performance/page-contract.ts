@@ -126,6 +126,19 @@ function buildActiveSurfaceContract(
   };
 }
 
+// Every Slack-style chat route shares the /messages surface budget.
+function messagesRoute(routeId: string) {
+  return {
+    [routeId]: buildActiveSurfaceContract(routeId, `src/app/(site)/(main)${routeId}/page.tsx`, {
+      renderingMode: "dynamic",
+      invalidationOwner: "realtime",
+      hydrationBoundary: "heavy",
+      bootstrapReadModel: "auth_snapshot",
+      maxInitialPayloadKb: 320,
+    }),
+  };
+}
+
 export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract> = {
   "/": buildPublicContract("/", "src/app/(site)/page.tsx", {
     renderingMode: "dynamic",
@@ -257,6 +270,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 320,
     allowForceDynamic: true,
   }),
+  ...messagesRoute("/messages/home"),
   "/u/[username]": buildPublicContract("/u/[username]", "src/app/(site)/(main)/u/[username]/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 60,

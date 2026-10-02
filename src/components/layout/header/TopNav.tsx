@@ -42,6 +42,11 @@ import {
     type GlobalSearchContext,
 } from "./global-search";
 import { useMessagesV2UiStore } from "@/stores/messagesV2UiStore";
+import { useUIStore } from "@/stores/ui-store";
+import { useChatUi } from "@/components/messages/chat-ui-store";
+import { isChatV3Enabled } from "@/lib/messaging/flag";
+
+const CHAT_V3 = isChatV3Enabled();
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 
 export default function TopNav() {
@@ -57,7 +62,8 @@ export default function TopNav() {
         setMounted(true);
     }, []);
 
-    const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const showMobileMenu = useUIStore((state) => state.mobileMenuOpen);
+    const setShowMobileMenu = useUIStore((state) => state.setMobileMenuOpen);
     const [showCommandPalette, setShowCommandPalette] = useState(false);
     const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
     const [commandPaletteContext, setCommandPaletteContext] = useState<GlobalSearchContext | undefined>();
@@ -81,7 +87,8 @@ export default function TopNav() {
         const nextContext = requestedContext ?? resolveGlobalSearchContext(pathname).context;
         if (nextContext === "messages") {
             closeGlobalSearch();
-            setMessageSearchOpen(true);
+            if (CHAT_V3) useChatUi.getState().setSwitcherOpen(true);
+            else setMessageSearchOpen(true);
             return;
         }
         setCommandPaletteQuery(query);
@@ -103,7 +110,8 @@ export default function TopNav() {
                 e.preventDefault();
                 if ((e.target as HTMLElement | null)?.closest("[data-messages-surface]")) {
                     closeGlobalSearch();
-                    setMessageSearchOpen(true);
+                    if (CHAT_V3) useChatUi.getState().setSwitcherOpen(true);
+                    else setMessageSearchOpen(true);
                     return;
                 }
                 if (showCommandPalette) {
