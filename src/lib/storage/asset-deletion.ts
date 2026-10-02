@@ -6,6 +6,7 @@ import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   attachmentUploads,
+  chatAttachments,
   extensionRecoveryDrafts,
   fileVersions,
   githubSyncSnapshotAssets,
@@ -53,6 +54,17 @@ function hasNoLiveReference() {
     sql`NOT EXISTS (
       SELECT 1 FROM ${messageAttachments}
       WHERE ${messageAttachments.assetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${chatAttachments}
+      WHERE ${chatAttachments.assetId} = ${storageAssets.id}
+    )`,
+    // ponytail: an unsent chat upload stays for an hour (the old upload-session
+    // TTL). ceiling: a draft attachment older than that must be re-uploaded.
+    // upgrade: persist drafts server-side if users report lost attachments.
+    sql`NOT (
+      ${storageAssets.purpose} = 'chat_attachment:file'
+      AND ${storageAssets.createdAt} > now() - interval '1 hour'
     )`,
     sql`NOT EXISTS (
       SELECT 1 FROM ${projectUpdateMediaAssets}

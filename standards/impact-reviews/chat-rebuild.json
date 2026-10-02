@@ -66,7 +66,8 @@
     "commands": [
       "scripts/chat-db/local-db.sh",
       "npm run check:chat:db",
-      "scripts/chat-load/run.sh postgresql://postgres@localhost:54329/nb_chat_load 60"
+      "scripts/chat-load/run.sh postgresql://postgres@localhost:54329/nb_chat_load 60",
+      "npm run check:chat:actions"
     ],
     "reports": [
       "docs/plans/messaging-slack-rebuild-report.md",
@@ -80,6 +81,12 @@
     "src/app/actions/chat",
     "src/app/api/v1/chat",
     "src/lib/realtime",
-    "src/inngest"
+    "src/inngest",
+    "src/app/actions/project/guidance.ts",
+    "src/app/actions/project/index.ts",
+    "src/app/actions/applications/internal.ts",
+    "src/app/actions/workspace.ts",
+    "src/app/actions/connections.ts",
+    "scripts/check-authz-contract.ts"
   ]
 }
