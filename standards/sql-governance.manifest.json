@@ -181,7 +181,8 @@
     "drizzle/0177_projects_member_file_upload_default.sql",
     "drizzle/0178_storage_asset_lifecycle.sql",
     "drizzle/0179_live_catalog_storage_release_hardening.sql",
-    "drizzle/0180_chat_rebuild_additive.sql"
+    "drizzle/0180_chat_rebuild_additive.sql",
+    "drizzle/0181_chat_rebuild_cutover.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
