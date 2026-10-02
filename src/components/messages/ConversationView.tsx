@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Bell, BellOff, ExternalLink, Hash, Info, Lock, MoreHorizontal, Star, Users } from "lucide-react";
+import { ArrowLeft, Bell, BellOff, Hash, Info, Lock, MoreHorizontal, Star, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { archiveChannel, joinChannel, leaveChannel, type ChannelDetails } from "@/app/actions/chat/channels";
@@ -37,6 +37,8 @@ type Props = {
   surface?: "page" | "window";
   onBack?: () => void;
   onOpenThread?: (rootSeq: number) => void;
+  /** Launcher header controls (open full page, minimize, close). */
+  windowActions?: React.ReactNode;
 };
 
 function Intro({ channel, meId, onEdit, onCreateTask }: { channel: ChannelDetails; meId: string | null; onEdit: () => void; onCreateTask: () => void }) {
@@ -84,7 +86,7 @@ function Pins({ channelId }: { channelId: string }) {
   return <div className="app-scroll app-scroll-y min-h-0 flex-1 py-2">{pins.data.map((m) => <MessageRow key={m.seq} message={m} grouped={false} />)}</div>;
 }
 
-export function ConversationView({ channelId, around = null, surface = "page", onBack, onOpenThread }: Props) {
+export function ConversationView({ channelId, around = null, surface = "page", onBack, onOpenThread, windowActions }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -198,7 +200,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             </div>
           </div>
           {surface === "window" ? (
-            <Link href={`/messages/${channelId}`} className="nb-icon-button nb-touch-target" aria-label="Open full page"><ExternalLink size={16} /></Link>
+            windowActions
           ) : (
             <>
               {!isDirect ? (
