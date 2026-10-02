@@ -81,6 +81,8 @@
     "src/app/actions/chat",
     "src/app/api/v1/chat",
     "src/lib/realtime",
+    "src/components/messages",
+    "src/app/actions/shell.ts",
     "src/inngest",
     "src/app/actions/project/guidance.ts",
     "src/app/actions/project/index.ts",

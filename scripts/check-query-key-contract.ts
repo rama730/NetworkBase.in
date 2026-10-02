@@ -14,6 +14,7 @@ const TARGET_PREFIXES = [
   "src/hooks/projects/",
   "src/hooks/useWorkspace",
   "src/hooks/useMessages",
+  "src/components/messages/",
 ];
 
 const TARGET_FILES = new Set<string>([

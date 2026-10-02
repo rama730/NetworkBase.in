@@ -28,7 +28,7 @@ function getParticipantConversationId(payload: unknown) {
     return typeof conversationId === "string" ? conversationId : null;
 }
 
-const MessageAttentionContext = createContext<MessageAttentionContextValue>(EMPTY_MESSAGE_ATTENTION);
+export const MessageAttentionContext = createContext<MessageAttentionContextValue>(EMPTY_MESSAGE_ATTENTION);
 
 /**
  * Keeps the small, authoritative message unread summary available without

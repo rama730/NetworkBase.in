@@ -25,6 +25,22 @@ export const queryKeys = {
     root: () => ["connections"] as const,
     pending: () => ["connections", "pending"] as const,
   },
+  /** Slack-style chat (rebuild). Prefix chat-v3 never collides with the old chat / chat-v2 keys. */
+  chat: {
+    root: () => ["chat-v3"] as const,
+    bootstrap: (userId: string | null | undefined) => ["chat-v3", "bootstrap", asNullable(userId)] as const,
+    channel: (channelId: string) => ["chat-v3", "channel", channelId] as const,
+    messages: (channelId: string) => ["chat-v3", "messages", channelId] as const,
+    thread: (channelId: string, rootSeq: number) => ["chat-v3", "thread", channelId, rootSeq] as const,
+    members: (channelId: string) => ["chat-v3", "members", channelId] as const,
+    pins: (channelId: string) => ["chat-v3", "pins", channelId] as const,
+    browse: (projectId: string) => ["chat-v3", "browse", projectId] as const,
+    card: (kind: string, refId: string) => ["chat-v3", "card", kind, refId] as const,
+    activity: () => ["chat-v3", "activity"] as const,
+    threads: () => ["chat-v3", "threads"] as const,
+    dms: () => ["chat-v3", "dms"] as const,
+    people: (query: string) => ["chat-v3", "people", query] as const,
+  },
   messages: {
     conversations: () => ["chat", "conversations"] as const,
     targetUser: (userId: string) => ["chat", "targetUser", userId] as const,
