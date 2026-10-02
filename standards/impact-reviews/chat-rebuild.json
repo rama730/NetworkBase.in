@@ -1,0 +1,85 @@
+{
+  "id": "impact-2026-10-02-chat-rebuild",
+  "title": "Slack-style messaging rebuild for 1M users",
+  "summary": "Replaces the conversations/messages system with channel-first chat (docs/plans/messaging-slack-rebuild-report.md). 0180 adds chat_* tables (hash-partitioned messages, attachments, reactions), app_private chat functions, live-card triggers, member-scoped RLS and chat:channel/chat:user Realtime topic branches next to the old system; the app switches over behind NEXT_PUBLIC_CHAT_V3, and 0181 drops the old system at cutover.",
+  "riskLevel": "critical",
+  "runtimePlanes": [
+    "request",
+    "realtime",
+    "worker",
+    "database",
+    "ops"
+  ],
+  "routeClasses": [
+    "user_shell",
+    "active_surface"
+  ],
+  "dataSourcesChanged": [
+    "chat_channels",
+    "chat_channel_members",
+    "chat_messages",
+    "chat_message_cards",
+    "chat_attachments",
+    "chat_reactions",
+    "chat_mentions",
+    "chat_thread_follows",
+    "chat_pins",
+    "chat_reports",
+    "realtime.messages policies",
+    "project_invitations",
+    "role_applications",
+    "tasks",
+    "storage_assets"
+  ],
+  "canonicalLogicDomains": [
+    "status_lifecycle",
+    "relationship_actions",
+    "identity_avatar"
+  ],
+  "concurrencyRisk": "High write concurrency on the send path: each send takes the channel row lock for one statement to allocate a gap-free channel_seq (bounded at ~300 sends/s per channel, ledger L-17). Idempotency is by (channel_id, author_id, client_message_id) checked under that lock. Mentions and @channel fan-out are bounded by the 500-member cap and the 100-member @channel cap. Realtime publishing is best-effort after commit with catch-up on reconnect (L-1).",
+  "observability": {
+    "metrics": [
+      "chat.send.ms",
+      "chat.bootstrap.ms",
+      "chat.broadcast.failed",
+      "chat.push.sent"
+    ],
+    "logs": [
+      "chat send failures by code",
+      "chat realtime broadcast failures",
+      "chat push dispatch failures"
+    ],
+    "alerts": [
+      "Realtime too_many_* or tenant_events errors",
+      "chat send error rate above 0.1%"
+    ]
+  },
+  "rollback": {
+    "strategy": "Before cutover: turn NEXT_PUBLIC_CHAT_V3 off (old system untouched) or git revert the chat commits; 0180 is additive and harmless if unused. After 0181 is applied there is no data rollback; a pg_dump of the old tables is taken first for forensics.",
+    "validation": [
+      "npm run check:chat:db",
+      "npm run typecheck",
+      "npm run test:unit"
+    ]
+  },
+  "evidence": {
+    "commands": [
+      "scripts/chat-db/local-db.sh",
+      "npm run check:chat:db",
+      "scripts/chat-load/run.sh postgresql://postgres@localhost:54329/nb_chat_load 60"
+    ],
+    "reports": [
+      "docs/plans/messaging-slack-rebuild-report.md",
+      "docs/plans/chat-phase-0.md"
+    ]
+  },
+  "paths": [
+    "drizzle/0180_chat_rebuild_additive.sql",
+    "drizzle/0181_chat_rebuild_cutover.sql",
+    "drizzle/meta/_journal.json",
+    "src/app/actions/chat",
+    "src/app/api/v1/chat",
+    "src/lib/realtime",
+    "src/inngest"
+  ]
+}
