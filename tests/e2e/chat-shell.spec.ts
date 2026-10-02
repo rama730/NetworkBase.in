@@ -7,20 +7,23 @@ test.describe("Chat shell", () => {
   test.skip(!chatV3Ready, chatV3SkipReason);
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test("rail + sidebar replace the global sidebar; project switch makes no request", async ({ page }) => {
+  test("app navigation stays; chat sidebar sits beside it; project switch makes no request", async ({ page }) => {
     await login(page);
     await page.goto("/messages");
-    const aside = page.getByRole("complementary", { name: "Messages navigation" });
+    await expect(page.locator("#application-sidebar")).toBeVisible();
+    const aside = page.getByRole("complementary", { name: "Conversations" });
     await expect(aside).toBeVisible();
-    await expect(aside.getByRole("navigation", { name: "Projects" })).toBeVisible();
-    const tiles = aside.getByRole("navigation", { name: "Projects" }).locator(".nb-chat-tile");
-    test.skip((await tiles.count()) < 2, "Needs at least one project.");
+    await aside.getByRole("button", { name: /Home|Switch project/ }).first().click();
+    await page.getByRole("menuitem", { name: "Switch project" }).click();
+    const sheet = page.getByRole("dialog", { name: "Switch project" });
+    const projects = sheet.getByRole("button").filter({ hasNotText: "Home" });
+    test.skip((await projects.count()) < 1, "Needs at least one project.");
 
     const requests: string[] = [];
     page.on("request", (request) => {
       if (request.method() === "POST") requests.push(request.url());
     });
-    await tiles.nth(1).click();
+    await projects.first().click();
     await page.waitForTimeout(500);
     expect(requests, "switching projects is in memory").toEqual([]);
     await expect(aside.getByRole("button", { name: "Channels" })).toBeVisible();

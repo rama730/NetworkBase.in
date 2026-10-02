@@ -1,13 +1,11 @@
 'use client'
 
 import { useEffect, type ReactNode } from 'react'
-import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
 import { WorkspaceDrawerHost } from '@/components/workspace/WorkspaceDrawerHost'
 import { CREATE_PROJECT_PATH, rememberCreateProjectReturnPath } from '@/components/projects/create-wizard/create-project-return'
-const ChatShellAside = dynamic(() => import('@/components/messages/ChatShellAside'), { ssr: false })
 
 interface MainLayoutProps {
     children: ReactNode
@@ -15,7 +13,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
     const pathname = usePathname()
-    // Messages swaps the global sidebar for its rail + sidebar (report 7.10 D2).
+    // Messages tracks the on-screen keyboard height (report 7.12 B11).
     const messagesShell = pathname === '/messages' || pathname?.startsWith('/messages/')
 
     // Closing the create-project page returns to wherever the user was before it.
@@ -29,7 +27,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             data-hardening-shell="v1"
         >
             <a href="#main-content" className="nb-skip-link">Skip to content</a>
-            {messagesShell ? <ChatShellAside /> : <AppSidebar />}
+            <AppSidebar />
             <div className="nb-main-frame flex min-h-0 flex-1 flex-col">
             <TopNav />
             <main id="main-content" tabIndex={-1} className="flex-1 min-h-0 min-w-0 overflow-hidden">

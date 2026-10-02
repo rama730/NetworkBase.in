@@ -48,7 +48,7 @@ export function ChatSidebar({ variant, onCreateChannel, onInvite, onSelect }: Pr
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-14 flex-none items-center gap-1 px-3">
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-[5px] px-1 text-left text-[17px] font-semibold text-[var(--chat-row-strong,var(--chat-chrome-text))]">
+          <DropdownMenuTrigger className="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-[5px] px-1 text-left text-[17px] font-semibold text-[var(--foreground)]">
             <span className="truncate">{title}</span>
             <ChevronDown size={16} aria-hidden="true" className="flex-none" />
           </DropdownMenuTrigger>
@@ -63,14 +63,14 @@ export function ChatSidebar({ variant, onCreateChannel, onInvite, onSelect }: Pr
             <DropdownMenuItem onSelect={() => void markAllRead()}>Mark all read</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Link href={settingsTabHref("notifications")} className="nb-chat-icon size-11" aria-label="Messaging preferences"><Settings size={16} aria-hidden="true" /></Link>
-        <Link href="/messages/new" className="nb-chat-icon size-11" aria-label="New message"><SquarePen size={16} aria-hidden="true" /></Link>
+        <Link href={settingsTabHref("notifications")} className="nb-icon-button nb-touch-target" aria-label="Messaging preferences"><Settings size={16} aria-hidden="true" /></Link>
+        <Link href="/messages/new" className="nb-icon-button nb-touch-target" aria-label="New message"><SquarePen size={16} aria-hidden="true" /></Link>
       </header>
       <div className="px-3 pb-2">
         <button
           type="button"
           onClick={() => setSwitcherOpen(true)}
-          className="flex h-9 w-full items-center gap-2 rounded-[5px] bg-[var(--chat-row-hover,var(--chat-chrome-raised))] px-3 text-[14px] text-[var(--chat-row-fg,var(--chat-chrome-muted))]"
+          className="flex h-9 w-full items-center gap-2 rounded-[5px] bg-[var(--muted)] px-3 text-[14px] text-[var(--muted-foreground)]"
         >
           <Search size={14} aria-hidden="true" /> Find a conversation
         </button>

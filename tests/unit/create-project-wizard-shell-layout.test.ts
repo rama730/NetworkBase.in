@@ -40,7 +40,7 @@ test("create-project is a normal page inside the app shell: no modal, one 1000px
   assert.match(wizard, /\$\{WIZARD_COLUMN\} px-4 pb-6 pt-5 md:px-6 md:py-8/);
   // Sidebar and top bar stay, exactly like every other page.
   assert.doesNotMatch(layout, /if \(focus\)/);
-  assert.match(layout, /<AppSidebar \/>\}[\s\S]*<TopNav \/>[\s\S]*\{children\}/);
+  assert.match(layout, /<AppSidebar \/>[\s\S]*<TopNav \/>[\s\S]*\{children\}/);
   assert.match(loading, /<CreateProjectShellSkeleton \/>/);
   assert.match(chat, /HIDDEN_PREFIXES = \["\/messages", "\/projects\/new"\]/);
   // Browser Back keeps work: unsaved changes are saved as a draft on unmount unless the user chose to leave.

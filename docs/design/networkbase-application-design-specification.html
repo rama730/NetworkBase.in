@@ -13085,18 +13085,16 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             Supersedes the three-pane layout above for <code>/messages*</code>
             (see <code>docs/plans/messaging-slack-rebuild-report.md</code>
             7.10–7.13). The project is the workspace. On
-            <code>/messages*</code> the global sidebar slot becomes a 64px rail
-            plus a 248px sidebar (312px) in inverse chrome
-            (<code>--chat-chrome-*</code>, dark in both themes); the 56px
-            topbar stays. The rail holds the NB mark (opens the navigation
-            drawer), Home, 40px project tiles (5px radius, paper ring when
-            selected), "+", the notification-pause moon and the avatar menu.
-            The sidebar is sectioned: header with project menu, "Find a
+            <code>/messages*</code> the app's own navigation stays; a 260px chat
+            sidebar on theme surfaces sits to its right (1024px and wider),
+            then the conversation. There is no project rail: the sidebar
+            header's menu opens the project switcher (Home plus each project
+            with its unread badge). The sidebar is sectioned: header with project menu, "Find a
             conversation" (quick switcher, also Cmd/Ctrl+K), Threads, Activity,
             Starred, Channels (+ Browse channels), Applications (reviewers),
             Direct messages (8 most recent, Show more, Invite people). Rows are
             32px on desktop and 44px on touch; unread rows are weight 600;
-            counts use <code>.nb-nav-count</code> in clay.
+            counts use the clay count pill.
           </p>
           <p>
             One conversation view for channels, DMs and group chats: 56px
