@@ -12,7 +12,7 @@ describe("workspace drawer contracts", () => {
     assert.match(requests, /IncomingProjectApplicationRow/);
     assert.match(requests, /RequestProfileRow/);
     assert.match(requests, /usePendingRequests\(20, isWorkspaceOpen && isActive, \{ includeSent: false \}\)/);
-    assert.match(requests, /app\.isWorkflowItem/);
+    assert.match(requests, /app\.isInvitation/);
     assert.match(requests, /queryKeys\.workspace\.joinRequests\(20\)/);
     assert.match(requests, /getIncomingApplicationsAction\(\{ limit: 20 \}\)/);
     assert.match(requests, /View all invitations/);

@@ -18,9 +18,9 @@ export function MessagesIndex() {
     if (last && data.channels.some((channel) => channel.id === last)) router.replace(`/messages/${last}`);
   }, [data, router]);
   return (
-    <div data-scroll-root="route" className="h-full min-h-0 overflow-hidden">
+    <>
       <div className="h-full lg:hidden"><ListScreen /></div>
       <div className="hidden h-full lg:block"><HomePane /></div>
-    </div>
+    </>
   );
 }

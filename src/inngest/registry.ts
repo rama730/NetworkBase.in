@@ -24,8 +24,7 @@ function getWorkerOnlyFunctions() {
   const { notificationFanout } = loadModule("./functions/notification-fanout");
   const { notificationPushDelivery } = loadModule("./functions/notification-push-delivery");
   const { extensionRecoveryRetention } = loadModule("./functions/extension-recovery-retention");
-  const { messageAttachmentRetention } = loadModule("./functions/message-attachment-retention");
-  const { messageDataIntegrityAudit } = loadModule("./functions/message-data-integrity-audit");
+  const { chatMentionsRetention, chatIntegrityAudit } = loadModule("./functions/chat-maintenance");
   const { reconcileSprintSchedule } = loadModule("./functions/sprint-schedule");
   const { cleanupSupersededProfileImage } = loadModule("./functions/profile-image-cleanup");
   const { dataLifecycleRetention } = loadModule("./functions/data-lifecycle-retention");
@@ -58,8 +57,8 @@ function getWorkerOnlyFunctions() {
     notificationFanout,
     notificationPushDelivery,
     extensionRecoveryRetention,
-    messageAttachmentRetention,
-    messageDataIntegrityAudit,
+    chatMentionsRetention,
+    chatIntegrityAudit,
     reconcileSprintSchedule,
     cleanupSupersededProfileImage,
     dataLifecycleRetention,

@@ -87,11 +87,10 @@ test.describe("mobile 375px", () => {
   test("messages thread has a Back control", async ({ page }) => {
     await login(page);
     await page.goto("/messages");
-    const row = page.locator('[data-testid^="conversation-row-"]').first();
+    const row = page.locator('[data-testid^="chat-row-"]').first();
     test.skip(!(await row.isVisible().catch(() => false)), "no conversations");
-    const id = (await row.getAttribute("data-testid"))!.replace("conversation-row-", "");
-    await page.goto(`/messages?conversationId=${id}`);
-    await expect(page.locator('[data-messages-pane="thread"]').getByRole("button", { name: "Back" })).toBeVisible();
+    await row.click();
+    await expect(page.locator('[data-chat-pane="conversation"]').getByRole("link", { name: "Back to conversations" })).toBeVisible();
   });
 
   test("project header, tabs, files toolbar, task detail", async ({ page }) => {

@@ -53,53 +53,10 @@ const PROJECT_FILE_ALLOWED_MIME_TYPES = [
   "application/x-zip-compressed",
 ] as const;
 
+// Applications keep member-scoped SELECT-only policies (their chat lives in chat_*).
 const MESSAGING_AUTHORITY_TABLES = [
-  "conversations",
-  "conversation_participants",
-  "dm_pairs",
-  "messages",
-  "message_attachments",
-  "message_hidden_for_users",
-  "message_edit_logs",
-  "attachment_uploads",
-  "message_reactions",
-  "message_reports",
-  "message_read_receipts",
-  "message_delivery_receipts",
-  "message_workflow_items",
-  "message_work_links",
-  "message_pins",
   "role_applications",
   "application_events",
-] as const;
-
-const REQUIRED_MESSAGING_CONSTRAINTS = [
-  "dm_pairs_user_low_high_unique",
-  "dm_pairs_ordered_users_check",
-  "conversation_participants_unread_non_negative_check",
-  "conversation_participants_last_read_message_conversation_fkey",
-  "conversation_participants_last_message_conversation_fkey",
-  "conversation_participants_last_message_sender_fkey",
-  "messages_reply_to_message_conversation_fkey",
-  "messages_type_check",
-  "messages_client_message_id_check",
-  "messages_metadata_object_check",
-  "messages_content_length_check",
-  "messages_system_idempotency_check",
-  "messages_active_payload_check",
-  "message_workflow_items_message_conversation_fkey",
-  "message_work_links_source_message_conversation_fkey",
-  "message_attachments_storage_reference_check",
-] as const;
-
-const REQUIRED_MESSAGING_INDEXES = [
-  "conversation_participants_active_inbox_idx",
-  "messages_conversation_created_id_idx",
-  "messages_content_search_idx",
-  "message_workflow_items_pending_project_invite_unique",
-  "message_work_links_source_target_unique",
-  "message_pins_conversation_pinned_idx",
-  "conversation_participants_last_message_sender_idx",
 ] as const;
 
 const REQUIRED_LIFECYCLE_INDEXES = [
@@ -125,7 +82,6 @@ const CHAT_TABLES = [
 const CHAT_PARTITION_PATTERN = /^chat_(messages|attachments|reactions)_p\d{2}$/;
 
 const ALLOWED_SECURITY_DEFINER_FUNCTIONS = new Map([
-  ["public.handle_message_insert_consistency", "search_path=\"\""],
   ["public.rls_auto_enable", "search_path=pg_catalog"],
   ["public.sync_profile_to_auth_user_metadata", "search_path=\"\""],
 ]);
@@ -370,7 +326,6 @@ async function main() {
   const [nativeHardeningRow] = await sql<{
     profile_auth_fk: boolean;
     archive_rls: boolean;
-    duplicate_dm_index: boolean;
     workflow_search_path: boolean;
     anon_can_execute_workflow_seed: boolean;
     authenticated_can_execute_workflow_seed: boolean;
@@ -386,7 +341,6 @@ async function main() {
         FROM pg_class c
         WHERE c.oid = to_regclass('app_private.retired_domain_archive')
       ), false) AS archive_rls,
-      to_regclass('public.dm_pairs_user_low_user_high_key') IS NOT NULL AS duplicate_dm_index,
       COALESCE((
         SELECT p.proconfig @> ARRAY['search_path=""']::text[]
         FROM pg_proc p
@@ -397,7 +351,6 @@ async function main() {
   `;
   if (!nativeHardeningRow?.profile_auth_fk) errors.push("profiles is missing the auth.users identity FK invariant");
   if (!nativeHardeningRow?.archive_rls) errors.push("app_private.retired_domain_archive must have fail-closed RLS");
-  if (nativeHardeningRow?.duplicate_dm_index) errors.push("redundant dm_pairs_user_low_user_high_key still exists");
   if (!nativeHardeningRow?.workflow_search_path) errors.push("seed_project_workflow_columns must set an empty search_path");
   if (nativeHardeningRow?.anon_can_execute_workflow_seed || nativeHardeningRow?.authenticated_can_execute_workflow_seed) {
     errors.push("client roles must not execute seed_project_workflow_columns directly");
@@ -416,69 +369,17 @@ async function main() {
     if (count !== 1) errors.push(`public.${tableName} must have one consolidated SELECT policy; found ${count}`);
   }
 
-  const [typingTableRow] = await sql<{ exists: boolean }[]>`
-    SELECT to_regclass('public.typing_indicators') IS NOT NULL AS exists
-  `;
-  const typingFunctionRows = await sql<{ proname: string }[]>`
-    SELECT p.proname
-    FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
-      AND p.proname IN ('cleanup_old_typing_indicators', 'update_typing_timestamp')
-  `;
-  if (!typingTableRow?.exists && typingFunctionRows.length > 0) {
-    errors.push(`orphan typing indicator function(s) remain: ${typingFunctionRows.map((row) => row.proname).join(", ")}`);
-  }
-
   const partitionShadowRows = await sql<{ relname: string; row_count: number }[]>`
     SELECT c.relname, COALESCE(s.n_live_tup, 0)::int AS row_count
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
     WHERE n.nspname = 'public'
-      AND c.relname IN ('tasks_partitioned', 'messages_partitioned')
+      AND c.relname IN ('tasks_partitioned')
     ORDER BY c.relname
   `;
   for (const row of partitionShadowRows) {
     notes.push(`${row.relname} is retained as a legacy shadow partition table (${row.row_count} estimated row(s)); app code uses the canonical unpartitioned table.`);
-  }
-
-  const messagingConstraintRows = await sql<{ constraint_name: string; validated: boolean }[]>`
-    SELECT con.conname AS constraint_name, con.convalidated AS validated
-    FROM pg_constraint con
-    JOIN pg_class rel ON rel.oid = con.conrelid
-    JOIN pg_namespace n ON n.oid = rel.relnamespace
-    WHERE n.nspname = 'public'
-      AND con.conname = ANY(${REQUIRED_MESSAGING_CONSTRAINTS})
-  `;
-  const messagingConstraints = new Map(
-    messagingConstraintRows.map((row) => [row.constraint_name, row.validated]),
-  );
-  for (const constraintName of REQUIRED_MESSAGING_CONSTRAINTS) {
-    if (!messagingConstraints.has(constraintName)) {
-      errors.push(`missing messaging constraint ${constraintName}`);
-    } else if (!messagingConstraints.get(constraintName)) {
-      errors.push(`messaging constraint ${constraintName} is not validated`);
-    }
-  }
-
-  const messagingIndexRows = await sql<{ indexname: string; indexdef: string }[]>`
-    SELECT indexname, indexdef
-    FROM pg_indexes
-    WHERE schemaname = 'public'
-      AND indexname = ANY(${REQUIRED_MESSAGING_INDEXES})
-  `;
-  const messagingIndexes = new Map(
-    messagingIndexRows.map((row) => [row.indexname, row.indexdef]),
-  );
-  for (const indexName of REQUIRED_MESSAGING_INDEXES) {
-    if (!messagingIndexes.has(indexName)) {
-      errors.push(`missing messaging index ${indexName}`);
-    }
-  }
-  const searchIndexDefinition = messagingIndexes.get("messages_content_search_idx") ?? "";
-  if (!/USING gin \(search_document\)/i.test(searchIndexDefinition)) {
-    errors.push("messages_content_search_idx must index generated search_document with GIN");
   }
 
   const lifecycleIndexRows = await sql<{ indexname: string }[]>`
@@ -493,34 +394,6 @@ async function main() {
       errors.push(`missing lifecycle retention index ${indexName}`);
     }
   }
-  const inboxIndexDefinition = messagingIndexes.get("conversation_participants_active_inbox_idx") ?? "";
-  if (
-    !/user_id, last_message_at DESC, conversation_id DESC/i.test(inboxIndexDefinition)
-    || !/archived_at IS NULL/i.test(inboxIndexDefinition)
-  ) {
-    errors.push("conversation_participants_active_inbox_idx does not match the active inbox order/predicate");
-  }
-
-  const [searchDocumentRow] = await sql<{ generated: string; expression: string | null }[]>`
-    SELECT
-      a.attgenerated AS generated,
-      pg_get_expr(d.adbin, d.adrelid) AS expression
-    FROM pg_attribute a
-    JOIN pg_class c ON c.oid = a.attrelid
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
-    WHERE n.nspname = 'public'
-      AND c.relname = 'messages'
-      AND a.attname = 'search_document'
-      AND NOT a.attisdropped
-    LIMIT 1
-  `;
-  if (!searchDocumentRow || searchDocumentRow.generated !== "s") {
-    errors.push("public.messages.search_document must be a stored generated column");
-  } else if (!searchDocumentRow.expression?.includes("to_tsvector('simple'::regconfig")) {
-    errors.push("public.messages.search_document must use the simple text-search configuration");
-  }
-
   const messagingPolicyRows = await sql<{
     tablename: string;
     cmd: string;
@@ -572,21 +445,22 @@ async function main() {
     }
   }
 
-  const [messageTriggerRow] = await sql<{ definition: string }[]>`
-    SELECT pg_get_functiondef(p.oid) AS definition
-    FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
-      AND p.proname = 'handle_message_insert_consistency'
-    LIMIT 1
+  // Report 10.3: nothing of the old conversation/message system may remain.
+  const oldMessagingRows = await sql<{ k: string; n: string }[]>`
+    SELECT 'table' AS k, tablename AS n FROM pg_tables
+     WHERE schemaname = 'public' AND tablename ~ 'conversation|^message|^dm_pairs|typing_ind|attachment_uploads'
+    UNION ALL
+    SELECT 'func', p.proname FROM pg_proc p JOIN pg_namespace s ON s.oid = p.pronamespace
+     WHERE s.nspname IN ('public', 'app_private') AND p.proname ~ 'conversation|^handle_message|typing'
+    UNION ALL
+    SELECT 'col', table_name || '.' || column_name FROM information_schema.columns
+     WHERE table_schema = 'public' AND column_name ~ 'conversation_id'
+    UNION ALL
+    SELECT 'policy', policyname FROM pg_policies WHERE policyname ~ 'conversation|^message_|^messages_|dm_pairs'
+    UNION ALL
+    SELECT 'pub', tablename FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename ~ 'conversation|message|typing'
   `;
-  const triggerDefinition = messageTriggerRow?.definition.toLowerCase() ?? "";
-  if (
-    !triggerDefinition.includes("(new.created_at, new.id)")
-    || !triggerDefinition.includes("coalesce(last_message_id")
-  ) {
-    errors.push("handle_message_insert_consistency must maintain inbox projections with a monotonic timestamp/id tuple");
-  }
+  for (const row of oldMessagingRows) errors.push(`old messaging ${row.k} still present: ${row.n}`);
 
   const chatPolicyRows = await sql<{ tablename: string; cmd: string; roles: string[] }[]>`
     SELECT tablename, cmd, roles FROM pg_policies

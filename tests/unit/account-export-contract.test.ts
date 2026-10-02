@@ -1,35 +1,44 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
 
-import { sanitizeAccountExportMessage } from "@/lib/account/export-contract";
+import { toAccountExportMessage } from "@/lib/account/export-contract";
 
-const base = {
-  id: "message-id",
-  conversationId: "conversation-id",
-  content: "private message content",
-  type: "text",
-  createdAt: new Date("2026-09-30T00:00:00.000Z"),
-};
+// Report 5.E: the export holds the account holder's own messages plus channel
+// names, and nothing another person wrote.
 
-test("account export preserves the account holder's sent content", () => {
-  const result = sanitizeAccountExportMessage({ ...base, senderId: "self" }, "self");
-  assert.equal(result.content, base.content);
-  assert.equal(result.direction, "sent");
-  assert.equal(result.redacted, false);
+test("export rows carry the author's own body, channel name and time", () => {
+  const row = toAccountExportMessage({
+    channelId: "c1",
+    channelName: "general",
+    channelKind: "public",
+    seq: 7,
+    body: "my message",
+    createdAt: new Date("2026-09-30T00:00:00.000Z"),
+    editedAt: null,
+    deletedAt: null,
+  });
+  assert.deepEqual(row, {
+    channel: "#general",
+    channelId: "c1",
+    seq: 7,
+    body: "my message",
+    createdAt: "2026-09-30T00:00:00.000Z",
+    editedAt: null,
+  });
 });
 
-test("account export redacts another participant's identity and content", () => {
-  const result = sanitizeAccountExportMessage({ ...base, senderId: "other-user" }, "self");
-  assert.equal(result.content, null);
-  assert.equal(result.direction, "received");
-  assert.equal(result.sender, "other-redacted");
-  assert.equal(result.redacted, true);
-  assert.equal("senderId" in result, false);
+test("DMs export without naming the other person; deleted messages export empty", () => {
+  const row = toAccountExportMessage({
+    channelId: "d1", channelName: null, channelKind: "dm", seq: 1, body: "", createdAt: new Date(0), editedAt: null, deletedAt: new Date(0),
+  });
+  assert.equal(row.channel, "Direct message");
+  assert.equal(row.body, null);
 });
 
-test("account export retains system message content without a sender identity", () => {
-  const result = sanitizeAccountExportMessage({ ...base, senderId: null }, "self");
-  assert.equal(result.content, base.content);
-  assert.equal(result.sender, "system");
-  assert.equal(result.redacted, false);
+test("the export stream reads only messages the user authored", () => {
+  const source = fs.readFileSync(path.join(process.cwd(), "src/lib/account/export-stream.ts"), "utf8");
+  assert.match(source, /chat_messages[\s\S]*author_id = \$\{userId\}/);
+  assert.doesNotMatch(source, /chat_channel_members|conversation/);
 });

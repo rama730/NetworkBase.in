@@ -36,7 +36,7 @@ test("People lazily loads inactive tabs and has a route-level loading shell", ()
   assert.doesNotMatch(hub, /import NetworkPeopleTab from/);
   assert.match(hub, /pendingConnections \+ pendingInvites/);
   assert.match(invitations, /getIncomingApplicationsAction\(\{ limit: 50 \}\)/);
-  assert.match(invitations, /invitation\.isWorkflowItem/);
-  assert.match(invitations, /resolveMessageWorkflowActionV2/);
+  assert.match(invitations, /invitation\.isInvitation/);
+  assert.match(invitations, /resolveProjectInvitationAction/);
   assert.match(loading, /aria-label="Loading network"/);
 });

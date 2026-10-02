@@ -48,7 +48,7 @@ test('create saves every step 4 setting; new members inherit the upload default'
     assert.match(action, /updateValues\.memberFileUploadDefault = raw\.memberFileUploadDefault/);
 
     const lifecycle = read('src/lib/projects/collaborator-lifecycle.ts');
-    assert.match(lifecycle, /SELECT id, owner_id, title, slug, conversation_id, member_file_upload_default/);
+    assert.match(lifecycle, /SELECT id, owner_id, title, slug, member_file_upload_default/);
     assert.match(lifecycle, /fileUploadEnabled: project\.memberFileUploadDefault/);
 
     assert.ok(existsSync('drizzle/0177_projects_member_file_upload_default.sql'));

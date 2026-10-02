@@ -2,15 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useMessagesV2OutboxSync } from '@/hooks/useMessagesV2OutboxSync';
 import { usePublishOnlinePresence } from '@/hooks/usePublishOnlinePresence';
 
-interface ChatProviderProps {
+interface PresenceProviderProps {
     children?: React.ReactNode;
     presenceEnabled?: boolean;
 }
 
-const CHAT_IDLE_MS = 5 * 60_000;
+const IDLE_MS = 5 * 60_000;
 // ponytail: 10-minute heartbeat is plenty for coarse last-active tracking while reducing network egress. ceiling: 1,000,000 users. upgrade: Realtime WebSocket presence cluster if fine-grained sub-second presence required.
 const HEARTBEAT_INTERVAL_MS = 10 * 60_000;
 const INITIAL_HEARTBEAT_COOLDOWN_MS = 60_000;
@@ -22,16 +21,12 @@ function OnlinePresencePublisher() {
     return null;
 }
 
-export function ChatProvider({ children = null, presenceEnabled = true }: ChatProviderProps) {
-    return <ChatProviderInner presenceEnabled={presenceEnabled}>{children}</ChatProviderInner>;
-}
-
-function ChatProviderInner({ children = null, presenceEnabled = true }: ChatProviderProps) {
+/** App-wide presence: a coarse heartbeat for last-active plus the user's own presence room while engaged. */
+export function PresenceProvider({ children = null, presenceEnabled = true }: PresenceProviderProps) {
     const { user, isLoading } = useAuth();
     const active = Boolean(user) && !isLoading;
     const presenceActive = active && presenceEnabled;
     const [engaged, setEngaged] = useState(() => typeof document === 'undefined' || !document.hidden);
-    useMessagesV2OutboxSync(active);
 
     useEffect(() => {
         if (!presenceActive) {
@@ -49,7 +44,7 @@ function ChatProviderInner({ children = null, presenceEnabled = true }: ChatProv
             if (document.hidden) return;
             setEngaged(true);
             if (idleTimer !== null) window.clearTimeout(idleTimer);
-            idleTimer = window.setTimeout(pause, CHAT_IDLE_MS);
+            idleTimer = window.setTimeout(pause, IDLE_MS);
         };
         const onVisibilityChange = () => document.hidden ? pause() : resume();
         const activityEvents = ['pointerdown', 'keydown', 'touchstart', 'focus'] as const;

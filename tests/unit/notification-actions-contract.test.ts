@@ -51,56 +51,6 @@ test('notification ordering is based on source activity and actor previews are c
     assert.match(fanout, /writes = await hydrateActorPreviews/);
 });
 
-test('message notifications are delivered inline when no transaction executor is supplied', () => {
-    const emitters = readProjectFile('src/lib/notifications/emitters.ts');
-    const messagingActions = readProjectFile('src/app/actions/messaging/index.ts');
-    const messageEmitter = emitters.slice(
-        emitters.indexOf('export async function emitMessageBurstNotifications'),
-        emitters.indexOf('export async function emitWorkflowAssignedNotification'),
-    );
-
-    assert.match(emitters, /import \{ db \} from ["']@\/lib\/db["']/);
-    assert.match(messageEmitter, /return emitNotificationWrites\(writes, executor \?\? db\)/);
-    assert.doesNotMatch(messageEmitter, /emitNotificationWrites\(writes, executor\)/);
-    assert.match(messageEmitter, /body: null/);
-    assert.doesNotMatch(messageEmitter, /previewText/);
-    assert.match(messageEmitter, /sourceMessageId: params\.sourceMessageId/);
-    assert.match(messagingActions, /sourceMessageId: newMessage!\.id/);
-
-    const messageNotificationCalls = messagingActions.match(/emitMessageBurstNotifications\(\{/g) ?? [];
-    assert.equal(messageNotificationCalls.length, 1);
-});
-
-test('chat-backed workflow notifications retain their source message for reply-style navigation', () => {
-    const emitters = readProjectFile('src/lib/notifications/emitters.ts');
-    const collaboration = readProjectFile('src/app/actions/messaging/collaboration.ts');
-
-    assert.match(emitters, /sourceMessageId: string;/);
-    assert.match(emitters, /href: buildMessageSourceHref\(params\.conversationId, params\.sourceMessageId\)/);
-    assert.match(emitters, /sourceMessageId: params\.sourceMessageId/);
-    assert.match(collaboration, /href: buildMessageSourceHref\(conversationId, result\.messageRow\.id\)/);
-    assert.match(collaboration, /href: buildMessageSourceHref\(workflow\.conversationId, workflow\.messageId\)/);
-});
-
-test('message deletion updates only the notification sourced from that message', () => {
-    const service = readProjectFile('src/lib/notifications/service.ts');
-    const messaging = readProjectFile('src/app/actions/messaging/index.ts');
-
-    assert.match(service, /export async function markMessageBurstSourceDeleted/);
-    assert.match(service, /entityRefs} ->> 'sourceMessageId' = \$\{sourceMessageId\}/);
-    assert.match(service, /title: 'This message was deleted'/);
-    assert.match(messaging, /await markMessageBurstSourceDeleted\(/);
-});
-
-test('message notification delivery does not own canonical chat unread state', () => {
-    const hook = readProjectFile('src/hooks/useNotifications.ts');
-    const provider = readProjectFile('src/components/providers/MessageAttentionProvider.tsx');
-
-    assert.doesNotMatch(hook, /invalidateMessageAttentionQueries|upsertMessageAttention/);
-    assert.match(provider, /readShellPart\("messageUnreadCount"\)/);
-    assert.match(provider, /subscribeMessagingNotifications/);
-});
-
 test('message notification previews are redacted from existing rows', () => {
     const migration = readProjectFile('drizzle/0132_message_notification_preview_redaction.sql');
 
@@ -139,7 +89,6 @@ test('every user-visible project notification preference has a concrete source t
         'src/app/actions/files/mutations.ts',
         'src/app/actions/files/versions.ts',
         'src/app/actions/applications/internal.ts',
-        'src/app/actions/messaging/collaboration.ts',
         'src/lib/notifications/task-file.ts',
         'src/lib/notifications/task-comment-mention.ts',
     ].map(readProjectFile).join('\n');

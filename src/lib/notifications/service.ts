@@ -401,84 +401,6 @@ export async function upsertAggregatedNotification(
     return { notification: row ?? null, skipped: false as const };
 }
 
-export async function markMessageBurstSourceDeleted(
-    conversationId: string,
-    sourceMessageId: string,
-    executor?: NotificationWriteExecutor,
-) {
-    const tx = getExecutor(executor);
-    const now = new Date();
-    return tx
-        .update(userNotifications)
-        .set({
-            title: 'This message was deleted',
-            body: null,
-            entityRefs: sql`jsonb_set(
-                COALESCE(${userNotifications.entityRefs}, '{}'::jsonb),
-                '{messageDeletedAt}',
-                to_jsonb(${now.toISOString()}::text),
-                true
-            )`,
-            preview: sql`jsonb_set(
-                COALESCE(${userNotifications.preview}, '{}'::jsonb),
-                '{secondaryText}',
-                '"This message was deleted"'::jsonb,
-                true
-            )`,
-            updatedAt: now,
-        })
-        .where(and(
-            eq(userNotifications.kind, 'message_burst'),
-            eq(userNotifications.dedupeKey, `message-burst:${conversationId}`),
-            sql`${userNotifications.userId} IN (
-                SELECT participant.user_id
-                FROM conversation_participants participant
-                WHERE participant.conversation_id = ${conversationId}::uuid
-            )`,
-            sql`${userNotifications.entityRefs} ->> 'sourceMessageId' = ${sourceMessageId}`,
-            isNull(userNotifications.dismissedAt),
-        ));
-}
-
-/** Keep reaction notifications from retaining a preview of an unsent message. */
-export async function markMessageReactionSourceDeleted(
-    conversationId: string,
-    sourceMessageId: string,
-    executor?: NotificationWriteExecutor,
-) {
-    const tx = getExecutor(executor);
-    const now = new Date();
-    return tx
-        .update(userNotifications)
-        .set({
-            title: 'This message was deleted',
-            body: null,
-            entityRefs: sql`jsonb_set(
-                COALESCE(${userNotifications.entityRefs}, '{}'::jsonb),
-                '{messageDeletedAt}',
-                to_jsonb(${now.toISOString()}::text),
-                true
-            )`,
-            preview: sql`jsonb_set(
-                COALESCE(${userNotifications.preview}, '{}'::jsonb),
-                '{secondaryText}',
-                '"This message was deleted"'::jsonb,
-                true
-            )`,
-            updatedAt: now,
-        })
-        .where(and(
-            eq(userNotifications.kind, 'message_reaction'),
-            sql`${userNotifications.userId} IN (
-                SELECT participant.user_id
-                FROM conversation_participants participant
-                WHERE participant.conversation_id = ${conversationId}::uuid
-            )`,
-            sql`${userNotifications.dedupeKey} LIKE ${`message-reaction:${sourceMessageId}:%`}`,
-            isNull(userNotifications.dismissedAt),
-        ));
-}
-
 export async function markNotificationRead(
     userId: string,
     notificationId: string,
@@ -537,38 +459,6 @@ export async function markNotificationUnread(
         .where(and(eq(userNotifications.userId, userId), eq(userNotifications.id, notificationId), isNull(userNotifications.dismissedAt)))
         .returning();
     return row ?? null;
-}
-
-export async function markConversationNotificationsRead(
-    userId: string,
-    conversationId: string,
-    executor?: NotificationWriteExecutor,
-) {
-    const tx = getExecutor(executor);
-    const readAt = new Date();
-    const readAtIso = readAt.toISOString();
-    await tx
-        .update(userNotifications)
-        .set({
-            readAt,
-            seenAt: sql`COALESCE(${userNotifications.seenAt}, ${readAtIso}::timestamptz)`,
-            updatedAt: readAt,
-        })
-        .where(
-            and(
-                eq(userNotifications.userId, userId),
-                or(
-                    eq(userNotifications.dedupeKey, `message-burst:${conversationId}`),
-                    and(
-                        eq(userNotifications.kind, 'message_reaction'),
-                        sql`${userNotifications.entityRefs} ->> 'conversationId' = ${conversationId}`,
-                    ),
-                ),
-                isNull(userNotifications.readAt),
-                isNull(userNotifications.dismissedAt),
-            ),
-        );
-    return readAt;
 }
 
 export async function countUnreadNotifications(

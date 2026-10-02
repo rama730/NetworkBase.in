@@ -9,10 +9,7 @@ import type {
 } from "@/lib/notifications/types";
 
 const KIND_REASON: Record<NotificationKind, NotificationReason> = {
-    message_burst: "message",
-    message_reaction: "message",
-    workflow_assigned: "workflow",
-    workflow_resolved: "workflow",
+    chat_invite: "workflow",
     application_received: "application",
     application_decision: "application",
     connection_request_received: "connection",
@@ -68,10 +65,7 @@ export function getNotificationReasonLabel(reason: NotificationReason) {
 }
 
 const AGGREGATE_NOUNS: Record<NotificationKind, { singular: string; plural: string }> = {
-    message_burst: { singular: "message", plural: "messages" },
-    message_reaction: { singular: "reaction", plural: "reactions" },
-    workflow_assigned: { singular: "workflow", plural: "workflows" },
-    workflow_resolved: { singular: "resolution", plural: "resolutions" },
+    chat_invite: { singular: "invitation", plural: "invitations" },
     application_received: { singular: "application", plural: "applications" },
     application_decision: { singular: "decision", plural: "decisions" },
     connection_request_received: { singular: "request", plural: "requests" },
@@ -130,7 +124,7 @@ function bundleKeyFor(item: NotificationItem): string {
     const refs = item.entityRefs ?? {};
     const entity =
         (typeof refs.taskId === "string" && refs.taskId)
-        || (typeof refs.conversationId === "string" && refs.conversationId)
+        || (typeof refs.channelId === "string" && refs.channelId)
         || (typeof refs.projectId === "string" && refs.projectId)
         || item.actorUserId
         || "none";
@@ -260,14 +254,13 @@ export function buildNotificationMuteScopes(item: NotificationItem): Notificatio
     const refs = item.entityRefs ?? {};
     if (refs.projectId) scopes.push({ kind: "project", value: refs.projectId, label: item.preview?.contextLabel ?? "This project", mutedAt: null });
     if (refs.taskId) scopes.push({ kind: "task", value: refs.taskId, label: item.body ?? item.title, mutedAt: null });
-    if (refs.conversationId) scopes.push({ kind: "conversation", value: refs.conversationId, label: item.preview?.contextLabel ?? "This conversation", mutedAt: null });
     if (item.actorUserId) scopes.push({ kind: "person", value: item.actorUserId, label: item.preview?.actorName ?? "This person", mutedAt: null });
     return scopes;
 }
 
 export function getNarrowestNotificationMuteScope(item: NotificationItem): NotificationMuteScope {
     const scopes = buildNotificationMuteScopes(item);
-    const specificityOrder: NotificationMuteScope["kind"][] = ["task", "conversation", "project", "person", "notification_type"];
+    const specificityOrder: NotificationMuteScope["kind"][] = ["task", "project", "person", "notification_type"];
     for (const kind of specificityOrder) {
         const scope = scopes.find((candidate) => candidate.kind === kind);
         if (scope) return scope;
@@ -276,34 +269,10 @@ export function getNarrowestNotificationMuteScope(item: NotificationItem): Notif
 }
 
 export function buildNotificationHref(item: NotificationItem): string | null {
-    const conversationId = item.entityRefs?.conversationId;
-    const sourceMessageId = item.entityRefs?.sourceMessageId;
-    const isApplicationNotification = typeof item.entityRefs?.applicationId === "string"
-        && Boolean(item.entityRefs.applicationId.trim());
-    if (
-        !isApplicationNotification
-        &&
-        typeof conversationId === "string"
-        && conversationId.trim()
-        && typeof sourceMessageId === "string"
-        && sourceMessageId.trim()
-    ) {
-        return `/messages?conversationId=${encodeURIComponent(conversationId)}&messageId=${encodeURIComponent(sourceMessageId)}`;
-    }
-
     const href = item.href?.trim();
     if (!href) return null;
     if (!href.startsWith("/")) return null;
     if (href.startsWith("//")) return null;
-    // Application events previously stored message-specific links. Ignore that
-    // target for existing notifications so they return to the normal chat route.
-    if (isApplicationNotification && href.startsWith("/messages?")) {
-        const [pathname, query = ""] = href.split("?", 2);
-        const params = new URLSearchParams(query);
-        params.delete("messageId");
-        const remaining = params.toString();
-        return `${pathname}${remaining ? `?${remaining}` : ""}`;
-    }
     return href;
 }
 
@@ -319,7 +288,6 @@ export function notificationMatchesMuteScope(
     if (scope.kind === "notification_type") return params.kind === scope.value;
     if (scope.kind === "project") return refs.projectId === scope.value || refs.projectSlug === scope.value;
     if (scope.kind === "task") return refs.taskId === scope.value;
-    if (scope.kind === "conversation") return refs.conversationId === scope.value;
     if (scope.kind === "person") return params.actorUserId === scope.value;
     return false;
 }
@@ -329,7 +297,6 @@ export function shouldSuppressNotificationToast(params: {
     pathname: string | null;
     search: string;
     trayOpen: boolean;
-    activeConversationId?: string | null;
     documentVisible?: boolean;
 }) {
     const {
@@ -337,11 +304,10 @@ export function shouldSuppressNotificationToast(params: {
         pathname,
         search,
         trayOpen,
-        activeConversationId = null,
         documentVisible = true,
     } = params;
     if (trayOpen || documentVisible === false) return true;
-    if (item.kind !== "message_burst" && item.kind !== "message_reaction" && item.importance !== "important") return true;
+    if (item.importance !== "important") return true;
     if (item.seenAt) return true;
 
     const normalizedSearch = search ? (search.startsWith("?") ? search : `?${search}`) : "";
@@ -349,14 +315,6 @@ export function shouldSuppressNotificationToast(params: {
     if (item.href && activePath && item.href === activePath) return true;
 
     const searchParams = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
-    if ((item.kind === "message_burst" || item.kind === "message_reaction") && pathname?.startsWith("/messages")) {
-        const conversationId = item.entityRefs?.conversationId;
-        if (conversationId && searchParams.get("conversationId") === conversationId) return true;
-    }
-    if (item.kind === "message_burst" || item.kind === "message_reaction") {
-        const conversationId = item.entityRefs?.conversationId;
-        if (conversationId && activeConversationId === conversationId) return true;
-    }
     if (
         (item.kind === "task_comment_mention" || item.kind === "task_comment_reply")
         && pathname?.startsWith("/projects/")

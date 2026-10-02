@@ -31,14 +31,13 @@ test("application wrappers do not compete with native Realtime reconnect", () =>
 test("Realtime health distinguishes authentication startup from terminal channel failure", () => {
   const provider = source("src/components/providers/RealtimeProvider.tsx");
   const notifications = source("src/hooks/useNotifications.ts");
-  const messages = source("src/hooks/useMessagesV2Realtime.ts");
   const typing = source("src/hooks/usePresenceTyping.ts");
   const online = source("src/hooks/useOnlineUsers.ts");
   const publisher = source("src/hooks/usePublishOnlinePresence.ts");
 
   assert.match(provider, /'idle' \| 'connecting' \| 'connected' \| 'disconnected'/);
   assert.match(notifications, /notificationStatus !== 'disconnected'/);
-  assert.match(messages, /messagingStatus === 'disconnected'/);
+  assert.match(provider, /notificationStatus === 'disconnected' \? 'unavailable' : 'reconnecting'/);
   for (const hook of [typing, online, publisher]) {
     assert.match(hook, /session\?\.access_token/);
     assert.match(hook, /realtimeReady/);
@@ -73,14 +72,13 @@ test("logout deletes the authenticated push record before local and Auth teardow
 
 test("presence is app-wide and debounce markers follow persistence", () => {
   const runtime = source("src/components/providers/MainRuntimeProviders.tsx");
-  const chat = source("src/components/chat/ChatProvider.tsx");
+  const chat = source("src/components/providers/PresenceProvider.tsx");
   const heartbeat = source("src/app/api/v1/presence/heartbeat/route.ts");
 
-  assert.match(runtime, /<LazyChatProvider presenceEnabled=\{true\} \/>/);
-  assert.match(chat, /useMessagesV2OutboxSync\(active\)/);
+  assert.match(runtime, /<LazyPresenceProvider presenceEnabled=\{true\} \/>/);
   assert.match(chat, /const presenceActive = active && presenceEnabled/);
   assert.match(chat, /document\.hidden \? pause\(\) : resume\(\)/);
-  assert.match(chat, /CHAT_IDLE_MS/);
+  assert.match(chat, /IDLE_MS/);
   assert.match(chat, /presenceActive && engaged \? <OnlinePresencePublisher/);
   assert.match(heartbeat, /withDbRetry\("presence\.heartbeat\.last_active"/);
   assert.match(heartbeat, /lt\(profiles\.lastActiveAt/);

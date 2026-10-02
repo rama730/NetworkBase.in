@@ -43,7 +43,7 @@ export default function GlobalSearch({ onOpenCommandPalette, condensed = false }
                 case "network":
                     return placeholder.replace(/\.\.\.$/, "");
                 case "messages":
-                    return "Open the dedicated Messages search";
+                    return "Find a conversation";
                 case "project":
                     return "Search this project";
                 case "settings":

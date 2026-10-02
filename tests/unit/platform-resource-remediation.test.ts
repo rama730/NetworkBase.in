@@ -13,9 +13,11 @@ test("Storage and private Realtime share the application key/topic contracts", (
   assert.match(migration, /CREATE POLICY application_topic_read ON realtime\.messages/);
   assert.match(migration, /CREATE POLICY application_topic_send ON realtime\.messages/);
   assert.match(migration, /app_private\.nb_can_observe_user_presence/);
-  assert.match(migration, /target\.conversation_id = viewer\.conversation_id/);
-  assert.match(migration, /app_private\.nb_is_conversation_participant/);
   assert.match(migration, /app_private\.nb_project_can_read/);
+  // Since the chat cutover, presence follows shared DMs and group chats.
+  const cutover = read("drizzle/0181_chat_rebuild_cutover.sql");
+  assert.match(cutover, /nb_can_observe_user_presence[\s\S]*chat_channel_members viewer/);
+  assert.doesNotMatch(cutover, /presence:conversation/);
 });
 
 test("private Realtime is fail-closed until database authorization is promoted", () => {
@@ -94,14 +96,11 @@ test("project-file reconciliation quarantines path-correlated objects pending pr
 
 test("compatibility and typing behavior have one exact owner", () => {
   const projects = read("src/app/actions/project/index.ts");
-  const typing = read("src/lib/chat/typing-state.ts");
   const avatars = read("src/lib/services/avatar-service.ts");
 
   const catchStart = projects.indexOf('} catch (error) {', projects.indexOf("toggleProjectFollowAction"));
   const fallbackStart = projects.indexOf("if (shouldFollow)", catchStart);
   assert.ok(projects.indexOf('return { success: false, error: "Failed to update follow status" };', catchStart) < fallbackStart);
-  assert.match(typing, /toPresenceTypingUser/);
-  assert.doesNotMatch(typing, /function toTypingUser/);
   assert.doesNotMatch(avatars, /uploadAvatarWithPreview|fileToDataUrl|export async function uploadAvatar\(/);
 });
 

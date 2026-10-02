@@ -24,8 +24,6 @@ import {
     resolveProjectInvitationInternal,
     type ProjectInvitationKind,
 } from "@/lib/projects/project-invitations";
-import { sendStructuredMessageActionV2 } from "@/app/actions/messaging/collaboration";
-import { isChatV3Enabled } from "@/lib/messaging/flag";
 import { postInviteCard } from "@/lib/messaging/integrations";
 
 type CreateInvitationActionInput = {
@@ -66,44 +64,23 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
         const invitation = created.invitation;
         const roleTitle = projectInvitationDisplayRole(invitation);
 
-        let messageResult: Awaited<ReturnType<typeof sendStructuredMessageActionV2>> | null = null;
-        let chatChannelId: string | null = null;
-        if (created.created && isChatV3Enabled()) {
-            // New chat: the invite card goes into the inviter↔candidate DM.
-            // A blocked pair has no DM; the invitation stays in the inbox.
-            chatChannelId = await postInviteCard({
+        // The invite card goes into the inviter↔candidate DM. A blocked pair
+        // has no DM; the invitation stays in the inbox either way.
+        const chatChannelId = created.created
+            ? await postInviteCard({
                 invitationId: invitation.id,
                 inviterId: user.id,
                 candidateId: input.candidateId,
                 note: invitation.note,
-            }).catch(() => null);
-        } else if (created.created) {
-            messageResult = await sendStructuredMessageActionV2({
-                targetUserId: input.candidateId,
-                kind: "project_invite",
-                projectId: input.projectId,
-                roleId: invitation.roleId,
-                roleTitle,
-                summary: `Invitation to join ${invitation.projectTitle} as ${roleTitle}`,
-                note: invitation.note,
-                projectInvitationId: invitation.id,
-                projectInvitationKind: invitation.kind,
-                guidanceReviewAt: invitation.reviewAt?.toISOString() ?? null,
-            });
-
-            if (messageResult.success && messageResult.workflowItemId) {
-                await db.update(projectInvitations)
-                    .set({ messageWorkflowItemId: messageResult.workflowItemId, updatedAt: new Date() })
-                    .where(eq(projectInvitations.id, invitation.id));
-            }
-        }
+            }).catch(() => null)
+            : null;
 
         if (created.created) {
             // The invitation inbox item is durable whether a direct message is allowed or not.
             await createNotification({
                 recipientUserId: input.candidateId,
                 actorUserId: user.id,
-                kind: "workflow_assigned",
+                kind: "chat_invite",
                 category: "workflows",
                 importance: "important",
                 title: `${user.user_metadata?.full_name || user.user_metadata?.username || "A project Lead"} invited you to ${invitation.projectTitle}`,
@@ -112,7 +89,7 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
                 entityRefs: {
                     projectId: invitation.projectId,
                     projectSlug: created.projectSlug,
-                    workflowItemId: messageResult?.workflowItemId ?? null,
+                    invitationId: invitation.id,
                     targetUserId: input.candidateId,
                 },
                 preview: {
@@ -127,7 +104,7 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
         return {
             success: true as const,
             invitationId: invitation.id,
-            messageDelivered: Boolean(messageResult?.success || chatChannelId),
+            messageDelivered: Boolean(chatChannelId),
             capacityWarning: Boolean(created.capacityWarning),
         };
     } catch (error) {
@@ -228,8 +205,6 @@ export async function getMyPendingProjectInvitationsAction() {
             eq(projectInvitations.candidateId, user.id),
             eq(projectInvitations.status, "pending"),
             sql`${projectInvitations.expiresAt} > now()`,
-            // The message application card is the primary surface. This list is the existing inbox fallback when DM delivery is unavailable.
-            sql`${projectInvitations.messageWorkflowItemId} IS NULL`,
         ))
         .orderBy(asc(projectInvitations.expiresAt));
     return { success: true as const, invitations };

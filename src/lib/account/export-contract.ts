@@ -1,22 +1,25 @@
 export type AccountExportMessageRow = {
-  id: string;
-  conversationId: string;
-  content: string | null;
-  type: string | null;
+  channelId: string;
+  channelName: string | null;
+  channelKind: string;
+  seq: number;
+  body: string;
   createdAt: Date;
-  senderId: string | null;
+  editedAt: Date | null;
+  deletedAt: Date | null;
 };
 
-export function sanitizeAccountExportMessage(row: AccountExportMessageRow, userId: string) {
-  const direction = row.senderId === userId ? "sent" : row.senderId === null ? "system" : "received";
+/** One of the account holder's own messages. Other people's messages are never read. */
+export function toAccountExportMessage(row: AccountExportMessageRow) {
+  const channel = row.channelKind === "dm"
+    ? "Direct message"
+    : row.channelName ? `#${row.channelName}` : "Group chat";
   return {
-    id: row.id,
-    conversationId: row.conversationId,
-    content: direction === "sent" || direction === "system" ? row.content : null,
-    type: row.type,
-    createdAt: row.createdAt,
-    direction,
-    sender: direction === "sent" ? "self" : direction === "system" ? "system" : "other-redacted",
-    redacted: direction === "received",
+    channel,
+    channelId: row.channelId,
+    seq: row.seq,
+    body: row.deletedAt ? null : row.body,
+    createdAt: row.createdAt.toISOString(),
+    editedAt: row.editedAt ? row.editedAt.toISOString() : null,
   };
 }

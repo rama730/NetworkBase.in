@@ -5,13 +5,11 @@ import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
-  attachmentUploads,
   chatAttachments,
   extensionRecoveryDrafts,
   fileVersions,
   githubSyncSnapshotAssets,
   importJobs,
-  messageAttachments,
   profiles,
   projectNodes,
   projectUpdateDraftMediaAssets,
@@ -50,10 +48,6 @@ function hasNoLiveReference() {
     sql`NOT EXISTS (
       SELECT 1 FROM ${fileVersions}
       WHERE ${fileVersions.assetId} = ${storageAssets.id}
-    )`,
-    sql`NOT EXISTS (
-      SELECT 1 FROM ${messageAttachments}
-      WHERE ${messageAttachments.assetId} = ${storageAssets.id}
     )`,
     sql`NOT EXISTS (
       SELECT 1 FROM ${chatAttachments}
@@ -98,12 +92,6 @@ function hasNoLiveReference() {
         WHERE derivative.source_asset_id = ${storageAssets.id}
           AND derivative.state NOT IN ('deleted', 'missing')
       )
-    )`,
-    sql`NOT EXISTS (
-      SELECT 1 FROM ${attachmentUploads}
-      WHERE ${attachmentUploads.assetId} = ${storageAssets.id}
-        AND ${attachmentUploads.status} IN ('queued', 'uploading', 'uploaded')
-        AND ${attachmentUploads.expiresAt} > now()
     )`,
   );
 }

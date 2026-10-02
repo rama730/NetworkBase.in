@@ -7,6 +7,8 @@ import { publishChannel, publishUser } from "@/lib/messaging/publish";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, requireChatUser, unauthorized } from "@/lib/messaging/server";
 import type { ChatChannelSummary, ChatPerson } from "@/lib/messaging/types";
 
+// ponytail: channels always belong to a project; no global public channels (L-5).
+// upgrade: community channels once there is a moderation owner.
 export async function createChannel(input: { projectId: string; name: string; description?: string | null; isPrivate?: boolean }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;

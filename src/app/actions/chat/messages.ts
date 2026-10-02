@@ -210,6 +210,7 @@ export async function refreshCard(input: { kind: ChatCardRef["kind"]; refId: str
   return { success: true as const, card: cards[`${input.kind}:${input.refId}`] };
 }
 
+// ponytail: reactions notify nobody (L-10). upgrade: an Activity row, not a tray row.
 export async function react(input: { channelId: string; seq: number; emoji: string; on: boolean }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
@@ -265,5 +266,25 @@ export async function reportMessage(input: { channelId: string; seq: number; rea
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "report");
+  }
+}
+
+/** "Created from message" on a task: the chat messages whose task card points at it (viewer must be a member). */
+export async function listTaskSourceMessages(input: { taskId: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.taskId)) return invalidInput;
+  try {
+    const links = await chatRows<{ channel_id: string; seq: number; channel_name: string | null; preview: string | null }>(sql`
+      SELECT c.channel_id, c.message_seq::int AS seq, ch.name AS channel_name, ch.last_preview AS preview
+      FROM chat_message_cards c
+      JOIN chat_channels ch ON ch.id = c.channel_id
+      WHERE c.kind = 'task' AND c.ref_id = ${input.taskId}::uuid
+        AND app_private.chat_is_member(c.channel_id, ${user.id}::uuid)
+      LIMIT 5
+    `);
+    return { success: true as const, links };
+  } catch (error) {
+    return chatFailure(error, "task_source");
   }
 }

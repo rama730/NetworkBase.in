@@ -33,12 +33,12 @@ async function cleanup() {
     const runPattern = `%${RUN_ID}%`;
 
     await tx`
-      delete from messages
-      where content ilike ${runPattern}
-        and conversation_id in (
-          select cp.conversation_id
-          from conversation_participants cp
-          join profiles p on p.id = cp.user_id
+      delete from chat_messages
+      where body ilike ${runPattern}
+        and channel_id in (
+          select m.channel_id
+          from chat_channel_members m
+          join profiles p on p.id = m.user_id
           where p.email = ${TARGET_EMAIL}
         )
     `;

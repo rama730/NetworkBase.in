@@ -1,3 +1,5 @@
+> **Superseded (2026-10).** The conversation/message system described here was replaced by the Slack-style chat rebuild (migrations 0180/0181). See `docs/architecture/messaging.md` and `docs/plans/messaging-slack-rebuild-report.md`.
+
 # Ponytail Supabase and Rendering Audit
 
 > Historical snapshot from 2026-07-11. Its green checks do not represent current migration lineage, catalog, quota, or runtime state; use the 2026-08-13 complete SQL/Supabase audit and a fresh verification run.

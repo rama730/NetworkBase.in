@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isMainNavRouteActive } from "./header/nav-items";
 import { ROUTES } from "@/constants/routes";
 import { useAuth } from "@/hooks/use-auth";
-import { useMessageAttention } from "@/components/providers/MessageAttentionProvider";
+import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import WorkspaceIndicator from "./header/WorkspaceIndicator";
@@ -66,7 +66,7 @@ async function fetchSidebarProjects(profileId: string): Promise<SidebarProject[]
 export function SidebarNav() {
     const pathname = usePathname();
     const { profile, isAuthenticated } = useAuth();
-    const messageAttention = useMessageAttention();
+    const { badge: chatBadge } = useChatShell();
     const { connectionHealth } = useRealtime();
     const people = useNetworkNotifications();
     const profileId = profile?.id ?? null;
@@ -84,10 +84,9 @@ export function SidebarNav() {
             <nav id="application-sidebar-navigation" aria-label="Main navigation" className="space-y-1">
                 {MAIN_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
                     const active = isMainNavRouteActive(pathname, href);
-                    const count = href === ROUTES.MESSAGES ? messageAttention.unreadCount : href === ROUTES.NETWORK ? people.totalPending : 0;
+                    const count = href === ROUTES.MESSAGES ? chatBadge : href === ROUTES.NETWORK ? people.totalPending : 0;
                     return <Link key={href} href={href} className="nb-nav-link" aria-label={label} title={label} aria-current={active ? "page" : undefined}>
                         <Icon size={16} aria-hidden="true" /><span className="nb-sidebar-label">{label}</span>
-                        {href === ROUTES.MESSAGES && messageAttention.hasUnreadMessages && count === 0 && <span className="size-1.5 rounded-full bg-primary" aria-label="Unread messages" />}
                         {href === ROUTES.NETWORK && connectionHealth !== "healthy" && <span className="sr-only">Connection {connectionHealth}</span>}
                         {count > 0 && <span className="nb-nav-count" aria-label={`${count} unread items`}>{count > 99 ? "99+" : count}</span>}
                     </Link>;

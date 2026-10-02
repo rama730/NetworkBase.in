@@ -3,8 +3,8 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
     applicationEvents,
-    conversationParticipants,
-    conversations,
+    chatChannelMembers,
+    chatChannels,
     profiles,
     projectMembers,
     projectNodeEvents,
@@ -14,10 +14,8 @@ import {
     taskNodeLinks,
     tasks,
     projectNodes,
-    messageWorkflowItems,
     projectInvitations,
 } from "@/lib/db/schema";
-import { isChatV3Enabled } from "@/lib/messaging/flag";
 import { syncProjectChat } from "@/lib/messaging/integrations";
 import {
     isEligibleProjectMember,
@@ -51,7 +49,6 @@ export type ProjectCollaboratorLifecycleResult = {
         ownerId: string;
         title: string | null;
         slug: string | null;
-        conversationId: string | null;
     };
     target: ProjectCollaboratorSnapshot | null;
     previousRole: ProjectMemberRole | null;
@@ -83,10 +80,9 @@ async function readProjectForUpdate(executor: ProjectCollaboratorExecutor, proje
         owner_id: string;
         title: string | null;
         slug: string | null;
-        conversation_id: string | null;
         member_file_upload_default: boolean | null;
     }>(sql`
-        SELECT id, owner_id, title, slug, conversation_id, member_file_upload_default
+        SELECT id, owner_id, title, slug, member_file_upload_default
         FROM ${projects}
         WHERE id = ${projectId} AND deleted_at IS NULL
         FOR UPDATE
@@ -98,7 +94,6 @@ async function readProjectForUpdate(executor: ProjectCollaboratorExecutor, proje
         ownerId: row.owner_id,
         title: row.title,
         slug: row.slug,
-        conversationId: row.conversation_id,
         memberFileUploadDefault: row.member_file_upload_default !== false,
     };
 }
@@ -181,72 +176,6 @@ export async function requireProjectCapability(
     return { project, role };
 }
 
-async function ensureProjectGroupConversationIdInternal(
-    executor: ProjectCollaboratorExecutor,
-    projectId: string,
-    ownerId: string,
-) {
-    const project = await readProjectForUpdate(executor, projectId);
-    if (!project) throw new Error("Project not found");
-    if (project.conversationId) return project.conversationId;
-
-    const [conversation] = await executor
-        .insert(conversations)
-        .values({ type: "project_group" })
-        .returning({ id: conversations.id });
-    if (!conversation) throw new Error("Failed to create project conversation");
-
-    await executor
-        .update(projects)
-        .set({ conversationId: conversation.id, updatedAt: new Date() })
-        .where(eq(projects.id, projectId));
-
-    const memberRows = await executor
-        .select({ userId: projectMembers.userId })
-        .from(projectMembers)
-        .where(eq(projectMembers.projectId, projectId));
-    const participantIds = Array.from(new Set([ownerId, ...memberRows.map((member) => member.userId)]));
-    if (participantIds.length > 0) {
-        await executor
-            .insert(conversationParticipants)
-            .values(participantIds.map((userId) => ({ conversationId: conversation.id, userId })))
-            .onConflictDoNothing({
-                target: [conversationParticipants.conversationId, conversationParticipants.userId],
-            });
-    }
-    return conversation.id;
-}
-
-export async function syncProjectGroupParticipantInternal(
-    executor: ProjectCollaboratorExecutor,
-    params: { projectId: string; userId: string; ownerId: string; mode: "add" | "remove" },
-) {
-    if (params.mode === "add") {
-        const conversationId = await ensureProjectGroupConversationIdInternal(executor, params.projectId, params.ownerId);
-        await executor
-            .insert(conversationParticipants)
-            .values({ conversationId, userId: params.userId })
-            .onConflictDoNothing({
-                target: [conversationParticipants.conversationId, conversationParticipants.userId],
-            });
-        return conversationId;
-    }
-
-    const [project] = await executor
-        .select({ conversationId: projects.conversationId })
-        .from(projects)
-        .where(eq(projects.id, params.projectId))
-        .limit(1);
-    if (!project?.conversationId) return null;
-    await executor
-        .delete(conversationParticipants)
-        .where(and(
-            eq(conversationParticipants.conversationId, project.conversationId),
-            eq(conversationParticipants.userId, params.userId),
-        ));
-    return project.conversationId;
-}
-
 export async function addProjectMemberInternal(
     executor: ProjectCollaboratorExecutor,
     params: {
@@ -258,9 +187,8 @@ export async function addProjectMemberInternal(
         applicationId?: string | null;
         roleId?: string | null;
         incrementRoleCapacity?: boolean;
-        syncGroupConversation?: boolean;
     },
-): Promise<ProjectCollaboratorLifecycleResult & { conversationId: string | null }> {
+): Promise<ProjectCollaboratorLifecycleResult> {
     const project = await readProjectForUpdate(executor, params.projectId);
     if (!project) throw new Error("Project not found");
     const target = await readProfileSnapshot(executor, params.userId);
@@ -315,13 +243,12 @@ export async function addProjectMemberInternal(
                         eq(roleApplications.status, 'pending')
                     )),
                 executor
-                    .select({ assigneeUserId: messageWorkflowItems.assigneeUserId })
-                    .from(messageWorkflowItems)
+                    .select({ assigneeUserId: projectInvitations.candidateId })
+                    .from(projectInvitations)
                     .where(and(
-                        eq(messageWorkflowItems.projectId, params.projectId),
-                        eq(messageWorkflowItems.kind, 'project_invite'),
-                        eq(messageWorkflowItems.status, 'pending'),
-                        sql`${messageWorkflowItems.payload}->>'roleId' = ${params.roleId}`
+                        eq(projectInvitations.projectId, params.projectId),
+                        eq(projectInvitations.roleId, params.roleId),
+                        eq(projectInvitations.status, 'pending'),
                     ))
             ]);
 
@@ -367,7 +294,7 @@ export async function addProjectMemberInternal(
                 );
             }
 
-            // The canonical invitation record expires too (the message card is only a mirror).
+            // Pending invitations for the filled role expire; their chat cards follow live.
             const expiredInvitations = await executor
                 .update(projectInvitations)
                 .set({ status: "expired", resolvedAt: new Date(), resolvedBy: params.actorId, updatedAt: new Date() })
@@ -379,16 +306,6 @@ export async function addProjectMemberInternal(
                 .returning({ candidateId: projectInvitations.candidateId });
             expiredInvitations.forEach((invitation) => userIdsToInvalidate.add(invitation.candidateId));
 
-            await executor
-                .update(messageWorkflowItems)
-                .set({ status: 'expired', resolvedAt: new Date(), updatedAt: new Date() })
-                .where(and(
-                    eq(messageWorkflowItems.projectId, params.projectId),
-                    eq(messageWorkflowItems.kind, 'project_invite'),
-                    eq(messageWorkflowItems.status, 'pending'),
-                    sql`${messageWorkflowItems.payload}->>'roleId' = ${params.roleId}`
-                ));
-
             if (userIdsToInvalidate.size > 0) {
                 // Invalidate caches (non-blocking)
                 const { invalidateDiscoverCacheForUsers } = await import('@/lib/connections/internal-helpers');
@@ -397,17 +314,8 @@ export async function addProjectMemberInternal(
         }
     }
 
-    if (isChatV3Enabled() && params.syncGroupConversation !== false) {
-        await syncProjectChat(executor, params.projectId, params.userId, "add");
-    }
-    const conversationId = params.syncGroupConversation !== false && !isChatV3Enabled()
-        ? await syncProjectGroupParticipantInternal(executor, {
-            projectId: params.projectId,
-            userId: params.userId,
-            ownerId: project.ownerId,
-            mode: "add",
-        })
-        : project.conversationId;
+    // Project members join the project's #general (report 7.1).
+    await syncProjectChat(executor, params.projectId, params.userId, "add");
 
     const [event] = await executor.insert(projectNodeEvents).values({
         projectId: params.projectId,
@@ -446,7 +354,7 @@ export async function addProjectMemberInternal(
         await markProfileCollaborationSummaryStale(project.ownerId, executor);
     }
 
-    return { eventId: event?.id ?? null, changed, project: { ...project, conversationId }, target, previousRole, nextRole, conversationId };
+    return { eventId: event?.id ?? null, changed, project, target, previousRole, nextRole };
 }
 
 export async function changeProjectMemberRoleInternal(
@@ -474,9 +382,7 @@ export async function changeProjectMemberRoleInternal(
         .update(projectMembers)
         .set({ role: params.nextRole })
         .where(and(eq(projectMembers.projectId, params.projectId), eq(projectMembers.userId, params.targetUserId)));
-    if (isChatV3Enabled()) {
-        await syncProjectChat(executor, params.projectId, params.targetUserId, "role");
-    }
+    await syncProjectChat(executor, params.projectId, params.targetUserId, "role");
     const [event] = await executor.insert(projectNodeEvents).values({
         projectId: params.projectId,
         actorId: params.actorId,
@@ -510,7 +416,7 @@ export async function readProjectMemberRemovalImpact(
     projectId: string,
     memberUserId: string,
 ) {
-    const [assignedTasks, createdTasks, fileReviews, acceptedApplications, candidates, projectRow] = await Promise.all([
+    const [assignedTasks, createdTasks, fileReviews, acceptedApplications, candidates, participantRows] = await Promise.all([
         executor
             .select({ id: tasks.id, title: tasks.title, taskNumber: tasks.taskNumber, status: tasks.status })
             .from(tasks)
@@ -570,23 +476,18 @@ export async function readProjectMemberRemovalImpact(
             ))
             .orderBy(sql`CASE WHEN ${projectMembers.role} = 'owner' THEN 0 WHEN ${projectMembers.role} = 'admin' THEN 1 ELSE 2 END`, sql`${profiles.fullName} ASC NULLS LAST`)
             .limit(20),
+        // In the project's #general (report 7.1): removal also removes them from its channels.
         executor
-            .select({ conversationId: projects.conversationId })
-            .from(projects)
-            .where(eq(projects.id, projectId))
+            .select({ userId: chatChannelMembers.userId })
+            .from(chatChannelMembers)
+            .innerJoin(chatChannels, eq(chatChannels.id, chatChannelMembers.channelId))
+            .where(and(
+                eq(chatChannels.projectId, projectId),
+                eq(chatChannels.isDefault, true),
+                eq(chatChannelMembers.userId, memberUserId),
+            ))
             .limit(1),
     ]);
-
-    const participantRows = projectRow[0]?.conversationId
-        ? await executor
-            .select({ userId: conversationParticipants.userId })
-            .from(conversationParticipants)
-            .where(and(
-                eq(conversationParticipants.conversationId, projectRow[0].conversationId),
-                eq(conversationParticipants.userId, memberUserId),
-            ))
-            .limit(1)
-        : [];
 
     return {
         assignedTasks,
@@ -603,7 +504,7 @@ async function readProjectMemberRemovalImpactCounts(
     projectId: string,
     memberUserId: string,
 ) {
-    const [assignedTasks, createdTasks, fileReviews, acceptedApplications, projectRow] = await Promise.all([
+    const [assignedTasks, createdTasks, fileReviews, acceptedApplications, participantRows] = await Promise.all([
         executor
             .select({ count: sql<number>`count(*)::int` })
             .from(tasks)
@@ -632,23 +533,18 @@ async function readProjectMemberRemovalImpactCounts(
             .from(roleApplications)
             .where(and(eq(roleApplications.projectId, projectId), eq(roleApplications.applicantId, memberUserId), eq(roleApplications.status, "accepted")))
             .limit(1),
+        // In the project's #general (report 7.1): removal also removes them from its channels.
         executor
-            .select({ conversationId: projects.conversationId })
-            .from(projects)
-            .where(eq(projects.id, projectId))
+            .select({ userId: chatChannelMembers.userId })
+            .from(chatChannelMembers)
+            .innerJoin(chatChannels, eq(chatChannels.id, chatChannelMembers.channelId))
+            .where(and(
+                eq(chatChannels.projectId, projectId),
+                eq(chatChannels.isDefault, true),
+                eq(chatChannelMembers.userId, memberUserId),
+            ))
             .limit(1),
     ]);
-
-    const participantRows = projectRow[0]?.conversationId
-        ? await executor
-            .select({ userId: conversationParticipants.userId })
-            .from(conversationParticipants)
-            .where(and(
-                eq(conversationParticipants.conversationId, projectRow[0].conversationId),
-                eq(conversationParticipants.userId, memberUserId),
-            ))
-            .limit(1)
-        : [];
 
     return {
         activeAssignedTasks: Number(assignedTasks[0]?.count ?? 0),
@@ -698,16 +594,7 @@ export async function removeProjectMemberInternal(
             .where(and(eq(tasks.projectId, params.projectId), eq(tasks.assigneeId, params.targetUserId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`));
     }
 
-    if (isChatV3Enabled()) {
-        await syncProjectChat(executor, params.projectId, params.targetUserId, "remove");
-    } else {
-        await syncProjectGroupParticipantInternal(executor, {
-            projectId: params.projectId,
-            userId: params.targetUserId,
-            ownerId: project.ownerId,
-            mode: "remove",
-        });
-    }
+    await syncProjectChat(executor, params.projectId, params.targetUserId, "remove");
     await executor
         .delete(projectMembers)
         .where(and(eq(projectMembers.projectId, params.projectId), eq(projectMembers.userId, params.targetUserId)));

@@ -186,10 +186,9 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   const notifications = source("src/components/layout/header/NotificationPreview.tsx");
   const runtime = source("src/components/providers/MainRuntimeProviders.tsx");
   const realtime = source("src/lib/realtime/subscriptions.ts");
-  const chat = source("src/components/chat/ChatProvider.tsx");
+  const chat = source("src/components/providers/PresenceProvider.tsx");
   const layout = source("src/components/layout/MainLayout.tsx");
   const notificationActions = source("src/app/actions/notifications.ts");
-  const messages = source("src/components/chat/v2/MessagesWorkspaceV2.tsx");
   const people = source("src/components/network/NetworkClient.tsx");
   const discoverPeople = source("src/components/network/NetworkPeopleTab.tsx");
   const networkPeople = source("src/components/network/ConnectionsClient.tsx");
@@ -206,7 +205,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   const globals = source("src/app/globals.css");
 
   assert.match(topNav, /e\.key\.toLowerCase\(\) === "k"/);
-  assert.match(topNav, /setMessageSearchOpen\(true\)/);
+  assert.match(topNav, /useChatUi\.getState\(\)\.setSwitcherOpen\(true\)/);
   assert.match(topNav, /\[data-messages-surface\]/);
   assert.doesNotMatch(topNav, /OPEN_MESSAGES_SEARCH_EVENT|open-messages-local-search/);
   assert.match(source("src/components/layout/AppSidebar.tsx"), /MAIN_NAV_ITEMS/);
@@ -235,7 +234,6 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.doesNotMatch(realtime, /table: 'tasks'/);
   assert.match(chat, /usePublishOnlinePresence\(\)/);
   assert.match(layout, /WorkspaceDrawerHost/);
-  assert.doesNotMatch(messages, /open-messages-local-search|OPEN_MESSAGES_SEARCH_EVENT/);
   assert.match(people, /searchParams\?\.get\("q"\)/);
   assert.match(people, /searchQuery=\{routeQuery\}/);
   assert.doesNotMatch(discoverPeople, /type="search"|Search people by name/);

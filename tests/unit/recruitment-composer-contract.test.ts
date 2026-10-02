@@ -77,7 +77,7 @@ test("guidance invitations use the existing Open Roles invitation lifecycle", ()
     const statusAction = source("src/app/actions/applications/internal.ts");
     const dashboard = source("src/components/projects/dashboard/ProjectDashboardClient.tsx");
     const openRoles = source("src/components/projects/dashboard/OpenRolesCard.tsx");
-    const applicationCard = source("src/components/chat/v2/ApplicationSystemCardV2.tsx");
+    const applicationCard = source("src/components/messages/cards/MessageCard.tsx");
 
     assert.match(statusAction, /db\.query\.projectInvitations\.findFirst/);
     assert.match(statusAction, /invitationKind: durableInvitation\.kind/);

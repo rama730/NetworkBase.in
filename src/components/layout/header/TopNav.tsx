@@ -41,12 +41,8 @@ import {
     resolveGlobalSearchContext,
     type GlobalSearchContext,
 } from "./global-search";
-import { useMessagesV2UiStore } from "@/stores/messagesV2UiStore";
 import { useUIStore } from "@/stores/ui-store";
 import { useChatUi } from "@/components/messages/chat-ui-store";
-import { isChatV3Enabled } from "@/lib/messaging/flag";
-
-const CHAT_V3 = isChatV3Enabled();
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 
 export default function TopNav() {
@@ -72,7 +68,6 @@ export default function TopNav() {
     const profileMenuTriggerRef = useRef<HTMLButtonElement>(null);
     const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
-    const setMessageSearchOpen = useMessagesV2UiStore((state) => state.setMessageSearchOpen);
     const isProjectDetailRoute = pathname.startsWith('/projects/');
     const isCreateProjectRoute = pathname === '/projects/new';
 
@@ -86,15 +81,15 @@ export default function TopNav() {
     const openGlobalSearch = useCallback((query = "", requestedContext?: GlobalSearchContext) => {
         const nextContext = requestedContext ?? resolveGlobalSearchContext(pathname).context;
         if (nextContext === "messages") {
+            // On /messages the topbar search is the quick switcher (report 7.10 D11).
             closeGlobalSearch();
-            if (CHAT_V3) useChatUi.getState().setSwitcherOpen(true);
-            else setMessageSearchOpen(true);
+            useChatUi.getState().setSwitcherOpen(true);
             return;
         }
         setCommandPaletteQuery(query);
         setCommandPaletteContext(nextContext);
         setShowCommandPalette(true);
-    }, [closeGlobalSearch, pathname, setMessageSearchOpen]);
+    }, [closeGlobalSearch, pathname]);
 
 
 
@@ -110,8 +105,7 @@ export default function TopNav() {
                 e.preventDefault();
                 if ((e.target as HTMLElement | null)?.closest("[data-messages-surface]")) {
                     closeGlobalSearch();
-                    if (CHAT_V3) useChatUi.getState().setSwitcherOpen(true);
-                    else setMessageSearchOpen(true);
+                    useChatUi.getState().setSwitcherOpen(true);
                     return;
                 }
                 if (showCommandPalette) {
@@ -124,7 +118,7 @@ export default function TopNav() {
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [closeGlobalSearch, openGlobalSearch, setMessageSearchOpen, showCommandPalette]);
+    }, [closeGlobalSearch, openGlobalSearch, showCommandPalette]);
     // Listen for custom event to open command palette
     useEffect(() => {
         const handleOpenCommandPalette = (e: CustomEvent<{ query?: string; context?: GlobalSearchContext }>) => {
