@@ -1,7 +1,6 @@
 'use server';
 
 import { logger } from '@/lib/logger';
-import { isChatV3Enabled } from '@/lib/messaging/flag';
 import { ensureApplicationChannel, postApplicationUpdate } from '@/lib/messaging/integrations';
 import { db } from '@/lib/db';
 import {
@@ -10,12 +9,9 @@ import {
     projects,
     projectMembers,
     connections,
-    conversations,
-    dmPairs,
-    conversationParticipants,
-    messages,
+    chatChannels,
+    chatChannelMembers,
     profiles,
-    messageWorkflowItems,
     projectInvitations,
     applicationEvents,
 } from '@/lib/db/schema';
@@ -23,7 +19,6 @@ import { eq, and, sql, or, inArray, desc, lt, exists, isNull, ne, notExists, asc
 import { alias } from 'drizzle-orm/pg-core';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { resolveMessageWorkflowActionV2 } from '@/app/actions/messaging/collaboration';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
@@ -71,9 +66,6 @@ const APPLICATION_LIST_DEFAULT_LIMIT = 20;
 const APPLICATION_LIST_MAX_LIMIT = 100;
 const APPLICATION_LIST_MAX_OFFSET = 100_000;
 
-function messageMetadataText(key: string) {
-    return sql<string>`${messages.metadata}->>${key}`;
-}
 
 function normalizeApplicationListPagination(limit: unknown, offset: unknown) {
     const rawLimit = typeof limit === 'number' ? limit : Number(limit);
@@ -247,7 +239,7 @@ function applicationActorSnapshot(user: { user_metadata?: Record<string, unknown
 
 async function enqueueApplicationReceivedBestEffort(params: {
     applicationId: string;
-    conversationId?: string | null;
+    channelId?: string | null;
     projectId: string;
     projectSlug?: string | null;
     projectTitle?: string | null;
@@ -270,7 +262,7 @@ async function enqueueApplicationReceivedBestEffort(params: {
             href: `/network?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
             entityRefs: {
                 applicationId: params.applicationId,
-                conversationId: params.conversationId ?? null,
+                channelId: params.channelId ?? null,
                 projectId: params.projectId,
                 projectSlug: params.projectSlug ?? null,
                 roleId: params.roleId ?? null,
@@ -300,7 +292,7 @@ async function enqueueApplicationReceivedBestEffort(params: {
 async function enqueueApplicationDecisionBestEffort(params: {
     applicationId: string;
     status: "accepted" | "rejected" | "reopened";
-    conversationId?: string | null;
+    channelId?: string | null;
     projectId: string;
     projectSlug?: string | null;
     projectTitle?: string | null;
@@ -321,12 +313,12 @@ async function enqueueApplicationDecisionBestEffort(params: {
             applicantId: params.applicantId,
             title: `${params.actorName || "Someone"} ${params.status === "accepted" ? "accepted" : params.status === "rejected" ? "updated" : "reopened"} your application`,
             body: params.projectTitle ? `Project: ${params.projectTitle}` : null,
-            href: params.conversationId
-                ? `/messages?conversationId=${encodeURIComponent(params.conversationId)}`
+            href: params.channelId
+                ? `/messages/${params.channelId}`
                 : `/network?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
             entityRefs: {
                 applicationId: params.applicationId,
-                conversationId: params.conversationId ?? null,
+                channelId: params.channelId ?? null,
                 projectId: params.projectId,
                 projectSlug: params.projectSlug ?? null,
                 roleId: params.roleId ?? null,
@@ -562,338 +554,8 @@ async function ensureAcceptedConnectionInternal(tx: any, userA: string, userB: s
 }
 
 // ============================================================================
-// INTERNAL HELPER: Send application message to chat (no re-auth needed)
-// ============================================================================
-async function getOrCreateDmConversationIdInternal(
-    tx: any,
-    userA: string,
-    userB: string
-): Promise<string> {
-    const [low, high] = userA < userB ? [userA, userB] : [userB, userA];
-
-    // PURE OPTIMIZATION (Item 94): Serialize DM creation with 64-bit advisory lock to prevent collisions.
-    await tx.execute(sql`
-        SELECT pg_advisory_xact_lock(
-            hashtextextended('dm-pair:' || ${low} || ':' || ${high}, 0)
-        )
-    `);
-
-    // 1. Check optimized dm_pairs table first
-    const existing = await tx
-        .select({ conversationId: dmPairs.conversationId })
-        .from(dmPairs)
-        .where(and(eq(dmPairs.userLow, low), eq(dmPairs.userHigh, high)))
-        .limit(1);
-
-    if (existing[0]?.conversationId) {
-        // Ensure participants exist (repair if needed).
-        await tx.insert(conversationParticipants)
-            .values([
-                { conversationId: existing[0].conversationId, userId: userA },
-                { conversationId: existing[0].conversationId, userId: userB },
-            ])
-            .onConflictDoNothing({
-                target: [conversationParticipants.conversationId, conversationParticipants.userId],
-            });
-
-        return existing[0].conversationId;
-    }
-
-    // 2. Fallback: Check for legacy conversation (missing from dm_pairs)
-    // Find a 'dm' conversation where BOTH users are participants
-    const participantA = alias(conversationParticipants, 'legacy_dm_participant_a');
-    const participantB = alias(conversationParticipants, 'legacy_dm_participant_b');
-    const legacyConversation = await tx
-        .select({ id: conversations.id })
-        .from(conversations)
-        .where(
-            and(
-                eq(conversations.type, 'dm'),
-                exists(
-                    tx
-                        .select({ conversationId: participantA.conversationId })
-                        .from(participantA)
-                        .where(
-                            and(
-                                eq(participantA.conversationId, conversations.id),
-                                eq(participantA.userId, userA)
-                            )
-                        )
-                ),
-                exists(
-                    tx
-                        .select({ conversationId: participantB.conversationId })
-                        .from(participantB)
-                        .where(
-                            and(
-                                eq(participantB.conversationId, conversations.id),
-                                eq(participantB.userId, userB)
-                            )
-                        )
-                ),
-                sql`(
-                    SELECT count(*)
-                    FROM ${conversationParticipants} exact_dm_participant
-                    WHERE exact_dm_participant.conversation_id = ${conversations.id}
-                ) = 2`
-            )
-        )
-        .limit(1);
-
-    if (legacyConversation.length > 0) {
-        const foundId = legacyConversation[0].id;
-
-        // Backfill dm_pairs for future O(1) lookup
-        await tx.insert(dmPairs)
-            .values({
-                userLow: low,
-                userHigh: high,
-                conversationId: foundId,
-            })
-            .onConflictDoNothing();
-
-        return foundId;
-    }
-
-    // 3. Create new conversation if absolutely nothing exists
-    const [newConversation] = await tx
-        .insert(conversations)
-        .values({ type: 'dm' })
-        .returning({ id: conversations.id });
-
-    await tx.insert(conversationParticipants)
-        .values([
-            { conversationId: newConversation.id, userId: userA },
-            { conversationId: newConversation.id, userId: userB },
-        ])
-        .onConflictDoNothing({
-            target: [conversationParticipants.conversationId, conversationParticipants.userId],
-        });
-
-    await tx.insert(dmPairs).values({
-        userLow: low,
-        userHigh: high,
-        conversationId: newConversation.id,
-    });
-
-    return newConversation.id;
-}
-
-async function sendApplicationMessageInternal(
-    tx: any,
-    applicantId: string,
-    creatorId: string,
-    projectId: string,
-    roleId: string,
-    projectTitle: string,
-    roleTitle: string,
-    userMessage: string,
-    applicationId: string,
-    applicationTraceId: string,
-    knownConversationId?: string
-): Promise<{ conversationId: string }> {
-    // 1) Ensure a single DM conversation for this user pair
-    const conversationId = knownConversationId || await getOrCreateDmConversationIdInternal(tx, applicantId, creatorId);
-    const clientMessageId = buildApplicationClientMessageId(applicationId);
-    const normalizedMessage = normalizeApplicationMessageText(userMessage);
-    const applicationMessage = buildApplicationMessageContent(projectTitle, roleTitle, normalizedMessage);
-    const nowIso = new Date().toISOString();
-
-    const [existingByClientId] = await tx
-        .select({ id: messages.id, metadata: messages.metadata })
-        .from(messages)
-        .where(
-            and(
-                eq(messages.conversationId, conversationId),
-                eq(messages.senderId, applicantId),
-                eq(messages.clientMessageId, clientMessageId)
-            )
-        )
-        .limit(1);
-
-    const legacyApplicationMessages = existingByClientId
-        ? []
-        : await tx
-            .select({ id: messages.id, metadata: messages.metadata })
-            .from(messages)
-            .where(
-                and(
-                    eq(messages.conversationId, conversationId),
-                    eq(messages.senderId, applicantId),
-                    isNull(messages.deletedAt),
-                    eq(messageMetadataText('kind'), 'application'),
-                    eq(messageMetadataText('applicationId'), applicationId)
-                )
-            )
-            .orderBy(desc(messages.createdAt))
-            .limit(1);
-    const legacyApplicationMessage = legacyApplicationMessages[0] ?? null;
-
-    const existingMessage = existingByClientId || legacyApplicationMessage || null;
-    const baseMetadata = {
-        kind: 'application',
-        isApplication: true,
-        eventVersion: 2,
-        applicationId,
-        projectId,
-        roleId,
-        projectTitle,
-        roleTitle,
-        status: 'pending',
-        applicationTraceId,
-        lastUpdatedAt: nowIso,
-        links: normalizedMessage
-            .split(/\r?\n/)
-            .filter((line) => /: https?:\/\//i.test(line))
-            .slice(0, 4),
-    } as Record<string, unknown>;
-
-    const nextMetadata = appendTimelineEvent(existingMessage?.metadata as Record<string, unknown> | undefined, {
-        type: existingMessage ? 'updated' : 'submitted',
-        status: 'pending',
-        at: nowIso,
-        by: applicantId,
-        applicationTraceId,
-    });
-
-    const mergedMetadata = {
-        ...nextMetadata,
-        ...baseMetadata,
-    };
-
-    if (existingMessage?.id) {
-        await tx
-            .update(messages)
-            .set({
-                content: applicationMessage,
-                metadata: mergedMetadata,
-                clientMessageId,
-                editedAt: new Date(),
-                deletedAt: null,
-            })
-            .where(eq(messages.id, existingMessage.id))
-            .returning({ id: messages.id });
-    } else {
-        const inserted = await tx
-            .insert(messages)
-            .values({
-                conversationId,
-                senderId: applicantId,
-                clientMessageId,
-                content: applicationMessage,
-                type: 'text',
-                metadata: mergedMetadata,
-            })
-            .onConflictDoUpdate({
-                target: [messages.conversationId, messages.senderId, messages.clientMessageId],
-                set: {
-                    content: applicationMessage,
-                    metadata: mergedMetadata,
-                    editedAt: new Date(),
-                    deletedAt: null,
-                },
-            })
-            .returning({ id: messages.id });
-        const insertedId = inserted[0]?.id;
-        if (!insertedId) {
-            throw new Error(
-                `Message insert returned no id: conversationId=${conversationId}, applicationId=${applicationId}`
-            );
-        }
-    }
-
-    // 3) Update conversation timestamp for sorting
-    await tx
-        .update(conversations)
-        .set({ updatedAt: new Date() })
-        .where(eq(conversations.id, conversationId));
-
-    return { conversationId };
-}
-
-// ============================================================================
 // INTERNAL HELPER: Send status update message to chat
 // ============================================================================
-async function sendApplicationStatusUpdateInternal(
-    tx: any,
-    conversationId: string,
-    creatorId: string,
-    applicationId: string,
-    projectId: string,
-    roleId: string,
-    projectTitle: string,
-    roleTitle: string,
-    status: 'accepted' | 'rejected' | 'pending' | 'withdrawn' | 'proposed',
-    customMessage?: string,
-    reason?: string,
-    applicationTraceId?: string,
-    originalRoleTitle?: string
-): Promise<void> {
-    const statusText =
-        status === 'accepted'
-            ? 'Accepted'
-            : status === 'rejected'
-            ? 'Not Accepted'
-            : status === 'withdrawn'
-            ? 'Withdrawn'
-            : status === 'proposed'
-            ? 'Role Change Proposed'
-            : 'Reopened';
-    const messageText = `Application ${statusText}`;
-    const decisionAt = new Date().toISOString();
-    const resolvedMessage =
-        status === 'pending'
-            ? (customMessage || '').trim() || 'Application reopened for review.'
-            : resolveDecisionMessage(status as ApplicationDecisionStatus, customMessage, reason);
-    const clientMessageId =
-        status === 'pending'
-            ? buildApplicationReopenClientMessageId(applicationId)
-            : buildApplicationDecisionClientMessageId(applicationId, status as ApplicationDecisionStatus);
-    const decisionMetadata = {
-        kind: 'application_update',
-        isApplicationUpdate: true,
-        eventVersion: 2,
-        applicationId,
-        projectId,
-        roleId,
-        projectTitle,
-        roleTitle,
-        originalRoleTitle: originalRoleTitle || null,
-        status,
-        applicationTraceId: applicationTraceId || null,
-        ...(status === 'pending'
-            ? { reopenedAt: decisionAt, reopenedBy: creatorId }
-            : { decisionAt, decisionBy: creatorId }),
-        reasonCode: reason || null,
-        customMessage: resolvedMessage,
-    };
-
-    await tx
-        .insert(messages)
-        .values({
-            conversationId,
-            senderId: creatorId,
-            clientMessageId,
-            content: messageText,
-            type: 'system',
-            metadata: decisionMetadata,
-        })
-        .onConflictDoUpdate({
-            target: [messages.conversationId, messages.senderId, messages.clientMessageId],
-            set: {
-                content: messageText,
-                metadata: decisionMetadata,
-                editedAt: new Date(),
-            },
-        });
-
-    // Update conversation timestamp
-    await tx
-        .update(conversations)
-        .set({ updatedAt: new Date() })
-        .where(eq(conversations.id, conversationId));
-}
-
 async function transitionApplicationDecisionInternal(
     tx: any,
     params: {
@@ -994,82 +656,74 @@ async function transitionApplicationToPendingInternal(
     return transitioned.length > 0;
 }
 
-async function syncCanonicalApplicationMessageDecisionInternal(
-    tx: any,
-    params: {
-        applicationId: string;
-        conversationId: string | null;
-        status: ApplicationDecisionStatus | 'pending';
-        decisionBy: string;
-        reason?: string;
-        timelineType?: 'decision' | 'reopened';
-        applicationTraceId?: string;
-    }
-) {
-    const {
-        applicationId,
-        conversationId,
-        status,
-        decisionBy,
-        reason,
-        timelineType,
-        applicationTraceId,
-    } = params;
-    if (!conversationId) return;
+type InvitationRole = 'inviter' | 'candidate';
 
-    const nowIso = new Date().toISOString();
-    const updated = await tx
-        .update(messages)
-        .set({
-            metadata: sql`
-                jsonb_set(
-                    jsonb_set(
-                        COALESCE(${messages.metadata}, '{}'::jsonb),
-                        '{status}',
-                        to_jsonb(${status}::text)
-                    ),
-                    '{eventVersion}',
-                    '2'::jsonb
-                )
-            `,
+/** Invitations from the canonical table, newest first, with the other party and project. */
+async function listInvitationsInternal(params: {
+    userId: string;
+    as: InvitationRole;
+    pendingOnly?: boolean;
+    cursorDate?: Date;
+    cursorId?: string;
+    limit: number;
+}) {
+    const other = alias(profiles, 'invitation_other_party');
+    const mine = params.as === 'inviter' ? projectInvitations.inviterId : projectInvitations.candidateId;
+    const theirs = params.as === 'inviter' ? projectInvitations.candidateId : projectInvitations.inviterId;
+    return db
+        .select({
+            id: projectInvitations.id,
+            projectId: projectInvitations.projectId,
+            status: projectInvitations.status,
+            roleTitle: projectInvitations.roleTitle,
+            guidanceLabel: projectInvitations.guidanceLabel,
+            note: projectInvitations.note,
+            projectTitle: projectInvitations.projectTitle,
+            createdAt: projectInvitations.createdAt,
+            updatedAt: projectInvitations.updatedAt,
+            projectSlug: projects.slug,
+            projectCover: projects.coverImage,
+            other: {
+                id: other.id,
+                username: other.username,
+                fullName: other.fullName,
+                avatarUrl: other.avatarUrl,
+                skills: other.skills,
+                headline: other.headline,
+            },
         })
-        .where(
-            and(
-                eq(messages.conversationId, conversationId),
-                isNull(messages.deletedAt),
-                eq(messageMetadataText('kind'), 'application'),
-                eq(messageMetadataText('applicationId'), applicationId)
-            )
-        )
-        .returning({ id: messages.id, metadata: messages.metadata });
+        .from(projectInvitations)
+        .leftJoin(projects, eq(projects.id, projectInvitations.projectId))
+        .leftJoin(other, eq(other.id, theirs))
+        .where(and(
+            eq(mine, params.userId),
+            params.pendingOnly ? eq(projectInvitations.status, 'pending') : undefined,
+            params.cursorDate && params.cursorId
+                ? or(
+                    lt(projectInvitations.createdAt, params.cursorDate),
+                    and(eq(projectInvitations.createdAt, params.cursorDate), lt(projectInvitations.id, params.cursorId)),
+                )
+                : undefined,
+        ))
+        .orderBy(desc(projectInvitations.createdAt), desc(projectInvitations.id))
+        .limit(params.limit);
+}
 
-    if (updated.length > 0) {
-        const message = updated[0];
-        const nextMetadata = appendTimelineEvent(message.metadata, {
-            type: timelineType || (status === 'pending' ? 'reopened' : 'decision'),
-            status,
-            at: nowIso,
-            by: decisionBy,
-            reasonCode: reason || null,
-            applicationTraceId: applicationTraceId || null,
-        });
+function invitationLifecycle(status: string): { status: 'pending' | 'accepted' | 'rejected' | 'withdrawn'; decisionReason: string | null } {
+    if (status === 'declined') return { status: 'rejected', decisionReason: null };
+    if (status === 'cancelled') return { status: 'withdrawn', decisionReason: null };
+    if (status === 'expired') return { status: 'rejected', decisionReason: 'role_filled' };
+    if (status === 'accepted') return { status: 'accepted', decisionReason: null };
+    return { status: 'pending', decisionReason: null };
+}
 
-        await tx
-            .update(messages)
-            .set({
-                metadata: {
-                    ...nextMetadata,
-                    status,
-                    applicationTraceId: applicationTraceId || null,
-                    ...(status === 'pending'
-                        ? { reopenedBy: decisionBy, reopenedAt: nowIso }
-                        : { decisionBy, decisionAt: nowIso }),
-                    eventVersion: 2,
-                },
-                editedAt: new Date(),
-            })
-            .where(eq(messages.id, message.id));
-    }
+/**
+ * The application's private thread. Status changes show on its live card; a
+ * reviewer's or applicant's note is posted as a line in the thread.
+ */
+async function applicationThread(tx: Parameters<typeof ensureApplicationChannel>[0], applicationId: string, actorId: string, note?: string | null) {
+    const text = (note || '').trim();
+    return text ? postApplicationUpdate(tx, applicationId, actorId, text) : ensureApplicationChannel(tx, applicationId);
 }
 
 // ============================================================================
@@ -1101,7 +755,6 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                 roleId: true,
                 roleTitle: true,
                 guidanceLabel: true,
-                messageWorkflowItemId: true,
                 updatedAt: true,
             },
         });
@@ -1116,7 +769,6 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                 roleTitle: invitationTitle,
                 invitationKind: durableInvitation.kind,
                 invitationId: durableInvitation.id,
-                workflowItemId: durableInvitation.messageWorkflowItemId || undefined,
                 proposedRoleId: durableInvitation.roleId || undefined,
                 proposedRoleTitle: invitationTitle,
                 updatedAt: durableInvitation.updatedAt,
@@ -1154,30 +806,6 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                     proposedRoleTitle,
                     updatedAt: application.updatedAt,
                 };
-            }
-
-            if (application.status === 'rejected' || application.status === 'withdrawn') {
-                const pendingInvite = await db.query.messageWorkflowItems.findFirst({
-                    where: and(
-                        eq(messageWorkflowItems.projectId, projectId),
-                        eq(messageWorkflowItems.assigneeUserId, user.id),
-                        eq(messageWorkflowItems.kind, 'project_invite'),
-                        eq(messageWorkflowItems.status, 'pending')
-                    ),
-                    orderBy: desc(messageWorkflowItems.createdAt)
-                });
-                if (pendingInvite) {
-                    return {
-                        status: 'proposed',
-                        roleId: (pendingInvite.payload.roleId as string) || undefined,
-                        roleTitle: (pendingInvite.payload.roleTitle as string) || 'Collaborator',
-                        invitationKind: 'ordinary_role',
-                        workflowItemId: pendingInvite.id,
-                        proposedRoleId: (pendingInvite.payload.roleId as string) || undefined,
-                        proposedRoleTitle: (pendingInvite.payload.roleTitle as string) || 'Collaborator',
-                        updatedAt: pendingInvite.updatedAt,
-                    };
-                }
             }
 
             const roleTitle = application.role?.title || application.role?.role || 'Unknown Role';
@@ -1232,30 +860,6 @@ export async function getApplicationStatusAction(projectId: string): Promise<App
                 updatedAt: application.updatedAt,
                 membershipEnded: application.status === 'accepted' && !activeMembership,
                 applicationId: application.id,
-            };
-        }
-
-        // Check for direct invitations when there is no application record
-        const pendingInvite = await db.query.messageWorkflowItems.findFirst({
-            where: and(
-                eq(messageWorkflowItems.projectId, projectId),
-                eq(messageWorkflowItems.assigneeUserId, user.id),
-                eq(messageWorkflowItems.kind, 'project_invite'),
-                eq(messageWorkflowItems.status, 'pending')
-            ),
-            orderBy: desc(messageWorkflowItems.createdAt)
-        });
-
-        if (pendingInvite) {
-            return {
-                status: 'proposed',
-                roleId: (pendingInvite.payload.roleId as string) || undefined,
-                roleTitle: (pendingInvite.payload.roleTitle as string) || 'Collaborator',
-                invitationKind: 'ordinary_role',
-                workflowItemId: pendingInvite.id,
-                proposedRoleId: (pendingInvite.payload.roleId as string) || undefined,
-                proposedRoleTitle: (pendingInvite.payload.roleTitle as string) || 'Collaborator',
-                updatedAt: pendingInvite.updatedAt,
             };
         }
 
@@ -1327,7 +931,7 @@ export async function applyToRoleAction(
                         eq(roleApplications.projectId, projectId),
                         eq(roleApplications.applicantId, user.id)
                     ),
-                    columns: { id: true, status: true, updatedAt: true, decisionBy: true, conversationId: true }
+                    columns: { id: true, status: true, updatedAt: true, decisionBy: true }
                 })
             ]);
 
@@ -1362,7 +966,6 @@ export async function applyToRoleAction(
                 if (existingApp.status === 'pending') {
                     return toApplicationSuccess(traceId, {
                         applicationId: existingApp.id,
-                        conversationId: existingApp.conversationId || undefined,
                         idempotent: true,
                     });
                 }
@@ -1378,7 +981,7 @@ export async function applyToRoleAction(
                         return toApplicationFailure(traceId, 'COOLDOWN_ACTIVE', `You can reapply in ${waitTime}`);
                     }
 
-                    const { conversationId } = await db.transaction(async (tx) => {
+                    const { channelId } = await db.transaction(async (tx) => {
                         const reopened = await transitionApplicationToPendingInternal(
                             tx,
                             existingApp.id,
@@ -1389,43 +992,19 @@ export async function applyToRoleAction(
                             throw new Error('Application is not eligible for reapply');
                         }
 
-                        const chatV3 = isChatV3Enabled();
-                        const conversationId = chatV3
-                            ? null
-                            : existingApp.conversationId || await getOrCreateDmConversationIdInternal(tx, user.id, project.ownerId);
-
                         await tx
                             .update(roleApplications)
                             .set({
                                 roleId,
                                 message: trimmedMessage,
-                                conversationId,
                                 applyingProjectId: options?.applyingProjectId || null,
                                 applyingProjectRole: options?.applyingProjectRole || null,
                                 updatedAt: new Date(),
                             })
                             .where(eq(roleApplications.id, existingApp.id));
 
-                        if (chatV3) {
-                            // The application card in its private thread shows the new message and status live.
-                            await postApplicationUpdate(tx, existingApp.id, user.id, 'reapplied');
-                            return { conversationId: null };
-                        }
-                        await sendApplicationMessageInternal(
-                            tx,
-                            user.id,
-                            project.ownerId,
-                            projectId,
-                            roleId,
-                            project.title || 'Project',
-                            roleTitleText,
-                            trimmedMessage,
-                            existingApp.id,
-                            traceId,
-                            conversationId!
-                        );
-
-                        return { conversationId };
+                        // The application card in its private thread shows the new message and status live.
+                        return { channelId: await postApplicationUpdate(tx, existingApp.id, user.id, 'reapplied') };
                     });
 
                     revalidatePath(`/projects/${project.slug || projectId}`);
@@ -1440,7 +1019,7 @@ export async function applyToRoleAction(
                     });
                     await enqueueApplicationReceivedBestEffort({
                         applicationId: existingApp.id,
-                        conversationId,
+                        channelId,
                         projectId,
                         projectSlug: project.slug ?? null,
                         projectTitle: project.title ?? null,
@@ -1452,7 +1031,7 @@ export async function applyToRoleAction(
                     });
                     return toApplicationSuccess(traceId, {
                         applicationId: existingApp.id,
-                        conversationId: conversationId ?? undefined,
+                        channelId,
                         idempotent: true,
                     });
                 }
@@ -1472,16 +1051,12 @@ export async function applyToRoleAction(
                     ));
                 if ((pending?.count ?? 0) >= APPLICATION_PENDING_CAP_PER_USER) return null;
 
-                const chatV3 = isChatV3Enabled();
-                const conversationId = chatV3 ? null : await getOrCreateDmConversationIdInternal(tx, user.id, project.ownerId);
-
                 const [newApp] = await tx.insert(roleApplications)
                     .values({
                         projectId,
                         roleId,
                         applicantId: user.id,
                         creatorId: project.ownerId,
-                        conversationId,
                         message: trimmedMessage,
                         applyingProjectId: options?.applyingProjectId || null,
                         applyingProjectRole: options?.applyingProjectRole || null,
@@ -1497,31 +1072,14 @@ export async function applyToRoleAction(
                     metadata: { applicationTraceId: traceId },
                 });
 
-                if (chatV3) {
-                    // New chat: a private thread for applicant and reviewers, opened by the application card.
-                    await ensureApplicationChannel(tx, newApp!.id);
-                    return { applicationId: newApp!.id, conversationId: null };
-                }
-                await sendApplicationMessageInternal(
-                    tx,
-                    user.id,
-                    project.ownerId,
-                    projectId,
-                    roleId,
-                    project.title || 'Project',
-                    roleTitleText,
-                    trimmedMessage,
-                    newApp!.id,
-                    traceId,
-                    conversationId!
-                );
-
-                return { applicationId: newApp!.id, conversationId };
+                // A private thread for applicant and reviewers, opened by the application card.
+                const channelId = await ensureApplicationChannel(tx, newApp!.id);
+                return { applicationId: newApp!.id, channelId };
             });
             if (!createdApplication) {
                 return toApplicationFailure(traceId, 'INVALID_STATE', 'You already have too many pending applications. Please wait for decisions.');
             }
-            const { applicationId: newApplicationId, conversationId } = createdApplication;
+            const { applicationId: newApplicationId, channelId } = createdApplication;
 
             revalidatePath(`/projects/${project.slug || projectId}`);
             logger.metric('applications.apply_submitted', {
@@ -1535,7 +1093,7 @@ export async function applyToRoleAction(
             });
             await enqueueApplicationReceivedBestEffort({
                 applicationId: newApplicationId,
-                conversationId,
+                channelId,
                 projectId,
                 projectSlug: project.slug ?? null,
                 projectTitle: project.title ?? null,
@@ -1548,7 +1106,7 @@ export async function applyToRoleAction(
 
             return toApplicationSuccess(traceId, {
                 applicationId: newApplicationId,
-                conversationId: conversationId ?? undefined,
+                channelId,
             });
         });
     } catch (error) {
@@ -1586,7 +1144,7 @@ export async function acceptApplicationAction(
             const application = await db.query.roleApplications.findFirst({
                 where: eq(roleApplications.id, applicationId),
                 with: {
-                    project: { columns: { id: true, title: true, slug: true, ownerId: true, conversationId: true } },
+                    project: { columns: { id: true, title: true, slug: true, ownerId: true } },
                     role: { columns: { id: true, role: true, title: true, filled: true, count: true, projectId: true } }
                 }
             });
@@ -1658,33 +1216,8 @@ export async function acceptApplicationAction(
                 });
 
                 await ensureAcceptedConnectionInternal(tx, user.id, application.applicantId);
-
-                if (application.conversationId) {
-                    await syncCanonicalApplicationMessageDecisionInternal(tx, {
-                        applicationId,
-                        conversationId: application.conversationId,
-                        status: 'accepted',
-                        decisionBy: user.id,
-                        applicationTraceId: traceId,
-                    });
-
-                    await sendApplicationStatusUpdateInternal(
-                        tx,
-                        application.conversationId,
-                        user.id,
-                        applicationId,
-                        application.projectId,
-                        application.roleId || "",
-                        application.project?.title || 'Project',
-                        application.role?.title || application.role?.role || 'Role',
-                        'accepted',
-                        message,
-                        undefined,
-                        traceId
-                    );
-                }
-
-                return lifecycle;
+                const channelId = await applicationThread(tx, applicationId, user.id, message);
+                return { ...lifecycle, channelId };
             });
 
             const slugOrId = application.project?.slug || application.projectId;
@@ -1718,7 +1251,7 @@ export async function acceptApplicationAction(
             await enqueueApplicationDecisionBestEffort({
                 applicationId,
                 status: 'accepted',
-                conversationId: application.conversationId ?? null,
+                channelId: memberLifecycle.channelId,
                 projectId: application.projectId,
                 projectSlug: application.project?.slug ?? null,
                 projectTitle: application.project?.title ?? null,
@@ -1773,7 +1306,7 @@ export async function rejectApplicationAction(
                     project: { columns: { title: true, slug: true, ownerId: true } },
                     role: { columns: { title: true, role: true } }
                 },
-                columns: { id: true, applicantId: true, creatorId: true, projectId: true, roleId: true, status: true, conversationId: true }
+                columns: { id: true, applicantId: true, creatorId: true, projectId: true, roleId: true, status: true }
             });
 
             if (!application) {
@@ -1802,6 +1335,7 @@ export async function rejectApplicationAction(
 
             const normalizedReason = normalizeDecisionReasonCode(reason || 'other');
 
+            let channelId: string | null = null;
             await db.transaction(async (tx) => {
                 const transitioned = await transitionApplicationDecisionInternal(tx, {
                     applicationId,
@@ -1816,31 +1350,7 @@ export async function rejectApplicationAction(
                     throw new Error('Application already processed');
                 }
 
-                if (application.conversationId) {
-                    await syncCanonicalApplicationMessageDecisionInternal(tx, {
-                        applicationId,
-                        conversationId: application.conversationId,
-                        status: 'rejected',
-                        decisionBy: user.id,
-                        reason: normalizedReason,
-                        applicationTraceId: traceId,
-                    });
-
-                    await sendApplicationStatusUpdateInternal(
-                        tx,
-                        application.conversationId,
-                        user.id,
-                        applicationId,
-                        application.projectId,
-                        application.roleId || "",
-                        application.project?.title || 'Project',
-                        application.role?.title || application.role?.role || 'Role',
-                        'rejected',
-                        message,
-                        normalizedReason,
-                        traceId
-                    );
-                }
+                channelId = await applicationThread(tx, applicationId, user.id, message);
             });
 
             const slugOrId = application.project?.slug || application.projectId;
@@ -1858,7 +1368,7 @@ export async function rejectApplicationAction(
             await enqueueApplicationDecisionBestEffort({
                 applicationId,
                 status: 'rejected',
-                conversationId: application.conversationId ?? null,
+                channelId,
                 projectId: application.projectId,
                 projectSlug: application.project?.slug ?? null,
                 projectTitle: application.project?.title ?? null,
@@ -1921,7 +1431,6 @@ export async function editPendingApplicationAction(
                 status: true,
                 message: true,
                 createdAt: true,
-                conversationId: true,
             },
         });
 
@@ -1937,23 +1446,14 @@ export async function editPendingApplicationAction(
         if ((application.message || '').trim() === normalizedMessage) {
             return toApplicationSuccess(traceId, {
                 applicationId: application.id,
-                conversationId: application.conversationId || undefined,
                 idempotent: true,
             });
         }
 
-        const roleTitle = application.role?.title || application.role?.role || 'Role';
-        const projectTitle = application.project?.title || 'Project';
-
-        const chatV3 = isChatV3Enabled();
-        const { conversationId } = await db.transaction(async (tx) => {
-            const conversationId = chatV3
-                ? null
-                : application.conversationId || await getOrCreateDmConversationIdInternal(tx, application.applicantId, application.creatorId);
-
+        const channelId = await db.transaction(async (tx) => {
             await tx
                 .update(roleApplications)
-                .set({ message: normalizedMessage, conversationId, updatedAt: new Date() })
+                .set({ message: normalizedMessage, updatedAt: new Date() })
                 .where(eq(roleApplications.id, application.id));
             await tx.insert(applicationEvents).values({
                 applicationId: application.id,
@@ -1963,27 +1463,8 @@ export async function editPendingApplicationAction(
                 toStatus: 'pending',
                 metadata: { applicationTraceId: traceId },
             });
-
-            if (chatV3) {
-                // The application card shows the edited message live.
-                await postApplicationUpdate(tx, application.id, user.id, 'edited the application');
-            } else {
-                await sendApplicationMessageInternal(
-                    tx,
-                    application.applicantId,
-                    application.creatorId,
-                    application.projectId,
-                    application.roleId || "",
-                    projectTitle,
-                    roleTitle,
-                    normalizedMessage,
-                    application.id,
-                    traceId,
-                    conversationId!
-                );
-            }
-
-            return { conversationId };
+            // The application card shows the edited message live.
+            return postApplicationUpdate(tx, application.id, user.id, 'edited the application');
         });
 
         const slugOrId = application.project?.slug || application.projectId;
@@ -2000,7 +1481,7 @@ export async function editPendingApplicationAction(
 
         return toApplicationSuccess(traceId, {
             applicationId: application.id,
-            conversationId: conversationId ?? undefined,
+            channelId,
         });
     } catch (error) {
         console.error('Failed to edit pending application:', error);
@@ -2041,7 +1522,6 @@ export async function withdrawApplicationAction(
                 projectId: true,
                 roleId: true,
                 status: true,
-                conversationId: true,
             },
         });
 
@@ -2052,6 +1532,7 @@ export async function withdrawApplicationAction(
             return toApplicationSuccess(traceId, { applicationId, idempotent: true });
         }
 
+        let channelId: string | null = null;
         await db.transaction(async (tx) => {
             const transitioned = await transitionApplicationDecisionInternal(tx, {
                 applicationId,
@@ -2065,31 +1546,7 @@ export async function withdrawApplicationAction(
                 throw new Error('Application already processed');
             }
 
-            await syncCanonicalApplicationMessageDecisionInternal(tx, {
-                applicationId,
-                conversationId: application.conversationId,
-                status: 'withdrawn',
-                decisionBy: user.id,
-                reason: 'withdrawn_by_applicant',
-                applicationTraceId: traceId,
-            });
-
-            if (application.conversationId) {
-                await sendApplicationStatusUpdateInternal(
-                    tx,
-                    application.conversationId,
-                    user.id,
-                    applicationId,
-                    application.projectId,
-                    application.roleId || "",
-                    application.project?.title || 'Project',
-                    application.role?.title || application.role?.role || 'Role',
-                    'withdrawn',
-                    (message || '').trim() || 'Application withdrawn by applicant',
-                    'withdrawn_by_applicant',
-                    traceId
-                );
-            }
+            channelId = await applicationThread(tx, applicationId, user.id, (message || '').trim() || 'Application withdrawn by applicant');
         });
 
         const slugOrId = application.project?.slug || application.projectId;
@@ -2160,7 +1617,6 @@ export async function reopenApplicationAction(
                 roleId: true,
                 status: true,
                 creatorId: true,
-                conversationId: true,
                 decisionAt: true,
                 updatedAt: true,
             },
@@ -2203,6 +1659,7 @@ export async function reopenApplicationAction(
             return toApplicationFailure(traceId, 'REOPEN_WINDOW_EXPIRED', 'Reopen window expired');
         }
 
+        let channelId: string | null = null;
         await db.transaction(async (tx) => {
             const reopened = await transitionApplicationToPendingInternal(
                 tx,
@@ -2212,32 +1669,7 @@ export async function reopenApplicationAction(
             );
             if (!reopened) throw new Error('Application already processed');
 
-            await syncCanonicalApplicationMessageDecisionInternal(tx, {
-                applicationId,
-                conversationId: application.conversationId,
-                status: 'pending',
-                decisionBy: user.id,
-                reason: 'reopened_by_reviewer',
-                timelineType: 'reopened',
-                applicationTraceId: traceId,
-            });
-
-            if (application.conversationId) {
-                await sendApplicationStatusUpdateInternal(
-                    tx,
-                    application.conversationId,
-                    user.id,
-                    applicationId,
-                    application.projectId,
-                    application.roleId || "",
-                    application.project?.title || 'Project',
-                    application.role?.title || application.role?.role || 'Role',
-                    'pending',
-                    (message || '').trim() || 'Application reopened for review.',
-                    'reopened_by_reviewer',
-                    traceId
-                );
-            }
+            channelId = await applicationThread(tx, applicationId, user.id, (message || '').trim() || 'Application reopened for review.');
         });
 
         const slugOrId = application.project?.slug || application.projectId;
@@ -2254,7 +1686,7 @@ export async function reopenApplicationAction(
         await enqueueApplicationDecisionBestEffort({
             applicationId,
             status: 'reopened',
-            conversationId: application.conversationId ?? null,
+            channelId,
             projectId: application.projectId,
             projectSlug: application.project?.slug ?? null,
             projectTitle: application.project?.title ?? null,
@@ -2312,20 +1744,6 @@ export async function getMyApplicationsAction(
             )
             : eq(roleApplications.applicantId, user.id);
 
-        const inviteWhere = cursorDate && cursorId
-            ? and(
-                eq(messageWorkflowItems.creatorId, user.id),
-                eq(messageWorkflowItems.kind, 'project_invite'),
-                or(
-                    lt(messageWorkflowItems.createdAt, cursorDate),
-                    and(eq(messageWorkflowItems.createdAt, cursorDate), lt(messageWorkflowItems.id, cursorId))
-                )
-            )
-            : and(
-                eq(messageWorkflowItems.creatorId, user.id),
-                eq(messageWorkflowItems.kind, 'project_invite')
-            );
-
         const roleApps = await db.query.roleApplications.findMany({
             where: appWhere,
             with: {
@@ -2342,7 +1760,6 @@ export async function getMyApplicationsAction(
                 roleId: true,
                 message: true,
                 status: true,
-                conversationId: true,
                 createdAt: true,
                 updatedAt: true,
                 decisionBy: true,
@@ -2351,29 +1768,7 @@ export async function getMyApplicationsAction(
             limit: safeLimit + 1,
         });
 
-        const invites = await db.query.messageWorkflowItems.findMany({
-            where: inviteWhere,
-            with: {
-                project: {
-                    columns: { id: true, title: true, slug: true, coverImage: true }
-                },
-                assignee: {
-                    columns: { id: true, username: true, fullName: true, avatarUrl: true }
-                }
-            },
-            columns: {
-                id: true,
-                projectId: true,
-                assigneeUserId: true,
-                status: true,
-                payload: true,
-                createdAt: true,
-                updatedAt: true,
-                conversationId: true,
-            },
-            orderBy: (items, { desc }) => [desc(items.createdAt), desc(items.id)],
-            limit: safeLimit + 1,
-        });
+        const invites = await listInvitationsInternal({ userId: user.id, as: 'inviter', cursorDate, cursorId, limit: safeLimit + 1 });
 
         const decisionMap = await getDecisionMetadataMap(roleApps.map((app) => app.id));
 
@@ -2403,7 +1798,6 @@ export async function getMyApplicationsAction(
                 createdAt: app.createdAt,
                 updatedAt: app.updatedAt,
                 decisionAt: decisionMeta?.decisionAt || toISODate(app.updatedAt),
-                conversationId: app.conversationId,
                 canEdit:
                     app.status === 'pending' &&
                     Date.now() - new Date(app.createdAt).getTime() <= APPLICATION_EDIT_WINDOW_MS,
@@ -2412,37 +1806,22 @@ export async function getMyApplicationsAction(
         });
 
         const mappedInvites = invites.map((invite) => {
-            let status: 'pending' | 'accepted' | 'rejected' | 'withdrawn' = 'pending';
-            let decisionReason: string | null = null;
-            if (invite.status === 'declined') {
-                status = 'rejected';
-            } else if (invite.status === 'canceled') {
-                status = 'withdrawn';
-            } else if (invite.status === 'expired') {
-                status = 'rejected';
-                decisionReason = 'role_filled';
-            } else if (invite.status === 'accepted') {
-                status = 'accepted';
-            }
-
-            const lifecycleStatus = resolveLifecycleStatus(status, decisionReason);
-
+            const { status, decisionReason } = invitationLifecycle(invite.status);
             return {
                 id: invite.id,
-                isWorkflowItem: true,
+                isInvitation: true,
                 projectId: invite.projectId,
-                projectTitle: invite.project?.title || (invite.payload?.projectTitle as string) || 'Unknown Project',
-                projectSlug: invite.project?.slug || (invite.payload?.projectSlug as string),
-                projectCover: invite.project?.coverImage || null,
-                roleTitle: (invite.payload?.roleTitle as string) || 'Collaborator',
-                message: invite.payload?.note as string | null,
+                projectTitle: invite.projectTitle || 'Unknown Project',
+                projectSlug: invite.projectSlug,
+                projectCover: invite.projectCover || null,
+                roleTitle: invite.roleTitle || invite.guidanceLabel || 'Collaborator',
+                message: invite.note,
                 status,
-                lifecycleStatus,
+                lifecycleStatus: resolveLifecycleStatus(status, decisionReason),
                 decisionReason,
                 createdAt: invite.createdAt,
                 updatedAt: invite.updatedAt,
                 decisionAt: toISODate(invite.updatedAt),
-                conversationId: invite.conversationId,
                 canEdit: false,
             };
         });
@@ -2536,22 +1915,6 @@ export async function getIncomingApplicationsAction(
                 eq(roleApplications.status, 'pending')
             );
 
-        const inviteWhere = cursorDate && cursorId
-            ? and(
-                eq(messageWorkflowItems.assigneeUserId, user.id),
-                eq(messageWorkflowItems.kind, 'project_invite'),
-                eq(messageWorkflowItems.status, 'pending'),
-                or(
-                    lt(messageWorkflowItems.createdAt, cursorDate),
-                    and(eq(messageWorkflowItems.createdAt, cursorDate), lt(messageWorkflowItems.id, cursorId))
-                )
-            )
-            : and(
-                eq(messageWorkflowItems.assigneeUserId, user.id),
-                eq(messageWorkflowItems.kind, 'project_invite'),
-                eq(messageWorkflowItems.status, 'pending')
-            );
-
         const roleApps = await db.query.roleApplications.findMany({
             where: appWhere,
             with: {
@@ -2565,33 +1928,12 @@ export async function getIncomingApplicationsAction(
                     columns: { id: true, username: true, fullName: true, avatarUrl: true, skills: true, headline: true }
                 }
             },
-            columns: { id: true, projectId: true, status: true, createdAt: true, conversationId: true },
+            columns: { id: true, projectId: true, status: true, createdAt: true },
             orderBy: (apps, { desc }) => [desc(apps.createdAt), desc(apps.id)],
             limit: safeLimit + 1,
         });
 
-        const invites = await db.query.messageWorkflowItems.findMany({
-            where: inviteWhere,
-            with: {
-                project: {
-                    columns: { id: true, title: true, slug: true }
-                },
-                creator: {
-                    columns: { id: true, username: true, fullName: true, avatarUrl: true, skills: true, headline: true }
-                }
-            },
-            columns: {
-                id: true,
-                projectId: true,
-                status: true,
-                payload: true,
-                createdAt: true,
-                updatedAt: true,
-                conversationId: true,
-            },
-            orderBy: (items, { desc }) => [desc(items.createdAt), desc(items.id)],
-            limit: safeLimit + 1,
-        });
+        const invites = await listInvitationsInternal({ userId: user.id, as: 'candidate', pendingOnly: true, cursorDate, cursorId, limit: safeLimit + 1 });
 
         const mappedApps = roleApps.map((app) => {
             const actor = {
@@ -2614,43 +1956,30 @@ export async function getIncomingApplicationsAction(
             applicant: actor,
             status: app.status as 'pending' | 'accepted' | 'rejected' | 'withdrawn',
             createdAt: app.createdAt,
-            conversationId: app.conversationId,
-            isWorkflowItem: false,
+            isInvitation: false,
             };
         });
 
         const mappedInvites = invites.map((invite) => {
-            let status: 'pending' | 'accepted' | 'rejected' | 'withdrawn' = 'pending';
-            if (invite.status === 'declined') {
-                status = 'rejected';
-            } else if (invite.status === 'canceled') {
-                status = 'withdrawn';
-            } else if (invite.status === 'expired') {
-                status = 'rejected';
-            } else if (invite.status === 'accepted') {
-                status = 'accepted';
-            }
-
             const actor = {
-                id: invite.creator?.id,
-                username: invite.creator?.username,
-                fullName: invite.creator?.fullName,
-                avatarUrl: invite.creator?.avatarUrl,
-                skills: invite.creator?.skills ?? [],
-                headline: invite.creator?.headline ?? null,
+                id: invite.other?.id,
+                username: invite.other?.username,
+                fullName: invite.other?.fullName,
+                avatarUrl: invite.other?.avatarUrl,
+                skills: invite.other?.skills ?? [],
+                headline: invite.other?.headline ?? null,
             };
             return {
                 id: invite.id,
                 projectId: invite.projectId,
-                projectTitle: invite.project?.title || (invite.payload?.projectTitle as string) || 'Unknown Project',
-                projectSlug: invite.project?.slug || (invite.payload?.projectSlug as string),
-                roleTitle: (invite.payload?.roleTitle as string) || 'Collaborator',
+                projectTitle: invite.projectTitle || 'Unknown Project',
+                projectSlug: invite.projectSlug,
+                roleTitle: invite.roleTitle || invite.guidanceLabel || 'Collaborator',
                 actor,
                 applicant: actor,
-                status,
+                status: invitationLifecycle(invite.status).status,
                 createdAt: invite.createdAt,
-                conversationId: invite.conversationId,
-                isWorkflowItem: true,
+                isInvitation: true,
             };
         });
 
@@ -2774,10 +2103,10 @@ export async function getInboxApplicationsAction(
                     END AS status_rank,
                     application.status::text AS normalized_status,
                     COALESCE((
-                        SELECT participant.unread_count
-                        FROM ${conversationParticipants} participant
-                        WHERE participant.conversation_id = application.conversation_id
-                          AND participant.user_id = ${user.id}
+                        SELECT CASE WHEN c.last_top_seq > m.last_read_seq THEN c.last_seq - m.last_read_seq ELSE 0 END
+                        FROM ${chatChannels} c
+                        JOIN ${chatChannelMembers} m ON m.channel_id = c.id AND m.user_id = ${user.id}
+                        WHERE c.application_id = application.id
                     ), 0)::int AS unread_count
                 FROM ${roleApplications} application
                 WHERE (
@@ -2805,21 +2134,13 @@ export async function getInboxApplicationsAction(
                     END AS status_rank,
                     CASE
                         WHEN invite.status = 'declined' OR invite.status = 'expired' THEN 'rejected'
-                        WHEN invite.status = 'canceled' THEN 'withdrawn'
+                        WHEN invite.status = 'cancelled' THEN 'withdrawn'
                         ELSE invite.status
                     END AS normalized_status,
-                    COALESCE((
-                        SELECT participant.unread_count
-                        FROM ${conversationParticipants} participant
-                        WHERE participant.conversation_id = invite.conversation_id
-                          AND participant.user_id = ${user.id}
-                    ), 0)::int AS unread_count
-                FROM ${messageWorkflowItems} invite
-                WHERE invite.kind = 'project_invite'
-                  AND (
-                    invite.assignee_user_id = ${user.id}
-                    OR invite.creator_id = ${user.id}
-                  )
+                    0 AS unread_count
+                FROM ${projectInvitations} invite
+                WHERE invite.candidate_id = ${user.id}
+                   OR invite.inviter_id = ${user.id}
             )
             SELECT
                 id,
@@ -2907,66 +2228,52 @@ export async function getInboxApplicationsAction(
                 status: true,
                 createdAt: true,
                 updatedAt: true,
-                conversationId: true,
             },
         })
             : [];
 
-        // 2. Fetch project invitations (messageWorkflowItems of kind project_invite) where:
-        // - User is Lead/creator (Outgoing project invites)
-        // - User is candidate/assignee (Incoming project invites)
+        // 2. Project invitations where the user is the inviter (outgoing) or candidate (incoming).
+        const inviter = alias(profiles, 'inbox_inviter');
+        const candidate = alias(profiles, 'inbox_candidate');
         const invites = inviteIds.length > 0
-            ? await db.query.messageWorkflowItems.findMany({
-            where: inArray(messageWorkflowItems.id, inviteIds),
-            with: {
-                project: {
-                    columns: { id: true, title: true, slug: true, ownerId: true }
-                },
-                creator: {
-                    columns: { id: true, username: true, fullName: true, avatarUrl: true }
-                },
-                assignee: {
-                    columns: { id: true, username: true, fullName: true, avatarUrl: true }
-                }
-            },
-            columns: {
-                id: true,
-                messageId: true,
-                projectId: true,
-                creatorId: true,
-                assigneeUserId: true,
-                status: true,
-                payload: true,
-                createdAt: true,
-                updatedAt: true,
-                conversationId: true,
-            }
-        })
+            ? await db
+                .select({
+                    id: projectInvitations.id,
+                    projectId: projectInvitations.projectId,
+                    inviterId: projectInvitations.inviterId,
+                    candidateId: projectInvitations.candidateId,
+                    status: projectInvitations.status,
+                    roleTitle: projectInvitations.roleTitle,
+                    guidanceLabel: projectInvitations.guidanceLabel,
+                    note: projectInvitations.note,
+                    projectTitle: projectInvitations.projectTitle,
+                    projectSlug: projects.slug,
+                    createdAt: projectInvitations.createdAt,
+                    updatedAt: projectInvitations.updatedAt,
+                    inviter: { id: inviter.id, username: inviter.username, fullName: inviter.fullName, avatarUrl: inviter.avatarUrl },
+                    candidate: { id: candidate.id, username: candidate.username, fullName: candidate.fullName, avatarUrl: candidate.avatarUrl },
+                })
+                .from(projectInvitations)
+                .leftJoin(projects, eq(projects.id, projectInvitations.projectId))
+                .leftJoin(inviter, eq(inviter.id, projectInvitations.inviterId))
+                .leftJoin(candidate, eq(candidate.id, projectInvitations.candidateId))
+                .where(inArray(projectInvitations.id, inviteIds))
             : [];
 
         const decisionMap = await getDecisionMetadataMap(roleApps.map((app) => app.id));
-        const conversationIds = [
-            ...roleApps.map((app) => app.conversationId),
-            ...invites.map((inv) => inv.conversationId)
-        ].filter((conversationId): conversationId is string => typeof conversationId === 'string' && conversationId.length > 0);
-
-        const unreadCounts = conversationIds.length > 0
+        // Each application has a private chat thread; its unread count comes from the viewer's cursor.
+        const threads = roleApps.length > 0
             ? await db
                 .select({
-                    conversationId: conversationParticipants.conversationId,
-                    unreadCount: conversationParticipants.unreadCount,
+                    applicationId: chatChannels.applicationId,
+                    channelId: chatChannels.id,
+                    unreadCount: sql<number>`CASE WHEN ${chatChannels.lastTopSeq} > ${chatChannelMembers.lastReadSeq} THEN (${chatChannels.lastSeq} - ${chatChannelMembers.lastReadSeq})::int ELSE 0 END`,
                 })
-                .from(conversationParticipants)
-                .where(
-                    and(
-                        eq(conversationParticipants.userId, user.id),
-                        inArray(conversationParticipants.conversationId, conversationIds),
-                    ),
-                )
+                .from(chatChannels)
+                .innerJoin(chatChannelMembers, and(eq(chatChannelMembers.channelId, chatChannels.id), eq(chatChannelMembers.userId, user.id)))
+                .where(inArray(chatChannels.applicationId, roleApps.map((app) => app.id)))
             : [];
-        const unreadCountByConversationId = new Map(
-            unreadCounts.map((entry) => [entry.conversationId, entry.unreadCount]),
-        );
+        const threadByApplicationId = new Map(threads.map((thread) => [thread.applicationId, thread]));
 
         // Fetch creator profiles for outgoing applications
         const creatorIds = roleApps
@@ -3026,7 +2333,7 @@ export async function getInboxApplicationsAction(
 
             return {
                 id: app.id,
-                isWorkflowItem: false,
+                isInvitation: false,
                 type: isIncoming ? 'incoming' : 'outgoing',
                 projectId: app.projectId,
                 projectTitle: app.project?.title || 'Unknown Project',
@@ -3038,78 +2345,47 @@ export async function getInboxApplicationsAction(
                 decisionReason,
                 decisionAt: decisionMeta?.decisionAt || toISODate(app.updatedAt),
                 createdAt: app.createdAt,
-                conversationId: app.conversationId,
+                channelId: threadByApplicationId.get(app.id)?.channelId ?? null,
                 coverLetter: app.message,
-                unreadCount: app.conversationId
-                    ? unreadCountByConversationId.get(app.conversationId) ?? 0
-                    : 0,
+                unreadCount: Number(threadByApplicationId.get(app.id)?.unreadCount ?? 0),
             };
         });
 
         // Map invitations
         const mappedInvites = invites.map((invite) => {
-            const isIncoming = invite.assigneeUserId === user.id;
-
-            let status: 'pending' | 'accepted' | 'rejected' | 'withdrawn' = 'pending';
-            let decisionReason: string | null = null;
-            if (invite.status === 'declined') {
-                status = 'rejected';
-            } else if (invite.status === 'canceled') {
-                status = 'withdrawn';
-            } else if (invite.status === 'expired') {
-                status = 'rejected';
-                decisionReason = 'role_filled';
-            } else if (invite.status === 'accepted') {
-                status = 'accepted';
-            }
-
-            const lifecycleStatus = resolveLifecycleStatus(status, decisionReason);
-
-            let displayUser: {
+            const isIncoming = invite.candidateId === user.id;
+            const { status, decisionReason } = invitationLifecycle(invite.status);
+            const other = isIncoming ? invite.inviter : invite.candidate;
+            const displayUser: {
                 id?: string;
                 username?: string | null;
                 fullName?: string | null;
                 avatarUrl?: string | null;
                 type: 'applicant' | 'creator';
+            } = {
+                id: other?.id,
+                username: other?.username,
+                fullName: other?.fullName,
+                avatarUrl: other?.avatarUrl,
+                type: isIncoming ? 'creator' : 'applicant',
             };
-
-            if (isIncoming) {
-                displayUser = {
-                    id: invite.creator?.id,
-                    username: invite.creator?.username,
-                    fullName: invite.creator?.fullName,
-                    avatarUrl: invite.creator?.avatarUrl,
-                    type: 'creator',
-                };
-            } else {
-                displayUser = {
-                    id: invite.assignee?.id,
-                    username: invite.assignee?.username,
-                    fullName: invite.assignee?.fullName,
-                    avatarUrl: invite.assignee?.avatarUrl,
-                    type: 'applicant',
-                };
-            }
-
             return {
                 id: invite.id,
-                isWorkflowItem: true,
+                isInvitation: true,
                 type: isIncoming ? 'incoming' : 'outgoing',
                 projectId: invite.projectId,
-                projectTitle: invite.project?.title || (invite.payload?.projectTitle as string) || 'Unknown Project',
-                projectSlug: invite.project?.slug || (invite.payload?.projectSlug as string),
-                roleTitle: (invite.payload?.roleTitle as string) || 'Collaborator',
+                projectTitle: invite.projectTitle || 'Unknown Project',
+                projectSlug: invite.projectSlug,
+                roleTitle: invite.roleTitle || invite.guidanceLabel || 'Collaborator',
                 displayUser,
                 status,
-                lifecycleStatus,
+                lifecycleStatus: resolveLifecycleStatus(status, decisionReason),
                 decisionReason,
                 decisionAt: toISODate(invite.updatedAt),
                 createdAt: invite.createdAt,
-                conversationId: invite.conversationId,
-                coverLetter: invite.payload?.note as string | null,
-                unreadCount: invite.conversationId
-                    ? unreadCountByConversationId.get(invite.conversationId) ?? 0
-                    : 0,
+                channelId: null,
+                coverLetter: invite.note,
+                unreadCount: 0,
             };
         });
 
@@ -3213,7 +2489,6 @@ export async function getApplicationRequestHistory(limit: number = 80, cursor?: 
                 status: true,
                 createdAt: true,
                 updatedAt: true,
-                conversationId: true,
                 projectId: true,
             },
             orderBy: (apps, { desc }) => [desc(applicationEventAt), desc(apps.id)],
@@ -3286,7 +2561,6 @@ export async function getApplicationRequestHistory(limit: number = 80, cursor?: 
                     decisionReason,
                     eventAt: (lifecycleStatus === 'pending' ? app.createdAt : decisionTimestamp).toISOString(),
                     createdAt: app.createdAt.toISOString(),
-                    conversationId: app.conversationId,
                     project: {
                         id: app.projectId,
                         title: app.project?.title || 'Unknown Project',
@@ -3347,7 +2621,6 @@ export async function acceptProposedRoleAction(
                 roleId: true,
                 proposedRoleId: true,
                 status: true,
-                conversationId: true,
                 decisionBy: true,
             },
         });
@@ -3379,6 +2652,7 @@ export async function acceptProposedRoleAction(
 
         const updatedProposedRoleId = application.proposedRoleId;
         let pRoleTitle = '';
+        let channelId: string | null = null;
         await db.transaction(async (tx) => {
             await tx.execute(sql`
                 SELECT id
@@ -3446,31 +2720,7 @@ export async function acceptProposedRoleAction(
                 incrementRoleCapacity: true,
             });
 
-            await syncCanonicalApplicationMessageDecisionInternal(tx, {
-                applicationId,
-                conversationId: application.conversationId,
-                status: 'accepted',
-                decisionBy: user.id,
-                reason: 'proposal_accepted_by_applicant',
-                applicationTraceId: traceId,
-            });
-
-            if (application.conversationId) {
-                await sendApplicationStatusUpdateInternal(
-                    tx,
-                    application.conversationId,
-                    user.id,
-                    applicationId,
-                    application.projectId,
-                    updatedProposedRoleId,
-                    application.project?.title || 'Project',
-                    pRoleTitle,
-                    'accepted',
-                    'Proposed role accepted by applicant.',
-                    'proposal_accepted_by_applicant',
-                    traceId
-                );
-            }
+            channelId = await applicationThread(tx, applicationId, user.id, 'Proposed role accepted by applicant.');
         });
 
         const slugOrId = application.project?.slug || application.projectId;
@@ -3529,7 +2779,6 @@ export async function declineProposedRoleAction(
                 projectId: true,
                 roleId: true,
                 status: true,
-                conversationId: true,
             },
         });
 
@@ -3543,6 +2792,7 @@ export async function declineProposedRoleAction(
             return toApplicationFailure(traceId, 'INVALID_STATE', 'This application does not have a proposed role change to decline');
         }
 
+        let channelId: string | null = null;
         await db.transaction(async (tx) => {
             // Revert back to pending, clear proposedRoleId
             const transitioned = await tx
@@ -3575,31 +2825,7 @@ export async function declineProposedRoleAction(
                 metadata: { applicationTraceId: traceId },
             });
 
-            await syncCanonicalApplicationMessageDecisionInternal(tx, {
-                applicationId,
-                conversationId: application.conversationId,
-                status: 'pending',
-                decisionBy: user.id,
-                reason: 'proposal_declined_by_applicant',
-                applicationTraceId: traceId,
-            });
-
-            if (application.conversationId) {
-                await sendApplicationStatusUpdateInternal(
-                    tx,
-                    application.conversationId,
-                    user.id,
-                    applicationId,
-                    application.projectId,
-                    application.roleId || "",
-                    application.project?.title || 'Project',
-                    application.role?.title || application.role?.role || 'Original Role',
-                    'pending',
-                    'Applicant declined the proposed role change. Reverted to original role application.',
-                    'proposal_declined_by_applicant',
-                    traceId
-                );
-            }
+            channelId = await applicationThread(tx, applicationId, user.id, 'Applicant declined the proposed role change. Reverted to original role application.');
         });
 
         const slugOrId = application.project?.slug || application.projectId;
@@ -3738,17 +2964,16 @@ export async function getProjectInviteOptionsAction(projectId: string): Promise<
                         inArray(roleApplications.applicantId, candidateIds),
                     )),
                 db.select({
-                    id: messageWorkflowItems.id,
-                    assigneeUserId: messageWorkflowItems.assigneeUserId,
-                    roleId: sql<string | null>`${messageWorkflowItems.payload}->>'roleId'`,
-                    roleTitle: sql<string | null>`${messageWorkflowItems.payload}->>'roleTitle'`,
+                    id: projectInvitations.id,
+                    assigneeUserId: projectInvitations.candidateId,
+                    roleId: projectInvitations.roleId,
+                    roleTitle: projectInvitations.roleTitle,
                 })
-                    .from(messageWorkflowItems)
+                    .from(projectInvitations)
                     .where(and(
-                        eq(messageWorkflowItems.projectId, projectId),
-                        eq(messageWorkflowItems.kind, 'project_invite'),
-                        eq(messageWorkflowItems.status, 'pending'),
-                        inArray(messageWorkflowItems.assigneeUserId, candidateIds),
+                        eq(projectInvitations.projectId, projectId),
+                        eq(projectInvitations.status, 'pending'),
+                        inArray(projectInvitations.candidateId, candidateIds),
                     )),
             ])
             : [[], []];
@@ -3798,7 +3023,6 @@ export async function getProjectInviteOptionsAction(projectId: string): Promise<
 
 export interface SentProjectInvitationItem {
     id: string;
-    workflowItemId?: string | null;
     invitationId?: string | null;
     projectId: string;
     projectTitle: string;
@@ -3832,35 +3056,7 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
 
         const limit = Math.max(1, Math.min(options?.limit ?? 50, 100));
 
-        // 1. Fetch pending invitations sent via message workflows
-        const wfItems = await db
-            .select({
-                id: messageWorkflowItems.id,
-                projectId: messageWorkflowItems.projectId,
-                payload: messageWorkflowItems.payload,
-                createdAt: messageWorkflowItems.createdAt,
-                candidateId: profiles.id,
-                candidateUsername: profiles.username,
-                candidateFullName: profiles.fullName,
-                candidateAvatarUrl: profiles.avatarUrl,
-                candidateHeadline: profiles.headline,
-                projectTitle: projects.title,
-                projectSlug: projects.slug,
-            })
-            .from(messageWorkflowItems)
-            .innerJoin(profiles, eq(profiles.id, messageWorkflowItems.assigneeUserId))
-            .innerJoin(projects, eq(projects.id, messageWorkflowItems.projectId))
-            .where(
-                and(
-                    eq(messageWorkflowItems.creatorId, user.id),
-                    eq(messageWorkflowItems.kind, 'project_invite'),
-                    eq(messageWorkflowItems.status, 'pending')
-                )
-            )
-            .orderBy(desc(messageWorkflowItems.createdAt))
-            .limit(limit);
-
-        // 2. Fetch pending invitations sent via project invitations
+        // Pending invitations this user sent (canonical table).
         const directItems = await db
             .select({
                 id: projectInvitations.id,
@@ -3870,7 +3066,6 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
                 note: projectInvitations.note,
                 createdAt: projectInvitations.createdAt,
                 expiresAt: projectInvitations.expiresAt,
-                messageWorkflowItemId: projectInvitations.messageWorkflowItemId,
                 candidateId: profiles.id,
                 candidateUsername: profiles.username,
                 candidateFullName: profiles.fullName,
@@ -3892,58 +3087,10 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
             .orderBy(desc(projectInvitations.createdAt))
             .limit(limit);
 
-        const seenKeys = new Set<string>();
-        const directByWorkflowId = new Map(
-            directItems
-                .filter((d) => Boolean(d.messageWorkflowItemId))
-                .map((d) => [d.messageWorkflowItemId as string, d])
-        );
-
         const items: SentProjectInvitationItem[] = [];
-
-        // Add from workflow items
-        for (const wf of wfItems) {
-            const payload = (wf.payload as Record<string, unknown>) || {};
-            const direct = directByWorkflowId.get(wf.id);
-            const key = `${wf.projectId}:${wf.candidateId}`;
-            seenKeys.add(key);
-
-            const roleTitle = (payload.roleTitle as string)
-                || direct?.roleTitle
-                || direct?.guidanceLabel
-                || 'Collaborator';
-
-            items.push({
-                id: wf.id,
-                workflowItemId: wf.id,
-                invitationId: direct?.id ?? (typeof payload.projectInvitationId === 'string' ? payload.projectInvitationId : null),
-                projectId: wf.projectId || '',
-                projectTitle: wf.projectTitle || (payload.projectTitle as string) || 'Project',
-                projectSlug: wf.projectSlug || (payload.projectSlug as string) || null,
-                roleTitle,
-                candidate: {
-                    id: wf.candidateId,
-                    username: wf.candidateUsername,
-                    fullName: wf.candidateFullName,
-                    avatarUrl: wf.candidateAvatarUrl,
-                    headline: wf.candidateHeadline,
-                },
-                note: (payload.note as string) || direct?.note || null,
-                status: 'pending',
-                createdAt: wf.createdAt,
-                expiresAt: direct?.expiresAt ?? null,
-            });
-        }
-
-        // Add direct items not covered by workflow items
         for (const direct of directItems) {
-            const key = `${direct.projectId}:${direct.candidateId}`;
-            if (seenKeys.has(key)) continue;
-            seenKeys.add(key);
-
             items.push({
                 id: direct.id,
-                workflowItemId: direct.messageWorkflowItemId,
                 invitationId: direct.id,
                 projectId: direct.projectId,
                 projectTitle: direct.projectTitle,
@@ -3981,7 +3128,6 @@ export async function getSentProjectInvitationsAction(options?: { limit?: number
 
 export async function cancelSentProjectInvitationAction(input: {
     invitationId?: string | null;
-    workflowItemId?: string | null;
 }) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -3989,25 +3135,12 @@ export async function cancelSentProjectInvitationAction(input: {
 
     try {
         let didCancel = false;
-
-        if (input.workflowItemId) {
-            const res = await resolveMessageWorkflowActionV2({
-                workflowItemId: input.workflowItemId,
-                action: 'cancel',
-            });
-            if (res.success) {
-                didCancel = true;
-            }
-        }
-
-        if (input.invitationId && !didCancel) {
+        if (input.invitationId) {
             const res = await resolveProjectInvitationAction({
                 invitationId: input.invitationId,
                 action: 'cancel',
             });
-            if (res.success) {
-                didCancel = true;
-            }
+            didCancel = res.success;
         }
 
         if (!didCancel) {

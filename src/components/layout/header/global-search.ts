@@ -234,9 +234,9 @@ export function resolveGlobalSearchContext(pathname: string | null, searchParams
     if (pathname?.startsWith("/messages")) {
         return {
             context: "messages",
-            placeholder: "Use Messages search...",
-            title: "Search messages",
-            description: "Continue in the dedicated Messages search.",
+            placeholder: "Find a conversation...",
+            title: "Find a conversation",
+            description: "Jump to a channel, direct message, or person.",
         };
     }
     if (pathname?.startsWith("/settings")) {

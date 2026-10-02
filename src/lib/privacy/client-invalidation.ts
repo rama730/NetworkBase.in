@@ -18,7 +18,7 @@ export async function invalidatePrivacyDependents(
   );
 
   invalidations.push(
-    queryClient.invalidateQueries({ queryKey: queryKeys.messages.conversations() }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.chat.root() }),
     queryClient.invalidateQueries({ queryKey: queryKeys.discover.root() }),
     queryClient.invalidateQueries({ queryKey: queryKeys.connections.root() }),
     queryClient.invalidateQueries({ queryKey: queryKeys.project.root() }),

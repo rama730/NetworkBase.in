@@ -6,7 +6,6 @@ const read = (path: string) => readFileSync(path, "utf8");
 
 test("application sidebar supports a persisted accessible icon-only state", () => {
   const sidebar = read("src/components/layout/AppSidebar.tsx");
-  const messages = read("src/components/chat/v2/MessagesWorkspaceV2.tsx");
   const css = read("src/app/globals.css");
 
   assert.match(sidebar, /networkbase:sidebar-collapsed/);
@@ -47,12 +46,6 @@ test("application sidebar supports a persisted accessible icon-only state", () =
   assert.match(css, /\.nb-sidebar\[data-collapsed="true"\] \+ \.nb-main-frame/);
   assert.match(css, /\.nb-sidebar\[data-collapsed="true"\] \.nb-sidebar-label \{ display:none; \}/);
   assert.match(css, /\.nb-sidebar\[data-collapsed="true"\] \.nb-sidebar-workspace \{ display:none; \}/);
-  assert.match(messages, /data-messages-pane="conversation-list"/);
-  assert.match(messages, /data-messages-pane="thread"/);
-  assert.match(messages, /useUIStore\(\(state\) => state\.sidebarCollapsed\)/);
-  assert.match(messages, /const useEqualPagePanes = mode === 'page' && applicationSidebarCollapsed/);
-  assert.match(messages, /md:w-1\/2 md:flex-\[0_0_50%\]/);
-  assert.match(messages, /md:w-1\/2 md:max-w-none md:flex-\[0_0_50%\]/);
   assert.match(css, /@media \(min-width:768px\) and \(max-width:1023px\)/);
 });
 

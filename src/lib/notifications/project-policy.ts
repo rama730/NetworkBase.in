@@ -56,8 +56,6 @@ export type ProjectNotificationEventKey =
     | "tasks.mentions"
     | "tasks.replies"
     | "tasks.bulk_changed"
-    | "workflows.assigned"
-    | "workflows.resolved"
     | "files.uploaded"
     | "files.bulk_uploaded"
     | "files.folder_created"
@@ -523,36 +521,6 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
         aggregate: "burst_10m",
         // Bulk task editing is not an application capability yet.
         visible: false,
-    }),
-    "workflows.assigned": E({
-        key: "workflows.assigned",
-        group: "tasks_workflow",
-        label: "Workflow assigned",
-        description: "Notify users assigned to a project workflow request.",
-        category: "workflows",
-        notificationKind: "workflow_assigned",
-        defaultEnabled: true,
-        defaultImportance: "important",
-        defaultRecipients: ["affected_member"],
-        allowMemberOverride: false,
-        mandatory: true,
-        aggregate: "none",
-        visible: true,
-    }),
-    "workflows.resolved": E({
-        key: "workflows.resolved",
-        group: "tasks_workflow",
-        label: "Workflow resolved",
-        description: "Notify requesters when a workflow request is resolved.",
-        category: "workflows",
-        notificationKind: "workflow_resolved",
-        defaultEnabled: true,
-        defaultImportance: "more",
-        defaultRecipients: ["affected_member"],
-        allowMemberOverride: true,
-        mandatory: false,
-        aggregate: "none",
-        visible: true,
     }),
     "files.uploaded": E({
         key: "files.uploaded",

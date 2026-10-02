@@ -7,16 +7,18 @@ async function main() {
     const migrationSource = await readFile(path.join(root, 'drizzle/0061_profile_security_state_privacy_rls.sql'), 'utf8')
     const uploadMigrationSource = await readFile(path.join(root, 'drizzle/0062_upload_intents_and_recovery_redemptions.sql'), 'utf8')
     const authorityBackfillSource = await readFile(path.join(root, 'drizzle/0063_database_setup_authority_backfill.sql'), 'utf8')
-    const deliveryReceiptSource = await readFile(path.join(root, 'drizzle/0066_message_delivery_receipts.sql'), 'utf8')
-    const readReceiptSource = await readFile(path.join(root, 'drizzle/0067_read_receipts_conversation_id.sql'), 'utf8')
     const publicRlsHardeningSource = await readFile(path.join(root, 'drizzle/0078_public_rls_security_hardening.sql'), 'utf8')
     const profilePrivilegeHardeningSource = await readFile(path.join(root, 'drizzle/0079_profile_column_privilege_hardening.sql'), 'utf8')
     const profileWriteHardeningSource = await readFile(path.join(root, 'drizzle/0080_profile_write_privilege_hardening.sql'), 'utf8')
     const ponytailHardeningSource = await readFile(path.join(root, 'drizzle/0122_ponytail_database_hardening.sql'), 'utf8')
     const contributionAuthoritySource = await readFile(path.join(root, 'drizzle/0127_profile_contribution_authority.sql'), 'utf8')
     const setupSource = await readFile(path.join(root, 'scripts/setup-database.ts'), 'utf8')
+    const chatSource = await readFile(path.join(root, 'drizzle/0180_chat_rebuild_additive.sql'), 'utf8')
+    const chatCutoverSource = await readFile(path.join(root, 'drizzle/0181_chat_rebuild_cutover.sql'), 'utf8')
 
     const checks: Array<[string, boolean]> = [
+        ['chat tables are member-scoped (SELECT-only RLS via chat_is_member)', chatSource.includes('app_private.chat_is_member(channel_id, (SELECT auth.uid()))')],
+        ['chat cutover drops the old conversation tables', chatCutoverSource.includes('DROP TABLE IF EXISTS') && chatCutoverSource.includes('public.messages,')],
         [
             'schema defines private profile security table',
             /export const profileSecurityStates\s*=\s*pgTable\(\s*["']profile_security_states["']/.test(schemaSource),
@@ -31,18 +33,9 @@ async function main() {
         ['migration enforces recovery-code redemption uniqueness', uploadMigrationSource.includes('recovery_code_redemptions_user_code_uidx')],
         ['authority backfill migration codifies project storage policies', authorityBackfillSource.includes('CREATE POLICY project_files_write')],
         ['authority backfill migration codifies connection policies', authorityBackfillSource.includes('CREATE POLICY "Users can view own connections"')],
-        ['delivery receipts migration creates the delivery table', deliveryReceiptSource.includes('CREATE TABLE IF NOT EXISTS "message_delivery_receipts"')],
-        ['delivery receipts migration defines delivery receipt read policy', deliveryReceiptSource.includes('CREATE POLICY "Users can view delivery receipts in their conversations"')],
-        ['delivery receipts migration defines delivery receipt insert policy', deliveryReceiptSource.includes('CREATE POLICY "Users can insert their own delivery receipts"')],
-        ['delivery receipts migration publishes delivery receipts to supabase realtime', deliveryReceiptSource.includes('ALTER PUBLICATION supabase_realtime ADD TABLE "message_delivery_receipts"')],
-        ['read receipts migration denormalizes conversation_id', readReceiptSource.includes('ADD COLUMN IF NOT EXISTS "conversation_id" uuid')],
-        ['read receipts migration defines read receipt read policy', readReceiptSource.includes('CREATE POLICY "Users can view read receipts in their conversations"')],
-        ['read receipts migration defines read receipt insert policy', readReceiptSource.includes('CREATE POLICY "Users can upsert their own read receipts"')],
-        ['read receipts migration publishes read receipts to supabase realtime', readReceiptSource.includes('ALTER PUBLICATION supabase_realtime ADD TABLE "message_read_receipts"')],
         ['public RLS hardening migration removes stale view-all profile policy', publicRlsHardeningSource.includes('DROP POLICY IF EXISTS "Users can view all profiles"')],
         ['public RLS hardening migration enables partition RLS dynamically', publicRlsHardeningSource.includes("project_run_logs\\_%")],
         ['public RLS hardening migration protects account deletions', publicRlsHardeningSource.includes('CREATE POLICY "Users can view own account deletions"')],
-        ['public RLS hardening migration uses non-recursive membership helpers', publicRlsHardeningSource.includes('CREATE OR REPLACE FUNCTION public.nb_is_conversation_participant')],
         ['profile column hardening revokes public profile select', profilePrivilegeHardeningSource.includes('REVOKE SELECT ON TABLE public.profiles FROM PUBLIC')],
         ['profile column hardening revokes broad profile API select', profilePrivilegeHardeningSource.includes('REVOKE SELECT ON TABLE public.profiles FROM anon, authenticated')],
         ['profile column hardening grants explicit public display columns', profilePrivilegeHardeningSource.includes('GRANT SELECT (') && profilePrivilegeHardeningSource.includes('full_name') && profilePrivilegeHardeningSource.includes('last_active_at')],

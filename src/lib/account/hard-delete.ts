@@ -1,10 +1,9 @@
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { anonymizeChatAuthor, deleteDirectMessagesSql } from "@/lib/messaging/account";
 import {
   accountDeletions,
-  conversations,
-  dmPairs,
   extensionRecoveryDrafts,
   profiles,
   projects,
@@ -110,28 +109,10 @@ export async function executeHardDelete(
 
       // Database cleanup is the durable first phase. `in_progress` means this
       // phase committed and a retry must resume at Auth deletion.
+      await anonymizeChatAuthor(userId);
       await db.transaction(async (tx) => {
-        const ownedDmPairs = await tx
-          .select({ conversationId: dmPairs.conversationId })
-          .from(dmPairs)
-          .where(or(eq(dmPairs.userLow, userId), eq(dmPairs.userHigh, userId)));
-        const ownedProjects = await tx
-          .select({ conversationId: projects.conversationId })
-          .from(projects)
-          .where(eq(projects.ownerId, userId));
-        const conversationIdsToDelete = Array.from(new Set([
-          ...ownedDmPairs.map((pair) => pair.conversationId),
-          ...ownedProjects
-            .map((project) => project.conversationId)
-            .filter((id): id is string => Boolean(id)),
-        ]));
-
+        await tx.execute(deleteDirectMessagesSql(userId));
         await tx.delete(projects).where(eq(projects.ownerId, userId));
-        if (conversationIdsToDelete.length > 0) {
-          await tx
-            .delete(conversations)
-            .where(inArray(conversations.id, conversationIdsToDelete));
-        }
 
         await tx.delete(profiles).where(eq(profiles.id, userId));
         await tx

@@ -12,7 +12,6 @@ import { TabErrorBoundary } from '@/components/projects/TabErrorBoundary';
 import type { Project } from '@/types/discover';
 import { toggleProjectFollowAction, updateProjectStageAction, incrementProjectViewAction } from '@/app/actions/project';
 import { getApplicationStatusAction, acceptProposedRoleAction, declineProposedRoleAction, type ApplicationStatusResult } from '@/app/actions/applications';
-import { resolveMessageWorkflowActionV2 } from '@/app/actions/messaging/collaboration';
 import { resolveProjectInvitationAction } from '@/app/actions/project/guidance';
 import { useProjectMembers } from '@/hooks/projects/useProjectMembers';
 import { queryKeys } from '@/lib/query-keys';
@@ -335,11 +334,6 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 res = action === 'accept'
                     ? await acceptProposedRoleAction(applicationStatus.applicationId)
                     : await declineProposedRoleAction(applicationStatus.applicationId);
-            } else if (applicationStatus.workflowItemId) {
-                res = await resolveMessageWorkflowActionV2({
-                    workflowItemId: applicationStatus.workflowItemId,
-                    action,
-                });
             } else if (applicationStatus.invitationId) {
                 res = await resolveProjectInvitationAction({
                     invitationId: applicationStatus.invitationId,

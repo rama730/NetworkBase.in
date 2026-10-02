@@ -2,7 +2,7 @@
 -- system after 0180 added chat_* next to it. Destructive by design; take a
 -- pg_dump of the old tables first (report 5.A). Every statement is idempotent.
 
--- 1. Realtime topics without the old presence:conversation branch, before the
+-- 1. Realtime topics without the old conversation presence branch, before the
 --    function it calls is dropped.
 DROP POLICY IF EXISTS application_topic_read ON realtime.messages;
 DROP POLICY IF EXISTS application_topic_send ON realtime.messages;
@@ -147,6 +147,7 @@ DROP TABLE IF EXISTS
   public.attachment_uploads,
   public.typing_indicators,
   public.messages,
+  public.messages_partitioned,
   public.dm_pairs,
   public.conversation_participants,
   public.conversations

@@ -2,9 +2,9 @@ import { expect, type Page } from "@playwright/test";
 
 import { hasE2ECredentials } from "./auth";
 
-/** Chat v3 specs run only with the flag on and an account (report 4.8). */
-export const chatV3Ready = hasE2ECredentials && process.env.NEXT_PUBLIC_CHAT_V3 === "1";
-export const chatV3SkipReason = "Needs NEXT_PUBLIC_CHAT_V3=1, E2E credentials, and a database with 0180 applied.";
+/** Chat specs need an account and a database with 0180/0181 applied. */
+export const chatV3Ready = hasE2ECredentials;
+export const chatV3SkipReason = "Needs E2E credentials and a database with 0180/0181 applied.";
 
 /** Open /messages and the first conversation row; returns its id. */
 export async function openFirstConversation(page: Page) {

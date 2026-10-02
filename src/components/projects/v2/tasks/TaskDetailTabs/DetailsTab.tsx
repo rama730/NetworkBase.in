@@ -28,7 +28,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { readTaskSourceMessageLinksAction } from "@/app/actions/messaging/linked-work";
+import { listTaskSourceMessages } from "@/app/actions/chat/messages";
+import { queryKeys } from "@/lib/query-keys";
 import { approveTaskReviewAction } from "@/app/actions/task";
 import type { TaskFileReadinessWarning } from "@/lib/projects/task-file-intelligence";
 import { normalizeTaskTitleDraft } from "@/lib/projects/task-file-intelligence";
@@ -205,17 +206,12 @@ export default function DetailsTab({
 
   const showDoneWarnings = task.status === "done" && fileWarnings.length > 0;
   const sourceLinksQuery = useQuery({
-    queryKey: ["task-source-message-links", task.projectId, task.id],
-    enabled: Boolean(task.projectId),
+    queryKey: queryKeys.chat.taskSource(task.id),
     staleTime: 60_000,
     queryFn: async () => {
-      if (!task.projectId) return [];
-      const result = await readTaskSourceMessageLinksAction(
-        task.projectId,
-        task.id,
-      );
+      const result = await listTaskSourceMessages({ taskId: task.id });
       if (!result.success)
-        throw new Error(result.error || "Failed to load source message");
+        throw new Error("Failed to load source message");
       return result.links;
     },
   });
@@ -418,7 +414,7 @@ export default function DetailsTab({
 
       {sourceLinks.map((sourceLink, index) => (
         <div
-          key={String(sourceLink.id ?? index)}
+          key={`${sourceLink.channel_id}:${sourceLink.seq}:${index}`}
           className="rounded-[6px] border border-border bg-card px-4 py-3 text-sm text-foreground"
         >
           <div className="flex items-start gap-3">
@@ -428,18 +424,14 @@ export default function DetailsTab({
                 Created from message
               </div>
               <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                {String(
-                  sourceLink.metadata?.sourcePreview ||
-                    sourceLink.subtitle ||
-                    "Open the original conversation context.",
-                )}
+                {sourceLink.channel_name
+                  ? `In #${sourceLink.channel_name}`
+                  : "Open the original conversation."}
               </div>
             </div>
-            {typeof sourceLink.metadata?.sourceMessageHref === "string" ? (
+            {sourceLink.channel_id ? (
               <a
-                href={sourceLink.metadata.sourceMessageHref}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`/messages/${sourceLink.channel_id}?m=${sourceLink.seq}`}
                 className="inline-flex items-center gap-1 rounded-[5px] border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
               >
                 Open source

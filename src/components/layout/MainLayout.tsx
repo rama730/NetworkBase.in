@@ -7,9 +7,6 @@ import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
 import { WorkspaceDrawerHost } from '@/components/workspace/WorkspaceDrawerHost'
 import { CREATE_PROJECT_PATH, rememberCreateProjectReturnPath } from '@/components/projects/create-wizard/create-project-return'
-import { isChatV3Enabled } from '@/lib/messaging/flag'
-
-const CHAT_V3 = isChatV3Enabled()
 const ChatShellAside = dynamic(() => import('@/components/messages/ChatShellAside'), { ssr: false })
 
 interface MainLayoutProps {
@@ -19,7 +16,7 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
     const pathname = usePathname()
     // Messages swaps the global sidebar for its rail + sidebar (report 7.10 D2).
-    const messagesShell = CHAT_V3 && (pathname === '/messages' || pathname?.startsWith('/messages/'))
+    const messagesShell = pathname === '/messages' || pathname?.startsWith('/messages/')
 
     // Closing the create-project page returns to wherever the user was before it.
     useEffect(() => {

@@ -13,7 +13,7 @@ import {
     cancelSentProjectInvitationAction,
     type SentProjectInvitationItem,
 } from "@/app/actions/applications";
-import { resolveMessageWorkflowActionV2 } from "@/app/actions/messaging/collaboration";
+import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/ui/UserAvatar";
@@ -99,7 +99,7 @@ export default function InvitationsClient({
 
     const projectInvitations = useMemo(() => {
         const incoming = (projectQuery.data?.applications ?? [])
-            .filter((invitation) => invitation.status === "pending" && invitation.isWorkflowItem);
+            .filter((invitation) => invitation.status === "pending" && invitation.isInvitation);
         if (!query) return incoming;
         return incoming.filter((invitation) => {
             const actor = invitation.actor ?? invitation.applicant;
@@ -166,7 +166,6 @@ export default function InvitationsClient({
             await toast.promise(
                 cancelSentProjectInvitationAction({
                     invitationId: item.invitationId,
-                    workflowItemId: item.workflowItemId,
                 }).then((res) => {
                     if (!res.success) throw new Error(res.error || "Failed to cancel project invitation");
                     return res;
@@ -192,7 +191,7 @@ export default function InvitationsClient({
     async function resolveProjectInvitation(id: string, action: "accept" | "decline") {
         setProcessingProject({ id, action });
         try {
-            const request = resolveMessageWorkflowActionV2({ workflowItemId: id, action }).then((result) => {
+            const request = resolveProjectInvitationAction({ invitationId: id, action }).then((result) => {
                 if (!result.success) throw new Error(result.error || "Failed to update project invitation");
                 return result;
             });

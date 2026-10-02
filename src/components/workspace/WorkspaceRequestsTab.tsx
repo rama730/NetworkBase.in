@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { acceptApplicationAction, getIncomingApplicationsAction, rejectApplicationAction } from "@/app/actions/applications";
-import { resolveMessageWorkflowActionV2 } from "@/app/actions/messaging/collaboration";
+import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
 import { queryKeys } from "@/lib/query-keys";
 import { useUIStore } from "@/stores/ui-store";
 import { Inbox } from "lucide-react";
@@ -85,11 +85,11 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
 
     // Pending applications to your projects
     const pendingIncoming = useMemo(
-        () => incomingApplications.filter((app) => app.status === "pending" && !app.isWorkflowItem),
+        () => incomingApplications.filter((app) => app.status === "pending" && !app.isInvitation),
         [incomingApplications],
     );
     const pendingInvites = useMemo(
-        () => incomingApplications.filter((app) => app.status === "pending" && app.isWorkflowItem),
+        () => incomingApplications.filter((app) => app.status === "pending" && app.isInvitation),
         [incomingApplications],
     );
     const pendingConnections = connectionsQuery.data?.incoming ?? [];
@@ -126,14 +126,14 @@ export default function WorkspaceRequestsTab({ isActive = true }: WorkspaceReque
     });
 
     const acceptInvite = useMutation({
-        mutationFn: async (id: string) => resolveMessageWorkflowActionV2({ workflowItemId: id, action: "accept" }),
+        mutationFn: async (id: string) => resolveProjectInvitationAction({ invitationId: id, action: "accept" }),
         onMutate: removeOptimistically,
         onSuccess: () => { toast.success("Invite accepted"); invalidate(); },
         onError: (error: unknown) => { invalidate(); toast.error(errorMessage(error)); },
     });
 
     const rejectInvite = useMutation({
-        mutationFn: async (id: string) => resolveMessageWorkflowActionV2({ workflowItemId: id, action: "decline" }),
+        mutationFn: async (id: string) => resolveProjectInvitationAction({ invitationId: id, action: "decline" }),
         onMutate: removeOptimistically,
         onSuccess: () => { toast.success("Invite rejected"); invalidate(); },
         onError: (error: unknown) => { invalidate(); toast.error(errorMessage(error)); },

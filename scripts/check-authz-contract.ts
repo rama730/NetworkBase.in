@@ -8,7 +8,7 @@ async function readWorkspaceFile(relativePath: string) {
 async function main() {
   const [
     taskActions,
-    messagingActions,
+    chatAttachmentRoute,
     changePasswordRoute,
     gitSyncWorker,
     accountCleanupWorker,
@@ -16,7 +16,7 @@ async function main() {
     connectionsActions,
   ] = await Promise.all([
     readWorkspaceFile("src/app/actions/task.ts"),
-    readWorkspaceFile("src/app/actions/messaging/index.ts"),
+    readWorkspaceFile("src/app/api/v1/chat/attachments/[assetId]/route.ts"),
     readWorkspaceFile("src/app/api/v1/auth/change-password/route.ts"),
     readWorkspaceFile("src/inngest/functions/git-sync.ts"),
     readWorkspaceFile("src/inngest/functions/account-cleanup.ts"),
@@ -32,8 +32,8 @@ async function main() {
         taskActions.includes(".where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)))"),
     ],
     [
-      "message attachments use authenticated access URLs instead of raw signed storage URLs",
-      messagingActions.includes("buildMessageAttachmentAccessUrl(attachment.id)"),
+      "chat attachments open only through the member-checked route (short-lived signed URL)",
+      chatAttachmentRoute.includes("app_private.chat_is_member(ca.channel_id") && chatAttachmentRoute.includes("createSignedUrl(storageKey, SIGNED_URL_SECONDS)"),
     ],
     [
       "passwordless password changes require MFA step-up",
@@ -54,8 +54,7 @@ async function main() {
     [
       "privacy-sensitive profile surfaces emit read audit events",
       profileData.includes("recordPrivacyReadEvent(") &&
-        connectionsActions.includes("recordPrivacyReadEvents(") &&
-        messagingActions.includes("recordPrivacyReadEvent("),
+        connectionsActions.includes("recordPrivacyReadEvents("),
     ],
   ];
 

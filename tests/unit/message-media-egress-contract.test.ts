@@ -28,14 +28,6 @@ test('media viewer loads one selected full asset without hidden adjacent bodies'
     assert.match(viewer, /elementRef=\{viewerVideoRef\}/);
 });
 
-test('conversation rows do not fetch full threads on pointer hover', () => {
-    const list = readProjectFile('src/components/chat/v2/ConversationListV2.tsx');
-    const workspace = readProjectFile('src/components/chat/v2/MessagesWorkspaceV2.tsx');
-
-    assert.doesNotMatch(list, /onMouseEnter|onPrefetchConversation|prefetchTimerRef/);
-    assert.doesNotMatch(workspace, /handlePrefetchConversation|prefetchInfiniteQuery/);
-});
-
 test('PNG alpha detection preserves transparency while allowing opaque conversion', () => {
     const compression = readProjectFile('src/lib/messaging/image-compression.ts');
 

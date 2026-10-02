@@ -4,7 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { bootstrap } from "@/app/actions/chat/read";
-import { MessageAttentionContext } from "@/components/providers/MessageAttentionProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { CHAT_POLL_BASE_MS, CHAT_POLL_JITTER_MS, userTopic } from "@/lib/messaging/constants";
 import { applyHint, applyReadMoved, chatBadge, mergeDelta, type ChatHint } from "@/lib/messaging/shell-state";
@@ -163,12 +162,9 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
   const pending = (userId && query.data?.pending) || NO_PENDING;
   const badge = useMemo(() => chatBadge(data), [data]);
   const shell = useMemo<ChatShell>(() => ({ data, pending, badge, status, refresh, applyRead }), [applyRead, badge, data, pending, refresh, status]);
-  const attention = useMemo(() => ({ unreadCount: badge, hasUnreadMessages: badge > 0 }), [badge]);
 
   return (
-    <ChatShellContext.Provider value={shell}>
-      <MessageAttentionContext.Provider value={attention}>{children}</MessageAttentionContext.Provider>
-    </ChatShellContext.Provider>
+    <ChatShellContext.Provider value={shell}>{children}</ChatShellContext.Provider>
   );
 }
 

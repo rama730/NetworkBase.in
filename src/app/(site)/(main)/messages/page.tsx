@@ -1,74 +1,27 @@
-import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { getOrCreateDm } from '@/app/actions/chat/members';
 import { MessagesIndex } from '@/components/messages/MessagesIndex';
-import { isChatV3Enabled } from '@/lib/messaging/flag';
-import { MessagesWorkspaceV2 } from '@/components/chat/v2/MessagesWorkspaceV2';
-import { InboxListSkeletonV2, ThreadSkeletonV2 } from '@/components/messages/parts/MessagesSurfaceSkeletons';
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata';
 
 export function generateMetadata() {
     return buildRouteMetadata({
         title: 'Messages | NetworkBase',
-        description: 'Keep conversations, project groups, and application threads in one inbox.',
+        description: 'Channels and direct messages for your projects.',
         path: '/messages',
     });
 }
 
 export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
-    const resolvedParams = await searchParams;
-    const targetUserId =
-        typeof resolvedParams.userId === 'string'
-            ? resolvedParams.userId
-            : typeof resolvedParams.user === 'string'
-                ? resolvedParams.user
-                : null;
-    if (isChatV3Enabled()) {
-        // "Message" buttons keep linking to /messages?userId=; old ?conversationId= links land on the list.
-        if (targetUserId) {
-            const dm = await getOrCreateDm({ userId: targetUserId });
-            if (dm.success) redirect(`/messages/${dm.channelId}`);
-        } else if (typeof resolvedParams.conversationId === 'string') {
-            redirect('/messages');
-        }
-        // MessagesIndex owns this branch's route scroll root.
-        return <MessagesIndex />;
+    const params = await searchParams;
+    // "Message" buttons link to /messages?userId=.
+    const targetUserId = typeof params.userId === 'string' ? params.userId : typeof params.user === 'string' ? params.user : null;
+    if (targetUserId) {
+        const dm = await getOrCreateDm({ userId: targetUserId });
+        if (dm.success) redirect(`/messages/${dm.channelId}`);
     }
-    const initialConversationId = typeof resolvedParams.conversationId === 'string'
-        ? resolvedParams.conversationId
-        : null;
-    const initialMessageId = typeof resolvedParams.messageId === 'string'
-        ? resolvedParams.messageId
-        : null;
-    const initialReplyToMessageId = typeof resolvedParams.replyToMessageId === 'string'
-        ? resolvedParams.replyToMessageId
-        : null;
-    const initialTab = resolvedParams.tab === 'applications' || resolvedParams.tab === 'projects' || resolvedParams.tab === 'chats'
-        ? resolvedParams.tab
-        : null;
-    const initialSearchOpen = resolvedParams.search === 'messages';
-    const initialSearchQuery = initialSearchOpen && typeof resolvedParams.q === 'string'
-        ? resolvedParams.q.slice(0, 160)
-        : '';
-
     return (
-        <div
-            data-scroll-root="route"
-            data-hardening-messages="v2"
-            className="h-full min-h-0 overflow-hidden app-scroll app-scroll-y app-scroll-gutter bg-white dark:bg-zinc-950"
-        >
-            <Suspense fallback={<div role="status" aria-live="polite" aria-label="Loading messages" className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[minmax(18rem,30%)_1fr]"><span className="sr-only">Loading messages…</span><InboxListSkeletonV2 surface="page" /><div className="hidden md:contents"><ThreadSkeletonV2 surface="page" /></div></div>}>
-                <MessagesWorkspaceV2
-                    mode="page"
-                    targetUserId={targetUserId}
-                    initialConversationId={initialConversationId}
-                    initialMessageId={initialMessageId}
-                    initialReplyToMessageId={initialReplyToMessageId}
-                    initialTab={initialTab}
-                    initialSearchOpen={initialSearchOpen}
-                    initialSearchQuery={initialSearchQuery}
-                />
-            </Suspense>
+        <div data-scroll-root="route" className="h-full min-h-0 overflow-hidden">
+            <MessagesIndex />
         </div>
     );
 }

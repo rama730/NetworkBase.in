@@ -6,13 +6,12 @@ import {
   projectFollows,
   projectOpenRoles,
   roleApplications,
-  conversations,
-  conversationParticipants,
-  messages,
   projectNodes,
   projectNodeEvents,
   projectMembers,
   profiles,
+  chatChannels,
+  chatChannelMembers,
   tasks,
   projectSprints,
   projectSprintEvents,
@@ -166,7 +165,6 @@ import {
   taskSubtaskTitleSchema,
 } from "@/lib/validations/task";
 import { invalidatePublicProjectsFeedCache } from "@/lib/projects/public-feed-service";
-import { isChatV3Enabled } from "@/lib/messaging/flag";
 import { syncProjectChat } from "@/lib/messaging/integrations";
 import {
   buildProjectAccessTransitionPolicy,
@@ -1071,7 +1069,6 @@ const projectDetailGuidanceSchema = z.object({
 const projectDetailProjectSchema = z.object({
   id: z.string().uuid(),
   ownerId: z.string().uuid(),
-  conversationId: z.string().uuid().nullable(),
   title: z.string().min(1),
   slug: z.string().min(1).optional(),
   description: z.string().nullable(),
@@ -1318,7 +1315,6 @@ async function resolveProjectDetailTarget(
           ownerUsername: ownerProfiles.username,
           ownerFullName: ownerProfiles.fullName,
           ownerAvatarUrl: ownerProfiles.avatarUrl,
-          conversationId: projects.conversationId,
           title: projects.title,
           slug: projects.slug,
           description: projects.description,
@@ -2009,7 +2005,6 @@ export async function readProjectDetailShell(input: {
         const readModel = {
           id: project.id,
           ownerId: project.ownerId,
-          conversationId: project.conversationId ?? null,
           title: project.title,
           slug: project.slug || undefined,
           description: project.description || null,
@@ -2357,56 +2352,23 @@ export async function createProjectAction(
               : "main",
         };
 
-        // Use transaction to ensure project, owner membership, and project group are created together
-        // OPTIMIZED: Create conversation FIRST, insert project WITH conversationId (saves 1 UPDATE)
-        const chatV3 = isChatV3Enabled();
+        // Project, owner membership, and the project's #general are created together.
         const result = await db.transaction(async (tx) => {
-          // 1. Old messaging: create the Project Group Conversation FIRST.
-          //    New chat: the project's #general channel is created after the owner joins.
-          let newConversation: { id: string } | undefined;
-          if (!chatV3) {
-            [newConversation] = await tx
-              .insert(conversations)
-              .values({
-                type: "project_group",
-              })
-              .returning({ id: conversations.id });
-
-            if (!newConversation) {
-              throw new Error("Failed to create project group");
-            }
-          }
-
-          // 2. Create the Project WITH conversationId
           const [newProject] = await tx
             .insert(projects)
-            .values({
-              ...projectData,
-              conversationId: newConversation?.id ?? null,
-            })
+            .values(projectData)
             .returning();
 
           if (!newProject) {
             throw new Error("Failed to create project");
           }
 
-          // 3. Add Owner as a Participant of the Project Group
-          if (newConversation) {
-            await tx.insert(conversationParticipants).values({
-              conversationId: newConversation.id,
-              userId: user.id,
-            });
-          }
-
-          // 4. Add owner as a member with 'owner' role
           await tx.insert(projectMembers).values({
             projectId: newProject.id,
             userId: user.id,
             role: "owner",
           });
-          if (chatV3) {
-            await syncProjectChat(tx, newProject.id, null, "ensure_default");
-          }
+          await syncProjectChat(tx, newProject.id, null, "ensure_default");
           await upsertProfileProjectContributionFromMembership(tx, {
             profileId: user.id,
             projectId: newProject.id,
@@ -4272,7 +4234,6 @@ function collaboratorRoleLabel(role: ProjectCollaboratorRole) {
 async function readProjectCollaboratorResponsibilityCounts(
   projectId: string,
   memberIds: string[],
-  conversationId?: string | null,
 ) {
   const initial = new Map<
     string,
@@ -4358,17 +4319,18 @@ async function readProjectCollaboratorResponsibilityCounts(
         ),
       )
       .groupBy(roleApplications.applicantId),
-    conversationId
-      ? db
-          .select({ userId: conversationParticipants.userId })
-          .from(conversationParticipants)
-          .where(
-            and(
-              eq(conversationParticipants.conversationId, conversationId),
-              inArray(conversationParticipants.userId, memberIds),
-            ),
-          )
-      : Promise.resolve([]),
+    // Members of the project's #general (report 7.1).
+    db
+      .select({ userId: chatChannelMembers.userId })
+      .from(chatChannelMembers)
+      .innerJoin(chatChannels, eq(chatChannels.id, chatChannelMembers.channelId))
+      .where(
+        and(
+          eq(chatChannels.projectId, projectId),
+          eq(chatChannels.isDefault, true),
+          inArray(chatChannelMembers.userId, memberIds),
+        ),
+      ),
   ]);
 
   const patchCount = (
@@ -4506,7 +4468,6 @@ export async function getProjectCollaboratorSettingsAction(
 
     const [projectRow] = await db
       .select({
-        conversationId: projects.conversationId,
         importSource: projects.importSource,
         ownerId: projects.ownerId,
       })
@@ -4585,7 +4546,6 @@ export async function getProjectCollaboratorSettingsAction(
         readProjectCollaboratorResponsibilityCounts(
           projectId,
           memberIds,
-          projectRow?.conversationId ?? null,
         ),
         db
           .select({ userId: projectMembers.userId, role: projectMembers.role })
@@ -5601,7 +5561,6 @@ export async function getProjectMemberRemovalPreflightAction(
     ]);
     const [projectRow] = await db
       .select({
-        conversationId: projects.conversationId,
         visibility: projects.visibility,
       })
       .from(projects)
@@ -5611,7 +5570,6 @@ export async function getProjectMemberRemovalPreflightAction(
       await readProjectCollaboratorResponsibilityCounts(
         projectId,
         [memberUserId],
-        projectRow?.conversationId ?? null,
       )
     ).get(memberUserId);
     const impact = await readProjectMemberRemovalImpact(
@@ -6045,12 +6003,7 @@ async function countUnregisteredProjectStorage(projectId: string) {
             WHERE media_ref.project_id = draft.project_id
               AND media_ref.user_id = draft.user_id
           ))
-      + (SELECT count(*) FROM public.message_attachments attachment
-          JOIN public.messages message ON message.id = attachment.message_id
-          JOIN public.projects project ON project.conversation_id = message.conversation_id
-        WHERE project.id = ${projectId}
-          AND attachment.storage_path IS NOT NULL
-          AND attachment.asset_id IS NULL)
+      -- chat_attachments always reference a storage asset, so chat adds nothing here.
       + (SELECT count(*) FROM public.import_jobs import_job
         WHERE import_job.project_id = ${projectId}
           AND import_job.manifest_s3_key IS NOT NULL
@@ -6112,11 +6065,9 @@ export async function deleteProject(
       };
     }
 
-    // Check ownership and get conversationId
     const [project] = await db
       .select({
         ownerId: projects.ownerId,
-        conversationId: projects.conversationId,
         slug: projects.slug,
       })
       .from(projects)
@@ -6150,34 +6101,14 @@ export async function deleteProject(
     // Preserve deletion evidence before domain rows cascade away.
     await db.transaction(async (tx) => {
       await scheduleProjectStorageDeletion(tx, projectId);
-      // A. Update application messages to show "project_deleted" status
-      await tx.execute(sql`
-                UPDATE ${messages}
-                SET metadata = jsonb_set(
-                    (
-                        COALESCE(metadata, '{}'::jsonb)
-                        - 'projectId'
-                    ) #- '{structured,entityRefs,projectId}',
-                    '{status}',
-                    '"project_deleted"',
-                    true
-                )
-                WHERE metadata->>'projectId' = ${projectId}
-                   OR metadata #>> '{structured,entityRefs,projectId}' = ${projectId}
-            `);
-
-      // B. Hard-delete the project (cascades to nodes, tasks, sprints, members, etc.)
+      // Hard-delete the project (cascades to nodes, tasks, sprints, members,
+      // and its chat channels; cards elsewhere then show a restricted placeholder).
       const deletedProjects = await tx
         .delete(projects)
         .where(eq(projects.id, projectId))
         .returning({ id: projects.id });
-      if (project.conversationId) {
-        await tx
-          .delete(conversations)
-          .where(eq(conversations.id, project.conversationId));
-      }
 
-      // C. Keep denormalized profile stats in sync
+      // Keep denormalized profile stats in sync
       if (deletedProjects.length > 0) {
         await tx
           .update(profiles)
@@ -6233,7 +6164,6 @@ export async function deleteProjectDraftAction(
     const [project] = await db
       .select({
         ownerId: projects.ownerId,
-        conversationId: projects.conversationId,
       })
       .from(projects)
       .where(eq(projects.id, projectId))
@@ -6259,11 +6189,6 @@ export async function deleteProjectDraftAction(
         .update(profiles)
         .set({ projectsCount: sql`GREATEST(0, ${profiles.projectsCount} - 1)` })
         .where(eq(profiles.id, user.id));
-      if (project.conversationId) {
-        await tx
-          .delete(conversations)
-          .where(eq(conversations.id, project.conversationId));
-      }
     });
 
     revalidatePath("/discover");

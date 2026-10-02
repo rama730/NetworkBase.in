@@ -43,6 +43,8 @@ function open(topic: string): Entry {
   return entry;
 }
 
+// ponytail: delivery p95 was not soak-tested on the free plan (L-33).
+// upgrade: re-run the 5,000-client soak on Pro before launch traffic.
 /**
  * Join a private Broadcast topic (chat:channel:<id>, chat:user:<id>). Topics are
  * shared and ref-counted per tab; supabase-js rejoins after drops with the

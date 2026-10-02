@@ -1,15 +1,13 @@
 import "server-only";
 
-import { and, asc, eq, gt, inArray, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { sanitizeAccountExportMessage } from "@/lib/account/export-contract";
+import { toAccountExportMessage } from "@/lib/account/export-contract";
 import {
   collections,
   connections,
-  conversationParticipants,
   legalAcceptances,
-  messages,
   profileContributionSkills,
   profileProjectContributions,
   profiles,
@@ -184,71 +182,51 @@ async function* streamAccountExport(input: {
 
   yield "[";
   written = 0;
-  let redacted = false;
-  let participantCursor: string | null = null;
+  // Only messages this user authored (author index), with the channel's name.
+  let messageCursor: { channelId: string; seq: number } | null = null;
   while (true) {
     assertActive(signal);
-    const participantPage = await db
-      .select({ conversationId: conversationParticipants.conversationId })
-      .from(conversationParticipants)
-      .where(and(
-        eq(conversationParticipants.userId, userId),
-        lte(conversationParticipants.joinedAt, exportedAt),
-        participantCursor ? gt(conversationParticipants.conversationId, participantCursor) : undefined,
-      ))
-      .orderBy(asc(conversationParticipants.conversationId))
-      .limit(EXPORT_PAGE_SIZE);
-    if (participantPage.length === 0) break;
-    for (const participant of participantPage) {
-      let messageCursor: { createdAt: Date; id: string } | null = null;
-      while (true) {
-        assertActive(signal);
-        const page = await db
-          .select({
-            id: messages.id,
-            conversationId: messages.conversationId,
-            content: messages.content,
-            type: messages.type,
-            createdAt: messages.createdAt,
-            senderId: messages.senderId,
-          })
-          .from(messages)
-          .where(and(
-            eq(messages.conversationId, participant.conversationId),
-            lte(messages.createdAt, exportedAt),
-            messageCursor
-              ? or(
-                  gt(messages.createdAt, messageCursor.createdAt),
-                  and(
-                    eq(messages.createdAt, messageCursor.createdAt),
-                    gt(messages.id, messageCursor.id),
-                  ),
-                )
-              : undefined,
-          ))
-          .orderBy(asc(messages.createdAt), asc(messages.id))
-          .limit(MESSAGE_PAGE_SIZE);
-        if (page.length === 0) break;
-        for (const row of page) {
-          const sanitized = sanitizeAccountExportMessage(row, userId);
-          redacted ||= sanitized.redacted;
-          if (written++) yield ",";
-          yield json(sanitized);
-        }
-        messageCursor = {
-          createdAt: page.at(-1)!.createdAt,
-          id: page.at(-1)!.id,
-        };
-        if (page.length < MESSAGE_PAGE_SIZE) break;
-      }
+    type ExportRow = {
+      channel_id: string;
+      channel_seq: number;
+      body: string;
+      created_at: Date;
+      edited_at: Date | null;
+      deleted_at: Date | null;
+      channel_name: string | null;
+      channel_kind: string;
+    };
+    const page: ExportRow[] = Array.from(await db.execute<ExportRow>(sql`
+      SELECT m.channel_id, m.channel_seq::int AS channel_seq, m.body, m.created_at, m.edited_at, m.deleted_at,
+             c.name AS channel_name, c.kind AS channel_kind
+      FROM chat_messages m
+      JOIN chat_channels c ON c.id = m.channel_id
+      WHERE m.author_id = ${userId}::uuid
+        AND m.created_at <= ${exportedAt}
+        ${messageCursor ? sql`AND (m.channel_id, m.channel_seq) > (${messageCursor.channelId}::uuid, ${messageCursor.seq})` : sql``}
+      ORDER BY m.channel_id, m.channel_seq
+      LIMIT ${MESSAGE_PAGE_SIZE}
+    `));
+    if (page.length === 0) break;
+    for (const row of page) {
+      if (written++) yield ",";
+      yield json(toAccountExportMessage({
+        channelId: row.channel_id,
+        channelName: row.channel_name,
+        channelKind: row.channel_kind,
+        seq: Number(row.channel_seq),
+        body: row.body,
+        createdAt: new Date(row.created_at),
+        editedAt: row.edited_at ? new Date(row.edited_at) : null,
+        deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
+      }));
     }
-    participantCursor = participantPage.at(-1)!.conversationId;
-    if (participantPage.length < EXPORT_PAGE_SIZE) break;
+    const last: ExportRow = page[page.length - 1]!;
+    messageCursor = { channelId: last.channel_id, seq: Number(last.channel_seq) };
+    if (page.length < MESSAGE_PAGE_SIZE) break;
   }
   yield `],"count":${written},"exportedCount":${written},"truncated":false`;
-  if (redacted) {
-    yield `,"note":${json("Received message content and sender identity are redacted to protect other participants.")}`;
-  }
+  yield `,"note":${json("Only messages you wrote are included; other people's messages are not exported.")}`;
   yield "},\"collections\":";
 
   yield "[";

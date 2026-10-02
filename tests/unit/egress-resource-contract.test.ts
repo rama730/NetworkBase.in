@@ -53,13 +53,13 @@ test("visibility-mutable project media stays inside the revocation cache budget"
   }
 });
 
-test("message attachments use canonical direct uploads and private application streaming", () => {
-  const presign = read("src/app/api/v1/messages/attachments/presign/route.ts");
-  const route = read("src/app/api/v1/messages/attachments/[attachmentId]/route.ts");
+test("chat attachments use canonical direct uploads and short-lived member-checked links", () => {
+  const presign = read("src/app/api/v1/chat/attachments/presign/route.ts");
+  const route = read("src/app/api/v1/chat/attachments/[assetId]/route.ts");
   assert.match(presign, /createUploadIntent/);
   assert.match(presign, /finalizeUploadIntent/);
-  assert.match(route, /streamPrivateObject/);
-  assert.match(read("src/lib/storage/private-object-response.ts"), /private, no-store/);
+  assert.match(route, /app_private\.chat_is_member/);
+  assert.match(route, /createSignedUrl\(storageKey, SIGNED_URL_SECONDS\)/);
 });
 
 test("missing message media exposes a terminal unavailable state", () => {

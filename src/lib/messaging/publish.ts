@@ -68,7 +68,8 @@ export function publishSentMessage(input: {
         const prefs = normalizeNotificationPreferences(recipient.notification_preferences);
         const isMention = mentioned.includes(recipient.id);
         if (!prefs.delivery.push || isNotificationPauseActive(prefs, now) || isQuietHoursActive(prefs, now)) return;
-        if (isMention ? !prefs.mentions : !prefs.messages) return;
+        // Channel notify settings already shaped `notify`; the global switch left is mentions.
+        if (isMention && !prefs.mentions) return;
         if (!allowPush(recipient.id, message.channel_id)) return;
         await sendPushToUser(recipient.id, {
           id: `${message.channel_id}:${message.seq}`,

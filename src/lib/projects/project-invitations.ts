@@ -300,7 +300,6 @@ export async function resolveProjectInvitationInternal(
         source: "project_invite",
         roleId: invitation.kind === "ordinary_role" ? invitation.roleId : null,
         incrementRoleCapacity: invitation.kind === "ordinary_role" && Boolean(invitation.roleId),
-        syncGroupConversation: true,
     });
 
     if (invitation.kind === "guidance_appointment") {

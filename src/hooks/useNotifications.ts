@@ -45,8 +45,6 @@ import type {
 import { queryKeys } from "@/lib/query-keys";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import { useAuth } from "@/hooks/use-auth";
-import { useMessagesV2UiStore } from "@/stores/messagesV2UiStore";
-import { recordMessagesOpen } from "@/lib/messages/observability";
 
 const DEFAULT_LIMIT = 20;
 // Mirrors the server-side upper bound in markNotificationsSeen. Keeping the
@@ -134,9 +132,6 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
     const [isTrayOpen, setIsTrayOpen] = useState(false);
     const [activeFilter, setActiveFilter] = useState<NotificationTrayFilter>("unread");
     const [isIdle, setIsIdle] = useState(false);
-    const activePopupConversationId = useMessagesV2UiStore((state) =>
-        state.popupState === "open" ? state.selectedConversationId : null,
-    );
     const isTrayOpenRef = useRef(false);
     const viewedNotificationIdsRef = useRef(new Set<string>());
     const toastQueueRef = useRef<NotificationItem[]>([]);
@@ -256,13 +251,6 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             }
         }
         if (!href) return false;
-        if (href.startsWith("/messages")) {
-            recordMessagesOpen({
-                source,
-                surface: "notification",
-                hasMessageTarget: href.includes("messageId="),
-            });
-        }
         router.push(href);
         viewedNotificationIdsRef.current.clear();
         isTrayOpenRef.current = false;
@@ -304,7 +292,6 @@ export function useNotifications(limit: number = DEFAULT_LIMIT) {
             pathname,
             search: getCurrentSearch(),
             trayOpen: isTrayOpen,
-            activeConversationId: activePopupConversationId,
             documentVisible: typeof document === "undefined" ? true : document.visibilityState === "visible",
         })) {
             return;

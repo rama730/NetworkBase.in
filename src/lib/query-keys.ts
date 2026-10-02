@@ -25,7 +25,7 @@ export const queryKeys = {
     root: () => ["connections"] as const,
     pending: () => ["connections", "pending"] as const,
   },
-  /** Slack-style chat (rebuild). Prefix chat-v3 never collides with the old chat / chat-v2 keys. */
+  /** Slack-style chat. */
   chat: {
     root: () => ["chat-v3"] as const,
     bootstrap: (userId: string | null | undefined) => ["chat-v3", "bootstrap", asNullable(userId)] as const,
@@ -40,52 +40,7 @@ export const queryKeys = {
     threads: () => ["chat-v3", "threads"] as const,
     dms: () => ["chat-v3", "dms"] as const,
     people: (query: string) => ["chat-v3", "people", query] as const,
-  },
-  messages: {
-    conversations: () => ["chat", "conversations"] as const,
-    targetUser: (userId: string) => ["chat", "targetUser", userId] as const,
-    v2: {
-      root: () => ["chat-v2"] as const,
-      inbox: (limit: number, scope: "active" | "archived" = "active") =>
-        ["chat-v2", "inbox", limit, scope] as const,
-      thread: (conversationId: string | null) =>
-        ["chat-v2", "thread", asNullable(conversationId)] as const,
-      capabilities: (conversationId: string | null, userId?: string | null) =>
-        [
-          "chat-v2",
-          "capabilities",
-          asNullable(conversationId),
-          asNullable(userId),
-        ] as const,
-      unread: () => ["chat-v2", "unread"] as const,
-      readCommitState: (conversationId: string | null | undefined) =>
-        ["chat-v2", "read-commit-state", asNullable(conversationId)] as const,
-      search: (query: string) => ["chat-v2", "search", query] as const,
-      structuredCatalog: (
-        conversationId: string | null | undefined,
-        userId?: string | null,
-      ) =>
-        [
-          "chat-v2",
-          "structured-catalog",
-          asNullable(conversationId),
-          asNullable(userId),
-        ] as const,
-      linkedWork: (
-        conversationId: string | null | undefined,
-        messageIds: readonly string[],
-      ) =>
-        [
-          "chat-v2",
-          "linked-work",
-          asNullable(conversationId),
-          messageIds.slice().sort().join(","),
-        ] as const,
-      applications: (limit: number, status = "all", sort = "newest") =>
-        ["chat-v2", "applications", limit, status, sort] as const,
-      projectGroups: (limit: number, offset: number) =>
-        ["chat-v2", "project-groups", limit, offset] as const,
-    },
+    taskSource: (taskId: string) => ["chat-v3", "task-source", taskId] as const,
   },
   profile: {
     root: () => ["profile"] as const,

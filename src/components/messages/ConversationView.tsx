@@ -171,6 +171,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
 
   const title = channelTitle(channel, meId);
   const isDirect = ctx.isDm;
+  // ponytail: "Active" comes from presence rooms + the 10-minute heartbeat (L-8).
+  // ceiling: coarse resolution. upgrade: live presence if sub-minute status is required.
   const dmOnline = channel.kind === "dm" && channel.dm_user ? online[channel.dm_user.id] : undefined;
   const Icon = channel.kind === "private" ? Lock : Hash;
   const placeholder = isDirect ? `Message ${title}` : `Message #${title}`;

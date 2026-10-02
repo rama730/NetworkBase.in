@@ -7,9 +7,7 @@ import { useAuthContext } from '@/components/providers/AuthProvider';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import {
     isRealtimeTerminalStatus,
-    subscribeMessagingNotifications as subscribeMessagingNotificationsChannel,
     subscribeUserNotifications,
-    type MessagingNotificationEvent,
     type UserNotificationEvent,
 } from '@/lib/realtime/subscriptions';
 
@@ -18,30 +16,21 @@ export type RealtimeHealthState = 'healthy' | 'reconnecting' | 'offline' | 'unav
 
 interface RealtimeContextType {
     isConnected: boolean;
-    isMessagingConnected: boolean;
     notificationStatus: RealtimeConnectionStatus;
-    messagingStatus: RealtimeConnectionStatus;
     connectionHealth: RealtimeHealthState;
     retryRealtime: () => void;
     subscribeUserNotifications: (listener: (event: UserNotificationEvent) => void) => () => void;
-    subscribeMessagingNotifications: (listener: (event: MessagingNotificationEvent) => void) => () => void;
 }
 
 const RealtimeContext = createContext<RealtimeContextType>({
     isConnected: false,
-    isMessagingConnected: false,
     notificationStatus: 'idle',
-    messagingStatus: 'idle',
     connectionHealth: 'healthy',
     retryRealtime: () => { },
     subscribeUserNotifications: () => () => { },
-    subscribeMessagingNotifications: () => () => { },
 });
 
 import { normalizeProfileRecord } from '@/lib/profile/browser-profile';
-import { isChatV3Enabled } from '@/lib/messaging/flag';
-
-const CHAT_V3 = isChatV3Enabled();
 
 function hasProfileDetailsChanged(next: Record<string, unknown>, currentProfile: any | null) {
     if (!currentProfile) return true;
@@ -57,13 +46,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const { user, session, isLoading, refreshProfile, profile } = useAuthContext();
     const isOnline = useOnlineStatus();
     const [notificationStatus, setNotificationStatus] = useState<RealtimeConnectionStatus>('idle');
-    const [messagingStatus, setMessagingStatus] = useState<RealtimeConnectionStatus>('idle');
     const [reconnectNonce, setReconnectNonce] = useState(0);
     const [connectionHealth, setConnectionHealth] = useState<RealtimeHealthState>('healthy');
     const listenersRef = useRef(new Set<(event: UserNotificationEvent) => void>());
-    const messagingListenersRef = useRef(new Set<(event: MessagingNotificationEvent) => void>());
     const connectionTokenRef = useRef(0);
-    const messagingConnectionTokenRef = useRef(0);
     const healthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const wasOnlineRef = useRef(isOnline);
 
@@ -103,27 +89,6 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
-    const handleMessagingNotification = useCallback((event: MessagingNotificationEvent) => {
-        for (const listener of messagingListenersRef.current) {
-            try {
-                listener(event);
-            } catch (error) {
-                console.error('Error in messaging notification listener', {
-                    error,
-                    event,
-                    listener: listener.name || 'anonymous',
-                });
-            }
-        }
-    }, []);
-
-    const registerMessagingNotificationListener = useCallback((listener: (event: MessagingNotificationEvent) => void) => {
-        messagingListenersRef.current.add(listener);
-        return () => {
-            messagingListenersRef.current.delete(listener);
-        };
-    }, []);
-
     const retryRealtime = useCallback(() => {
         if (!navigator.onLine) return;
         setReconnectNonce((current) => current + 1);
@@ -141,7 +106,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
     // A connection warning should describe transport health, not a business
     // notification count. Brief channel churn is normal, so wait before
-    // surfacing it and clear the warning as soon as both channels recover.
+    // surfacing it and clear the warning as soon as the channel recovers.
+    // Chat runs on its own private topics (ChatShellProvider).
     useEffect(() => {
         if (healthTimerRef.current) {
             clearTimeout(healthTimerRef.current);
@@ -158,20 +124,12 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        // With the new chat, messaging has no postgres_changes channel here
-        // (ChatShellProvider owns chat:user), so only notifications count.
-        const messagingConnected = CHAT_V3 || messagingStatus === 'connected';
-        const messagingDisconnected = CHAT_V3 || messagingStatus === 'disconnected';
-        const bothConnected = notificationStatus === 'connected' && messagingConnected;
-        if (bothConnected) {
+        if (notificationStatus === 'connected') {
             setConnectionHealth('healthy');
             return;
         }
 
-        const nextState: RealtimeHealthState =
-            notificationStatus === 'disconnected' && messagingDisconnected
-                ? 'unavailable'
-                : 'reconnecting';
+        const nextState: RealtimeHealthState = notificationStatus === 'disconnected' ? 'unavailable' : 'reconnecting';
 
         healthTimerRef.current = setTimeout(() => {
             setConnectionHealth(nextState);
@@ -184,7 +142,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
                 healthTimerRef.current = null;
             }
         };
-    }, [isLoading, isOnline, messagingStatus, notificationStatus, session?.access_token, user?.id]);
+    }, [isLoading, isOnline, notificationStatus, session?.access_token, user?.id]);
 
     useEffect(() => {
         if (!user) {
@@ -249,83 +207,19 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         };
     }, [handleUserNotification, isLoading, reconnectNonce, session?.access_token, user?.id]);
 
-    useEffect(() => {
-        if (!user || CHAT_V3) {
-            messagingConnectionTokenRef.current += 1;
-            setMessagingStatus('idle');
-            return;
-        }
-        if (!session?.access_token || isLoading) {
-            messagingConnectionTokenRef.current += 1;
-            setMessagingStatus('connecting');
-            return;
-        }
-
-        const supabase = createClient();
-        const userId = user.id;
-        const connectionToken = messagingConnectionTokenRef.current + 1;
-        messagingConnectionTokenRef.current = connectionToken;
-        setMessagingStatus('connecting');
-        let cancelled = false;
-        let channel: ReturnType<typeof subscribeMessagingNotificationsChannel> | null = null;
-
-        const connect = async () => {
-            if (cancelled || messagingConnectionTokenRef.current !== connectionToken) return;
-
-            await supabase.realtime.setAuth(session.access_token);
-            if (cancelled || messagingConnectionTokenRef.current !== connectionToken) return;
-
-            const nextChannel = subscribeMessagingNotificationsChannel({
-                supabase,
-                userId,
-                onEvent: handleMessagingNotification,
-                onStatus: (status) => {
-                    if (messagingConnectionTokenRef.current !== connectionToken) return;
-                    if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
-                        setMessagingStatus('connected');
-                        return;
-                    }
-                    if (isRealtimeTerminalStatus(status)) {
-                        setMessagingStatus('disconnected');
-                    }
-                },
-            });
-            channel = nextChannel;
-        };
-
-        void connect().catch((error) => {
-            console.error('[realtime] failed to initialize messaging notifications', error);
-            if (messagingConnectionTokenRef.current !== connectionToken) return;
-            setMessagingStatus('disconnected');
-        });
-
-        return () => {
-            cancelled = true;
-            messagingConnectionTokenRef.current += 1;
-            if (channel) void supabase.removeChannel(channel);
-        };
-    }, [handleMessagingNotification, isLoading, reconnectNonce, session?.access_token, user?.id]);
-
     const isConnected = notificationStatus === 'connected';
-    const isMessagingConnected = messagingStatus === 'connected';
     const value = useMemo(
         () => ({
             isConnected,
-            isMessagingConnected,
             notificationStatus,
-            messagingStatus,
             connectionHealth,
             retryRealtime,
             subscribeUserNotifications: registerUserNotificationListener,
-            subscribeMessagingNotifications: registerMessagingNotificationListener,
         }),
         [
             isConnected,
-            isMessagingConnected,
-            messagingStatus,
             notificationStatus,
             connectionHealth,
-            registerMessagingNotificationListener,
             registerUserNotificationListener,
             retryRealtime,
         ],

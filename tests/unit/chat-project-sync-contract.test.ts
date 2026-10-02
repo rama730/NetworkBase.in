@@ -8,8 +8,9 @@ test("a full role expires pending project_invitations for it (not only the old m
   assert.match(lifecycle, /\.update\(projectInvitations\)[\s\S]{0,200}status: "expired"[\s\S]{0,400}eq\(projectInvitations\.roleId, params\.roleId\)[\s\S]{0,120}eq\(projectInvitations\.status, "pending"\)/);
 });
 
-test("project membership changes sync chat membership behind the flag", () => {
-  assert.match(lifecycle, /isChatV3Enabled\(\)[\s\S]{0,200}syncProjectChat\(executor, params\.projectId, params\.userId, "add"\)/);
-  assert.match(lifecycle, /isChatV3Enabled\(\)[\s\S]{0,200}syncProjectChat\(executor, params\.projectId, params\.targetUserId, "remove"\)/);
-  assert.match(lifecycle, /isChatV3Enabled\(\)[\s\S]{0,200}syncProjectChat\(executor, params\.projectId, params\.targetUserId, "role"\)/);
+test("project membership changes always sync chat membership", () => {
+  assert.match(lifecycle, /syncProjectChat\(executor, params\.projectId, params\.userId, "add"\)/);
+  assert.match(lifecycle, /syncProjectChat\(executor, params\.projectId, params\.targetUserId, "remove"\)/);
+  assert.match(lifecycle, /syncProjectChat\(executor, params\.projectId, params\.targetUserId, "role"\)/);
+  assert.doesNotMatch(lifecycle, /isChatV3Enabled|conversationParticipants|messageWorkflowItems/);
 });
