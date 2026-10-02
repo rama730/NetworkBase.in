@@ -2,17 +2,20 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { AtSign, ChevronDown, FileText, Hash, Lock, MessagesSquare, Plus, UserPlus, Users } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { AtSign, ChevronDown, FileText, Hash, Lock, MessagesSquare, MoreHorizontal, Plus, UserPlus, Users } from "lucide-react";
+import { toast } from "sonner";
 
-import { getOrCreateDm } from "@/app/actions/chat/members";
+import { getOrCreateDm, setMemberState } from "@/app/actions/chat/members";
 import { readChatUi, writeChatUi } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import { DM_SIDEBAR_LIMIT, channelTitle, isDirectLike, isUnread, rowCount, sectionsFor } from "@/lib/messaging/channel-view";
-import type { ChatChannelSummary } from "@/lib/messaging/types";
+import { chatErrorMessage } from "@/lib/messaging/errors";
+import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
 
 export type ChatSectionsVariant = "sidebar" | "list";
 
@@ -92,6 +95,80 @@ function Row({ channel, meId, variant, onSelect, online }: { channel: ChatChanne
   return <Link href={href} {...shared} aria-current={current ? "page" : undefined}>{body}</Link>;
 }
 
+const SWIPE_WIDTH = 144;
+
+/**
+ * List rows on touch (B12): swipe left for Mute plus Archive (DMs) or Star
+ * (channels); the same actions sit in an overflow menu for non-swipe users.
+ */
+function SwipeActions({ channel, children }: { channel: ChatChannelSummary; children: ReactNode }) {
+  const { refresh } = useChatShell();
+  const [offset, setOffset] = useState(0);
+  const start = useRef<{ x: number; y: number; base: number } | null>(null);
+  const moved = useRef(false);
+  const direct = isDirectLike(channel);
+  const muted = channel.notify === "mute";
+  const act = async (patch: { notify?: ChatNotify; starred?: boolean; archived?: boolean }) => {
+    setOffset(0);
+    const result = await setMemberState({ channelId: channel.id, ...patch });
+    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    refresh();
+  };
+  const mute = () => void act({ notify: muted ? "all" : "mute" });
+  const second = direct
+    ? { label: "Archive", run: () => void act({ archived: true }) }
+    : { label: channel.starred ? "Unstar" : "Star", run: () => void act({ starred: !channel.starred }) };
+  return (
+    <div className="nb-chat-swipe group/row flex items-center">
+      <div className="nb-chat-swipe-actions" aria-hidden={offset === 0}>
+        <button type="button" tabIndex={offset ? 0 : -1} className="bg-secondary text-foreground" onClick={mute}>{muted ? "Unmute" : "Mute"}</button>
+        <button type="button" tabIndex={offset ? 0 : -1} className="bg-[var(--status-warning-soft)] text-[var(--status-warning)]" onClick={second.run}>{second.label}</button>
+      </div>
+      <div
+        className="nb-chat-swipe-row min-w-0 flex-1"
+        style={{ transform: offset ? `translateX(${offset}px)` : undefined }}
+        onTouchStart={(e) => {
+          const touch = e.touches[0];
+          if (!touch) return;
+          start.current = { x: touch.clientX, y: touch.clientY, base: offset };
+          moved.current = false;
+        }}
+        onTouchMove={(e) => {
+          const touch = e.touches[0];
+          if (!start.current || !touch) return;
+          const dx = touch.clientX - start.current.x;
+          if (!moved.current && Math.abs(dx) < Math.abs(touch.clientY - start.current.y)) return;
+          moved.current = moved.current || Math.abs(dx) > 8;
+          setOffset(Math.max(-SWIPE_WIDTH, Math.min(0, start.current.base + dx)));
+        }}
+        onTouchEnd={() => {
+          start.current = null;
+          setOffset((current) => (current < -SWIPE_WIDTH / 2 ? -SWIPE_WIDTH : 0));
+        }}
+        onClickCapture={(e) => {
+          if (moved.current || offset) {
+            e.preventDefault();
+            e.stopPropagation();
+            moved.current = false;
+            setOffset(0);
+          }
+        }}
+      >
+        {children}
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger className="grid size-11 flex-none place-items-center rounded-[5px] text-muted-foreground" aria-label={`Actions for ${channel.name ?? "conversation"}`}>
+          <MoreHorizontal size={16} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={mute}>{muted ? "Unmute" : "Mute"}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={second.run}>{second.label}</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 function Section({ id, title, count, collapsed, onToggle, action, children }: {
   id: string; title: string; count?: number; collapsed: boolean; onToggle: (id: string) => void; action?: ReactNode; children: ReactNode;
 }) {
@@ -153,9 +230,12 @@ export function ChatSections({ projectId, variant, unreadOnly = false, onSelect,
     if (onSelect) onSelect(result.channelId);
     else router.push(channelHref(result.channelId));
   };
-  const row = (channel: ChatChannelSummary) => (
-    <Row key={channel.id} channel={channel} meId={meId} variant={variant} onSelect={onSelect} online={presenceIds.includes(channel.dm_user?.id ?? "") ? Boolean(online[channel.dm_user!.id]) : undefined} />
-  );
+  const row = (channel: ChatChannelSummary) => {
+    const element = (
+      <Row key={channel.id} channel={channel} meId={meId} variant={variant} onSelect={onSelect} online={presenceIds.includes(channel.dm_user?.id ?? "") ? Boolean(online[channel.dm_user!.id]) : undefined} />
+    );
+    return variant === "list" && !onSelect ? <SwipeActions key={channel.id} channel={channel}>{element}</SwipeActions> : element;
+  };
 
   return (
     <div className="space-y-4">

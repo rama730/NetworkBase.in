@@ -1186,3 +1186,9 @@ svg.lucide { stroke-width:1.75; }
 .nb-chat-list .nb-chat-row-preview { min-height:64px; }
 @media (pointer:coarse) { .nb-chat-row { min-height:44px; } }
 @media (min-width:768px) and (max-width:1023px) { .nb-shell--messages .nb-chat-sidebar { display:none; } }
+.nb-shell--messages { height:var(--chat-vvh, 100dvh); }
+.nb-chat-swipe { position:relative; overflow:hidden; border-radius:5px; }
+.nb-chat-swipe-actions { position:absolute; inset:0 0 0 auto; display:flex; }
+.nb-chat-swipe-actions > button { width:72px; font-size:13px; font-weight:500; }
+.nb-chat-swipe-row { position:relative; background:var(--card); transition:transform 180ms cubic-bezier(.2,.8,.3,1); touch-action:pan-y; }
+@media (prefers-reduced-motion: reduce) { .nb-chat-swipe-row { transition:none; } }
