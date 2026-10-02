@@ -348,3 +348,16 @@ export function projectInvitationDisplayRole(invitation: typeof projectInvitatio
         : invitation.roleTitle || "Collaborator";
 }
 
+
+/** Pending, unexpired invitations addressed to a user (the canonical record; used by inbox badges). */
+export async function countPendingInvitationsForCandidate(userId: string): Promise<number> {
+    const [row] = await db
+        .select({ value: sql<number>`count(*)::int` })
+        .from(projectInvitations)
+        .where(and(
+            eq(projectInvitations.candidateId, userId),
+            eq(projectInvitations.status, "pending"),
+            sql`${projectInvitations.expiresAt} > now()`,
+        ));
+    return Number(row?.value ?? 0);
+}

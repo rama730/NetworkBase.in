@@ -166,6 +166,8 @@ import {
   taskSubtaskTitleSchema,
 } from "@/lib/validations/task";
 import { invalidatePublicProjectsFeedCache } from "@/lib/projects/public-feed-service";
+import { isChatV3Enabled } from "@/lib/messaging/flag";
+import { syncProjectChat } from "@/lib/messaging/integrations";
 import {
   buildProjectAccessTransitionPolicy,
   canProjectMemberUploadFiles,
@@ -2357,17 +2359,22 @@ export async function createProjectAction(
 
         // Use transaction to ensure project, owner membership, and project group are created together
         // OPTIMIZED: Create conversation FIRST, insert project WITH conversationId (saves 1 UPDATE)
+        const chatV3 = isChatV3Enabled();
         const result = await db.transaction(async (tx) => {
-          // 1. Create the Project Group Conversation FIRST
-          const [newConversation] = await tx
-            .insert(conversations)
-            .values({
-              type: "project_group",
-            })
-            .returning({ id: conversations.id });
+          // 1. Old messaging: create the Project Group Conversation FIRST.
+          //    New chat: the project's #general channel is created after the owner joins.
+          let newConversation: { id: string } | undefined;
+          if (!chatV3) {
+            [newConversation] = await tx
+              .insert(conversations)
+              .values({
+                type: "project_group",
+              })
+              .returning({ id: conversations.id });
 
-          if (!newConversation) {
-            throw new Error("Failed to create project group");
+            if (!newConversation) {
+              throw new Error("Failed to create project group");
+            }
           }
 
           // 2. Create the Project WITH conversationId
@@ -2375,7 +2382,7 @@ export async function createProjectAction(
             .insert(projects)
             .values({
               ...projectData,
-              conversationId: newConversation.id,
+              conversationId: newConversation?.id ?? null,
             })
             .returning();
 
@@ -2384,10 +2391,12 @@ export async function createProjectAction(
           }
 
           // 3. Add Owner as a Participant of the Project Group
-          await tx.insert(conversationParticipants).values({
-            conversationId: newConversation.id,
-            userId: user.id,
-          });
+          if (newConversation) {
+            await tx.insert(conversationParticipants).values({
+              conversationId: newConversation.id,
+              userId: user.id,
+            });
+          }
 
           // 4. Add owner as a member with 'owner' role
           await tx.insert(projectMembers).values({
@@ -2395,6 +2404,9 @@ export async function createProjectAction(
             userId: user.id,
             role: "owner",
           });
+          if (chatV3) {
+            await syncProjectChat(tx, newProject.id, null, "ensure_default");
+          }
           await upsertProfileProjectContributionFromMembership(tx, {
             profileId: user.id,
             projectId: newProject.id,

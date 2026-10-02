@@ -25,6 +25,8 @@ import {
     type ProjectInvitationKind,
 } from "@/lib/projects/project-invitations";
 import { sendStructuredMessageActionV2 } from "@/app/actions/messaging/collaboration";
+import { isChatV3Enabled } from "@/lib/messaging/flag";
+import { postInviteCard } from "@/lib/messaging/integrations";
 
 type CreateInvitationActionInput = {
     projectId: string;
@@ -65,7 +67,17 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
         const roleTitle = projectInvitationDisplayRole(invitation);
 
         let messageResult: Awaited<ReturnType<typeof sendStructuredMessageActionV2>> | null = null;
-        if (created.created) {
+        let chatChannelId: string | null = null;
+        if (created.created && isChatV3Enabled()) {
+            // New chat: the invite card goes into the inviter↔candidate DM.
+            // A blocked pair has no DM; the invitation stays in the inbox.
+            chatChannelId = await postInviteCard({
+                invitationId: invitation.id,
+                inviterId: user.id,
+                candidateId: input.candidateId,
+                note: invitation.note,
+            }).catch(() => null);
+        } else if (created.created) {
             messageResult = await sendStructuredMessageActionV2({
                 targetUserId: input.candidateId,
                 kind: "project_invite",
@@ -84,7 +96,9 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
                     .set({ messageWorkflowItemId: messageResult.workflowItemId, updatedAt: new Date() })
                     .where(eq(projectInvitations.id, invitation.id));
             }
+        }
 
+        if (created.created) {
             // The invitation inbox item is durable whether a direct message is allowed or not.
             await createNotification({
                 recipientUserId: input.candidateId,
@@ -94,11 +108,11 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
                 importance: "important",
                 title: `${user.user_metadata?.full_name || user.user_metadata?.username || "A project Lead"} invited you to ${invitation.projectTitle}`,
                 body: `Role: ${roleTitle}`,
-                href: "/messages",
+                href: chatChannelId ? `/messages/${chatChannelId}` : "/messages",
                 entityRefs: {
                     projectId: invitation.projectId,
                     projectSlug: created.projectSlug,
-                    workflowItemId: messageResult.workflowItemId ?? null,
+                    workflowItemId: messageResult?.workflowItemId ?? null,
                     targetUserId: input.candidateId,
                 },
                 preview: {
@@ -113,7 +127,7 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
         return {
             success: true as const,
             invitationId: invitation.id,
-            messageDelivered: Boolean(messageResult?.success),
+            messageDelivered: Boolean(messageResult?.success || chatChannelId),
             capacityWarning: Boolean(created.capacityWarning),
         };
     } catch (error) {
