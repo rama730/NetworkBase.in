@@ -1,6 +1,8 @@
 'use server';
 
 import { logger } from '@/lib/logger';
+import { isChatV3Enabled } from '@/lib/messaging/flag';
+import { ensureApplicationChannel, postApplicationUpdate } from '@/lib/messaging/integrations';
 import { db } from '@/lib/db';
 import {
     roleApplications,
@@ -1387,7 +1389,10 @@ export async function applyToRoleAction(
                             throw new Error('Application is not eligible for reapply');
                         }
 
-                        const conversationId = existingApp.conversationId || await getOrCreateDmConversationIdInternal(tx, user.id, project.ownerId);
+                        const chatV3 = isChatV3Enabled();
+                        const conversationId = chatV3
+                            ? null
+                            : existingApp.conversationId || await getOrCreateDmConversationIdInternal(tx, user.id, project.ownerId);
 
                         await tx
                             .update(roleApplications)
@@ -1401,6 +1406,11 @@ export async function applyToRoleAction(
                             })
                             .where(eq(roleApplications.id, existingApp.id));
 
+                        if (chatV3) {
+                            // The application card in its private thread shows the new message and status live.
+                            await postApplicationUpdate(tx, existingApp.id, user.id, 'reapplied');
+                            return { conversationId: null };
+                        }
                         await sendApplicationMessageInternal(
                             tx,
                             user.id,
@@ -1412,7 +1422,7 @@ export async function applyToRoleAction(
                             trimmedMessage,
                             existingApp.id,
                             traceId,
-                            conversationId
+                            conversationId!
                         );
 
                         return { conversationId };
@@ -1442,7 +1452,7 @@ export async function applyToRoleAction(
                     });
                     return toApplicationSuccess(traceId, {
                         applicationId: existingApp.id,
-                        conversationId,
+                        conversationId: conversationId ?? undefined,
                         idempotent: true,
                     });
                 }
@@ -1462,7 +1472,8 @@ export async function applyToRoleAction(
                     ));
                 if ((pending?.count ?? 0) >= APPLICATION_PENDING_CAP_PER_USER) return null;
 
-                const conversationId = await getOrCreateDmConversationIdInternal(tx, user.id, project.ownerId);
+                const chatV3 = isChatV3Enabled();
+                const conversationId = chatV3 ? null : await getOrCreateDmConversationIdInternal(tx, user.id, project.ownerId);
 
                 const [newApp] = await tx.insert(roleApplications)
                     .values({
@@ -1486,6 +1497,11 @@ export async function applyToRoleAction(
                     metadata: { applicationTraceId: traceId },
                 });
 
+                if (chatV3) {
+                    // New chat: a private thread for applicant and reviewers, opened by the application card.
+                    await ensureApplicationChannel(tx, newApp!.id);
+                    return { applicationId: newApp!.id, conversationId: null };
+                }
                 await sendApplicationMessageInternal(
                     tx,
                     user.id,
@@ -1497,7 +1513,7 @@ export async function applyToRoleAction(
                     trimmedMessage,
                     newApp!.id,
                     traceId,
-                    conversationId
+                    conversationId!
                 );
 
                 return { applicationId: newApp!.id, conversationId };
@@ -1532,7 +1548,7 @@ export async function applyToRoleAction(
 
             return toApplicationSuccess(traceId, {
                 applicationId: newApplicationId,
-                conversationId,
+                conversationId: conversationId ?? undefined,
             });
         });
     } catch (error) {
@@ -1929,8 +1945,11 @@ export async function editPendingApplicationAction(
         const roleTitle = application.role?.title || application.role?.role || 'Role';
         const projectTitle = application.project?.title || 'Project';
 
+        const chatV3 = isChatV3Enabled();
         const { conversationId } = await db.transaction(async (tx) => {
-            const conversationId = application.conversationId || await getOrCreateDmConversationIdInternal(tx, application.applicantId, application.creatorId);
+            const conversationId = chatV3
+                ? null
+                : application.conversationId || await getOrCreateDmConversationIdInternal(tx, application.applicantId, application.creatorId);
 
             await tx
                 .update(roleApplications)
@@ -1945,19 +1964,24 @@ export async function editPendingApplicationAction(
                 metadata: { applicationTraceId: traceId },
             });
 
-            await sendApplicationMessageInternal(
-                tx,
-                application.applicantId,
-                application.creatorId,
-                application.projectId,
-                application.roleId || "",
-                projectTitle,
-                roleTitle,
-                normalizedMessage,
-                application.id,
-                traceId,
-                conversationId
-            );
+            if (chatV3) {
+                // The application card shows the edited message live.
+                await postApplicationUpdate(tx, application.id, user.id, 'edited the application');
+            } else {
+                await sendApplicationMessageInternal(
+                    tx,
+                    application.applicantId,
+                    application.creatorId,
+                    application.projectId,
+                    application.roleId || "",
+                    projectTitle,
+                    roleTitle,
+                    normalizedMessage,
+                    application.id,
+                    traceId,
+                    conversationId!
+                );
+            }
 
             return { conversationId };
         });
@@ -1976,7 +2000,7 @@ export async function editPendingApplicationAction(
 
         return toApplicationSuccess(traceId, {
             applicationId: application.id,
-            conversationId,
+            conversationId: conversationId ?? undefined,
         });
     } catch (error) {
         console.error('Failed to edit pending application:', error);

@@ -15,7 +15,10 @@ import {
     tasks,
     projectNodes,
     messageWorkflowItems,
+    projectInvitations,
 } from "@/lib/db/schema";
+import { isChatV3Enabled } from "@/lib/messaging/flag";
+import { syncProjectChat } from "@/lib/messaging/integrations";
 import {
     isEligibleProjectMember,
     normalizeProjectMemberRole,
@@ -364,6 +367,18 @@ export async function addProjectMemberInternal(
                 );
             }
 
+            // The canonical invitation record expires too (the message card is only a mirror).
+            const expiredInvitations = await executor
+                .update(projectInvitations)
+                .set({ status: "expired", resolvedAt: new Date(), resolvedBy: params.actorId, updatedAt: new Date() })
+                .where(and(
+                    eq(projectInvitations.projectId, params.projectId),
+                    eq(projectInvitations.roleId, params.roleId),
+                    eq(projectInvitations.status, "pending"),
+                ))
+                .returning({ candidateId: projectInvitations.candidateId });
+            expiredInvitations.forEach((invitation) => userIdsToInvalidate.add(invitation.candidateId));
+
             await executor
                 .update(messageWorkflowItems)
                 .set({ status: 'expired', resolvedAt: new Date(), updatedAt: new Date() })
@@ -382,7 +397,10 @@ export async function addProjectMemberInternal(
         }
     }
 
-    const conversationId = params.syncGroupConversation !== false
+    if (isChatV3Enabled() && params.syncGroupConversation !== false) {
+        await syncProjectChat(executor, params.projectId, params.userId, "add");
+    }
+    const conversationId = params.syncGroupConversation !== false && !isChatV3Enabled()
         ? await syncProjectGroupParticipantInternal(executor, {
             projectId: params.projectId,
             userId: params.userId,
@@ -456,6 +474,9 @@ export async function changeProjectMemberRoleInternal(
         .update(projectMembers)
         .set({ role: params.nextRole })
         .where(and(eq(projectMembers.projectId, params.projectId), eq(projectMembers.userId, params.targetUserId)));
+    if (isChatV3Enabled()) {
+        await syncProjectChat(executor, params.projectId, params.targetUserId, "role");
+    }
     const [event] = await executor.insert(projectNodeEvents).values({
         projectId: params.projectId,
         actorId: params.actorId,
@@ -677,12 +698,16 @@ export async function removeProjectMemberInternal(
             .where(and(eq(tasks.projectId, params.projectId), eq(tasks.assigneeId, params.targetUserId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`));
     }
 
-    await syncProjectGroupParticipantInternal(executor, {
-        projectId: params.projectId,
-        userId: params.targetUserId,
-        ownerId: project.ownerId,
-        mode: "remove",
-    });
+    if (isChatV3Enabled()) {
+        await syncProjectChat(executor, params.projectId, params.targetUserId, "remove");
+    } else {
+        await syncProjectGroupParticipantInternal(executor, {
+            projectId: params.projectId,
+            userId: params.targetUserId,
+            ownerId: project.ownerId,
+            mode: "remove",
+        });
+    }
     await executor
         .delete(projectMembers)
         .where(and(eq(projectMembers.projectId, params.projectId), eq(projectMembers.userId, params.targetUserId)));

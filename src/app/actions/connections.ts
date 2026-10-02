@@ -3,6 +3,8 @@
 import { db } from '@/lib/db';
 import { z } from 'zod';
 import { connectionSuggestionDismissals, connectionSuggestions, connections, messageWorkflowItems, profiles, projects, roleApplications } from '@/lib/db/schema';
+import { isChatV3Enabled } from '@/lib/messaging/flag';
+import { countPendingInvitationsForCandidate } from '@/lib/projects/project-invitations';
 import { getAuthUser } from '@/lib/supabase/auth-user';
 import { eq, and, or, desc, asc, sql, inArray, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
@@ -55,14 +57,16 @@ export async function readNetworkPendingCountsAction() {
                 .select({ count: sql<number>`COUNT(*)::int` })
                 .from(connections)
                 .where(and(eq(connections.addresseeId, user.id), eq(connections.status, 'pending'))),
-            db
-                .select({ count: sql<number>`COUNT(*)::int` })
-                .from(messageWorkflowItems)
-                .where(and(
-                    eq(messageWorkflowItems.assigneeUserId, user.id),
-                    eq(messageWorkflowItems.kind, 'project_invite'),
-                    eq(messageWorkflowItems.status, 'pending'),
-                )),
+            isChatV3Enabled()
+                ? countPendingInvitationsForCandidate(user.id).then((count) => [{ count }])
+                : db
+                    .select({ count: sql<number>`COUNT(*)::int` })
+                    .from(messageWorkflowItems)
+                    .where(and(
+                        eq(messageWorkflowItems.assigneeUserId, user.id),
+                        eq(messageWorkflowItems.kind, 'project_invite'),
+                        eq(messageWorkflowItems.status, 'pending'),
+                    )),
         ]);
 
         return {
