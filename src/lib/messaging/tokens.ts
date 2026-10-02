@@ -46,3 +46,29 @@ export function tokensToPlainText(body: string, nameOf: (userId: string) => stri
     })
     .join("");
 }
+
+/** Body → editable draft: user tokens become @Name; channel tokens stay as written. */
+export function tokensToDraft(body: string, nameOf: (userId: string) => string | undefined) {
+  return splitTokens(body)
+    .map((segment) => {
+      if (segment.type === "text") return segment.value;
+      if (segment.type === "user") return nameOf(segment.id) ? `@${nameOf(segment.id)}` : `<@${segment.id}>`;
+      if (segment.type === "channel") return `<#${segment.id}>`;
+      return `@${segment.value}`;
+    })
+    .join("");
+}
+
+/**
+ * Draft → body: "@Full Name" for a known person becomes <@id> (longest names
+ * first, so "Ann Lee" wins over "Ann"); @channel and @here become broadcasts.
+ */
+export function encodeMentions(text: string, people: Array<{ id: string; name: string }>) {
+  let out = text.replace(/(^|\s)@(channel|here)(?=$|[\s.,!?;:)])/g, (_match, pre: string, kind: string) => `${pre}<!${kind}>`);
+  const named = people.filter((person) => person.name).sort((a, b) => b.name.length - a.name.length);
+  for (const person of named) {
+    const escaped = person.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`(^|\\s)@${escaped}(?=$|[\\s.,!?;:)])`, "g"), `$1<@${person.id}>`);
+  }
+  return out;
+}

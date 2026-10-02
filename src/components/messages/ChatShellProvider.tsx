@@ -23,6 +23,8 @@ export type ChatShell = {
   status: BroadcastStatus;
   /** Full reload of the channel list (membership changes, returning to the tab). */
   refresh: () => void;
+  /** Move this tab's read cursor without waiting for the server echo. */
+  applyRead: (channelId: string, seq: number) => void;
 };
 
 const NO_PENDING: Pending = { invites: 0, applications: 0 };
@@ -39,6 +41,7 @@ const ChatShellContext = createContext<ChatShell>({
   badge: 0,
   status: "connecting",
   refresh: () => undefined,
+  applyRead: () => undefined,
 });
 
 async function load(since: string | null): Promise<Snapshot> {
@@ -71,6 +74,10 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
 
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: key });
+  }, [key, queryClient]);
+
+  const applyRead = useCallback((channelId: string, seq: number) => {
+    queryClient.setQueryData<Snapshot>(key, (prev) => (prev ? { ...prev, data: applyReadMoved(prev.data, channelId, seq) } : prev));
   }, [key, queryClient]);
 
   const pollDelta = useCallback(async () => {
@@ -155,7 +162,7 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
   const data = userId ? query.data?.data : undefined;
   const pending = (userId && query.data?.pending) || NO_PENDING;
   const badge = useMemo(() => chatBadge(data), [data]);
-  const shell = useMemo<ChatShell>(() => ({ data, pending, badge, status, refresh }), [badge, data, pending, refresh, status]);
+  const shell = useMemo<ChatShell>(() => ({ data, pending, badge, status, refresh, applyRead }), [applyRead, badge, data, pending, refresh, status]);
   const attention = useMemo(() => ({ unreadCount: badge, hasUnreadMessages: badge > 0 }), [badge]);
 
   return (

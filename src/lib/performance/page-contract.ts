@@ -271,6 +271,9 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     allowForceDynamic: true,
   }),
   ...messagesRoute("/messages/home"),
+  ...messagesRoute("/messages/[channelId]"),
+  ...messagesRoute("/messages/[channelId]/thread/[seq]"),
+  ...messagesRoute("/messages/[channelId]/details"),
   "/u/[username]": buildPublicContract("/u/[username]", "src/app/(site)/(main)/u/[username]/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 60,
