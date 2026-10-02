@@ -101,6 +101,23 @@ export async function dispatchWebPush(userId: string, item: NotificationItem): P
         return { attempted: 0, delivered: 0, pruned: 0 };
     }
 
+    return sendPushToUser(userId, buildPayload(item), { notificationId: item.id });
+}
+
+export type SendPushOptions = {
+    notificationId: string | null;
+    /** Web Push `Topic`: the push service keeps only the newest pending push per topic (≤ 32 URL-safe chars). */
+    topic?: string;
+    /** Chat pushes skip the per-attempt delivery log to keep the send path free of extra writes. */
+    recordDeliveries?: boolean;
+};
+
+/** Send one payload to every push subscription of a user, pruning dead endpoints. */
+export async function sendPushToUser(userId: string, payloadData: WebPushPayload, options: SendPushOptions): Promise<DispatchResult> {
+    if (!configureVapid()) return { attempted: 0, delivered: 0, pruned: 0 };
+    const recordDeliveries = options.recordDeliveries !== false;
+    const logDeliveryRecords = (records: DeliveryRecord[]) => (recordDeliveries ? logDeliveries(records) : Promise.resolve());
+
     const rows = await db
         .select({
             id: pushSubscriptions.id,
@@ -112,8 +129,8 @@ export async function dispatchWebPush(userId: string, item: NotificationItem): P
         .where(eq(pushSubscriptions.userId, userId));
 
     if (rows.length === 0) {
-        await logDeliveries([{
-            notificationId: item.id,
+        await logDeliveryRecords([{
+            notificationId: options.notificationId,
             userId,
             channel: "web_push",
             status: "dropped",
@@ -123,7 +140,8 @@ export async function dispatchWebPush(userId: string, item: NotificationItem): P
         return { attempted: 0, delivered: 0, pruned: 0 };
     }
 
-    const payload = JSON.stringify(buildPayload(item));
+    const payload = JSON.stringify(payloadData);
+    const sendOptions = { TTL: 60 * 60 * 24, ...(options.topic ? { topic: options.topic } : {}) };
     const deadEndpointIds: string[] = [];
     const successfulEndpointIds: string[] = [];
     const failedEndpointIds: string[] = [];
@@ -136,11 +154,11 @@ export async function dispatchWebPush(userId: string, item: NotificationItem): P
             keys: { p256dh: row.p256dh, auth: row.auth },
         };
         try {
-            await webpush.sendNotification(subscription, payload, { TTL: 60 * 60 * 24 });
+            await webpush.sendNotification(subscription, payload, sendOptions);
             delivered += 1;
             successfulEndpointIds.push(row.id);
             deliveryRecords.push({
-                notificationId: item.id,
+                notificationId: options.notificationId,
                 userId,
                 channel: "web_push",
                 status: "delivered",
@@ -162,7 +180,7 @@ export async function dispatchWebPush(userId: string, item: NotificationItem): P
                 });
             }
             deliveryRecords.push({
-                notificationId: item.id,
+                notificationId: options.notificationId,
                 userId,
                 channel: "web_push",
                 status: "failed",
@@ -172,7 +190,7 @@ export async function dispatchWebPush(userId: string, item: NotificationItem): P
         }
     }));
 
-    await logDeliveries(deliveryRecords);
+    await logDeliveryRecords(deliveryRecords);
 
     const subscriptionStateUpdates: Promise<unknown>[] = [];
     const now = new Date();
