@@ -69,3 +69,15 @@ test("titles, counts and rail badges follow the report rules", () => {
 test("projects order by latest activity", () => {
   assert.deepEqual(projectsByActivity(data).map((p) => p.id), ["p2", "p1"]);
 });
+
+test("formatChatTime: clock, relative, and today-vs-older auto", async () => {
+  const { formatChatTime } = await import("@/lib/messaging/channel-view");
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString();
+  assert.equal(formatChatTime(fiveMinutesAgo, "ago"), "5m ago");
+  assert.equal(formatChatTime(new Date().toISOString(), "ago"), "just now");
+  const today = new Date();
+  assert.equal(formatChatTime(today.toISOString()), today.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
+  const older = new Date(2026, 0, 15, 9, 0);
+  assert.equal(formatChatTime(older.toISOString()), older.toLocaleDateString(undefined, { month: "short", day: "numeric" }));
+  assert.equal(formatChatTime(older.toISOString(), "clock"), older.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
+});

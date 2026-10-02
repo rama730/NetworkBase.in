@@ -1,12 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Hash, Lock, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 
-import { getOrCreateDm, searchPeople } from "@/app/actions/chat/members";
+import { getOrCreateDm } from "@/app/actions/chat/members";
+import { usePeopleSearch } from "@/components/messages/usePeopleSearch";
 import { useChatUi } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -15,7 +15,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { channelTitle } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import type { ChatPerson } from "@/lib/messaging/types";
-import { queryKeys } from "@/lib/query-keys";
 
 type Result =
   | { type: "channel"; id: string; title: string; icon: "hash" | "lock" | "group" | "person"; person: ChatPerson | null }
@@ -33,26 +32,13 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
   const { data, refresh } = useChatShell();
   const { user } = useAuth();
   const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
   const [active, setActive] = useState(0);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(query.trim()), 250);
-    return () => clearTimeout(timer);
-  }, [query]);
   useEffect(() => {
     if (!open) setQuery("");
   }, [open]);
 
-  const people = useQuery({
-    queryKey: queryKeys.chat.people(debounced.toLowerCase()),
-    enabled: open && debounced.length >= 2,
-    queryFn: async () => {
-      const result = await searchPeople({ query: debounced });
-      return result.success ? result.people : [];
-    },
-    staleTime: 60_000,
-  });
+  const people = usePeopleSearch(query, open);
 
   const results = useMemo<Result[]>(() => {
     const needle = query.trim().toLowerCase();

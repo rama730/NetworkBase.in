@@ -1,12 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { SendHorizontal, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { createGroup, getOrCreateDm, searchPeople } from "@/app/actions/chat/members";
+import { createGroup, getOrCreateDm } from "@/app/actions/chat/members";
+import { usePeopleSearch } from "@/components/messages/usePeopleSearch";
 import { sendMessage } from "@/app/actions/chat/messages";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ViewScreen } from "@/components/messages/ViewScreen";
@@ -15,7 +15,6 @@ import { personName } from "@/lib/messaging/channel-view";
 import { CHAT_MAX_BODY, CHAT_MAX_GROUP_OTHERS } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import type { ChatPerson } from "@/lib/messaging/types";
-import { queryKeys } from "@/lib/query-keys";
 
 /**
  * "To:" chips of people you may message, then the first message. One person
@@ -26,23 +25,10 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
   const router = useRouter();
   const { refresh } = useChatShell();
   const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
   const [to, setTo] = useState<ChatPerson[]>([]);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(query.trim()), 250);
-    return () => clearTimeout(timer);
-  }, [query]);
-  const people = useQuery({
-    queryKey: queryKeys.chat.people(debounced.toLowerCase()),
-    enabled: debounced.length >= 2,
-    queryFn: async () => {
-      const result = await searchPeople({ query: debounced });
-      return result.success ? result.people : [];
-    },
-    staleTime: 60_000,
-  });
+  const people = usePeopleSearch(query);
   const candidates = (people.data ?? []).filter((p) => !to.some((t) => t.id === p.id));
 
   const send = async () => {

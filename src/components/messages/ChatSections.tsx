@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
-import { DM_SIDEBAR_LIMIT, channelTitle, isDirectLike, isUnread, rowCount, sectionsFor } from "@/lib/messaging/channel-view";
+import { DM_SIDEBAR_LIMIT, channelTitle, formatChatTime, isDirectLike, isUnread, rowCount, sectionsFor } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
 
@@ -67,7 +67,7 @@ function Row({ channel, meId, variant, onSelect, online }: { channel: ChatChanne
           <span className="truncate">{title}</span>
           {channel.last_message_at ? (
             <span className="ml-auto flex-none font-mono text-[12px] font-normal text-muted-foreground">
-              {new Date(channel.last_message_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              {formatChatTime(channel.last_message_at)}
             </span>
           ) : null}
         </span>

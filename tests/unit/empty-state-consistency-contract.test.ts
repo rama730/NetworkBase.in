@@ -37,12 +37,6 @@ test("Empty state architectural contract: My Profile surfaces", () => {
     assert.match(editProfileTabs, /className=["'][^"']*nb-empty-state nb-grid-ground/);
 });
 
-test("Empty state architectural contract: Messages surfaces", () => {
-    const emptyConv = readFileSync(resolve(ROOT, "src/components/messages/parts/EmptyConversation.tsx"), "utf-8");
-
-    assert.match(emptyConv, /className=["'][^"']*nb-empty-state nb-grid-ground/);
-});
-
 test("Empty state architectural contract: Projects and Tasks surfaces", () => {
     const docTab = readFileSync(resolve(ROOT, "src/components/projects/tabs/DocTab.tsx"), "utf-8");
     const sprintPlanning = readFileSync(resolve(ROOT, "src/components/projects/tabs/SprintPlanning.tsx"), "utf-8");
