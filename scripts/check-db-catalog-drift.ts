@@ -108,6 +108,22 @@ const REQUIRED_LIFECYCLE_INDEXES = [
   "extension_device_session_events_retention_idx",
 ] as const;
 
+// Chat rebuild (0180). Partitions of the hash-partitioned tables keep RLS on
+// with no policy so they can only be read through their parent.
+const CHAT_TABLES = [
+  "chat_channels",
+  "chat_channel_members",
+  "chat_messages",
+  "chat_message_cards",
+  "chat_attachments",
+  "chat_reactions",
+  "chat_mentions",
+  "chat_thread_follows",
+  "chat_pins",
+  "chat_reports",
+] as const;
+const CHAT_PARTITION_PATTERN = /^chat_(messages|attachments|reactions)_p\d{2}$/;
+
 const ALLOWED_SECURITY_DEFINER_FUNCTIONS = new Map([
   ["public.handle_message_insert_consistency", "search_path=\"\""],
   ["public.rls_auto_enable", "search_path=pg_catalog"],
@@ -169,7 +185,8 @@ if (!DATABASE_URL) {
 
 const sql = postgres(DATABASE_URL, {
   prepare: false,
-  ssl: "require",
+  // Local disposable databases (scripts/chat-db/local-db.sh) run without TLS.
+  ssl: /@(localhost|127\.0\.0\.1)[:/]/.test(DATABASE_URL) ? false : "require",
   max: 1,
 });
 
@@ -345,7 +362,7 @@ async function main() {
     ORDER BY c.relname
   `;
   for (const row of noPolicyRows) {
-    if (!ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES.has(row.table_name)) {
+    if (!ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES.has(row.table_name) && !CHAT_PARTITION_PATTERN.test(row.table_name)) {
       errors.push(`public.${row.table_name} has RLS enabled with no policy but is not allowlisted`);
     }
   }
@@ -569,6 +586,61 @@ async function main() {
     || !triggerDefinition.includes("coalesce(last_message_id")
   ) {
     errors.push("handle_message_insert_consistency must maintain inbox projections with a monotonic timestamp/id tuple");
+  }
+
+  const chatPolicyRows = await sql<{ tablename: string; cmd: string; roles: string[] }[]>`
+    SELECT tablename, cmd, roles FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = ANY(${CHAT_TABLES})
+  `;
+  const chatRlsRows = await sql<{ relname: string; relrowsecurity: boolean }[]>`
+    SELECT c.relname, c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = ANY(${CHAT_TABLES})
+  `;
+  for (const tableName of CHAT_TABLES) {
+    const rls = chatRlsRows.find((row) => row.relname === tableName);
+    if (!rls) {
+      errors.push(`public.${tableName} is missing (0180_chat_rebuild_additive)`);
+      continue;
+    }
+    if (!rls.relrowsecurity) errors.push(`public.${tableName} must have RLS enabled`);
+    const policies = chatPolicyRows.filter((row) => row.tablename === tableName);
+    if (policies.length === 0) errors.push(`public.${tableName} has no authenticated SELECT policy`);
+    for (const policy of policies) {
+      if (policy.cmd !== "SELECT" || !policy.roles.includes("authenticated")) {
+        errors.push(`public.${tableName} policy must be SELECT-only TO authenticated`);
+      }
+    }
+  }
+  const chatGrantRows = await sql<{ table_name: string; grantee: string; privilege_type: string }[]>`
+    SELECT table_name, grantee, privilege_type FROM information_schema.role_table_grants
+    WHERE table_schema = 'public' AND grantee IN ('anon', 'authenticated')
+      AND (table_name = ANY(${CHAT_TABLES}) OR table_name ~ '^chat_(messages|attachments|reactions)_p[0-9]{2}$')
+  `;
+  for (const grant of chatGrantRows) {
+    if (grant.grantee === "anon" || grant.privilege_type !== "SELECT" || CHAT_PARTITION_PATTERN.test(grant.table_name)) {
+      errors.push(`unexpected ${grant.privilege_type} grant on public.${grant.table_name} to ${grant.grantee}`);
+    }
+  }
+  const chatFunctionRows = await sql<{ proname: string; prosecdef: boolean; config: string[] | null }[]>`
+    SELECT p.proname, p.prosecdef, p.proconfig AS config FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'app_private' AND p.proname LIKE 'chat\\_%'
+  `;
+  if (chatFunctionRows.length === 0) errors.push("app_private chat functions are missing (0180_chat_rebuild_additive)");
+  for (const fn of chatFunctionRows) {
+    if (!fn.prosecdef || !(fn.config ?? []).some((entry) => entry === 'search_path=""' || entry === "search_path=")) {
+      errors.push(`app_private.${fn.proname} must be SECURITY DEFINER with search_path = ''`);
+    }
+  }
+  const chatTopicRows = await sql<{ policyname: string; definition: string }[]>`
+    SELECT policyname, coalesce(qual, '') || coalesce(with_check, '') AS definition FROM pg_policies
+    WHERE schemaname = 'realtime' AND tablename = 'messages'
+      AND policyname IN ('application_topic_read', 'application_topic_send')
+  `;
+  for (const row of chatTopicRows) {
+    if (!row.definition.includes("chat:channel:")) {
+      errors.push(`realtime.messages ${row.policyname} must authorize chat:channel topics`);
+    }
   }
 
   if (errors.length > 0) {
