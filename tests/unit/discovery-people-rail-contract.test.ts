@@ -27,7 +27,9 @@ test("Discovery people rail is a compact, shared-avatar recommendation surface",
   assert.match(css, /\.nb-discover-person-card/);
   assert.match(css, /\.nb-person-presence-dot/);
   assert.match(css, /\.nb-person-connect/);
-  assert.doesNotMatch(hub, /variant="compact"/);
+  // Compact rail lives only in the mobile People drawer (DiscoverHeader `people` slot).
+  assert.match(hub, /people=\{currentUser\?\.id \? <DiscoverPeopleRail initialPage=\{initialPeopleSuggestions\} variant="compact" \/> : null\}/);
+  assert.equal(hub.match(/variant="compact"/g)?.length, 1);
 });
 
 test("rail recommendations use the same privacy-safe source as the connection list", () => {

@@ -88,7 +88,8 @@ test("all task columns retain the same base height and width, whether empty or p
     "utf8",
   );
 
-  assert.match(board, /w-\[300px\] shrink-0/);
+  // Fixed 300px from md up; phones clamp to the viewport so one column fits.
+  assert.match(board, /w-\[min\(300px,calc\(100vw-48px\)\)\] shrink-0[^"]*md:w-\[300px\]/);
   assert.match(board, /p-3 space-y-3 min-h-\[150px\] flex-1 flex flex-col/);
 });
 

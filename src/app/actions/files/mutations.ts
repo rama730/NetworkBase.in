@@ -576,10 +576,11 @@ export async function finalizeBatchUpload(
         projectId,
         actorUserId: user.id,
         ...actorNotificationSnapshot(user),
-        eventKey: "files.uploaded",
+        eventKey: createdNodes.length === 1 ? "files.uploaded" : "files.bulk_uploaded",
         title: createdNodes.length === 1 ? `File uploaded: ${firstNode.name}` : `${createdNodes.length} files uploaded`,
         body: "Files were added to the project workspace.",
         sourceEventId: firstNode.id,
+        aggregateCount: createdNodes.length,
         entityRefs: { projectId, fileId: firstNode.id },
     });
 

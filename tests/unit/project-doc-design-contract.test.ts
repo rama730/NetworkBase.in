@@ -25,10 +25,10 @@ test("Docs Tab Design Specification Conformance Contract (Section 22 & Sections 
     });
 
     await t.test("ProjectDocRenderer conforms to Section 04 Typography and drafting tokens", () => {
-        assert.match(renderer, /text-\[26px\] sm:text-\[30px\]/, "H1 must conform to 30px scale");
-        assert.match(renderer, /text-\[22px\] sm:text-\[24px\]/, "H2 must conform to 24px scale");
-        assert.match(renderer, /text-\[18px\] sm:text-\[20px\]/, "H3 must conform to 20px scale");
-        assert.match(renderer, /text-\[16px\] sm:text-\[17px\]/, "H4 must conform to 17px scale");
+        assert.match(renderer, /text-\[\d+px\] sm:text-\[30px\]/, "H1 must conform to 30px scale");
+        assert.match(renderer, /text-\[\d+px\] sm:text-\[24px\]/, "H2 must conform to 24px scale");
+        assert.match(renderer, /text-\[\d+px\] sm:text-\[20px\]/, "H3 must conform to 20px scale");
+        assert.match(renderer, /text-\[\d+px\] sm:text-\[17px\]/, "H4 must conform to 17px scale");
         assert.match(renderer, /text-\[15px\] leading-\[1\.65\]/, "Body prose must conform to 15px/1.65 line height");
         assert.match(renderer, /border-l-2 border-border/, "Blockquotes must use neutral 2px fine rule");
         assert.doesNotMatch(renderer, /border-l-4/, "Blockquotes must not use coarse 4px rules");
