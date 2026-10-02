@@ -29,7 +29,7 @@ Source of truth for decisions and numbers: `docs/plans/messaging-slack-rebuild-r
 ## Client
 
 - `ChatShellProvider` (bootstrap, poll, user topic, badge) wraps the app; the sidebar badge and launcher read it.
-- `/messages*` swaps the global sidebar for a 64px rail + 248px sidebar; below 1024px it is a single pane (list ↔ conversation, thread/details as full-screen routes); at 1024px+ thread and details are a 320px drawer on the same routes.
+- `/messages*` keeps the app navigation; a 260px chat sidebar sits beside it at 1024px+ (Threads, Activity, Projects, My applications, Direct messages). Projects lists every project; opening one collapses the list to its name with its channels below, and the name's dropdown switches projects or shows all again. Below 1024px it is a single pane (list ↔ conversation, thread/details as full-screen routes); at 1024px+ thread and details are a 320px drawer on the same routes.
 - The floating launcher (`ChatLauncher`/`ChatWindow`) shows at 768px+ outside `/messages` and `/projects/new`.
 
 ## Jobs

@@ -6,7 +6,6 @@ import { useEffect } from "react";
 import { useChatUi } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { CreateChannelDialog } from "@/components/messages/CreateChannelDialog";
-import { ProjectSwitcherSheet } from "@/components/messages/ProjectSwitcherSheet";
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 
 const InviteCollaboratorModal = dynamic(() => import("@/components/projects/dashboard/InviteCollaboratorModal"), { ssr: false });
@@ -45,7 +44,6 @@ export function MessagesChrome() {
   return (
     <>
       <QuickSwitcher />
-      <ProjectSwitcherSheet />
       {createFor ? <CreateChannelDialog projectId={createFor} open onOpenChange={(open) => !open && setCreateFor(null)} /> : null}
       {inviteProject ? (
         <InviteCollaboratorModal

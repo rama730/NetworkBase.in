@@ -20,6 +20,8 @@ export type ChatShell = {
   pending: Pending;
   badge: number;
   status: BroadcastStatus;
+  /** The channel list could not be loaded (shown with a Retry). */
+  loadError: string | null;
   /** Full reload of the channel list (membership changes, returning to the tab). */
   refresh: () => void;
   /** Move this tab's read cursor without waiting for the server echo. */
@@ -39,13 +41,18 @@ const ChatShellContext = createContext<ChatShell>({
   pending: NO_PENDING,
   badge: 0,
   status: "connecting",
+  loadError: null,
   refresh: () => undefined,
   applyRead: () => undefined,
 });
 
 async function load(since: string | null): Promise<Snapshot> {
   const result = since ? await bootstrap({ since }) : await readShellPart("chatSummary");
-  if (!result.success) throw new Error(result.error);
+  if (!result?.success) {
+    const code = result?.error ?? "chat_unavailable";
+    console.error("[chat] conversations failed to load", code);
+    throw new Error(code);
+  }
   return { data: result.data, pending: result.pending };
 }
 
@@ -161,7 +168,11 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
   const data = userId ? query.data?.data : undefined;
   const pending = (userId && query.data?.pending) || NO_PENDING;
   const badge = useMemo(() => chatBadge(data), [data]);
-  const shell = useMemo<ChatShell>(() => ({ data, pending, badge, status, refresh, applyRead }), [applyRead, badge, data, pending, refresh, status]);
+  const loadError = userId && query.isError && !data ? query.error.message : null;
+  const shell = useMemo<ChatShell>(
+    () => ({ data, pending, badge, status, loadError, refresh, applyRead }),
+    [applyRead, badge, data, loadError, pending, refresh, status],
+  );
 
   return (
     <ChatShellContext.Provider value={shell}>{children}</ChatShellContext.Provider>
