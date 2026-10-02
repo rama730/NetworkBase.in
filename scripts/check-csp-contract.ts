@@ -55,6 +55,24 @@ function main() {
   assertIncludes(providerSource, /window\.fetch = async/, "SecurityRuntimeProvider must patch same-origin browser fetch calls", errors);
   assertIncludes(turnstileSource, /nonce=\{nonce \?\? undefined\}/, "TurnstileWidget must pass the CSP nonce to next/script", errors);
   assertIncludes(middlewareSource, /https:\/\/accounts\.google\.com/, "middleware CSP must permit Google Identity Services", errors);
+  assertIncludes(
+    middlewareSource,
+    /media-src 'self' blob: https:/,
+    "middleware CSP must permit authorized same-origin, preview-blob and HTTPS media playback",
+    errors,
+  );
+  assertIncludes(
+    middlewareSource,
+    /frame-src 'self'[^\n]*blob:/,
+    "middleware CSP must permit same-origin and blob PDF frames",
+    errors,
+  );
+  assertIncludes(
+    middlewareSource,
+    /worker-src 'self' blob:/,
+    "middleware CSP must permit bundled and blob workers",
+    errors,
+  );
   const builtProxyPath = path.join(root, process.env.NEXT_DIST_DIR || ".next", "server/middleware.js");
   if (fs.existsSync(builtProxyPath)) {
     assertIncludes(fs.readFileSync(builtProxyPath, "utf8"), /Content-Security-Policy/, "the built proxy must set Content-Security-Policy", errors);

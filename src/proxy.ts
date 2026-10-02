@@ -126,6 +126,7 @@ function buildCsp(nonce: string | null, request: NextRequest) {
     `script-src ${scriptDirectives.join(" ")}`,
     "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
     "img-src 'self' data: blob: https:",
+    "media-src 'self' blob: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src ${connectDirectives.join(" ")}`,
     "frame-src 'self' https://challenges.cloudflare.com https://accounts.google.com blob:",

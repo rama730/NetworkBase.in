@@ -131,12 +131,12 @@ test("thread hydration reuses one authorization scope and runs message reads con
   assert.match(v2, /\}, \(\) => Promise\.all\(\[\s*getMessages\([\s\S]*getPinnedMessages\(/);
 });
 
-test("composer uploads attachments through the authenticated server action", () => {
+test("composer uploads attachments through the bounded direct-transfer hook", () => {
   const composerAttachments = readProjectFile("src/components/chat/v2/useMessageComposerAttachments.ts");
 
-  assert.match(composerAttachments, /import \{ cancelAttachmentUpload, uploadAttachment \}/);
-  assert.match(composerAttachments, /void uploadAttachment\(formData\)/);
-  assert.doesNotMatch(composerAttachments, /fetch\(['"]\/api\/v1\/messages\/attachments/);
+  assert.match(composerAttachments, /useDirectAttachmentUpload/);
+  assert.match(composerAttachments, /uploadDirect/);
+  assert.doesNotMatch(composerAttachments, /uploadAttachment\(formData\)/);
 });
 
 test("database setup requires TLS remotely while supporting isolated localhost verification", () => {

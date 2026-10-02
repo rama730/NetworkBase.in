@@ -31,7 +31,6 @@ import { isTextLike as isTextFile } from "../../utils/fileKind";
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 import { useQueryClient } from "@tanstack/react-query";
-import { normalizeProjectDocSlug } from "@/lib/projects/doc";
 import {
   PROJECT_DOCS_QUERY_KEY,
   PROJECT_DOC_LIST_QUERY_KEY,
@@ -72,7 +71,6 @@ export interface FileActionsBarProps {
   mimeType?: string | null;
   className?: string;
   linkedDoc?: { slug: string; linkedNodeId?: string | null } | null;
-  onNavigateToDoc?: (slug: string) => void;
   actionsTriggerRef?: React.Ref<HTMLButtonElement>;
   organizationActions?: { rename: () => void; move?: () => void; trash: () => void };
 }
@@ -93,7 +91,6 @@ export function FileActionsBar({
   mimeType,
   className,
   linkedDoc = null,
-  onNavigateToDoc,
   actionsTriggerRef,
   organizationActions,
 }: FileActionsBarProps): React.JSX.Element {
@@ -142,8 +139,6 @@ export function FileActionsBar({
 
   const isTextLike = isTextFile({ type: "file", name: fileName || "", mimeType: mimeType ?? null });
 
-  const canUseAsReadme = canEdit && Boolean(projectId) && Boolean(nodeId) && isDocLikeFile;
-
   // Context-aware checks
   const isEmpty = fileSize === 0;
   // If empty, show Raw. Otherwise, show Raw only if it is markdown/readme (normal code is already raw).
@@ -151,7 +146,8 @@ export function FileActionsBar({
   const canEditOption = canEdit && isTextLike;
   const canReplaceOption = canReplace;
   const canAttachOption = canAttachToTask;
-  const canReadmeOption = (canUseAsReadme || isLinked) && !isEmpty;
+  // Docs are added from the Docs tab; Files can only remove.
+  const canReadmeOption = canEdit && isLinked;
 
   const handleOpenTaskPicker = React.useCallback(() => {
     setIsTaskPickerOpen(true);
@@ -194,54 +190,27 @@ export function FileActionsBar({
     [projectId, nodeId, isLinking],
   );
 
-  const handleUseAsReadme = React.useCallback(async () => {
-    if (!projectId || !nodeId || isImportingReadme) return;
-    if (isLinked && linkedDoc) {
-      setIsImportingReadme(true);
-      try {
-        const { unlinkProjectDocAction } = await import("@/app/actions/project/doc");
-        const result = await unlinkProjectDocAction(projectId, linkedDoc.slug);
-        if (!result.success) {
-          toast.error(result.error || "Failed to unlink file from Doc");
-          return;
-        }
-        toast.success("File unlinked from Doc successfully");
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId) }),
-          queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) })
-        ]);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to unlink file";
-        toast.error(message);
-      } finally {
-        setIsImportingReadme(false);
-      }
-      return;
-    }
-    // Else link it
+  const handleRemoveFromDocs = React.useCallback(async () => {
+    if (!projectId || !linkedDoc || isImportingReadme) return;
     setIsImportingReadme(true);
     try {
-      const filename = fileName || "document.md";
-      const docSlug = normalizeProjectDocSlug(filename, "doc");
-      const { linkProjectDocAction } = await import("@/app/actions/project/doc");
-      const result = await linkProjectDocAction(projectId, nodeId, docSlug);
+      const { unlinkProjectDocAction } = await import("@/app/actions/project/doc");
+      const result = await unlinkProjectDocAction(projectId, linkedDoc.slug);
       if (!result.success) {
-        toast.error(result.error || "Failed to link file to Doc");
+        toast.error(result.error || "Failed to remove from Docs");
         return;
       }
-      toast.success("File linked to Doc successfully");
+      toast.success("Removed from Docs");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId) }),
         queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) })
       ]);
-      onNavigateToDoc?.(docSlug);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to link file";
-      toast.error(message);
+      toast.error(err instanceof Error ? err.message : "Failed to remove from Docs");
     } finally {
       setIsImportingReadme(false);
     }
-  }, [isImportingReadme, isLinked, linkedDoc, nodeId, projectId, fileName, queryClient, onNavigateToDoc]);
+  }, [isImportingReadme, linkedDoc, projectId, queryClient]);
 
   // ── Replace… handlers (Req 11.3–11.6) ───────────────────────────────
 
@@ -282,11 +251,7 @@ export function FileActionsBar({
       setLockConflict(null);
 
       try {
-        const [{ saveFileRevision }, { createClient }] = await Promise.all([
-          import("@/hooks/useFileVersions"),
-          import("@/lib/supabase/client"),
-        ]);
-        const supabaseClient = createClient();
+        const { saveFileRevision } = await import("@/hooks/useFileVersions");
         const node = useFilesWorkspaceStore.getState().byProjectId[projectId]?.nodesById?.[nodeId];
         const result = await saveFileRevision({
           projectId,
@@ -295,7 +260,6 @@ export function FileActionsBar({
           mode: choice.option === "commit" ? "new_revision" : "active_revision",
           comment: choice.comment || (choice.option === "commit" ? "Uploaded via Files Tab" : null),
           baseVersion: node?.currentVersion,
-          supabase: supabaseClient,
         });
 
         if (result.success) {
@@ -435,11 +399,10 @@ export function FileActionsBar({
             </DropdownMenuItem>
           )}
 
-          {/* Use as Doc option */}
           {canReadmeOption && (
-            <DropdownMenuItem onClick={handleUseAsReadme} className="gap-2 cursor-pointer">
+            <DropdownMenuItem onClick={handleRemoveFromDocs} className="gap-2 cursor-pointer">
               <BookOpenText className="h-4 w-4 opacity-70" />
-              <span>{isLinked ? "Unlink as Doc" : "Use as Doc"}</span>
+              <span>Remove from Docs</span>
             </DropdownMenuItem>
           )}
 

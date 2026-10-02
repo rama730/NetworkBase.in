@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { db } from "@/lib/db";
 import {
   projects,
+  projectEventCounters,
   projectMembers,
   tasks,
   projectNodes,
@@ -38,11 +39,12 @@ export async function GET(request: Request) {
         name: projects.title,
         slug: projects.slug,
         description: projects.description,
-        currentSequenceNumber: projects.currentSequenceNumber,
+        currentSequenceNumber: sql<number>`coalesce(${projectEventCounters.nextSequence}, ${projects.currentSequenceNumber})`,
         updatedAt: projects.updatedAt,
       })
       .from(projects)
       .innerJoin(projectMembers, eq(projects.id, projectMembers.projectId))
+      .leftJoin(projectEventCounters, eq(projectEventCounters.projectId, projects.id))
       .where(
         and(eq(projectMembers.userId, user.id), isNull(projects.deletedAt)),
       );

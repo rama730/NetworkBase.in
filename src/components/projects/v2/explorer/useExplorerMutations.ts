@@ -2,7 +2,6 @@
 
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import type { ProjectNode } from "@/lib/db/schema";
 import {
   moveProjectNodes,
@@ -26,6 +25,7 @@ import { planUploadCopyNames, selectUploadFiles } from "@/lib/files/upload-colli
 import { validateUploadSelection } from "@/lib/files/upload-validator";
 import { useUploadCollisionDecision } from "./useUploadCollisionDecision";
 import { useFileTransfers } from "../files-tab/FileTransfers";
+import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 
 interface UseExplorerMutationsOptions {
   projectId: string;
@@ -98,12 +98,6 @@ export function useExplorerMutations({
     await loadFolderContent(parentId, mode).catch(() => showToast("Change saved. Folder refresh failed; the list will retry automatically.", "warning"));
   }, [loadFolderContent, showToast]);
   const mutationInFlightKeysRef = useRef<Set<string>>(new Set());
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
-
-  const getSupabase = useCallback(() => {
-    if (!supabaseRef.current) supabaseRef.current = createClient();
-    return supabaseRef.current;
-  }, []);
 
   const runInMutationQueue = useCallback(async <T,>(fn: () => Promise<T>): Promise<T> => {
     const run = mutationQueueRef.current.then(fn, fn);
@@ -134,14 +128,14 @@ export function useExplorerMutations({
       if ("error" in presigned) {
         throw new Error(presigned.error || "Failed to prepare upload");
       }
-      const response = await fetch(presigned.url, {
-        method: "PUT",
-        headers: { "Content-Type": contentType },
-        body: file,
-      });
-      if (!response.ok) {
-        throw new Error(`Upload failed (${response.status})`);
-      }
+      await uploadToSupabaseSignedUrl({
+        bucket: "project-files",
+        storagePath: presigned.storageKey,
+        uploadToken: presigned.token,
+        uploadUrl: presigned.url,
+        contentType,
+        operationId: presigned.uploadIntentId,
+      }, file, { cacheProfile: "immutable" });
       return presigned;
     },
     []
@@ -201,7 +195,7 @@ export function useExplorerMutations({
 
         return (await createFileNode(projectId, parentId, {
           name,
-          s3Key: storagePath,
+          s3Key: uploadSession.storageKey,
           size: 0,
           mimeType: "text/plain",
           uploadIntentId: uploadSession.uploadIntentId,
@@ -311,9 +305,9 @@ function resolveFileMimeType(file: File): string {
         transferId = transferRef.current?.start(validatedFiles.length === 1 ? validatedFiles[0]!.name : `${validatedFiles.length} files`, eligible.length);
         progress = toast.loading(`Uploading 0 of ${eligible.length} files…`);
         let completed = 0;
-        // ponytail: bounded batches reuse the current presign endpoint; no separate queue service. ceiling: 100 files per presign batch. upgrade: multi-part queue worker if batches exceed 500 files.
-        for (let offset = 0; offset < eligible.length; offset += 100) {
-          const plans = eligible.slice(offset, offset + 100).map(file => ({
+        // The server accepts at most 50 intents per request so transfer and verification work stay bounded.
+        for (let offset = 0; offset < eligible.length; offset += 16) {
+          const plans = eligible.slice(offset, offset + 16).map(file => ({
             file, key: buildProjectFileKey(projectId, crypto.randomUUID()),
             contentType: resolveFileMimeType(file), sizeBytes: file.size,
           }));
@@ -324,20 +318,30 @@ function resolveFileMimeType(file: File): string {
             if (transferId) transferRef.current?.update(transferId, { completed, failed: failed.length });
             continue;
           }
-          // ponytail: 2PC batch finalization commits up to 100 files in 1 RPC. ceiling: 100 files. upgrade: chunk into multiple batch requests if dropped count exceeds 100.
+          // Publish the verified files in the same bounded 50-item batch.
           const successfullyUploadedToS3: Array<{
             file: File;
-            key: string;
+            requestKey: string;
+            storageKey: string;
             contentType: string;
           }> = [];
 
           await runWithConcurrency(plans, Math.max(1, FILES_RUNTIME_BUDGETS.saveAllConcurrency), async ({ file, key, contentType }) => {
             try {
               const url = batch.urls?.[key];
-              if (!url) throw new Error("Upload URL unavailable");
-              const response = await fetch(url, { method: "PUT", headers: { "Content-Type": contentType }, body: file });
-              if (!response.ok) throw new Error(`Upload failed (${response.status})`);
-              successfullyUploadedToS3.push({ file, key, contentType });
+              const uploadToken = batch.uploadTokens?.[key];
+              const storageKey = batch.storageKeys?.[key];
+              const operationId = batch.uploadIntentIds?.[key];
+              if (!url || !uploadToken || !storageKey || !operationId) throw new Error("Upload allocation unavailable");
+              await uploadToSupabaseSignedUrl({
+                bucket: "project-files",
+                storagePath: storageKey,
+                uploadToken,
+                uploadUrl: url,
+                contentType,
+                operationId,
+              }, file, { cacheProfile: "immutable" });
+              successfullyUploadedToS3.push({ file, requestKey: key, storageKey, contentType });
             } catch {
               failed.push(file);
             } finally {
@@ -352,25 +356,25 @@ function resolveFileMimeType(file: File): string {
               const batchNodes = await finalizeBatchUpload(
                 projectId,
                 parentId,
-                successfullyUploadedToS3.map(({ file, key, contentType }) => ({
+                successfullyUploadedToS3.map(({ file, requestKey, storageKey, contentType }) => ({
                   name: file.name,
-                  s3Key: key,
+                  s3Key: storageKey,
                   size: file.size,
                   mimeType: contentType,
-                  uploadIntentId: batch.uploadIntentIds?.[key] ?? undefined,
+                  uploadIntentId: batch.uploadIntentIds?.[requestKey] ?? undefined,
                 }))
               );
               createdNodes.push(...(batchNodes as ProjectNode[]));
             } catch {
               // Resilient fallback to individual commits if batch call encounters an error
-              for (const { file, key, contentType } of successfullyUploadedToS3) {
+              for (const { file, requestKey, storageKey, contentType } of successfullyUploadedToS3) {
                 try {
                   const node = await createFileNode(projectId, parentId, {
                     name: file.name,
-                    s3Key: key,
+                    s3Key: storageKey,
                     size: file.size,
                     mimeType: contentType,
-                    uploadIntentId: batch.uploadIntentIds?.[key] ?? undefined,
+                    uploadIntentId: batch.uploadIntentIds?.[requestKey] ?? undefined,
                   });
                   createdNodes.push(node as ProjectNode);
                 } catch {
@@ -680,132 +684,18 @@ function resolveFileMimeType(file: File): string {
 
   const handleDownloadFolder = useCallback(
     async (folderId: string | null) => {
-      showToast("Preparing secure download channels...", "info");
-      const supabase = getSupabase();
-
-      const flatFilePaths: string[] = [];
-      const visitedFolderIds = new Set<string>();
-      const ensureFolderChildrenLoaded = async (pid: string | null) => {
-        const key = filesParentKey(pid);
-        let refreshAttempts = 0;
-        let appendPasses = 0;
-        while (true) {
-          const ws = useFilesWorkspaceStore.getState().byProjectId[projectId];
-          const childIds = ws?.childrenByParentId?.[key];
-          const isLoaded = !!ws?.loadedChildren?.[key];
-          const hasMore = !!ws?.folderMeta?.[key]?.hasMore;
-          const hasChildrenList = Array.isArray(childIds);
-
-          if (!isLoaded || !hasChildrenList) {
-            if (refreshAttempts >= 1) break;
-            refreshAttempts += 1;
-            await loadFolderContent(pid, "refresh");
-            continue;
-          }
-
-          if (hasMore) {
-            if (appendPasses >= 100) break;
-            appendPasses += 1;
-            await loadFolderContent(pid, "append");
-            continue;
-          }
-          break;
-        }
-      };
-
-      const walkForPaths = async (pid: string | null): Promise<void> => {
-        const folderVisitKey = pid ?? "__root__";
-        if (visitedFolderIds.has(folderVisitKey)) return;
-        visitedFolderIds.add(folderVisitKey);
-        await ensureFolderChildrenLoaded(pid);
-
-        const ws = useFilesWorkspaceStore.getState().byProjectId[projectId];
-        const childIds = ws?.childrenByParentId?.[filesParentKey(pid)] || [];
-        for (const id of childIds) {
-          const node = ws?.nodesById?.[id];
-          if (!node) continue;
-          if (node.type === "file" && node.s3Key) {
-            flatFilePaths.push(node.s3Key);
-          } else if (node.type === "folder") {
-            await walkForPaths(node.id);
-          }
-        }
-      };
-      await walkForPaths(folderId);
-
-      const latestWs = useFilesWorkspaceStore.getState().byProjectId[projectId];
-      const latestNodesById = latestWs?.nodesById ?? nodesById;
-      const latestChildrenByParentId = latestWs?.childrenByParentId ?? childrenByParentId;
-
-      if (flatFilePaths.length === 0) {
-        showToast("No files to download", "warning");
-        return;
-      }
-
-      // 1-Hour Presigned URLs bypass RLS limits for pure client-side zipping
-      const { data: signedUrlData, error } = await supabase.storage
-        .from("project-files")
-        .createSignedUrls(flatFilePaths, 3600);
-
-      if (error || !signedUrlData) {
-        showToast("Failed to generate secure download tokens", "error");
-        return;
-      }
-
-      const signedUrlMap: Record<string, string> = {};
-      const nodeIdByS3Key = new Map<string, string>();
-      for (const node of Object.values(latestNodesById)) {
-        if (node.s3Key) nodeIdByS3Key.set(node.s3Key, node.id);
-      }
-
-      // Re-map the S3 Keys to their Node IDs for the worker
-      for (const signed of signedUrlData) {
-        if (signed.error) continue;
-        const matchingNodeId = nodeIdByS3Key.get(signed.path);
-        if (matchingNodeId) signedUrlMap[matchingNodeId] = signed.signedUrl;
-      }
-
-      showToast("Starting client-side ZIP compilation...", "success");
-
-      const worker = new Worker(new URL('./utils/download.worker.ts', import.meta.url));
-
-      worker.onmessage = (e: MessageEvent<any>) => {
-        const result = e.data;
-        if (result.error) {
-          showToast(`Download failed: ${result.error}`, "error");
-          worker.terminate();
-        } else if (result.blob) {
-          const url = URL.createObjectURL(result.blob);
-          const a = document.createElement("a");
-          a.href = url;
-
-          const rootNodeName = folderId && latestNodesById[folderId] ? latestNodesById[folderId].name : "Project Files";
-          a.download = `${rootNodeName}_Export.zip`;
-
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-
-          showToast("Folder downloaded successfully!", "success");
-          worker.terminate();
-        } else if (result.progress) {
-          // Can be hooked into global progress monitor if needed
-        }
-      };
-
-      worker.postMessage({
-          jobId: `dl-${folderId || "root"}`,
-          projectId,
-          projectName: "Project Files",
-          nodesById: latestNodesById,
-          childrenByParentId: latestChildrenByParentId,
-          targetFolderId: folderId,
-          signedUrls: signedUrlMap
-        });
-
+      const folderName = folderId ? nodesById[folderId]?.name : "Project Files";
+      const params = new URLSearchParams({ name: folderName || "Project Files" });
+      if (folderId) params.set("folderId", folderId);
+      const anchor = document.createElement("a");
+      anchor.href = `/api/v1/projects/${projectId}/files/export?${params.toString()}`;
+      anchor.rel = "noopener";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      showToast("Secure folder export started", "success");
     },
-    [childrenByParentId, nodesById, getSupabase, loadFolderContent, projectId, showToast]
+    [nodesById, projectId, showToast]
   );
 
   // Direct file upload (for desktop drag-and-drop — no picker dialog)
@@ -825,8 +715,7 @@ function resolveFileMimeType(file: File): string {
         .sort()
         .join(",")}`;
       let transferId: string | undefined;
-      const mappedFiles: { path: string; fileId: string; s3Key: string; name: string }[] = [];
-      const succeeded = new Set<string>();
+      const mappedFiles: { path: string; parentId: string | null; requestKey: string; name: string }[] = [];
       try {
         await runUniqueMutation(mutationKey, async () => {
           const payloadNodes = validatedFiles
@@ -881,130 +770,113 @@ function resolveFileMimeType(file: File): string {
             .map((file) => {
               const mapping = mappingByPath.get(file.webkitRelativePath || file.name);
               if (!mapping) return null;
-              return { file, s3Key: mapping.s3Key, fileId: mapping.fileId, path: mapping.path };
+              return { file, ...mapping };
             })
-            .filter((item): item is { file: File; s3Key: string; fileId: string; path: string } => item !== null);
+            .filter((item): item is {
+              file: File;
+              path: string;
+              parentId: string | null;
+              requestKey: string;
+              name: string;
+            } => item !== null);
 
           if (uploadNodes.length === 0) throw new Error("Could not match the selected files to their upload destinations");
           if (transferId) transferRef.current?.update(transferId, { total: uploadNodes.length });
+          const uploaded: Array<{
+            file: File;
+            parentId: string | null;
+            requestKey: string;
+            storageKey: string;
+            uploadIntentId: string;
+          }> = [];
+          const failed: File[] = [];
+          let completed = 0;
 
-          const presignedUploadUrls: Record<string, string> = {};
-          const PRESIGN_CHUNK_SIZE = 200;
-          for (let i = 0; i < uploadNodes.length; i += PRESIGN_CHUNK_SIZE) {
-            const chunk = uploadNodes.slice(i, i + PRESIGN_CHUNK_SIZE);
-            const batch = await getBatchUploadUrls(
-              chunk.map((entry) => ({
-                key: entry.s3Key,
-                contentType: resolveFileMimeType(entry.file),
-                sizeBytes: entry.file.size,
-              }))
-            );
-            if ("error" in batch) {
-              throw new Error(batch.error || "Failed to prepare upload URLs");
-            }
-            Object.assign(presignedUploadUrls, batch.urls || {});
+          showToast(`Uploading ${uploadNodes.length} file(s)...`, "info");
+          for (let offset = 0; offset < uploadNodes.length; offset += 16) {
+            const chunk = uploadNodes.slice(offset, offset + 16);
+            const batch = await getBatchUploadUrls(chunk.map((entry) => ({
+              key: entry.requestKey,
+              contentType: resolveFileMimeType(entry.file),
+              sizeBytes: entry.file.size,
+            })));
+            if ("error" in batch) throw new Error(batch.error || "Failed to prepare upload URLs");
+
+            await runWithConcurrency(chunk, 4, async (entry) => {
+              try {
+                const url = batch.urls[entry.requestKey];
+                const uploadToken = batch.uploadTokens[entry.requestKey];
+                const storageKey = batch.storageKeys[entry.requestKey];
+                const uploadIntentId = batch.uploadIntentIds[entry.requestKey];
+                const contentType = resolveFileMimeType(entry.file);
+                if (!url || !uploadToken || !storageKey || !uploadIntentId) throw new Error("Upload allocation is incomplete");
+                await uploadToSupabaseSignedUrl({
+                  bucket: "project-files",
+                  storagePath: storageKey,
+                  uploadToken,
+                  uploadUrl: url,
+                  contentType,
+                  operationId: uploadIntentId,
+                }, entry.file, { cacheProfile: "immutable" });
+                uploaded.push({
+                  file: entry.file,
+                  parentId: entry.parentId,
+                  requestKey: entry.requestKey,
+                  storageKey,
+                  uploadIntentId,
+                });
+              } catch {
+                failed.push(entry.file);
+              } finally {
+                completed += 1;
+                if (transferId) transferRef.current?.update(transferId, { completed, failed: failed.length });
+              }
+            });
           }
 
-          const performCleanup = async (w?: Worker) => {
-            if (w) w.terminate();
-            if (mappedFiles.length > 0) {
-              const fileIds = mappedFiles.filter(m => !succeeded.has(m.fileId)).map((m) => m.fileId);
-              if (!fileIds.length) return;
-              try {
-                await bulkTrashNodes(fileIds, projectId);
-              } catch (cleanupError) {
-                console.warn("Failed to cleanup upload placeholders", cleanupError);
-              }
+          const uploadedByParent = new Map<string, typeof uploaded>();
+          for (const entry of uploaded) {
+            const key = entry.parentId ?? "root";
+            const group = uploadedByParent.get(key) ?? [];
+            group.push(entry);
+            uploadedByParent.set(key, group);
+          }
+          let publishedCount = 0;
+          for (const entries of uploadedByParent.values()) {
+            for (let offset = 0; offset < entries.length; offset += 50) {
+              const chunk = entries.slice(offset, offset + 50);
+              const published = await finalizeBatchUpload(projectId, chunk[0]!.parentId, chunk.map((entry) => ({
+                name: entry.file.name,
+                s3Key: entry.storageKey,
+                size: entry.file.size,
+                mimeType: resolveFileMimeType(entry.file),
+                uploadIntentId: entry.uploadIntentId,
+              })));
+              publishedCount += published.length;
             }
-          };
+          }
 
-          const worker = new Worker(new URL('./upload.worker.ts', import.meta.url));
-          const uploadJobId =
-            typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-              ? crypto.randomUUID()
-              : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          if (failed.length > 0) {
+            if (transferId) transferRef.current?.update(transferId, {
+              status: "error",
+              failed: failed.length,
+              completed,
+              error: "Some files need retry",
+              retry: () => void uploadFilesDirectly(failed, parentId),
+            });
+            showToast(`Published ${publishedCount}; ${failed.length} need retry.`, "warning");
+            recordOperation({ label: `Partial upload: ${failed.length} failed`, status: "error" });
+          } else {
+            if (transferId) transferRef.current?.update(transferId, { status: "done", completed, failed: 0 });
+            showToast(`Successfully uploaded ${publishedCount} file(s).`, "success");
+            recordOperation({ label: `Uploaded ${publishedCount} file(s)`, status: "success" });
+          }
 
-          showToast(`Uploading ${uploadNodes.length} file(s) in background...`, "info");
-          const retryFiles = () => validatedFiles.filter(file => {
-            const mapping = mappingByPath.get(file.webkitRelativePath || file.name);
-            return mapping && !succeeded.has(mapping.fileId);
-          });
-          let finish!: () => void;
-          const finished = new Promise<void>(resolve => { finish = resolve; });
-          const reportFailure = (error: string) => {
-            const failed = retryFiles();
-            if (transferId) transferRef.current?.update(transferId, { status: "error", failed: failed.length, completed: succeeded.size, error, retry: () => void uploadFilesDirectly(failed, parentId) });
-          };
-
-          worker.postMessage({
-            jobId: uploadJobId,
-            uploadNodes,
-            uploadUrls: presignedUploadUrls,
-          });
-
-          worker.onmessage = async (e) => {
-            if (e.data?.jobId && e.data.jobId !== uploadJobId) return;
-            if (e.data.type === "progress") {
-              if (e.data.fileSucceeded && e.data.fileId) succeeded.add(e.data.fileId);
-              if (transferId) transferRef.current?.update(transferId, { completed: e.data.completed, failed: e.data.failed });
-            }
-
-            if (e.data.type === "error") {
-              await performCleanup(worker);
-              showToast(`Upload failed: ${e.data.message || "Unexpected worker error"}`, "error");
-              recordOperation({ label: "Upload failed (worker error)", status: "error" });
-              reportFailure(e.data.message || "Upload worker failed");
-              finish();
-              return;
-            }
-
-            if (e.data.type === "done") {
-              worker.terminate();
-              for (const result of e.data.results ?? []) if (result.success && result.fileId) succeeded.add(result.fileId);
-              const failedFileIds = Array.isArray(e.data.results)
-                ? e.data.results
-                  .filter((result: { fileId?: string; success?: boolean }) => result?.success === false && !!result?.fileId)
-                  .map((result: { fileId: string }) => result.fileId)
-                : [];
-
-              if (failedFileIds.length > 0) {
-                try {
-                  await bulkTrashNodes(failedFileIds, projectId);
-                } catch (cleanupError) {
-                  console.warn("Failed to cleanup failed upload placeholders", cleanupError);
-                }
-              }
-
-              if (e.data.failed > 0) {
-                reportFailure("Some files could not be uploaded. Successful files have been kept.");
-                showToast(`Uploaded with ${e.data.failed} errors.`, "warning");
-                recordOperation({ label: `Partial upload: ${e.data.failed} failed`, status: "error" });
-              } else {
-                if (transferId) transferRef.current?.update(transferId, { status: "done", completed: uploadNodes.length, failed: 0 });
-                showToast(`Successfully uploaded ${e.data.success} file(s).`, "success");
-                recordOperation({ label: `Uploaded ${e.data.success} file(s)`, status: "success" });
-              }
-
-              loadFolderContent(parentId, "refresh").then(() => {
-                if (parentId) toggleExpanded(projectId, parentId, true);
-              }).catch(() => showToast("Files uploaded. Refresh failed; the list will retry automatically.", "warning"));
-              window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
-              finish();
-            }
-          };
-
-          worker.onerror = async () => {
-            await performCleanup(worker);
-            reportFailure("Upload worker stopped. Retry the unfinished files.");
-            finish();
-            showToast("Fatal upload worker process error", "error");
-            recordOperation({ label: "Upload failed (worker crash)", status: "error" });
-          };
-          await finished;
+          await loadFolderContent(parentId, "refresh");
+          if (parentId) toggleExpanded(projectId, parentId, true);
+          window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
         });
       } catch (e: unknown) {
-        const incomplete = mappedFiles.filter(file => !succeeded.has(file.fileId));
-        if (incomplete.length) await bulkTrashNodes(incomplete.map(file => file.fileId), projectId).catch(() => null);
         if (transferId) transferRef.current?.update(transferId, { status: "error", error: getErrorMessage(e, "Upload failed"), retry: () => void uploadFilesDirectly(validatedFiles, parentId) });
         showToast(`Upload failed: ${getErrorMessage(e, "Unknown error")}`, "error");
         recordOperation({ label: "Upload failed", status: "error" });

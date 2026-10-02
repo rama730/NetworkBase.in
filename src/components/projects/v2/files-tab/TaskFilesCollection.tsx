@@ -35,6 +35,8 @@ import { useFilesTabRole } from "./FilesTabRoleContext";
 import { taskFilesHref } from "@/lib/files/task-navigation";
 import { useFilesWorkspaceView } from "./FilesWorkspaceViews";
 import { formatRelativeTime } from "./folder/format";
+import type { ProjectNode } from "@/lib/db/schema";
+import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 import { FolderListHeader } from "./folder/FolderListHeader";
 import {
   FolderListLoading,
@@ -304,37 +306,46 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
         sizeBytes: file.size,
       }));
 
-      const batch = await getBatchUploadUrls(
-        plans.map(({ key, contentType, sizeBytes }) => ({ key, contentType, sizeBytes })),
-      );
-      if ("error" in batch) {
-        throw new Error(batch.error || "Failed to generate upload URLs");
+      const batchNodes: ProjectNode[] = [];
+      for (let offset = 0; offset < plans.length; offset += 16) {
+        const chunk = plans.slice(offset, offset + 16);
+        const batch = await getBatchUploadUrls(
+          chunk.map(({ key, contentType, sizeBytes }) => ({ key, contentType, sizeBytes })),
+        );
+        if ("error" in batch) {
+          throw new Error(batch.error || "Failed to generate upload URLs");
+        }
+
+        await Promise.all(
+          chunk.map(async ({ file, key, contentType }) => {
+            const url = batch.urls?.[key];
+            const uploadToken = batch.uploadTokens?.[key];
+            const storageKey = batch.storageKeys?.[key];
+            const operationId = batch.uploadIntentIds?.[key];
+            if (!url || !uploadToken || !storageKey || !operationId) throw new Error("Upload allocation unavailable");
+            await uploadToSupabaseSignedUrl({
+              bucket: "project-files",
+              storagePath: storageKey,
+              uploadToken,
+              uploadUrl: url,
+              contentType,
+              operationId,
+            }, file, { cacheProfile: "immutable" });
+          }),
+        );
+
+        batchNodes.push(...await finalizeBatchUpload(
+          projectId,
+          confirmResult.targetFolderId ?? null,
+          chunk.map(({ file, key, contentType }) => ({
+            name: file.name,
+            s3Key: batch.storageKeys[key]!,
+            size: file.size,
+            mimeType: contentType,
+            uploadIntentId: batch.uploadIntentIds?.[key] ?? undefined,
+          })),
+        ));
       }
-
-      await Promise.all(
-        plans.map(async ({ file, key, contentType }) => {
-          const url = batch.urls?.[key];
-          if (!url) throw new Error("Upload URL unavailable");
-          const res = await fetch(url, {
-            method: "PUT",
-            headers: { "Content-Type": contentType },
-            body: file,
-          });
-          if (!res.ok) throw new Error(`Upload failed for ${file.name}`);
-        }),
-      );
-
-      const batchNodes = await finalizeBatchUpload(
-        projectId,
-        confirmResult.targetFolderId ?? null,
-        plans.map(({ file, key, contentType }) => ({
-          name: file.name,
-          s3Key: key,
-          size: file.size,
-          mimeType: contentType,
-          uploadIntentId: batch.uploadIntentIds?.[key] ?? undefined,
-        })),
-      );
 
       const targetTaskId = confirmResult.taskId ?? targetUploadTask?.id;
       if (targetTaskId && batchNodes.length > 0) {

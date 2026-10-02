@@ -14,18 +14,6 @@ export interface DirectUploadParams {
   onProgress?: (progress: number) => void;
 }
 
-async function computeSha256Hex(blob: Blob): Promise<string> {
-  if (typeof window === 'undefined' || !window.crypto?.subtle) return '';
-  try {
-    const buffer = await blob.slice(0, 1024 * 1024 * 5).arrayBuffer(); // first 5MB for fast fingerprint
-    const hashBuffer = await window.crypto.subtle.digest('SHA-256', buffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-  } catch {
-    return '';
-  }
-}
-
 export function useDirectAttachmentUpload() {
   const uploadDirect = useCallback(async ({
     file,
@@ -37,10 +25,9 @@ export function useDirectAttachmentUpload() {
     onProgress,
   }: DirectUploadParams): Promise<UploadedAttachment> => {
     onProgress?.(10);
-    const checksumSha256 = await computeSha256Hex(file);
-    onProgress?.(25);
-
-    // 1. Request presigned upload session or check CAS deduplication
+    // The server verifies the complete object digest after transfer. A browser
+    // prefix hash is not accepted as content identity.
+    onProgress?.(20);
     const presignRes = await fetch('/api/v1/messages/attachments/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -48,7 +35,6 @@ export function useDirectAttachmentUpload() {
         filename: file.name,
         mimeType: file.type,
         sizeBytes: file.size,
-        checksumSha256,
         conversationId,
         clientUploadId,
       }),
@@ -62,21 +48,30 @@ export function useDirectAttachmentUpload() {
     const presignData = (await presignRes.json()).data;
     onProgress?.(50);
 
-    // 2. Direct upload if not deduplicated
+    // A retried initiation may report that the immutable object already
+    // arrived, in which case finalization is the only remaining step.
     if (presignData.status === 'presigned') {
       const session: SupabaseSignedUploadSession = {
         bucket: presignData.bucket,
         storagePath: presignData.storagePath,
         uploadToken: presignData.uploadToken,
+        uploadUrl: presignData.signedUrl,
         contentType: presignData.contentType || file.type || 'application/octet-stream',
+        operationId: presignData.uploadIntentId,
       };
 
-      await uploadToSupabaseSignedUrl(session, file, { cacheProfile: 'immutable' });
+      await uploadToSupabaseSignedUrl(session, file, {
+        cacheProfile: 'immutable',
+        onProgress: (uploadedBytes, totalBytes) => {
+          const ratio = totalBytes > 0 ? uploadedBytes / totalBytes : 0;
+          onProgress?.(20 + Math.round(ratio * 60));
+        },
+      });
     }
 
     onProgress?.(80);
 
-    // 3. Finalize upload session
+    // Verification and publication progress is distinct from byte transfer.
     const completeRes = await fetch('/api/v1/messages/attachments/presign', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

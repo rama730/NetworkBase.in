@@ -24,7 +24,6 @@ import {
 } from "@/lib/projects/doc-navigation";
 import {
     projectDocEditorTargetId,
-    type ProjectDocEditorSourcePosition,
     type ProjectDocEditorTargetKind,
 } from "@/lib/projects/doc-editor-source-map";
 import { resolveProjectDocImage, type ProjectDocImageKind } from "@/lib/projects/doc-media";
@@ -173,26 +172,7 @@ function sourceTargetProps(
     };
 }
 
-function sourceHighlightClass(highlighted: boolean) {
-    return highlighted
-        ? "bg-primary/10 ring-2 ring-primary/25 shadow-xs"
-        : "";
-}
 
-function sourceHighlightProps(
-    targetId: string | null | undefined,
-    highlightedTargetId: string | null | undefined,
-    highlightedTargetToken: number | null | undefined,
-) {
-    const highlighted = Boolean(targetId && highlightedTargetId === targetId);
-    return {
-        highlighted,
-        attributes: {
-            "data-readme-highlighted": highlighted ? "true" : undefined,
-            "data-readme-highlight-token": highlighted ? highlightedTargetToken ?? undefined : undefined,
-        },
-    };
-}
 
 function adjustNodePosition(node: MarkdownAstNode | undefined, lineOffset: number, charOffset: number): MarkdownAstNode | undefined {
     if (!node || !node.position || !node.position.start) return node;
@@ -216,8 +196,6 @@ function ProjectDocInlineReferenceChip({
     targetId,
     onRequestTarget,
     project,
-    highlightedTargetId,
-    highlightedTargetToken,
 }: {
     fallback: React.ReactNode;
     option?: ProjectDocReferenceOption | null;
@@ -225,8 +203,6 @@ function ProjectDocInlineReferenceChip({
     targetId?: string | null;
     onRequestTarget?: (targetId: string) => void;
     project?: Project | null;
-    highlightedTargetId?: string | null;
-    highlightedTargetToken?: number | null;
 }) {
     const router = useRouter();
     const kind = option?.kind ?? reference?.kind ?? null;
@@ -245,18 +221,14 @@ function ProjectDocInlineReferenceChip({
             {option?.avatarUrl ? (
                 <Image src={option.avatarUrl} alt="" width={16} height={16} sizes="16px" className="h-4 w-4 rounded-[3px] border border-border object-cover align-[-0.2rem]" />
             ) : isContributor ? (
-                <span className="inline-flex h-4 w-4 items-center justify-center rounded-[3px] bg-primary/15 text-[10px] font-mono font-semibold uppercase text-primary align-[-0.2rem]">
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-[3px] bg-muted text-[10px] max-md:text-[11px] font-mono font-semibold uppercase text-muted-foreground align-[-0.2rem]">
                     {label.charAt(0).toUpperCase()}
                 </span>
             ) : null}
             <span className="font-semibold text-foreground transition-colors group-hover:text-primary">{label}</span>
         </>
     );
-    const targetHighlight = sourceHighlightProps(targetId, highlightedTargetId, highlightedTargetToken);
-    const className = cn(
-        "group mx-0.5 inline-flex max-w-full cursor-pointer items-baseline gap-1 rounded-[3px] align-baseline text-sm leading-[inherit] no-underline outline-none transition-[background-color,box-shadow,color] hover:text-primary",
-        sourceHighlightClass(targetHighlight.highlighted),
-    );
+    const className = "group mx-0.5 inline-flex max-w-full cursor-pointer items-baseline gap-1 rounded-[3px] align-baseline text-sm leading-[inherit] no-underline outline-none transition-colors hover:text-primary";
     const title = [label, detail].filter(Boolean).join(" · ");
     const optionHref = option?.href;
     const targetProps = targetId
@@ -265,7 +237,6 @@ function ProjectDocInlineReferenceChip({
             "data-readme-target": "true",
             "data-readme-target-kind": "reference",
             "data-readme-target-id": targetId,
-            ...targetHighlight.attributes,
         }
         : {};
 
@@ -373,25 +344,23 @@ function readmeMediaStyle(input: ReturnType<typeof resolveProjectDocImage>): CSS
     return style;
 }
 
-function readmeMediaClass(kind: ProjectDocImageKind, highlighted: boolean) {
+function readmeMediaClass(kind: ProjectDocImageKind) {
     return cn(
-        "transition-[background-color,box-shadow,opacity] outline-none",
+        "outline-none",
         kind === "badge" && "mx-0.5 my-1 inline-block rounded-none border-0 align-middle shadow-none",
         kind === "icon" && "mx-0.5 my-0 inline-block rounded-none border-0 align-[-0.2rem] shadow-none",
         kind === "logo" && "my-3 inline-block rounded-none border-0 shadow-none",
         kind === "diagram" && "my-5 block h-auto rounded-[5px] border border-border bg-card",
         kind === "content" && "my-4 block h-auto rounded-[5px] border border-border",
-        highlighted && "bg-primary/10 ring-2 ring-primary/20",
     );
 }
 
-function readmeHiddenMediaClass(kind: ProjectDocImageKind, highlighted: boolean) {
+function readmeHiddenMediaClass(kind: ProjectDocImageKind) {
     return cn(
-        "text-muted-foreground transition-[background-color,box-shadow] outline-none",
+        "text-muted-foreground outline-none",
         (kind === "badge" || kind === "icon")
             ? "mx-1 inline-flex max-w-full items-center rounded-[3px] border border-dashed border-border px-2 py-0.5 text-[11px] leading-4 align-middle"
             : "my-3 flex max-w-full items-center rounded-[5px] border border-dashed border-border px-3 py-2 text-xs leading-5",
-        highlighted && "bg-primary/10 ring-2 ring-primary/20",
     );
 }
 
@@ -443,14 +412,11 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     className,
     onMediaLoad,
     onRequestTarget,
-    onRequestSourcePosition,
     previewsLoading,
     previewByKey,
     viewModel,
     docSlug,
     renderedSlugs = [],
-    highlightedTargetId,
-    highlightedTargetToken,
 }: {
     content: string;
     project: Project;
@@ -461,14 +427,11 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     className?: string;
     onMediaLoad?: () => void;
     onRequestTarget?: (targetId: string) => void;
-    onRequestSourcePosition?: (position: ProjectDocEditorSourcePosition) => void;
     previewsLoading?: boolean;
     previewByKey?: Map<string, ProjectDocSmartBlockPreview>;
     viewModel?: ProjectDocViewModel;
     docSlug?: string;
     renderedSlugs?: string[];
-    highlightedTargetId?: string | null;
-    highlightedTargetToken?: number | null;
 }) {
     const searchParams = useSearchParams();
     const normalizedDocSlug = normalizeProjectDocSlug(docSlug ?? searchParams?.get("doc") ?? "readme");
@@ -509,7 +472,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
     ), [effectivePreviewByKey]);
 
 
-    const markdownRenderSignature = `${fidelity}:${allowExternalImages ? "external" : "safe"}:${previewRenderSignature}:${highlightedTargetId ?? ""}:${highlightedTargetToken ?? ""}`;
+    const markdownRenderSignature = `${fidelity}:${allowExternalImages ? "external" : "safe"}:${previewRenderSignature}`;
     const inlineReferenceEntriesByHref = useMemo(() => {
         const map = new Map<string, Array<{
             targetId: string;
@@ -550,9 +513,6 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
         headingRenderCounts.set(headingText, occurrenceIndex + 1);
         const targetId = id || headingTargetQueues.get(headingText)?.[occurrenceIndex] || slugifyReadmeHeading(headingText, fallbackHeadingIds);
         const sourceProps = sourceTargetProps("heading", node);
-        const targetHighlight = sourceHighlightProps(targetId, highlightedTargetId, highlightedTargetToken);
-        const sourceHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
-        const highlighted = targetHighlight.highlighted || sourceHighlight.highlighted;
         return (
             <Tag
                 id={targetId}
@@ -561,13 +521,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                 data-readme-target="true"
                 data-readme-target-kind="heading"
                 data-readme-target-id={targetId}
-                data-readme-highlighted={highlighted ? "true" : undefined}
-                data-readme-highlight-token={highlighted ? highlightedTargetToken ?? undefined : undefined}
-                className={cn(
-                    className,
-                    "rounded-md outline-none transition-[background-color,box-shadow,color]",
-                    sourceHighlightClass(highlighted),
-                )}
+                className={cn(className, "outline-none")}
                 {...props}
             >
                 {children}
@@ -582,30 +536,26 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
         h4: ({ children, id, node, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { node?: MarkdownAstNode }) => renderHeading("h4", children, id, "mb-2 mt-5 scroll-mt-24 text-[15px] sm:text-[17px] font-semibold leading-[1.28] text-foreground", node, props),
         p: ({ node, ...props }: React.HTMLAttributes<HTMLParagraphElement> & { node?: MarkdownAstNode }) => {
             const sourceProps = sourceTargetProps("paragraph", node);
-            const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
             return (
                 <p
-                    className={cn("mb-4 rounded-[4px] text-[15px] leading-[1.65] text-foreground/90 transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))}
+                    className="mb-4 text-[15px] leading-[1.65] text-foreground/90"
                     {...sourceProps}
-                    {...targetHighlight.attributes}
+
                     {...props}
                 />
             );
         },
         ul: ({ node, ...props }: React.HTMLAttributes<HTMLUListElement> & { node?: MarkdownAstNode }) => {
             const sourceProps = sourceTargetProps("list", node);
-            const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
-            return <ul className={cn("mb-4 rounded-[4px] list-disc space-y-1.5 pl-5 text-[15px] leading-[1.65] text-foreground/90 transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes} {...props} />;
+            return <ul className="mb-4 list-disc space-y-1.5 pl-5 text-[15px] leading-[1.65] text-foreground/90" {...sourceProps} {...props} />;
         },
         ol: ({ node, ...props }: React.HTMLAttributes<HTMLOListElement> & { node?: MarkdownAstNode }) => {
             const sourceProps = sourceTargetProps("list", node);
-            const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
-            return <ol className={cn("mb-4 rounded-[4px] list-decimal space-y-1.5 pl-5 text-[15px] leading-[1.65] text-foreground/90 transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes} {...props} />;
+            return <ol className="mb-4 list-decimal space-y-1.5 pl-5 text-[15px] leading-[1.65] text-foreground/90" {...sourceProps} {...props} />;
         },
         blockquote: ({ node, ...props }: React.HTMLAttributes<HTMLQuoteElement> & { node?: MarkdownAstNode }) => {
             const sourceProps = sourceTargetProps("blockquote", node);
-            const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
-            return <blockquote className={cn("my-5 rounded-[4px] border-l-2 border-border pl-4 text-[14px] sm:text-[15px] italic leading-relaxed text-muted-foreground transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes} {...props} />;
+            return <blockquote className="my-5 border-l-2 border-border pl-4 text-[14px] sm:text-[15px] italic leading-relaxed text-muted-foreground" {...sourceProps} {...props} />;
         },
         a: ({ href, rel, target, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
             const reference = parseReadmeReferenceHref(typeof href === "string" ? href : null);
@@ -623,8 +573,6 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                         reference={entry?.reference ?? reference}
                         targetId={targetId}
                         project={project}
-                        highlightedTargetId={highlightedTargetId}
-                        highlightedTargetToken={highlightedTargetToken}
                     />
                 );
             }
@@ -664,8 +612,6 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                         ? commandTargetMaps.inlineByOffset.get(offset)
                         : undefined;
                 const sourceProps = sourceTargetProps("inline-code", node);
-                const inlineCommandHighlighted = highlightedTargetId === inlineCommandId
-                    || highlightedTargetId === sourceProps["data-readme-editor-target-id"];
                 return (
                     <code
                         id={inlineCommandId}
@@ -674,12 +620,7 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                         data-readme-target={inlineCommandId ? "true" : undefined}
                         data-readme-target-kind={inlineCommandId ? "command" : undefined}
                         data-readme-target-id={inlineCommandId}
-                        data-readme-highlighted={inlineCommandHighlighted ? "true" : undefined}
-                        data-readme-highlight-token={inlineCommandHighlighted ? highlightedTargetToken ?? undefined : undefined}
-                        className={cn(
-                            "rounded-[3px] border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[13px] text-foreground outline-none transition-[background-color,box-shadow,color]",
-                            inlineCommandHighlighted && "bg-primary/15 ring-2 ring-primary/25",
-                        )}
+                        className="rounded-[3px] border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[13px] text-foreground outline-none"
                         {...props}
                     >
                         {children}
@@ -704,20 +645,12 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                         endLine: command.codeLineEnd ?? command.codeLineStart ?? 0,
                     }))
                 : [];
-            const sourceProps = sourceTargetProps("command", node);
-            const blockHighlighted = highlightedTargetId === commandId;
-            const lineTargetHighlighted = lineTargets.some((target) => highlightedTargetId === target.id);
             return (
                 <ProjectDocCommandBlock
                     id={commandId}
                     code={value}
-                    editorTargetId={sourceProps["data-readme-editor-target-id"]}
-                    highlighted={blockHighlighted}
-                    highlightedTargetId={highlightedTargetId}
-                    highlightToken={highlightedTargetToken}
                     language={match[1]}
                     lineTargets={lineTargets}
-                    onCopied={commandId ? onRequestTarget : undefined}
                     sourceLine={line ?? null}
                     sourceOffset={offset ?? null}
                 />
@@ -734,17 +667,15 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                 project,
             });
             const sourceProps = sourceTargetProps("image", node);
-            const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
-            const highlighted = targetHighlight.highlighted;
             if (!image.src) {
                 return (
                     <span
-                        className={readmeHiddenMediaClass(image.kind, highlighted)}
+                        className={readmeHiddenMediaClass(image.kind)}
                         data-readme-media-kind={image.kind}
                         data-readme-media-blocked={image.blockedReason ?? "invalid"}
                         title={image.blockedReason === "external" ? "External image hidden by document settings." : "Document image could not be resolved."}
                         {...sourceProps}
-                        {...targetHighlight.attributes}
+
                     >
                         {image.blockedReason === "external" ? "Image hidden" : "Image unavailable"}
                     </span>
@@ -764,17 +695,16 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
                     style={readmeMediaStyle(image)}
                     data-readme-media-kind={image.kind}
                     data-readme-media-original-src={image.originalSrc || undefined}
-                    className={readmeMediaClass(image.kind, highlighted)}
+                    className={readmeMediaClass(image.kind)}
                     {...sourceProps}
-                    {...targetHighlight.attributes}
+
                 />
             );
         },
         table: ({ node, ...props }: React.TableHTMLAttributes<HTMLTableElement> & { node?: MarkdownAstNode }) => {
             const sourceProps = sourceTargetProps("table", node);
-            const targetHighlight = sourceHighlightProps(sourceProps["data-readme-editor-target-id"], highlightedTargetId, highlightedTargetToken);
             return (
-                <div className={cn("my-6 overflow-x-auto rounded-[8px] border border-border bg-card transition-[background-color,box-shadow]", sourceHighlightClass(targetHighlight.highlighted))} {...sourceProps} {...targetHighlight.attributes}>
+                <div className="my-6 overflow-x-auto rounded-[8px] border border-border bg-card" {...sourceProps}>
                     <table className="min-w-full table-fixed border-collapse text-left text-[13px]" {...props} />
                 </div>
             );
@@ -815,24 +745,6 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
         );
     };
 
-    const handleEditorSourceClickCapture = (event: React.MouseEvent<HTMLElement>) => {
-        if (!onRequestSourcePosition) return;
-        const clicked = event.target instanceof HTMLElement ? event.target : null;
-        if (clicked?.closest("[data-readme-copy-button='true']")) return;
-        const sourceElement = clicked?.closest<HTMLElement>("[data-readme-source-line],[data-readme-source-offset]");
-        if (!sourceElement || !event.currentTarget.contains(sourceElement)) return;
-        event.preventDefault();
-        const line = Number(sourceElement.dataset.readmeSourceLine);
-        const offset = Number(sourceElement.dataset.readmeSourceOffset);
-        onRequestSourcePosition({
-            targetId: sourceElement.dataset.readmeEditorTargetId
-                || sourceElement.dataset.readmeTargetId
-                || sourceElement.id,
-            kind: sourceElement.dataset.readmeSourceKind ?? null,
-            line: Number.isFinite(line) ? line : null,
-            offset: Number.isFinite(offset) ? offset : null,
-        });
-    };
     const segmentRenderPlans = useMemo(() => buildProjectDocSegmentRenderPlans(segments), [segments]);
 
     if (isCircularDocReference) {
@@ -847,8 +759,6 @@ export const ProjectDocRenderer = React.memo(function ProjectDocRenderer({
         <article
             className={cn("readme-body min-w-0 text-foreground", className)}
             data-readme-preview-fidelity={fidelity}
-            data-readme-editor-source-targets={onRequestSourcePosition ? "true" : undefined}
-            onClickCapture={handleEditorSourceClickCapture}
         >
             <Suspense fallback={<div className="text-sm text-muted-foreground">Rendering document…</div>}>
                 {segmentRenderPlans.map((plan) => {

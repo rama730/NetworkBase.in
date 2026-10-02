@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
-import { importJobs, importJobFiles, uploadIntents, projectNodes, fileVersions } from '@/lib/db/schema';
-import { and, eq, isNull } from 'drizzle-orm';
+import { importJobs, importJobFiles, uploadIntents, projectNodes, fileVersions, storageAssets } from '@/lib/db/schema';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
 import { assertProjectWriteAccess, recordNodeEvent } from '@/lib/files/internal-helpers';
@@ -11,6 +10,7 @@ import { createDirectoryStructureFromPaths } from '@/lib/import/utils';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import path from 'path';
+import { finalizeUploadIntent } from '@/lib/upload/upload-intents';
 
 const finalizeFileSchema = z.object({
     jobId: z.string().uuid(),
@@ -49,13 +49,13 @@ export async function POST(request: NextRequest) {
 
         const { jobId, path: filePath, uploadIntentId } = parsed.data;
 
-        // 1. Fetch import job, upload intent, and job file in parallel
+        // Fetch the operation binding and manifest entry before reading bytes.
         const [job, intent, jobFile] = await Promise.all([
             db.query.importJobs.findFirst({
                 where: and(eq(importJobs.id, jobId), eq(importJobs.status, 'importing')),
             }),
             db.query.uploadIntents.findFirst({
-                where: and(eq(uploadIntents.id, uploadIntentId), eq(uploadIntents.status, 'pending')),
+                where: eq(uploadIntents.id, uploadIntentId),
             }),
             db.query.importJobFiles.findFirst({
                 where: and(
@@ -81,24 +81,73 @@ export async function POST(request: NextRequest) {
         if (!jobFile) {
             return jsonError('File path not registered in job manifest', 404, 'NOT_FOUND');
         }
+        if (jobFile.uploadIntentId !== uploadIntentId || jobFile.s3Key !== intent.storageKey) {
+            return jsonError('Upload intent does not match the manifest entry', 400, 'BAD_REQUEST');
+        }
         if (jobFile.status === 'completed') {
-            return jsonSuccess({ message: 'File already finalized', nodeId: jobFile.id });
+            const existing = await db.query.projectNodes.findFirst({
+                where: and(
+                    eq(projectNodes.projectId, job.projectId),
+                    eq(projectNodes.path, `/${filePath.replaceAll('\\', '/').replace(/^\/+/, '')}`),
+                    isNull(projectNodes.deletedAt),
+                ),
+                columns: { id: true, currentVersion: true },
+            });
+            return jsonSuccess({
+                message: 'File already finalized',
+                nodeId: existing?.id ?? null,
+                version: existing?.currentVersion ?? null,
+                isComplete: job.status === 'completed',
+            });
         }
 
-        // 4. Query object metadata from storage
-        const adminClient = await createAdminClient();
-        const { data: storageInfo, error: storageError } = await adminClient.storage
-            .from(intent.bucket)
-            .info(intent.storageKey);
-
-        if (storageError || !storageInfo) {
-            console.error('[finalize-file] Storage info error:', storageError);
-            return jsonError('Uploaded object not found in storage', 404, 'NOT_FOUND');
+        const finalizedIntent = await finalizeUploadIntent({
+            intentId: uploadIntentId,
+            bucket: 'project-files',
+            storageKey: intent.storageKey,
+            userId: user.id,
+            projectId: job.projectId,
+            expectedScope: 'project_file',
+            expectedKind: 'file',
+        }, intent);
+        if (!finalizedIntent.assetId || finalizedIntent.finalizedSize === null || !finalizedIntent.finalizedMimeType) {
+            return jsonError('Verified upload asset is unavailable', 409, 'CONFLICT');
         }
-
-        if (storageInfo.size !== intent.expectedSize) {
-            return jsonError('File size mismatch with expected intent size', 400, 'BAD_REQUEST');
+        const [verifiedAsset] = await db.select({
+            id: storageAssets.id,
+            contentHash: storageAssets.contentHash,
+        }).from(storageAssets).where(and(
+            eq(storageAssets.id, finalizedIntent.assetId),
+            eq(storageAssets.state, 'verified'),
+            eq(storageAssets.ownerUserId, user.id),
+            eq(storageAssets.projectId, job.projectId),
+        )).limit(1);
+        if (!verifiedAsset?.contentHash || verifiedAsset.contentHash !== jobFile.checksum.toLowerCase()) {
+            await db.transaction(async (tx) => {
+                await tx.update(uploadIntents).set({
+                    status: 'failed',
+                    failureReason: 'Uploaded content does not match the import manifest checksum',
+                    updatedAt: new Date(),
+                }).where(eq(uploadIntents.id, uploadIntentId));
+                if (verifiedAsset) {
+                    await tx.update(storageAssets).set({
+                        state: 'delete_pending',
+                        deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+                        backupState: 'not_required',
+                        lastErrorCode: 'IMPORT_CHECKSUM_MISMATCH',
+                        updatedAt: new Date(),
+                    }).where(and(
+                        eq(storageAssets.id, verifiedAsset.id),
+                        eq(storageAssets.state, 'verified'),
+                    ));
+                }
+            });
+            return jsonError('Uploaded content does not match the manifest checksum', 400, 'BAD_REQUEST');
         }
+        const finalizedSize = finalizedIntent.finalizedSize;
+        const finalizedMimeType = finalizedIntent.finalizedMimeType;
+        const verifiedAssetId = verifiedAsset.id;
+        const verifiedContentHash = verifiedAsset.contentHash;
 
         // 5. Ensure folder structure exists
         const rel = filePath.replaceAll('\\', '/').replace(/^\/+/, '');
@@ -120,16 +169,53 @@ export async function POST(request: NextRequest) {
 
         const nodePath = `/${rel}`;
 
-        // 6. Commit node and version changes in a transaction
+        // Commit the asset reference, node version, job state and backup request together.
         const result = await db.transaction(async (tx) => {
+            const [lockedJobFile] = await tx.select({
+                status: importJobFiles.status,
+                uploadIntentId: importJobFiles.uploadIntentId,
+            }).from(importJobFiles)
+                .where(eq(importJobFiles.id, jobFile.id))
+                .limit(1)
+                .for('update');
+            if (!lockedJobFile || lockedJobFile.uploadIntentId !== uploadIntentId) {
+                throw new Error('Import manifest binding changed before publication');
+            }
+            if (lockedJobFile.status === 'completed') {
+                const [publishedNode] = await tx.select({
+                    id: projectNodes.id,
+                    currentVersion: projectNodes.currentVersion,
+                }).from(projectNodes).where(and(
+                    eq(projectNodes.projectId, job.projectId),
+                    eq(projectNodes.path, nodePath),
+                    isNull(projectNodes.deletedAt),
+                )).limit(1);
+                if (!publishedNode) throw new Error('Completed import file has no published node');
+                const [currentJob] = await tx.select({ status: importJobs.status })
+                    .from(importJobs).where(eq(importJobs.id, jobId)).limit(1);
+                return {
+                    nodeId: publishedNode.id,
+                    nextVersion: publishedNode.currentVersion,
+                    isComplete: currentJob?.status === 'completed',
+                };
+            }
+            const [publishableAsset] = await tx.update(storageAssets).set({
+                backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+                updatedAt: new Date(),
+            }).where(and(
+                eq(storageAssets.id, verifiedAssetId),
+                eq(storageAssets.state, 'verified'),
+                eq(storageAssets.ownerUserId, user.id),
+                eq(storageAssets.projectId, job.projectId),
+            )).returning({ id: storageAssets.id });
+            if (!publishableAsset) throw new Error('Import asset is no longer publishable');
+
             // Check if node already exists (matching path in project)
-            const existingNode = await tx.query.projectNodes.findFirst({
-                where: and(
+            const [existingNode] = await tx.select().from(projectNodes).where(and(
                     eq(projectNodes.projectId, job.projectId),
                     eq(projectNodes.path, nodePath),
                     isNull(projectNodes.deletedAt)
-                ),
-            });
+                )).limit(1).for('update');
 
             const nodeId = existingNode?.id || randomUUID();
             const nextVersion = existingNode ? existingNode.currentVersion + 1 : 1;
@@ -140,8 +226,9 @@ export async function POST(request: NextRequest) {
                     .set({
                         currentVersion: nextVersion,
                         s3Key: intent.storageKey,
-                        size: intent.expectedSize,
-                        mimeType: intent.expectedMimeType,
+                        assetId: verifiedAssetId,
+                        size: finalizedSize,
+                        mimeType: finalizedMimeType,
                         gitHash: jobFile.checksum,
                         syncStatus: 'merged',
                         updatedAt: new Date(),
@@ -158,8 +245,9 @@ export async function POST(request: NextRequest) {
                         type: 'file',
                         name: fileName,
                         s3Key: intent.storageKey,
-                        size: intent.expectedSize,
-                        mimeType: intent.expectedMimeType,
+                        assetId: verifiedAssetId,
+                        size: finalizedSize,
+                        mimeType: finalizedMimeType,
                         currentVersion: 1,
                         gitHash: jobFile.checksum,
                         syncStatus: 'merged',
@@ -174,24 +262,14 @@ export async function POST(request: NextRequest) {
                 nodeId,
                 version: nextVersion,
                 s3Key: intent.storageKey,
-                size: intent.expectedSize,
-                mimeType: intent.expectedMimeType,
-                contentHash: jobFile.checksum,
+                assetId: verifiedAssetId,
+                size: finalizedSize,
+                mimeType: finalizedMimeType,
+                contentHash: verifiedContentHash,
                 uploadedBy: user.id,
                 uploadedAt: new Date(),
+                attribution: { source: 'github_import', jobId },
             });
-
-            // Mark upload intent as finalized
-            await tx
-                .update(uploadIntents)
-                .set({
-                    status: 'finalized',
-                    finalizedMimeType: intent.expectedMimeType,
-                    finalizedSize: intent.expectedSize,
-                    finalizedAt: new Date(),
-                    updatedAt: new Date(),
-                })
-                .where(eq(uploadIntents.id, uploadIntentId));
 
             // Mark import job file as completed
             await tx
@@ -202,23 +280,22 @@ export async function POST(request: NextRequest) {
                 })
                 .where(eq(importJobFiles.id, jobFile.id));
 
-            // Increment processedFiles and conditionally complete import job in 1 atomic update
-            const nextProcessed = job.processedFiles + 1;
-            const isComplete = nextProcessed >= job.totalFiles;
-            await tx
+            const [updatedJob] = await tx
                 .update(importJobs)
                 .set({
-                    processedFiles: nextProcessed,
-                    ...(isComplete ? { status: 'completed' } : {}),
+                    processedFiles: sql`LEAST(${importJobs.processedFiles} + 1, ${importJobs.totalFiles})`,
+                    status: sql`CASE WHEN ${importJobs.processedFiles} + 1 >= ${importJobs.totalFiles} THEN 'completed' ELSE ${importJobs.status} END`,
                     updatedAt: new Date(),
                 })
-                .where(eq(importJobs.id, jobId));
+                .where(and(eq(importJobs.id, jobId), eq(importJobs.status, 'importing')))
+                .returning({ status: importJobs.status });
+            if (!updatedJob) throw new Error('Import job became inactive before publication');
 
             // Record node event
             const eventType = existingNode ? 'file_write' : 'file_create';
             await recordNodeEvent(job.projectId, user.id, nodeId, eventType, { version: nextVersion }, tx);
 
-            return { nodeId, nextVersion, isComplete };
+            return { nodeId, nextVersion, isComplete: updatedJob.status === 'completed' };
         });
 
         return jsonSuccess({

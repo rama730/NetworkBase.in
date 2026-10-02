@@ -181,6 +181,14 @@ export const profiles = pgTable(
     fullName: text("full_name"),
     avatarUrl: text("avatar_url"),
     bannerUrl: text("banner_url"),
+    avatarAssetId: uuid("avatar_asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
+    bannerAssetId: uuid("banner_asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
     bio: text("bio"),
     headline: text("headline"),
     location: text("location"),
@@ -344,6 +352,8 @@ export const profiles = pgTable(
     ).on(t.workspaceInProgressCount),
     // Index for "Active today/this week" filtering in discover
     lastActiveAtIdx: index("profiles_last_active_at_idx").on(t.lastActiveAt),
+    avatarAssetIdx: index("profiles_avatar_asset_idx").on(t.avatarAssetId),
+    bannerAssetIdx: index("profiles_banner_asset_idx").on(t.bannerAssetId),
     onboardingStatusIdx: index("profiles_onboarding_status_idx").on(
       t.onboardingStatus,
       t.updatedAt,
@@ -748,6 +758,10 @@ export const projects = pgTable(
     coverImage: text("cover_image"),
     coverImageBucket: text("cover_image_bucket"),
     coverImageKey: text("cover_image_key"),
+    coverImageAssetId: uuid("cover_image_asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
     category: text("category"),
     viewCount: integer("view_count").default(0),
     followersCount: integer("followers_count").default(0).notNull(),
@@ -838,6 +852,9 @@ export const projects = pgTable(
   },
   (t) => ({
     ownerIdx: index("projects_owner_idx").on(t.ownerId),
+    coverImageAssetIdx: index("projects_cover_image_asset_idx").on(
+      t.coverImageAssetId,
+    ),
     conversationIdx: index("projects_conversation_idx").on(t.conversationId),
     // Multi-column indexes for filtering (critical for 1M users)
     statusVisibilityIdx: index("projects_status_visibility_idx").on(
@@ -1752,6 +1769,32 @@ export const projectUpdates = pgTable(
   }),
 );
 
+export const projectUpdateMediaAssets = pgTable(
+  "project_update_media_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    updateId: uuid("update_id")
+      .notNull()
+      .references(() => projectUpdates.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references((): AnyPgColumn => storageAssets.id, { onDelete: "restrict" }),
+    ordinal: integer("ordinal").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    updateOrdinalUnique: uniqueIndex("project_update_media_assets_update_ordinal_unique").on(
+      t.updateId,
+      t.ordinal,
+    ),
+    updateAssetUnique: uniqueIndex("project_update_media_assets_update_asset_unique").on(
+      t.updateId,
+      t.assetId,
+    ),
+    assetIdx: index("project_update_media_assets_asset_idx").on(t.assetId),
+  }),
+);
+
 export const projectUpdateDrafts = pgTable(
   "project_update_drafts",
   {
@@ -1792,6 +1835,32 @@ export const projectUpdateDrafts = pgTable(
     pk: primaryKey({ columns: [t.projectId, t.userId] }),
     updatedAtIdx: index("project_update_drafts_updated_at_idx").on(t.updatedAt),
     userIdx: index("project_update_drafts_user_idx").on(t.userId),
+  }),
+);
+
+export const projectUpdateDraftMediaAssets = pgTable(
+  "project_update_draft_media_assets",
+  {
+    projectId: uuid("project_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references((): AnyPgColumn => storageAssets.id, { onDelete: "restrict" }),
+    ordinal: integer("ordinal").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.projectId, t.userId, t.assetId] }),
+    draftOrdinalUnique: uniqueIndex("project_update_draft_media_assets_ordinal_unique").on(
+      t.projectId,
+      t.userId,
+      t.ordinal,
+    ),
+    assetIdx: index("project_update_draft_media_assets_asset_idx").on(t.assetId),
+    draftFk: foreignKey({
+      columns: [t.projectId, t.userId],
+      foreignColumns: [projectUpdateDrafts.projectId, projectUpdateDrafts.userId],
+    }).onDelete("cascade"),
   }),
 );
 
@@ -2601,6 +2670,10 @@ export const projectNodes = pgTable(
 
     // File specifics
     s3Key: text("s3_key"),
+    assetId: uuid("asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
     size: bigint("size", { mode: "number" }).default(0),
     mimeType: text("mime_type"),
     // Version counter — bumped each time replaceNodeWithNewVersion() lands a
@@ -2708,6 +2781,7 @@ export const projectNodes = pgTable(
     activeFileS3KeyIdx: index("project_nodes_active_file_s3_key_idx")
       .on(t.s3Key.op("text_pattern_ops"))
       .where(sql`${t.type} = 'file' AND ${t.deletedAt} IS NULL`),
+    assetIdx: index("project_nodes_asset_idx").on(t.assetId),
     permanentDeleteRootIdx: index("project_nodes_permanent_delete_root_idx")
       .on(t.updatedAt)
       .where(sql`${t.deletedAt} IS NOT NULL AND (${t.metadata}->>'permanentDeleteRoot') = ${t.id}::text`),
@@ -2731,6 +2805,10 @@ export const fileVersions = pgTable(
       .references(() => projectNodes.id, { onDelete: "cascade" }),
     version: integer("version").notNull(),
     s3Key: text("s3_key").notNull(),
+    assetId: uuid("asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
     size: bigint("size", { mode: "number" }).notNull(),
     mimeType: text("mime_type").notNull(),
     // Lowercase hex SHA-256 of the blob. NULL only for legacy rows backfilled
@@ -2757,11 +2835,252 @@ export const fileVersions = pgTable(
       t.version.desc(),
     ),
     contentHashIdx: index("file_versions_content_hash_idx").on(t.contentHash),
+    assetIdx: index("file_versions_asset_idx").on(t.assetId),
     uploadedByIdx: index("file_versions_uploaded_by_idx").on(t.uploadedBy),
     nodeUploadedAtIdx: index("file_versions_node_uploaded_at_idx").on(
       t.nodeId,
       t.uploadedAt.desc(),
     ),
+  }),
+);
+
+// Server-owned object lifecycle. Domain tables keep their own authorization;
+// this ledger owns byte identity, verification, quota accounting, and deletion.
+export const storageAssets = pgTable(
+  "storage_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Deliberately retained after profile/project deletion so cleanup and
+    // quota evidence cannot disappear with the domain row.
+    ownerUserId: uuid("owner_user_id"),
+    projectId: uuid("project_id"),
+    bucket: text("bucket").notNull(),
+    storageKey: text("storage_key").notNull(),
+    purpose: text("purpose").notNull(),
+    state: text("state", {
+      enum: ["pending", "verified", "delete_pending", "deleting", "deleted", "missing"],
+    }).default("pending").notNull(),
+    declaredMimeType: text("declared_mime_type").notNull(),
+    declaredSize: bigint("declared_size", { mode: "number" }).notNull(),
+    verifiedMimeType: text("verified_mime_type"),
+    verifiedSize: bigint("verified_size", { mode: "number" }),
+    contentHash: text("content_hash"),
+    sourceAssetId: uuid("source_asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
+    idempotencyKey: text("idempotency_key"),
+    requestFingerprint: text("request_fingerprint"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+    // Exactly one physical object in a derivative chain owns the logical
+    // quota charge. Private staging can therefore be replaced by a verified
+    // public derivative without double charging during publication.
+    quotaTracked: boolean("quota_tracked").default(true).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verificationLeaseToken: uuid("verification_lease_token"),
+    verificationLeaseExpiresAt: timestamp("verification_lease_expires_at", { withTimezone: true }),
+    verificationFence: bigint("verification_fence", { mode: "number" }).default(0).notNull(),
+    deleteAfter: timestamp("delete_after", { withTimezone: true }),
+    deletionLeaseToken: uuid("deletion_lease_token"),
+    deletionLeaseExpiresAt: timestamp("deletion_lease_expires_at", { withTimezone: true }),
+    deletionFence: bigint("deletion_fence", { mode: "number" }).default(0).notNull(),
+    backupState: text("backup_state", { enum: ["not_required", "pending", "verified"] })
+      .default("not_required")
+      .notNull(),
+    lastErrorCode: text("last_error_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    bucketKeyUnique: uniqueIndex("storage_assets_bucket_key_unique").on(t.bucket, t.storageKey),
+    ownerIdempotencyUnique: uniqueIndex("storage_assets_owner_purpose_idempotency_unique")
+      .on(t.ownerUserId, t.purpose, t.idempotencyKey)
+      .where(sql`${t.idempotencyKey} IS NOT NULL AND ${t.ownerUserId} IS NOT NULL`),
+    stateExpiryIdx: index("storage_assets_state_expiry_idx").on(t.state, t.expiresAt, t.id),
+    verificationLeaseIdx: index("storage_assets_verification_lease_idx")
+      .on(t.state, t.verificationLeaseExpiresAt, t.id)
+      .where(sql`${t.state} = 'pending'`),
+    verificationWorkIdx: index("storage_assets_verification_work_idx")
+      .on(t.verificationLeaseExpiresAt, t.updatedAt, t.id)
+      .where(sql`${t.state} = 'pending' AND (${t.verificationLeaseToken} IS NOT NULL OR ${t.lastErrorCode} IS NOT NULL)`),
+    backupDueIdx: index("storage_assets_backup_due_idx")
+      .on(t.verifiedAt, t.id)
+      .where(sql`${t.backupState} = 'pending' AND ${t.state} IN ('verified', 'delete_pending')`),
+    deletionDueIdx: index("storage_assets_deletion_due_idx")
+      .on(t.deleteAfter, t.id)
+      .where(sql`${t.state} = 'delete_pending'`),
+    ownerIdx: index("storage_assets_owner_idx").on(t.ownerUserId, t.createdAt),
+    projectIdx: index("storage_assets_project_idx").on(t.projectId, t.createdAt),
+    sourceIdx: index("storage_assets_source_idx").on(t.sourceAssetId),
+    declaredSizeCheck: check("storage_assets_declared_size_check", sql`${t.declaredSize} >= 0`),
+    verifiedSizeCheck: check(
+      "storage_assets_verified_size_check",
+      sql`${t.verifiedSize} IS NULL OR ${t.verifiedSize} >= 0`,
+    ),
+    verificationFenceCheck: check(
+      "storage_assets_verification_fence_check",
+      sql`${t.verificationFence} >= 0`,
+    ),
+    deletionFenceCheck: check(
+      "storage_assets_deletion_fence_check",
+      sql`${t.deletionFence} >= 0`,
+    ),
+  }),
+);
+
+export const storageAssetOperations = pgTable(
+  "storage_asset_operations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => storageAssets.id, { onDelete: "restrict" }),
+    ownerUserId: uuid("owner_user_id").references(() => profiles.id, { onDelete: "set null" }),
+    operation: text("operation", { enum: ["upload", "verify", "publish", "delete", "backup"] }).notNull(),
+    state: text("state", { enum: ["pending", "running", "succeeded", "failed", "cancelled"] })
+      .default("pending")
+      .notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    result: jsonb("result").$type<Record<string, unknown>>(),
+    errorCode: text("error_code"),
+    leaseToken: uuid("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    ownerIdempotencyUnique: uniqueIndex("storage_asset_operations_owner_idempotency_unique")
+      .on(t.ownerUserId, t.idempotencyKey)
+      .where(sql`${t.ownerUserId} IS NOT NULL`),
+    assetStateIdx: index("storage_asset_operations_asset_state_idx").on(t.assetId, t.state),
+    leaseIdx: index("storage_asset_operations_lease_idx")
+      .on(t.state, t.leaseExpiresAt, t.id)
+      .where(sql`${t.state} IN ('pending', 'running')`),
+  }),
+);
+
+// Serialized quota rows keep upload admission O(1) for large tenants. Every
+// writer locks the user row before an optional project row.
+export const storageQuotaScopes = pgTable(
+  "storage_quota_scopes",
+  {
+    scopeType: text("scope_type", { enum: ["user", "project"] }).notNull(),
+    scopeId: uuid("scope_id").notNull(),
+    limitBytes: bigint("limit_bytes", { mode: "number" }).notNull(),
+    reservedBytes: bigint("reserved_bytes", { mode: "number" }).default(0).notNull(),
+    retainedBytes: bigint("retained_bytes", { mode: "number" }).default(0).notNull(),
+    outstandingUploads: integer("outstanding_uploads").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.scopeType, t.scopeId] }),
+    dueIdx: index("storage_quota_scopes_outstanding_idx").on(t.outstandingUploads, t.updatedAt),
+    limitCheck: check("storage_quota_scopes_limit_check", sql`${t.limitBytes} > 0`),
+    reservedCheck: check("storage_quota_scopes_reserved_check", sql`${t.reservedBytes} >= 0`),
+    retainedCheck: check("storage_quota_scopes_retained_check", sql`${t.retainedBytes} >= 0`),
+    outstandingCheck: check("storage_quota_scopes_outstanding_check", sql`${t.outstandingUploads} >= 0`),
+  }),
+);
+
+// Short-lived references held while a response or background operation reads
+// immutable bytes. Physical deletion must ignore expired pins and reject any
+// asset with an active pin.
+export const storageAssetPins = pgTable(
+  "storage_asset_pins",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => storageAssets.id, { onDelete: "cascade" }),
+    operationId: uuid("operation_id").notNull(),
+    kind: text("kind", { enum: ["export"] }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    operationAssetUnique: uniqueIndex("storage_asset_pins_operation_asset_unique").on(
+      t.operationId,
+      t.assetId,
+    ),
+    activeAssetIdx: index("storage_asset_pins_asset_expiry_idx").on(t.assetId, t.expiresAt),
+    expiryIdx: index("storage_asset_pins_expiry_idx").on(t.expiresAt, t.id),
+  }),
+);
+
+// Durable cleanup evidence for pre-lifecycle objects. These rows deliberately
+// have no domain foreign keys so account/project cascades cannot erase the
+// last record needed to remove legacy bytes.
+export const storageLegacyCleanupTargets = pgTable(
+  "storage_legacy_cleanup_targets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceType: text("source_type", {
+      enum: ["project_update_media", "project_update_draft_media"],
+    }).notNull(),
+    sourceId: uuid("source_id").notNull(),
+    sourceProjectId: uuid("source_project_id"),
+    bucket: text("bucket").notNull(),
+    storageKey: text("storage_key").notNull(),
+    state: text("state", { enum: ["pending", "deleting", "retry", "deleted"] })
+      .default("pending")
+      .notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
+    leaseToken: uuid("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    fence: bigint("fence", { mode: "number" }).default(0).notNull(),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (t) => ({
+    sourceObjectUnique: uniqueIndex("storage_legacy_cleanup_source_object_unique").on(
+      t.sourceType,
+      t.sourceId,
+      t.sourceProjectId,
+      t.bucket,
+      t.storageKey,
+    ),
+    dueIdx: index("storage_legacy_cleanup_due_idx").on(t.state, t.nextAttemptAt, t.id),
+    leaseIdx: index("storage_legacy_cleanup_lease_idx").on(t.state, t.leaseExpiresAt, t.id),
+    fenceCheck: check("storage_legacy_cleanup_fence_check", sql`${t.fence} >= 0`),
+    attemptsCheck: check("storage_legacy_cleanup_attempts_check", sql`${t.attempts} >= 0`),
+  }),
+);
+
+export const storageRepairFailures = pgTable(
+  "storage_repair_failures",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    repairKind: text("repair_kind").notNull(),
+    subjectId: text("subject_id").notNull(),
+    errorCode: text("error_code").notNull(),
+    detail: text("detail"),
+    attempts: integer("attempts").default(1).notNull(),
+    nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    subjectUnique: uniqueIndex("storage_repair_failures_subject_unique").on(
+      t.repairKind,
+      t.subjectId,
+    ),
+    dueIdx: index("storage_repair_failures_due_idx").on(
+      t.repairKind,
+      t.resolvedAt,
+      t.nextRetryAt,
+      t.id,
+    ),
+    unresolvedDueIdx: index("storage_repair_failures_unresolved_due_idx")
+      .on(t.nextRetryAt, t.createdAt, t.id)
+      .where(sql`${t.resolvedAt} IS NULL`),
   }),
 );
 
@@ -2775,12 +3094,14 @@ export const uploadIntents = pgTable(
     projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "cascade",
     }),
+    assetId: uuid("asset_id")
+      .references(() => storageAssets.id, { onDelete: "set null" }),
     bucket: text("bucket").notNull(),
     storageKey: text("storage_key").notNull(),
     scope: text("scope", {
-      enum: ["project_file", "project_update_media", "profile_image"],
+      enum: ["project_file", "project_update_media", "profile_image", "project_cover", "chat_attachment", "recovery_draft", "import_manifest", "sync_snapshot"],
     }).notNull(),
-    kind: text("kind", { enum: ["file", "avatar", "banner"] }).notNull(),
+    kind: text("kind", { enum: ["file", "avatar", "banner", "cover", "draft", "manifest", "snapshot"] }).notNull(),
     expectedMimeType: text("expected_mime_type").notNull(),
     expectedSize: bigint("expected_size", { mode: "number" }).notNull(),
     finalizedMimeType: text("finalized_mime_type"),
@@ -2818,6 +3139,9 @@ export const uploadIntents = pgTable(
       t.projectId,
       t.status,
     ),
+    assetIdx: uniqueIndex("upload_intents_asset_unique")
+      .on(t.assetId)
+      .where(sql`${t.assetId} IS NOT NULL`),
   }),
 );
 
@@ -2962,6 +3286,16 @@ export const projectNodeLocks = pgTable(
 // ============================================================================
 // PROJECT NODE EVENTS (Audit trail)
 // ============================================================================
+export const projectEventCounters = pgTable("project_event_counters", {
+  projectId: uuid("project_id")
+    .primaryKey()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  nextSequence: bigint("next_sequence", { mode: "number" }).default(0).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  nextSequenceCheck: check("project_event_counters_next_sequence_check", sql`${t.nextSequence} >= 0`),
+}));
+
 export const projectNodeEvents = pgTable(
   "project_node_events",
   {
@@ -3029,6 +3363,16 @@ export const githubSyncRuns = pgTable("github_sync_runs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, t => ({ projectIdx: index("github_sync_runs_project_idx").on(t.projectId, t.createdAt.desc()), queueIdx: index("github_sync_runs_queue_idx").on(t.status, t.updatedAt), activeIdx: uniqueIndex("github_sync_runs_active_idx").on(t.projectId).where(sql`${t.status} IN ('queued', 'running')`), actorIdx: index("github_sync_runs_actor_idx").on(t.actorId) }));
+export const githubSyncSnapshotAssets = pgTable("github_sync_snapshot_assets", {
+  runId: uuid("run_id").notNull().references(() => githubSyncRuns.id, { onDelete: "cascade" }),
+  assetId: uuid("asset_id").notNull().references(() => storageAssets.id, { onDelete: "restrict" }),
+  path: text("path").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  pk: primaryKey({ columns: [t.runId, t.assetId] }),
+  runPathUnique: uniqueIndex("github_sync_snapshot_assets_run_path_unique").on(t.runId, t.path),
+  assetIdx: index("github_sync_snapshot_assets_asset_idx").on(t.assetId),
+}));
 export const githubSyncFiles = pgTable("github_sync_files", {
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   repositoryId: bigint("repository_id", { mode: "number" }).notNull(),
@@ -3581,6 +3925,41 @@ export const uploadIntentsRelations = relations(uploadIntents, ({ one }) => ({
     fields: [uploadIntents.projectId],
     references: [projects.id],
   }),
+  asset: one(storageAssets, {
+    fields: [uploadIntents.assetId],
+    references: [storageAssets.id],
+  }),
+}));
+
+export const storageAssetsRelations = relations(storageAssets, ({ one, many }) => ({
+  owner: one(profiles, {
+    fields: [storageAssets.ownerUserId],
+    references: [profiles.id],
+  }),
+  project: one(projects, {
+    fields: [storageAssets.projectId],
+    references: [projects.id],
+  }),
+  source: one(storageAssets, {
+    fields: [storageAssets.sourceAssetId],
+    references: [storageAssets.id],
+    relationName: "storage_asset_derivatives",
+  }),
+  derivatives: many(storageAssets, {
+    relationName: "storage_asset_derivatives",
+  }),
+  operations: many(storageAssetOperations),
+}));
+
+export const storageAssetOperationsRelations = relations(storageAssetOperations, ({ one }) => ({
+  asset: one(storageAssets, {
+    fields: [storageAssetOperations.assetId],
+    references: [storageAssets.id],
+  }),
+  owner: one(profiles, {
+    fields: [storageAssetOperations.ownerUserId],
+    references: [profiles.id],
+  }),
 }));
 
 export const recoveryCodeRedemptionsRelations = relations(
@@ -3741,6 +4120,9 @@ export const conversationParticipants = pgTable(
     myConversationsIdx: index(
       "conversation_participants_my_conversations_idx",
     ).on(t.userId, t.lastMessageAt),
+    userConversationIdx: index(
+      "conversation_participants_user_conversation_idx",
+    ).on(t.userId, t.conversationId),
     activeIdx: index("conversation_participants_active_idx").on(
       t.userId,
       t.archivedAt,
@@ -4153,6 +4535,9 @@ export const messageAttachments = pgTable(
     messageId: uuid("message_id")
       .notNull()
       .references(() => messages.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").references(() => storageAssets.id, {
+      onDelete: "set null",
+    }),
     type: text("type", { enum: ["image", "video", "file"] }).notNull(),
     storagePath: text("storage_path"),
     url: text("url"),
@@ -4169,6 +4554,7 @@ export const messageAttachments = pgTable(
   },
   (t) => ({
     messageIdx: index("message_attachments_message_idx").on(t.messageId),
+    assetIdx: index("message_attachments_asset_idx").on(t.assetId),
     typeCheck: check(
       "message_attachments_type_check",
       sql`${t.type} IN ('image', 'video', 'file')`,
@@ -4294,6 +4680,12 @@ export const attachmentUploads = pgTable(
     conversationId: uuid("conversation_id").references(() => conversations.id, {
       onDelete: "set null",
     }),
+    uploadIntentId: uuid("upload_intent_id").references(() => uploadIntents.id, {
+      onDelete: "set null",
+    }),
+    assetId: uuid("asset_id").references(() => storageAssets.id, {
+      onDelete: "set null",
+    }),
     storagePath: text("storage_path"),
     filename: text("filename").notNull(),
     mimeType: text("mime_type"),
@@ -4337,6 +4729,10 @@ export const attachmentUploads = pgTable(
       t.conversationId,
       t.updatedAt,
     ),
+    uploadIntentIdx: uniqueIndex("attachment_uploads_upload_intent_unique")
+      .on(t.uploadIntentId)
+      .where(sql`${t.uploadIntentId} IS NOT NULL`),
+    assetIdx: index("attachment_uploads_asset_idx").on(t.assetId),
     clientUploadIdCheck: check(
       "attachment_uploads_client_upload_id_check",
       sql`length(btrim(${t.clientUploadId})) BETWEEN 1 AND 160`,
@@ -5547,6 +5943,9 @@ export const extensionRecoveryDrafts = pgTable(
     sessionId: text("session_id").notNull(),
     filePath: text("file_path").notNull(),
     storageKey: text("storage_key").notNull().unique(),
+    assetId: uuid("asset_id").references(() => storageAssets.id, {
+      onDelete: "restrict",
+    }),
     size: bigint("size", { mode: "number" }).notNull(),
     mimeType: text("mime_type").default("text/plain").notNull(),
     contentHash: text("content_hash").notNull(),
@@ -5600,6 +5999,9 @@ export const extensionRecoveryDrafts = pgTable(
       t.expiresAt,
     ),
     nodeIdx: index("extension_recovery_drafts_node_idx").on(t.nodeId),
+    assetUnique: uniqueIndex("extension_recovery_drafts_asset_unique")
+      .on(t.assetId)
+      .where(sql`${t.assetId} IS NOT NULL`),
   }),
 );
 
@@ -5675,6 +6077,13 @@ export const importJobs = pgTable(
     totalFiles: integer("total_files").default(0).notNull(),
     processedFiles: integer("processed_files").default(0).notNull(),
     manifestS3Key: text("manifest_s3_key"),
+    manifestAssetId: uuid("manifest_asset_id").references(() => storageAssets.id, {
+      onDelete: "restrict",
+    }),
+    manifestUploadIntentId: uuid("manifest_upload_intent_id").references(
+      () => uploadIntents.id,
+      { onDelete: "set null" },
+    ),
     manifestHash: text("manifest_hash"),
     errorMessage: text("error_message"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -5686,6 +6095,12 @@ export const importJobs = pgTable(
   },
   (t) => ({
     projectIdx: index("import_jobs_project_idx").on(t.projectId),
+    manifestAssetUnique: uniqueIndex("import_jobs_manifest_asset_unique")
+      .on(t.manifestAssetId)
+      .where(sql`${t.manifestAssetId} IS NOT NULL`),
+    manifestIntentIdx: index("import_jobs_manifest_intent_idx").on(
+      t.manifestUploadIntentId,
+    ),
   }),
 );
 

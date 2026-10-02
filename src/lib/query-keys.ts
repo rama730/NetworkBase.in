@@ -194,15 +194,6 @@ export const queryKeys = {
           kind,
           query,
         ] as const,
-      readmeImportCandidates: (projectId: string, query: string) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "readme",
-          "import-candidates",
-          query,
-        ] as const,
       readmeSmartBlockPreviews: (projectId: string, blockSignature: string) =>
         [
           "project",

@@ -8,6 +8,7 @@ import {
     useQuery,
     useQueryClient,
 } from '@tanstack/react-query';
+import { MAX_RETAINED_PERSON_QUERY_PAGES } from '@/lib/network/person-card-bounds';
 import {
     acceptAllIncomingConnectionRequests,
     acceptConnectionRequest,
@@ -349,6 +350,7 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
             ? { pages: [initialPage], pageParams: [undefined] }
             : undefined,
         getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+        maxPages: MAX_RETAINED_PERSON_QUERY_PAGES,
         staleTime: tab === 'network' ? 30_000 : 60_000,
         gcTime: 5 * 60_000,
         refetchOnWindowFocus: false,

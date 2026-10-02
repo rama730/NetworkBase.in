@@ -16,17 +16,20 @@ describe("SQL audit query remediations", () => {
   it("bounds Git storage writes and persists only confirmed uploads", () => {
     const source = read("src/lib/github/sync-service.ts");
     assert.match(source, /const uploads = await Promise\.allSettled\(/);
-    assert.match(source, /if \(upload\.status === "fulfilled" && upload\.value\)\s*uploaded\.push\(upload\.value\)/);
+    assert.match(source, /if \(upload\.status === "fulfilled" && upload\.value\)\s*snapshotRefs\.push\(upload\.value\)/);
     assert.match(source, /if \(failed\?\.status === "rejected"\) throw failed\.reason;/);
-    assert.match(source, /if \(!persisted && uploaded\.length\) await storage\.remove\(uploaded\);/);
+    assert.match(source, /githubSyncSnapshotAssets/);
+    assert.match(source, /canonical abandoned-asset worker/);
+    assert.doesNotMatch(source, /if \(!persisted && uploaded\.length\) await storage\.remove\(uploaded\);/);
     assert.match(source, /for \(let offset = 0; offset < choices\.length; offset \+= batchSize\)/);
   });
 
-  it("claims a bounded upload-intent cleanup batch and retries Storage failures", () => {
+  it("claims a bounded upload-intent batch and delegates canonical deletion", () => {
     const source = read("src/lib/upload/upload-intents.ts");
-    assert.match(source, /\.limit\(100\)\s*\.for\("update", \{ skipLocked: true \}\)/);
-    assert.match(source, /retryIds\.push/);
-    assert.match(source, /eq\(uploadIntents\.status, "expired"\), inArray\(uploadIntents\.id, removedIds\)/);
+    assert.match(source, /\.limit\(100\)\s*\.for\("update", \{ of: uploadIntents, skipLocked: true \}\)/);
+    assert.match(source, /credentialGraceCutoff/);
+    assert.match(source, /state: "delete_pending"/);
+    assert.match(source, /legacyExpired/);
   });
 
   it("serializes connection reactivation and application capacity", () => {

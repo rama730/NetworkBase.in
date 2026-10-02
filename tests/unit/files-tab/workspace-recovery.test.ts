@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import vm from "node:vm";
-import ts from "typescript";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { filesReturnQuery, taskFilesHref } from "@/lib/files/task-navigation";
@@ -200,69 +198,14 @@ test("subsequent task file pages use the query cache, not disposable local state
   assert.match(text, /result.data\?\.pages.flatMap/);
 });
 
-test(
-  "upload worker publishes confirmed successes before failure and retries only failed PUTs",
-  { timeout: 3000 },
-  async () => {
-    const source = readFileSync(
-      "src/components/projects/v2/explorer/upload.worker.ts",
-      "utf8",
-    );
-    const messages: any[] = [];
-    const attempts = new Map<string, number>();
-    let finish!: () => void;
-    const done = new Promise<void>((resolve) => {
-      finish = resolve;
-    });
-    const worker = {
-      onmessage: null as any,
-      postMessage: (message: any) => {
-        messages.push(message);
-        if (message.type === "done" || message.type === "error") finish();
-      },
-    };
-    vm.runInNewContext(
-      ts.transpileModule(source, {
-        compilerOptions: { target: ts.ScriptTarget.ES2022 },
-      }).outputText,
-      {
-        self: worker,
-        fetch: async (url: string) => {
-          attempts.set(url, (attempts.get(url) ?? 0) + 1);
-          return { ok: url === "good", status: url === "good" ? 200 : 503 };
-        },
-        setTimeout: (fn: () => void) => {
-          fn();
-        },
-      },
-    );
-    worker.onmessage({
-      data: {
-        jobId: "job-1",
-        uploadNodes: ["good", "bad", "missing"].map((id) => ({
-          fileId: id,
-          s3Key: id,
-          file: { type: "text/plain" },
-          path: id,
-        })),
-        uploadUrls: { good: "good", bad: "bad" },
-      },
-    });
-    await done;
-    assert.equal(attempts.get("good"), 1);
-    assert.equal(attempts.get("bad"), 3);
-    assert.equal(attempts.has("missing"), false);
-    assert.equal(
-      messages.some(
-        (message) =>
-          message.type === "progress" &&
-          message.fileId === "good" &&
-          message.fileSucceeded,
-      ),
-      true,
-    );
-    assert.equal(messages.at(-1).success, 1);
-    assert.equal(messages.at(-1).failed, 2);
-    assert.equal(messages.at(-1).results.length, 3);
-  },
-);
+test("all browser uploads share one bounded retry and concurrency owner", () => {
+  const source = readFileSync(
+    "src/lib/upload/supabase-signed-upload-client.ts",
+    "utf8",
+  );
+  assert.match(source, /const MAX_TRANSFERS = 4/);
+  assert.match(source, /const MAX_RESUMABLE_TRANSFERS = 2/);
+  assert.match(source, /for \(let attempt = 0; attempt < 4; attempt \+= 1\)/);
+  assert.match(source, /await acquireTransferSlot\(options\.signal\)/);
+  assert.match(source, /cancelSupabaseUploadOperation/);
+});

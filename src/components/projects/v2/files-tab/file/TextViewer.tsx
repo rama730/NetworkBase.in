@@ -47,7 +47,6 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/providers/theme-provider";
 import type { ProjectNode } from "@/lib/db/schema";
-import { createClient as createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
@@ -272,7 +271,6 @@ export function TextViewer({
       setSaveError(null);
 
       try {
-        const supabase = createSupabaseBrowserClient();
         const file = new File([content], node.name, {
           type: node.mimeType || "text/plain",
         });
@@ -285,7 +283,6 @@ export function TextViewer({
           baseVersion,
           baseHash,
           lease,
-          supabase,
         });
 
         if (result.success) {

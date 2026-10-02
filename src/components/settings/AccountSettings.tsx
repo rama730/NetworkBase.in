@@ -7,7 +7,7 @@ import { Database, Loader2, LogOut } from "lucide-react";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SignOutConfirmDialog } from "@/components/auth/SignOutConfirmDialog";
 import PendingDeletionBanner from "@/components/settings/PendingDeletionBanner";
 import { useAccountDeletionStatus } from "@/hooks/useSettingsQueries";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,7 +19,6 @@ import { normalizeIdentityFields } from "@/lib/ui/identity";
 export default function AccountPage({ embedded = false }: { embedded?: boolean }) {
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const { data: deletionStatus = { pending: false } } =
     useAccountDeletionStatus();
   const queryClient = useQueryClient();
@@ -98,9 +97,8 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
                 variant="outline"
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => setShowSignOutConfirm(true)}
-                disabled={isSigningOut}
               >
-                {isSigningOut ? <Loader2 className="size-4 animate-spin" /> : <LogOut className="size-4" />}
+                <LogOut className="size-4" />
                 Sign out
               </Button>
             }
@@ -108,25 +106,10 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
         </SettingsSectionCard>
       </div>
 
-      <ConfirmDialog
+      <SignOutConfirmDialog
         open={showSignOutConfirm}
         onOpenChange={setShowSignOutConfirm}
-        title="Sign out of your account?"
-        description="You will be signed out on this device. Unsaved offline changes or drafts may be lost."
-        confirmLabel="Sign out"
-        variant="destructive"
-        loading={isSigningOut}
-        onConfirm={async () => {
-          setIsSigningOut(true);
-          try {
-            await signOut();
-            toast.info("Signed out successfully");
-          } catch {
-            toast.error("Failed to sign out. Please try again.");
-          } finally {
-            setIsSigningOut(false);
-          }
-        }}
+        onConfirm={signOut}
       />
     </>
   );

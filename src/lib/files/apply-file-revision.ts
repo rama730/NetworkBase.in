@@ -3,7 +3,7 @@ import "server-only";
 import { and, eq, max, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { fileVersions, projectNodes, type FileVersion } from "@/lib/db/schema";
+import { fileVersions, projectNodes, storageAssets, type FileVersion } from "@/lib/db/schema";
 import {
   assertProjectUploadAccessTx,
   assertProjectWriteAccessTx,
@@ -15,8 +15,6 @@ import {
   nextFileRevisionNumber,
   type FileRevisionMode,
 } from "@/lib/files/revision-policy";
-import { logger } from "@/lib/logger";
-import { createAdminClient } from "@/lib/supabase/server";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -28,6 +26,7 @@ export interface ApplyFileRevisionInput {
   contentAuthorId?: string | null;
   attribution?: Record<string, unknown>;
   storageKey: string;
+  assetId?: string | null;
   size: number;
   mimeType: string;
   contentHash: string | null;
@@ -92,6 +91,16 @@ export async function applyFileRevision(
     });
     if (!current || current.deletedAt) throw new Error("File not found");
     if (current.type !== "file") throw new Error("Only file nodes support revisions");
+    if (input.assetId) {
+      const [publishableAsset] = await tx.update(storageAssets)
+        .set({
+          backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(storageAssets.id, input.assetId), eq(storageAssets.state, "verified")))
+        .returning({ id: storageAssets.id });
+      if (!publishableAsset) throw new Error("File asset is no longer publishable");
+    }
     if ((input.baseStorageKey !== undefined && current.s3Key !== input.baseStorageKey) ||
         (input.basePath !== undefined && current.path !== input.basePath)) {
       throw new Error("File changed after review. Compare again.");
@@ -135,6 +144,7 @@ export async function applyFileRevision(
           nodeId: input.nodeId,
           version: versionNumber,
           s3Key: input.storageKey,
+          assetId: input.assetId ?? null,
           size: input.size,
           mimeType: input.mimeType,
           contentHash: input.contentHash,
@@ -151,6 +161,7 @@ export async function applyFileRevision(
         .update(fileVersions)
         .set({
           s3Key: input.storageKey,
+          assetId: input.assetId ?? null,
           size: input.size,
           mimeType: input.mimeType,
           contentHash: input.contentHash,
@@ -170,6 +181,7 @@ export async function applyFileRevision(
           nodeId: input.nodeId,
           version: currentVersionNumber,
           s3Key: input.storageKey,
+          assetId: input.assetId ?? null,
           size: input.size,
           mimeType: input.mimeType,
           contentHash: input.contentHash,
@@ -187,6 +199,7 @@ export async function applyFileRevision(
       .update(projectNodes)
       .set({
         s3Key: input.storageKey,
+        assetId: input.assetId ?? null,
         size: input.size,
         mimeType: input.mimeType,
         currentVersion: versionNumber,
@@ -201,6 +214,20 @@ export async function applyFileRevision(
       )
       .returning();
     if (!updatedNode) throw new Error("Failed to update file node");
+
+    if (
+      input.mode === "active_revision" &&
+      current.assetId &&
+      current.assetId !== input.assetId
+    ) {
+      await tx.update(storageAssets)
+        .set({
+          state: "delete_pending",
+          deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+          updatedAt: now,
+        })
+        .where(and(eq(storageAssets.id, current.assetId), eq(storageAssets.state, "verified")));
+    }
 
     await input.afterMutationTx?.(tx);
 
@@ -236,30 +263,6 @@ export async function applyFileRevision(
       sequenceNumber: event.sequenceNumber,
     };
   });
-
-  if (result.replacedStorageKey) {
-    const stillReferenced = await db.query.fileVersions.findFirst({
-      where: eq(fileVersions.s3Key, result.replacedStorageKey),
-      columns: { id: true },
-    });
-    if (!stillReferenced) {
-      try {
-        const storage = await createAdminClient();
-        const { error } = await storage.storage
-          .from("project-files")
-          .remove([result.replacedStorageKey]);
-        if (error) throw error;
-      } catch (error) {
-        logger.warn("files.revision.orphan_cleanup_failed", {
-          module: "files",
-          projectId: input.projectId,
-          nodeId: input.nodeId,
-          storageKey: result.replacedStorageKey,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-  }
 
   return result;
 }

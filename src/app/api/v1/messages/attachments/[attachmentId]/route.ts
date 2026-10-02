@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { createAdminClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
@@ -8,11 +9,13 @@ import {
   messageAttachments,
   messageHiddenForUsers,
   messages,
+  storageAssets,
 } from "@/lib/db/schema";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { isUuid } from "@/lib/validations/uuid";
 import { MESSAGE_MEDIA_PREVIEW_MAX_WIDTH } from "@/lib/messages/media-metadata";
 import { resolveAttachmentStoragePath } from "@/lib/messages/attachment-storage-path";
+import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import {
   enforceRouteLimit,
   getRequestId,
@@ -22,9 +25,7 @@ import {
 } from "@/app/api/v1/_shared";
 
 const ATTACHMENTS_BUCKET = "chat-attachments";
-const ATTACHMENT_SIGNED_URL_TTL_SECONDS = 86_400; // 24 hours
-const ATTACHMENT_REDIRECT_STALE_SECONDS = 3_600;
-const ATTACHMENT_REDIRECT_CACHE_CONTROL = `private, max-age=${ATTACHMENT_SIGNED_URL_TTL_SECONDS - ATTACHMENT_REDIRECT_STALE_SECONDS}, stale-while-revalidate=${ATTACHMENT_REDIRECT_STALE_SECONDS}`;
+const ATTACHMENT_SIGNED_URL_TTL_SECONDS = 60;
 
 function storageImageTransformationsEnabled() {
   return process.env.SUPABASE_STORAGE_IMAGE_TRANSFORMATIONS_ENABLED?.trim().toLowerCase() === "true";
@@ -105,14 +106,19 @@ export async function GET(
       id: messageAttachments.id,
       filename: messageAttachments.filename,
       mimeType: messageAttachments.mimeType,
+      sizeBytes: messageAttachments.sizeBytes,
       storagePath: messageAttachments.storagePath,
       legacyUrl: messageAttachments.url,
+      assetStorageKey: storageAssets.storageKey,
+      assetSize: storageAssets.verifiedSize,
+      assetMimeType: storageAssets.verifiedMimeType,
       conversationId: messages.conversationId,
       conversationType: conversations.type,
       dmUserOneId: dmPairs.userLow,
       dmUserTwoId: dmPairs.userHigh,
     })
     .from(messageAttachments)
+    .innerJoin(storageAssets, eq(storageAssets.id, messageAttachments.assetId))
     .innerJoin(messages, eq(messageAttachments.messageId, messages.id))
     .innerJoin(conversations, eq(conversations.id, messages.conversationId))
     .leftJoin(dmPairs, eq(dmPairs.conversationId, conversations.id))
@@ -133,6 +139,8 @@ export async function GET(
     .where(
       and(
         eq(messageAttachments.id, trimmedAttachmentId),
+        eq(storageAssets.bucket, ATTACHMENTS_BUCKET),
+        eq(storageAssets.state, "verified"),
         isNull(messages.deletedAt),
         isNull(messageHiddenForUsers.id),
       ),
@@ -192,11 +200,14 @@ export async function GET(
     });
     return jsonError("Attachment not found", 404, "NOT_FOUND");
   }
+  if (storagePath !== attachment.assetStorageKey || attachment.assetSize == null) {
+    return jsonError("Attachment not found", 404, "NOT_FOUND");
+  }
 
   const requestUrl = new URL(request.url);
   const download = requestUrl.searchParams.get("download") === "1";
   const preview = requestUrl.searchParams.get("preview") === "1";
-  const requestedMimeType = (attachment.mimeType || "").trim();
+  const requestedMimeType = (attachment.assetMimeType || attachment.mimeType || "").trim();
   const usePreviewTransform = (
     preview
     && storageImageTransformationsEnabled()
@@ -207,55 +218,9 @@ export async function GET(
   const admin = await createAdminClient();
   const filename = sanitizeFilename(attachment.filename);
 
-  // For video files, proxy the bytes through our server with the correct Content-Type.
-  // Supabase Storage may have the wrong Content-Type if the file was uploaded as
-  // application/octet-stream, causing <video> tags to refuse to play.
-  const fileExt = (attachment.filename || "").split(".").pop()?.toLowerCase();
-  const videoExtensions = new Set(["mp4", "webm", "mov", "ogg", "avi", "mkv"]);
-  const isVideo = requestedMimeType.startsWith("video/") || videoExtensions.has(fileExt || "");
-  const isStreamRequest = requestUrl.searchParams.get("stream") === "1";
-
-  if (isVideo || isStreamRequest) {
-    const signedUrl = await getReusableAttachmentSignedUrl({
-      admin,
-      storagePath,
-    });
-
-    if (!signedUrl) {
-      logApiRoute(request, {
-        requestId,
-        action: "messages.attachments.get",
-        userId: user.id,
-        startedAt,
-        success: false,
-        status: 404,
-        errorCode: "NOT_FOUND",
-      });
-      return jsonError("Attachment not found", 404, "NOT_FOUND");
-    }
-
-    logApiRoute(request, {
-      requestId,
-      action: "messages.attachments.get",
-      userId: user.id,
-      startedAt,
-      success: true,
-      status: 307,
-    });
-
-    return new Response(null, {
-      status: 307,
-      headers: {
-        Location: signedUrl,
-        "Cache-Control": ATTACHMENT_REDIRECT_CACHE_CONTROL,
-      },
-    });
-  }
-
   const signedUrl = await getReusableAttachmentSignedUrl({
     admin,
     storagePath,
-    download: download ? filename : undefined,
     transform: usePreviewTransform ? {
       width: MESSAGE_MEDIA_PREVIEW_MAX_WIDTH,
       resize: "contain",
@@ -282,14 +247,23 @@ export async function GET(
     userId: user.id,
     startedAt,
     success: true,
-    status: 307,
+    status: 200,
   });
+  const storageIdentity = createHash("sha256").update(storagePath).digest("base64url").slice(0, 16);
+  return streamPrivateObject({
+    request,
+    signedUrl,
+    totalSize: usePreviewTransform ? null : attachment.assetSize,
+    mimeType: requestedMimeType,
+    filename,
+    disposition: download ? "attachment" : "inline",
+    etag: `"chat-attachment-${attachment.id}-${storageIdentity}${usePreviewTransform ? "-preview" : ""}"`,
+  });
+}
 
-  return new Response(null, {
-    status: 307,
-    headers: {
-      Location: signedUrl,
-      "Cache-Control": ATTACHMENT_REDIRECT_CACHE_CONTROL,
-    },
-  });
+export async function HEAD(
+  request: Request,
+  context: { params: Promise<{ attachmentId: string }> },
+) {
+  return GET(request, context);
 }

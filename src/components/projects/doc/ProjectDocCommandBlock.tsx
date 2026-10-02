@@ -12,9 +12,11 @@ export type ProjectDocCommandLineTarget = {
 };
 
 async function copyTextWithFallback(value: string) {
-    if (navigator.clipboard?.writeText) {
+    try {
         await navigator.clipboard.writeText(value);
         return;
+    } catch {
+        // Permission denied or unfocused document: fall through to execCommand.
     }
     const textarea = document.createElement("textarea");
     textarea.value = value;
@@ -33,23 +35,14 @@ export function ProjectDocCommandBlock({
     code,
     language,
     id,
-    highlighted,
-    highlightedTargetId,
-    highlightToken,
     lineTargets = [],
-    onCopied,
     sourceLine,
     sourceOffset,
 }: {
     code: string;
     language?: string | null;
     id?: string;
-    editorTargetId?: string | null;
-    highlighted?: boolean;
-    highlightedTargetId?: string | null;
-    highlightToken?: number | null;
     lineTargets?: ProjectDocCommandLineTarget[];
-    onCopied?: (id: string) => void;
     sourceLine?: number | null;
     sourceOffset?: number | null;
 }) {
@@ -60,14 +53,9 @@ export function ProjectDocCommandBlock({
         lineTargets.forEach((target) => map.set(target.startLine, target));
         return map;
     }, [lineTargets]);
-    const highlightedLineTarget = useMemo(
-        () => lineTargets.find((target) => target.id === highlightedTargetId) ?? null,
-        [highlightedTargetId, lineTargets],
-    );
     const rootEditorTargetId = projectDocEditorTargetId("command", sourceLine ?? null, sourceOffset ?? null);
 
     const handleCopy = async () => {
-        if (id) onCopied?.(id);
         try {
             await copyTextWithFallback(code.trimEnd());
             setCopied(true);
@@ -89,12 +77,7 @@ export function ProjectDocCommandBlock({
             data-readme-source-offset={sourceOffset ?? undefined}
             data-readme-source-kind="command"
             data-readme-editor-target-id={rootEditorTargetId}
-            data-readme-highlighted={highlighted || highlightedTargetId === rootEditorTargetId ? "true" : undefined}
-            data-readme-highlight-token={highlighted || highlightedTargetId === rootEditorTargetId ? highlightToken ?? undefined : undefined}
-            className={cn(
-                "group relative my-4 scroll-mt-28 overflow-hidden rounded-[5px] border border-border bg-card text-foreground shadow-none outline-none transition-colors",
-                highlighted && "border-primary bg-primary/5 ring-2 ring-primary/20",
-            )}
+            className="group relative my-4 scroll-mt-28 overflow-hidden rounded-[5px] border border-border bg-card text-foreground shadow-none outline-none"
         >
             {language ? (
                 <div className="border-b border-border px-4 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground bg-muted/20">
@@ -107,9 +90,14 @@ export function ProjectDocCommandBlock({
                 data-readme-copy-button="true"
                 title={copied ? "Copied" : "Copy"}
                 aria-label={copied ? "Copied" : "Copy command"}
-                className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition hover:text-foreground hover:bg-muted"
+                className={cn(
+                    "nb-touch-target absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-[5px] border bg-card text-muted-foreground transition-colors hover:text-foreground hover:bg-muted",
+                    copied ? "border-foreground/20 text-foreground" : "border-border",
+                )}
             >
-                {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
+                {copied
+                    ? <Check key="copied" className="size-3.5 animate-in zoom-in-50 fade-in duration-200 motion-reduce:animate-none" />
+                    : <Copy key="copy" className="size-3.5 animate-in fade-in duration-150 motion-reduce:animate-none" />}
                 <span className="sr-only" aria-live="polite">{copied ? "Copied" : "Copy command"}</span>
             </button>
             <pre className="whitespace-pre-wrap break-words px-4 py-4 pr-12 font-mono text-[13px] leading-[1.6] [overflow-wrap:anywhere] pointer-coarse:text-[14px]">
@@ -117,12 +105,6 @@ export function ProjectDocCommandBlock({
                     {codeLines.map((line, index) => {
                         const target = lineTargetByStartLine.get(index);
                         const sourceLineForCode = typeof sourceLine === "number" ? sourceLine + index + 1 : null;
-                        const lineEditorTargetId = projectDocEditorTargetId("command", sourceLineForCode, null);
-                        const lineHighlighted = Boolean(
-                            highlightedLineTarget
-                            && index >= highlightedLineTarget.startLine
-                            && index <= highlightedLineTarget.endLine,
-                        ) || highlightedTargetId === lineEditorTargetId;
                         return (
                             <span
                                 key={`${index}-${line}`}
@@ -133,13 +115,8 @@ export function ProjectDocCommandBlock({
                                 data-readme-target-id={target?.id}
                                 data-readme-source-line={sourceLineForCode ?? undefined}
                                 data-readme-source-kind="command"
-                                data-readme-editor-target-id={lineEditorTargetId}
-                                data-readme-highlighted={lineHighlighted ? "true" : undefined}
-                                data-readme-highlight-token={lineHighlighted ? highlightToken ?? undefined : undefined}
-                                className={cn(
-                                    "block min-w-0 scroll-mt-32 rounded-[3px] outline-none [overflow-wrap:anywhere]",
-                                    lineHighlighted && "-mx-1 bg-primary/15 px-1 ring-1 ring-primary/20",
-                                )}
+                                data-readme-editor-target-id={projectDocEditorTargetId("command", sourceLineForCode, null)}
+                                className="block min-w-0 scroll-mt-32 outline-none [overflow-wrap:anywhere]"
                             >
                                 {line || " "}
                             </span>

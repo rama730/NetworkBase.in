@@ -20,6 +20,7 @@ import {
     normalizeProjectUpdateType,
     projectUpdateDisplayText,
     projectUpdateImageExtensionFromMimeType,
+    projectUpdateMediaApplicationUrl,
     projectUpdateDraftStorageKey,
     projectUpdateExcerpt,
     resolveProjectUpdateAuthorRoleDisplay,
@@ -99,6 +100,7 @@ test("project update media normalization keeps only safe public links", () => {
     ]), [
         {
             type: "link",
+            assetId: null,
             url: "https://example.com/demo",
             label: "Demo",
             altText: null,
@@ -111,6 +113,7 @@ test("project update media normalization keeps only safe public links", () => {
         },
         {
             type: "image",
+            assetId: null,
             url: "/api/v1/projects/project-1/update-media?key=projects/project-1/update-media/user-1/demo.png",
             label: "Demo image",
             altText: "Screenshot",
@@ -124,22 +127,36 @@ test("project update media normalization keeps only safe public links", () => {
     ]);
 });
 
-test("project update media route caches immutable signed redirects", () => {
+test("stored update media always uses the authorized application route", () => {
+    const projectId = "9a0966ed-c08c-4b52-98a1-3453fad1e26d";
+    const storageKey = `projects/${projectId}/update-media/user/demo.png`;
+    const expected = `/api/v1/projects/${projectId}/update-media?key=${encodeURIComponent(storageKey)}`;
+    assert.equal(projectUpdateMediaApplicationUrl(PROJECT_UPDATE_MEDIA_BUCKET, storageKey), expected);
+    assert.equal(projectUpdateMediaApplicationUrl("other", storageKey), null);
+    assert.equal(projectUpdateMediaApplicationUrl(PROJECT_UPDATE_MEDIA_BUCKET, `projects/${projectId}/update-media/../secret`), null);
+    assert.equal(normalizeProjectUpdateMediaItems([{
+        type: "image",
+        url: "https://example.supabase.co/storage/v1/object/public/project-updates-media/legacy.png",
+        bucket: PROJECT_UPDATE_MEDIA_BUCKET,
+        storageKey,
+    }])[0]?.url, expected);
+});
+
+test("project update media route authorizes normalized assets and streams bytes", () => {
     const routeSource = readFileSync(path.join(process.cwd(), "src/app/api/v1/projects/[id]/update-media/route.ts"), "utf8");
     const accessSource = readFileSync(path.join(process.cwd(), "src/lib/data/project-access.ts"), "utf8");
 
-    assert.match(routeSource, /SIGNED_URL_TTL_SECONDS = 15 \* 60/);
-    assert.match(routeSource, /PRIVATE_REDIRECT_MAX_AGE_SECONDS = 12 \* 60/);
-    assert.match(routeSource, /createSignedUrl\(storageKey, SIGNED_URL_TTL_SECONDS\)/);
+    assert.match(routeSource, /projectUpdateMediaAssets/);
+    assert.match(routeSource, /eq\(storageAssets\.state, "verified"\)/);
+    assert.match(routeSource, /createSignedUrl\(storageKey, 60\)/);
+    assert.match(routeSource, /streamPrivateObject/);
     assert.match(routeSource, /publicTabVisibility: access\.project\.publicTabVisibility/);
-    assert.match(routeSource, /"Vary", "Cookie, Authorization"/);
+    assert.match(routeSource, /private, no-store/);
     assert.equal(routeSource.includes(".from(projects)"), false);
     assert.match(accessSource, /publicTabVisibility\?: unknown/);
     assert.match(accessSource, /publicTabVisibility: projects\.publicTabVisibility/);
 
-    assert.match(routeSource, /: `private, max-age=\$\{PRIVATE_REDIRECT_MAX_AGE_SECONDS\}`/);
-    assert.match(routeSource, /response\.headers\.set\("Cache-Control", cacheControl\)/);
-    assert.match(routeSource, /if-none-match/);
+    assert.match(routeSource, /etag:/);
 });
 
 test("project update references and image upload contracts stay bounded", () => {

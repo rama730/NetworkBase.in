@@ -21,6 +21,8 @@ test("Redis and server Supabase calls are time-bounded", () => {
   const redis = read("src/lib/redis.ts");
   assert.match(redis, /signal: \(\) => AbortSignal\.timeout\(/);
   assert.match(redis, /retry: \{ retries: 1/);
+  assert.match(redis, /recordCacheFailure\('get', error\)[\s\S]*?return null/);
+  assert.match(redis, /recordCacheFailure\('set', error\)/);
   assert.match(read("src/lib/supabase/env.ts"), /AbortSignal\.timeout\(/);
   assert.match(read("src/lib/supabase/server.ts"), /global: \{ fetch: authBoundedFetch \}/);
   assert.match(read("src/lib/supabase/middleware.ts"), /global: \{ fetch: authBoundedFetch \}/);

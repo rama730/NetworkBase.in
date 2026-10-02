@@ -6,8 +6,8 @@ import {
     requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { projectNodeEvents, projectNodes, projects, taskNodeLinks, tasks } from "@/lib/db/schema";
-import { and, eq, gt, inArray, isNull } from "drizzle-orm";
+import { projectEventCounters, projectNodeEvents, projectNodes, projects, taskNodeLinks, tasks } from "@/lib/db/schema";
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { getProjectAccessById } from "@/lib/data/project-access";
 import { isLooseUuid } from "@/lib/validations/uuid";
 import { z } from "zod";
@@ -63,8 +63,11 @@ export async function GET(
     const since = parsedSince.data;
 
     const [projectSequence] = await db
-        .select({ currentSequence: projects.currentSequenceNumber })
+        .select({
+            currentSequence: sql<number>`coalesce(${projectEventCounters.nextSequence}, ${projects.currentSequenceNumber})`,
+        })
         .from(projects)
+        .leftJoin(projectEventCounters, eq(projectEventCounters.projectId, projects.id))
         .where(eq(projects.id, projectId))
         .limit(1);
 

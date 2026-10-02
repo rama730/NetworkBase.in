@@ -67,6 +67,8 @@ function toBootstrapProfile(
         // The retired JSON field must never hydrate a second UI authority.
         experience: [],
         education: profile.education ?? [],
+        avatarAssetId: null,
+        bannerAssetId: null,
         openTo: profile.openTo ?? [],
         socialLinks: profile.socialLinks ?? {},
         // Compatibility only: the deployed column is no longer read by the safe-link flow.

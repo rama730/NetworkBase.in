@@ -21,3 +21,10 @@ export function normalizeProjectDocSlug(value: unknown, fallback = PROJECT_DOC_D
 export function isProjectDocSlugCanonical(value: unknown) {
     return typeof value === "string" && value === normalizeProjectDocSlug(value);
 }
+
+export function nextFreeDocSlug(base: string, taken: Set<string>) {
+    if (!taken.has(base)) return base;
+    let n = 2;
+    while (taken.has(`${base}-${n}`)) n += 1;
+    return `${base}-${n}`;
+}

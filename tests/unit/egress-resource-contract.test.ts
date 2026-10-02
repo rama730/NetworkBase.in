@@ -4,17 +4,21 @@ import test from "node:test";
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
-test("stable project media routes use version or ETag caching", () => {
+test("stable project media routes use the shared conditional streaming owner", () => {
+  const helper = read("src/lib/storage/private-object-response.ts");
+  assert.match(helper, /if-none-match/);
+  assert.match(helper, /ETag/);
+  assert.match(helper, /private, no-store/);
   for (const path of [
     "src/app/api/v1/projects/[id]/image/route.ts",
     "src/app/api/v1/projects/[id]/update-media/route.ts",
   ]) {
     const source = read(path);
-    assert.match(source, /if-none-match/);
-    assert.match(source, /ETag/);
+    assert.match(source, /streamPrivateObject/);
+    assert.match(source, /etag(?:,|:)/);
   }
-  assert.match(read("src/app/api/v1/projects/[id]/image/route.ts"), /private, max-age=/);
-  assert.match(read("src/app/api/v1/projects/[id]/update-media/route.ts"), /PRIVATE_REDIRECT_MAX_AGE_SECONDS = 12 \* 60/);
+  assert.match(read("src/app/api/v1/projects/[id]/image/route.ts"), /private, no-store/);
+  assert.match(read("src/app/api/v1/projects/[id]/update-media/route.ts"), /private, no-store/);
 });
 
 test("app chrome renders before the legal gate and profile pages reuse server reads", () => {
@@ -29,7 +33,8 @@ test("app chrome renders before the legal gate and profile pages reuse server re
 test("avatar and onboarding writes use the shared optimized lifecycle", () => {
   const editor = read("src/components/profile/edit/EditProfileTabs.tsx");
   assert.match(editor, /compressAvatarOffMainThread/);
-  assert.match(editor, /cacheProfile: "immutable"/);
+  assert.match(editor, /cacheProfile: "public"/);
+  assert.match(editor, /publicAvatarVariantUrl\(avatarSrc, 128\)/);
 
   const onboarding = read("src/app/(site)/(onboarding)/onboarding/page.tsx");
   assert.doesNotMatch(onboarding, /saveOnboardingDraft/);
@@ -37,12 +42,24 @@ test("avatar and onboarding writes use the shared optimized lifecycle", () => {
   assert.match(onboarding, /telemetry,/);
 });
 
-test("immutable message attachments carry durable cache metadata", () => {
-  const messaging = read("src/app/actions/messaging/index.ts");
-  assert.match(
-    messaging,
-    /\.from\(ATTACHMENTS_BUCKET\)[\s\S]*?\.upload\(storagePath, file, \{[\s\S]*?cacheControl: '31536000'/,
-  );
+test("visibility-mutable project media stays inside the revocation cache budget", () => {
+  for (const path of [
+    "src/app/api/v1/projects/[id]/image/route.ts",
+    "src/app/api/v1/projects/[id]/update-media/route.ts",
+  ]) {
+    const source = read(path);
+    assert.match(source, /max-age=300, s-maxage=300, must-revalidate/);
+    assert.doesNotMatch(source, /max-age=86400/);
+  }
+});
+
+test("message attachments use canonical direct uploads and private application streaming", () => {
+  const presign = read("src/app/api/v1/messages/attachments/presign/route.ts");
+  const route = read("src/app/api/v1/messages/attachments/[attachmentId]/route.ts");
+  assert.match(presign, /createUploadIntent/);
+  assert.match(presign, /finalizeUploadIntent/);
+  assert.match(route, /streamPrivateObject/);
+  assert.match(read("src/lib/storage/private-object-response.ts"), /private, no-store/);
 });
 
 test("missing message media exposes a terminal unavailable state", () => {
@@ -55,4 +72,18 @@ test("PDF preview reuses the stable attachment route instead of cloning a full b
   const attachments = read("src/components/chat/v2/message-attachments.tsx");
   assert.match(attachments, /src=\{sourceUrl\}/);
   assert.doesNotMatch(attachments, /const loadPdf|res\.blob\(\)|URL\.createObjectURL\(new Blob/);
+});
+
+test("project PDF preview streams the authorized route without cloning a browser blob", () => {
+  const preview = read("src/components/projects/v2/preview/AssetPreview.tsx");
+  assert.match(preview, /src=\{previewUrl\}/);
+  assert.doesNotMatch(preview, /response\.blob\(\)|URL\.createObjectURL\(new Blob/);
+});
+
+test("file recovery uses an immutable bounded Git blob identity", () => {
+  const content = read("src/app/actions/files/content.ts");
+  assert.match(content, /tryRecoverFromGitHub\(projectId, node\.gitHash\)/);
+  assert.match(content, /\/git\/blobs\/\$\{encodeURIComponent\(gitBlobSha\)\}/);
+  assert.match(content, /MAX_GITHUB_BLOB_RESPONSE_BYTES/);
+  assert.doesNotMatch(content, /\/contents\/\$\{encodeURIComponent\(cleanPath\)\}/);
 });

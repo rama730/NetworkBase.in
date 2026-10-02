@@ -18,6 +18,18 @@ type PrepareProjectImageOptions = {
     outputType?: "image/jpeg" | "image/webp";
 };
 
+const MAX_SOURCE_IMAGE_PIXELS = 16_000_000;
+
+function assertImagePixelLimit(image: Pick<HTMLImageElement, "naturalWidth" | "naturalHeight">) {
+    if (
+        image.naturalWidth <= 0
+        || image.naturalHeight <= 0
+        || image.naturalWidth * image.naturalHeight > MAX_SOURCE_IMAGE_PIXELS
+    ) {
+        throw new Error("Image dimensions exceed the 16 megapixel limit.");
+    }
+}
+
 function loadImage(file: Blob): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
         const image = new Image();
@@ -91,6 +103,8 @@ export async function prepareProjectImageForUpload(
         if (file.size > options.maxBytes) {
             throw new Error(`GIF avatar must be under ${Math.round(options.maxBytes / (1024 * 1024))}MB.`);
         }
+        const gifImage = await loadImage(file);
+        assertImagePixelLimit(gifImage);
         return {
             blob: file.type === "image/gif" ? file : new Blob([file], { type: "image/gif" }),
             contentType: "image/gif",
@@ -101,6 +115,7 @@ export async function prepareProjectImageForUpload(
     }
 
     const image = await loadImage(file);
+    assertImagePixelLimit(image);
     const outputType = options.outputType ?? "image/jpeg";
     const sizeSteps = [1, 0.85, 0.7, 0.55].map((scale) => Math.max(1, Math.round(options.size * scale)));
     const qualitySteps = [0.9, 0.82, 0.74, 0.66, 0.58];

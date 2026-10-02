@@ -31,7 +31,9 @@ test("large reviewed selections are prepared in bounded failure-safe batches", (
   assert.match(source, /const batchSize = 6/);
   assert.match(source, /const manifestFiles = new Map/);
   assert.match(source, /await Promise\.allSettled\(/);
-  assert.match(source, /uploaded\.push\(upload\.value\)/);
+  assert.match(source, /snapshotRefs\.push\(upload\.value\)/);
+  assert.match(source, /githubSyncSnapshotAssets/);
+  assert.match(source, /finalizeUploadIntent/);
 });
 
 test("the action and UI use the shared selection limit with readable errors", () => {

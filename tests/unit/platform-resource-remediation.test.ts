@@ -70,30 +70,22 @@ test("resource retention is bounded and observable", () => {
   assert.match(registry, /dataLifecycleRetention/);
 });
 
-test("account cleanup covers every owned project Storage prefix", () => {
+test("account cleanup preserves lifecycle evidence before domain cascades", () => {
   const cleanup = read("src/inngest/functions/account-cleanup.ts");
-  for (const contract of [
-    '["project-files", project.id]',
-    '["project-files", `projects/${project.id}`]',
-    '["project-files", `${userId}/project-images/${project.id}`]',
-    '["project-files", `${userId}/project-covers/${project.id}`]',
-    '["task-files", project.id]',
-    '["project-updates-media", `projects/${project.id}`]',
-  ]) {
-    assert.ok(cleanup.includes(contract), contract);
-  }
-  assert.match(cleanup, /createAdminClient/);
-  assert.match(cleanup, /deleteStoragePrefix\(supabase, "avatars", userId\)/);
-  assert.match(cleanup, /deleteStoragePrefix\(supabase, "chat-attachments", userId\)/);
-  assert.match(cleanup, /throw new Error\(`\$\{bucket\}\/\$\{prefix\} cleanup failed/);
+  assert.match(cleanup, /check-unregistered-references/);
+  assert.match(cleanup, /schedule-registered-assets/);
+  assert.match(cleanup, /state: "delete_pending"/);
+  assert.match(cleanup, /physicalDeletionOwner: "storage-asset-deletion"/);
+  assert.doesNotMatch(cleanup, /\.storage[\s\S]*\.remove\(/);
 });
 
-test("project-file reconciliation attaches verified path-correlated objects idempotently", () => {
+test("project-file reconciliation quarantines path-correlated objects pending proof", () => {
   const reconciliation = read("src/inngest/functions/project-files-reconciliation.ts");
   assert.match(reconciliation, /buildProjectFileKey/);
   assert.match(reconciliation, /metadataMatches/);
-  assert.match(reconciliation, /isNull\(projectNodes\.s3Key\)/);
-  assert.match(reconciliation, /storage_reconcile_attached_object/);
+  assert.match(reconciliation, /storage_reconcile_unclaimed_candidate/);
+  assert.match(reconciliation, /quarantineRequired: true/);
+  assert.doesNotMatch(reconciliation, /storage_reconcile_attached_object/);
   assert.match(reconciliation, /storage_reconcile_ambiguous_path/);
   assert.match(reconciliation, /orphanStorageRows\.filter\(\(row\) => !candidateByName\.has\(row\.name\)\)/);
   assert.match(reconciliation, /reconciliationKey/);

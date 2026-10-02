@@ -87,16 +87,18 @@
 }
 
 .onb-input:focus-visible {
-  border-color: var(--ring);
-  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  border-color: var(--input);
+  background-color: color-mix(in srgb, var(--muted) 20%, var(--card));
+  box-shadow: none;
   outline: none;
 }
 
 .onb-textarea:focus-visible,
 .onb-select-trigger:focus-visible,
 .onb-focusable:focus-visible {
-  border-color: var(--ring);
-  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  border-color: var(--input);
+  background-color: color-mix(in srgb, var(--muted) 20%, var(--card));
+  box-shadow: none;
   outline: none;
 }
 
@@ -136,8 +138,9 @@
   box-shadow: none;
 }
 .onb-skill-picker input[role="combobox"]:focus-visible {
-  border-color: var(--ring);
-  box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  border-color: var(--input);
+  background-color: color-mix(in srgb, var(--muted) 20%, var(--card));
+  box-shadow: none;
 }
 .onb-skill-picker [aria-label="Selected skills"] > span {
   border-color: var(--foreground);
@@ -296,7 +299,7 @@
 
 .onb-action-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
 .onb-action-primary:active:not(:disabled) { background: var(--primary-active); border-color: var(--primary-active); transform: translateY(1px); }
-.onb-action-primary:focus-visible { box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring); }
+.onb-action-primary:focus-visible { box-shadow:none; filter:brightness(.92); }
 .onb-action-primary:disabled { cursor: not-allowed; opacity: .45; }
 .onb-footer-status { color: var(--muted-foreground); font-size: 12px; line-height: 1.35; margin: 0; max-width: 32ch; text-align: right; }
 

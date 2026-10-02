@@ -2,9 +2,8 @@
 
 import { useCallback, useMemo, useState } from "react";
 
-import { createClient } from "@/lib/supabase/client";
 import type { FileVersion, ProjectNode } from "@/lib/db/schema";
-import { applyUploadedFileRevision, listFileVersions, restoreFileVersion, deleteFileVersionAction } from "@/app/actions/files/versions";
+import { applyUploadedFileRevision, listFileVersionsPage, restoreFileVersion, deleteFileVersionAction } from "@/app/actions/files/versions";
 import { getUploadPresignedUrl } from "@/app/actions/upload";
 import { buildProjectFileKey } from "@/lib/storage/project-file-key";
 import { computeContentHash } from "@/lib/files/content-hash";
@@ -15,6 +14,7 @@ import {
   type BrowserFileLease,
 } from "@/lib/files/file-lease-client";
 import { newClientId } from "@/lib/utils/client-id";
+import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,7 +33,9 @@ export interface UseFileVersionsReturn {
   versions: FileVersionWithProfile[];
   isLoading: boolean;
   error: string | null;
+  hasMore: boolean;
   listVersions: () => Promise<FileVersionWithProfile[]>;
+  loadMoreVersions: () => Promise<FileVersionWithProfile[]>;
   saveAsNewVersion: (
     file: File,
     options?: { comment?: string | null },
@@ -122,12 +124,11 @@ export async function saveFileRevision(params: {
   baseVersion?: number | null;
   baseHash?: string | null;
   lease?: BrowserFileLease | null;
-  supabase: ReturnType<typeof createClient>;
 }): Promise<
   | { success: true; node: ProjectNode; version: FileVersion }
   | { success: false; error: string; lockConflict?: LockConflictInfo }
 > {
-  const { projectId, nodeId, file, mode, comment, baseVersion, baseHash, supabase } = params;
+  const { projectId, nodeId, file, mode, comment, baseVersion, baseHash } = params;
   let storagePath: string | null = null;
   let ownedLease = params.lease ?? null;
   const transientLease = !ownedLease;
@@ -151,15 +152,19 @@ export async function saveFileRevision(params: {
     if ("error" in uploadSession) {
       throw new Error(uploadSession.error || "Failed to prepare upload");
     }
+    storagePath = uploadSession.storageKey;
 
     const token = uploadSession.token || new URL(uploadSession.url).searchParams.get("token");
     if (!token) throw new Error("Upload token is missing");
 
-    const { error: uploadError } = await supabase.storage
-      .from("project-files")
-      .uploadToSignedUrl(storagePath, token, file, { contentType });
-
-    if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+    await uploadToSupabaseSignedUrl({
+      bucket: "project-files",
+      storagePath,
+      uploadToken: token,
+      uploadUrl: uploadSession.url,
+      contentType,
+      operationId: uploadSession.uploadIntentId,
+    }, file, { cacheProfile: "immutable" });
 
     const contentHash =
       hashResult && hashResult.kind === "full" ? hashResult.hashHex : null;
@@ -194,14 +199,6 @@ export async function saveFileRevision(params: {
 
     return { success: true, node: result.node, version: result.version };
   } catch (err) {
-    // Best-effort orphan cleanup
-    if (storagePath) {
-      await supabase.storage
-        .from("project-files")
-        .remove([storagePath])
-        .catch(() => null);
-    }
-
     // Check for lock conflict — return structured error instead of throwing
     const lockConflict = parseLockConflictError(err);
     const message = err instanceof Error ? err.message : "Upload failed";
@@ -236,10 +233,10 @@ export async function saveFileAsNewVersion(
  * @param nodeId - The file node to manage versions for
  */
 export function useFileVersions(projectId: string, nodeId: string): UseFileVersionsReturn {
-  const supabase = useMemo(() => createClient(), []);
   const [versions, setVersions] = useState<FileVersionWithProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
 
   // -------------------------------------------------------------------------
   // listVersions — fetches all versions sorted by versionNumber descending
@@ -248,9 +245,10 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
     setIsLoading(true);
     setError(null);
     try {
-      const rows = await listFileVersions(projectId, nodeId);
-      setVersions(rows);
-      return rows;
+      const page = await listFileVersionsPage(projectId, nodeId, { limit: 50 });
+      setVersions(page.versions);
+      setNextCursor(page.nextCursor);
+      return page.versions;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load versions";
       setError(message);
@@ -259,6 +257,26 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
       setIsLoading(false);
     }
   }, [projectId, nodeId]);
+
+  const loadMoreVersions = useCallback(async () => {
+    if (nextCursor == null || isLoading) return versions;
+    setIsLoading(true);
+    try {
+      const page = await listFileVersionsPage(projectId, nodeId, {
+        limit: 50,
+        beforeVersion: nextCursor,
+      });
+      const merged = [...versions, ...page.versions];
+      setVersions(merged);
+      setNextCursor(page.nextCursor);
+      return merged;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load more versions");
+      return versions;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isLoading, nextCursor, nodeId, projectId, versions]);
 
   // -------------------------------------------------------------------------
   // saveAsNewVersion — delegates to the standalone saveFileAsNewVersion utility
@@ -278,7 +296,6 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
         nodeId,
         file,
         comment: options?.comment,
-        supabase,
       });
 
       if (result.success) {
@@ -290,7 +307,7 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
 
       return result;
     },
-    [projectId, nodeId, supabase],
+    [projectId, nodeId],
   );
 
   // -------------------------------------------------------------------------
@@ -351,9 +368,11 @@ export function useFileVersions(projectId: string, nodeId: string): UseFileVersi
     versions,
     isLoading,
     error,
+    hasMore: nextCursor != null,
     listVersions,
+    loadMoreVersions,
     saveAsNewVersion,
     restoreVersion,
     deleteVersion,
-  }), [versions, isLoading, error, listVersions, saveAsNewVersion, restoreVersion, deleteVersion]);
+  }), [versions, isLoading, error, nextCursor, listVersions, loadMoreVersions, saveAsNewVersion, restoreVersion, deleteVersion]);
 }

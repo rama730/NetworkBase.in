@@ -34,6 +34,7 @@ import { useUsernameAvailability } from "@/hooks/useUsernameAvailability";
 import { PROFILE_LIMITS } from "@/lib/validations/profile";
 import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 import { compressAvatarOffMainThread } from "@/lib/services/avatar-worker-client";
+import { publicAvatarVariantUrl } from "@/lib/profile/avatar-variants";
 import {
     EXPERIENCE_LEVEL_OPTIONS,
     ROLE_PREFERENCE_OPTIONS,
@@ -119,11 +120,12 @@ export function EditProfileTabs({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (file.size > 10 * 1024 * 1024) {
-            toast.error("Image must be less than 10MB");
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error("Image must be 2MB or smaller");
             return;
         }
 
+        const previousAvatarUrl = profile.avatarUrl;
         const localPreview = URL.createObjectURL(file);
         updateForm("avatarUrl", localPreview);
         setAvatarUploading(true);
@@ -139,7 +141,7 @@ export function EditProfileTabs({
                 throw new Error(uploadSession.error || "Failed to prepare image upload");
             }
 
-            await uploadToSupabaseSignedUrl(uploadSession, preparedAvatar, { cacheProfile: "immutable" });
+            await uploadToSupabaseSignedUrl(uploadSession, preparedAvatar, { cacheProfile: "public" });
 
             const finalized = await finalizeProfileImageUploadAction({
                 uploadIntentId: uploadSession.uploadIntentId,
@@ -151,9 +153,11 @@ export function EditProfileTabs({
             updateForm("avatarUrl", finalized.publicUrl);
             toast.success("Avatar updated");
         } catch (error: any) {
+            updateForm("avatarUrl", previousAvatarUrl);
             const message = error?.message || "Unknown error";
             toast.error(`Failed to upload avatar: ${message}`);
         } finally {
+            URL.revokeObjectURL(localPreview);
             setAvatarUploading(false);
             if (e.target) e.target.value = "";
         }
@@ -220,7 +224,7 @@ export function EditProfileTabs({
                                         <div className="relative size-20 sm:size-24 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/30">
                                             {avatarSrc ? (
                                                 <Image
-                                                    src={avatarSrc}
+                                                    src={publicAvatarVariantUrl(avatarSrc, 128)}
                                                     alt="Profile avatar"
                                                     fill
                                                     className="object-cover"
@@ -241,7 +245,7 @@ export function EditProfileTabs({
                                             <div className="nb-meta mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
                                                 <span>JPG, PNG, or WebP</span>
                                                 <span>•</span>
-                                                <span>Under 10MB</span>
+                                                <span>Up to 2MB</span>
                                                 <span>•</span>
                                                 <span>Recommended 400×400</span>
                                             </div>

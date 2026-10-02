@@ -2721,6 +2721,7 @@ export default function ProjectSettingsTab({
                 confirmLabel={confirmAction?.confirmLabel ?? "Confirm"}
                 variant={confirmAction?.variant ?? "destructive"}
                 loading={confirmLoading}
+                size="wide"
                 autoCloseOnConfirm={false}
                 onConfirm={runConfirmAction}
             >

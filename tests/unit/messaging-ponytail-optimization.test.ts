@@ -110,9 +110,13 @@ test('optimization 5: messagesV2UiStore exports batchUpsertMessageAttention and 
     );
 });
 
-test('optimization 6: attachment proxy route expands rate limit and includes stale-while-revalidate headers', () => {
+test('optimization 6: attachment proxy route is high-capacity and never caches private authorization', () => {
     const routeFile = readFileSync(
         resolve(ROOT, 'src/app/api/v1/messages/attachments/[attachmentId]/route.ts'),
+        'utf8',
+    );
+    const streamHelper = readFileSync(
+        resolve(ROOT, 'src/lib/storage/private-object-response.ts'),
         'utf8',
     );
     assert.match(
@@ -120,12 +124,9 @@ test('optimization 6: attachment proxy route expands rate limit and includes sta
         /enforceRouteLimit\(request,\s*"api:v1:messages:attachments:get",\s*600,\s*60\)/,
         'Attachment proxy rate limit must be at least 600 requests per minute',
     );
-    assert.match(
-        routeFile,
-        /max-age=\$\{ATTACHMENT_SIGNED_URL_TTL_SECONDS - ATTACHMENT_REDIRECT_STALE_SECONDS\}, stale-while-revalidate=\$\{ATTACHMENT_REDIRECT_STALE_SECONDS\}/,
-        'Attachment redirects must stay cached no longer than the signed URL they point to',
-    );
-    assert.doesNotMatch(routeFile, /"Cache-Control":\s*"private, max-age=/);
+    assert.match(routeFile, /streamPrivateObject/);
+    assert.match(streamHelper, /input\.cacheControl \?\? "private, no-store"/);
+    assert.doesNotMatch(routeFile, /stale-while-revalidate/);
 });
 
 test('optimization 8: schema index pruning removes redundant B-tree and GIN indexes', () => {

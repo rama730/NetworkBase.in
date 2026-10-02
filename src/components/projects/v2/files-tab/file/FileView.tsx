@@ -93,7 +93,6 @@ import { FileInspectorPanelHeader } from "./FileInspectorPanelHeader";
 import { formatBytes, formatFileTimestamp, formatFileActor } from "../folder/format";
 import { taskFilesHref } from "@/lib/files/task-navigation";
 import { confirmFileNavigation } from "@/lib/files/unsaved-navigation";
-import { createClient } from "@/lib/supabase/client";
 import { useFileLease, type FileLeaseStatus } from "../hooks/useFileLease";
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
@@ -413,7 +412,6 @@ export function FileView({
             mode: "active_revision",
             comment: choice.comment,
             baseVersion: node.currentVersion,
-            supabase: createClient(),
           });
 
           if (result.success) {

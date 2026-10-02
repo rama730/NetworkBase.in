@@ -622,9 +622,9 @@ test("Files tab Linked Doc Ecosystem synchronization", () => {
     assert.match(readmeAction, /unlinkProjectDocAction/, "readme actions should define unlinkProjectDocAction");
     assert.match(readmeAction, /linkedNodeId:\s*nodeId/, "link action should set linkedNodeId in the database");
 
-    assert.match(fileActions, /linkProjectDocAction\(/, "Files tab Use as Doc should invoke linkProjectDocAction");
-    assert.match(fileActions, /unlinkProjectDocAction\(/, "Files tab Use as Doc should invoke unlinkProjectDocAction");
-    assert.match(fileActions, /Unlink (as )?Doc/, "Files tab should support dynamic linked state badge");
+    assert.doesNotMatch(fileActions, /\blinkProjectDocAction\(/, "docs are added only from the Docs tab");
+    assert.match(fileActions, /unlinkProjectDocAction\(/, "Files tab can remove a linked doc");
+    assert.match(fileActions, /Remove from Docs/, "Files tab labels the remove action");
 
     assert.match(docTab, /ProjectDocViewer/, "linked documents should resolve through the canonical published Doc viewer");
 });
@@ -723,6 +723,6 @@ test("Docs tab opens with one action and one context query", () => {
     assert.doesNotMatch(docTab, /useProjectMarkdowns|listProjectMarkdownsAction/);
     assert.match(actions, /\(await getViewerAuthContext\(\)\)\.userId/);
     assert.match(loader, /db\.query\.projects\.findFirst\(/);
-    assert.match(loader, /markdowns: true/);
+    assert.match(loader, /markdowns: \{ with: \{ linkedNode:/);
     assert.doesNotMatch(loader, /Promise\.all/);
 });

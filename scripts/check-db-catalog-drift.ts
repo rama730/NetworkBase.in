@@ -31,11 +31,6 @@ const REQUIRED_TASK_COLUMNS = [
   "timeline_origin_at",
 ] as const;
 
-const REQUIRED_PROJECT_UPDATE_MEDIA_POLICIES = [
-  "project_updates_media_insert",
-  "project_updates_media_delete",
-] as const;
-
 const MIME_RESTRICTED_BUCKETS = ["project-files", "task-files"] as const;
 const PROJECT_FILE_ALLOWED_MIME_TYPES = [
   "text/plain",
@@ -116,6 +111,7 @@ const REQUIRED_LIFECYCLE_INDEXES = [
 const ALLOWED_SECURITY_DEFINER_FUNCTIONS = new Map([
   ["public.handle_message_insert_consistency", "search_path=\"\""],
   ["public.rls_auto_enable", "search_path=pg_catalog"],
+  ["public.sync_profile_to_auth_user_metadata", "search_path=\"\""],
 ]);
 
 const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
@@ -126,7 +122,14 @@ const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
   "import_job_files",
   "import_jobs",
   "job_heartbeats",
+  "github_contributor_identities",
+  "github_sync_connections",
+  "github_sync_files",
+  "github_sync_runs",
+  "legal_acceptances",
   "project_git_deltas",
+  "github_sync_snapshot_assets",
+  "project_event_counters",
   "project_node_conflicts",
   "project_node_events_2026_01",
   "project_node_events_2026_02",
@@ -142,6 +145,14 @@ const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
   "project_node_events_2026_12",
   "project_node_events_default",
   "reserved_usernames",
+  "project_update_draft_media_assets",
+  "project_update_media_assets",
+  "storage_asset_operations",
+  "storage_asset_pins",
+  "storage_assets",
+  "storage_legacy_cleanup_targets",
+  "storage_quota_scopes",
+  "storage_repair_failures",
   // Lifecycle records are server-only; RLS without client policies
   // is intentional so task/Sprint history is accessed through authorized actions.
   "project_sprint_events",
@@ -237,7 +248,7 @@ async function main() {
   if (!bucketRow) {
     errors.push(`missing storage bucket ${PROJECT_UPDATE_MEDIA_BUCKET}`);
   } else {
-    if (bucketRow.public !== true) errors.push(`${PROJECT_UPDATE_MEDIA_BUCKET} bucket must be public`);
+    if (bucketRow.public !== false) errors.push(`${PROJECT_UPDATE_MEDIA_BUCKET} bucket must be private`);
     if (Number(bucketRow.file_size_limit ?? 0) !== 8 * 1024 * 1024) {
       errors.push(`${PROJECT_UPDATE_MEDIA_BUCKET} bucket file_size_limit differs from the 8 MiB application contract`);
     }
@@ -267,13 +278,13 @@ async function main() {
     FROM pg_policies
     WHERE schemaname = 'storage'
       AND tablename = 'objects'
-      AND policyname = ANY(${REQUIRED_PROJECT_UPDATE_MEDIA_POLICIES})
+      AND (
+        qual LIKE '%' || ${PROJECT_UPDATE_MEDIA_BUCKET} || '%'
+        OR with_check LIKE '%' || ${PROJECT_UPDATE_MEDIA_BUCKET} || '%'
+      )
   `;
-  const storagePolicies = new Set(storagePolicyRows.map((row) => row.policyname));
-  for (const policyName of REQUIRED_PROJECT_UPDATE_MEDIA_POLICIES) {
-    if (!storagePolicies.has(policyName)) {
-      errors.push(`missing storage.objects policy ${policyName}`);
-    }
+  if (storagePolicyRows.length > 0) {
+    errors.push(`${PROJECT_UPDATE_MEDIA_BUCKET} must not have direct browser storage policies`);
   }
 
   const restrictedBucketRows = await sql<{ id: string; allowed_mime_types: string[] | null }[]>`

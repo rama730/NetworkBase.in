@@ -68,10 +68,11 @@ test("phase 1 keeps one named radio source selector and a flat accessible reposi
 });
 
 test("wizard shell is reactive, uses the project-setup exit dialog, and chunks upload signing", async () => {
-  const [wizard, hook, footer] = await Promise.all([
+  const [wizard, hook, footer, folderUpload] = await Promise.all([
     readFile("src/components/projects/create-wizard/CreateProjectWizard.tsx", "utf8"),
     readFile("src/components/projects/create-wizard/useCreateProjectWizard.ts", "utf8"),
     readFile("src/components/projects/create-wizard/WizardFooter.tsx", "utf8"),
+    readFile("src/lib/upload/chunked-upload.ts", "utf8"),
   ]);
 
   // Reactive via a real subscription (useWatch); render-time watch() went stale after GitHub -> Scratch.
@@ -82,8 +83,12 @@ test("wizard shell is reactive, uses the project-setup exit dialog, and chunks u
   assert.ok(wizard.includes("relative flex h-full min-h-0 w-full flex-col"));
   assert.ok(footer.includes("max-w-[1000px]"));
   assert.doesNotMatch(wizard, /presentation/);
-  assert.match(hook, /offset \+= 200/);
-  assert.match(hook, /uploadUrlRequests\.slice\(offset, offset \+ 200\)/);
+  assert.match(hook, /getUploadPresignedUrl/);
+  assert.match(folderUpload, /getPresignedUrl/);
+  assert.match(folderUpload, /const DEFAULT_MAX_CONCURRENCY = 4/);
+  assert.match(folderUpload, /Math\.min\(DEFAULT_MAX_CONCURRENCY,/);
+  assert.match(folderUpload, /uploadToSupabaseSignedUrl/);
+  assert.doesNotMatch(hook, /uploadUrlRequests\.slice\(offset, offset \+ 200\)/);
   assert.match(hook, /branchOverride \?\? watchedBranch/);
   assert.match(hook, /setGithubFolderEntries\(\{\}\)/);
   assert.doesNotMatch(hook, /window\.scrollTo/);

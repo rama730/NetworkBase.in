@@ -1,7 +1,7 @@
-import { inArray, sql } from "drizzle-orm";
+import { and, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { attachmentUploads } from "@/lib/db/schema";
+import { attachmentUploads, storageAssets } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -29,6 +29,7 @@ export const messageAttachmentRetention = inngest.createFunction(
           return tx.execute<{
             id: string;
             storage_path: string | null;
+            asset_id: string | null;
           }>(sql`
             WITH candidates AS (
               SELECT id
@@ -49,7 +50,7 @@ export const messageAttachmentRetention = inngest.createFunction(
               updated_at = now()
             FROM candidates
             WHERE upload.id = candidates.id
-            RETURNING upload.id, upload.storage_path
+            RETURNING upload.id, upload.storage_path, upload.asset_id
           `);
         });
       });
@@ -63,6 +64,7 @@ export const messageAttachmentRetention = inngest.createFunction(
 
       const paths = Array.from(new Set(
         rows
+          .filter((row) => !row.asset_id)
           .map((row) => row.storage_path)
           .filter((path): path is string => Boolean(path)),
       ));
@@ -77,6 +79,7 @@ export const messageAttachmentRetention = inngest.createFunction(
       }
 
       const ids = rows.map((row) => row.id);
+      const assetIds = rows.flatMap((row) => row.asset_id ? [row.asset_id] : []);
       if (cleanupError) {
         totalFailed += ids.length;
         await step.run(`record-cleanup-retry-${iteration}`, async () => {
@@ -100,14 +103,28 @@ export const messageAttachmentRetention = inngest.createFunction(
       totalDeleted += paths.length;
 
       await step.run(`finalize-expired-uploads-${iteration}`, async () => {
-        await db
-          .update(attachmentUploads)
-          .set({
-            storagePath: null,
-            error: null,
-            updatedAt: new Date(),
-          })
-          .where(inArray(attachmentUploads.id, ids));
+        await db.transaction(async (tx) => {
+          if (assetIds.length > 0) {
+            await tx.update(storageAssets)
+              .set({
+                state: "delete_pending",
+                deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+                updatedAt: new Date(),
+              })
+              .where(and(
+                inArray(storageAssets.id, assetIds),
+                inArray(storageAssets.state, ["pending", "verified"]),
+              ));
+          }
+          await tx
+            .update(attachmentUploads)
+            .set({
+              storagePath: null,
+              error: null,
+              updatedAt: new Date(),
+            })
+            .where(inArray(attachmentUploads.id, ids));
+        });
       });
 
       if (rows.length < CLEANUP_BATCH_SIZE) {

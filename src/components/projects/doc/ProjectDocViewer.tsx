@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 
 import { 
@@ -105,11 +105,6 @@ function scrollReadmeTargetIntoView(target: HTMLElement, behavior: ScrollBehavio
     window.scrollTo({ top, behavior });
 }
 
-type ReadmeTargetFlash = {
-    targetId: string;
-    token: number;
-};
-
 export function ProjectDocViewer({
     project,
     payload,
@@ -145,25 +140,12 @@ export function ProjectDocViewer({
         return map;
     }, [readmePreviewsQuery.data]);
 
-    const [highlightedTarget, setHighlightedTarget] = useState<ReadmeTargetFlash | null>(null);
-    const highlightTimerRef = useRef<number | null>(null);
     const scrollFrameRef = useRef<number | null>(null);
     const mediaCorrectionFrameRef = useRef<number | null>(null);
     const targetRetryTimerRef = useRef<number | null>(null);
-    const highlightTokenRef = useRef(0);
     const lastRevealTargetIdRef = useRef<string | null>(null);
     const readmeTargetIds = readmeViewModel.targetIds;
     const readmeTargetSignature = readmeViewModel.targetSignature;
-
-    const flashTarget = useCallback((targetId: string) => {
-        highlightTokenRef.current += 1;
-        const token = highlightTokenRef.current;
-        setHighlightedTarget({ targetId, token });
-        if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
-        highlightTimerRef.current = window.setTimeout(() => {
-            setHighlightedTarget((current) => current?.targetId === targetId && current.token === token ? null : current);
-        }, 1800);
-    }, []);
 
     const updateHash = useCallback((targetId: string) => {
         const url = new URL(window.location.href);
@@ -174,7 +156,6 @@ export function ProjectDocViewer({
     const scrollToTarget = useCallback((rawTargetId: string, options?: {
         behavior?: ScrollBehavior;
         defer?: boolean;
-        highlight?: boolean;
         retry?: boolean;
         retries?: number;
         updateHash?: boolean;
@@ -208,7 +189,6 @@ export function ProjectDocViewer({
             if (typeof element.focus === "function") {
                 element.focus({ preventScroll: true });
             }
-            if (options?.highlight !== false) flashTarget(resolvedTargetId);
             if (options?.updateHash !== false) updateHash(resolvedTargetId);
             return true;
         };
@@ -225,23 +205,22 @@ export function ProjectDocViewer({
         }
 
         return revealTarget(options?.retries ?? 20);
-    }, [flashTarget, updateHash]);
+    }, [updateHash]);
 
     const handleReadmeMediaLoad = useCallback(() => {
-        const targetId = highlightedTarget?.targetId ?? lastRevealTargetIdRef.current;
+        const targetId = lastRevealTargetIdRef.current;
         if (!targetId) return;
         if (mediaCorrectionFrameRef.current) window.cancelAnimationFrame(mediaCorrectionFrameRef.current);
         mediaCorrectionFrameRef.current = window.requestAnimationFrame(() => {
             mediaCorrectionFrameRef.current = null;
             scrollToTarget(targetId, {
                 behavior: "auto",
-                highlight: false,
                 retry: false,
                 retries: 0,
                 updateHash: false,
             });
         });
-    }, [highlightedTarget?.targetId, scrollToTarget]);
+    }, [scrollToTarget]);
 
     useEffect(() => {
         if (!readmeTargetIds.length) return;
@@ -251,7 +230,7 @@ export function ProjectDocViewer({
             if (cancelled) return;
             const targetId = decodeReadmeHashTarget(window.location.hash);
             if (!targetId) return;
-            if (scrollToTarget(targetId, { behavior: "auto", highlight: true, retry: false, updateHash: false })) {
+            if (scrollToTarget(targetId, { behavior: "auto", retry: false, updateHash: false })) {
                 return;
             }
             if (attemptsRemaining > 0) {
@@ -272,7 +251,6 @@ export function ProjectDocViewer({
 
     useEffect(() => {
         return () => {
-            if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
             if (scrollFrameRef.current) window.cancelAnimationFrame(scrollFrameRef.current);
             if (mediaCorrectionFrameRef.current) window.cancelAnimationFrame(mediaCorrectionFrameRef.current);
             if (targetRetryTimerRef.current) window.clearTimeout(targetRetryTimerRef.current);
@@ -286,6 +264,7 @@ export function ProjectDocViewer({
             <ProjectDocMobileBar
                 projectId={project.id}
                 activeSlug={normalizedDocSlug}
+                canEdit={payload.canEdit}
             />
             <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="min-w-0">
@@ -301,13 +280,12 @@ export function ProjectDocViewer({
                         previewByKey={previewByKey}
                         previewsLoading={readmePreviewsQuery.isLoading}
                         viewModel={readmeViewModel}
-                        highlightedTargetId={highlightedTarget?.targetId}
-                        highlightedTargetToken={highlightedTarget?.token}
                     />
                 </div>
                 <ProjectDocRail
                     projectId={project.id}
                     activeSlug={normalizedDocSlug}
+                    canEdit={payload.canEdit}
                 />
             </div>
         </div>

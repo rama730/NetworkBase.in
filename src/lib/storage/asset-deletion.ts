@@ -1,0 +1,341 @@
+import "server-only";
+
+import { randomUUID } from "node:crypto";
+import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
+
+import { db } from "@/lib/db";
+import {
+  attachmentUploads,
+  extensionRecoveryDrafts,
+  fileVersions,
+  githubSyncSnapshotAssets,
+  importJobs,
+  messageAttachments,
+  profiles,
+  projectNodes,
+  projectUpdateDraftMediaAssets,
+  projectUpdateMediaAssets,
+  projects,
+  storageQuotaScopes,
+  storageAssetPins,
+  storageAssets,
+  uploadIntents,
+} from "@/lib/db/schema";
+import { createAdminClient } from "@/lib/supabase/server";
+
+const DELETE_BATCH_SIZE = 100;
+const DELETE_LEASE_MS = 5 * 60 * 1000;
+
+function hasNoLiveReference() {
+  return and(
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${profiles}
+      WHERE ${profiles.avatarAssetId} = ${storageAssets.id}
+         OR ${profiles.bannerAssetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${projects}
+      WHERE ${projects.coverImageAssetId} = ${storageAssets.id}
+         OR (
+           ${projects.id} = ${storageAssets.projectId}
+           AND ${projects.coverImageAssetId} IS NULL
+           AND ${projects.coverImage} LIKE ('%' || ${storageAssets.storageKey} || '%')
+         )
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${projectNodes}
+      WHERE ${projectNodes.assetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${fileVersions}
+      WHERE ${fileVersions.assetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${messageAttachments}
+      WHERE ${messageAttachments.assetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${projectUpdateMediaAssets}
+      WHERE ${projectUpdateMediaAssets.assetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${projectUpdateDraftMediaAssets}
+      WHERE ${projectUpdateDraftMediaAssets.assetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${extensionRecoveryDrafts}
+      WHERE ${extensionRecoveryDrafts.assetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${importJobs}
+      WHERE ${importJobs.manifestAssetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${githubSyncSnapshotAssets}
+      WHERE ${githubSyncSnapshotAssets.assetId} = ${storageAssets.id}
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${storageAssetPins}
+      WHERE ${storageAssetPins.assetId} = ${storageAssets.id}
+        AND ${storageAssetPins.expiresAt} > now()
+    )`,
+    sql`(
+      ${storageAssets.purpose} IN ('profile_image:avatar', 'profile_image:banner')
+      OR NOT EXISTS (
+        SELECT 1 FROM ${storageAssets} derivative
+        WHERE derivative.source_asset_id = ${storageAssets.id}
+          AND derivative.state NOT IN ('deleted', 'missing')
+      )
+    )`,
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${attachmentUploads}
+      WHERE ${attachmentUploads.assetId} = ${storageAssets.id}
+        AND ${attachmentUploads.status} IN ('queued', 'uploading', 'uploaded')
+        AND ${attachmentUploads.expiresAt} > now()
+    )`,
+  );
+}
+
+export async function scheduleAbandonedStorageAssets() {
+  const graceCutoff = new Date(Date.now() - 5 * 60 * 1000);
+  return db.transaction(async (tx) => {
+    const candidates = await tx
+      .select({ id: storageAssets.id })
+      .from(storageAssets)
+      .where(and(
+        inArray(storageAssets.state, ["pending", "verified"]),
+        lt(storageAssets.expiresAt, graceCutoff),
+        sql`NOT EXISTS (
+          SELECT 1 FROM ${uploadIntents}
+          WHERE ${uploadIntents.assetId} = ${storageAssets.id}
+            AND ${uploadIntents.status} = 'pending'
+            AND ${uploadIntents.expiresAt} > ${graceCutoff}
+        )`,
+        hasNoLiveReference(),
+      ))
+      .orderBy(asc(storageAssets.expiresAt), asc(storageAssets.id))
+      .limit(DELETE_BATCH_SIZE)
+      .for("update", { skipLocked: true });
+    if (candidates.length === 0) return { scheduled: 0 };
+    const updated = await tx.update(storageAssets)
+      .set({
+        state: "delete_pending",
+        deleteAfter: new Date(),
+        lastErrorCode: "ABANDONED_UNATTACHED",
+        updatedAt: new Date(),
+      })
+      .where(and(
+        inArray(storageAssets.id, candidates.map((candidate) => candidate.id)),
+        inArray(storageAssets.state, ["pending", "verified"]),
+      ))
+      .returning({ id: storageAssets.id });
+    return { scheduled: updated.length };
+  });
+}
+
+export async function cleanupExpiredStorageAssetPins() {
+  const expired = await db
+    .select({ id: storageAssetPins.id })
+    .from(storageAssetPins)
+    .where(lt(storageAssetPins.expiresAt, new Date()))
+    .orderBy(asc(storageAssetPins.expiresAt), asc(storageAssetPins.id))
+    .limit(1_000);
+  if (expired.length === 0) return { expiredPins: 0 };
+  const removed = await db
+    .delete(storageAssetPins)
+    .where(inArray(storageAssetPins.id, expired.map((pin) => pin.id)))
+    .returning({ id: storageAssetPins.id });
+  return { expiredPins: removed.length };
+}
+
+/**
+ * Claims a bounded deletion batch, removes bytes outside the transaction, and
+ * accepts completion only from the current fenced lease.
+ */
+export async function deleteEligibleStorageAssets() {
+  const now = new Date();
+  const leaseToken = randomUUID();
+  const leaseExpiresAt = new Date(now.getTime() + DELETE_LEASE_MS);
+  const claimed = await db.transaction(async (tx) => {
+    const expiredLeases = await tx
+      .select({ id: storageAssets.id })
+      .from(storageAssets)
+      .where(and(
+        eq(storageAssets.state, "deleting"),
+        lt(storageAssets.deletionLeaseExpiresAt, now),
+      ))
+      .orderBy(asc(storageAssets.deletionLeaseExpiresAt), asc(storageAssets.id))
+      .limit(DELETE_BATCH_SIZE)
+      .for("update", { skipLocked: true });
+    if (expiredLeases.length > 0) {
+      await tx.update(storageAssets)
+        .set({
+          state: "delete_pending",
+          deleteAfter: now,
+          deletionLeaseToken: null,
+          deletionLeaseExpiresAt: null,
+          lastErrorCode: "DELETION_LEASE_EXPIRED",
+          updatedAt: now,
+        })
+        .where(and(
+          inArray(storageAssets.id, expiredLeases.map((asset) => asset.id)),
+          eq(storageAssets.state, "deleting"),
+          lt(storageAssets.deletionLeaseExpiresAt, now),
+        ));
+    }
+    const candidates = await tx
+      .select({ id: storageAssets.id })
+      .from(storageAssets)
+      .where(and(
+        eq(storageAssets.state, "delete_pending"),
+        lt(storageAssets.deleteAfter, now),
+        or(
+          eq(storageAssets.backupState, "verified"),
+          eq(storageAssets.backupState, "not_required"),
+        ),
+        hasNoLiveReference(),
+      ))
+      .orderBy(asc(storageAssets.deleteAfter), asc(storageAssets.id))
+      .limit(DELETE_BATCH_SIZE)
+      .for("update", { skipLocked: true });
+    if (candidates.length === 0) return [];
+
+    return tx
+      .update(storageAssets)
+      .set({
+        state: "deleting",
+        deletionLeaseToken: leaseToken,
+        deletionLeaseExpiresAt: leaseExpiresAt,
+        deletionFence: sql`${storageAssets.deletionFence} + 1`,
+        updatedAt: now,
+      })
+      .where(and(
+        inArray(storageAssets.id, candidates.map((candidate) => candidate.id)),
+        eq(storageAssets.state, "delete_pending"),
+      ))
+      .returning({
+        id: storageAssets.id,
+        ownerUserId: storageAssets.ownerUserId,
+        projectId: storageAssets.projectId,
+        bucket: storageAssets.bucket,
+        storageKey: storageAssets.storageKey,
+        declaredSize: storageAssets.declaredSize,
+        verifiedSize: storageAssets.verifiedSize,
+        quotaTracked: storageAssets.quotaTracked,
+        fence: storageAssets.deletionFence,
+      });
+  });
+
+  if (claimed.length === 0) return { claimed: 0, deleted: 0, retryable: 0 };
+
+  const admin = await createAdminClient();
+  const byBucket = new Map<string, typeof claimed>();
+  for (const asset of claimed) {
+    const bucket = byBucket.get(asset.bucket) ?? [];
+    bucket.push(asset);
+    byBucket.set(asset.bucket, bucket);
+  }
+
+  const deleted: typeof claimed = [];
+  const retryable: typeof claimed = [];
+  for (const [bucket, assets] of byBucket) {
+    const { error } = await admin.storage
+      .from(bucket)
+      .remove(assets.map((asset) => asset.storageKey));
+    (error ? retryable : deleted).push(...assets);
+  }
+
+  await db.transaction(async (tx) => {
+    const released: typeof deleted = [];
+    for (const asset of deleted) {
+      const transitioned = await tx.update(storageAssets)
+        .set({
+          state: "deleted",
+          deletionLeaseToken: null,
+          deletionLeaseExpiresAt: null,
+          lastErrorCode: null,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(storageAssets.id, asset.id),
+          eq(storageAssets.state, "deleting"),
+          eq(storageAssets.deletionLeaseToken, leaseToken),
+          eq(storageAssets.deletionFence, asset.fence),
+          hasNoLiveReference(),
+        ))
+        .returning({ id: storageAssets.id });
+      if (transitioned.length === 1) released.push(asset);
+    }
+    for (const asset of retryable) {
+      await tx.update(storageAssets)
+        .set({
+          state: "delete_pending",
+          deleteAfter: sql`now() + interval '5 minutes'`,
+          deletionLeaseToken: null,
+          deletionLeaseExpiresAt: null,
+          lastErrorCode: "PROVIDER_UNAVAILABLE",
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(storageAssets.id, asset.id),
+          eq(storageAssets.state, "deleting"),
+          eq(storageAssets.deletionLeaseToken, leaseToken),
+          eq(storageAssets.deletionFence, asset.fence),
+        ));
+    }
+
+    const releasedQuota = new Map<string, {
+      scopeType: "user" | "project";
+      scopeId: string;
+      reserved: number;
+      retained: number;
+      outstanding: number;
+    }>();
+    const quotaItem = (scopeType: "user" | "project", scopeId: string) => {
+      const key = `${scopeType}:${scopeId}`;
+      const current = releasedQuota.get(key) ?? {
+        scopeType,
+        scopeId,
+        reserved: 0,
+        retained: 0,
+        outstanding: 0,
+      };
+      releasedQuota.set(key, current);
+      return current;
+    };
+    for (const asset of released) {
+      if (!asset.quotaTracked) continue;
+      if (asset.ownerUserId && asset.verifiedSize == null) {
+        quotaItem("user", asset.ownerUserId).outstanding += 1;
+      }
+      const scopeType = asset.projectId ? "project" as const : "user" as const;
+      const scopeId = asset.projectId ?? asset.ownerUserId;
+      if (!scopeId) continue;
+      const current = quotaItem(scopeType, scopeId);
+      if (asset.verifiedSize == null) current.reserved += asset.declaredSize;
+      else current.retained += asset.verifiedSize;
+    }
+    for (const item of Array.from(releasedQuota.values()).sort((left, right) => {
+      if (left.scopeType !== right.scopeType) return left.scopeType === "user" ? -1 : 1;
+      return left.scopeId.localeCompare(right.scopeId);
+    })) {
+      await tx.update(storageQuotaScopes)
+        .set({
+          reservedBytes: sql`greatest(${storageQuotaScopes.reservedBytes} - ${item.reserved}, 0)`,
+          retainedBytes: sql`greatest(${storageQuotaScopes.retainedBytes} - ${item.retained}, 0)`,
+          outstandingUploads: sql`greatest(${storageQuotaScopes.outstandingUploads} - ${item.outstanding}, 0)`,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(storageQuotaScopes.scopeType, item.scopeType),
+          eq(storageQuotaScopes.scopeId, item.scopeId),
+        ));
+    }
+  });
+
+  return {
+    claimed: claimed.length,
+    deleted: deleted.length,
+    retryable: retryable.length,
+  };
+}

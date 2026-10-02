@@ -870,8 +870,8 @@ script.debug-script-view {
   aspect-ratio: auto !important;
 }
 
-/* Authentication uses the same visible focus treatment as the application. */
-.auth-root input:focus-visible { border-color: var(--ring); }
+/* Authentication fields follow the same neutral, line-free focus policy. */
+.auth-root input:focus-visible { border-color: var(--input); box-shadow:none; }
 
 /* NetworkBase brand primitives. The product mark is semantic: only exported
    files use a fixed Clay/Ink/Paper colour. */
@@ -996,6 +996,7 @@ svg.lucide { stroke-width:1.75; }
 [data-slot="user-avatar"] { color:var(--foreground); }
 [data-slot="user-avatar"] > div { color:var(--foreground); background:var(--secondary); }
 [data-slot="dialog-content"][data-presentation="center"] { max-height:calc(100dvh - 32px); overflow-y:auto; }
+[data-slot="dialog-content"][data-confirm-dialog] { overflow:hidden; }
 [data-slot="dialog-content"]:focus, [data-slot="dialog-content"]:focus-visible { outline: none !important; }
 [data-slot="input"]:focus, [data-slot="input"]:focus-visible, [data-slot="button"]:focus, [data-slot="button"]:focus-visible, .nb-tab:focus, .nb-tab:focus-visible, .nb-nav-link:focus, .nb-nav-link:focus-visible { outline: none !important; }
 [data-slot="dialog-overlay"] { backdrop-filter:none; }
@@ -1010,13 +1011,13 @@ svg.lucide { stroke-width:1.75; }
   .nb-page-title { font-size:24px; }
   [data-slot="dialog-content"][data-presentation="center"] { max-width:calc(100vw - 16px); }
 }
-@media (pointer:coarse) {
 /* Preflight gives <code>/<pre> a ui-monospace stack; phones use the spec mono (JetBrains Mono). */
 @media (max-width:767px) {
   code, kbd, samp, pre { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; }
   /* Toasts sit above a mounted composer or wizard footer instead of covering it (spec §09 R12). */
   body:has(.nb-message-composer, .nb-wizard-footer) [data-sonner-toaster][data-y-position="bottom"] { bottom: calc(96px + env(safe-area-inset-bottom)) !important; }
 }
+@media (pointer:coarse) {
   /* :root[data-density] out-specifies the density presets, which are always set. */
   :root, :root[data-density] { --ui-control-height-sm:44px; --ui-control-height:44px; --ui-control-height-lg:48px; --ui-nav-item-height:44px; }
   .nb-icon-button, .nb-tab, .nb-touch-target, .nb-avatar-trigger, [data-slot="tabs-trigger"] { min-width:44px; min-height:44px; }
@@ -1078,7 +1079,7 @@ svg.lucide { stroke-width:1.75; }
 }
 .nb-portfolio-grid { display:flex; flex-direction:column; gap:16px; }
 
-/* Complete elimination of outer focus outline lines across all elements, components, buttons, dialogs, inputs, and links */
+/* Final focus-chrome guard: no component may paint an outer keyline or ring. */
 *:focus,
 *:focus-visible,
 :where(a, button, input, select, textarea, summary, [tabindex], [data-slot]):focus,
@@ -1106,8 +1107,11 @@ svg.lucide { stroke-width:1.75; }
   outline: none !important;
   outline-width: 0 !important;
   outline-color: transparent !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
   box-shadow: none !important;
 }
+
 .nb-avatar-fallback, .nb-avatar-fallback > div, .nb-avatar-fallback > span {
   color: var(--foreground);
   background: var(--secondary);

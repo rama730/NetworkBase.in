@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { projectMembers, projectNodeEvents, projectNodeLocks, projectNodes, projects, tasks } from "@/lib/db/schema";
+import { projectEventCounters, projectMembers, projectNodeEvents, projectNodeLocks, projectNodes, projects, tasks } from "@/lib/db/schema";
 import { getProjectAccessById, type ProjectAccess } from "@/lib/data/project-access";
 import { eq, and, isNull, sql, ne, gt, type SQL } from "drizzle-orm";
 import { isWithParent } from "@/app/actions/files/_constants";
@@ -404,17 +404,21 @@ export async function recordNodeEvent(
     clientTx?: DbTransaction
 ) {
     const run = async (tx: any) => {
-        const [project] = await tx
-            .update(projects)
-            .set({
-                currentSequenceNumber: sql`${projects.currentSequenceNumber} + 1`
+        const [counter] = await tx
+            .insert(projectEventCounters)
+            .values({ projectId, nextSequence: 1 })
+            .onConflictDoUpdate({
+                target: projectEventCounters.projectId,
+                set: {
+                    nextSequence: sql`${projectEventCounters.nextSequence} + 1`,
+                    updatedAt: new Date(),
+                },
             })
-            .where(eq(projects.id, projectId))
             .returning({
-                newSequenceNumber: projects.currentSequenceNumber
+                newSequenceNumber: projectEventCounters.nextSequence,
             });
 
-        if (!project) {
+        if (!counter) {
             throw new Error(`Project ${projectId} not found`);
         }
 
@@ -425,13 +429,13 @@ export async function recordNodeEvent(
                 actorId,
                 nodeId,
                 type,
-                sequenceNumber: project.newSequenceNumber,
+                sequenceNumber: counter.newSequenceNumber,
                 metadata,
                 createdAt: new Date(),
             })
             .returning();
 
-        return { sequenceNumber: project.newSequenceNumber, event };
+        return { sequenceNumber: counter.newSequenceNumber, event };
     };
 
     if (clientTx) {
@@ -452,21 +456,25 @@ export async function recordNodeEventsBatch(
 ) {
     const run = async (tx: any) => {
         const count = Math.max(1, nodeIds.length);
-        const [project] = await tx
-            .update(projects)
-            .set({
-                currentSequenceNumber: sql`${projects.currentSequenceNumber} + ${count}`
+        const [counter] = await tx
+            .insert(projectEventCounters)
+            .values({ projectId, nextSequence: count })
+            .onConflictDoUpdate({
+                target: projectEventCounters.projectId,
+                set: {
+                    nextSequence: sql`${projectEventCounters.nextSequence} + ${count}`,
+                    updatedAt: new Date(),
+                },
             })
-            .where(eq(projects.id, projectId))
             .returning({
-                newSequenceNumber: projects.currentSequenceNumber
+                newSequenceNumber: projectEventCounters.nextSequence,
             });
 
-        if (!project) {
+        if (!counter) {
             throw new Error(`Project ${projectId} not found`);
         }
 
-        const startSeq = Number(project.newSequenceNumber) - count;
+        const startSeq = Number(counter.newSequenceNumber) - count;
         const now = new Date();
         const targets = nodeIds.length > 0 ? nodeIds : [null];
         const values = targets.map((nodeId, idx) => ({
@@ -480,7 +488,7 @@ export async function recordNodeEventsBatch(
         }));
 
         await tx.insert(projectNodeEvents).values(values);
-        return { sequenceNumber: project.newSequenceNumber };
+        return { sequenceNumber: counter.newSequenceNumber };
     };
 
     if (clientTx) {

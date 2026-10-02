@@ -45,6 +45,7 @@ import type {
     ProjectDocSmartBlockPreview,
 } from "@/lib/projects/doc-blocks";
 import { parseProjectDocSmartBlocks } from "@/lib/projects/doc-blocks";
+import { nextFreeDocSlug } from "@/lib/projects/doc-slug";
 
 const PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG = "public-project-detail-shell";
 const PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG = "public-project-detail-metadata";
@@ -150,7 +151,7 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
             key: true,
         },
         with: {
-            markdowns: true,
+            markdowns: { with: { linkedNode: { columns: { deletedAt: true } } } },
             members: {
                 where: actorUserId ? eq(projectMembers.userId, actorUserId) : sql`false`,
                 columns: { role: true },
@@ -188,6 +189,8 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
     const isOwner = actorUserId === project.ownerId;
     const results: ProjectDocListItem[] = [];
     for (const doc of base.docs) {
+        const linkedAlive = Boolean(doc.linkedNodeId && doc.linkedNode && !doc.linkedNode.deletedAt);
+        if (!linkedAlive && !doc.publishedVersionId) continue;
         const permission = resolveProjectDocPermission({
             actorUserId,
             projectVisibility: project.visibility,
@@ -196,7 +199,7 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
             membershipRole: isOwner ? "owner" : membership?.role,
             isOwner,
             isActiveMember: isOwner || Boolean(membership),
-            hasPublishedReadme: Boolean(doc.publishedVersionId),
+            hasPublishedReadme: true,
         });
         if (permission.canReadPublished || permission.canEdit) {
             results.push({ id: doc.id, slug: doc.slug, filename: doc.filename, linkedNodeId: doc.linkedNodeId });
@@ -505,7 +508,8 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
         const actorUserId = await getOptionalUserId();
         const base = await loadDocProjectBase(projectId, actorUserId);
         const docs = visibleDocs(base, actorUserId);
-        const docSlug = requestedSlug ? normalizeProjectDocSlug(requestedSlug) : docs[0]?.slug ?? "readme";
+        const requested = requestedSlug ? normalizeProjectDocSlug(requestedSlug) : null;
+        const docSlug = docs.find((doc) => doc.slug === requested)?.slug ?? docs[0]?.slug ?? "readme";
         const context = docContext(base, actorUserId, docSlug);
         if (!context.permission.canReadPublished && !context.permission.canEdit) {
             return { success: false, error: context.permission.reason || "Document unavailable" };
@@ -550,10 +554,8 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
                     logger.error("project_readme.read_linked_node_failed", { projectId, nodeId: node.id, error: err instanceof Error ? err.message : String(err) });
                 }
             } else {
-                // If it was deleted, detach it
-                await db.update(projectDocs)
-                    .set({ linkedNodeId: null })
-                    .where(eq(projectDocs.id, context.readme.id));
+                // Linked file is gone: the doc goes with it.
+                await db.delete(projectDocs).where(eq(projectDocs.id, context.readme.id));
             }
         }
 
@@ -879,97 +881,62 @@ export async function updateProjectDocSettingsAction(projectId: string, input: u
     }
 }
 
-export async function linkProjectDocAction(projectId: string, nodeId: string, docSlug: string = "readme") {
+export async function linkProjectDocAction(projectId: string, nodeId: string) {
     try {
-        docSlug = normalizeProjectDocSlug(docSlug);
         const userId = await requireUserId();
-        const context = await getDocProjectContext(projectId, userId, docSlug);
+        const base = await loadDocProjectBase(projectId, userId);
+        const context = docContext(base, userId, "readme");
         if (!context.permission.canEdit) {
-            return { success: false as const, error: "Only project members can link a document file." };
+            return { success: false as const, error: "Only project members can add a document." };
         }
 
-        // Check if the node actually exists, belongs to this project, is a file, and not deleted
         const node = await db.query.projectNodes.findFirst({
             where: and(
                 eq(projectNodes.id, nodeId),
                 eq(projectNodes.projectId, projectId),
-                eq(projectNodes.type, 'file'),
-                isNull(projectNodes.deletedAt)
-            )
+                eq(projectNodes.type, "file"),
+                isNull(projectNodes.deletedAt),
+            ),
+            columns: { id: true, name: true },
         });
-
         if (!node) {
             return { success: false as const, error: "Target file not found." };
         }
 
-        // Upsert project readme record with linkedNodeId
-        await db.transaction(async (tx) => {
-            const readme = await tx.query.projectDocs.findFirst({
-                where: and(
-                    eq(projectDocs.projectId, projectId),
-                    eq(projectDocs.slug, docSlug)
-                )
+        const existing = base.docs.find((doc) => doc.linkedNodeId === nodeId);
+        if (existing) return { success: true as const, slug: existing.slug };
+
+        // Rows with no file and no published content are dead weight; reuse their slug.
+        const taken = new Set(base.docs.filter((doc) => doc.linkedNodeId || doc.publishedVersionId).map((doc) => doc.slug));
+        const slug = nextFreeDocSlug(normalizeProjectDocSlug(node.name, "doc"), taken);
+        await db
+            .insert(projectDocs)
+            .values({ projectId, slug, filename: node.name, linkedNodeId: nodeId, settings: context.settings })
+            .onConflictDoUpdate({
+                target: [projectDocs.projectId, projectDocs.slug],
+                set: { filename: node.name, linkedNodeId: nodeId, updatedAt: new Date() },
             });
 
-            if (!readme) {
-                const filename = node.name || (docSlug === "readme" ? "README.md" : `${docSlug.toUpperCase()}.md`);
-                await tx.insert(projectDocs).values({
-                    projectId,
-                    slug: docSlug,
-                    filename,
-                    linkedNodeId: nodeId,
-                    settings: context.settings,
-                });
-            } else {
-                await tx.update(projectDocs)
-                    .set({
-                        filename: node.name || readme.filename,
-                        linkedNodeId: nodeId,
-                        updatedAt: new Date(),
-                    })
-                    .where(eq(projectDocs.id, readme.id));
-            }
-        });
-
-
-        return { success: true as const };
+        revalidateProjectDoc(context.project);
+        return { success: true as const, slug };
     } catch (error) {
         logger.error("project_readme.link_failed", { projectId, nodeId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Internal server error." };
     }
 }
 
-export async function unlinkProjectDocAction(projectId: string, docSlug: string = "readme") {
+export async function unlinkProjectDocAction(projectId: string, docSlug: string) {
     try {
         docSlug = normalizeProjectDocSlug(docSlug);
         const userId = await requireUserId();
         const context = await getDocProjectContext(projectId, userId, docSlug);
         if (!context.permission.canEdit) {
-            return { success: false as const, error: "Only project members can unlink a document file." };
+            return { success: false as const, error: "Only project members can remove a document." };
         }
 
-        if (docSlug === "readme") {
-            await db.update(projectDocs)
-                .set({
-                    linkedNodeId: null,
-                    updatedAt: new Date(),
-                })
-                .where(and(
-                    eq(projectDocs.projectId, projectId),
-                    eq(projectDocs.slug, docSlug)
-                ));
-        } else {
-            if (context.readme) {
-                await db.delete(projectDocs)
-                    .where(and(
-                        eq(projectDocs.projectId, projectId),
-                        eq(projectDocs.slug, docSlug)
-                    ));
-            }
-        }
+        await db.delete(projectDocs).where(and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, docSlug)));
 
         revalidateProjectDoc(context.project);
-
         return { success: true as const };
     } catch (error) {
         logger.error("project_readme.unlink_failed", { projectId, error: error instanceof Error ? error.message : String(error) });

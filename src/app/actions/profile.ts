@@ -3,8 +3,8 @@
 import { randomUUID } from 'crypto'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
-import { profileAuditEvents, profiles, usernameAliases } from '@/lib/db/schema'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { profileAuditEvents, profiles, storageAssets, storageQuotaScopes, usernameAliases } from '@/lib/db/schema'
+import { eq, and, desc, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { consumeRateLimit } from '@/lib/security/rate-limit'
 import {
@@ -26,6 +26,10 @@ import { syncProfileSkills } from '@/lib/skills/service'
 import { socialLinkItemsFromStorage, validateSocialLinkCollection } from '@/lib/profile/normalization'
 import { enqueueSupersededProfileImages } from '@/lib/profile/image-cleanup'
 import { inngest } from '@/inngest/client'
+import {
+    prepareVerifiedPublicProfileImage,
+    PROFILE_IMAGE_STAGING_BUCKET,
+} from '@/lib/profile/publish-profile-image'
 
 export type UpdateProfileInput = ProfileUpdateInput
 export type ProfileUpdateErrorCode =
@@ -104,6 +108,7 @@ export async function createProfileImageUploadUrlAction(input: {
         success: true
         uploadUrl: string
         uploadIntentId: string
+        operationId: string
         storagePath: string
         contentType: string
         bucket: string
@@ -144,7 +149,7 @@ export async function createProfileImageUploadUrlAction(input: {
             input.sizeBytes,
             Number.isFinite(PROFILE_IMAGE_UPLOAD_MAX_FILE_BYTES) && PROFILE_IMAGE_UPLOAD_MAX_FILE_BYTES > 0
                 ? PROFILE_IMAGE_UPLOAD_MAX_FILE_BYTES
-                : 10 * 1024 * 1024,
+                : 2 * 1024 * 1024,
             input.kind === 'banner' ? 'Banner image' : 'Avatar image',
         )
     } catch (error) {
@@ -160,7 +165,7 @@ export async function createProfileImageUploadUrlAction(input: {
     const admin = await createAdminClient()
     const intent = await createUploadIntent({
         userId: user.id,
-        bucket: 'avatars',
+        bucket: PROFILE_IMAGE_STAGING_BUCKET,
         storageKey: storagePath,
         scope: 'profile_image',
         kind: input.kind === 'banner' ? 'banner' : 'avatar',
@@ -168,7 +173,7 @@ export async function createProfileImageUploadUrlAction(input: {
         expectedSize: input.sizeBytes,
         metadata: { kind: input.kind === 'banner' ? 'banner' : 'avatar' },
     })
-    const { data, error } = await admin.storage.from('avatars').createSignedUploadUrl(storagePath, { upsert: false })
+    const { data, error } = await admin.storage.from(PROFILE_IMAGE_STAGING_BUCKET).createSignedUploadUrl(storagePath, { upsert: false })
     if (error || !data?.signedUrl || !data?.token) {
         return {
             success: false,
@@ -181,9 +186,10 @@ export async function createProfileImageUploadUrlAction(input: {
         success: true,
         uploadUrl: data.signedUrl,
         uploadIntentId: intent.id,
+        operationId: intent.id,
         storagePath,
         contentType: normalizedMimeType,
-        bucket: 'avatars',
+        bucket: PROFILE_IMAGE_STAGING_BUCKET,
         uploadToken: data.token,
     }
 }
@@ -219,16 +225,129 @@ export async function finalizeProfileImageUploadAction(input: {
     try {
         const intent = await finalizeUploadIntent({
             intentId: input.uploadIntentId,
-            bucket: 'avatars',
+            bucket: PROFILE_IMAGE_STAGING_BUCKET,
             userId: user.id,
             expectedScope: 'profile_image',
         })
-        const admin = await createAdminClient()
-        const { data: { publicUrl } } = admin.storage.from('avatars').getPublicUrl(intent.storageKey)
+        if (!intent.assetId) throw new Error('Verified profile asset is missing lifecycle identity')
+        const isBanner = intent.kind === 'banner'
+        const published = await prepareVerifiedPublicProfileImage({
+            sourceAssetId: intent.assetId,
+            ownerUserId: user.id,
+            kind: isBanner ? 'banner' : 'avatar',
+        })
+        const assetId = published.assetId
+        await db.transaction(async (tx) => {
+            const [current] = await tx
+                .select({
+                    avatarAssetId: profiles.avatarAssetId,
+                    bannerAssetId: profiles.bannerAssetId,
+                })
+                .from(profiles)
+                .where(eq(profiles.id, user.id))
+                .limit(1)
+                .for('update')
+            if (!current) throw new Error('Profile not found')
+
+            await tx.select({ scopeId: storageQuotaScopes.scopeId })
+                .from(storageQuotaScopes)
+                .where(and(
+                    eq(storageQuotaScopes.scopeType, 'user'),
+                    eq(storageQuotaScopes.scopeId, user.id),
+                ))
+                .limit(1)
+                .for('update')
+            const [sourceAsset] = await tx.select({
+                id: storageAssets.id,
+                state: storageAssets.state,
+                quotaTracked: storageAssets.quotaTracked,
+                verifiedSize: storageAssets.verifiedSize,
+                expiresAt: storageAssets.expiresAt,
+            }).from(storageAssets)
+                .where(and(
+                    eq(storageAssets.id, published.sourceAssetId),
+                    eq(storageAssets.ownerUserId, user.id),
+                    eq(storageAssets.bucket, PROFILE_IMAGE_STAGING_BUCKET),
+                ))
+                .limit(1)
+                .for('update')
+            const [publicAsset] = await tx.select({
+                id: storageAssets.id,
+                state: storageAssets.state,
+                quotaTracked: storageAssets.quotaTracked,
+                sourceAssetId: storageAssets.sourceAssetId,
+            }).from(storageAssets)
+                .where(and(
+                    eq(storageAssets.id, assetId),
+                    eq(storageAssets.ownerUserId, user.id),
+                    eq(storageAssets.bucket, 'avatars'),
+                ))
+                .limit(1)
+                .for('update')
+            if (!sourceAsset || !publicAsset || publicAsset.sourceAssetId !== sourceAsset.id) {
+                throw new Error('Profile image publication identity changed')
+            }
+            const transferQuota = sourceAsset.quotaTracked && !publicAsset.quotaTracked
+            if (transferQuota) {
+                await tx.update(storageQuotaScopes)
+                    .set({
+                        retainedBytes: sql`greatest(${storageQuotaScopes.retainedBytes} - ${sourceAsset.verifiedSize ?? published.sourceSize} + ${published.size}, 0)`,
+                        updatedAt: new Date(),
+                    })
+                    .where(and(
+                        eq(storageQuotaScopes.scopeType, 'user'),
+                        eq(storageQuotaScopes.scopeId, user.id),
+                    ))
+            }
+            await tx.update(storageAssets)
+                .set({
+                    state: 'delete_pending',
+                    quotaTracked: false,
+                    backupState: 'not_required',
+                    deleteAfter: sql`GREATEST(${sourceAsset.expiresAt} + interval '5 minutes', now())`,
+                    updatedAt: new Date(),
+                })
+                .where(and(
+                    eq(storageAssets.id, sourceAsset.id),
+                    inArray(storageAssets.state, ['verified', 'delete_pending']),
+                ))
+            const [publishableAsset] = await tx.update(storageAssets)
+                .set({
+                    state: 'verified',
+                    quotaTracked: true,
+                    verifiedMimeType: published.mimeType,
+                    verifiedSize: published.size,
+                    contentHash: published.contentHash,
+                    verifiedAt: sql`COALESCE(${storageAssets.verifiedAt}, now())`,
+                    backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+                    updatedAt: new Date(),
+                })
+                .where(and(
+                    eq(storageAssets.id, assetId),
+                    inArray(storageAssets.state, ['pending', 'verified']),
+                ))
+                .returning({ id: storageAssets.id })
+            if (!publishableAsset) throw new Error('Profile asset is no longer publishable')
+            await tx.update(profiles)
+                .set(isBanner
+                    ? { bannerUrl: published.publicUrl, bannerAssetId: assetId, updatedAt: new Date() }
+                    : { avatarUrl: published.publicUrl, avatarAssetId: assetId, updatedAt: new Date() })
+                .where(eq(profiles.id, user.id))
+            const previousAssetId = isBanner ? current.bannerAssetId : current.avatarAssetId
+            if (previousAssetId && previousAssetId !== assetId) {
+                await tx.update(storageAssets)
+                    .set({
+                        state: 'delete_pending',
+                        deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+                        updatedAt: new Date(),
+                    })
+                    .where(and(eq(storageAssets.id, previousAssetId), eq(storageAssets.state, 'verified')))
+            }
+        })
         return {
             success: true,
-            publicUrl,
-            storagePath: intent.storageKey,
+            publicUrl: published.publicUrl,
+            storagePath: published.storageKey,
             uploadIntentId: intent.id,
         }
     } catch (error) {
