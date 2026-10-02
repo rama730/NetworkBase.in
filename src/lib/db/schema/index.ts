@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   integer,
   bigint,
+  smallint,
   foreignKey,
   primaryKey,
   check,
@@ -6231,3 +6232,160 @@ export type NewTaskPush = typeof taskPushes.$inferInsert;
 export type ProjectWorkflowColumn = typeof projectWorkflowColumns.$inferSelect;
 export type NewProjectWorkflowColumn =
   typeof projectWorkflowColumns.$inferInsert;
+
+// ============================================================================
+// CHAT (Slack-style rebuild). Tables, partitions, constraints, indexes, RLS and
+// functions are owned by drizzle/0180_chat_rebuild_additive.sql.
+// ponytail: plain pgTable typings for queries only (L-20). ceiling:
+// drizzle-kit cannot express PARTITION BY HASH, so never generate migrations
+// from these definitions. upgrade: drop this note when drizzle supports
+// partitioned tables.
+// ============================================================================
+export const chatChannels = pgTable("chat_channels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  kind: text("kind", { enum: ["public", "private", "dm"] }).notNull(),
+  name: text("name"),
+  topic: text("topic"),
+  description: text("description"),
+  projectId: uuid("project_id"),
+  applicationId: uuid("application_id"),
+  isDefault: boolean("is_default").default(false).notNull(),
+  dmKey: text("dm_key"),
+  createdBy: uuid("created_by"),
+  lastSeq: bigint("last_seq", { mode: "number" }).default(0).notNull(),
+  lastTopSeq: bigint("last_top_seq", { mode: "number" }).default(0).notNull(),
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+  lastPreview: text("last_preview"),
+  lastAuthorId: uuid("last_author_id"),
+  memberCount: integer("member_count").default(0).notNull(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const chatChannelMembers = pgTable(
+  "chat_channel_members",
+  {
+    channelId: uuid("channel_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    role: text("role", { enum: ["owner", "admin", "member"] }).default("member").notNull(),
+    lastReadSeq: bigint("last_read_seq", { mode: "number" }).default(0).notNull(),
+    mentionCount: integer("mention_count").default(0).notNull(),
+    notify: text("notify", { enum: ["all", "mentions", "mute"] }).default("all").notNull(),
+    starred: boolean("starred").default(false).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.userId] }) }),
+);
+
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    channelId: uuid("channel_id").notNull(),
+    channelSeq: bigint("channel_seq", { mode: "number" }).notNull(),
+    authorId: uuid("author_id"),
+    kind: text("kind", { enum: ["user", "system"] }).default("user").notNull(),
+    body: text("body").default("").notNull(),
+    threadRootSeq: bigint("thread_root_seq", { mode: "number" }),
+    replyCount: integer("reply_count").default(0).notNull(),
+    lastReplySeq: bigint("last_reply_seq", { mode: "number" }),
+    lastReplyAt: timestamp("last_reply_at", { withTimezone: true }),
+    clientMessageId: text("client_message_id"),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.channelSeq] }) }),
+);
+
+export const chatMessageCards = pgTable(
+  "chat_message_cards",
+  {
+    channelId: uuid("channel_id").notNull(),
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+    kind: text("kind", { enum: ["application", "task", "invite"] }).notNull(),
+    refId: uuid("ref_id").notNull(),
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().default({}).notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.messageSeq] }) }),
+);
+
+export const chatAttachments = pgTable(
+  "chat_attachments",
+  {
+    channelId: uuid("channel_id").notNull(),
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+    idx: smallint("idx").notNull(),
+    assetId: uuid("asset_id").notNull(),
+    name: text("name").default("").notNull(),
+    mime: text("mime").notNull(),
+    size: bigint("size", { mode: "number" }).notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.messageSeq, t.idx] }) }),
+);
+
+export const chatReactions = pgTable(
+  "chat_reactions",
+  {
+    channelId: uuid("channel_id").notNull(),
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+    userId: uuid("user_id").notNull(),
+    emoji: text("emoji").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.messageSeq, t.userId, t.emoji] }) }),
+);
+
+export const chatMentions = pgTable(
+  "chat_mentions",
+  {
+    userId: uuid("user_id").notNull(),
+    channelId: uuid("channel_id").notNull(),
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+    kind: text("kind", { enum: ["user", "channel", "here", "thread_reply"] }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.channelId, t.messageSeq] }) }),
+);
+
+export const chatThreadFollows = pgTable(
+  "chat_thread_follows",
+  {
+    userId: uuid("user_id").notNull(),
+    channelId: uuid("channel_id").notNull(),
+    rootSeq: bigint("root_seq", { mode: "number" }).notNull(),
+    lastReadSeq: bigint("last_read_seq", { mode: "number" }).default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.channelId, t.rootSeq] }) }),
+);
+
+export const chatPins = pgTable(
+  "chat_pins",
+  {
+    channelId: uuid("channel_id").notNull(),
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+    pinnedBy: uuid("pinned_by"),
+    pinnedAt: timestamp("pinned_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.messageSeq] }) }),
+);
+
+export const chatReports = pgTable("chat_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  channelId: uuid("channel_id").notNull(),
+  messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+  reporterId: uuid("reporter_id").notNull(),
+  reason: text("reason").notNull(),
+  status: text("status", { enum: ["open", "reviewed", "dismissed"] }).default("open").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type ChatChannel = typeof chatChannels.$inferSelect;
+export type ChatChannelMember = typeof chatChannelMembers.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type ChatMessageCard = typeof chatMessageCards.$inferSelect;
+export type ChatAttachment = typeof chatAttachments.$inferSelect;
