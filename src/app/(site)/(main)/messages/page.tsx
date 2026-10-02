@@ -1,4 +1,8 @@
 import { Suspense } from 'react';
+import { redirect } from 'next/navigation';
+import { getOrCreateDm } from '@/app/actions/chat/members';
+import { MessagesIndex } from '@/components/messages/MessagesIndex';
+import { isChatV3Enabled } from '@/lib/messaging/flag';
 import { MessagesWorkspaceV2 } from '@/components/chat/v2/MessagesWorkspaceV2';
 import { InboxListSkeletonV2, ThreadSkeletonV2 } from '@/components/messages/parts/MessagesSurfaceSkeletons';
 import { buildRouteMetadata } from '@/lib/metadata/route-metadata';
@@ -19,6 +23,17 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
             : typeof resolvedParams.user === 'string'
                 ? resolvedParams.user
                 : null;
+    if (isChatV3Enabled()) {
+        // "Message" buttons keep linking to /messages?userId=; old ?conversationId= links land on the list.
+        if (targetUserId) {
+            const dm = await getOrCreateDm({ userId: targetUserId });
+            if (dm.success) redirect(`/messages/${dm.channelId}`);
+        } else if (typeof resolvedParams.conversationId === 'string') {
+            redirect('/messages');
+        }
+        // MessagesIndex owns this branch's route scroll root.
+        return <MessagesIndex />;
+    }
     const initialConversationId = typeof resolvedParams.conversationId === 'string'
         ? resolvedParams.conversationId
         : null;
