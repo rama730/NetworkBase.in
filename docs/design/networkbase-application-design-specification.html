@@ -10180,6 +10180,22 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             70. This is a proposed centralized scale; portal ownership must
             respect the active dialog rather than blindly using higher numbers.
           </p>
+          <p>
+            <b>Amendment (messaging rebuild, 2026-10):</b> Messages is single
+            pane below 1024px (list ↔ conversation; thread and details are
+            full-screen routes with their own 56px header and Back) and split
+            at 1024px and above (thread and details in a 320px drawer on the
+            same routes). This differs from "tablet untouched" for Messages
+            only. The composer is sticky at the bottom with
+            <code>env(safe-area-inset-bottom)</code>, the page uses
+            <code>100dvh</code> with a <code>visualViewport</code> fallback, and
+            touch inputs use 17px so iOS does not zoom. Pickers (mention,
+            reaction, attach, project) are bottom sheets with 12px top corners
+            and 44px rows at layer 40. Long-press (500 ms) or a 44px more
+            button opens the message action sheet; nothing depends on hover.
+            The floating chat launcher is layer 20 and its window layer 30; it
+            is not mounted below 768px.
+          </p>
         </section>
         <section id="primitives" aria-labelledby="heading-primitives">
           <h2 id="heading-primitives">
@@ -13064,8 +13080,43 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             Notification sound preferences and browser delivery remain unchanged
             by visual work.
           </p>
+          <h3>Amendment: Slack-style messaging (2026-10)</h3>
+          <p>
+            Supersedes the three-pane layout above for <code>/messages*</code>
+            (see <code>docs/plans/messaging-slack-rebuild-report.md</code>
+            7.10–7.13). The project is the workspace. On
+            <code>/messages*</code> the global sidebar slot becomes a 64px rail
+            plus a 248px sidebar (312px) in inverse chrome
+            (<code>--chat-chrome-*</code>, dark in both themes); the 56px
+            topbar stays. The rail holds the NB mark (opens the navigation
+            drawer), Home, 40px project tiles (5px radius, paper ring when
+            selected), "+", the notification-pause moon and the avatar menu.
+            The sidebar is sectioned: header with project menu, "Find a
+            conversation" (quick switcher, also Cmd/Ctrl+K), Threads, Activity,
+            Starred, Channels (+ Browse channels), Applications (reviewers),
+            Direct messages (8 most recent, Show more, Invite people). Rows are
+            32px on desktop and 44px on touch; unread rows are weight 600;
+            counts use <code>.nb-nav-count</code> in clay.
+          </p>
+          <p>
+            One conversation view for channels, DMs and group chats: 56px
+            header (star, name 17px/600 with a one-line topic, members button,
+            bell menu, more menu), Messages and Pins tabs, an intro block at
+            the start of history, author-led rows grouped within 5 minutes,
+            12px mono day labels (sticky), one-line muted system lines, a clay
+            "New" divider, an "N replies" line that opens the thread drawer,
+            and a hover/focus action rail. The composer is a plain textarea;
+            <b>Aa</b> toggles a formatting toolbar that inserts markdown. Send
+            is the one clay primary action. Browse channels, Create channel
+            (12px dialog), the details drawer (About, Members, Pins, Settings),
+            Activity and Threads views, and the floating launcher (400px
+            window above a 56px button) follow the same tokens. No raw zinc,
+            rose, blue or amber classes under
+            <code>src/components/messages</code>.
+          </p>
           <div class="sources">
-            <b>Source anchors</b><code>src/components/chat/v2</code
+            <b>Source anchors</b><code>src/components/messages</code
+            ><code>src/components/chat/v2</code
             ><code>src/components/chat/TypingIndicator.tsx</code
             ><code>src/stores/messagesV2UiStore.ts</code
             ><code>src/stores/messagesV2OutboxStore.ts</code>
