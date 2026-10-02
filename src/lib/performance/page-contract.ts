@@ -274,6 +274,12 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
   ...messagesRoute("/messages/[channelId]"),
   ...messagesRoute("/messages/[channelId]/thread/[seq]"),
   ...messagesRoute("/messages/[channelId]/details"),
+  ...messagesRoute("/messages/p/[projectId]"),
+  ...messagesRoute("/messages/p/[projectId]/browse"),
+  ...messagesRoute("/messages/dms"),
+  ...messagesRoute("/messages/activity"),
+  ...messagesRoute("/messages/threads"),
+  ...messagesRoute("/messages/new"),
   "/u/[username]": buildPublicContract("/u/[username]", "src/app/(site)/(main)/u/[username]/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 60,
