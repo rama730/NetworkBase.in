@@ -1,13 +1,13 @@
 version: 2
 updates:
+  # open-pull-requests-limit: 0 turns off routine version bumps.
+  # Security fixes still arrive when Dependabot security updates are enabled
+  # (Settings -> Code security -> Dependabot security updates).
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
-      time: "04:00"
-      timezone: "Asia/Kolkata"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "deps"
     labels:
@@ -18,10 +18,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
-      time: "04:30"
-      timezone: "Asia/Kolkata"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "ci"
     labels:

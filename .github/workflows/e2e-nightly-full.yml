@@ -6,9 +6,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  full-e2e:
+  # `secrets` is not allowed in a job-level `if`, so check them in a step.
+  secrets-check:
     runs-on: ubuntu-latest
-    if: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' && secrets.DATABASE_URL != '' && secrets.E2E_USER_EMAIL != '' && secrets.E2E_USER_PASSWORD != '' }}
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          HAS_SECRETS: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' && secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' && secrets.DATABASE_URL != '' && secrets.E2E_USER_EMAIL != '' && secrets.E2E_USER_PASSWORD != '' }}
+        run: echo "ready=$HAS_SECRETS" >> "$GITHUB_OUTPUT"
+
+  full-e2e:
+    needs: secrets-check
+    runs-on: ubuntu-latest
+    if: ${{ needs.secrets-check.outputs.ready == 'true' }}
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
