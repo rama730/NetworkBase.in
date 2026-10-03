@@ -78,6 +78,10 @@ const CHAT_TABLES = [
   "chat_thread_follows",
   "chat_pins",
   "chat_reports",
+  "chat_canvases",
+  "chat_saved",
+  "chat_channel_tabs",
+  "chat_scheduled_messages",
 ] as const;
 const CHAT_PARTITION_PATTERN = /^chat_(messages|attachments|reactions)_p\d{2}$/;
 
@@ -514,6 +518,9 @@ async function main() {
   for (const row of chatTopicRows) {
     if (!row.definition.includes("chat:channel:")) {
       errors.push(`realtime.messages ${row.policyname} must authorize chat:channel topics`);
+    }
+    if (!row.definition.includes("chat:typing:")) {
+      errors.push(`realtime.messages ${row.policyname} must authorize chat:typing topics (0183)`);
     }
   }
 

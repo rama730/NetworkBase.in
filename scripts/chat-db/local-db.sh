@@ -27,7 +27,7 @@ psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/scripts/chat-db/supabase-shim.sql" 2
 (cd "$ROOT" && DATABASE_URL="$URL" npx drizzle-kit push --force >/dev/null 2>&1)
 # The Drizzle typings declare chat_* as plain tables; 0180 owns their real
 # (partitioned) shape, so drop the pushed copies before applying it.
-psql "$URL" -q -c "DROP TABLE IF EXISTS chat_reports, chat_pins, chat_thread_follows, chat_mentions, chat_reactions, chat_attachments, chat_message_cards, chat_messages, chat_channel_members, chat_channels CASCADE"
+psql "$URL" -q -c "DROP TABLE IF EXISTS chat_scheduled_messages, chat_channel_tabs, chat_saved, chat_canvases, chat_reports, chat_pins, chat_thread_follows, chat_mentions, chat_reactions, chat_attachments, chat_message_cards, chat_messages, chat_channel_members, chat_channels CASCADE"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f "$ROOT/scripts/chat-db/local-app-stubs.sql"
 for migration in "$ROOT"/drizzle/018[0-9]_chat_*.sql; do
   [ -e "$migration" ] || continue

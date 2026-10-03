@@ -1254,6 +1254,62 @@
       "when": 1790908158000,
       "tag": "0181_chat_rebuild_cutover",
       "breakpoints": true
+    },
+    {
+      "idx": 179,
+      "version": "7",
+      "when": 1790908159000,
+      "tag": "0182_chat_canvases",
+      "breakpoints": true
+    },
+    {
+      "idx": 180,
+      "version": "7",
+      "when": 1790908160000,
+      "tag": "0183_chat_typing_topic",
+      "breakpoints": true
+    },
+    {
+      "idx": 181,
+      "version": "7",
+      "when": 1790908161000,
+      "tag": "0184_presence_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 182,
+      "version": "7",
+      "when": 1790908162000,
+      "tag": "0185_chat_rename_default_channel",
+      "breakpoints": true
+    },
+    {
+      "idx": 183,
+      "version": "7",
+      "when": 1790908163000,
+      "tag": "0186_status_emoji",
+      "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1790908164000,
+      "tag": "0187_chat_reorganize",
+      "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1790908165000,
+      "tag": "0188_chat_tab_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1790908166000,
+      "tag": "0189_chat_audit_fixes",
+      "breakpoints": true
     }
   ]
 }
