@@ -46,15 +46,16 @@ export async function backupPendingStorageAssets() {
 
   const config = getS3BackupConfig();
   if (!config) {
+    // Backups are optional until STORAGE_BACKUP_AWS_* is set (see env.ts); assets wait as "pending".
+    const result = { attempted: 0, verified: 0, failed: 0 };
     logger.metric("storage.asset_backup.batch", {
       module: "storage",
       action: "backup",
       outcome: "configuration_missing",
-      attempted: assets.length,
-      verified: 0,
-      failed: assets.length,
+      pending: assets.length,
+      ...result,
     });
-    throw new Error("Published assets require backup, but STORAGE_BACKUP_AWS_* is not configured");
+    return result;
   }
   const admin = await createAdminClient();
   let verified = 0;
