@@ -57,10 +57,8 @@ function assertProductionSecurityEnv(env: Env) {
         ['GITHUB_WEBHOOK_SECRET', env.GITHUB_WEBHOOK_SECRET],
         ['INNGEST_EVENT_KEY', env.INNGEST_EVENT_KEY],
         ['INNGEST_SIGNING_KEY', env.INNGEST_SIGNING_KEY],
-        ['STORAGE_BACKUP_AWS_ACCESS_KEY_ID', env.STORAGE_BACKUP_AWS_ACCESS_KEY_ID],
-        ['STORAGE_BACKUP_AWS_SECRET_ACCESS_KEY', env.STORAGE_BACKUP_AWS_SECRET_ACCESS_KEY],
-        ['STORAGE_BACKUP_AWS_REGION', env.STORAGE_BACKUP_AWS_REGION],
-        ['STORAGE_BACKUP_AWS_BUCKET', env.STORAGE_BACKUP_AWS_BUCKET],
+        // ponytail: STORAGE_BACKUP_AWS_* optional until the backup bucket exists; published
+        // assets stay backup "pending" (never deleted early). Re-add the four names here once set.
     ] as const
 
     const missing = requiredSecrets
