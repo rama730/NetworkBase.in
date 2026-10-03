@@ -1,5 +1,6 @@
 export type NotificationKind =
     | "chat_invite"
+    | "chat_reminder"
     | "application_received"
     | "application_decision"
     | "connection_request_received"

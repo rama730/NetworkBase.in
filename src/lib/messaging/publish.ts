@@ -27,6 +27,23 @@ export function publishUser(userId: string, event: string, payload: Record<strin
   after(() => broadcast([{ topic: userTopic(userId), event, payload }]));
 }
 
+/** The same event to several users' topics in one REST batch. */
+export function publishUsers(userIds: readonly string[], event: string, payload: Record<string, unknown>) {
+  if (!userIds.length) return;
+  after(() => broadcast(userIds.map((userId) => ({ topic: userTopic(userId), event, payload }))));
+}
+
+/** Several events to one user's topic in one REST batch. */
+export function publishUserEvents(userId: string, events: { event: string; payload: Record<string, unknown> }[]) {
+  if (!events.length) return;
+  after(() => broadcast(events.map(({ event, payload }) => ({ topic: userTopic(userId), event, payload }))));
+}
+
+// Push fan-out runs in after(); 10 at a time keeps sockets and DB connections bounded.
+// ponytail: one push_subscriptions lookup per recipient (ACT-06). ceiling: 10 concurrent
+// indexed lookups. upgrade: batch the lookup (or move fan-out to Inngest) past ~100 recipients.
+const PUSH_CONCURRENCY = 10;
+
 /**
  * After a send: one REST batch with message.new for open viewers plus a hint
  * for every user to notify (DM partners, mentions, thread followers), then web
@@ -64,7 +81,7 @@ export function publishSentMessage(input: {
       const title = input.channelName ? `${authorName} in #${input.channelName}` : authorName;
       const body = tokensToPlainText(message.body).slice(0, 240) || (message.attachments.length ? "Sent an attachment" : "New message");
       const now = new Date();
-      await Promise.all(recipients.map(async (recipient) => {
+      const pushOne = async (recipient: (typeof recipients)[number]) => {
         const prefs = normalizeNotificationPreferences(recipient.notification_preferences);
         const isMention = mentioned.includes(recipient.id);
         if (!prefs.delivery.push || isNotificationPauseActive(prefs, now) || isQuietHoursActive(prefs, now)) return;
@@ -79,7 +96,10 @@ export function publishSentMessage(input: {
           icon: message.author?.avatar_url ?? null,
           tag: `chat:${message.channel_id}`,
         }, { notificationId: null, topic: chatPushTopic(message.channel_id), recordDeliveries: false });
-      }));
+      };
+      for (let i = 0; i < recipients.length; i += PUSH_CONCURRENCY) {
+        await Promise.all(recipients.slice(i, i + PUSH_CONCURRENCY).map(pushOne));
+      }
     } catch (error) {
       logger.warn("chat.push_failed", { module: "chat", error: error instanceof Error ? error.message : String(error) });
     }

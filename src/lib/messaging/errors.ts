@@ -23,11 +23,20 @@ const MESSAGES: Record<string, string> = {
   chat_too_many_attachments: "Up to 10 attachments per message.",
   chat_not_editable: "This message can't be edited.",
   chat_not_deletable: "This message can't be deleted.",
-  chat_not_allowed_to_pin: "Only channel admins can pin here.",
+  chat_not_allowed_to_pin: "Only members can pin here.",
+  chat_message_not_found: "That message isn't available anymore.",
+  chat_invalid_role: "That role isn't available.",
+  chat_member_not_found: "That person isn't in this channel.",
+  chat_schedule_in_past: "Pick a time in the future.",
+  chat_search_too_short: "Type at least 2 characters to search.",
+  chat_search_too_broad: "That search is too broad. Narrow it with In, From or dates.",
   chat_task_needs_project: "Tasks can only be created in project channels.",
   chat_task_create_failed: "The task couldn't be created.",
   chat_attachment_not_ready: "An attachment is still uploading.",
   chat_group_size: "Group chats have up to 9 people.",
+  chat_canvas_not_installed: "Canvases aren't set up on this server yet (database migration 0182 is pending).",
+  chat_canvas_delete_forbidden: "Only channel admins can delete a canvas that has content.",
+  chat_canvas_conflict: "Someone else just edited this canvas. Showing the latest version.",
 };
 
 export function chatErrorMessage(code: string | undefined) {

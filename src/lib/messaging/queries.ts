@@ -7,7 +7,8 @@ import type { ChatMessageView } from "@/lib/messaging/types";
 /**
  * Message rows with attachments, grouped reactions, card ref, pin flag and
  * author, for one channel. Every lookup is a partition-pruned PK prefix scan.
- * The caller supplies the filter and order; membership is checked here.
+ * The caller supplies the filter and order; access (member, or project member
+ * previewing a public channel) is checked here.
  */
 export function selectMessages(viewerId: string, channelId: string, filter: SQL, order: SQL, limit: number) {
   return chatRows<ChatMessageView>(sql`
@@ -36,7 +37,15 @@ export function selectMessages(viewerId: string, channelId: string, filter: SQL,
     FROM chat_messages m
     LEFT JOIN profiles pr ON pr.id = m.author_id
     WHERE m.channel_id = ${channelId}::uuid
-      AND app_private.chat_is_member(${channelId}::uuid, ${viewerId}::uuid)
+      AND (
+        app_private.chat_is_member(${channelId}::uuid, ${viewerId}::uuid)
+        -- Project members may read a public channel before joining it (Slack preview).
+        OR EXISTS (
+          SELECT 1 FROM chat_channels pc
+          WHERE pc.id = ${channelId}::uuid AND pc.kind = 'public' AND pc.archived_at IS NULL
+            AND app_private.chat_is_project_member(pc.project_id, ${viewerId}::uuid)
+        )
+      )
       AND ${filter}
     ORDER BY ${order}
     LIMIT ${limit}

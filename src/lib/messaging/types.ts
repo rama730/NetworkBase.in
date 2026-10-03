@@ -10,12 +10,20 @@ export type ChatPerson = {
   username: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  role?: string;
+  can_dm?: boolean;
+  project_membership_role?: string | null;
+  project_role_title?: string | null;
+  is_project_owner?: boolean | null;
+  lead_focus?: string | null;
 };
 
 export type ChatChannelSummary = {
   id: string;
   kind: ChatKind;
   name: string | null;
+  /** A group chat's display name (unnamed private channels outside projects). */
+  title?: string | null;
   topic: string | null;
   project_id: string | null;
   application_id: string | null;
@@ -48,6 +56,8 @@ export type ChatProjectSummary = {
 export type ChatBootstrap = {
   server_time: string;
   activity_latest_at: string | null;
+  /** Unread Inbox items (mentions and thread replies), the Inbox badge. */
+  inbox_unread?: number;
   channels: ChatChannelSummary[];
   projects: ChatProjectSummary[] | null;
 };

@@ -10,7 +10,9 @@ const GROUP_WINDOW_MS = 5 * 60_000;
 export type TimelineItem =
   | { type: "day"; key: string; label: string }
   | { type: "new"; key: string }
-  | { type: "message"; key: string; message: ChatMessageView; grouped: boolean };
+  | { type: "message"; key: string; message: ChatMessageView; grouped: boolean; others?: ChatMessageView[] };
+
+const COLLAPSIBLE_SYSTEM = new Set(["joined", "left"]);
 
 export function buildTimeline(
   messages: ChatMessageView[],
@@ -33,6 +35,16 @@ export function buildTimeline(
       newPlaced = true;
       divider = true;
       items.push({ type: "new", key: "new" });
+    }
+    // "Ana and 4 others joined": a run of the same join/leave line becomes one row.
+    const last = items[items.length - 1];
+    if (
+      !dayBreak && !divider && message.kind === "system" && COLLAPSIBLE_SYSTEM.has(message.body)
+      && last?.type === "message" && last.message.kind === "system" && last.message.body === message.body
+    ) {
+      last.others = [...(last.others ?? []), message];
+      previous = message;
+      continue;
     }
     const grouped = Boolean(
       previous && !dayBreak && !divider && message.kind === "user" && previous.kind === "user"
@@ -90,36 +102,4 @@ export function applyReaction(reactions: ChatReactionView[], emoji: string, on: 
   if (!existing) return reactions;
   if (existing.count <= 1) return reactions.filter((r) => r.emoji !== emoji);
   return reactions.map((r) => (r.emoji === emoji ? { ...r, count: r.count - 1, me: mine ? false : r.me } : r));
-}
-
-export type MarkdownKind = "bold" | "italic" | "strike" | "link" | "ordered" | "bullet" | "quote" | "code" | "codeblock";
-
-const WRAP: Partial<Record<MarkdownKind, [string, string, string]>> = {
-  bold: ["**", "**", "bold"],
-  italic: ["_", "_", "italic"],
-  strike: ["~~", "~~", "strikethrough"],
-  code: ["`", "`", "code"],
-  codeblock: ["```\n", "\n```", "code"],
-};
-
-/** Insert markdown around the selection; returns the new value and selection. */
-export function insertMarkdown(value: string, start: number, end: number, kind: MarkdownKind) {
-  const selected = value.slice(start, end);
-  const before = value.slice(0, start);
-  const after = value.slice(end);
-  const wrap = WRAP[kind];
-  if (wrap) {
-    const [open, close, placeholder] = wrap;
-    const text = selected || placeholder;
-    return { value: `${before}${open}${text}${close}${after}`, start: start + open.length, end: start + open.length + text.length };
-  }
-  if (kind === "link") {
-    const text = selected || "text";
-    const inserted = `[${text}](https://)`;
-    const urlStart = start + text.length + 3;
-    return { value: `${before}${inserted}${after}`, start: urlStart, end: urlStart + "https://".length };
-  }
-  const lines = (selected || "").split("\n");
-  const prefixed = lines.map((line, i) => `${kind === "ordered" ? `${i + 1}. ` : kind === "bullet" ? "- " : "> "}${line}`).join("\n");
-  return { value: `${before}${prefixed}${after}`, start, end: start + prefixed.length };
 }

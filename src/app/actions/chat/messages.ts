@@ -4,120 +4,31 @@ import { sql } from "drizzle-orm";
 
 import { createTaskAction } from "@/app/actions/project";
 import { hydrateCards } from "@/lib/messaging/cards";
-import { CHAT_MAX_ATTACHMENTS, CHAT_MAX_BODY } from "@/lib/messaging/constants";
-import { publishChannel, publishSentMessage } from "@/lib/messaging/publish";
+import { CHAT_MAX_BODY } from "@/lib/messaging/constants";
+import { publishChannel, publishUser, publishUsers } from "@/lib/messaging/publish";
 import { listTopLevel, selectMessages } from "@/lib/messaging/queries";
 import { takeReactToken, takeSendToken } from "@/lib/messaging/send-bucket";
-import {
-  chatFailure,
-  chatRows,
-  chatValue,
-  invalidInput,
-  isUuid,
-  jsonParam,
-  requireChatUser,
-  unauthorized,
-  uuidArray,
-} from "@/lib/messaging/server";
-import { parseMentions } from "@/lib/messaging/tokens";
-import type { ChatAttachmentView, ChatCardRef, ChatMessageView, ChatPerson } from "@/lib/messaging/types";
+import { sendAs, type SendInput } from "@/lib/messaging/send";
+import { chatFailure, chatRows, chatValue, invalidInput, isUuid, requireChatUser, unauthorized, uuidArray } from "@/lib/messaging/server";
+import { parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
+import type { ChatCardRef } from "@/lib/messaging/types";
 import { rateLimit } from "@/lib/redis";
 
-type SendInput = {
-  channelId: string;
-  body: string;
-  clientId?: string | null;
-  threadRootSeq?: number | null;
-  assetIds?: string[];
-};
-
-type SendResult = {
-  channel_seq: number;
-  created_at: string;
-  deduped: boolean;
-  notify?: string[];
-  channel_kind?: string;
-};
-
-function authorFromUser(user: { id: string; user_metadata?: Record<string, unknown> }): ChatPerson {
-  const meta = user.user_metadata ?? {};
-  const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
-  return {
-    id: user.id,
-    username: text(meta.username),
-    full_name: text(meta.full_name) ?? text(meta.name),
-    avatar_url: text(meta.avatar_url),
-  };
-}
-
-async function send(user: { id: string; user_metadata?: Record<string, unknown> }, input: SendInput, card: ChatCardRef | null) {
-  const body = typeof input.body === "string" ? input.body : "";
-  const assetIds = (input.assetIds ?? []).filter(isUuid).slice(0, CHAT_MAX_ATTACHMENTS);
-
-  // Only the sender's own verified uploads can be attached; size and type come
-  // from the verified asset, never from the client.
-  let attachments: ChatAttachmentView[] = [];
-  if (assetIds.length > 0) {
-    const assets = await chatRows<{ id: string; mime: string; size: number; name: string; width: number | null; height: number | null }>(sql`
-      SELECT id, coalesce(verified_mime_type, declared_mime_type) AS mime, coalesce(verified_size, declared_size)::bigint AS size,
-             coalesce(metadata->>'filename', '') AS name, (metadata->>'width')::int AS width, (metadata->>'height')::int AS height
-      FROM storage_assets
-      WHERE id = ANY(${uuidArray(assetIds)}) AND owner_user_id = ${user.id}::uuid AND state = 'verified'
-    `);
-    if (assets.length !== assetIds.length) return { success: false as const, error: "chat_attachment_not_ready" };
-    attachments = assetIds.map((id, idx) => {
-      const asset = assets.find((row) => row.id === id)!;
-      return { idx, asset_id: id, name: asset.name, mime: asset.mime, size: Number(asset.size), width: asset.width, height: asset.height };
-    });
-  }
-
-  const { userIds, broadcast } = parseMentions(body);
-  const result = await chatValue<SendResult>(sql`
-    SELECT app_private.chat_send_message(
-      ${input.channelId}::uuid, ${user.id}::uuid, ${body}, ${input.clientId ?? null},
-      ${input.threadRootSeq ?? null}::bigint, ${uuidArray(userIds)}, ${broadcast},
-      ${jsonParam(attachments.map(({ idx: _idx, ...rest }) => rest))}, ${card ? jsonParam(card) : null}::jsonb
-    ) AS value
-  `);
-
-  const message: ChatMessageView = {
-    channel_id: input.channelId,
-    seq: Number(result.channel_seq),
-    author_id: user.id,
-    author: authorFromUser(user),
-    kind: "user",
-    body,
-    thread_root_seq: input.threadRootSeq ?? null,
-    reply_count: 0,
-    last_reply_seq: null,
-    last_reply_at: null,
-    edited_at: null,
-    deleted_at: null,
-    created_at: result.created_at,
-    client_message_id: input.clientId ?? null,
-    attachments,
-    reactions: [],
-    card,
-    pinned: false,
-  };
-
-  if (!result.deduped) {
-    const channelName = result.channel_kind === "dm" ? null : await chatValue<string | null>(sql`
-      SELECT name AS value FROM chat_channels WHERE id = ${input.channelId}::uuid
-    `);
-    publishSentMessage({ message, notify: result.notify ?? [], mentioned: userIds, channelName });
-  }
-  return { success: true as const, message };
-}
-
-export async function sendMessage(input: SendInput) {
+export async function sendMessage(input: SendInput & { alsoToChannel?: boolean }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId) || typeof input.body !== "string" || input.body.length > CHAT_MAX_BODY) return invalidInput;
   if (input.clientId != null && (typeof input.clientId !== "string" || input.clientId.length > 160)) return invalidInput;
   if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
   try {
-    return await send(user, input, null);
+    const { alsoToChannel, ...message } = input;
+    const sent = await sendAs(user, message, null);
+    // ponytail: "Also send to #channel" posts a second, top-level copy (L-31).
+    // ceiling: the copy doesn't link back to the thread. upgrade: a reply-ref column.
+    if (sent.success && alsoToChannel && input.threadRootSeq && input.body.trim()) {
+      await sendAs(user, { channelId: input.channelId, body: input.body }, null);
+    }
+    return sent;
   } catch (error) {
     return chatFailure(error, "send");
   }
@@ -139,7 +50,7 @@ export async function createTaskFromMessage(input: { channelId: string; title: s
     if (!created.success || !("task" in created) || !created.task) {
       return { success: false as const, error: "chat_task_create_failed" };
     }
-    return await send(user, { channelId: input.channelId, body: "", threadRootSeq: input.threadRootSeq }, { kind: "task", ref_id: created.task.id });
+    return await sendAs(user, { channelId: input.channelId, body: "", threadRootSeq: input.threadRootSeq }, { kind: "task", ref_id: created.task.id });
   } catch (error) {
     return chatFailure(error, "create_task");
   }
@@ -150,8 +61,13 @@ export async function editMessage(input: { channelId: string; seq: number; body:
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId) || !Number.isInteger(input.seq) || typeof input.body !== "string") return invalidInput;
   try {
-    await chatRows(sql`SELECT app_private.chat_edit_message(${input.channelId}::uuid, ${input.seq}::bigint, ${user.id}::uuid, ${input.body})`);
+    // Mentions follow the edited body (MUT-01); newly mentioned people get a hint for their Inbox.
+    const added = await chatValue<string[]>(sql`
+      SELECT to_jsonb(app_private.chat_edit_message(${input.channelId}::uuid, ${input.seq}::bigint, ${user.id}::uuid, ${input.body},
+        ${uuidArray(parseMentions(input.body).userIds)})) AS value
+    `);
     publishChannel(input.channelId, "message.edit", { channel_id: input.channelId, seq: input.seq, body: input.body, edited_at: new Date().toISOString() });
+    publishUsers(added ?? [], "hint", { channel_id: input.channelId, seq: input.seq, mention: true, thread_root_seq: null });
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "edit");
@@ -190,15 +106,136 @@ export async function listThread(input: { channelId: string; rootSeq: number }) 
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId) || !Number.isInteger(input.rootSeq)) return invalidInput;
   try {
-    const rows = await selectMessages(
-      user.id, input.channelId,
-      sql`(m.channel_seq = ${input.rootSeq} OR m.thread_root_seq = ${input.rootSeq})`,
-      sql`m.channel_seq ASC`, 500,
-    );
+    const [rows, [follow]] = await Promise.all([
+      selectMessages(
+        user.id, input.channelId,
+        sql`(m.channel_seq = ${input.rootSeq} OR m.thread_root_seq = ${input.rootSeq})`,
+        sql`m.channel_seq ASC`, 500,
+      ),
+      chatRows<{ last_read_seq: number }>(sql`
+        SELECT last_read_seq::int FROM chat_thread_follows
+        WHERE user_id = ${user.id}::uuid AND channel_id = ${input.channelId}::uuid AND root_seq = ${input.rootSeq}
+      `),
+    ]);
     const cards = await hydrateCards(user.id, rows.flatMap((message) => (message.card ? [message.card] : [])));
-    return { success: true as const, root: rows[0] ?? null, replies: rows.slice(1), cards };
+    return {
+      success: true as const,
+      root: rows[0] ?? null,
+      replies: rows.slice(1),
+      cards,
+      following: Boolean(follow),
+      lastReadSeq: follow?.last_read_seq ?? null,
+    };
   } catch (error) {
     return chatFailure(error, "thread");
+  }
+}
+
+/** Follow or leave a thread (replies notify followers). */
+export async function setThreadFollow(input: { channelId: string; rootSeq: number; on: boolean }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || !Number.isInteger(input.rootSeq)) return invalidInput;
+  try {
+    await chatRows(sql`SELECT app_private.chat_set_thread_follow(${input.channelId}::uuid, ${user.id}::uuid, ${input.rootSeq}::bigint, ${Boolean(input.on)})`);
+    return { success: true as const };
+  } catch (error) {
+    return chatFailure(error, "thread_follow");
+  }
+}
+
+/** Mark unread from this message: the channel's read cursor moves back to just before it. */
+export async function markUnread(input: { channelId: string; seq: number }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq) || input.seq < 1) return invalidInput;
+  try {
+    await chatRows(sql`SELECT app_private.chat_mark_unread(${input.channelId}::uuid, ${user.id}::uuid, ${input.seq}::bigint)`);
+    publishUser(user.id, "membership.changed", { channel_id: input.channelId });
+    return { success: true as const };
+  } catch (error) {
+    return chatFailure(error, "mark_unread");
+  }
+}
+
+/** Who reacted with what, for the reaction tooltip (loaded on hover). */
+export async function listReactors(input: { channelId: string; seq: number }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq)) return invalidInput;
+  try {
+    const rows = await chatRows<{ emoji: string; names: string[] }>(sql`
+      SELECT r.emoji, jsonb_agg(CASE WHEN r.user_id = ${user.id}::uuid THEN 'You' ELSE coalesce(pr.full_name, pr.username, 'Someone') END ORDER BY r.created_at) AS names
+      FROM chat_reactions r
+      LEFT JOIN profiles pr ON pr.id = r.user_id
+      WHERE r.channel_id = ${input.channelId}::uuid AND r.message_seq = ${input.seq}
+        AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
+      GROUP BY r.emoji
+    `);
+    return { success: true as const, reactors: Object.fromEntries(rows.map((row) => [row.emoji, row.names])) as Record<string, string[]> };
+  } catch (error) {
+    return chatFailure(error, "reactors");
+  }
+}
+
+/**
+ * Share a message into another conversation you belong to: an optional note,
+ * then the original as a quote with its link. Mentions are flattened to text
+ * so sharing never re-notifies anyone.
+ */
+export async function shareMessage(input: { channelId: string; seq: number; toChannelId: string; note?: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || !isUuid(input.toChannelId) || !Number.isInteger(input.seq)) return invalidInput;
+  if (input.note !== undefined && (typeof input.note !== "string" || input.note.length > 1000)) return invalidInput;
+  if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
+  try {
+    const [source] = await chatRows<{ body: string; author: string | null; channel_name: string | null }>(sql`
+      SELECT m.body, coalesce(pr.full_name, pr.username) AS author, c.name AS channel_name
+      FROM chat_messages m
+      JOIN chat_channels c ON c.id = m.channel_id
+      LEFT JOIN profiles pr ON pr.id = m.author_id
+      WHERE m.channel_id = ${input.channelId}::uuid AND m.channel_seq = ${input.seq} AND m.deleted_at IS NULL
+        AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
+    `);
+    if (!source) return { success: false as const, error: "chat_message_not_found" };
+    const names = await chatRows<{ id: string; name: string }>(sql`
+      SELECT p.id, coalesce(p.full_name, p.username, 'someone') AS name FROM profiles p
+      WHERE p.id = ANY(${uuidArray(Array.from(source.body.matchAll(/<@([0-9a-f-]{36})>/g), (m) => m[1]!))})
+    `);
+    const text = tokensToPlainText(source.body, (id) => names.find((n) => n.id === id)?.name).trim();
+    const origin = source.channel_name ? `#${source.channel_name}` : "a conversation";
+    const quote = text.split("\n").map((line) => `> ${line}`).join("\n");
+    const link = `/messages/${input.channelId}?m=${input.seq}`;
+    const body = [input.note?.trim(), `${quote}\n— ${source.author ?? "Someone"} in ${origin} · [View message](${link})`].filter(Boolean).join("\n\n").slice(0, CHAT_MAX_BODY);
+    return await sendAs(user, { channelId: input.toChannelId, body }, null);
+  } catch (error) {
+    return chatFailure(error, "share");
+  }
+}
+
+export type ChannelFile = { channel_id: string; seq: number; asset_id: string; name: string; mime: string; size: number; created_at: string; author: string | null };
+
+/** Every attachment in a conversation, newest first. */
+export async function listFiles(input: { channelId: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId)) return invalidInput;
+  try {
+    const files = await chatRows<ChannelFile>(sql`
+      SELECT a.channel_id, a.message_seq::int AS seq, a.asset_id, a.name, a.mime, a.size::bigint AS size, a.created_at,
+             coalesce(pr.full_name, pr.username) AS author
+      FROM chat_attachments a
+      JOIN chat_messages m ON m.channel_id = a.channel_id AND m.channel_seq = a.message_seq
+      LEFT JOIN profiles pr ON pr.id = m.author_id
+      WHERE a.channel_id = ${input.channelId}::uuid AND m.deleted_at IS NULL
+        AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
+      ORDER BY a.message_seq DESC, a.idx
+      LIMIT 200
+    `);
+    return { success: true as const, files: files.map((f) => ({ ...f, size: Number(f.size) })) };
+  } catch (error) {
+    return chatFailure(error, "files");
   }
 }
 

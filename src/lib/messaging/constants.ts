@@ -12,6 +12,8 @@ export const CHAT_BROADCAST_MENTION_MAX_MEMBERS = 100;
 // ceiling: 50 typers per room. upgrade: server-side aggregation.
 export const CHAT_TYPING_MAX_MEMBERS = 50;
 export const CHAT_TYPING_THROTTLE_MS = 3_500;
+/** A typer disappears this long after their last signal. */
+export const CHAT_TYPING_TTL_MS = 5_000;
 export const CHAT_PAGE_SIZE = 50;
 export const CHAT_READ_DEBOUNCE_MS = 3_000;
 // ponytail: background unread by poll (L-2), not per-channel live topics.
@@ -21,6 +23,11 @@ export const CHAT_POLL_JITTER_MS = 30_000;
 
 export function channelTopic(channelId: string) {
   return `chat:channel:${channelId}`;
+}
+
+/** Typing on/off; the only topic browsers may send on (0183). */
+export function typingTopic(channelId: string) {
+  return `chat:typing:${channelId}`;
 }
 
 export function userTopic(userId: string) {

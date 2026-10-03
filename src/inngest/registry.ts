@@ -24,7 +24,7 @@ function getWorkerOnlyFunctions() {
   const { notificationFanout } = loadModule("./functions/notification-fanout");
   const { notificationPushDelivery } = loadModule("./functions/notification-push-delivery");
   const { extensionRecoveryRetention } = loadModule("./functions/extension-recovery-retention");
-  const { chatMentionsRetention, chatIntegrityAudit } = loadModule("./functions/chat-maintenance");
+  const { chatMentionsRetention, chatIntegrityAudit, chatDue } = loadModule("./functions/chat-maintenance");
   const { reconcileSprintSchedule } = loadModule("./functions/sprint-schedule");
   const { cleanupSupersededProfileImage } = loadModule("./functions/profile-image-cleanup");
   const { dataLifecycleRetention } = loadModule("./functions/data-lifecycle-retention");
@@ -58,6 +58,7 @@ function getWorkerOnlyFunctions() {
     notificationPushDelivery,
     extensionRecoveryRetention,
     chatMentionsRetention,
+    chatDue,
     chatIntegrityAudit,
     reconcileSprintSchedule,
     cleanupSupersededProfileImage,

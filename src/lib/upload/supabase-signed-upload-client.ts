@@ -74,14 +74,15 @@ function releaseResumableSlot() {
   resumableWaiters.shift()?.();
 }
 
-function resumableEndpoint() {
+export function resumableEndpoint() {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!rawUrl) throw new Error("Supabase URL is unavailable");
   const url = new URL(rawUrl);
   if (url.hostname.endsWith(".supabase.co") && !url.hostname.endsWith(".storage.supabase.co")) {
     url.hostname = url.hostname.replace(/\.supabase\.co$/, ".storage.supabase.co");
   }
-  url.pathname = "/storage/v1/upload/resumable";
+  // Signed uploads (x-signature) use the /sign variant; the bare path needs a user JWT.
+  url.pathname = "/storage/v1/upload/resumable/sign";
   url.search = "";
   return url.toString();
 }

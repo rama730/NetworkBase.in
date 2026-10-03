@@ -8,7 +8,6 @@ export const MESSAGE_MEDIA_INLINE_BOUNDS = {
     maxHeight: 360,
 } as const;
 
-export const MESSAGE_MEDIA_PREVIEW_MAX_WIDTH = 760;
 
 interface MediaBounds {
     maxWidth: number;
