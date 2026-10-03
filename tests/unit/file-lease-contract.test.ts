@@ -51,8 +51,9 @@ test("project realtime subscription reconciles canonical lease snapshots", () =>
   assert.match(store, /const nextLocks: Record<string, SoftLock> = \{\}/);
 });
 
-test("the current extension uses single-flight activation sessions and lease credentials for every publish path", () => {
-  const extensionRoot = path.resolve(root, "../workspace-extensions/nb-vscode-sync");
+// The extension is a sibling repo; CI checks out only nb-s3, so this runs locally.
+const extensionRoot = path.resolve(root, "../workspace-extensions/nb-vscode-sync");
+test("the current extension uses single-flight activation sessions and lease credentials for every publish path", { skip: !fs.existsSync(extensionRoot) && "sibling repo ../workspace-extensions not checked out" }, () => {
   const extension = fs.readFileSync(path.join(extensionRoot, "src/extension.ts"), "utf8");
   const packageJson = JSON.parse(fs.readFileSync(path.join(extensionRoot, "package.json"), "utf8"));
   assert.match(packageJson.version, /^\d+\.\d+\.\d+$/);

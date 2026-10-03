@@ -33,7 +33,7 @@ async function main() {
     ],
     [
       "chat attachments open only through the member-checked route (short-lived signed URL)",
-      chatAttachmentRoute.includes("app_private.chat_is_member(ca.channel_id") && chatAttachmentRoute.includes("createSignedUrl(storageKey, SIGNED_URL_SECONDS)"),
+      chatAttachmentRoute.includes("app_private.chat_is_member(ca.channel_id") && chatAttachmentRoute.includes("createSignedUrl(storageKey, seconds)") && chatAttachmentRoute.includes("signedUrlSeconds("),
     ],
     [
       "passwordless password changes require MFA step-up",
