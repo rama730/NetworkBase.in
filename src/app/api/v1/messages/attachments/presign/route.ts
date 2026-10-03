@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { createAdminClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
@@ -7,6 +6,7 @@ import {
   enforceRouteLimit,
   getRequestId,
   jsonError,
+  jsonSuccess,
   logApiRoute,
   requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
             },
           });
 
-        return NextResponse.json({
+        return jsonSuccess({
           status: "deduplicated",
           storagePath: existing.storagePath,
           clientUploadId: resolvedClientUploadId,
@@ -156,7 +156,7 @@ export async function POST(request: Request) {
       status: 200,
     });
 
-    return NextResponse.json({
+    return jsonSuccess({
       status: "presigned",
       bucket: ATTACHMENTS_BUCKET,
       storagePath,
@@ -245,7 +245,7 @@ export async function PUT(request: Request) {
       status: 200,
     });
 
-    return NextResponse.json({
+    return jsonSuccess({
       success: true,
       attachment: {
         id: record.clientUploadId,
