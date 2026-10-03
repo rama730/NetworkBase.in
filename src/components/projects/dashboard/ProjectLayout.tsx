@@ -18,6 +18,7 @@ import type { Project } from "@/types/discover";
 import ProjectStatsBar from "@/components/projects/ProjectStatsBar";
 import ProjectAvatar, { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
 import { ProjectPresenceDot } from "@/components/projects/ProjectAvatar";
+import { ProjectStatusControl } from "@/components/presence/ProjectStatusControl";
 import { ProjectLinkCluster } from "@/components/projects/dashboard/ProjectSocialLinksCard";
 import ProjectTeamAvatars, { type ProjectHeaderMember } from "@/components/projects/dashboard/ProjectTeamAvatars";
 import {
@@ -334,6 +335,7 @@ export default function ProjectLayout({
                                                 {project?.title}
                                             </h1>
                                             {stageChip}
+                                            {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
                                             {project.shortDescription && (
                                                 <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>
                                                     {project.shortDescription}
@@ -368,6 +370,7 @@ export default function ProjectLayout({
                                         )}
                                     </div>
                                     {stageChip}
+                                            {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
                                     {project.shortDescription && <p className={cn("nb-body max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>{project.shortDescription}</p>}
                                     {summaryToggle}
                                     {projectIdentityMetadata}

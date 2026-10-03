@@ -30,21 +30,18 @@ export async function GET(
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    const access = await getProjectAccessById(projectId, user?.id ?? null);
+    // Access check and cover lookup don't depend on each other.
+    const [access, [project]] = await Promise.all([
+        getProjectAccessById(projectId, user?.id ?? null),
+        db
+            .select({ bucket: projects.coverImageBucket, key: projects.coverImageKey })
+            .from(projects)
+            .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+            .limit(1),
+    ]);
     if (!access.project || !access.canRead) {
         return jsonError("Not found", 404, "NOT_FOUND");
     }
-
-    const [project] = await db
-        .select({
-            bucket: projects.coverImageBucket,
-            key: projects.coverImageKey,
-            visibility: projects.visibility,
-            status: projects.status,
-        })
-        .from(projects)
-        .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
-        .limit(1);
 
     if (!project?.bucket || !project.key) {
         return jsonError("Not found", 404, "NOT_FOUND");
@@ -68,9 +65,18 @@ export async function GET(
 
     const etag = `"project-cover-${projectId}-${version}"`;
     const admin = await createAdminClient();
-    const { data: signedData, error: signError } = await admin.storage
-        .from(project.bucket)
-        .createSignedUrl(project.key, 15 * 60);
+    const [{ data: signedData, error: signError }, [asset]] = await Promise.all([
+        admin.storage.from(project.bucket).createSignedUrl(project.key, 15 * 60),
+        db
+            .select({ size: storageAssets.verifiedSize, mimeType: storageAssets.verifiedMimeType })
+            .from(storageAssets)
+            .where(and(
+                eq(storageAssets.bucket, project.bucket),
+                eq(storageAssets.storageKey, project.key),
+                eq(storageAssets.state, "verified"),
+            ))
+            .limit(1),
+    ]);
 
     if (signError || !signedData?.signedUrl) {
         logger.warn("project.image_route_presign_failed", {
@@ -83,15 +89,6 @@ export async function GET(
         return jsonError("Not found", 404, "NOT_FOUND");
     }
 
-    const [asset] = await db
-        .select({ size: storageAssets.verifiedSize, mimeType: storageAssets.verifiedMimeType })
-        .from(storageAssets)
-        .where(and(
-            eq(storageAssets.bucket, project.bucket),
-            eq(storageAssets.storageKey, project.key),
-            eq(storageAssets.state, "verified"),
-        ))
-        .limit(1);
     let totalSize = asset?.size ?? null;
     if (totalSize === null) {
         const { data: info } = await admin.storage.from(project.bucket).info(project.key);

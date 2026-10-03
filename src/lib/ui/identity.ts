@@ -21,6 +21,7 @@ export type IdentityPresentation = NormalizedIdentityFields & {
   displayName: string;
   usernameLabel: string | null;
   initials: string;
+  anonymous: boolean;
   gradientClass: string;
   alt: string;
 };
@@ -52,6 +53,8 @@ export function buildIdentityPresentation(
     displayName,
     usernameLabel: normalized.username ? `@${normalized.username}` : null,
     initials,
+    /** No real name and no given fallback: avatars draw the person glyph instead of letters. */
+    anonymous: !normalized.fullName && !normalized.username && !explicitFallbackInitials && !trimOptionalDisplayText(options.fallbackDisplayName),
     gradientClass: getAvatarGradient(normalized.fullName ?? normalized.username ?? fallbackDisplayName),
     alt: displayName,
   };

@@ -15,19 +15,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useConnectionMutations, useConnections, type NetworkConnectionItem } from "@/hooks/useConnections";
 import { profileHref } from "@/lib/routing/identifiers";
 import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
-import { formatLastActive } from "@/lib/ui/date-formatting";
+import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { messageUserInWindow } from "@/components/messages/message-user";
-
-function PresenceDot({ lastActiveAt }: { lastActiveAt?: string | null }) {
-    const activeLabel = formatLastActive(lastActiveAt);
-    const tone = activeLabel === "Active today"
-        ? "bg-[var(--status-success)]"
-        : activeLabel === "Active this week"
-            ? "bg-amber-500"
-            : "bg-zinc-300 dark:bg-zinc-600";
-    return <span className={`absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-card ${tone}`} title={activeLabel ?? "Offline"} />;
-}
 
 export default function ConnectionsClient({ searchQuery }: { searchQuery: string }) {
     const [debouncedSearch] = useDebounce(searchQuery, 300);
@@ -114,7 +104,7 @@ function ConnectionCard({
             avatar={
                 <Link href={profileHref(user)} className="relative shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <UserAvatar identity={user} size={48} fallbackClassName="text-base font-semibold" />
-                    <PresenceDot lastActiveAt={user.lastActiveAt} />
+                    <PersonPresenceDot userId={user.id} lastActiveAt={user.lastActiveAt} />
                 </Link>
             }
             head={

@@ -237,7 +237,7 @@ export function ProfileSearchResultCard({ result, onOpen, onConnect, isConnectin
                 : (
                     <div className="relative shrink-0">
                         <UserAvatar identity={{ username: result.username, fullName: result.title, avatarUrl: result.avatarUrl }} size={40} className="rounded-[5px]" roundedClassName="rounded-[5px]" />
-                        <PersonPresenceDot lastActiveAt={result.lastActiveAt} compact />
+                        <PersonPresenceDot userId={result.userId} lastActiveAt={result.lastActiveAt} compact />
                     </div>
                 )}
             trailing={<span className="hidden self-center sm:block"><SkillIconRail skills={result.skills} /></span>}

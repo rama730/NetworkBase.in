@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, Suspense } from "react";
-import { LogOut, Menu, Plus, Search, UserRound } from "lucide-react";
+import { LogOut, Menu, Plus, Search, Smile, UserRound } from "lucide-react";
 import Logo from "./Logo";
 import {
     DropdownMenu,
@@ -29,7 +29,9 @@ import GlobalSearch from "./GlobalSearch";
 
 import { ConnectionStatusIndicator } from "./ConnectionStatusIndicator";
 import { ProfileAvatar } from "./ProfileAvatar";
-import { OnlineIndicator } from "@/components/ui/OnlineIndicator";
+import { PersonPresenceBadge } from "@/components/presence/PersonPresence";
+import { usePresenceUi } from "@/components/presence/presence-ui-store";
+import { usePersonPresence } from "@/components/presence/usePresence";
 
 
 import { useAuth } from "@/hooks/use-auth";
@@ -239,7 +241,7 @@ export default function TopNav() {
                                         >
                                             <span className="relative inline-flex">
                                                 <ProfileAvatar profile={profile} size={32} priority />
-                                                <OnlineIndicator online size="sm" />
+                                                <PersonPresenceBadge userId={user?.id} live size={12} className="absolute" style={{ right: -2, bottom: -2 }} />
                                             </span>
                                         </button>
                                     </DropdownMenuTrigger>
@@ -266,6 +268,7 @@ export default function TopNav() {
                                             ) : null}
                                         </div>
                                         <DropdownMenuSeparator className="-mx-1 my-1 bg-border" />
+                                        <StatusMenuItem userId={user?.id ?? null} />
                                         <DropdownMenuItem asChild>
                                             <Link
                                                 href={ROUTES.MY_PROFILE}
@@ -330,5 +333,20 @@ export default function TopNav() {
                 />
             </div>
         </header>
+    );
+}
+
+/** "Update your status" in the avatar menu, previewing the current one. */
+function StatusMenuItem({ userId }: { userId: string | null }) {
+    const presence = usePersonPresence(userId, { live: true });
+    const openPicker = usePresenceUi((state) => state.setPickerOpen);
+    return (
+        <DropdownMenuItem
+            onSelect={() => openPicker(true)}
+            className="flex min-h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[5px] px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus:bg-muted"
+        >
+            {presence.status?.emoji ? <span aria-hidden="true" className="w-4 shrink-0 text-center font-[system-ui] text-[14px] leading-none">{presence.status.emoji}</span> : <Smile className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+            <span className="min-w-0 truncate">{presence.status ? presence.statusText || "Update your status" : "Update your status"}</span>
+        </DropdownMenuItem>
     );
 }
