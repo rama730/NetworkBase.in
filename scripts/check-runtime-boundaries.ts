@@ -99,7 +99,7 @@ function main() {
     errors.push("Main route layout must not fetch the full viewer profile on every render; bootstrap from auth snapshot only.");
   }
 
-  const inngestRoutePath = path.join(REPO_ROOT, "src", "app", "api", "v1", "inngest", "route.ts");
+  const inngestRoutePath = path.join(REPO_ROOT, "src", "app", "api", "inngest", "route.ts");
   const inngestRoute = fs.readFileSync(inngestRoutePath, "utf8");
   if (!inngestRoute.includes("getRegisteredInngestFunctions")) {
     errors.push("Inngest route must register functions through getRegisteredInngestFunctions().");

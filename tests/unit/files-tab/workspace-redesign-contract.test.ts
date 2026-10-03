@@ -160,8 +160,9 @@ test("GitHub Sync is a linked-account collection with state-driven, reviewed act
   assert.match(root, /githubAccess\?\.linked === true/);
   assert.match(main, /Create a repository/);
   assert.match(main, /Connect an existing repository/);
-  assert.match(main, /Review push/);
-  assert.match(main, /Review pull/);
+  assert.match(main, /Push to GitHub/);
+  assert.match(main, /Pull into NetworkBase/);
+  assert.match(main, /Review changes/);
   assert.match(main, /Restore GitHub access/);
   assert.match(main, /startGithubRepositoryAuthorization/);
   assert.match(main, /fetchGithubImportRepositories/);
