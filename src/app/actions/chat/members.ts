@@ -3,10 +3,10 @@
 import { sql } from "drizzle-orm";
 
 import { CHAT_MAX_GROUP_OTHERS } from "@/lib/messaging/constants";
-import { publishChannel, publishUser } from "@/lib/messaging/publish";
+import { publishChannel, publishUser, publishUsers } from "@/lib/messaging/publish";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, requireChatUser, unauthorized, uuidArray } from "@/lib/messaging/server";
 import type { ChatNotify, ChatPerson } from "@/lib/messaging/types";
-import { rateLimit } from "@/lib/redis";
+import { getRedisClient, rateLimit } from "@/lib/redis";
 
 /** Open (or create) the DM with one person. Privacy and blocks are enforced in SQL. */
 export async function getOrCreateDm(input: { userId: string }) {
@@ -16,6 +16,9 @@ export async function getOrCreateDm(input: { userId: string }) {
   if (!(await rateLimit(`chat:dm:${user.id}`, 120, 3600))) return { success: false as const, error: "chat_rate_limited" };
   try {
     const channelId = await chatValue<string>(sql`SELECT app_private.chat_get_or_create_dm(${user.id}::uuid, ${input.userId}::uuid) AS value`);
+    // Opening a closed DM reopens it in the sidebar, like Slack.
+    await chatRows(sql`SELECT app_private.chat_set_member_state(${channelId}::uuid, ${user.id}::uuid, NULL, NULL, false)`);
+    publishUser(user.id, "membership.changed", { channel_id: channelId });
     return { success: true as const, channelId };
   } catch (error) {
     return chatFailure(error, "get_or_create_dm");
@@ -31,7 +34,7 @@ export async function createGroup(input: { userIds: string[] }) {
   if (!(await rateLimit(`chat:dm:${user.id}`, 120, 3600))) return { success: false as const, error: "chat_rate_limited" };
   try {
     const channelId = await chatValue<string>(sql`SELECT app_private.chat_create_group(${user.id}::uuid, ${uuidArray(userIds)}) AS value`);
-    for (const id of [user.id, ...userIds]) publishUser(id, "membership.changed", { channel_id: channelId });
+    publishUsers([user.id, ...userIds], "membership.changed", { channel_id: channelId });
     return { success: true as const, channelId };
   } catch (error) {
     return chatFailure(error, "create_group");
@@ -48,7 +51,7 @@ export async function addMembers(input: { channelId: string; userIds: string[] }
       SELECT app_private.chat_add_members(${input.channelId}::uuid, ${user.id}::uuid, ${uuidArray(userIds)}) AS value
     `);
     publishChannel(input.channelId, "member.changed", { channel_id: input.channelId });
-    for (const id of userIds) publishUser(id, "membership.changed", { channel_id: input.channelId });
+    publishUsers(userIds, "membership.changed", { channel_id: input.channelId });
     return { success: true as const, added };
   } catch (error) {
     return chatFailure(error, "add_members");
@@ -66,6 +69,20 @@ export async function removeMember(input: { channelId: string; userId: string })
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "remove_member");
+  }
+}
+
+/** Make a channel member an admin or a member (channel admins only). */
+export async function setMemberRole(input: { channelId: string; userId: string; role: "admin" | "member" }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || !isUuid(input.userId) || !["admin", "member"].includes(input.role)) return invalidInput;
+  try {
+    await chatRows(sql`SELECT app_private.chat_set_member_role(${input.channelId}::uuid, ${user.id}::uuid, ${input.userId}::uuid, ${input.role})`);
+    publishChannel(input.channelId, "member.changed", { channel_id: input.channelId });
+    return { success: true as const };
+  } catch (error) {
+    return chatFailure(error, "set_member_role");
   }
 }
 
@@ -112,5 +129,44 @@ export async function searchPeople(input: { query: string }) {
     return { success: true as const, people };
   } catch (error) {
     return chatFailure(error, "search_people");
+  }
+}
+
+export type PersonContext = {
+  timeZone: string | null;
+  sharedProjects: { id: string; title: string; slug: string | null }[];
+  sharedChannels: { id: string; name: string; project_title: string | null }[];
+};
+
+/** For a DM's details: their time zone (if they share activity) and what you have in common. */
+export async function getPersonContext(input: { userId: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.userId)) return invalidInput;
+  try {
+    const blocked = await chatValue<boolean>(sql`SELECT app_private.chat_is_blocked(${user.id}::uuid, ${input.userId}::uuid) AS value`);
+    if (blocked) return { success: true as const, context: { timeZone: null, sharedProjects: [], sharedChannels: [] } satisfies PersonContext };
+    const [sharedProjects, sharedChannels, showActivity, timeZone] = await Promise.all([
+      chatRows<PersonContext["sharedProjects"][number]>(sql`
+        SELECT p.id, p.title, p.slug FROM project_members a
+        JOIN project_members b ON b.project_id = a.project_id AND b.user_id = ${input.userId}::uuid
+        JOIN projects p ON p.id = a.project_id
+        WHERE a.user_id = ${user.id}::uuid ORDER BY p.title LIMIT 10
+      `),
+      chatRows<PersonContext["sharedChannels"][number]>(sql`
+        SELECT c.id, c.name, p.title AS project_title FROM chat_channel_members a
+        JOIN chat_channel_members b ON b.channel_id = a.channel_id AND b.user_id = ${input.userId}::uuid
+        JOIN chat_channels c ON c.id = a.channel_id
+        LEFT JOIN projects p ON p.id = c.project_id
+        WHERE a.user_id = ${user.id}::uuid AND c.name IS NOT NULL AND c.archived_at IS NULL
+        ORDER BY c.last_message_at DESC NULLS LAST LIMIT 10
+      `),
+      chatValue<boolean | null>(sql`SELECT show_activity AS value FROM profiles WHERE id = ${input.userId}::uuid`),
+      getRedisClient()?.get<string>(`presence:tz:${input.userId}`).catch(() => null) ?? Promise.resolve(null),
+    ]);
+    const context: PersonContext = { timeZone: showActivity === false ? null : timeZone ?? null, sharedProjects, sharedChannels };
+    return { success: true as const, context };
+  } catch (error) {
+    return chatFailure(error, "person_context");
   }
 }

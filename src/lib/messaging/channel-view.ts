@@ -22,6 +22,7 @@ export function isSelfDm(channel: ChatChannelSummary, meId: string | null) {
 export function channelTitle(channel: ChatChannelSummary, meId: string | null) {
   if (channel.kind === "dm") return isSelfDm(channel, meId) ? "You" : personName(channel.dm_user);
   if (channel.name) return channel.name;
+  if (channel.title) return channel.title;
   const names = (channel.members_preview ?? []).map((person) => personName(person).split(" ")[0]);
   return names.length ? names.join(", ") : "Group";
 }
@@ -79,12 +80,32 @@ export function sectionsFor(data: ChatBootstrap | undefined, projectId: string |
     else if (channel.application_id) sections.applications.push(channel);
     else sections.channels.push(channel);
   }
-  sections.starred.sort(byName);
+  sections.starred.sort(byRecent);
   sections.channels.sort((a, b) => Number(b.is_default) - Number(a.is_default) || byName(a, b));
   sections.applications.sort(byRecent);
   sections.myApplications.sort(byRecent);
   sections.dms.sort(byRecent);
   return sections;
+}
+
+/** Unread, or carrying a mention (the Unreads filter). Muted rows never count. */
+export function needsAttention(channel: ChatChannelSummary) {
+  return channel.notify !== "mute" && (isUnread(channel) || channel.mention_count > 0);
+}
+
+/** Every visible project channel grouped by project (the "All projects" sidebar). */
+export function channelsByProject(data: ChatBootstrap | undefined) {
+  const groups = new Map<string, ChatChannelSummary[]>();
+  if (!data) return groups;
+  const memberOf = new Set((data.projects ?? []).map((project) => project.id));
+  for (const channel of data.channels) {
+    if (!visible(channel) || isDirectLike(channel) || !channel.project_id || !memberOf.has(channel.project_id)) continue;
+    const list = groups.get(channel.project_id) ?? [];
+    list.push(channel);
+    groups.set(channel.project_id, list);
+  }
+  for (const list of groups.values()) list.sort((a, b) => Number(Boolean(a.application_id)) - Number(Boolean(b.application_id)) || Number(b.is_default) - Number(a.is_default) || byName(a, b));
+  return groups;
 }
 
 /** Unread attention per project (its channels and application threads). */

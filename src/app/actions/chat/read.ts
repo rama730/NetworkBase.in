@@ -2,8 +2,8 @@
 
 import { sql } from "drizzle-orm";
 
-import { publishUser } from "@/lib/messaging/publish";
-import { chatFailure, chatRows, chatValue, invalidInput, isUuid, requireChatUser, unauthorized } from "@/lib/messaging/server";
+import { publishUser, publishUserEvents } from "@/lib/messaging/publish";
+import { chatFailure, chatRows, chatValue, invalidInput, isUuid, jsonParam, requireChatUser, unauthorized } from "@/lib/messaging/server";
 import type { ChatBootstrap } from "@/lib/messaging/types";
 
 /**
@@ -16,9 +16,10 @@ export async function bootstrap(input: { since?: string | null } = {}) {
   if (!user) return unauthorized;
   const since = typeof input.since === "string" && !Number.isNaN(Date.parse(input.since)) ? input.since : null;
   try {
+    // Invites and applications don't change on chat sends: count them on full loads only (LOAD-03).
     const [data, [counts]] = await Promise.all([
       chatValue<ChatBootstrap>(sql`SELECT app_private.chat_bootstrap(${user.id}::uuid, ${since}::timestamptz) AS value`),
-      chatRows<{ invites: number; applications: number }>(sql`
+      since ? Promise.resolve([undefined]) : chatRows<{ invites: number; applications: number }>(sql`
         SELECT
           (SELECT count(*)::int FROM project_invitations
             WHERE candidate_id = ${user.id}::uuid AND status = 'pending' AND expires_at > now()) AS invites,
@@ -26,7 +27,7 @@ export async function bootstrap(input: { since?: string | null } = {}) {
             WHERE creator_id = ${user.id}::uuid AND status = 'pending') AS applications
       `),
     ]);
-    return { success: true as const, data, pending: counts ?? { invites: 0, applications: 0 } };
+    return { success: true as const, data, pending: since ? null : counts ?? { invites: 0, applications: 0 } };
   } catch (error) {
     return chatFailure(error, "bootstrap");
   }
@@ -45,6 +46,25 @@ export async function markRead(input: { channelId: string; seq: number }) {
     return { success: true as const, moved };
   } catch (error) {
     return chatFailure(error, "mark_read");
+  }
+}
+
+/** Mark several conversations read in one roundtrip (Home, a project, Shift+Esc). */
+export async function markReadMany(input: { items: { channelId: string; seq: number }[] }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  const items = (input?.items ?? []).filter((item) => isUuid(item?.channelId) && Number.isInteger(item.seq) && item.seq > 0).slice(0, 500);
+  if (!items.length) return { success: true as const, moved: 0 };
+  try {
+    const moved = await chatRows<{ channel_id: string; seq: number }>(sql`
+      SELECT x.channel_id, x.seq::int AS seq
+      FROM jsonb_to_recordset(${jsonParam(items.map((item) => ({ channel_id: item.channelId, seq: item.seq })))}) AS x(channel_id uuid, seq bigint)
+      WHERE app_private.chat_mark_read(x.channel_id, ${user.id}::uuid, x.seq)
+    `);
+    publishUserEvents(user.id, moved.map((row) => ({ event: "read.moved", payload: { channel_id: row.channel_id, seq: row.seq } })));
+    return { success: true as const, moved: moved.length };
+  } catch (error) {
+    return chatFailure(error, "mark_read_many");
   }
 }
 

@@ -21,6 +21,13 @@ export const queryKeys = {
     projectPrefetch: (projectId: string) =>
       ["discover", "project-prefetch", projectId] as const,
   },
+  /** Presence and status (people and projects). */
+  presence: {
+    root: () => ["presence"] as const,
+    person: (userId: string) => ["presence", "person", userId] as const,
+    project: (projectId: string) => ["presence", "project", projectId] as const,
+    mine: () => ["presence", "mine"] as const,
+  },
   connections: {
     root: () => ["connections"] as const,
     pending: () => ["connections", "pending"] as const,
@@ -34,9 +41,19 @@ export const queryKeys = {
     thread: (channelId: string, rootSeq: number) => ["chat-v3", "thread", channelId, rootSeq] as const,
     members: (channelId: string) => ["chat-v3", "members", channelId] as const,
     pins: (channelId: string) => ["chat-v3", "pins", channelId] as const,
+    canvas: (channelId: string) => ["chat-v3", "canvas", channelId] as const,
+    projectCanvases: (projectId: string) => ["chat-v3", "project-canvases", projectId] as const,
     browse: (projectId: string) => ["chat-v3", "browse", projectId] as const,
     card: (kind: string, refId: string) => ["chat-v3", "card", kind, refId] as const,
     activity: () => ["chat-v3", "activity"] as const,
+    inbox: (filter: string) => ["chat-v3", "inbox", filter] as const,
+    saved: () => ["chat-v3", "saved"] as const,
+    savedSeqs: (channelId: string) => ["chat-v3", "saved-seqs", channelId] as const,
+    scheduled: () => ["chat-v3", "scheduled"] as const,
+    search: (params: string) => ["chat-v3", "search", params] as const,
+    tabs: (channelId: string) => ["chat-v3", "tabs", channelId] as const,
+    files: (channelId: string) => ["chat-v3", "files", channelId] as const,
+    reactors: (channelId: string, seq: number) => ["chat-v3", "reactors", channelId, seq] as const,
     threads: () => ["chat-v3", "threads"] as const,
     dms: () => ["chat-v3", "dms"] as const,
     people: (query: string) => ["chat-v3", "people", query] as const,

@@ -783,6 +783,9 @@ export async function finalizeUploadIntent(params: {
           "PROVIDER_UNAVAILABLE",
         );
       }
+      // ponytail: the whole object is streamed once to hash it (constant memory, S3-01).
+      // ceiling: one storage egress per upload. upgrade: a ranged read of the magic
+      // bytes plus provider checksums if storage egress shows up on the bill.
       ({ verifiedSize, contentHash } = await verifyStoredObjectBytes({
         signedUrl: signedData.signedUrl,
         expectedSize: intent.expectedSize,

@@ -5,6 +5,7 @@ import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import {
+  chatCanvases,
   chatAttachments,
   extensionRecoveryDrafts,
   fileVersions,
@@ -25,7 +26,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 const DELETE_BATCH_SIZE = 100;
 const DELETE_LEASE_MS = 5 * 60 * 1000;
 
-function hasNoLiveReference() {
+export function hasNoLiveReference() {
   return and(
     sql`NOT EXISTS (
       SELECT 1 FROM ${profiles}
@@ -52,6 +53,11 @@ function hasNoLiveReference() {
     sql`NOT EXISTS (
       SELECT 1 FROM ${chatAttachments}
       WHERE ${chatAttachments.assetId} = ${storageAssets.id}
+    )`,
+    // Canvas images are referenced only by the canvas (GIN on asset_ids).
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${chatCanvases}
+      WHERE ${chatCanvases.assetIds} @> ARRAY[${storageAssets.id}]::uuid[]
     )`,
     // ponytail: an unsent chat upload stays for an hour (the old upload-session
     // TTL). ceiling: a draft attachment older than that must be re-uploaded.

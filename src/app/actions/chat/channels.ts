@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 
 import { CHAT_CHANNEL_NAME_PATTERN, CHAT_MAX_DESCRIPTION } from "@/lib/messaging/constants";
 import { publishChannel, publishUser } from "@/lib/messaging/publish";
-import { chatFailure, chatRows, chatValue, invalidInput, isUuid, requireChatUser, unauthorized } from "@/lib/messaging/server";
+import { chatFailure, chatRows, chatValue, invalidInput, isUuid, jsonParam, requireChatUser, unauthorized, uuidArray } from "@/lib/messaging/server";
 import type { ChatChannelSummary, ChatPerson } from "@/lib/messaging/types";
 
 // ponytail: channels always belong to a project; no global public channels (L-5).
@@ -53,6 +53,34 @@ export async function archiveChannel(input: { channelId: string }) {
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "archive_channel");
+  }
+}
+
+export async function unarchiveChannel(input: { channelId: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId)) return invalidInput;
+  try {
+    await chatRows(sql`SELECT app_private.chat_unarchive_channel(${input.channelId}::uuid, ${user.id}::uuid)`);
+    publishChannel(input.channelId, "channel.updated", { channel_id: input.channelId });
+    return { success: true as const };
+  } catch (error) {
+    return chatFailure(error, "unarchive_channel");
+  }
+}
+
+/** Name (or unname) a group chat. Any member may. */
+export async function renameGroup(input: { channelId: string; title: string | null }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || (input.title !== null && (typeof input.title !== "string" || input.title.length > 80))) return invalidInput;
+  try {
+    await chatRows(sql`SELECT app_private.chat_rename_group(${input.channelId}::uuid, ${user.id}::uuid, ${input.title})`);
+    publishChannel(input.channelId, "channel.updated", { channel_id: input.channelId });
+    publishChannel(input.channelId, "member.changed", { channel_id: input.channelId });
+    return { success: true as const };
+  } catch (error) {
+    return chatFailure(error, "rename_group");
   }
 }
 
@@ -132,7 +160,7 @@ export async function getChannel(input: { channelId: string }) {
   if (!isUuid(input?.channelId)) return invalidInput;
   try {
     const [channel] = await chatRows<ChannelDetails>(sql`
-      SELECT c.id, c.kind, c.name, c.topic, c.description, c.project_id, c.application_id, c.is_default,
+      SELECT c.id, c.kind, c.name, c.title, c.topic, c.description, c.project_id, c.application_id, c.is_default,
              c.last_seq, c.last_top_seq, c.last_message_at, c.last_preview, c.last_author_id, c.member_count,
              c.archived_at AS channel_archived_at, c.created_by, c.created_at,
              p.title AS project_title, p.slug AS project_slug,
@@ -168,8 +196,25 @@ export async function listMembers(input: { channelId: string }) {
   if (!isUuid(input?.channelId)) return invalidInput;
   try {
     const members = await chatRows<ChannelMember>(sql`
-      SELECT pr.id, pr.username, pr.full_name, pr.avatar_url, m.role, m.joined_at
-      FROM chat_channel_members m JOIN profiles pr ON pr.id = m.user_id
+      SELECT pr.id, pr.username, pr.full_name, pr.avatar_url, m.role, m.joined_at,
+             pm.role AS project_membership_role,
+             (
+               SELECT coalesce(nullif(ra.accepted_role_title, ''), nullif(por.title, ''), nullif(por.role, ''))
+               FROM role_applications ra
+               LEFT JOIN project_open_roles por ON por.id = ra.role_id
+               WHERE ra.project_id = c.project_id
+                 AND ra.applicant_id = pr.id
+                 AND ra.status = 'accepted'
+               ORDER BY ra.updated_at DESC
+               LIMIT 1
+             ) AS project_role_title,
+             (c.project_id IS NOT NULL AND p.owner_id = pr.id) AS is_project_owner,
+             p.import_source->'metadata'->>'leadFocus' AS lead_focus
+      FROM chat_channel_members m
+      JOIN profiles pr ON pr.id = m.user_id
+      JOIN chat_channels c ON c.id = m.channel_id
+      LEFT JOIN projects p ON p.id = c.project_id
+      LEFT JOIN project_members pm ON pm.project_id = c.project_id AND pm.user_id = pr.id
       WHERE m.channel_id = ${input.channelId}::uuid
         AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
       ORDER BY (m.role = 'member'), coalesce(pr.full_name, pr.username)
@@ -178,5 +223,92 @@ export async function listMembers(input: { channelId: string }) {
     return { success: true as const, members };
   } catch (error) {
     return chatFailure(error, "list_members");
+  }
+}
+
+export type ChannelTab = { id: string; kind: "tasks" | "link" | "files"; title: string; url: string | null; position: number };
+
+/** Tabs everyone in the channel sees: bookmarks (links), Files and the project's Tasks. */
+export async function listChannelTabs(input: { channelId: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId)) return invalidInput;
+  try {
+    const tabs = await chatRows<ChannelTab>(sql`
+      SELECT id, kind, title, url, position FROM chat_channel_tabs
+      WHERE channel_id = ${input.channelId}::uuid AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
+      ORDER BY position, created_at
+    `);
+    return { success: true as const, tabs };
+  } catch (error) {
+    return chatFailure(error, "tabs");
+  }
+}
+
+export async function addChannelTab(input: { channelId: string; kind: ChannelTab["kind"]; title: string; url?: string | null }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  const title = typeof input?.title === "string" ? input.title.trim().slice(0, 60) : "";
+  const url = input?.kind === "link" && typeof input.url === "string" ? input.url.trim() : null;
+  if (!isUuid(input?.channelId) || !["tasks", "link", "files"].includes(input.kind) || !title) return invalidInput;
+  if (input.kind === "link" && (!url || !/^https?:\/\//i.test(url) || url.length > 2000)) return invalidInput;
+  try {
+    const [tab] = await chatRows<ChannelTab>(sql`
+      INSERT INTO chat_channel_tabs (channel_id, kind, title, url, position, created_by)
+      SELECT ${input.channelId}::uuid, ${input.kind}, ${title}, ${url},
+             coalesce((SELECT max(position) + 1 FROM chat_channel_tabs WHERE channel_id = ${input.channelId}::uuid), 0), ${user.id}::uuid
+      WHERE app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
+        AND (SELECT count(*) FROM chat_channel_tabs WHERE channel_id = ${input.channelId}::uuid) < 20
+      ON CONFLICT DO NOTHING
+      RETURNING id, kind, title, url, position
+    `);
+    if (!tab) return { success: false as const, error: "chat_duplicate" };
+    publishChannel(input.channelId, "tabs.changed", { channel_id: input.channelId });
+    return { success: true as const, tab };
+  } catch (error) {
+    return chatFailure(error, "add_tab");
+  }
+}
+
+export async function removeChannelTab(input: { channelId: string; tabId: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || !isUuid(input.tabId)) return invalidInput;
+  try {
+    await chatRows(sql`
+      DELETE FROM chat_channel_tabs
+      WHERE id = ${input.tabId}::uuid AND channel_id = ${input.channelId}::uuid
+        AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
+    `);
+    publishChannel(input.channelId, "tabs.changed", { channel_id: input.channelId });
+    return { success: true as const };
+  } catch (error) {
+    return chatFailure(error, "remove_tab");
+  }
+}
+
+/** Rename and reorder in one save (Edit tabs). Missing ids are removed. */
+export async function saveChannelTabs(input: { channelId: string; tabs: { id: string; title: string }[] }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  const tabs = Array.isArray(input?.tabs) ? input.tabs.filter((tab) => isUuid(tab?.id) && typeof tab.title === "string" && tab.title.trim()).slice(0, 20) : [];
+  if (!isUuid(input?.channelId)) return invalidInput;
+  try {
+    const member = await chatValue<boolean>(sql`SELECT app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid) AS value`);
+    if (!member) return { success: false as const, error: "chat_not_member" };
+    await chatRows(sql`
+      DELETE FROM chat_channel_tabs WHERE channel_id = ${input.channelId}::uuid
+        AND NOT (id = ANY(${uuidArray(tabs.map((tab) => tab.id))}))
+    `);
+    // One statement for every rename and reorder (ACT-01).
+    await chatRows(sql`
+      UPDATE chat_channel_tabs t SET title = x.title, position = x.position
+      FROM jsonb_to_recordset(${jsonParam(tabs.map((tab, position) => ({ id: tab.id, title: tab.title.trim().slice(0, 60), position })))}) AS x(id uuid, title text, position int)
+      WHERE t.id = x.id AND t.channel_id = ${input.channelId}::uuid
+    `);
+    publishChannel(input.channelId, "tabs.changed", { channel_id: input.channelId });
+    return { success: true as const };
+  } catch (error) {
+    return chatFailure(error, "save_tabs");
   }
 }

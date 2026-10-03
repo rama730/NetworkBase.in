@@ -47,18 +47,6 @@ export function tokensToPlainText(body: string, nameOf: (userId: string) => stri
     .join("");
 }
 
-/** Body → editable draft: user tokens become @Name; channel tokens stay as written. */
-export function tokensToDraft(body: string, nameOf: (userId: string) => string | undefined) {
-  return splitTokens(body)
-    .map((segment) => {
-      if (segment.type === "text") return segment.value;
-      if (segment.type === "user") return nameOf(segment.id) ? `@${nameOf(segment.id)}` : `<@${segment.id}>`;
-      if (segment.type === "channel") return `<#${segment.id}>`;
-      return `@${segment.value}`;
-    })
-    .join("");
-}
-
 /**
  * Draft → body: "@Full Name" for a known person becomes <@id> (longest names
  * first, so "Ann Lee" wins over "Ann"); @channel and @here become broadcasts.

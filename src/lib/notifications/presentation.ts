@@ -10,6 +10,7 @@ import type {
 
 const KIND_REASON: Record<NotificationKind, NotificationReason> = {
     chat_invite: "workflow",
+    chat_reminder: "message",
     application_received: "application",
     application_decision: "application",
     connection_request_received: "connection",
@@ -66,6 +67,7 @@ export function getNotificationReasonLabel(reason: NotificationReason) {
 
 const AGGREGATE_NOUNS: Record<NotificationKind, { singular: string; plural: string }> = {
     chat_invite: { singular: "invitation", plural: "invitations" },
+    chat_reminder: { singular: "reminder", plural: "reminders" },
     application_received: { singular: "application", plural: "applications" },
     application_decision: { singular: "decision", plural: "decisions" },
     connection_request_received: { singular: "request", plural: "requests" },
