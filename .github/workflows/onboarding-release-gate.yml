@@ -6,23 +6,16 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: nb_s3
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d nb_s3"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nb_s3
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
@@ -32,16 +25,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 22 matches the Dockerfile; `tsx --test 'tests/unit/**'` needs Node's own glob (21+).
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install deps
         run: npm ci
 
       - name: Lint
-        run: npm run lint -- . --ext .ts,.tsx,.js,.jsx
+        run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck
@@ -68,14 +62,14 @@ jobs:
           npm run check:rls-contract
           npm run check:authz-contract
 
-      - name: Push schema to clean DB
-        run: npm run db:push
-
-      - name: Apply onboarding migrations
+      # Throwaway Postgres from the runner's preinstalled binaries: Supabase shim,
+      # schema push, then the chat migrations (same script as local runs).
+      - name: Disposable database
         run: |
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f drizzle/0033_onboarding_username_guardrails.sql
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f drizzle/0034_onboarding_reliability_and_telemetry.sql
-          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f drizzle/0035_onboarding_submission_integrity.sql
+          export PATH="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1):$PATH"
+          echo "DATABASE_URL_FRESH=$(scripts/chat-db/local-db.sh "$RUNNER_TEMP/pg" | tail -1)" >> "$GITHUB_ENV"
 
-      - name: Check onboarding SLO gate
-        run: npm run check:onboarding:slo
+      - name: Chat database and action checks
+        run: |
+          npm run check:chat:db
+          npm run check:chat:actions
