@@ -81,7 +81,7 @@ function SuggestedPersonCard({
         <article className="nb-discover-person-card">
             <Link href={profileHref(profile)} className="nb-discover-person-avatar focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <UserAvatar identity={profile} size={56} fallbackClassName="text-base font-semibold" />
-                <PersonPresenceDot lastActiveAt={profile.lastActiveAt} compact />
+                <PersonPresenceDot userId={profile.id} lastActiveAt={profile.lastActiveAt} compact />
             </Link>
             <div className="nb-discover-person-content">
                 <div className="flex min-w-0 items-baseline gap-1.5">

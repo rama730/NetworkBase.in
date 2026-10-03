@@ -8,6 +8,7 @@ import { avatarVariantSizeForDisplay, publicAvatarVariantUrl } from "@/lib/profi
 import { buildIdentityPresentation, type IdentityRecord } from "@/lib/ui/identity";
 import { getPersonAvatarTone, PERSON_AVATAR_TONE_STYLES } from "@/lib/ui/avatar";
 import { cn } from "@/lib/utils";
+import { PresenceGlyph } from "@/components/presence/PresenceGlyph";
 
 export type UserAvatarProps = {
   identity: IdentityRecord;
@@ -88,7 +89,7 @@ export function UserAvatar({
             fallbackClassName,
           )}
         >
-          {presentation.initials}
+          {presentation.anonymous ? <PresenceGlyph kind="person" className="size-[58%]" /> : presentation.initials}
         </div>
       ) : null}
     </div>

@@ -281,7 +281,7 @@ function PersonCard({
             avatar={
                 <Link href={profileHref(profile)} className="relative inline-flex shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                     <UserAvatar identity={profile} size={48} priority={priority} fallbackClassName="text-base font-semibold" />
-                    <PersonPresenceDot lastActiveAt={profile.lastActiveAt} />
+                    <PersonPresenceDot userId={profile.id} lastActiveAt={profile.lastActiveAt} />
                 </Link>
             }
             head={

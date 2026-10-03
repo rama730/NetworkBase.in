@@ -5,13 +5,16 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Ban, ChevronDown, Lock, MapPin, Link2, Pencil, MessageSquare, Share2, UserPlus, UserCheck, UserMinus, Clock, Users } from 'lucide-react'
+import { Ban, ChevronDown, Lock, MapPin, Link2, Pencil, MessageSquare, Share2, Smile, UserPlus, UserCheck, UserMinus, Clock, Users } from 'lucide-react'
 import { buildPrivacyPresentation } from '@/lib/privacy/presentation'
 import type { ConnectionState, ProfilePrivacyRelationship, ProfileStats } from './types'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { SkillIcon } from '@/components/skills'
 import { resolveClientSkill, useSkillCatalog } from '@/lib/skills/client'
-import { formatLastActive } from '@/lib/ui/date-formatting'
+import { PersonPresenceBadge } from '@/components/presence/PersonPresence'
+import { StatusInline } from '@/components/presence/StatusInline'
+import { usePresenceUi } from '@/components/presence/presence-ui-store'
+import { usePersonPresence } from '@/components/presence/usePresence'
 import { resolveProfileActionState } from './profile-action-state'
 
 function Chip({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -27,21 +30,25 @@ function Chip({ children, className }: { children: React.ReactNode; className?: 
     )
 }
 
-function PresenceDot({ lastActiveAt }: { lastActiveAt?: string | Date | null }) {
-    const activeLabel = formatLastActive(lastActiveAt)
-    const tone = activeLabel === 'Active today'
-        ? 'bg-[var(--status-success)]'
-        : activeLabel === 'Active this week'
-            ? 'bg-amber-500'
-            : 'bg-muted-foreground/40'
-
+/** Status and availability chips under the name (status first, like the hover card). */
+function PresenceChips({ userId, lastActiveAt, isOwner }: { userId: string | null; lastActiveAt?: string | null; isOwner: boolean }) {
+    const presence = usePersonPresence(userId, { fallbackLastActiveAt: lastActiveAt ?? null, live: isOwner })
+    const openPicker = usePresenceUi((state) => state.setPickerOpen)
     return (
-        <span
-            // Phones: the dot sits just outside the photo's bottom-right corner (inside the 16px column gap) instead of covering it.
-            className={cn('absolute -bottom-0.5 -right-0.5 size-[19px] rounded-full ring-2 ring-card max-md:-right-3.5 max-md:bottom-0 max-md:size-3 max-md:ring-0', tone)}
-            aria-label={activeLabel ?? 'Offline'}
-            title={activeLabel ?? 'Offline'}
-        />
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 max-md:col-span-2">
+            {presence.status ? (
+                <span className="inline-flex h-[26px] items-center rounded-full bg-muted px-2.5 text-[13px] font-medium text-foreground">
+                    <StatusInline emoji={presence.status.emoji} text={presence.statusText} />
+                </span>
+            ) : null}
+            <span className="inline-flex h-[26px] items-center rounded-full bg-muted px-2.5 text-[13px] text-muted-foreground">{presence.availabilityText}</span>
+            {isOwner ? (
+                <button type="button" onClick={() => openPicker(true)} className="inline-flex h-[26px] items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground">
+                    <Smile className="size-3.5" aria-hidden="true" />
+                    {presence.status ? 'Change status' : 'Update your status'}
+                </button>
+            ) : null}
+        </div>
     )
 }
 
@@ -201,7 +208,8 @@ export function ProfileHeader({
                                 sizes="72px"
                                 priority
                             />
-                            <PresenceDot lastActiveAt={vm.lastActiveAt} />
+                            {/* Phones: the badge sits just outside the photo's corner (inside the 16px column gap). */}
+                            <PersonPresenceBadge userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} live={isOwner} size={22} className="absolute -bottom-1.5 -right-1.5 max-md:-right-3.5 max-md:bottom-0" />
                         </div>
                         <div className="min-w-0 flex-1 pb-1 max-md:contents">
                             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 max-md:self-center">
@@ -219,6 +227,7 @@ export function ProfileHeader({
                                 ) : null}
                             </div>
                             {headline ? <p className="text-[15px] leading-normal font-normal mt-2 text-muted-foreground max-md:col-span-2 max-md:mt-3">{headline}</p> : null}
+                            <PresenceChips userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} isOwner={isOwner} />
 
                             {mutualCount > 0 ? (
                                 <div className="nb-meta mt-2 flex items-center gap-2 text-muted-foreground max-md:col-span-2">

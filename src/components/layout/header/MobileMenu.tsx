@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type MouseEvent, type RefObject } from "react";
-import { LogOut, Plus, WifiOff, X } from "lucide-react";
+import { LogOut, Plus, Smile, WifiOff, X } from "lucide-react";
 
 import { SignOutConfirmDialog } from "@/components/auth/SignOutConfirmDialog";
 import { SidebarNav } from "@/components/layout/AppSidebar";
@@ -11,6 +11,7 @@ import { ProfileAvatar } from "@/components/layout/header/ProfileAvatar";
 import ThemeToggle from "@/components/layout/header/ThemeToggle";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ROUTES } from "@/constants/routes";
+import { usePresenceUi } from "@/components/presence/presence-ui-store";
 import { SETTINGS_NAV_ITEM, isMainNavRouteActive } from "./nav-items";
 import type { RealtimeHealthState } from "@/components/providers/RealtimeProvider";
 
@@ -87,6 +88,17 @@ export default function MobileMenu(props: {
                 <SidebarNav />
 
                 <nav aria-label="Settings and account" className="space-y-1 border-t border-border pt-3">
+                    <button
+                        type="button"
+                        className="nb-nav-link w-full"
+                        onClick={() => {
+                            props.onClose();
+                            usePresenceUi.getState().setPickerOpen(true);
+                        }}
+                    >
+                        <Smile className="size-4 shrink-0" aria-hidden="true" />
+                        Update your status
+                    </button>
                     {connectionNeedsAttention || connectionIsReconnecting ? (
                         <p role="status" className="nb-compact flex min-h-11 items-center gap-2 px-2.5 text-[var(--status-warning)]">
                             <WifiOff className="size-4" aria-hidden="true" />

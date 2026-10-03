@@ -1,24 +1,8 @@
-import { formatLastActive } from "@/lib/ui/date-formatting";
+"use client";
 
-type PersonPresenceDotProps = {
-    lastActiveAt?: string | null;
-    compact?: boolean;
-};
+import { PersonPresenceBadge } from "@/components/presence/PersonPresence";
 
-export function PersonPresenceDot({ lastActiveAt, compact = false }: PersonPresenceDotProps) {
-    const label = formatLastActive(lastActiveAt) ?? "Offline";
-    const tone = label === "Active today"
-        ? "var(--status-success)"
-        : label === "Active this week"
-            ? "var(--status-warning)"
-            : "var(--muted-foreground)";
-
-    return (
-        <span
-            className={compact ? "nb-person-presence-dot nb-person-presence-dot--compact" : "nb-person-presence-dot"}
-            style={{ backgroundColor: tone }}
-            aria-label={label}
-            title={label}
-        />
-    );
+/** The Node presence badge in an avatar's corner (people cards, search, discover). */
+export function PersonPresenceDot({ userId, lastActiveAt, compact = false }: { userId: string | null | undefined; lastActiveAt?: string | null; compact?: boolean }) {
+    return <PersonPresenceBadge userId={userId} lastActiveAt={lastActiveAt} size={compact ? 14 : 16} className="nb-person-presence-dot" />;
 }

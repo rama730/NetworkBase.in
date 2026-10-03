@@ -6,7 +6,8 @@ import { Camera } from "lucide-react";
 import Link from "next/link";
 import { isToday, isAfter, subDays } from "@/lib/utils/date";
 import { cn } from "@/lib/utils";
-import { formatLastActive } from "@/lib/ui/date-formatting";
+import { ProjectPresenceBadge } from "@/components/presence/PersonPresence";
+import { isLooseUuid } from "@/lib/validations/uuid";
 import type { Project } from "@/types/discover";
 
 export function getProjectAvatarUrl(project: Partial<Project> | null | undefined): string | null {
@@ -151,31 +152,17 @@ export function ProjectPresenceDot({
         };
     }, [projectId]);
 
-    const activeState = useMemo(() => formatLastActive(liveActiveAt), [liveActiveAt]);
-    const fineGrainedActive = useMemo(() => formatProjectActivePresenceLabel(liveActiveAt), [liveActiveAt]);
-    const label = fineGrainedActive ?? formatProjectOfflinePresenceLabel(liveActiveAt);
-
-    const tone = activeState === "Active today"
-        ? "var(--status-success)"
-        : activeState === "Active this week"
-            ? "var(--status-warning)"
-            : "var(--muted-foreground)";
-
-    const baseClasses = standalone
-        ? "inline-block size-2.5 rounded-full shrink-0 ring-1 ring-black/10 dark:ring-white/15"
-        : cn(
-            compact ? "nb-person-presence-dot nb-person-presence-dot--compact" : "nb-person-presence-dot",
-            "ring-1 ring-black/10 dark:ring-white/15"
-        );
-
+    // Status (set by owners) and activity come from the shared Node badge;
+    // the local event above keeps activity instant after your own changes.
+    const activityLabel = formatProjectActivePresenceLabel(liveActiveAt) ?? formatProjectOfflinePresenceLabel(liveActiveAt);
     return (
-        <span
-            data-testid="project-avatar-presence-dot"
-            role="status"
-            className={cn(baseClasses, className)}
-            style={{ backgroundColor: tone }}
-            aria-label={label}
-            title={label}
+        <ProjectPresenceBadge
+            projectId={projectId && isLooseUuid(projectId) ? projectId : null}
+            updatedAt={liveActiveAt ?? null}
+            size={standalone ? 14 : compact ? 14 : 18}
+            className={cn(standalone ? "" : "nb-person-presence-dot", className)}
+            testId="project-avatar-presence-dot"
+            activityLabel={activityLabel}
         />
     );
 }

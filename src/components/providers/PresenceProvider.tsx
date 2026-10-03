@@ -10,8 +10,9 @@ interface PresenceProviderProps {
 }
 
 const IDLE_MS = 5 * 60_000;
-// ponytail: 10-minute heartbeat is plenty for coarse last-active tracking while reducing network egress. ceiling: 1,000,000 users. upgrade: Realtime WebSocket presence cluster if fine-grained sub-second presence required.
-const HEARTBEAT_INTERVAL_MS = 10 * 60_000;
+// One heartbeat a minute while engaged keeps "Active now" fresh everywhere (the
+// server's live key lives 150 s); the database write stays at once per 5 minutes.
+const HEARTBEAT_INTERVAL_MS = 60_000;
 const INITIAL_HEARTBEAT_COOLDOWN_MS = 60_000;
 let lastSuccessfulHeartbeatAt = 0;
 let heartbeatInFlight = false;
@@ -70,6 +71,8 @@ export function PresenceProvider({ children = null, presenceEnabled = true }: Pr
                 const response = await fetch('/api/v1/presence/heartbeat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    // The time zone powers "local time" on someone's details (chat).
+                    body: JSON.stringify({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
                     keepalive: true,
                 });
                 if (response.ok) lastSuccessfulHeartbeatAt = Date.now();
