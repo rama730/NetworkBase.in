@@ -66,8 +66,10 @@ jobs:
       # schema push, then the chat migrations (same script as local runs).
       - name: Disposable database
         run: |
+          set -o pipefail
           export PATH="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1):$PATH"
-          echo "DATABASE_URL_FRESH=$(scripts/chat-db/local-db.sh "$RUNNER_TEMP/pg" | tail -1)" >> "$GITHUB_ENV"
+          url=$(scripts/chat-db/local-db.sh "$RUNNER_TEMP/pg" | tail -1) || { cat "$RUNNER_TEMP/pg/server.log"; exit 1; }
+          echo "DATABASE_URL_FRESH=$url" >> "$GITHUB_ENV"
 
       - name: Chat database and action checks
         run: |

@@ -15,6 +15,7 @@ if [ ! -d "$DATA" ]; then
   initdb -D "$DATA" -U postgres --auth=trust -E UTF8 >/dev/null
   cat >> "$DATA/postgresql.conf" <<CONF
 port = ${PORT}
+unix_socket_directories = '/tmp'
 max_connections = 300
 shared_buffers = 512MB
 wal_level = logical
