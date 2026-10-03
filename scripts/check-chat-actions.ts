@@ -52,6 +52,13 @@ async function main() {
   const messages = await import("@/app/actions/chat/messages");
   const read = await import("@/app/actions/chat/read");
   const activity = await import("@/app/actions/chat/activity");
+  const later = await import("@/app/actions/chat/later");
+  const search = await import("@/app/actions/chat/search");
+  const due = await import("@/lib/messaging/due");
+  const assetDeletion = await import("@/lib/storage/asset-deletion");
+  const { db } = await import("@/lib/db");
+  const { storageAssets } = await import("@/lib/db/schema");
+  const { and, eq } = await import("drizzle-orm");
 
   const [owner, member, outsider] = [randomUUID(), randomUUID(), randomUUID()] as const;
   const projectId = randomUUID();
@@ -103,7 +110,12 @@ async function main() {
     });
 
     as(owner, "Olivia");
+    // The auth stub carries a different name and avatar than the profile (like Google sign-in does).
+    await sql`UPDATE profiles SET avatar_url = 'https://example.test/profile.png' WHERE id = ${owner}`;
+    currentUser = { id: owner, user_metadata: { full_name: "Olivia", username: "olivia", avatar_url: "https://lh3.example.test/google.png" } };
     const sent = await messages.sendMessage({ channelId: dmId, body: `hello <@${member}>`, clientId: "client-1" });
+    await check("a sent message's author comes from profiles, not auth metadata", async () =>
+      sent.success && sent.message.author?.full_name === "Olivia Owner" && sent.message.author.avatar_url === "https://example.test/profile.png");
     await flush();
     await check("sendMessage returns the message and publishes message.new plus a hint", async () =>
       sent.success && sent.message.seq > 0
@@ -170,7 +182,7 @@ async function main() {
     await check("bootstrap returns channels, projects and pending counts", async () => {
       const result = await read.bootstrap();
       return result.success && result.data.channels.some((c) => c.id === dmId && c.dm_user?.id === owner)
-        && (result.data.projects ?? []).some((p) => p.id === projectId) && typeof result.pending.invites === "number";
+        && (result.data.projects ?? []).some((p) => p.id === projectId) && typeof result.pending?.invites === "number";
     });
     await check("markRead moves the cursor once and publishes read.moved", async () => {
       const [lastRow] = await sql`SELECT last_seq::int AS last FROM chat_channels WHERE id = ${general}`;
@@ -180,9 +192,202 @@ async function main() {
       await flush();
       return first.success && first.moved && second.success && !second.moved && broadcasts.some((b) => b.event === "read.moved");
     });
-    await check("activity lists the mention", async () => {
-      const result = await activity.listActivity();
-      return result.success && result.items.some((item) => item.channel_id === dmId && item.kind === "user");
+    await check("inbox lists the mention unread and bootstrap counts it", async () => {
+      const result = await activity.listInbox();
+      const boot = await read.bootstrap();
+      return result.success && result.items.some((item) => item.channel_id === dmId && item.kind === "user" && !item.read)
+        && boot.success && (boot.data.inbox_unread ?? 0) >= 1;
+    });
+    await check("markInboxRead clears the Inbox count", async () => {
+      const marked = await activity.markInboxRead({ all: true });
+      const boot = await read.bootstrap();
+      const result = await activity.listInbox({ filter: "mentions" });
+      return marked.success && boot.success && boot.data.inbox_unread === 0 && result.success && result.items.every((item) => item.read);
+    });
+    await check("thread follow can be left and rejoined", async () => {
+      const off = await messages.setThreadFollow({ channelId: general, rootSeq, on: false });
+      const left = await messages.listThread({ channelId: general, rootSeq });
+      const on = await messages.setThreadFollow({ channelId: general, rootSeq, on: true });
+      const back = await messages.listThread({ channelId: general, rootSeq });
+      return off.success && on.success && left.success && !left.following && back.success && back.following;
+    });
+    await check("markUnread moves the channel cursor back", async () => {
+      await read.markRead({ channelId: general, seq: rootSeq + 1 });
+      const result = await messages.markUnread({ channelId: general, seq: rootSeq });
+      const [row] = await sql`SELECT last_read_seq::int AS seq FROM chat_channel_members WHERE channel_id = ${general} AND user_id = ${member}`;
+      return result.success && row?.seq === rootSeq - 1;
+    });
+    await check("save for later with a reminder, list it, unsave", async () => {
+      const past = await later.saveMessage({ channelId: general, seq: rootSeq, on: true, remindAt: new Date(Date.now() - 60_000).toISOString() });
+      const saved = await later.saveMessage({ channelId: general, seq: rootSeq, on: true, remindAt: new Date(Date.now() + 3_600_000).toISOString() });
+      const list = await later.listSaved();
+      const seqs = await later.listSavedSeqs({ channelId: general });
+      const ok = !past.success && saved.success && list.success && list.items.some((i) => i.seq === rootSeq && i.remind_at)
+        && seqs.success && seqs.seqs.includes(rootSeq);
+      const off = await later.saveMessage({ channelId: general, seq: rootSeq, on: false });
+      const after = await later.listSaved();
+      return ok && off.success && after.success && !after.items.some((i) => i.seq === rootSeq);
+    });
+    await check("due reminders notify once", async () => {
+      await later.saveMessage({ channelId: general, seq: rootSeq, on: true, remindAt: new Date(Date.now() + 60_000).toISOString() });
+      await sql`UPDATE chat_saved SET remind_at = now() - interval '1 second' WHERE user_id = ${member} AND channel_id = ${general}`;
+      const first = await due.fireDueReminders();
+      const second = await due.fireDueReminders();
+      const [row] = await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${member} AND kind = 'chat_reminder'`;
+      return first.reminders === 1 && second.reminders === 0 && row?.n === 1;
+    });
+    await check("reminders for deleted messages close without notifying", async () => {
+      const temp = await messages.sendMessage({ channelId: general, body: "remind me then delete" });
+      if (!temp.success) return false;
+      await later.saveMessage({ channelId: general, seq: temp.message.seq, on: true, remindAt: new Date(Date.now() + 60_000).toISOString() });
+      await messages.deleteMessage({ channelId: general, seq: temp.message.seq });
+      await sql`UPDATE chat_saved SET remind_at = now() - interval '1 second' WHERE user_id = ${member} AND message_seq = ${temp.message.seq}`;
+      const before = await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${member} AND kind = 'chat_reminder'`;
+      const fired = await due.fireDueReminders();
+      const after = await sql`SELECT count(*)::int AS n FROM user_notifications WHERE user_id = ${member} AND kind = 'chat_reminder'`;
+      const [row] = await sql`SELECT reminded_at FROM chat_saved WHERE user_id = ${member} AND message_seq = ${temp.message.seq}`;
+      return fired.reminders === 1 && before[0]?.n === after[0]?.n && Boolean(row?.reminded_at);
+    });
+    await check("LOAD-04: reading a channel stamps read_at on its mentions", async () => {
+      as(owner, "Olivia");
+      const ping = await messages.sendMessage({ channelId: general, body: `ping <@${member}>` });
+      as(member, "Mason");
+      if (!ping.success) return false;
+      const before = await sql`SELECT read_at FROM chat_mentions WHERE user_id = ${member} AND channel_id = ${general} AND message_seq = ${ping.message.seq}`;
+      await read.markRead({ channelId: general, seq: ping.message.seq });
+      const after = await sql`SELECT read_at FROM chat_mentions WHERE user_id = ${member} AND channel_id = ${general} AND message_seq = ${ping.message.seq}`;
+      const [count] = await sql`SELECT app_private.chat_inbox_unread(${member}::uuid) AS n`;
+      return before[0]?.read_at === null && after[0]?.read_at !== null && typeof count?.n === "number";
+    });
+    await check("MUT-01: an edit adds and removes @mentions", async () => {
+      as(owner, "Olivia");
+      const original = await messages.sendMessage({ channelId: general, body: "plain words" });
+      if (!original.success) return false;
+      const seq = original.message.seq;
+      const mentionRows = async () => (await sql`SELECT count(*)::int AS n FROM chat_mentions WHERE user_id = ${member} AND channel_id = ${general} AND message_seq = ${seq}`)[0]?.n;
+      const added = await messages.editMessage({ channelId: general, seq, body: `plain words <@${member}>` });
+      const withMention = await mentionRows();
+      const removed = await messages.editMessage({ channelId: general, seq, body: "plain words again" });
+      const withoutMention = await mentionRows();
+      as(member, "Mason");
+      return added.success && removed.success && withMention === 1 && withoutMention === 0;
+    });
+    await check("ACT-04: markReadMany moves several cursors in one call", async () => {
+      await sql`UPDATE chat_channel_members SET last_read_seq = 0 WHERE user_id = ${member} AND channel_id IN (${general}, ${dmId})`;
+      const lasts = await sql`SELECT id, last_seq::int AS seq FROM chat_channels WHERE id IN (${general}, ${dmId})`;
+      const result = await read.markReadMany({ items: lasts.map((row) => ({ channelId: String(row.id), seq: Number(row.seq) })) });
+      const cursors = await sql`SELECT last_read_seq::int AS seq FROM chat_channel_members WHERE user_id = ${member} AND channel_id IN (${general}, ${dmId})`;
+      return result.success && result.moved === 2 && cursors.every((row) => Number(row.seq) > 0);
+    });
+    await check("S3-02: an image used only on a canvas is never eligible for deletion", async () => {
+      const [asset] = await sql`
+        INSERT INTO storage_assets (bucket, storage_key, purpose, declared_mime_type, declared_size, expires_at, owner_user_id, created_at)
+        VALUES ('chat-attachments', ${`${general}/${member}/canvas-${Date.now()}.png`}, 'chat_attachment:file', 'image/png', 10, now(), ${member}, now() - interval '2 hours')
+        RETURNING id`;
+      const assetId = String(asset?.id);
+      const eligible = async () => (await db.select({ id: storageAssets.id }).from(storageAssets)
+        .where(and(eq(storageAssets.id, assetId), assetDeletion.hasNoLiveReference()))).length;
+      const orphan = await eligible();
+      await sql`INSERT INTO chat_canvases (channel_id, title, body, asset_ids) VALUES (${general}, 'c', '', ARRAY[${assetId}]::uuid[])
+                ON CONFLICT (channel_id) DO UPDATE SET asset_ids = chat_canvases.asset_ids || EXCLUDED.asset_ids`;
+      const onCanvas = await eligible();
+      await sql`DELETE FROM storage_assets WHERE id = ${assetId}`;
+      return orphan === 1 && onCanvas === 0;
+    });
+    await check("searchMessages finds your conversations' text only", async () => {
+      const found = await search.searchMessages({ query: "reply" });
+      const inChannel = await search.searchMessages({ query: "reply", channelId: dmId });
+      const short = await search.searchMessages({ query: "r" });
+      return found.success && found.hits.some((h) => h.channel_id === general && h.thread_root_seq === rootSeq)
+        && inChannel.success && inChannel.hits.length === 0 && !short.success;
+    });
+    await check("listReactors names the reactors", async () => {
+      const result = await messages.listReactors({ channelId: general, seq: rootSeq });
+      return result.success && result.reactors["🎉"]?.[0] === "You";
+    });
+    await check("shareMessage quotes the message into another conversation", async () => {
+      const result = await messages.shareMessage({ channelId: general, seq: rootSeq, toChannelId: dmId, note: "look" });
+      return result.success && result.message.body.startsWith("look") && result.message.body.includes("> edited root")
+        && result.message.body.includes(`?m=${rootSeq}`);
+    });
+    await check("channel tabs are shared: add, rename, remove", async () => {
+      const added = await channels.addChannelTab({ channelId: general, kind: "link", title: "Spec", url: "https://example.test/spec" });
+      const bad = await channels.addChannelTab({ channelId: general, kind: "link", title: "Bad", url: "javascript:alert(1)" });
+      const tasks = await channels.addChannelTab({ channelId: general, kind: "tasks", title: "Tasks" });
+      const twice = await channels.addChannelTab({ channelId: general, kind: "tasks", title: "Tasks" });
+      const files = await channels.addChannelTab({ channelId: general, kind: "files", title: "Files" });
+      const filesTwice = await channels.addChannelTab({ channelId: general, kind: "files", title: "Files" });
+      if (files.success) await channels.removeChannelTab({ channelId: general, tabId: files.tab.id });
+      if (!files.success || filesTwice.success) return false;
+      as(owner, "Olivia");
+      const seen = await channels.listChannelTabs({ channelId: general });
+      as(member, "Mason");
+      if (!added.success || !tasks.success) return false;
+      const saved = await channels.saveChannelTabs({ channelId: general, tabs: [{ id: tasks.tab.id, title: "Board" }, { id: added.tab.id, title: "Spec v2" }] });
+      const list = await channels.listChannelTabs({ channelId: general });
+      const removed = await channels.removeChannelTab({ channelId: general, tabId: added.tab.id });
+      const final = await channels.listChannelTabs({ channelId: general });
+      return !bad.success && !twice.success && seen.success && seen.tabs.length === 2 && saved.success && list.success
+        && list.tabs[0]?.title === "Board" && list.tabs[1]?.title === "Spec v2" && removed.success && final.success && final.tabs.length === 1;
+    });
+    await check("listFiles answers for members", async () => {
+      const result = await messages.listFiles({ channelId: general });
+      return result.success && Array.isArray(result.files);
+    });
+    await check("scheduled messages send when due, once", async () => {
+      const past = await later.scheduleMessage({ channelId: general, body: "later", sendAt: new Date(Date.now() - 1000).toISOString() });
+      const queued = await later.scheduleMessage({ channelId: general, body: "scheduled hello", sendAt: new Date(Date.now() + 3_600_000).toISOString() });
+      const list = await later.listScheduled();
+      if (!queued.success) return false;
+      await sql`UPDATE chat_scheduled_messages SET send_at = now() - interval '1 second' WHERE id = ${queued.id}`;
+      const first = await due.sendDueScheduledMessages();
+      const second = await due.sendDueScheduledMessages();
+      const [row] = await sql`SELECT count(*)::int AS n FROM chat_messages WHERE channel_id = ${general} AND body = 'scheduled hello'`;
+      const cancelMe = await later.scheduleMessage({ channelId: general, body: "never", sendAt: new Date(Date.now() + 3_600_000).toISOString() });
+      const cancelled = cancelMe.success ? await later.cancelScheduled({ id: cancelMe.id }) : { success: false };
+      const remaining = await later.listScheduled();
+      return !past.success && list.success && list.items.some((i) => i.id === queued.id) && first.sent === 1 && second.due === 0
+        && row?.n === 1 && cancelled.success && remaining.success && remaining.items.length === 0;
+    });
+    await check("public channels can be previewed by project members before joining", async () => {
+      as(owner, "Olivia");
+      const made = await channels.createChannel({ projectId, name: "preview" });
+      if (made.success) await messages.sendMessage({ channelId: made.channelId, body: "preview me" });
+      as(member, "Mason");
+      const page = made.success ? await messages.listMessages({ channelId: made.channelId }) : null;
+      as(outsider, "Oscar");
+      const refused = made.success ? await messages.listMessages({ channelId: made.channelId }) : null;
+      as(member, "Mason");
+      return Boolean(page?.success && page.messages.some((m) => m.body === "preview me") && refused?.success && refused.messages.length === 0);
+    });
+    await check("reactions to your messages reach your Inbox", async () => {
+      as(owner, "Olivia");
+      const result = await activity.listInbox({ filter: "reactions" });
+      as(member, "Mason");
+      return result.success && result.items.some((i) => i.seq === rootSeq && i.emoji === "🎉" && i.author?.id === member);
+    });
+    await check("group chats can be named by members", async () => {
+      as(owner, "Olivia");
+      const group = await members.createGroup({ userIds: [member] });
+      as(member, "Mason");
+      const renamed = group.success ? await channels.renameGroup({ channelId: group.channelId, title: "Crew" }) : { success: false };
+      const boot = await read.bootstrap();
+      return renamed.success && boot.success && boot.data.channels.some((c) => group.success && c.id === group.channelId && c.title === "Crew");
+    });
+    await check("channel admins set roles, archive and unarchive", async () => {
+      as(owner, "Olivia");
+      const role = await members.setMemberRole({ channelId: launch, userId: member, role: "admin" });
+      const ownerRole = await members.setMemberRole({ channelId: launch, userId: owner, role: "member" });
+      const archived = await channels.archiveChannel({ channelId: launch });
+      const restored = await channels.unarchiveChannel({ channelId: launch });
+      const [row] = await sql`SELECT m.role, c.archived_at FROM chat_channel_members m JOIN chat_channels c ON c.id = m.channel_id
+        WHERE m.channel_id = ${launch} AND m.user_id = ${member}`;
+      as(member, "Mason");
+      return role.success && !ownerRole.success && archived.success && restored.success && row?.role === "admin" && row.archived_at === null;
+    });
+    await check("any member may pin", async () => {
+      const result = await messages.pinMessage({ channelId: general, seq: rootSeq, on: false });
+      return result.success;
     });
     await check("threads lists the followed thread", async () => {
       const result = await activity.listThreads();
@@ -213,6 +418,8 @@ async function main() {
   } finally {
     await sql`DELETE FROM chat_channels WHERE project_id = ${projectId} OR id IN (
       SELECT channel_id FROM chat_channel_members WHERE user_id IN (${owner}, ${member}, ${outsider}))`.catch(() => undefined);
+    await sql`DELETE FROM chat_canvases WHERE channel_id IN (SELECT id FROM chat_channels WHERE project_id = ${projectId})`.catch(() => undefined);
+    await sql`DELETE FROM user_notifications WHERE user_id IN (${owner}, ${member}, ${outsider})`.catch(() => undefined);
     await sql`DELETE FROM tasks WHERE id = ${taskId}`.catch(() => undefined);
     await sql`DELETE FROM projects WHERE id = ${projectId}`.catch(() => undefined);
     await sql`DELETE FROM profiles WHERE id IN (${owner}, ${member}, ${outsider})`.catch(() => undefined);

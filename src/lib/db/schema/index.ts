@@ -306,6 +306,14 @@ export const profiles = pgTable(
       .notNull(),
     // Last activity timestamp (debounced, updated at most every 5 minutes via Redis guard)
     lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
+    // Presence (0184). Not granted to browsers; read via app/actions/presence.ts.
+    showActivity: boolean("show_activity").default(true).notNull(),
+    statusEmoji: text("status_emoji"),
+    statusText: text("status_text"),
+    statusExpiresAt: timestamp("status_expires_at", { withTimezone: true }),
+    statusSetAt: timestamp("status_set_at", { withTimezone: true }),
+    statusPausesNotifications: boolean("status_pauses_notifications").default(false).notNull(),
+    statusVisibility: text("status_visibility", { enum: ["everyone", "network", "team"] }).default("network").notNull(),
     openToCustomRoles: text("open_to_custom_roles")
       .array()
       .notNull()
@@ -762,6 +770,12 @@ export const projects = pgTable(
     visibility: text("visibility", {
       enum: ["public", "private", "unlisted"],
     }).default("public"),
+    // Project status (0184), set by owners and admins.
+    statusEmoji: text("status_emoji"),
+    statusText: text("status_text"),
+    statusExpiresAt: timestamp("status_expires_at", { withTimezone: true }),
+    statusSetBy: uuid("status_set_by"),
+    statusSetAt: timestamp("status_set_at", { withTimezone: true }),
     publicTabVisibility: jsonb("public_tab_visibility")
       .$type<ProjectPublicTabVisibility>()
       .default({
@@ -5225,6 +5239,16 @@ export const chatPins = pgTable(
   },
   (t) => ({ pk: primaryKey({ columns: [t.channelId, t.messageSeq] }) }),
 );
+
+export const chatCanvases = pgTable("chat_canvases", {
+  channelId: uuid("channel_id").primaryKey(),
+  title: text("title").default("").notNull(),
+  body: text("body").default("").notNull(),
+  assetIds: uuid("asset_ids").array().default(sql`'{}'::uuid[]`).notNull(),
+  version: integer("version").default(1).notNull(),
+  updatedBy: uuid("updated_by"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 export const chatReports = pgTable("chat_reports", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -5,6 +5,7 @@ const REPO_ROOT = process.cwd();
 const ALLOWED_SUPABASE_CHANNEL_FILES = new Set([
   "src/lib/realtime/subscriptions.ts",
   "src/lib/realtime/presence-client.ts",
+  "src/lib/realtime/private-broadcast.ts",
 ]);
 
 function toPosix(filePath: string) {
@@ -81,7 +82,8 @@ function main() {
   for (const absoluteFile of sourceFiles) {
     const rel = toPosix(path.relative(REPO_ROOT, absoluteFile));
     const content = fs.readFileSync(absoluteFile, "utf8");
-    if (content.includes(".channel(") && !ALLOWED_SUPABASE_CHANNEL_FILES.has(rel)) {
+    // queryKeys.chat.channel(...) is a React Query key, not a Supabase channel.
+    if (content.replace(/queryKeys\.chat\.channel\(/g, "").includes(".channel(") && !ALLOWED_SUPABASE_CHANNEL_FILES.has(rel)) {
       errors.push(`Direct Supabase channel usage is only allowed in approved wrappers (${rel}).`);
     }
   }

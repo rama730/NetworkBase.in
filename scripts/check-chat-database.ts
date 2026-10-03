@@ -316,13 +316,13 @@ async function main() {
       return n === 1 && m === 0;
     });
     await check("outsider cannot react", () => denied(() => sql`SELECT app_private.chat_react(${general}::uuid, ${root.channel_seq}::bigint, ${stranger}::uuid, '👍', true)`));
-    await check("only channel admins pin in project channels; anyone in a DM", async () => {
-      const memberRefused = await denied(() => sql`SELECT app_private.chat_pin(${general}::uuid, ${root.channel_seq}::bigint, ${member}::uuid, true)`);
-      await sql`SELECT app_private.chat_pin(${general}::uuid, ${root.channel_seq}::bigint, ${owner}::uuid, true)`;
+    await check("any member pins (0187); non-members are refused", async () => {
+      const strangerRefused = await denied(() => sql`SELECT app_private.chat_pin(${general}::uuid, ${root.channel_seq}::bigint, ${stranger}::uuid, true)`);
+      await sql`SELECT app_private.chat_pin(${general}::uuid, ${root.channel_seq}::bigint, ${member}::uuid, true)`;
       const dmMsg = await send(dm, member, "pin this");
       await sql`SELECT app_private.chat_pin(${dm}::uuid, ${dmMsg.channel_seq}::bigint, ${member}::uuid, true)`;
       const [{ n }] = await sql`SELECT count(*)::int AS n FROM chat_pins WHERE channel_id IN (${general}, ${dm})`;
-      return memberRefused && n === 2;
+      return strangerRefused && n === 2;
     });
     await check("report records once per reporter and message", async () => {
       await sql`SELECT app_private.chat_report(${general}::uuid, ${root.channel_seq}::bigint, ${member}::uuid, 'spam')`;
@@ -444,10 +444,17 @@ async function main() {
       const theirs = await asUser(stranger, async (tx) => (await tx`SELECT count(*)::int AS n FROM realtime.messages WHERE topic = ${topic}`)[0].n, topic);
       return mine > 0 && theirs === 0;
     });
-    await check("channel topic: member may send typing, outsider may not", async () => {
+    await check("channel topic is server-only: even a member cannot send on it (0183)", () => {
       const topic = `chat:channel:${general}`;
+      return denied(() => asUser(owner, (tx) => tx`INSERT INTO realtime.messages (topic, extension, event, payload, private) VALUES (${topic}, 'broadcast', 'message.edit', '{}', true)`, topic));
+    });
+    await check("typing topic: member sends and reads, outsider does neither", async () => {
+      const topic = `chat:typing:${general}`;
       await asUser(owner, (tx) => tx`INSERT INTO realtime.messages (topic, extension, event, payload, private) VALUES (${topic}, 'broadcast', 'typing', '{}', true)`, topic);
-      return denied(() => asUser(stranger, (tx) => tx`INSERT INTO realtime.messages (topic, extension, event, payload, private) VALUES (${topic}, 'broadcast', 'typing', '{}', true)`, topic));
+      const reads = await asUser(member, async (tx) => (await tx`SELECT count(*)::int AS n FROM realtime.messages WHERE topic = ${topic}`)[0].n, topic);
+      const outsiderReads = await asUser(stranger, async (tx) => (await tx`SELECT count(*)::int AS n FROM realtime.messages WHERE topic = ${topic}`)[0].n, topic);
+      const outsiderSendRefused = await denied(() => asUser(stranger, (tx) => tx`INSERT INTO realtime.messages (topic, extension, event, payload, private) VALUES (${topic}, 'broadcast', 'typing', '{}', true)`, topic));
+      return reads > 0 && outsiderReads === 0 && outsiderSendRefused;
     });
     await check("user topic: only the owner reads; nobody sends", async () => {
       const topic = `chat:user:${owner}`;
@@ -457,6 +464,62 @@ async function main() {
       const sendRefused = await denied(() => asUser(owner, (tx) => tx`INSERT INTO realtime.messages (topic, extension, event, payload, private) VALUES (${topic}, 'broadcast', 'hint', '{}', true)`, topic));
       return mine > 0 && theirs === 0 && sendRefused;
     });
+    // --- 0182 shared canvases
+    const [ownAsset, foreignAsset] = [randomUUID(), randomUUID()];
+    await sql`
+      INSERT INTO storage_assets (id, owner_user_id, bucket, storage_key, purpose, state, declared_mime_type, declared_size, expires_at)
+      VALUES (${ownAsset}, ${owner}, 'chat-attachments', ${`chat/${ownAsset}`}, 'chat_attachment:file', 'verified', 'image/png', 10, now() + interval '1 day'),
+             (${foreignAsset}, ${stranger}, 'chat-attachments', ${`chat/${foreignAsset}`}, 'chat_attachment:file', 'verified', 'image/png', 10, now() + interval '1 day')
+    `;
+    const saveCanvas = (user: string, base: number, assets: string[] = []) =>
+      sql`SELECT app_private.chat_save_canvas(${general}::uuid, ${user}::uuid, 'Plan', '# Hi', ${assets}::uuid[], ${base}) AS v`;
+    await check("canvas: member saves, version starts at 1 and bumps", async () => {
+      const [first] = await saveCanvas(owner, 0, [ownAsset, foreignAsset]);
+      const [second] = await saveCanvas(member, 1);
+      return first.v === 1 && second.v === 2;
+    });
+    await check("canvas: stale version is a conflict", () => denied(() => saveCanvas(owner, 1)));
+    await check("canvas: non-member cannot save", () => denied(() => saveCanvas(stranger, 2)));
+    await check("canvas: keeps only the saver's own assets or ones already in it", async () => {
+      await saveCanvas(owner, 2, [ownAsset, foreignAsset]);
+      const [row] = await sql`SELECT asset_ids FROM chat_canvases WHERE channel_id = ${general}`;
+      await saveCanvas(member, 3, [ownAsset]);
+      const [kept] = await sql`SELECT asset_ids FROM chat_canvases WHERE channel_id = ${general}`;
+      return row.asset_ids.length === 1 && row.asset_ids[0] === ownAsset && kept.asset_ids[0] === ownAsset;
+    });
+    await check("canvas: members read it, outsiders do not", async () => {
+      const mine = await asUser(member, async (tx) => (await tx`SELECT count(*)::int AS n FROM chat_canvases WHERE channel_id = ${general}`)[0].n);
+      const theirs = await asUser(stranger, async (tx) => (await tx`SELECT count(*)::int AS n FROM chat_canvases WHERE channel_id = ${general}`)[0].n);
+      return mine === 1 && theirs === 0;
+    });
+    await check("canvas: authenticated cannot write it directly", () =>
+      denied(() => asUser(owner, (tx) => tx`UPDATE chat_canvases SET title = 'x' WHERE channel_id = ${general}`)));
+    await check("canvas images open for channel members only (attachment route clause)", async () => {
+      const canOpen = async (user: string) => (await sql`
+        SELECT EXISTS (
+          SELECT 1 FROM chat_canvases cv
+          WHERE cv.asset_ids @> ARRAY[${ownAsset}::uuid] AND app_private.chat_is_member(cv.channel_id, ${user}::uuid)
+        ) AS ok
+      `)[0].ok;
+      return (await canOpen(member)) === true && (await canOpen(stranger)) === false;
+    });
+    // Same rule as deleteCanvas(): members remove an empty canvas; content needs a channel admin.
+    const removeCanvas = (user: string) => sql`
+      DELETE FROM chat_canvases c WHERE c.channel_id = ${general}::uuid
+        AND app_private.chat_is_member(c.channel_id, ${user}::uuid)
+        AND ((c.title = '' AND c.body = '') OR app_private.chat_is_channel_admin(c.channel_id, ${user}::uuid))
+      RETURNING c.channel_id`;
+    await check("canvas delete: a member can't remove one with content; an admin can", async () => {
+      const byMember = await removeCanvas(member);
+      const byAdmin = await removeCanvas(owner);
+      return byMember.length === 0 && byAdmin.length === 1;
+    });
+    await check("canvas delete: any member removes an empty canvas", async () => {
+      await sql`SELECT app_private.chat_save_canvas(${general}::uuid, ${member}::uuid, '', '', '{}'::uuid[], 0)`;
+      return (await removeCanvas(member)).length === 1;
+    });
+    await sql`DELETE FROM storage_assets WHERE id IN (${ownAsset}, ${foreignAsset})`;
+
     // Report 10.3: after 0181 nothing of the old system is left.
     await check("old messaging system is gone (report 10.3)", async () => {
       const rows = await sql`
