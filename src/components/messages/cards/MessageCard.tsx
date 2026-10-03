@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { Check, ChevronDown } from "lucide-react";
+
 import {
   acceptApplicationAction,
   acceptProposedRoleAction,
@@ -16,6 +18,7 @@ import {
 import { refreshCard } from "@/app/actions/chat/messages";
 import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
 import { updateTaskStatusAction, type TaskStatus } from "@/app/actions/task";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { personName } from "@/lib/messaging/channel-view";
 import type { ApplicationCardView, ChatCardRef, ChatCardView, InviteCardView, TaskCardView } from "@/lib/messaging/types";
@@ -124,35 +127,62 @@ function ApplicationCard({ view }: { view: ApplicationCardView }) {
   );
 }
 
-const TASK_STATUSES: Array<{ value: TaskStatus; label: string }> = [
-  { value: "todo", label: "To do" },
-  { value: "in_progress", label: "In progress" },
-  { value: "blocked", label: "Blocked" },
-  { value: "done", label: "Done" },
-];
+const TASK_STATUS_CONFIG: Record<TaskStatus, { label: string; className: string }> = {
+  todo: { label: "To do", className: "bg-muted text-muted-foreground border-border hover:bg-muted/80" },
+  in_progress: { label: "In progress", className: "bg-[var(--status-warning-soft)] text-[var(--status-warning)] border-[var(--status-warning)]/30 hover:opacity-90" },
+  blocked: { label: "Blocked", className: "bg-[var(--status-danger-soft)] text-[var(--status-danger)] border-[var(--status-danger)]/30 hover:opacity-90" },
+  done: { label: "Done", className: "bg-[var(--status-success-soft)] text-[var(--status-success)] border-[var(--status-success)]/30 hover:opacity-90" },
+};
 
 function TaskCard({ view }: { view: TaskCardView }) {
   const { busy, run } = useCardAction("task", view.id);
   const href = `/projects/${view.project_slug ?? view.project_id}?tab=tasks&drawerType=task&drawerId=${view.id}`;
   if (view.deleted) return <Shell label="Task" status="deleted"><p className="text-[13px] text-muted-foreground">This task was deleted.</p></Shell>;
+
+  const currentStatusConfig = (TASK_STATUS_CONFIG as Record<string, { label: string; className: string }>)[view.status] ?? TASK_STATUS_CONFIG.todo;
+
   return (
     <Shell label={view.project_key && view.task_number ? `${view.project_key}-${view.task_number}` : "Task"} status={view.status}>
-      <Link href={href} className="block text-[15px] font-medium hover:underline">{view.title}</Link>
-      <div className="mt-2 flex flex-wrap items-center gap-3 text-[13px] text-muted-foreground">
-        <span>{view.project_title}</span>
-        {view.assignee ? <span className="inline-flex items-center gap-1"><UserAvatar identity={view.assignee} size={18} roundedClassName="rounded-[3px]" />{personName(view.assignee)}</span> : <span>Unassigned</span>}
+      <Link href={href} className="block text-[15px] font-medium text-foreground hover:underline">{view.title}</Link>
+      <div className="mt-2.5 flex flex-wrap items-center gap-3 text-[13px] text-muted-foreground">
+        <span className="font-medium text-foreground/80">{view.project_title}</span>
+        {view.assignee ? (
+          <span className="inline-flex items-center gap-1.5">
+            <UserAvatar identity={view.assignee} size={18} roundedClassName="rounded-[3px]" />
+            <span>{personName(view.assignee)}</span>
+          </span>
+        ) : (
+          <span>Unassigned</span>
+        )}
         {view.due_date ? <span className="font-mono text-[12px]">Due {new Date(view.due_date).toLocaleDateString()}</span> : null}
-        <label className="ml-auto inline-flex items-center gap-1">
-          <span className="sr-only">Status</span>
-          <select
-            value={view.status}
-            disabled={busy}
-            onChange={(e) => void run(() => updateTaskStatusAction(view.id, e.target.value as TaskStatus, view.project_id), "Status updated")}
-            className="min-h-11 rounded-[5px] border border-border bg-card px-2 text-[13px] text-foreground sm:min-h-8"
-          >
-            {TASK_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-        </label>
+
+        <div className="ml-auto">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={busy}
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[12px] font-medium transition-colors ${currentStatusConfig.className} disabled:opacity-50`}
+              aria-label={`Status: ${currentStatusConfig.label}. Click to change.`}
+            >
+              <span>{currentStatusConfig.label}</span>
+              <ChevronDown size={12} className="opacity-70" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-36">
+              {(Object.keys(TASK_STATUS_CONFIG) as TaskStatus[]).map((statusKey) => {
+                const conf = TASK_STATUS_CONFIG[statusKey];
+                return (
+                  <DropdownMenuItem
+                    key={statusKey}
+                    onSelect={() => void run(() => updateTaskStatusAction(view.id, statusKey, view.project_id), `Task marked as ${conf.label}`)}
+                    className="flex items-center justify-between"
+                  >
+                    <span>{conf.label}</span>
+                    {view.status === statusKey ? <Check size={14} className="text-primary" /> : null}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </Shell>
   );

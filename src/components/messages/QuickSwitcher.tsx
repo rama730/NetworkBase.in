@@ -1,10 +1,12 @@
 "use client";
 
+import { useQueries } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Hash, Lock, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 
+import { browseChannels } from "@/app/actions/chat/channels";
 import { getOrCreateDm } from "@/app/actions/chat/members";
 import { usePeopleSearch } from "@/components/messages/usePeopleSearch";
 import { useChatUi } from "@/components/messages/chat-ui-store";
@@ -12,18 +14,25 @@ import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle } from "@/lib/messaging/channel-view";
+import { channelTitle, needsAttention, projectsByActivity, rowCount } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
+import { conversationHref } from "@/lib/messaging/routes";
 import type { ChatPerson } from "@/lib/messaging/types";
+import { queryKeys } from "@/lib/query-keys";
 
 type Result =
-  | { type: "channel"; id: string; title: string; icon: "hash" | "lock" | "group" | "person"; person: ChatPerson | null }
-  | { type: "person"; id: string; title: string; person: ChatPerson; canDm: boolean };
+  | { type: "channel"; id: string; title: string; icon: "hash" | "lock" | "group" | "person"; person: ChatPerson | null; project: string | null; count: number; unread: boolean; joined: boolean }
+  | { type: "person"; id: string; title: string; person: ChatPerson; canDm: boolean }
+  | { type: "search"; id: string; title: string };
+
+// ponytail: unjoined public channels from the 5 most active projects (one
+// browse call each, while the switcher is open). upgrade: a server-side
+// channel search when people have many projects.
+const BROWSE_PROJECTS = 5;
 
 /**
- * Cmd/Ctrl+K, "Find a conversation" and the topbar search on /messages (D11).
- * Filters joined conversations in memory; people come from the existing
- * people search once the query has 2+ characters. No message-text search (L-4).
+ * Cmd/Ctrl+K: recent and unread conversations first, any conversation or
+ * person by name, public channels you haven't joined, and "Search messages".
  */
 export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => void }) {
   const router = useRouter();
@@ -39,11 +48,23 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
   }, [open]);
 
   const people = usePeopleSearch(query, open);
+  const browseFor = useMemo(() => (open && !onSelect ? projectsByActivity(data).slice(0, BROWSE_PROJECTS) : []), [data, onSelect, open]);
+  const browsed = useQueries({
+    queries: browseFor.map((project) => ({
+      queryKey: queryKeys.chat.browse(project.id),
+      queryFn: async () => {
+        const result = await browseChannels({ projectId: project.id });
+        return result.success ? result.channels.map((c) => ({ ...c, project_title: project.title })) : [];
+      },
+      staleTime: 60_000,
+    })),
+  });
 
   const results = useMemo<Result[]>(() => {
     const needle = query.trim().toLowerCase();
     const meId = user?.id ?? null;
-    const channels: Result[] = (data?.channels ?? [])
+    const projects = new Map((data?.projects ?? []).map((p) => [p.id, p.title]));
+    const mine: Result[] = (data?.channels ?? [])
       .filter((c) => !c.channel_archived_at)
       .map((c) => ({
         type: "channel" as const,
@@ -51,39 +72,54 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
         title: channelTitle(c, meId),
         icon: c.kind === "dm" ? ("person" as const) : c.name === null ? ("group" as const) : c.kind === "private" ? ("lock" as const) : ("hash" as const),
         person: c.dm_user,
+        project: c.project_id ? projects.get(c.project_id) ?? null : null,
+        count: rowCount(c),
+        unread: needsAttention(c),
+        joined: true,
+        recent: c.last_message_at ?? "",
       }))
       .filter((r) => !needle || r.title.toLowerCase().includes(needle))
-      .slice(0, 12);
+      // Unread first, then most recent: with no query this is "recent conversations".
+      .sort((a, b) => Number(b.unread) - Number(a.unread) || b.recent.localeCompare(a.recent))
+      .slice(0, needle ? 12 : 8)
+      .map(({ recent: _recent, ...r }) => r);
+    const joinedIds = new Set((data?.channels ?? []).map((c) => c.id));
+    const unjoined: Result[] = needle
+      ? browsed.flatMap((q) => q.data ?? [])
+          .filter((c) => !c.joined && !joinedIds.has(c.id) && c.name.includes(needle))
+          .slice(0, 5)
+          .map((c) => ({ type: "channel" as const, id: c.id, title: c.name, icon: "hash" as const, person: null, project: c.project_title, count: 0, unread: false, joined: false }))
+      : [];
     const dmUsers = new Set((data?.channels ?? []).map((c) => c.dm_user?.id).filter(Boolean));
     const found: Result[] = needle.length >= 2
       ? (people.data ?? [])
           .filter((p) => !dmUsers.has(p.id))
           .map((p) => ({ type: "person" as const, id: p.id, title: p.full_name || p.username || "Someone", person: p, canDm: p.can_dm }))
       : [];
-    return [...channels, ...found];
-  }, [data, people.data, query, user?.id]);
+    const search: Result[] = needle.length >= 2 && !onSelect ? [{ type: "search", id: "search", title: query.trim() }] : [];
+    return [...mine, ...unjoined, ...found, ...search];
+  }, [browsed, data, onSelect, people.data, query, user?.id]);
 
   useEffect(() => setActive(0), [query]);
 
   const choose = async (result: Result | undefined) => {
     if (!result) return;
+    if (result.type === "search") {
+      setOpen(false);
+      router.push(`/messages/search?q=${encodeURIComponent(result.title)}`);
+      return;
+    }
     let channelId = result.id;
     if (result.type === "person") {
-      if (!result.canDm) {
-        toast.error(chatErrorMessage("chat_dm_not_allowed"));
-        return;
-      }
+      if (!result.canDm) return void toast.error(chatErrorMessage("chat_dm_not_allowed"));
       const created = await getOrCreateDm({ userId: result.id });
-      if (!created.success) {
-        toast.error(chatErrorMessage(created.error));
-        return;
-      }
+      if (!created.success) return void toast.error(chatErrorMessage(created.error));
       channelId = created.channelId;
       refresh();
     }
     setOpen(false);
     if (onSelect) onSelect(channelId);
-    else router.push(`/messages/${channelId}`);
+    else router.push(conversationHref(channelId));
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -99,12 +135,14 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
     }
   };
 
-  const channelResults = results.filter((r) => r.type === "channel");
+  const joined = results.filter((r) => r.type === "channel" && r.joined);
+  const browse = results.filter((r) => r.type === "channel" && !r.joined);
   const personResults = results.filter((r) => r.type === "person");
+  const searchRow = results.filter((r) => r.type === "search");
   const optionId = (index: number) => `chat-switcher-option-${index}`;
   const renderOption = (result: Result) => {
     const index = results.indexOf(result);
-    const Icon = result.type === "channel" && result.icon === "hash" ? Hash : result.type === "channel" && result.icon === "lock" ? Lock : Users;
+    const Icon = result.type === "search" ? Search : result.type === "channel" && result.icon === "hash" ? Hash : result.type === "channel" && result.icon === "lock" ? Lock : Users;
     return (
       <li
         key={`${result.type}:${result.id}`}
@@ -115,9 +153,15 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
         onMouseEnter={() => setActive(index)}
         onClick={() => void choose(result)}
       >
-        {result.person ? <UserAvatar identity={result.person} size={24} roundedClassName="rounded-[5px]" /> : <Icon size={16} aria-hidden="true" />}
-        <span className="min-w-0 flex-1 truncate">{result.title}</span>
+        {result.type !== "search" && result.person ? <UserAvatar identity={result.person} size={24} roundedClassName="rounded-[5px]" /> : <Icon size={16} aria-hidden="true" />}
+        <span className={`min-w-0 flex-1 truncate ${result.type === "channel" && result.unread ? "font-semibold" : ""}`}>
+          {result.type === "search" ? <>Search messages for &ldquo;{result.title}&rdquo;</> : result.title}
+        </span>
+        {result.type === "channel" && result.project ? <span className="max-w-[40%] flex-none truncate rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">{result.project}</span> : null}
+        {result.type === "channel" && !result.joined ? <span className="flex-none text-[12px] text-muted-foreground">Not joined</span> : null}
+        {result.type === "channel" && result.count ? <span className="nb-chat-count">{result.count > 99 ? "99+" : result.count}</span> : null}
         {result.type === "person" && !result.canDm ? <span className="text-[12px] text-muted-foreground">Can&apos;t message</span> : null}
+        {result.type === "search" ? <kbd className="flex-none font-mono text-[11px] text-muted-foreground">↵</kbd> : null}
       </li>
     );
   };
@@ -133,7 +177,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Find a channel or person"
+            placeholder={onSelect ? "Find a channel or person" : "Jump to a conversation, or search messages"}
             role="combobox"
             aria-expanded="true"
             aria-controls="chat-switcher-results"
@@ -142,10 +186,13 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
           />
         </div>
         <ul id="chat-switcher-results" role="listbox" aria-label="Conversations and people" className="max-h-[50dvh] overflow-y-auto p-2">
-          {channelResults.length ? <li role="presentation" className="nb-micro px-3 py-1.5 text-muted-foreground">Channels</li> : null}
-          {channelResults.map(renderOption)}
+          {joined.length ? <li role="presentation" className="nb-micro px-3 py-1.5 text-muted-foreground">{query.trim() ? "Conversations" : "Recent"}</li> : null}
+          {joined.map(renderOption)}
+          {browse.length ? <li role="presentation" className="nb-micro px-3 py-1.5 text-muted-foreground">Channels you can join</li> : null}
+          {browse.map(renderOption)}
           {personResults.length ? <li role="presentation" className="nb-micro px-3 py-1.5 text-muted-foreground">People</li> : null}
           {personResults.map(renderOption)}
+          {searchRow.map(renderOption)}
           {!results.length ? <li role="presentation" className="px-3 py-6 text-center text-[13px] text-muted-foreground">{people.isFetching ? "Searching…" : "No matches"}</li> : null}
         </ul>
       </DialogContent>

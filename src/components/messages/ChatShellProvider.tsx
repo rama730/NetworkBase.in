@@ -14,6 +14,8 @@ import { readShellPart } from "@/lib/shell-batch";
 
 type Pending = { invites: number; applications: number };
 type Snapshot = { data: ChatBootstrap; pending: Pending };
+/** Delta polls skip the invite/application counts (null): keep the last ones. */
+type Loaded = { data: ChatBootstrap; pending: Pending | null };
 
 export type ChatShell = {
   data: ChatBootstrap | undefined;
@@ -46,7 +48,7 @@ const ChatShellContext = createContext<ChatShell>({
   applyRead: () => undefined,
 });
 
-async function load(since: string | null): Promise<Snapshot> {
+async function load(since: string | null): Promise<Loaded> {
   const result = since ? await bootstrap({ since }) : await readShellPart("chatSummary");
   if (!result?.success) {
     const code = result?.error ?? "chat_unavailable";
@@ -72,7 +74,10 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
   const query = useQuery({
     queryKey: key,
     enabled: Boolean(userId),
-    queryFn: () => load(null),
+    queryFn: async (): Promise<Snapshot> => {
+      const loaded = await load(null);
+      return { data: loaded.data, pending: loaded.pending ?? NO_PENDING };
+    },
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -92,7 +97,7 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
     const since = new Date(Date.parse(current.data.server_time) - DELTA_OVERLAP_MS).toISOString();
     try {
       const next = await load(since);
-      queryClient.setQueryData<Snapshot>(key, (prev) => (prev ? { data: mergeDelta(prev.data, next.data), pending: next.pending } : prev));
+      queryClient.setQueryData<Snapshot>(key, (prev) => (prev ? { data: mergeDelta(prev.data, next.data), pending: next.pending ?? prev.pending } : prev));
     } catch {
       // The next tick retries; a failed background poll never surfaces.
     }

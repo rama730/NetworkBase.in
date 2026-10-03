@@ -10,10 +10,12 @@ export default async function ChannelLayout({ children, params }: { children: Re
   const { channelId } = await params;
   if (!isUuid(channelId)) notFound();
   return (
-    <div data-scroll-root="route" className="relative h-full min-h-0 overflow-hidden">
-      <Suspense fallback={<div role="status" aria-label="Loading conversation" className="h-full bg-card" />}>
-        <ChannelScreen channelId={channelId} />
-      </Suspense>
+    <div data-scroll-root="route" className="relative flex h-full min-h-0 w-full overflow-hidden">
+      <div className="flex-1 min-w-0 h-full">
+        <Suspense fallback={<div role="status" aria-label="Loading conversation" className="h-full bg-card" />}>
+          <ChannelScreen channelId={channelId} />
+        </Suspense>
+      </div>
       {children}
     </div>
   );
