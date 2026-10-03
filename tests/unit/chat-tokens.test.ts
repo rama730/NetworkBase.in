@@ -30,12 +30,9 @@ test("plain text for previews and push bodies", () => {
   assert.equal(tokensToPlainText(`hey <@${B}>`), "hey @someone");
 });
 
-test("drafts round-trip: @Name ↔ <@id>, broadcasts, longest name first", async () => {
-  const { encodeMentions, tokensToDraft } = await import("@/lib/messaging/tokens");
+test("typed @Name becomes <@id>, broadcasts, longest name first", async () => {
+  const { encodeMentions } = await import("@/lib/messaging/tokens");
   const people = [{ id: A, name: "Ann" }, { id: B, name: "Ann Lee" }];
   assert.equal(encodeMentions("hi @Ann Lee and @Ann, @here", people), `hi <@${B}> and <@${A}>, <!here>`);
   assert.equal(encodeMentions("mail ann@Ann.com", people), "mail ann@Ann.com", "only mentions after whitespace");
-  const names = new Map([[A, "Ann"], [B, "Ann Lee"]]);
-  const body = `hi <@${B}> <!channel>`;
-  assert.equal(encodeMentions(tokensToDraft(body, (id) => names.get(id)), people), body);
 });

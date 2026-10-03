@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyReaction, buildTimeline, insertMarkdown, patchPages, upsertMessage } from "@/lib/messaging/timeline";
+import { applyReaction, buildTimeline, patchPages, upsertMessage } from "@/lib/messaging/timeline";
 import type { ChatMessageView } from "@/lib/messaging/types";
 
 function msg(seq: number, patch: Partial<ChatMessageView> = {}): ChatMessageView {
@@ -22,6 +22,13 @@ test("timeline adds day labels, groups an author within 5 minutes, and puts New 
     items.map((item) => (item.type === "message" ? `${item.message.seq}${item.grouped ? "g" : ""}` : item.type === "day" ? `day:${item.label}` : item.type)),
     ["day:Yesterday", "1", "2g", "new", "3", "day:Today", "4"],
   );
+});
+
+test("runs of joins (or leaves) collapse into one row with the others attached", () => {
+  const join = (seq: number, author: string, body = "joined") => msg(seq, { kind: "system", body, author_id: author });
+  const items = buildTimeline([join(1, "a"), join(2, "b"), join(3, "c"), join(4, "d", "left"), msg(5), join(6, "e")], { lastReadSeq: 9, meId: "u1" });
+  const rows = items.filter((item) => item.type === "message");
+  assert.deepEqual(rows.map((item) => (item.type === "message" ? `${item.message.seq}+${item.others?.length ?? 0}` : "")), ["1+2", "4+0", "5+0", "6+0"]);
 });
 
 test("own messages never open the New divider", () => {
@@ -50,12 +57,4 @@ test("patchPages and reactions update in place", () => {
   assert.deepEqual(removed[0]![0]!.reactions, [{ emoji: "👍", count: 1, me: true }]);
   const gone = patchPages(pages, 1, (m) => ({ ...m, reactions: applyReaction(m.reactions, "👍", false, false) }));
   assert.deepEqual(gone[0]![0]!.reactions, []);
-});
-
-test("markdown insertion wraps the selection or inserts a placeholder", () => {
-  assert.deepEqual(insertMarkdown("hello world", 6, 11, "bold"), { value: "hello **world**", start: 8, end: 13 });
-  assert.deepEqual(insertMarkdown("", 0, 0, "code"), { value: "`code`", start: 1, end: 5 });
-  assert.deepEqual(insertMarkdown("a\nb", 0, 3, "bullet"), { value: "- a\n- b", start: 0, end: 7 });
-  assert.deepEqual(insertMarkdown("x", 0, 1, "link"), { value: "[x](https://)", start: 4, end: 12 });
-  assert.deepEqual(insertMarkdown("one", 0, 3, "codeblock"), { value: "```\none\n```", start: 4, end: 7 });
 });

@@ -53,7 +53,7 @@ test("GlobalSearchResultCards renders canonical status badges, squared avatars, 
     assert.match(cards, /open \{result\.openRolesCount === 1 \? "role" : "roles"\}/);
 
     // Builder Card Contract
-    assert.match(cards, /<PersonPresenceDot lastActiveAt=\{result\.lastActiveAt\} compact \/>/);
+    assert.match(cards, /<PersonPresenceDot userId=\{result\.userId\} lastActiveAt=\{result\.lastActiveAt\} compact \/>/);
     assert.match(cards, /UserAvatar identity=.*size=\{40\} className="rounded-\[5px\]"/);
     assert.match(cards, /result\.connectionStatus === "connected"/);
     assert.match(cards, /inline-flex h-\[28px\] shrink-0 items-center gap-1\.5 self-center rounded-\[5px\] bg-primary/);
