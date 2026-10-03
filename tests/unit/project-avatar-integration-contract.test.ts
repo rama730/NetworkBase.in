@@ -55,7 +55,7 @@ test("ProjectAvatar enforces inset ring framing, 80px detail size, presence dot 
     assert.match(avatarSource, /size-\[80px\] rounded-xl/, "Detail size must be 80px");
     assert.match(avatarSource, /size-11 rounded-md/, "Card size must be 44px");
     assert.match(avatarSource, /ProjectPresenceDot/, "Must render project presence dot on the profile picture");
-    assert.match(avatarSource, /data-testid="project-avatar-presence-dot"/, "Must test for presence dot");
+    assert.match(avatarSource, /(data-testid|testId)="project-avatar-presence-dot"/, "Must test for presence dot");
     assert.match(avatarSource, /formatProjectOfflinePresenceLabel/, "Must format offline presence label with last updated and date");
     assert.match(avatarSource, /Last updated:/, "Offline label must include Last updated prefix");
     assert.match(avatarSource, /if \(!avatarUrl \|\| hasError\) \{\s*return null;\s*\}/, "Must return null when no avatar image");
@@ -74,8 +74,9 @@ test("Architectural enhancements: native single tooltip, default cursor, zero-pr
     assert.doesNotMatch(avatarSource, /TooltipProvider/);
     assert.doesNotMatch(avatarSource, /TooltipContent/);
     assert.doesNotMatch(avatarSource, /cursor-help/);
-    assert.match(avatarSource, /title=\{label\}/);
-    assert.match(avatarSource, /aria-label=\{label\}/);
+    assert.match(avatarSource, /activityLabel=\{activityLabel\}/);
+    assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /title=\{label\}/);
+    assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /aria-label=\{label\}/);
 
     // 3. Clean offline presence format: Last updated: [date]
     assert.match(avatarSource, /Last updated: \$\{formattedDate\}/);
@@ -106,8 +107,9 @@ test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel s
     assert.match(avatarSource, /navigator\.language/);
 
     // Idea 4: Color-vision accessibility (WCAG 2.2 Compliant)
-    assert.match(avatarSource, /role="status"/);
-    assert.match(avatarSource, /ring-1 ring-black\/10 dark:ring-white\/15/);
+    assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /role=\{label \? "img" : undefined\}/);
+    // The Node badge separates from any photo with a 2 px cut-out in the surface color.
+    assert.match(readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8"), /\.nb-presence \{[^}]*box-shadow:0 0 0 2px var\(--presence-cut\)/);
 });
 
 test("Projects without a profile picture render standalone presence dot beside the project title and keep Line 3 cleanly separated", () => {
