@@ -2,8 +2,11 @@
 
 import { useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
-import { getChannel, listMembers } from "@/app/actions/chat/channels";
+import { getCanvas } from "@/app/actions/chat/canvas";
+import { getChannel, listChannelTabs, listMembers } from "@/app/actions/chat/channels";
+import { listSavedSeqs, saveMessage } from "@/app/actions/chat/later";
 import { listMessages } from "@/app/actions/chat/messages";
 import { markRead } from "@/app/actions/chat/read";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
@@ -12,16 +15,19 @@ import {
   CHAT_PAGE_SIZE,
   CHAT_READ_DEBOUNCE_MS,
   CHAT_TYPING_MAX_MEMBERS,
-  CHAT_TYPING_THROTTLE_MS,
   channelTopic,
+  typingTopic,
 } from "@/lib/messaging/constants";
+import { personName } from "@/lib/messaging/channel-view";
+import { chatErrorMessage } from "@/lib/messaging/errors";
+import { pruneTypers, shouldSendTyping, withoutTyper, type Typers } from "@/lib/messaging/typing";
 import { applyReaction, patchPages, upsertMessage, type MessagePages } from "@/lib/messaging/timeline";
-import type { ChatCardView, ChatMessageView } from "@/lib/messaging/types";
+import { getCachedTimeline, setCachedTimeline } from "@/lib/messaging/storage-cache";
+import type { ChatCardView, ChatMessageView, ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast, type BroadcastStatus } from "@/lib/realtime/private-broadcast";
 
 type Paged = InfiniteData<ChatMessageView[], number | null>;
-const TYPING_TTL_MS = 6_000;
 
 export function seedCards(queryClient: ReturnType<typeof useQueryClient>, cards: Record<string, ChatCardView | null | undefined> | undefined) {
   for (const [key, card] of Object.entries(cards ?? {})) {
@@ -31,6 +37,17 @@ export function seedCards(queryClient: ReturnType<typeof useQueryClient>, cards:
 }
 
 export function useChannelDetails(channelId: string) {
+  const { data } = useChatShell();
+  const cached = useMemo(() => {
+    const found = data?.channels.find((c) => c.id === channelId);
+    if (!found) return undefined;
+    return {
+      ...found,
+      is_member: true,
+      can_admin: found.role === "admin" || found.role === "owner",
+    };
+  }, [data?.channels, channelId]);
+
   return useQuery({
     queryKey: queryKeys.chat.channel(channelId),
     queryFn: async () => {
@@ -38,6 +55,9 @@ export function useChannelDetails(channelId: string) {
       if (!result.success) throw new Error(result.error);
       return result.channel;
     },
+    initialData: cached as any,
+    // The cached copy is a placeholder: marked old so the real row loads right away.
+    initialDataUpdatedAt: cached ? 0 : undefined,
     staleTime: 60_000,
     retry: false,
   });
@@ -55,6 +75,20 @@ export function useChannelMembers(channelId: string, enabled = true) {
   });
 }
 
+/** The channel's shared canvas row; null until someone writes one. */
+export function useChannelCanvas(channelId: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.chat.canvas(channelId),
+    enabled,
+    queryFn: async () => {
+      const result = await getCanvas({ channelId });
+      if (!result.success) throw new Error(result.error);
+      return result.canvas;
+    },
+    staleTime: 60_000,
+  });
+}
+
 /** Mutate the cached pages of a channel (optimistic sends, edits, reactions). */
 export function useUpdatePages(channelId: string) {
   const queryClient = useQueryClient();
@@ -69,25 +103,37 @@ export function useUpdatePages(channelId: string) {
 
 /**
  * The open channel: newest page first, older pages on scroll (or a page around
- * ?m=<seq>), live events from chat:channel:<id>, typing, and a 3 s debounced
+ * ?m=<seq>), live events from chat:channel:<id>, and a 3 s debounced
  * read cursor while the newest message is visible.
  */
-export function useChannelMessages(channelId: string, options: { around?: number | null; memberCount: number; isMember: boolean }) {
+export function useChannelMessages(channelId: string, options: { around?: number | null; memberCount: number; isMember: boolean; canPreview?: boolean }) {
   const queryClient = useQueryClient();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const meId = user?.id ?? null;
   const { applyRead } = useChatShell();
   const key = useMemo(() => queryKeys.chat.messages(channelId), [channelId]);
   const update = useUpdatePages(channelId);
   const [status, setStatus] = useState<BroadcastStatus>("connecting");
-  const [typing, setTyping] = useState<Record<string, { name: string; at: number }>>({});
-  const sendRef = useRef<(event: string, payload: Record<string, unknown>) => void>(() => undefined);
-  const lastTypingSent = useRef(0);
   const wasDisconnected = useRef(false);
+
+  // A jump (?m=) to a message outside the cached pages starts the timeline over around it.
+  const around = options.around ?? null;
+  useState(() => {
+    const cached = queryClient.getQueryData<Paged>(key);
+    if (around && cached && !cached.pages.some((page) => page.some((m) => m.seq === around))) queryClient.removeQueries({ queryKey: key });
+    return null;
+  });
+  const lastAround = useRef(around);
+  useEffect(() => {
+    if (around === lastAround.current) return;
+    lastAround.current = around;
+    const cached = queryClient.getQueryData<Paged>(key);
+    if (around && cached && !cached.pages.some((page) => page.some((m) => m.seq === around))) void queryClient.resetQueries({ queryKey: key });
+  }, [around, key, queryClient]);
 
   const query = useInfiniteQuery({
     queryKey: key,
-    enabled: options.isMember,
+    enabled: options.isMember || Boolean(options.canPreview),
     initialPageParam: null as number | null,
     queryFn: async ({ pageParam }) => {
       const around = pageParam === null && options.around ? options.around : undefined;
@@ -110,12 +156,6 @@ export function useChannelMessages(channelId: string, options: { around?: number
         switch (event) {
           case "message.new":
             update((pages) => upsertMessage(pages, payload as unknown as ChatMessageView));
-            setTyping((current) => {
-              const authorId = (payload as { author_id?: string }).author_id;
-              if (!authorId || !current[authorId]) return current;
-              const { [authorId]: _gone, ...rest } = current;
-              return rest;
-            });
             break;
           case "message.edit":
             if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, body: String(payload.body ?? m.body), edited_at: String(payload.edited_at ?? new Date().toISOString()) })));
@@ -133,20 +173,20 @@ export function useChannelMessages(channelId: string, options: { around?: number
             if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, pinned: Boolean(payload.pinned) })));
             void queryClient.invalidateQueries({ queryKey: queryKeys.chat.pins(channelId) });
             break;
+          case "canvas.changed":
+            if (payload.updated_by !== meId) void queryClient.invalidateQueries({ queryKey: queryKeys.chat.canvas(channelId) });
+            break;
           case "card.changed":
             void queryClient.invalidateQueries({ queryKey: queryKeys.chat.card(String(payload.kind), String(payload.ref_id)) });
             break;
+          case "tabs.changed":
+            void queryClient.invalidateQueries({ queryKey: queryKeys.chat.tabs(channelId) });
+            break;
+          // The "joined"/"renamed" line itself arrives as message.new; pages stay (REAL-03).
           case "member.changed":
           case "channel.updated":
             void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
             void queryClient.invalidateQueries({ queryKey: queryKeys.chat.members(channelId) });
-            void queryClient.invalidateQueries({ queryKey: key });
-            break;
-          case "typing":
-            if (typeof payload.user_id === "string" && payload.user_id !== meId) {
-              const name = String(payload.name ?? "Someone");
-              setTyping((current) => ({ ...current, [payload.user_id as string]: { name, at: Date.now() } }));
-            }
             break;
         }
       },
@@ -161,33 +201,8 @@ export function useChannelMessages(channelId: string, options: { around?: number
         }
       },
     );
-    sendRef.current = subscription.send;
-    return () => {
-      sendRef.current = () => undefined;
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [channelId, key, meId, options.isMember, queryClient, update]);
-
-  // Expire typing names that stopped updating.
-  useEffect(() => {
-    if (!Object.keys(typing).length) return;
-    const timer = setInterval(() => {
-      setTyping((current) => {
-        const now = Date.now();
-        const next = Object.fromEntries(Object.entries(current).filter(([, value]) => now - value.at < TYPING_TTL_MS));
-        return Object.keys(next).length === Object.keys(current).length ? current : next;
-      });
-    }, 2_000);
-    return () => clearInterval(timer);
-  }, [typing]);
-
-  const notifyTyping = useCallback(() => {
-    if (options.memberCount > CHAT_TYPING_MAX_MEMBERS || !meId) return;
-    const now = Date.now();
-    if (now - lastTypingSent.current < CHAT_TYPING_THROTTLE_MS) return;
-    lastTypingSent.current = now;
-    sendRef.current("typing", { user_id: meId, name: profile?.fullName || profile?.username || "Someone" });
-  }, [meId, options.memberCount, profile?.fullName, profile?.username]);
 
   const readTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readSent = useRef(0);
@@ -205,7 +220,133 @@ export function useChannelMessages(channelId: string, options: { around?: number
     if (readTimer.current) clearTimeout(readTimer.current);
   }, []);
 
-  const messages = useMemo(() => (query.data ? [...query.data.pages].reverse().flat() : []), [query.data]);
-  const typingNames = useMemo(() => Object.values(typing).map((t) => t.name), [typing]);
-  return { query, messages, status, typingNames, notifyTyping, markSeen };
+  const cachedMessages = useMemo(() => getCachedTimeline(channelId), [channelId]);
+  const messages = useMemo(() => {
+    if (query.data) return [...query.data.pages].reverse().flat();
+    return cachedMessages ?? [];
+  }, [cachedMessages, query.data]);
+
+  // Debounced: serializing the timeline on every message or reaction blocks the main thread.
+  useEffect(() => {
+    if (!query.isSuccess || !messages.length) return;
+    const timer = setTimeout(() => setCachedTimeline(channelId, messages), 1_000);
+    return () => clearTimeout(timer);
+  }, [channelId, messages, query.isSuccess]);
+
+  return { query, messages, status, markSeen };
+}
+
+/**
+ * Who is typing in a channel (rootSeq null) or one thread, on chat:typing:<id>.
+ * Names come from the member list, never the payload, and unknown senders are
+ * ignored, so nobody can show up as someone else. `notify(true)` while keys are
+ * pressed (throttled), `notify(false)` when the draft empties or is sent.
+ */
+export function useTyping(channelId: string, options: { rootSeq: number | null; people: ChatPerson[]; memberCount: number; enabled: boolean }) {
+  const { user } = useAuth();
+  const meId = user?.id ?? null;
+  const { rootSeq } = options;
+  // Typing is off in big rooms, so don't join their typing topic at all (REAL-01).
+  const enabled = options.enabled && options.memberCount <= CHAT_TYPING_MAX_MEMBERS;
+  const [typers, setTypers] = useState<Typers>({});
+  const people = useRef(options.people);
+  const sendRef = useRef<(event: string, payload: Record<string, unknown>) => void>(() => undefined);
+  const lastSent = useRef(0);
+  const allowed = Boolean(meId) && options.memberCount <= CHAT_TYPING_MAX_MEMBERS;
+  useEffect(() => {
+    people.current = options.people;
+  });
+
+  useEffect(() => {
+    if (!enabled) return;
+    const typing = subscribeBroadcast(typingTopic(channelId), (event, payload) => {
+      const userId = payload.user_id;
+      if (event !== "typing" || typeof userId !== "string" || userId === meId) return;
+      if ((payload.root ?? null) !== rootSeq) return;
+      const person = people.current.find((p) => p.id === userId);
+      if (!person) return;
+      setTypers((current) => (payload.on === false ? withoutTyper(current, userId) : { ...current, [userId]: { name: personName(person), at: Date.now() } }));
+    });
+    // A sent message ends its author's typing at once.
+    const messages = subscribeBroadcast(channelTopic(channelId), (event, payload) => {
+      if (event === "message.new" && typeof payload.author_id === "string") setTypers((current) => withoutTyper(current, payload.author_id as string));
+    });
+    sendRef.current = typing.send;
+    return () => {
+      if (lastSent.current && meId) typing.send("typing", { user_id: meId, root: rootSeq, on: false });
+      lastSent.current = 0;
+      sendRef.current = () => undefined;
+      typing.unsubscribe();
+      messages.unsubscribe();
+      setTypers({});
+    };
+  }, [channelId, enabled, meId, rootSeq]);
+
+  // Expire typers that went quiet without a stop (closed tab, lost connection).
+  useEffect(() => {
+    if (!Object.keys(typers).length) return;
+    const timer = setInterval(() => setTypers((current) => pruneTypers(current, Date.now())), 1_000);
+    return () => clearInterval(timer);
+  }, [typers]);
+
+  const notify = useCallback((active: boolean) => {
+    if (!allowed) return;
+    const now = Date.now();
+    if (!active) {
+      if (!lastSent.current) return;
+      lastSent.current = 0;
+      sendRef.current("typing", { user_id: meId, root: rootSeq, on: false });
+      return;
+    }
+    if (!shouldSendTyping(lastSent.current, now)) return;
+    lastSent.current = now;
+    sendRef.current("typing", { user_id: meId, root: rootSeq, on: true });
+  }, [allowed, meId, rootSeq]);
+
+  const names = useMemo(() => Object.values(typers).map((t) => t.name), [typers]);
+  return { names, notify };
+}
+
+/** The open conversation's saved-for-later messages, with an optimistic toggle. */
+export function useSavedSeqs(channelId: string, enabled: boolean) {
+  const queryClient = useQueryClient();
+  const key = useMemo(() => queryKeys.chat.savedSeqs(channelId), [channelId]);
+  const query = useQuery({
+    queryKey: key,
+    enabled,
+    queryFn: async () => {
+      const result = await listSavedSeqs({ channelId });
+      return result.success ? result.seqs : [];
+    },
+    staleTime: 60_000,
+  });
+  const seqs = useMemo(() => new Set(query.data ?? []), [query.data]);
+  const setSaved = useCallback(async (seq: number, on: boolean, remindAt: string | null = null) => {
+    const previous = queryClient.getQueryData<number[]>(key) ?? [];
+    queryClient.setQueryData<number[]>(key, on ? [...new Set([...previous, seq])] : previous.filter((s) => s !== seq));
+    const result = await saveMessage({ channelId, seq, on, remindAt });
+    if (!result.success) {
+      queryClient.setQueryData(key, previous);
+      return void toast.error(chatErrorMessage(result.error));
+    }
+    void queryClient.invalidateQueries({ queryKey: queryKeys.chat.saved() });
+    if (!on) toast("Removed from Saved");
+    else if (remindAt) toast.success(`Reminder set for ${new Date(remindAt).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
+    else toast.success("Saved for later", { action: { label: "View saved", onClick: () => window.location.assign("/messages/saved") } });
+  }, [channelId, key, queryClient]);
+  // Stable identity: the conversation context depends on it, and every row reads that (REND-01).
+  return useMemo(() => ({ seqs, setSaved }), [seqs, setSaved]);
+}
+
+/** Bookmarks and Tasks tabs, shared by everyone in the channel. */
+export function useChannelTabs(channelId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.chat.tabs(channelId),
+    enabled,
+    queryFn: async () => {
+      const result = await listChannelTabs({ channelId });
+      return result.success ? result.tabs : [];
+    },
+    staleTime: 60_000,
+  });
 }

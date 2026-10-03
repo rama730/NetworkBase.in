@@ -37,7 +37,7 @@ export default function ChatWindow({ onMinimize }: { onMinimize: () => void }) {
   const title = screen.type === "thread" ? "Thread" : screen.type === "new" ? "New message" : "Messages";
   const actions = (
     <>
-      <Link href={fullHref} onClick={close} className="nb-icon-button nb-touch-target" aria-label="Open full page"><ExternalLink size={16} /></Link>
+      <Link href={fullHref} onClick={close} className="nb-icon-button nb-touch-target" aria-label="Open in Messages" title="Open in Messages"><ExternalLink size={16} /></Link>
       <button type="button" onClick={onMinimize} className="nb-icon-button nb-touch-target" aria-label="Minimize"><Minus size={16} /></button>
       <button type="button" onClick={close} className="nb-icon-button nb-touch-target" aria-label="Close"><X size={16} /></button>
     </>

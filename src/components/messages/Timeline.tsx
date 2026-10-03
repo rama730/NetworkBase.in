@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 
 import { MessageRow } from "@/components/messages/MessageRow";
 import { buildTimeline, type TimelineItem } from "@/lib/messaging/timeline";
@@ -10,6 +10,8 @@ import type { ChatMessageView } from "@/lib/messaging/types";
 
 const START_INDEX = 1_000_000;
 const HIGHLIGHT_MS = 2_500;
+// Jump to a date loads older pages until it's reached, at most this many.
+const MAX_JUMP_PAGES = 12;
 
 type Props = {
   messages: ChatMessageView[];
@@ -21,13 +23,44 @@ type Props = {
   intro: React.ReactNode;
   highlightSeq?: number | null;
   onSeen: (seq: number) => void;
+  /** Mark the whole conversation read now (the unread bar, Jump to latest). */
+  onMarkRead?: () => void;
 };
 
-function DayLabel({ label }: { label: string }) {
+function startOfDay(value: string) {
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y!, (m ?? 1) - 1, d ?? 1).getTime();
+}
+
+type TimelineContext = { hasOlder: boolean; loadingOlder: boolean; intro: React.ReactNode };
+
+// Stable component identities (VIRT-01): inline ones would remount on every render.
+function TimelineHeader({ context }: { context?: TimelineContext }) {
+  if (!context) return null;
+  return context.hasOlder
+    ? <div className="py-3 text-center text-[12px] text-muted-foreground">{context.loadingOlder ? "Loading earlier messages…" : ""}</div>
+    : <>{context.intro}</>;
+}
+function TimelineFooter() {
+  return <div className="h-6" />;
+}
+const COMPONENTS = { Header: TimelineHeader, Footer: TimelineFooter };
+
+/** A day separator; clicking it opens a date picker to jump to another day. */
+function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
   return (
     <div className="flex items-center gap-3 px-4 py-2" role="separator" aria-label={label}>
       <span className="h-px flex-1 bg-border" />
-      <span className="font-mono text-[12px] text-muted-foreground">{label}</span>
+      <button
+        type="button"
+        onClick={() => input.current?.showPicker?.()}
+        className="relative rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+        title="Jump to a date"
+      >
+        {label}
+        <input ref={input} type="date" tabIndex={-1} aria-label="Jump to date" max={new Date().toISOString().slice(0, 10)} onChange={(e) => e.target.value && onPick(e.target.value)} className="pointer-events-none absolute inset-0 opacity-0" />
+      </button>
       <span className="h-px flex-1 bg-border" />
     </div>
   );
@@ -37,16 +70,23 @@ function DayLabel({ label }: { label: string }) {
  * Virtualized timeline (Virtuoso prepend pattern): older pages prepend without
  * moving the reader, new messages follow only when already at the bottom.
  */
-export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen }: Props) {
+export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead }: Props) {
   const virtuoso = useRef<VirtuosoHandle>(null);
   // The divider stays where it was when the channel opened, not where the cursor moves to.
   const [dividerSeq] = useState(lastReadSeq);
   const items = useMemo(() => buildTimeline(messages, { lastReadSeq: dividerSeq, meId }), [dividerSeq, meId, messages]);
   const [atBottom, setAtBottom] = useState(true);
   const [unseen, setUnseen] = useState(0);
-  // ponytail: a floating day label, no jump-to-date (L-29). upgrade: seq-by-date lookup per channel.
   const [topDay, setTopDay] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<number | null>(highlightSeq ?? null);
+  const [jump, setJump] = useState<{ at: number; pages: number } | null>(null);
+
+  // "12 new messages since 3:42 PM": what was unread when the conversation opened.
+  const [unreadAtOpen] = useState(() => {
+    const unread = messages.filter((m) => m.seq > lastReadSeq && m.seq > 0 && m.author_id !== meId && m.kind === "user");
+    return unread.length ? { count: unread.length, since: unread[0]!.created_at } : null;
+  });
+  const [bannerOpen, setBannerOpen] = useState(Boolean(unreadAtOpen));
 
   // Prepend bookkeeping: shift firstItemIndex by how many items appeared above the old first item.
   const head = items[0]?.key ?? null;
@@ -77,6 +117,29 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     return () => clearTimeout(timer);
   }, [highlight]);
 
+  // Jump to a date: the first message on or after it, loading older pages as needed.
+  useEffect(() => {
+    if (!jump) return;
+    const index = items.findIndex((item) => item.type === "message" && Date.parse(item.message.created_at) >= jump.at);
+    const first = items.find((item) => item.type === "message");
+    const reached = first?.type === "message" && Date.parse(first.message.created_at) <= jump.at;
+    if (index >= 0 && (reached || !hasOlder || jump.pages >= MAX_JUMP_PAGES)) {
+      virtuoso.current?.scrollToIndex({ index, align: "start" });
+      const item = items[index];
+      if (item?.type === "message") setHighlight(item.message.seq);
+      setJump(null);
+    } else if (hasOlder && jump.pages < MAX_JUMP_PAGES) {
+      if (!loadingOlder) {
+        setJump({ ...jump, pages: jump.pages + 1 });
+        loadOlder();
+      }
+    } else {
+      virtuoso.current?.scrollToIndex({ index: index >= 0 ? index : 0, align: "start" });
+      setJump(null);
+    }
+  }, [hasOlder, items, jump, loadOlder, loadingOlder]);
+  const pickDate = useCallback((date: string) => setJump({ at: startOfDay(date), pages: 0 }), []);
+
   // Only the first render positions the list.
   const [initialIndex] = useState(() => {
     if (highlightSeq) {
@@ -87,33 +150,51 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     return divider >= 0 ? { index: divider, align: "start" as const } : { index: Math.max(0, items.length - 1), align: "end" as const };
   });
 
+  const markRead = useCallback(() => {
+    setBannerOpen(false);
+    onMarkRead?.();
+  }, [onMarkRead]);
   const toLatest = useCallback(() => {
     virtuoso.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
     setUnseen(0);
-  }, []);
+    markRead();
+  }, [markRead]);
+  const toFirstUnread = useCallback(() => {
+    const index = items.findIndex((item) => item.type === "new");
+    if (index >= 0) virtuoso.current?.scrollToIndex({ index, align: "start", behavior: "smooth" });
+  }, [items]);
 
   const renderItem = useCallback((_index: number, item: TimelineItem) => {
-    if (item.type === "day") return <DayLabel label={item.label} />;
+    if (item.type === "day") return <DayLabel label={item.label} onPick={pickDate} />;
     if (item.type === "new") {
       return (
         <div className="flex items-center gap-3 px-4 py-1" role="separator" aria-label="New messages">
           <span className="h-px flex-1 bg-[var(--chat-accent)]" />
-          <span className="font-mono text-[11px] uppercase text-[var(--chat-accent)]">New</span>
+          <span className="font-mono text-[11px] uppercase text-[var(--chat-accent)]">New messages</span>
         </div>
       );
     }
-    return <MessageRow message={item.message} grouped={item.grouped} highlighted={highlight === item.message.seq} />;
-  }, [highlight]);
+    return <MessageRow message={item.message} grouped={item.grouped} others={item.others} highlighted={highlight === item.message.seq} />;
+  }, [highlight, pickDate]);
 
   return (
     <div className="relative min-h-0 flex-1" role="log" aria-live="polite" aria-relevant="additions" aria-label="Messages">
-      {topDay ? (
+      {bannerOpen && unreadAtOpen && onMarkRead ? (
+        <div className="absolute inset-x-3 top-2 z-20 flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-[13px] text-primary-foreground shadow-md">
+          <button type="button" onClick={toFirstUnread} className="min-w-0 flex-1 truncate text-left font-medium hover:underline">
+            {unreadAtOpen.count} new message{unreadAtOpen.count === 1 ? "" : "s"} since {new Date(unreadAtOpen.since).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+          </button>
+          <button type="button" onClick={markRead} className="flex-none rounded-[4px] px-1.5 py-0.5 font-medium hover:bg-primary-foreground/15">Mark as read</button>
+          <button type="button" onClick={() => setBannerOpen(false)} className="grid size-6 flex-none place-items-center rounded-[4px] hover:bg-primary-foreground/15" aria-label="Dismiss"><X size={14} /></button>
+        </div>
+      ) : topDay ? (
         <div className="pointer-events-none absolute inset-x-0 top-1 z-10 flex justify-center">
-          <span className="rounded-[3px] border border-border bg-card px-2 py-0.5 font-mono text-[12px] text-muted-foreground">{topDay}</span>
+          <span className="pointer-events-auto"><DayLabel label={topDay} onPick={pickDate} /></span>
         </div>
       ) : null}
-      <Virtuoso
+      <Virtuoso<TimelineItem, TimelineContext>
         ref={virtuoso}
+        context={{ hasOlder, loadingOlder, intro }}
         className="app-scroll app-scroll-y h-full"
         data={items}
         firstItemIndex={firstItemIndex}
@@ -140,15 +221,12 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
           }
           setTopDay(null);
         }}
-        components={{
-          Header: () => (hasOlder ? <div className="py-3 text-center text-[12px] text-muted-foreground">{loadingOlder ? "Loading earlier messages…" : ""}</div> : <>{intro}</>),
-          Footer: () => <div className="h-3" />,
-        }}
+        components={COMPONENTS}
       />
       {!atBottom ? (
-        <button type="button" onClick={toLatest} aria-label={unseen ? `Jump to latest, ${unseen} new` : "Jump to latest"} className="absolute bottom-3 right-4 z-10 inline-flex h-10 items-center gap-1 rounded-full border border-border bg-card px-3 text-[13px] shadow-md">
+        <button type="button" onClick={toLatest} aria-label={unseen ? `Jump to latest, ${unseen} new` : "Jump to latest"} className="absolute bottom-3 right-4 z-10 inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] shadow-md">
           <ChevronDown size={16} />
-          {unseen ? <span className="nb-chat-count">{unseen > 99 ? "99+" : unseen}</span> : null}
+          <span>{unseen ? `${unseen > 99 ? "99+" : unseen} new` : "Latest"}</span>
         </button>
       ) : null}
     </div>

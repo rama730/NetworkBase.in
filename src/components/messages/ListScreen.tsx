@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Search, SquarePen } from "lucide-react";
+import { SquarePen } from "lucide-react";
 
-import { useChatUi } from "@/components/messages/chat-ui-store";
 import { ChatSections } from "@/components/messages/ChatSections";
 
 /**
@@ -11,16 +10,14 @@ import { ChatSections } from "@/components/messages/ChatSections";
  * launcher window's first screen. Same sections as the desktop sidebar.
  */
 export function ListScreen({ onSelect, onNewMessage }: { onSelect?: (channelId: string) => void; onNewMessage?: () => void }) {
-  const setSwitcherOpen = useChatUi((state) => state.setSwitcherOpen);
   return (
     <div className="nb-chat-list flex h-full min-h-0 flex-col bg-card">
       <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2">
         <h1 className="min-w-0 flex-1 truncate px-2 text-[17px] font-semibold">Messages</h1>
-        <button type="button" onClick={() => setSwitcherOpen(true)} className="nb-icon-button nb-touch-target" aria-label="Find a conversation"><Search size={18} aria-hidden="true" /></button>
         {onNewMessage ? (
           <button type="button" onClick={onNewMessage} className="nb-icon-button nb-touch-target" aria-label="New message"><SquarePen size={18} aria-hidden="true" /></button>
         ) : (
-          <Link href="/messages/new" className="nb-icon-button nb-touch-target" aria-label="New message"><SquarePen size={18} aria-hidden="true" /></Link>
+          <Link href="/messages/new" prefetch={true} className="nb-icon-button nb-touch-target" aria-label="New message"><SquarePen size={18} aria-hidden="true" /></Link>
         )}
       </header>
       <div className="app-scroll app-scroll-y min-h-0 flex-1 px-2 py-3">

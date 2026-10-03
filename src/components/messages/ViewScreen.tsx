@@ -16,7 +16,7 @@ export function ViewScreen({ title, action, children }: { title: string; action?
         <h1 className="min-w-0 flex-1 truncate text-[17px] font-semibold">{title}</h1>
         {action}
       </header>
-      <div className="app-scroll app-scroll-y min-h-0 flex-1">{children}</div>
+      <div className="app-scroll app-scroll-y flex min-h-0 flex-1 flex-col">{children}</div>
     </section>
   );
 }

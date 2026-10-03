@@ -18,6 +18,17 @@ export type ConversationContextValue = {
   openThread: (rootSeq: number) => void;
   /** Inside the thread pane replies have no reply line. */
   inThread: boolean;
+  /** Show the Pins tab (after pinning). */
+  openPinsTab?: () => void;
+  /** The viewer can post and act (false while previewing a public channel). */
+  isMember?: boolean;
+  /** Project channels can turn messages into tasks. */
+  projectId?: string | null;
+  /** Saved-for-later messages of this conversation, and the toggle. */
+  savedSeqs?: ReadonlySet<number>;
+  setSaved?: (seq: number, on: boolean, remindAt?: string | null) => void;
+  /** Open the Share dialog for a message. */
+  share?: (seq: number) => void;
 };
 
 export const ConversationContext = createContext<ConversationContextValue | null>(null);

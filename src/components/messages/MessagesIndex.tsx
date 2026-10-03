@@ -1,20 +1,18 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { readChatUi } from "@/components/messages/chat-ui-store";
-import { useChatShell } from "@/components/messages/ChatShellProvider";
+import { useChatUi } from "@/components/messages/chat-ui-store";
 import { ListOrHome } from "@/components/messages/HomePane";
 
-/** /messages: the List screen below 1024px; at 1024px+ the last-open conversation, else Home. */
+/** /messages: the List screen below 1024px; at 1024px+ shows all projects with professional placeholder. */
 export function MessagesIndex() {
-  const router = useRouter();
-  const { data } = useChatShell();
+  const setProject = useChatUi((state) => state.setProject);
+
   useEffect(() => {
-    if (!data || !window.matchMedia("(min-width: 1024px)").matches) return;
-    const last = readChatUi().last;
-    if (last && data.channels.some((channel) => channel.id === last)) router.replace(`/messages/${last}`);
-  }, [data, router]);
+    // When visiting /messages, show full projects list by resetting any previously chosen project
+    setProject(null);
+  }, [setProject]);
+
   return <ListOrHome />;
 }

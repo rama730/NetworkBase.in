@@ -16,13 +16,32 @@ async function json(response: Response) {
  * Compress images on the device, upload straight to storage with a signed URL,
  * then have the server verify the bytes. Returns the verified asset id to attach.
  */
-export async function uploadChatFile(channelId: string, original: File, onProgress?: (percent: number) => void) {
-  const file = await compressImage(original);
+// At most 2 images decode and re-encode at once, so ten photos don't spike memory
+// and freeze the page (UPL-01). Transfers are already limited by the upload client.
+const MAX_COMPRESSIONS = 2;
+let compressing = 0;
+const waiting: Array<() => void> = [];
+
+async function compressQueued(file: File) {
+  if (compressing >= MAX_COMPRESSIONS) await new Promise<void>((resolve) => waiting.push(resolve));
+  compressing += 1;
+  try {
+    return await compressImage(file);
+  } finally {
+    compressing -= 1;
+    waiting.shift()?.();
+  }
+}
+
+export async function uploadChatFile(channelId: string, original: File, onProgress?: (percent: number) => void, signal?: AbortSignal) {
+  const file = await compressQueued(original);
+  signal?.throwIfAborted();
   const dimensions = await readMediaDimensions(file);
   const clientUploadId = crypto.randomUUID();
   onProgress?.(5);
   const session = await json(await fetch(ROUTE, {
     method: "POST",
+    signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       channelId,
@@ -37,10 +56,11 @@ export async function uploadChatFile(channelId: string, original: File, onProgre
   await uploadToSupabaseSignedUrl(
     { bucket: "chat-attachments", storagePath: session.storagePath, uploadToken: session.uploadToken, uploadUrl: session.signedUrl, contentType: session.contentType, operationId: session.uploadIntentId },
     file,
-    { cacheProfile: "immutable", onProgress: (sent, total) => onProgress?.(5 + Math.round((total ? sent / total : 0) * 85)) },
+    { cacheProfile: "immutable", signal, onProgress: (sent, total) => onProgress?.(5 + Math.round((total ? sent / total : 0) * 85)) },
   );
   await json(await fetch(ROUTE, {
     method: "PUT",
+    signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ uploadIntentId: session.uploadIntentId, storagePath: session.storagePath }),
   }));
