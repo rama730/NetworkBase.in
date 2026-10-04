@@ -103,7 +103,7 @@ test("Messages system adheres to design specification contracts", () => {
     );
     assert.match(
         fs.readFileSync(path.join(process.cwd(), "src/components/messages/Composer.tsx"), "utf8"),
-        /function TypingIndicator[\s\S]*absolute inset-x-3 bottom-full flex h-5[\s\S]*<TypingIndicator names=\{typingNames\} \/>/,
+        /function TypingIndicator[\s\S]*if \(!label\) return null;[\s\S]*absolute inset-x-3 bottom-\[calc\(100%\+1px\)\] flex h-5[\s\S]*<TypingIndicator names=\{typingNames\} \/>/,
         "Typing floats just above the composer box, so neither the box nor the timeline moves",
     );
     assert.match(

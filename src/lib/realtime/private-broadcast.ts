@@ -54,7 +54,7 @@ function open(topic: string): Entry {
 export function subscribeBroadcast(topic: string, onEvent: EventHandler, onStatus?: StatusHandler) {
   if (!isPrivateRealtimeAuthorizationEnabled()) {
     onStatus?.("disabled");
-    return { send: () => undefined, unsubscribe: () => undefined };
+    return { send: () => false, unsubscribe: () => undefined };
   }
   const entry = entries.get(topic) ?? open(topic);
   entries.set(topic, entry);
@@ -68,8 +68,11 @@ export function subscribeBroadcast(topic: string, onEvent: EventHandler, onStatu
     onStatus(entry.status);
   }
   return {
+    /** False when not connected yet (the event is dropped, not queued). */
     send(event: string, payload: Record<string, unknown>) {
-      if (entry.status === "connected") void entry.channel.send({ type: "broadcast", event, payload });
+      if (entry.status !== "connected") return false;
+      void entry.channel.send({ type: "broadcast", event, payload });
+      return true;
     },
     unsubscribe() {
       entry.handlers.delete(onEvent);
