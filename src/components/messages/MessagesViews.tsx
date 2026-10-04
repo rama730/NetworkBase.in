@@ -8,7 +8,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AlarmClock, AtSign, Check, CheckCheck, ChevronDown, Clock, Hash, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { listInbox, listThreads, markInboxRead, type InboxFilter, type InboxItem, type ThreadItem } from "@/app/actions/chat/activity";
+import { listInbox, listThreads, markInboxRead, markInboxUnread, type InboxFilter, type InboxItem, type ThreadItem } from "@/app/actions/chat/activity";
+import { setThreadFollow } from "@/app/actions/chat/messages";
+import { markThreadRead } from "@/app/actions/chat/read";
 import { browseChannels, joinChannel } from "@/app/actions/chat/channels";
 import { cancelScheduled, listSaved, listScheduled, saveMessage, type SavedItem } from "@/app/actions/chat/later";
 import { searchMessages, type SearchHit } from "@/app/actions/chat/search";
@@ -20,7 +22,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle, formatChatTime, isDirectLike, personName } from "@/lib/messaging/channel-view";
+import { CHAT_LIST_PAGE } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
+import { groupNoun } from "@/lib/messaging/inbox";
 import { conversationHref, threadHref } from "@/lib/messaging/routes";
 import { REMINDER_TIMES } from "@/lib/messaging/reminders";
 import { tokensToPlainText } from "@/lib/messaging/tokens";
@@ -179,6 +183,13 @@ const FILTERS: Array<{ id: InboxFilter | "threads"; label: string }> = [
   { id: "reactions", label: "Reactions" },
 ];
 
+/** Each tab says what belongs there (#132). */
+const EMPTY_TEXT: Record<InboxFilter, string> = {
+  all: "Mentions, thread replies and reactions show up here.",
+  mentions: "When someone @mentions you, it shows up here.",
+  reactions: "Reactions to your messages show up here.",
+};
+
 function InboxIcon({ kind }: { kind: InboxItem["kind"] }) {
   const Icon = kind === "thread_reply" ? MessageSquareText : kind === "reaction" ? SmilePlus : AtSign;
   return <Icon size={12} aria-hidden="true" className="flex-none" />;
@@ -192,7 +203,7 @@ function describe(item: InboxItem) {
 }
 
 /** One Inbox row: who, what, where, when; unread ones are bold with a dot. */
-function InboxRow({ item, onOpen }: { item: InboxItem; onOpen: (item: InboxItem) => void }) {
+function InboxRow({ item, onOpen, onToggleRead }: { item: InboxItem; onOpen: (item: InboxItem) => void; onToggleRead: (item: InboxItem) => void }) {
   const href = item.thread_root_seq ? threadHref(item.channel_id, item.thread_root_seq) : conversationHref(item.channel_id, { m: item.seq });
   return (
     <SnippetRow
@@ -209,7 +220,16 @@ function InboxRow({ item, onOpen }: { item: InboxItem; onOpen: (item: InboxItem)
         <span className="min-w-0 truncate text-muted-foreground">{describe(item)} in {where(item)}</span>
         {item.project_title ? <span className="hidden flex-none rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground sm:inline">{item.project_title}</span> : null}
       </>}
-      aside={!item.read ? <span className="mt-2 size-2 flex-none rounded-full bg-[var(--chat-accent)]" aria-label="Unread" /> : null}
+      aside={
+        <div className="flex flex-none flex-col items-end gap-1.5">
+          {!item.read ? <span className="mt-2 size-2 rounded-full bg-[var(--chat-accent)]" aria-label="Unread" /> : <span className="mt-2 size-2" />}
+          {item.kind !== "reaction" ? (
+            <button type="button" onClick={() => onToggleRead(item)} className="rounded-[5px] px-1.5 py-0.5 text-[12px] text-muted-foreground hover:bg-card hover:text-foreground pointer-coarse:min-h-11">
+              {item.read ? "Mark unread" : "Mark read"}
+            </button>
+          ) : null}
+        </div>
+      }
     />
   );
 }
@@ -225,12 +245,11 @@ function groupByConversation(items: InboxItem[]) {
   return groups;
 }
 
-function InboxGroup({ items, onOpen }: { items: InboxItem[]; onOpen: (item: InboxItem) => void }) {
+function InboxGroup({ items, onOpen, onToggleRead }: { items: InboxItem[]; onOpen: (item: InboxItem) => void; onToggleRead: (item: InboxItem) => void }) {
   const [open, setOpen] = useState(items.some((item) => !item.read));
-  if (items.length === 1) return <li className="border-b border-border"><InboxRow item={items[0]!} onOpen={onOpen} /></li>;
+  if (items.length === 1) return <li className="border-b border-border"><InboxRow item={items[0]!} onOpen={onOpen} onToggleRead={onToggleRead} /></li>;
   const unread = items.filter((item) => !item.read).length;
-  const kinds = new Set(items.map((item) => item.kind));
-  const noun = kinds.size === 1 && kinds.has("reaction") ? "reactions" : kinds.size === 1 && kinds.has("thread_reply") ? "replies" : "mentions";
+  const noun = groupNoun(items.map((item) => item.kind));
   return (
     <li className="border-b border-border">
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex min-h-11 w-full items-center gap-2 px-4 text-left text-[13px] hover:bg-muted">
@@ -239,13 +258,30 @@ function InboxGroup({ items, onOpen }: { items: InboxItem[]; onOpen: (item: Inbo
         {unread ? <span className="nb-chat-count">{unread}</span> : null}
         <span className="ml-auto font-mono text-[12px] text-muted-foreground">{when(items[0]!.created_at)}</span>
       </button>
-      {open ? <ul className="border-l-2 border-border pl-2">{items.map((item) => <li key={`${item.seq}:${item.kind}:${item.emoji ?? ""}`}><InboxRow item={item} onOpen={onOpen} /></li>)}</ul> : null}
+      {open ? <ul className="border-l-2 border-border pl-2">{items.map((item) => <li key={`${item.seq}:${item.kind}:${item.emoji ?? ""}`}><InboxRow item={item} onOpen={onOpen} onToggleRead={onToggleRead} /></li>)}</ul> : null}
     </li>
   );
 }
 
 function ThreadRow({ thread }: { thread: ThreadItem }) {
   const queryClient = useQueryClient();
+  const shell = useChatShell();
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
+    shell.refresh();
+  };
+  const markRead = async () => {
+    if (!thread.last_reply_seq) return;
+    const result = await markThreadRead({ channelId: thread.channel_id, rootSeq: thread.root_seq, seq: thread.last_reply_seq });
+    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    refresh();
+  };
+  const unfollow = async () => {
+    const result = await setThreadFollow({ channelId: thread.channel_id, rootSeq: thread.root_seq, on: false });
+    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    refresh();
+    toast("Unfollowed", { action: { label: "Undo", onClick: () => void setThreadFollow({ channelId: thread.channel_id, rootSeq: thread.root_seq, on: true }).then(refresh) } });
+  };
   const [replying, setReplying] = useState(false);
   // @mentions in the inline reply need the conversation's people (loaded only once Reply is open).
   const members = useChannelMembers(thread.channel_id, replying);
@@ -274,6 +310,10 @@ function ThreadRow({ thread }: { thread: ThreadItem }) {
           <div className="flex flex-none flex-col items-end gap-2">
             {thread.unread ? <span className="mt-1 size-2 rounded-full bg-[var(--chat-accent)]" aria-label="Unread" /> : <span className="mt-1 size-2" />}
             <button type="button" onClick={() => setReplying(!replying)} aria-expanded={replying} className="rounded-[5px] border border-border px-2 py-0.5 text-[12px] font-medium hover:bg-card pointer-coarse:min-h-11 pointer-coarse:px-3">Reply</button>
+            <span className="flex gap-1 text-[12px]">
+              {thread.unread ? <button type="button" onClick={() => void markRead()} className="rounded-[5px] px-1.5 py-0.5 text-muted-foreground hover:bg-card hover:text-foreground pointer-coarse:min-h-11">Mark read</button> : null}
+              <button type="button" onClick={() => void unfollow()} className="rounded-[5px] px-1.5 py-0.5 text-muted-foreground hover:bg-card hover:text-foreground pointer-coarse:min-h-11">Unfollow</button>
+            </span>
           </div>
         }
       />
@@ -312,16 +352,19 @@ export function InboxView() {
       const result = await listInbox({ filter: filter as InboxFilter, before: pageParam });
       return result.success ? result.items : [];
     },
-    getNextPageParam: (page) => (page.length === 50 ? page.at(-1)?.created_at : undefined),
+    getNextPageParam: (page) => (page.length === CHAT_LIST_PAGE ? page.at(-1)?.created_at : undefined),
   });
-  const threads = useQuery({
+  const threadPages = useInfiniteQuery({
     queryKey: queryKeys.chat.threads(),
     enabled: filter === "threads",
-    queryFn: async () => {
-      const result = await listThreads();
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const result = await listThreads({ before: pageParam });
       return result.success ? result.threads : [];
     },
+    getNextPageParam: (page) => (page.length === CHAT_LIST_PAGE ? page.at(-1)?.last_reply_at ?? undefined : undefined),
   });
+  const threads = { ...threadPages, data: threadPages.data?.pages.flat() };
   const items = feed.data?.pages.flat() ?? [];
   const groups = groupByConversation(items);
   const unread = shell.data?.inbox_unread ?? 0;
@@ -334,6 +377,24 @@ export function InboxView() {
   const open = (item: InboxItem) => {
     if (item.read || item.kind === "reaction") return;
     void markInboxRead({ items: [{ channelId: item.channel_id, seq: item.seq }] }).then(refreshInbox);
+  };
+  const toggleRead = async (item: InboxItem) => {
+    const result = item.read
+      ? await markInboxUnread({ channelId: item.channel_id, seq: item.seq })
+      : await markInboxRead({ items: [{ channelId: item.channel_id, seq: item.seq }] });
+    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    refreshInbox();
+  };
+  // Tabs: ←/→/Home/End move between them (roving tabindex), like any tablist.
+  const tabKeys = (event: React.KeyboardEvent, index: number) => {
+    const last = FILTERS.length - 1;
+    const next = event.key === "ArrowRight" ? (index + 1) % FILTERS.length : event.key === "ArrowLeft" ? (index + last) % FILTERS.length
+      : event.key === "Home" ? 0 : event.key === "End" ? last : null;
+    if (next === null) return;
+    event.preventDefault();
+    const target = FILTERS[next]!;
+    router.replace(target.id === "all" ? "/messages/inbox" : `/messages/inbox?filter=${target.id}`);
+    document.getElementById(`inbox-tab-${target.id}`)?.focus();
   };
   const scope = filter === "mentions" ? "mentions" : filter === "threads" ? "threads" : "all";
   const markAllRead = useMarkAllRead();
@@ -356,12 +417,16 @@ export function InboxView() {
       ) : null}
     >
       <div className="flex flex-none gap-1 overflow-x-auto border-b border-border px-3 py-2" role="tablist" aria-label="Inbox filters">
-        {FILTERS.map((f) => (
+        {FILTERS.map((f, index) => (
           <button
             key={f.id}
+            id={`inbox-tab-${f.id}`}
             type="button"
             role="tab"
             aria-selected={filter === f.id}
+            aria-controls="inbox-panel"
+            tabIndex={filter === f.id ? 0 : -1}
+            onKeyDown={(event) => tabKeys(event, index)}
             onClick={() => router.replace(f.id === "all" ? "/messages/inbox" : `/messages/inbox?filter=${f.id}`)}
             className={`h-8 flex-none rounded-full px-3 text-[13px] font-medium pointer-coarse:h-11 ${filter === f.id ? "bg-foreground text-background" : "border border-border text-muted-foreground hover:text-foreground"}`}
           >
@@ -369,22 +434,23 @@ export function InboxView() {
           </button>
         ))}
       </div>
+      <div id="inbox-panel" role="tabpanel" aria-labelledby={`inbox-tab-${filter}`}>
       {filter === "threads" ? (
         <>
           {threads.isLoading ? <Empty>Loading threads…</Empty> : null}
           {threads.data && !threads.data.length ? <Empty>Threads you start, reply to or follow show up here.</Empty> : null}
           <ul aria-label="Threads">{(threads.data ?? []).map((t) => <ThreadRow key={`${t.channel_id}:${t.root_seq}`} thread={t} />)}</ul>
+          <LoadMore hasMore={Boolean(threadPages.hasNextPage)} loading={threadPages.isFetchingNextPage} onLoad={() => void threadPages.fetchNextPage()} />
         </>
       ) : (
         <>
           {feed.isLoading ? <Empty>Loading…</Empty> : null}
-          {feed.data && !items.length ? (
-            <Empty>{filter === "reactions" ? "Reactions to your messages show up here." : "Mentions and replies to your threads show up here."}</Empty>
-          ) : null}
-          <ul aria-label="Inbox">{groups.map((group) => <InboxGroup key={`${group[0]!.channel_id}:${group[0]!.seq}:${group[0]!.kind}`} items={group} onOpen={open} />)}</ul>
+          {feed.data && !items.length ? <Empty>{EMPTY_TEXT[filter]}</Empty> : null}
+          <ul aria-label="Inbox">{groups.map((group) => <InboxGroup key={`${group[0]!.channel_id}:${group[0]!.seq}:${group[0]!.kind}`} items={group} onOpen={open} onToggleRead={(item) => void toggleRead(item)} />)}</ul>
           <LoadMore hasMore={Boolean(feed.hasNextPage)} loading={feed.isFetchingNextPage} onLoad={() => void feed.fetchNextPage()} />
         </>
       )}
+      </div>
       {markAllRead.dialog}
     </ViewScreen>
   );
@@ -399,13 +465,16 @@ export function SavedView() {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
   }, []);
-  const saved = useQuery({
+  const savedPages = useInfiniteQuery({
     queryKey: queryKeys.chat.saved(),
-    queryFn: async () => {
-      const result = await listSaved();
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const result = await listSaved({ offset: pageParam });
       return result.success ? result.items : [];
     },
+    getNextPageParam: (page, pages) => (page.length === CHAT_LIST_PAGE ? pages.length * CHAT_LIST_PAGE : undefined),
   });
+  const saved = { ...savedPages, data: savedPages.data?.pages.flat() };
   const act = async (item: SavedItem, on: boolean, remindAt: Date | null = null) => {
     const result = await saveMessage({ channelId: item.channel_id, seq: item.seq, on, remindAt: remindAt?.toISOString() ?? null });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
@@ -462,6 +531,7 @@ export function SavedView() {
           );
         })}
       </ul>
+      <LoadMore hasMore={Boolean(savedPages.hasNextPage)} loading={savedPages.isFetchingNextPage} onLoad={() => void savedPages.fetchNextPage()} />
     </ViewScreen>
   );
 }
@@ -588,11 +658,14 @@ export function SearchView() {
   }, [data?.channels]);
 
   const active = q.trim().length >= 2 || Boolean(from || inChannel || after || before) || hasFile;
-  const results = useQuery({
+  const resultPages = useInfiniteQuery({
     queryKey: queryKeys.chat.search(params?.toString() ?? ""),
     enabled: active,
-    queryFn: async () => {
+    initialPageParam: null as string | null,
+    getNextPageParam: (page: SearchHit[]) => (page.length === CHAT_LIST_PAGE ? page.at(-1)?.created_at : undefined),
+    queryFn: async ({ pageParam }) => {
       const result = await searchMessages({
+        cursor: pageParam,
         query: q,
         channelId: inChannel || null,
         authorId: from || null,
@@ -605,6 +678,7 @@ export function SearchView() {
     },
     staleTime: 30_000,
   });
+  const results = { ...resultPages, data: resultPages.data?.pages.flat() };
   const select = "h-8 rounded-[5px] border border-input bg-card px-2 text-[13px]";
   return (
     <ViewScreen title="Search" closable>
@@ -642,7 +716,7 @@ export function SearchView() {
       {results.isLoading ? <Empty>Searching…</Empty> : null}
       {results.isError ? <Empty>{chatErrorMessage(results.error.message)}</Empty> : null}
       {results.data && !results.data.length ? <Empty>No messages match.</Empty> : null}
-      {results.data?.length ? <p className="px-4 pt-3 text-[12px] text-muted-foreground">{results.data.length === 50 ? "Newest 50 results" : `${results.data.length} result${results.data.length === 1 ? "" : "s"}`}</p> : null}
+      {results.data?.length ? <p className="px-4 pt-3 text-[12px] text-muted-foreground">{resultPages.hasNextPage ? `Newest ${results.data.length} results` : `${results.data.length} result${results.data.length === 1 ? "" : "s"}`}</p> : null}
       <ul aria-label="Search results">
         {(results.data ?? []).map((hit: SearchHit) => (
           <li key={`${hit.channel_id}:${hit.seq}`} className="border-b border-border">
@@ -660,6 +734,7 @@ export function SearchView() {
           </li>
         ))}
       </ul>
+      <LoadMore hasMore={Boolean(resultPages.hasNextPage)} loading={resultPages.isFetchingNextPage} onLoad={() => void resultPages.fetchNextPage()} />
     </ViewScreen>
   );
 }
