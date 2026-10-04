@@ -89,6 +89,8 @@ export async function deleteMessage(input: { channelId: string; seq: number }) {
 }
 
 /** Top-level timeline page plus hydrated cards. */
+const THREAD_PAGE = 500;
+
 export async function listMessages(input: { channelId: string; before?: number; around?: number }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
@@ -102,27 +104,38 @@ export async function listMessages(input: { channelId: string; before?: number; 
   }
 }
 
-export async function listThread(input: { channelId: string; rootSeq: number }) {
+/** Thread replies, newest page first (default 500); `before` pages older ones (no root then). */
+export async function listThread(input: { channelId: string; rootSeq: number; before?: number; limit?: number }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId) || !Number.isInteger(input.rootSeq)) return invalidInput;
+  if (input.before !== undefined && !Number.isInteger(input.before)) return invalidInput;
+  const limit = Number.isInteger(input.limit) ? Math.min(Math.max(input.limit!, 1), THREAD_PAGE) : THREAD_PAGE;
   try {
-    const [rows, [follow]] = await Promise.all([
+    const [rootRows, newest, [follow]] = await Promise.all([
+      input.before === undefined
+        ? selectMessages(user.id, input.channelId, sql`m.channel_seq = ${input.rootSeq}`, sql`m.channel_seq ASC`, 1)
+        : Promise.resolve([]),
       selectMessages(
         user.id, input.channelId,
-        sql`(m.channel_seq = ${input.rootSeq} OR m.thread_root_seq = ${input.rootSeq})`,
-        sql`m.channel_seq ASC`, 500,
+        input.before === undefined
+          ? sql`m.thread_root_seq = ${input.rootSeq}`
+          : sql`m.thread_root_seq = ${input.rootSeq} AND m.channel_seq < ${input.before}`,
+        sql`m.channel_seq DESC`, limit + 1,
       ),
       chatRows<{ last_read_seq: number }>(sql`
         SELECT last_read_seq::int FROM chat_thread_follows
         WHERE user_id = ${user.id}::uuid AND channel_id = ${input.channelId}::uuid AND root_seq = ${input.rootSeq}
       `),
     ]);
+    const replies = newest.slice(0, limit).reverse();
+    const rows = [...rootRows, ...replies];
     const cards = await hydrateCards(user.id, rows.flatMap((message) => (message.card ? [message.card] : [])));
     return {
       success: true as const,
-      root: rows[0] ?? null,
-      replies: rows.slice(1),
+      root: rootRows[0] ?? null,
+      replies,
+      hasOlder: newest.length > limit,
       cards,
       following: Boolean(follow),
       lastReadSeq: follow?.last_read_seq ?? null,

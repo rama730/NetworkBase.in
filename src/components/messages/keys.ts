@@ -13,7 +13,10 @@ export function editingWithText(target: EventTarget | null) {
   return false;
 }
 
-/** Escape belongs to an open dialog, confirm, menu or popover (or was already handled). */
+/**
+ * Escape belongs to an open dialog, confirm, menu or popover (or was already handled).
+ * The chat drawer is a dialog on mobile but closes on Escape itself, so it doesn't count.
+ */
 export function escapeTaken(event: KeyboardEvent) {
-  return event.defaultPrevented || Boolean(document.querySelector("[role=dialog],[role=alertdialog],[role=menu],[role=listbox]"));
+  return event.defaultPrevented || Boolean(document.querySelector("[role=dialog]:not([data-chat-pane]),[role=alertdialog],[role=menu],[role=listbox]"));
 }

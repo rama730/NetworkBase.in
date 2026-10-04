@@ -190,7 +190,8 @@
     "drizzle/0186_status_emoji.sql",
     "drizzle/0187_chat_reorganize.sql",
     "drizzle/0188_chat_tab_files.sql",
-    "drizzle/0189_chat_audit_fixes.sql"
+    "drizzle/0189_chat_audit_fixes.sql",
+    "drizzle/0190_chat_thread_self_reply.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

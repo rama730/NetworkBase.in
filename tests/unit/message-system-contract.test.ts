@@ -841,8 +841,8 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     );
     assert.match(
         composerSource,
-        /aria-label="Schedule message"/,
-        "Composer offers Send later (scheduled messages)",
+        /"Schedule message \(not with files\)" : "Schedule message"/,
+        "Composer offers Send later (scheduled messages), disabled while files are attached (plan #111)",
     );
 
     // 8.7 Pre-cards removed: no Open canvas action pill in channel Intro

@@ -36,6 +36,38 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
   const active: View = view === "thread" && panes.thread ? "thread" : panes.details ? "details" : "thread";
 
   useEffect(() => heading.current?.focus(), [active]);
+
+  // Below 1024px the drawer covers the screen: Tab stays inside it, and closing it
+  // returns focus to whatever opened it (the reply count, the Details button…).
+  const aside = useRef<HTMLElement>(null);
+  const [modal, setModal] = useState(false);
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const media = window.matchMedia("(max-width: 1023px)");
+    const sync = () => setModal(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => {
+      media.removeEventListener("change", sync);
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, []);
+  const trapTab = (event: React.KeyboardEvent) => {
+    if (!modal || event.key !== "Tab" || !aside.current) return;
+    const focusable = Array.from(aside.current.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), textarea, select, [contenteditable="true"], [tabindex]:not([tabindex="-1"])',
+    )).filter((el) => el.offsetParent !== null);
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
   const close = active === "thread" ? panes.closeThread : panes.closeDetails;
   const closeRef = useRef(close);
   useEffect(() => { closeRef.current = close; });
@@ -56,8 +88,12 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
 
   return (
     <aside
+      ref={aside}
       data-chat-pane="drawer"
       aria-label={label}
+      role={modal ? "dialog" : undefined}
+      aria-modal={modal || undefined}
+      onKeyDown={trapTab}
       className="fixed inset-0 z-40 flex flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[380px] lg:flex-none lg:border-l lg:border-border xl:w-[420px]"
     >
       <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2">
@@ -85,7 +121,7 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
             <h2 ref={heading} tabIndex={-1} className="flex-none text-[16px] font-semibold outline-none">{label}</h2>
             {where ? (
               active === "thread" && panes.thread ? (
-                <Link href={conversationHref(channelId, { m: panes.thread, thread: panes.thread })} className="truncate text-[13px] text-muted-foreground hover:text-foreground hover:underline" title="Show in conversation">
+                <Link href={conversationHref(channelId, { m: panes.thread, thread: panes.thread })} replace scroll={false} className="truncate text-[13px] text-muted-foreground hover:text-foreground hover:underline" title="Show in conversation">
                   {where}
                 </Link>
               ) : (

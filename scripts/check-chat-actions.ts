@@ -149,6 +149,22 @@ async function main() {
       return page.success && page.messages.every((m) => m.thread_root_seq === null)
         && page.messages.some((m) => m.seq === rootSeq && m.reply_count === 1);
     });
+    await check("listThread pages the newest replies first, older ones on request", async () => {
+      // As the owner: the member's send bucket (10 burst) is spent by the checks above.
+      as(owner, "Olivia");
+      const top = await messages.sendMessage({ channelId: general, body: "long thread" });
+      if (!top.success) return false;
+      // The owner replies in their own thread (0190: this used to fail).
+      for (const body of ["r1", "r2", "r3"]) await messages.sendMessage({ channelId: general, body, threadRootSeq: top.message.seq });
+      const latest = await messages.listThread({ channelId: general, rootSeq: top.message.seq, limit: 2 });
+      if (!latest.success || !latest.root) return false;
+      const older = await messages.listThread({ channelId: general, rootSeq: top.message.seq, limit: 2, before: latest.replies[0]!.seq });
+      return latest.replies.map((m) => m.body).join() === "r2,r3" && latest.hasOlder
+        && older.success && older.root === null && older.replies.map((m) => m.body).join() === "r1" && !older.hasOlder;
+    });
+    // Give the owner's 4 sends back (1 token/s) so later owner checks aren't rate limited.
+    await new Promise((resolve) => setTimeout(resolve, 4_200));
+    as(member, "Mason");
     await check("listThread returns root and replies", async () => {
       const thread = await messages.listThread({ channelId: general, rootSeq });
       return thread.success && thread.root?.seq === rootSeq && thread.replies.length === 1;

@@ -13,6 +13,7 @@ import { readChatUi, readDraft, writeChatUi, writeDraft } from "@/components/mes
 import { matchMentions, MentionDropdown } from "@/components/messages/parts/MentionDropdown";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
 import { failSend } from "@/components/messages/failed-sends";
+import { DROP_EVENT, DropOverlay, draftKeyOf, useFileDrop, type DropDetail } from "@/components/messages/useFileDrop";
 import { uploadChatFile } from "@/components/messages/upload";
 import { useUpdatePages } from "@/components/messages/useConversation";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -54,7 +55,7 @@ type Props = {
   channelId: string;
   placeholder: string;
   people: ChatPerson[];
-  /** Thread replies post with a root and no formatting toolbar or slash commands. */
+  /** Thread replies post with a root. They get the formatting toolbar and the slash commands, except /task. */
   threadRootSeq?: number | null;
   allowBroadcast: boolean;
   canCreateTask: boolean;
@@ -122,7 +123,6 @@ function TypingIndicator({ names }: { names: string[] }) {
       data-visible={visible}
       aria-hidden={!visible}
       className="pointer-events-none absolute inset-x-3 bottom-[calc(100%+1px)] flex h-5 items-center gap-1.5 truncate bg-gradient-to-t from-card px-1 text-[12px] text-muted-foreground transition-[opacity,transform] duration-200 ease-out data-[visible=false]:translate-y-1 data-[visible=false]:opacity-0 motion-reduce:transition-none sm:inset-x-4"
-      aria-live="polite"
     >
       <span className="nb-typing-dots" aria-hidden="true"><span /><span /><span /></span>
       <span className="truncate">
@@ -151,7 +151,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   const { user, profile } = useAuth();
   const update = useUpdatePages(channelId);
   const queryClient = useQueryClient();
-  const draftKey = threadRootSeq ? `${channelId}:${threadRootSeq}` : channelId;
+  const draftKey = draftKeyOf(channelId, threadRootSeq);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
@@ -274,7 +274,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       });
     };
   }, []);
-  useEffect(() => setFormatting(!threadRootSeq && Boolean(readChatUi().formatting)), [threadRootSeq]);
+  useEffect(() => setFormatting(Boolean(readChatUi().formatting)), []);
 
   const mentionable = useMemo(() => {
     const list = people.filter((p) => p.id !== user?.id).map((p) => ({ id: p.id, username: p.username, fullName: p.full_name, avatarUrl: p.avatar_url }));
@@ -290,7 +290,19 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     : slashForced ? commands : [];
   const activeSlash = Math.min(slashIndex, Math.max(0, matchingSlash.length - 1));
 
+  /** /code [lang]: turn the box into an empty code block to type in (nothing is sent). */
+  const startCodeBlock = (language: string | null) => {
+    if (!editor) return;
+    editor.chain().clearContent().focus().setCodeBlock(language ? { language } : undefined).run();
+  };
+
   const pickSlash = (command: string) => {
+    if (command === "/code") {
+      setSlashForced(false);
+      setSlashIndex(0);
+      startCodeBlock(null);
+      return;
+    }
     if (command === "/status") {
       setSlashForced(false);
       if (typedSlash !== null) clear();
@@ -366,7 +378,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     startUpload(u.id, u.file);
   };
 
-  const addFiles = (files: FileList | null) => {
+  const addFiles = (files: FileList | File[] | null) => {
     if (!files?.length) return;
     if (send) return void toast.message("Add files once the conversation has started.");
     const room = CHAT_MAX_ATTACHMENTS - uploads.length;
@@ -385,6 +397,19 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     }
   };
 
+  // Files dropped here, or on the timeline / thread list above (same draft key).
+  const addFilesRef = useRef(addFiles);
+  useEffect(() => { addFilesRef.current = addFiles; });
+  const drop = useFileDrop((files) => addFiles(files));
+  useEffect(() => {
+    const onDrop = (event: Event) => {
+      const detail = (event as CustomEvent<DropDetail>).detail;
+      if (detail?.draftKey === draftKey) addFilesRef.current(detail.files);
+    };
+    window.addEventListener(DROP_EVENT, onDrop);
+    return () => window.removeEventListener(DROP_EVENT, onDrop);
+  }, [draftKey]);
+
   const clear = () => {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     onTyping?.(false);
@@ -396,6 +421,22 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     setRestored(false);
     setAlsoToChannel(false);
     writeDraft(draftKey, "");
+  };
+
+  /** Discard the restored draft, with Undo. */
+  const discardDraft = () => {
+    const kept = value;
+    clear();
+    toast("Draft discarded", {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          load(kept);
+          writeDraft(draftKey, kept);
+          setRestored(true);
+        },
+      },
+    });
   };
 
   /** Send later: the text only (uploads send now), queued for the chat-due job. */
@@ -457,8 +498,8 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         text = `📊 **Poll: ${raw}**\n\n👍 Yes\n👎 No\n🤷 Maybe\n\n*React below to vote!*`;
       }
     } else if (/^\/code(\s+|$)/i.test(text)) {
-      const lang = text.replace(/^\/code\s*/i, "").trim() || "typescript";
-      text = "```" + lang + "\n// Write your code here\n```";
+      startCodeBlock(text.replace(/^\/code\s*/i, "").trim() || null);
+      return;
     }
     const body = encodeMentions(text, people.map((p) => ({ id: p.id, name: personLabel(p) })));
     if (body.length > CHAT_MAX_BODY) return void toast.error(chatErrorMessage("chat_body_too_long"));
@@ -534,7 +575,8 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   const mentionedIds = useMemo(() => Array.from(new Set(Array.from(value.matchAll(/<@([0-9a-f-]{36})>/g), (match) => match[1]!))).filter((id) => id !== user?.id).slice(0, 5), [user?.id, value]);
 
   return (
-    <div className="nb-message-composer relative border-t border-border bg-card px-3 pt-2 sm:px-4">
+    <div className="nb-message-composer relative border-t border-border bg-card px-3 pt-2 sm:px-4" {...drop.handlers}>
+      <DropOverlay show={drop.dragging} />
       <TypingIndicator names={typingNames} />
       {uploads.length ? (
         <ul className="mb-2 flex flex-wrap gap-2" aria-label="Attachments">
@@ -580,7 +622,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         <div className="mb-1.5 flex items-center gap-2 text-[12px] text-muted-foreground">
           <span className="rounded-[3px] bg-muted px-1.5 py-0.5 font-medium text-foreground">Draft</span>
           <span>Restored from earlier.</span>
-          <button type="button" onClick={clear} className="font-medium text-primary hover:underline">Discard</button>
+          <button type="button" onClick={discardDraft} className="font-medium text-primary hover:underline">Discard</button>
         </div>
       ) : null}
       <div className="relative rounded-lg border border-input bg-card focus-within:border-ring">
@@ -678,11 +720,9 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {threadRootSeq ? null : (
-            <button type="button" aria-label={formatting ? "Hide formatting" : "Show formatting"} title={formatting ? "Hide formatting" : "Show formatting"} aria-pressed={formatting} onMouseDown={(e) => e.preventDefault()} onClick={() => { setFormatting(!formatting); writeChatUi({ formatting: !formatting }); }} className={barButton(formatting)}>
-              <ALargeSmall size={18} />
-            </button>
-          )}
+          <button type="button" aria-label={formatting ? "Hide formatting" : "Show formatting"} title={formatting ? "Hide formatting" : "Show formatting"} aria-pressed={formatting} onMouseDown={(e) => e.preventDefault()} onClick={() => { setFormatting(!formatting); writeChatUi({ formatting: !formatting }); }} className={barButton(formatting)}>
+            <ALargeSmall size={18} />
+          </button>
           <button
             type="button"
             data-reaction-trigger
@@ -734,11 +774,11 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           >
             <SendHorizontal size={15} /> <span className="hidden sm:inline">Send</span>
           </button>
-          {send ? null : <DropdownMenu>
+          {send ? null : <span className="contents" title={uploads.length ? "Scheduled messages can't carry files yet" : undefined}><DropdownMenu>
             <DropdownMenuTrigger
-              disabled={!plain.trim() || sending}
-              aria-label="Schedule message"
-              title="Send later"
+              disabled={!plain.trim() || sending || uploads.length > 0}
+              aria-label={uploads.length ? "Schedule message (not with files)" : "Schedule message"}
+              title={uploads.length ? "Scheduled messages can't carry files yet" : "Send later"}
               className="-ml-px inline-flex h-8 items-center rounded-r-[5px] border-l border-primary-foreground/20 bg-primary px-1.5 text-primary-foreground disabled:bg-muted disabled:text-muted-foreground disabled:opacity-50 pointer-coarse:h-11"
             >
               <ChevronDown size={14} />
@@ -753,7 +793,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => setCustomSchedule(localInput(new Date(clock() + 2 * 60 * 60_000)))}>Custom time…</DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>}
+          </DropdownMenu></span>}
         </div>
       </div>
       {threadRootSeq && alsoSendTo ? (
