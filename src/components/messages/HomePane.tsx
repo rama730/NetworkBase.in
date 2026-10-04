@@ -64,7 +64,10 @@ export function HomePane() {
   });
 
   const visible = (data?.channels ?? []).filter((c) => !c.archived_at && !c.channel_archived_at && (!project || c.project_id === project.id || isDirectLike(c)));
-  const unread = visible.filter(needsAttention).sort((a, b) => (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "")).slice(0, 8);
+  const needing = visible.filter(needsAttention).sort((a, b) => (b.last_message_at ?? "").localeCompare(a.last_message_at ?? ""));
+  // The headline counts all of them; the card lists the first 8.
+  const unread = needing.slice(0, 8);
+  const loading = !data;
   const recent = visible.filter((c) => !needsAttention(c) && c.last_message_at).sort((a, b) => (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "")).slice(0, 6);
   const inboxUnread = data?.inbox_unread ?? 0;
   // Every conversation that needs you (not just the 8 shown), in one roundtrip (ACT-04).
@@ -82,7 +85,7 @@ export function HomePane() {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[20px] font-semibold tracking-tight">{project ? project.title : "Home"}</h1>
             <p className="text-[13px] text-muted-foreground">
-              {unread.length ? `${unread.length} conversation${unread.length === 1 ? "" : "s"} with something new` : "You're all caught up."}
+              {loading ? "Loading…" : needing.length ? `${needing.length} conversation${needing.length === 1 ? "" : "s"} with something new` : "You're all caught up."}
             </p>
           </div>
           {project ? (
@@ -104,12 +107,12 @@ export function HomePane() {
           icon={<CheckCheck size={15} />}
           action={unread.length ? <button type="button" onClick={markAll} className="text-[12px] font-medium text-primary hover:underline">Mark all read</button> : null}
         >
-          {unread.length ? unread.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">Nothing unread.</p>}
+          {unread.length ? unread.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">{loading ? "Loading…" : "Nothing unread."}</p>}
         </Card>
 
         <div className="grid gap-4 md:grid-cols-2">
           <Card title="Recent" icon={<Hash size={15} />}>
-            {recent.length ? recent.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">No other recent conversations.</p>}
+            {recent.length ? recent.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">{loading ? "Loading…" : "No other recent conversations."}</p>}
           </Card>
           <Card title="Your threads" icon={<MessagesSquare size={15} />} action={<Link href="/messages/inbox?filter=threads" className="text-[12px] font-medium text-primary hover:underline">All</Link>}>
             {(threads.data ?? []).slice(0, 5).map((t) => (

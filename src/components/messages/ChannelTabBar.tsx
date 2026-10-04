@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ChannelTabItem } from "@/lib/messaging/channel-tabs";
+import { copyWithToast } from "@/lib/clipboard";
 
 type Props = {
   activeTab: string;
@@ -63,8 +64,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
             className="group relative -mb-px inline-flex flex-none items-center"
             onContextMenu={tab.kind === "link" && tab.url ? (e) => {
               e.preventDefault();
-              void navigator.clipboard?.writeText(tab.url!);
-              toast.success(`Copied "${tab.title}" link`);
+              void copyWithToast(tab.url!, `Copied "${tab.title}" link`);
             } : undefined}
           >
             <button

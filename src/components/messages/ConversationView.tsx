@@ -42,6 +42,7 @@ import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, type DetailsTab } from "@/lib/messaging/routes";
 import type { ChatNotify } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
+import { copyWithToast } from "@/lib/clipboard";
 
 type Props = {
   channelId: string;
@@ -336,12 +337,16 @@ export function ConversationView({ channelId, around = null, surface = "page", o
 
   const setState = async (patch: { notify?: ChatNotify; starred?: boolean; archived?: boolean }) => {
     const result = await setMemberState({ channelId, ...patch });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    if (!result.success) {
+      toast.error(chatErrorMessage(result.error));
+      return false;
+    }
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
     shell.refresh();
+    return true;
   };
   const closeConversation = async () => {
-    await setState({ archived: true });
+    if (!(await setState({ archived: true }))) return;
     router.push("/messages");
     toast("Conversation closed", {
       action: { label: "Undo", onClick: () => void setState({ archived: false }).then(() => router.push(conversationHref(channelId))) },
@@ -512,7 +517,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     {channel.kind !== "dm" ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus size={14} className="mr-2" /> Add people</DropdownMenuItem> : null}
                     <DropdownMenuItem onSelect={() => setDialog("bookmark")}><Bookmark size={14} className="mr-2" /> Add a bookmark</DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(`${window.location.origin}${conversationHref(channelId)}`); toast.success("Link copied"); }}>
+                    <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${conversationHref(channelId)}`, "Link copied"); }}>
                       <Link2 size={14} className="mr-2" /> Copy link
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={markAllRead}><Check size={14} className="mr-2" /> Mark as read</DropdownMenuItem>

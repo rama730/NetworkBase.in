@@ -38,6 +38,8 @@ type Upload = {
   error: boolean;
   previewUrl?: string | null;
   isImage?: boolean;
+  /** Kept so a failed upload can be retried. */
+  file?: File;
 };
 
 const SLASH_COMMANDS = [
@@ -341,18 +343,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     });
   };
 
-  const addFiles = (files: FileList | null) => {
-    if (!files?.length) return;
-    const room = CHAT_MAX_ATTACHMENTS - uploads.length;
-    for (const file of Array.from(files).slice(0, room)) {
-      if (file.size > ATTACHMENT_UPLOAD_MAX_FILE_BYTES) {
-        toast.error(`${file.name} is too large.`);
-        continue;
-      }
-      const id = crypto.randomUUID();
-      const isImage = file.type.startsWith("image/");
-      const previewUrl = isImage ? URL.createObjectURL(file) : null;
-      setUploads((list) => [...list, { id, name: file.name, progress: 0, assetId: null, error: false, previewUrl, isImage }]);
+  const startUpload = (id: string, file: File) => {
       const controller = new AbortController();
       transfers.current.set(id, controller);
       // Same percent → same list, so React skips the re-render (UPL-02).
@@ -365,6 +356,28 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           if (!controller.signal.aborted) setUploads((list) => list.map((u) => (u.id === id ? { ...u, error: true } : u)));
         })
         .finally(() => transfers.current.delete(id));
+  };
+  const retryUpload = (u: Upload) => {
+    if (!u.file) return;
+    setUploads((list) => list.map((x) => (x.id === u.id ? { ...x, error: false, progress: 0 } : x)));
+    startUpload(u.id, u.file);
+  };
+
+  const addFiles = (files: FileList | null) => {
+    if (!files?.length) return;
+    const room = CHAT_MAX_ATTACHMENTS - uploads.length;
+    const picked = Array.from(files);
+    if (picked.length > room) toast.error(`Up to ${CHAT_MAX_ATTACHMENTS} files per message; ${picked.length - Math.max(room, 0)} skipped.`);
+    for (const file of picked.slice(0, Math.max(room, 0))) {
+      if (file.size > ATTACHMENT_UPLOAD_MAX_FILE_BYTES) {
+        toast.error(`${file.name} is too large.`);
+        continue;
+      }
+      const id = crypto.randomUUID();
+      const isImage = file.type.startsWith("image/");
+      const previewUrl = isImage ? URL.createObjectURL(file) : null;
+      setUploads((list) => [...list, { id, name: file.name, progress: 0, assetId: null, error: false, previewUrl, isImage, file }]);
+      startUpload(id, file);
     }
   };
 
@@ -377,6 +390,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     setBlank(true);
     setSlashForced(false);
     setRestored(false);
+    setAlsoToChannel(false);
     writeDraft(draftKey, "");
   };
 
@@ -403,6 +417,10 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (sending || (!plain.trim() && !ready.length)) return;
     if (uploads.some((u) => !u.assetId && !u.error)) {
       toast.message("Wait for uploads to finish.");
+      return;
+    }
+    if (uploads.some((u) => u.error)) {
+      toast.error("A file didn't upload. Retry it or remove it, then send.");
       return;
     }
     if (!threadRootSeq && canCreateTask && /^\/task\s+\S/.test(text)) {
@@ -450,6 +468,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     };
     // The box clears at once; any failure puts the text and attachments back.
     const sentUploads = uploads;
+    const sentAlso = alsoToChannel;
     const threadKey = threadRootSeq ? queryKeys.chat.thread(channelId, threadRootSeq) : null;
     const putInThread = (map: (replies: ChatMessageView[]) => ChatMessageView[]) => {
       if (threadKey) queryClient.setQueryData<{ replies: ChatMessageView[] }>(threadKey, (t) => (t ? { ...t, replies: map(t.replies) } : t));
@@ -468,6 +487,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       load(draft);
       writeDraft(draftKey, draft);
       setUploads(sentUploads);
+      setAlsoToChannel(sentAlso);
       toast.error(chatErrorMessage(result.error));
       return;
     }
@@ -497,7 +517,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (window.matchMedia("(pointer: coarse)").matches) setSheetOpen(true);
     else fileInput.current?.click();
   };
-  const canSend = Boolean(plain.trim() || uploads.some((u) => u.assetId));
+  const canSend = Boolean(plain.trim() || uploads.some((u) => u.assetId)) && !uploads.some((u) => u.error);
   const mentionedIds = useMemo(() => Array.from(new Set(Array.from(value.matchAll(/<@([0-9a-f-]{36})>/g), (match) => match[1]!))).filter((id) => id !== user?.id).slice(0, 5), [user?.id, value]);
 
   return (
@@ -518,9 +538,10 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
                   </div>
                 ) : null}
                 {u.error ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-destructive/80 text-[11px] font-semibold text-destructive-foreground">
+                  <button type="button" onClick={() => retryUpload(u)} className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-destructive/80 text-[11px] font-semibold text-destructive-foreground" aria-label={`Retry ${u.name}`}>
                     Failed
-                  </div>
+                    <span className="underline">Retry</span>
+                  </button>
                 ) : null}
                 <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-black/60 text-white hover:bg-black">
                   <X size={12} />
@@ -530,7 +551,11 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
               <li key={u.id} className={`flex max-w-[220px] items-center gap-2 rounded-[5px] border px-2 py-1 text-[13px] ${u.error ? "border-destructive text-destructive" : "border-border"}`}>
                 <Paperclip size={14} aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate">{u.name}</span>
-                <span className="font-mono text-[11px]">{u.error ? "Failed" : u.assetId ? "Ready" : `${u.progress}%`}</span>
+                {u.error ? (
+                  <button type="button" onClick={() => retryUpload(u)} className="font-mono text-[11px] underline" aria-label={`Retry ${u.name}`}>Retry</button>
+                ) : (
+                  <span className="font-mono text-[11px]">{u.assetId ? "Ready" : `${u.progress}%`}</span>
+                )}
                 <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="grid size-6 place-items-center pointer-coarse:size-11"><X size={12} /></button>
               </li>
             )
@@ -683,7 +708,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
             onClick={() => void submit()}
             disabled={!canSend || sending}
             aria-label="Send"
-            title={canSend ? "Send (Enter) · Shift+Enter for new line" : "Type a message to send"}
+            title={canSend ? "Send (Enter) · Shift+Enter for new line" : uploads.some((u) => u.error) ? "Retry or remove the failed file" : "Type a message to send"}
             className={`ml-auto inline-flex h-8 items-center gap-1.5 rounded-l-[5px] px-3.5 text-[13px] font-medium transition-colors shadow-2xs pointer-coarse:h-11 ${
               canSend && !sending
                 ? "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
@@ -740,7 +765,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
             }}
           >
             <label className="block text-[13px] font-medium">Send at
-              <input type="datetime-local" required value={customSchedule ?? ""} onChange={(e) => setCustomSchedule(e.target.value)} className="mt-1 h-10 w-full rounded-[5px] border border-input bg-background px-3 text-[14px]" />
+              <input type="datetime-local" required min={localInput(new Date(clock() + 60_000))} value={customSchedule ?? ""} onChange={(e) => setCustomSchedule(e.target.value)} className="mt-1 h-10 w-full rounded-[5px] border border-input bg-background px-3 text-[14px]" />
             </label>
             <DialogFooter>
               <button type="button" onClick={() => setCustomSchedule(null)} className="h-9 rounded-[5px] border border-border px-3 text-[13px]">Cancel</button>
