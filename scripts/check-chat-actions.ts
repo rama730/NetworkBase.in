@@ -507,6 +507,68 @@ async function main() {
       const result = await messages.listFiles({ channelId: general });
       return result.success && result.files.every((f) => "thread_root_seq" in f);
     });
+    // ── Phase 8 (Details + Inbox) ──
+    await check("Inbox All includes reactions as read rows", async () => {
+      as(owner, "Olivia");
+      const result = await activity.listInbox({ filter: "all" });
+      as(member, "Mason");
+      return result.success && result.items.some((i) => i.kind === "reaction" && i.read);
+    });
+    await check("listThreads pages by last reply and returns last_reply_seq", async () => {
+      as(member, "Mason");
+      const all = await activity.listThreads();
+      const first = await activity.listThreads({ limit: 1 });
+      if (!all.success || !first.success || all.threads.length < 2 || first.threads.length !== 1) return false;
+      const head = first.threads[0]!;
+      const next = await activity.listThreads({ limit: 1, before: head.last_reply_at });
+      return typeof head.last_reply_seq === "number" && next.success && next.threads.length === 1
+        && `${next.threads[0]!.channel_id}:${next.threads[0]!.root_seq}` !== `${head.channel_id}:${head.root_seq}`;
+    });
+    await check("markInboxUnread puts a read item back to unread", async () => {
+      as(member, "Mason");
+      const inbox = await activity.listInbox({ filter: "all" });
+      const item = inbox.success ? inbox.items.find((i) => i.kind === "thread_reply" && i.body === "p3 reply") : undefined;
+      if (!item || !item.read) return false;
+      const marked = await activity.markInboxUnread({ channelId: item.channel_id, seq: item.seq });
+      const again = await activity.listInbox({ filter: "all" });
+      const boot = await read.bootstrap();
+      const now = again.success ? again.items.find((i) => i.channel_id === item.channel_id && i.seq === item.seq && i.kind === "thread_reply") : undefined;
+      await activity.markInboxRead({ items: [{ channelId: item.channel_id, seq: item.seq }] });
+      return marked.success && now?.read === false && boot.success && (boot.data.inbox_unread ?? 0) > 0;
+    });
+    await check("Saved and Search page with one page size", async () => {
+      as(member, "Mason");
+      const page = await messages.listMessages({ channelId: general });
+      const seqs = page.success ? page.messages.filter((m) => m.seq > 0).slice(-2).map((m) => m.seq) : [];
+      if (seqs.length < 2) return false;
+      for (const seq of seqs) await later.saveMessage({ channelId: general, seq, on: true });
+      const one = await later.listSaved({ limit: 1 });
+      const two = await later.listSaved({ limit: 1, offset: 1 });
+      for (const seq of seqs) await later.saveMessage({ channelId: general, seq, on: false });
+      const hits = await search.searchMessages({ query: "", channelId: general, limit: 2 });
+      if (!hits.success || hits.hits.length !== 2) return false;
+      const older = await search.searchMessages({ query: "", channelId: general, limit: 2, cursor: hits.hits[1]!.created_at });
+      return one.success && two.success && one.items.length === 1 && two.items.length === 1 && one.items[0]!.seq !== two.items[0]!.seq
+        && older.success && older.hits.length > 0 && older.hits.every((h) => Date.parse(h.created_at) < Date.parse(hits.hits[1]!.created_at));
+    });
+    await check("channel admins switch a channel between public and private", async () => {
+      as(owner, "Olivia");
+      const made = await channels.createChannel({ projectId, name: "privacy-check" });
+      if (!made.success) return false;
+      const toPrivate = await channels.setChannelPrivacy({ channelId: made.channelId, private: true });
+      as(member, "Mason");
+      const browse = await channels.browseChannels({ projectId });
+      const notAdmin = await channels.setChannelPrivacy({ channelId: made.channelId, private: false });
+      as(owner, "Olivia");
+      const toPublic = await channels.setChannelPrivacy({ channelId: made.channelId, private: false });
+      const general_ = await channels.setChannelPrivacy({ channelId: general, private: true });
+      const group = await members.createGroup({ userIds: [member] });
+      const groupRefused = group.success ? await channels.setChannelPrivacy({ channelId: group.channelId, private: false }) : { success: true };
+      const [row] = await sql`SELECT kind FROM chat_channels WHERE id = ${made.channelId}`;
+      as(member, "Mason");
+      return toPrivate.success && browse.success && !browse.channels.some((c) => c.id === made.channelId) && !notAdmin.success
+        && toPublic.success && row?.kind === "public" && !general_.success && !groupRefused.success;
+    });
     await check("leaveChannel works for non-default channels only", async () => {
       const left = await channels.leaveChannel({ channelId: launch });
       const refused = await channels.leaveChannel({ channelId: general });

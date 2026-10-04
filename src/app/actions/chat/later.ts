@@ -2,7 +2,7 @@
 
 import { sql } from "drizzle-orm";
 
-import { CHAT_MAX_BODY } from "@/lib/messaging/constants";
+import { CHAT_LIST_PAGE, CHAT_MAX_BODY } from "@/lib/messaging/constants";
 import { chatFailure, chatRows, invalidInput, isUuid, requireChatUser, unauthorized } from "@/lib/messaging/server";
 import type { ChatPerson } from "@/lib/messaging/types";
 
@@ -62,10 +62,14 @@ export type SavedItem = {
   author: ChatPerson | null;
 };
 
-/** Saved messages, due reminders first, then newest saves. */
-export async function listSaved() {
+/** Saved messages, due reminders first, then newest saves; one page at a time (`offset`). */
+// ponytail: offset paging keeps the due-first order simple. ceiling: deep pages of a very
+// large Saved list re-sort what they skip. upgrade: a (due, remind_at, saved_at) keyset cursor.
+export async function listSaved(input: { offset?: number; limit?: number } = {}) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
+  const offset = Number.isInteger(input?.offset) && input.offset! > 0 ? input.offset! : 0;
+  const limit = Number.isInteger(input?.limit) ? Math.min(Math.max(input.limit!, 1), CHAT_LIST_PAGE) : CHAT_LIST_PAGE;
   try {
     const items = await chatRows<SavedItem>(sql`
       SELECT s.channel_id, c.name AS channel_name, c.kind AS channel_kind, s.message_seq::int AS seq,
@@ -83,8 +87,8 @@ export async function listSaved() {
       LEFT JOIN profiles pr ON pr.id = m.author_id
       WHERE s.user_id = ${user.id}::uuid AND m.deleted_at IS NULL
         AND app_private.chat_is_member(s.channel_id, ${user.id}::uuid)
-      ORDER BY (s.remind_at IS NOT NULL AND s.reminded_at IS NULL) DESC, s.remind_at ASC NULLS LAST, s.created_at DESC
-      LIMIT 200
+      ORDER BY (s.remind_at IS NOT NULL AND s.reminded_at IS NULL) DESC, s.remind_at ASC NULLS LAST, s.created_at DESC, s.channel_id, s.message_seq
+      LIMIT ${limit} OFFSET ${offset}
     `);
     return { success: true as const, items };
   } catch (error) {
