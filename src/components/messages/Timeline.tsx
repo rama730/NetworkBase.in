@@ -27,6 +27,8 @@ type Props = {
   onMarkRead?: () => void;
   /** Someone is typing: the footer opens to make room for the floating indicator. */
   typing?: boolean;
+  /** A message to bring into view (↑ to edit your last message). */
+  revealSeq?: number | null;
 };
 
 function startOfDay(value: string) {
@@ -74,7 +76,7 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
  * Virtualized timeline (Virtuoso prepend pattern): older pages prepend without
  * moving the reader, new messages follow only when already at the bottom.
  */
-export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead, typing = false }: Props) {
+export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead, typing = false, revealSeq = null }: Props) {
   const virtuoso = useRef<VirtuosoHandle>(null);
   // The divider stays where it was when the channel opened, not where the cursor moves to.
   const [dividerSeq] = useState(lastReadSeq);
@@ -142,6 +144,20 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     virtuoso.current?.scrollToIndex({ index, align: "center", behavior: "smooth" });
     setHighlight(highlightSeq);
   }, [highlightSeq, items]);
+
+  // Editing an older message (↑ in the composer) scrolls it into view, once per edit.
+  const revealed = useRef<number | null>(null);
+  useEffect(() => {
+    if (!revealSeq) {
+      revealed.current = null;
+      return;
+    }
+    if (revealed.current === revealSeq) return;
+    const index = items.findIndex((item) => item.type === "message" && item.message.seq === revealSeq);
+    if (index < 0) return;
+    revealed.current = revealSeq;
+    virtuoso.current?.scrollIntoView({ index });
+  }, [items, revealSeq]);
 
   // Jump to a date: the first message on or after it, loading older pages as needed.
   useEffect(() => {

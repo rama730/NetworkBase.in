@@ -44,6 +44,7 @@ import type { ChatMessageView, ChatNotify } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
 import { useConversationExit } from "@/components/messages/useConversationExit";
+import { DropOverlay, draftKeyOf, dropFilesTo, useFileDrop } from "@/components/messages/useFileDrop";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 
 type Props = {
@@ -248,6 +249,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const online = useOnlineUsers(channel?.kind === "dm" && channel.dm_user && channel.dm_user.id !== meId ? [channel.dm_user.id] : []);
   const memberIds = useMemo(() => people.slice(0, 3).map((p) => p.id), [people]);
   const memberOnline = useOnlineUsers(memberIds);
+  // Files dropped on the timeline go to this conversation's composer.
+  const drop = useFileDrop((files) => dropFilesTo(draftKeyOf(channelId, null), files));
 
   useEffect(() => setCanvasHidden((readChatUi().hiddenCanvas ?? []).includes(channelId)), [channelId]);
   // A jump to a message (?m=) always lands on the timeline.
@@ -620,7 +623,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             />
           </div>
         ) : (
-          <>
+          <div className="relative flex min-h-0 flex-1 flex-col" {...(isMember && !archived ? drop.handlers : {})}>
+            <DropOverlay show={drop.dragging} />
             {conversation.query.isLoading && !conversation.messages.length ? <TimelineSkeleton /> : (
               <Timeline
                 key={`${channelId}:${timeline.epoch}`}
@@ -635,6 +639,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 onSeen={isMember ? conversation.markSeen : () => undefined}
                 onMarkRead={isMember ? markAllRead : undefined}
                 typing={typing.names.length > 0}
+                revealSeq={editingSeq}
               />
             )}
             {conversation.query.isError ? (
@@ -665,7 +670,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 onEditLast={editLast}
               />
             )}
-          </>
+          </div>
         )}
       </section>
       {dialog === "bookmark" ? <AddTabLinkDialog open onOpenChange={(open) => !open && setDialog(null)} onAddTab={(name, url) => void addTab("link", name, url)} /> : null}
