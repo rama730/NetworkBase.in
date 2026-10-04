@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
       { source: '/profile/:path*', destination: '/my-profile/:path*', permanent: true },
       // Messages: Activity and Threads became the Inbox; thread and details open as drawers on the conversation.
       { source: '/messages/activity', destination: '/messages/inbox', permanent: false },
+      // Merged into /messages (the sidebar's DM section now expands in place).
+      { source: '/messages/home', destination: '/messages', permanent: false },
+      { source: '/messages/dms', destination: '/messages', permanent: false },
       { source: '/messages/threads', destination: '/messages/inbox?filter=threads', permanent: false },
       { source: '/messages/:channelId/thread/:seq', destination: '/messages/:channelId?thread=:seq', permanent: false },
       { source: '/messages/:channelId/details', has: [{ type: 'query', key: 'tab', value: 'members' }], destination: '/messages/:channelId?details=members', permanent: false },

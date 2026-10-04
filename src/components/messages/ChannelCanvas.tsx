@@ -13,10 +13,12 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useChannelCanvas } from "@/components/messages/useConversation";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { CANVAS_MAX_TITLE, CANVAS_TEMPLATES, type CanvasTemplate } from "@/lib/messaging/canvas-store";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { queryKeys } from "@/lib/query-keys";
+import { copyWithToast } from "@/lib/clipboard";
 
 export type CanvasSeed = { title: string; body: string; nonce: number };
 
@@ -42,6 +44,8 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [hasBody, setHasBody] = useState(false);
+  // Clearing or applying a template rewrites the canvas for everyone: ask first when it has content.
+  const [pendingReplace, setPendingReplace] = useState<{ kind: "clear" } | { kind: "template"; template: CanvasTemplate } | null>(null);
   const version = useRef(0);
   const loaded = useRef(false);
   const dirty = useRef(false);
@@ -147,23 +151,36 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
     void saveRef.current();
   }, [channelId, queryClient]);
 
-  const applyTemplate = (template: CanvasTemplate) => {
+  const writeTemplate = (template: CanvasTemplate) => {
     const generated = template.generate(channel.name || "general", channel.project_title);
     apply(generated.title, generated.content);
     toast.success(`"${template.name}" template applied`);
   };
+  const applyTemplate = (template: CanvasTemplate) => {
+    if (hasBody || titleRef.current.trim()) setPendingReplace({ kind: "template", template });
+    else writeTemplate(template);
+  };
+  const confirmReplace = () => {
+    const pending = pendingReplace;
+    setPendingReplace(null);
+    if (pending?.kind === "template") writeTemplate(pending.template);
+    else if (pending?.kind === "clear") {
+      apply("", "");
+      setTrayHidden(false);
+    }
+  };
 
   const copyLink = () => {
-    void navigator.clipboard?.writeText(`${window.location.origin}/messages/${channelId}?tab=canvas`);
-    setCopied(true);
-    toast.success("Canvas link copied");
-    setTimeout(() => setCopied(false), 2000);
+    void copyWithToast(`${window.location.origin}/messages/${channelId}?tab=canvas`, "Canvas link copied").then((ok) => {
+      if (!ok) return;
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const copyMarkdown = () => {
     const body = bodyRef.current.replace(/\]\(\/api\//g, `](${window.location.origin}/api/`);
-    void navigator.clipboard?.writeText(`${titleRef.current.trim() ? `# ${titleRef.current.trim()}\n\n` : ""}${body}`);
-    toast.success("Canvas copied as Markdown");
+    void copyWithToast(`${titleRef.current.trim() ? `# ${titleRef.current.trim()}\n\n` : ""}${body}`, "Canvas copied as Markdown");
   };
 
   const canvas = query.data;
@@ -205,7 +222,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
               <DropdownMenuItem onSelect={() => editor && printCanvas(titleRef.current.trim(), editor.getHTML())}><FileDown size={14} /> Download as PDF</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setTemplatesOpen(true)}><Sparkles size={14} className="text-primary" /> Template gallery</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => { apply("", ""); setTrayHidden(false); }}><Trash2 size={14} /> Clear canvas</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setPendingReplace({ kind: "clear" })}><Trash2 size={14} /> Clear canvas</DropdownMenuItem>
               {onDelete ? <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive"><Trash2 size={14} /> Delete canvas</DropdownMenuItem> : null}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -293,6 +310,15 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
         onSelectTemplate={applyTemplate}
         channelName={channel.name || "general"}
         projectName={channel.project_title ?? null}
+      />
+      <ConfirmDialog
+        open={pendingReplace !== null}
+        onOpenChange={(open) => !open && setPendingReplace(null)}
+        title={pendingReplace?.kind === "clear" ? "Clear the canvas for everyone?" : "Replace the canvas?"}
+        description="Everyone in the channel sees the change. Copy it first if you want to keep it."
+        confirmLabel={pendingReplace?.kind === "clear" ? "Clear canvas" : "Replace"}
+        variant="destructive"
+        onConfirm={confirmReplace}
       />
     </div>
   );

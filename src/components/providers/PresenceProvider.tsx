@@ -28,6 +28,8 @@ export function PresenceProvider({ children = null, presenceEnabled = true }: Pr
     const active = Boolean(user) && !isLoading;
     const presenceActive = active && presenceEnabled;
     const [engaged, setEngaged] = useState(() => typeof document === 'undefined' || !document.hidden);
+    // Hidden activity (server says so): no realtime "online" either.
+    const [hidden, setHidden] = useState(false);
 
     useEffect(() => {
         if (!presenceActive) {
@@ -75,7 +77,11 @@ export function PresenceProvider({ children = null, presenceEnabled = true }: Pr
                     body: JSON.stringify({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
                     keepalive: true,
                 });
-                if (response.ok) lastSuccessfulHeartbeatAt = Date.now();
+                if (response.ok) {
+                    lastSuccessfulHeartbeatAt = Date.now();
+                    const body = await response.json().catch(() => null) as { data?: { hidden?: boolean } } | null;
+                    setHidden(body?.data?.hidden === true);
+                }
             } finally {
                 heartbeatInFlight = false;
             }
@@ -86,10 +92,22 @@ export function PresenceProvider({ children = null, presenceEnabled = true }: Pr
         return () => window.clearInterval(interval);
     }, [engaged, presenceActive, user?.id]);
 
+    // Closing the tab clears "Active now" at once instead of waiting out the live key's TTL.
+    // Another open tab sets it again on its next heartbeat; chat's realtime presence sees it sooner.
+    useEffect(() => {
+        if (!presenceActive) return;
+        const goOffline = (event: PageTransitionEvent) => {
+            if (event.persisted) return; // bfcache: page may come back
+            void fetch('/api/v1/presence/heartbeat', { method: 'DELETE', keepalive: true }).catch(() => undefined);
+        };
+        window.addEventListener('pagehide', goOffline);
+        return () => window.removeEventListener('pagehide', goOffline);
+    }, [presenceActive]);
+
     return (
         <>
             {children}
-            {presenceActive && engaged ? <OnlinePresencePublisher /> : null}
+            {presenceActive && engaged && !hidden ? <OnlinePresencePublisher /> : null}
         </>
     );
 }

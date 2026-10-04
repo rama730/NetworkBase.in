@@ -1,6 +1,7 @@
 // User-facing copy for the chat_* error codes raised by the SQL functions.
 const MESSAGES: Record<string, string> = {
   chat_unauthorized: "Sign in to continue.",
+  chat_network: "Couldn't reach the server. Your message is back in the box; try again.",
   chat_invalid_input: "That didn't look right. Check it and try again.",
   chat_rate_limited: "You're going a bit fast. Try again in a moment.",
   chat_duplicate: "A channel with that name already exists.",

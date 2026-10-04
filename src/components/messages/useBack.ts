@@ -3,11 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 
-/** Back to the previous screen; a deep link with no history goes to `fallback`. */
+import { canGoBackInApp } from "@/lib/navigation/in-app-history";
+
+/** Back to the previous in-app screen; a deep link (nothing of ours behind it) goes to `fallback`. */
 export function useBack(fallback = "/messages") {
   const router = useRouter();
   return useCallback(() => {
-    if (window.history.length > 1) router.back();
+    if (canGoBackInApp()) router.back();
     else router.push(fallback);
   }, [fallback, router]);
 }

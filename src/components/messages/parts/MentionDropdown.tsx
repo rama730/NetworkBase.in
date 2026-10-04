@@ -18,17 +18,17 @@ interface MentionDropdownProps {
     onClose: () => void;
 }
 
+/** The people an @query shows (the composer only lets Enter pick when there are some). */
+export function matchMentions<T extends MentionParticipant>(participants: T[], query: string) {
+    const q = query.toLowerCase();
+    return participants.filter((p) => (p.username && p.username.toLowerCase().includes(q)) || (p.fullName && p.fullName.toLowerCase().includes(q))).slice(0, 5);
+}
+
 export function MentionDropdown({ query, participants, onSelect, onClose }: MentionDropdownProps) {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const listRef = useRef<HTMLDivElement>(null);
 
-    const filtered = participants.filter((p) => {
-        const q = query.toLowerCase();
-        return (
-            (p.username && p.username.toLowerCase().includes(q)) ||
-            (p.fullName && p.fullName.toLowerCase().includes(q))
-        );
-    }).slice(0, 5);
+    const filtered = matchMentions(participants, query);
 
     useEffect(() => {
         setSelectedIndex(0);
@@ -36,6 +36,8 @@ export function MentionDropdown({ query, participants, onSelect, onClose }: Ment
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
+            // Nothing matches: Enter sends, arrows move the caret (nothing to pick).
+            if (!filtered.length) return;
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 setSelectedIndex((prev) => Math.min(prev + 1, filtered.length - 1));

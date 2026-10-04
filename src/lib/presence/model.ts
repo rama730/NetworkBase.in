@@ -84,9 +84,25 @@ export function availabilityOf(input: { live: boolean; lastActiveAt: string | Da
   return "offline";
 }
 
+/**
+ * Live = realtime when it has an answer (true or false), else the server's live key.
+ * Realtime is the fast signal both ways: a closed tab drops to not-live at once
+ * instead of waiting out the key's TTL.
+ */
+export function resolveLive(realtime: boolean | undefined, server: boolean | undefined) {
+  return typeof realtime === "boolean" ? realtime : Boolean(server);
+}
+
 export function availabilityLabel(availability: Availability, lastActiveAt?: string | Date | null, now: Date = new Date()) {
   if (availability === "now") return "Active now";
-  if (availability === "today") return "Active today";
+  if (availability === "today") {
+    // ponytail: last_active_at is written at most every 5 min, so minutes are coarse to 5.
+    const minutes = lastActiveAt ? Math.floor((now.getTime() - new Date(lastActiveAt).getTime()) / 60_000) : NaN;
+    if (!Number.isFinite(minutes)) return "Active today";
+    if (minutes < 5) return "Active just now";
+    if (minutes < 60) return `Active ${minutes}m ago`;
+    return `Active ${Math.floor(minutes / 60)}h ago`;
+  }
   if (availability === "offline") return "Offline";
   if (lastActiveAt) {
     const days = Math.floor((now.getTime() - new Date(lastActiveAt).getTime()) / (24 * 60 * 60_000));

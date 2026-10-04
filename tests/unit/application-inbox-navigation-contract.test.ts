@@ -12,5 +12,5 @@ test('application notifications open the application thread, never a message', (
 
     assert.doesNotMatch(action, /applicationMessageIdByApplicationId/);
     assert.doesNotMatch(action, /sourceMessageId:/);
-    assert.match(action, /\? `\/messages\/\$\{params\.channelId\}`/);
+    assert.match(action, /\? conversationHref\(params\.channelId\)/);
 });

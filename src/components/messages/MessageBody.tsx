@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 import { CodeSnippetBlock } from "@/components/messages/CodeSnippetBlock";
 import { PresenceGlyph } from "@/components/presence/PresenceGlyph";
 import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
+import { conversationHref } from "@/lib/messaging/routes";
 import { splitTokens } from "@/lib/messaging/tokens";
 
 type Props = {
@@ -53,7 +54,7 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
         );
       }
       if (href?.startsWith("broadcast:")) return <span className="rounded-[3px] bg-[var(--status-warning-soft)] px-0.5 font-medium text-[var(--status-warning)]">{children}</span>;
-      if (href?.startsWith("channel:")) return <Link href={`/messages/${href.slice(8)}`} className="font-medium text-primary hover:underline">{children}</Link>;
+      if (href?.startsWith("channel:")) return <Link href={conversationHref(href.slice(8))} className="font-medium text-primary hover:underline">{children}</Link>;
       // In-app message links (shared messages, "View message").
       if (href && /^\/messages\/[0-9a-f-]{36}(\?[a-z0-9=&]*)?$/i.test(href)) return <Link href={href} className="font-medium text-primary hover:underline">{children}</Link>;
       const safe = href ? normalizeSafeExternalUrl(href) : null;

@@ -1,11 +1,14 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 
 import { useBack } from "@/components/messages/useBack";
 
-/** Full-page views (Activity, Threads, DMs, Browse, New message): 56px header with Back below 1024px. */
-export function ViewScreen({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+/**
+ * Full-page views (Inbox, Saved, Drafts, Search, Browse, New message): 56px header with Back below 1024px.
+ * `closable` screens (New message, Browse, Search) also get a × at 1024px+ that goes back.
+ */
+export function ViewScreen({ title, action, closable, children }: { title: string; action?: React.ReactNode; closable?: boolean; children: React.ReactNode }) {
   const goBack = useBack();
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden bg-card" aria-label={title}>
@@ -15,6 +18,11 @@ export function ViewScreen({ title, action, children }: { title: string; action?
         </span>
         <h1 className="min-w-0 flex-1 truncate text-[17px] font-semibold">{title}</h1>
         {action}
+        {closable ? (
+          <span className="hidden lg:contents">
+            <button type="button" onClick={goBack} className="nb-icon-button" aria-label={`Close ${title}`} title="Close"><X size={18} /></button>
+          </span>
+        ) : null}
       </header>
       <div className="app-scroll app-scroll-y flex min-h-0 flex-1 flex-col">{children}</div>
     </section>

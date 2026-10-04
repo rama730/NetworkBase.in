@@ -39,7 +39,8 @@ const data: ChatBootstrap = {
 
 test("an open project shows its channels (#general first) and applications; DMs always show", () => {
   const sections = sectionsFor(data, "p1");
-  assert.deepEqual(sections.channels.map((c) => c.id), ["general", "design", "muted"]);
+  // Starred #design sits in Starred only (not repeated under Channels).
+  assert.deepEqual(sections.channels.map((c) => c.id), ["general", "muted"]);
   assert.deepEqual(sections.applications.map((c) => c.id), ["app-review"]);
   assert.deepEqual(sections.dms.map((c) => c.id), ["dm", "self"]);
   assert.deepEqual(sections.myApplications.map((c) => c.id), ["app-mine"]);

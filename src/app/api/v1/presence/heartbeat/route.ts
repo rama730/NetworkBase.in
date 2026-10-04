@@ -76,3 +76,18 @@ export async function POST(request: NextRequest) {
         return jsonError('Internal server error', 500, 'INTERNAL_ERROR');
     }
 }
+
+/** Tab closing: drop the live key so others see "not live" now, not after the TTL. */
+export async function DELETE(request: NextRequest) {
+    try {
+        const csrfError = validateCsrf(request);
+        if (csrfError) return csrfError;
+        const auth = await getViewerAuthContext();
+        if (!auth.userId) return jsonError('Not authenticated', 401, 'UNAUTHORIZED');
+        await getRedisClient()?.del(`presence:live:${auth.userId}`).catch(() => undefined);
+        return jsonSuccess({ live: false });
+    } catch (error) {
+        console.error('Presence offline error:', error);
+        return jsonError('Internal server error', 500, 'INTERNAL_ERROR');
+    }
+}

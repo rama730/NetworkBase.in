@@ -103,3 +103,8 @@ export function applyReaction(reactions: ChatReactionView[], emoji: string, on: 
   if (existing.count <= 1) return reactions.filter((r) => r.emoji !== emoji);
   return reactions.map((r) => (r.emoji === emoji ? { ...r, count: r.count - 1, me: mine ? false : r.me } : r));
 }
+
+/** "N new" on the jump pill: messages newer than `seq` from someone else (older pages don't count). */
+export function newFromOthers(messages: readonly ChatMessageView[], seq: number, meId: string | null) {
+  return messages.filter((m) => m.seq > seq && m.author_id !== meId).length;
+}

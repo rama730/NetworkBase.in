@@ -7,6 +7,7 @@ import {
 
 import { createClient } from "@/lib/supabase/client";
 import { isPrivateRealtimeAuthorizationEnabled } from "./authorization";
+import { realtimeUserToken } from "./private-broadcast";
 import type {
   PresenceClientEvent,
   PresenceMemberState,
@@ -395,11 +396,10 @@ function createEntry(roomType: PresenceRoomType, roomId: string, role: PresenceR
 
 async function connectEntry(entry: PresenceRoomEntry) {
   const supabase = createClient();
-  const { data, error } = await supabase.auth.getSession();
+  const accessToken = await realtimeUserToken();
   if (presenceEntries.get(getRoomKey(entry.roomType, entry.roomId)) !== entry) return;
-  const accessToken = data.session?.access_token;
 
-  if (error || !accessToken) {
+  if (!accessToken) {
     updateStatus(entry, "error");
     return;
   }

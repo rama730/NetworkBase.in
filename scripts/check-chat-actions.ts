@@ -62,6 +62,7 @@ async function main() {
 
   const [owner, member, outsider] = [randomUUID(), randomUUID(), randomUUID()] as const;
   const projectId = randomUUID();
+  const otherProjectId = randomUUID();
   const taskId = randomUUID();
   const as = (id: string, name: string) => { currentUser = { id, user_metadata: { full_name: name, username: name.toLowerCase() } }; };
   const flush = async () => { await Promise.all(pending.splice(0)); };
@@ -76,6 +77,9 @@ async function main() {
     await sql`INSERT INTO projects (id, owner_id, title) VALUES (${projectId}, ${owner}, 'Actions test')`;
     await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${projectId}, ${owner}, 'owner'), (${projectId}, ${member}, 'member')`;
     await sql`INSERT INTO tasks (id, project_id, title) VALUES (${taskId}, ${projectId}, 'Linked task')`;
+    await sql`INSERT INTO projects (id, owner_id, title) VALUES (${otherProjectId}, ${owner}, 'Second project')`;
+    await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${otherProjectId}, ${owner}, 'owner'), (${otherProjectId}, ${member}, 'member')`;
+    await sql`SELECT app_private.chat_sync_project_members(${otherProjectId}::uuid, NULL::uuid, 'ensure_default')`;
     const [syncRow] = await sql`SELECT app_private.chat_sync_project_members(${projectId}::uuid, NULL::uuid, 'ensure_default') AS general`;
     const general = String(syncRow?.general);
 
@@ -145,6 +149,22 @@ async function main() {
       return page.success && page.messages.every((m) => m.thread_root_seq === null)
         && page.messages.some((m) => m.seq === rootSeq && m.reply_count === 1);
     });
+    await check("listThread pages the newest replies first, older ones on request", async () => {
+      // As the owner: the member's send bucket (10 burst) is spent by the checks above.
+      as(owner, "Olivia");
+      const top = await messages.sendMessage({ channelId: general, body: "long thread" });
+      if (!top.success) return false;
+      // The owner replies in their own thread (0190: this used to fail).
+      for (const body of ["r1", "r2", "r3"]) await messages.sendMessage({ channelId: general, body, threadRootSeq: top.message.seq });
+      const latest = await messages.listThread({ channelId: general, rootSeq: top.message.seq, limit: 2 });
+      if (!latest.success || !latest.root) return false;
+      const older = await messages.listThread({ channelId: general, rootSeq: top.message.seq, limit: 2, before: latest.replies[0]!.seq });
+      return latest.replies.map((m) => m.body).join() === "r2,r3" && latest.hasOlder
+        && older.success && older.root === null && older.replies.map((m) => m.body).join() === "r1" && !older.hasOlder;
+    });
+    // Give the owner's 4 sends back (1 token/s) so later owner checks aren't rate limited.
+    await new Promise((resolve) => setTimeout(resolve, 4_200));
+    as(member, "Mason");
     await check("listThread returns root and replies", async () => {
       const thread = await messages.listThread({ channelId: general, rootSeq });
       return thread.success && thread.root?.seq === rootSeq && thread.replies.length === 1;
@@ -310,6 +330,24 @@ async function main() {
       return result.success && result.message.body.startsWith("look") && result.message.body.includes("> edited root")
         && result.message.body.includes(`?m=${rootSeq}`);
     });
+    await check("shareMessage quotes an attachment-only message as (attachment)", async () => {
+      as(member, "Mason");
+      const [asset] = await sql`
+        INSERT INTO storage_assets (bucket, storage_key, purpose, declared_mime_type, declared_size, expires_at, owner_user_id, state, metadata)
+        VALUES ('chat-attachments', ${`${general}/${member}/share-${Date.now()}.png`}, 'chat_attachment:file', 'image/png', 10, now() + interval '1 day', ${member}, 'verified', '{"filename":"pic.png"}'::jsonb)
+        RETURNING id`;
+      const sent = await messages.sendMessage({ channelId: general, body: "", assetIds: [String(asset?.id)] });
+      if (!sent.success) return false;
+      const result = await messages.shareMessage({ channelId: general, seq: sent.message.seq, toChannelId: dmId });
+      return result.success && result.message.body.includes("> (attachment)");
+    });
+    await check("shareMessage of a thread reply links into its thread", async () => {
+      const thread = await messages.listThread({ channelId: general, rootSeq });
+      const replySeq = thread.success ? thread.replies[0]?.seq : undefined;
+      if (!replySeq) return false;
+      const result = await messages.shareMessage({ channelId: general, seq: replySeq, toChannelId: dmId });
+      return result.success && result.message.body.includes(`/messages/${general}?m=${replySeq}&thread=${rootSeq}`);
+    });
     await check("channel tabs are shared: add, rename, remove", async () => {
       const added = await channels.addChannelTab({ channelId: general, kind: "link", title: "Spec", url: "https://example.test/spec" });
       const bad = await channels.addChannelTab({ channelId: general, kind: "link", title: "Bad", url: "javascript:alert(1)" });
@@ -348,6 +386,22 @@ async function main() {
       const remaining = await later.listScheduled();
       return !past.success && list.success && list.items.some((i) => i.id === queued.id) && first.sent === 1 && second.due === 0
         && row?.n === 1 && cancelled.success && remaining.success && remaining.items.length === 0;
+    });
+    await check("searchChannels finds unjoined public channels across all your projects", async () => {
+      as(owner, "Olivia");
+      const open = await channels.createChannel({ projectId: otherProjectId, name: "zeta-plan" });
+      await channels.createChannel({ projectId: otherProjectId, name: "zeta-secret", isPrivate: true });
+      const old = await channels.createChannel({ projectId: otherProjectId, name: "zeta-old" });
+      if (old.success) await channels.archiveChannel({ channelId: old.channelId });
+      as(member, "Mason");
+      const found = await channels.searchChannels({ query: "zeta" });
+      const joinedOnly = await channels.searchChannels({ query: "launch" });
+      const wildcard = await channels.searchChannels({ query: "%" });
+      const empty = await channels.searchChannels({ query: "  " });
+      return open.success && found.success && found.channels.length === 1 && found.channels[0]?.id === open.channelId
+        && found.channels[0]?.project_title === "Second project"
+        && joinedOnly.success && joinedOnly.channels.length === 0
+        && wildcard.success && wildcard.channels.length === 0 && !empty.success;
     });
     await check("public channels can be previewed by project members before joining", async () => {
       as(owner, "Olivia");
@@ -393,10 +447,6 @@ async function main() {
       const result = await activity.listThreads();
       return result.success && result.threads.some((t) => t.channel_id === general && t.root_seq === rootSeq);
     });
-    await check("direct message list includes the DM with its preview", async () => {
-      const result = await activity.listDirectMessages();
-      return result.success && result.channels.some((c) => c.id === dmId && Boolean(c.last_preview));
-    });
     await check("setMemberState stars and mutes", async () => {
       const result = await members.setMemberState({ channelId: dmId, starred: true, notify: "mute" });
       const [row] = await sql`SELECT starred, notify FROM chat_channel_members WHERE channel_id = ${dmId} AND user_id = ${member}`;
@@ -410,18 +460,65 @@ async function main() {
       const result = await channels.listMembers({ channelId: general });
       return result.success && result.members.some((m) => m.id === owner && m.role === "owner");
     });
+    await check("Inbox mark all by tab: Mentions leaves thread replies, All clears them", async () => {
+      as(member, "Mason");
+      const root = await messages.sendMessage({ channelId: general, body: "p3 root", clientId: randomUUID() });
+      if (!root.success) return false;
+      await messages.setThreadFollow({ channelId: general, rootSeq: root.message.seq, on: true });
+      as(owner, "Olivia");
+      await messages.sendMessage({ channelId: general, body: "p3 reply", clientId: randomUUID(), threadRootSeq: root.message.seq });
+      await flush();
+      as(member, "Mason");
+      const unread = async () => {
+        const result = await activity.listThreads();
+        return result.success && result.threads.some((t) => t.root_seq === root.message.seq && t.unread);
+      };
+      const before = await unread();
+      await activity.markInboxRead({ all: true, scope: "mentions" });
+      const still = await unread();
+      await activity.markInboxRead({ all: true, scope: "all" });
+      return before && still && !(await unread());
+    });
+    await check("muted conversations stay out of the Inbox list", async () => {
+      as(member, "Mason");
+      await members.setMemberState({ channelId: general, notify: "mute" });
+      as(owner, "Olivia");
+      const sent = await messages.sendMessage({ channelId: general, body: `<@${member}> muted ping`, clientId: randomUUID() });
+      await flush();
+      as(member, "Mason");
+      const inbox = await activity.listInbox();
+      await members.setMemberState({ channelId: general, notify: "all" });
+      return sent.success && inbox.success && !inbox.items.some((i) => i.channel_id === general && i.seq === sent.message.seq);
+    });
+    await check("Saved names the DM partner", async () => {
+      as(member, "Mason");
+      const sent = await messages.sendMessage({ channelId: dmId, body: "save me", clientId: randomUUID() });
+      if (!sent.success) return false;
+      await later.saveMessage({ channelId: dmId, seq: sent.message.seq, on: true });
+      const list = await later.listSaved();
+      await later.saveMessage({ channelId: dmId, seq: sent.message.seq, on: false });
+      return list.success && list.items.some((i) => i.channel_id === dmId && i.channel_title === "Olivia Owner");
+    });
+    await check("search by conversation alone (no text) works", async () => {
+      const result = await search.searchMessages({ query: "", channelId: general });
+      return result.success && result.hits.length > 0;
+    });
+    await check("listFiles carries thread_root_seq for thread links", async () => {
+      const result = await messages.listFiles({ channelId: general });
+      return result.success && result.files.every((f) => "thread_root_seq" in f);
+    });
     await check("leaveChannel works for non-default channels only", async () => {
       const left = await channels.leaveChannel({ channelId: launch });
       const refused = await channels.leaveChannel({ channelId: general });
       return left.success && !refused.success;
     });
   } finally {
-    await sql`DELETE FROM chat_channels WHERE project_id = ${projectId} OR id IN (
+    await sql`DELETE FROM chat_channels WHERE project_id IN (${projectId}, ${otherProjectId}) OR id IN (
       SELECT channel_id FROM chat_channel_members WHERE user_id IN (${owner}, ${member}, ${outsider}))`.catch(() => undefined);
     await sql`DELETE FROM chat_canvases WHERE channel_id IN (SELECT id FROM chat_channels WHERE project_id = ${projectId})`.catch(() => undefined);
     await sql`DELETE FROM user_notifications WHERE user_id IN (${owner}, ${member}, ${outsider})`.catch(() => undefined);
     await sql`DELETE FROM tasks WHERE id = ${taskId}`.catch(() => undefined);
-    await sql`DELETE FROM projects WHERE id = ${projectId}`.catch(() => undefined);
+    await sql`DELETE FROM projects WHERE id IN (${projectId}, ${otherProjectId})`.catch(() => undefined);
     await sql`DELETE FROM profiles WHERE id IN (${owner}, ${member}, ${outsider})`.catch(() => undefined);
     await sql.end();
   }

@@ -19,6 +19,7 @@ import {
   DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { canvasAssetUrl } from "@/lib/messaging/canvas-store";
+import { copyWithToast } from "@/lib/clipboard";
 
 type ImageSize = "s" | "m" | "full";
 
@@ -284,7 +285,7 @@ export function CanvasBody({ editor, channelId }: { editor: Editor | null; chann
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={duplicate}><CopyPlus size={14} /> Duplicate</DropdownMenuItem>
               {node.textContent ? (
-                <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(node.textContent); toast.success("Copied"); }}><Copy size={14} /> Copy text</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { void copyWithToast(node.textContent, "Copied"); }}><Copy size={14} /> Copy text</DropdownMenuItem>
               ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onSelect={remove}><Trash2 size={14} /> Delete</DropdownMenuItem>

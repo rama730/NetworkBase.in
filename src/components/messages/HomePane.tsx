@@ -1,11 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
-import { CheckCheck, Hash, Inbox, MessagesSquare, SquarePen } from "lucide-react";
+import { CheckCheck, Hash, Inbox, SquarePen } from "lucide-react";
 
-import { listThreads } from "@/app/actions/chat/activity";
-import { markReadMany } from "@/app/actions/chat/read";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ListScreen } from "@/components/messages/ListScreen";
 import { useSelectedProject } from "@/components/messages/useSelectedProject";
@@ -13,17 +11,18 @@ import { ProjectBadge } from "@/components/projects/ProjectBadge";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle, formatChatTime, isDirectLike, needsAttention, rowCount } from "@/lib/messaging/channel-view";
-import { threadHref } from "@/lib/messaging/routes";
-import { tokensToPlainText } from "@/lib/messaging/tokens";
 import type { ChatChannelSummary } from "@/lib/messaging/types";
-import { queryKeys } from "@/lib/query-keys";
+import { conversationHref } from "@/lib/messaging/routes";
+import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
+import { MARK_ALL_LABEL } from "@/lib/messaging/channel-view";
+import { ConversationIcon } from "@/components/messages/ConversationIcon";
 
 function ConversationLink({ channel, meId }: { channel: ChatChannelSummary; meId: string | null }) {
   const count = rowCount(channel);
   const title = channelTitle(channel, meId);
   return (
-    <Link href={`/messages/${channel.id}`} className="flex min-h-11 items-center gap-2.5 rounded-[5px] px-2 hover:bg-muted">
-      {channel.kind === "dm" ? <UserAvatar identity={channel.dm_user} size={24} roundedClassName="rounded-[4px]" /> : <Hash size={16} aria-hidden="true" className="mx-1 text-muted-foreground" />}
+    <Link href={conversationHref(channel.id)} className="flex min-h-11 items-center gap-2.5 rounded-[5px] px-2 hover:bg-muted">
+      {channel.kind === "dm" ? <UserAvatar identity={channel.dm_user} size={24} roundedClassName="rounded-[4px]" /> : <ConversationIcon channel={channel} size={16} aria-hidden="true" className="mx-1 text-muted-foreground" />}
       <span className="min-w-0 flex-1">
         <span className={`block truncate text-[14px] ${needsAttention(channel) ? "font-semibold" : ""}`}>{isDirectLike(channel) ? title : `#${title}`}</span>
         {channel.last_preview ? <span className="block truncate text-[12px] text-muted-foreground">{channel.last_author_id === meId ? "You: " : ""}{channel.last_preview}</span> : null}
@@ -50,29 +49,21 @@ function Card({ title, icon, action, children }: { title: string; icon: React.Re
 /** The main pane when no conversation is open (desktop): what needs you, what's recent, your threads. */
 export function HomePane() {
   const projectId = useSelectedProject();
-  const { data, refresh, applyRead } = useChatShell();
+  const { data } = useChatShell();
+  const markAllRead = useMarkAllRead();
   const { user } = useAuth();
   const meId = user?.id ?? null;
   const project = data?.projects?.find((p) => p.id === projectId) ?? null;
-  const threads = useQuery({
-    queryKey: queryKeys.chat.threads(),
-    queryFn: async () => {
-      const result = await listThreads();
-      return result.success ? result.threads : [];
-    },
-    staleTime: 30_000,
-  });
 
   const visible = (data?.channels ?? []).filter((c) => !c.archived_at && !c.channel_archived_at && (!project || c.project_id === project.id || isDirectLike(c)));
-  const unread = visible.filter(needsAttention).sort((a, b) => (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "")).slice(0, 8);
+  const needing = visible.filter(needsAttention).sort((a, b) => (b.last_message_at ?? "").localeCompare(a.last_message_at ?? ""));
+  // The headline counts all of them; the card lists the first 8.
+  const unread = needing.slice(0, 8);
+  const loading = !data;
   const recent = visible.filter((c) => !needsAttention(c) && c.last_message_at).sort((a, b) => (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "")).slice(0, 6);
   const inboxUnread = data?.inbox_unread ?? 0;
   // Every conversation that needs you (not just the 8 shown), in one roundtrip (ACT-04).
-  const markAll = () => {
-    const all = visible.filter(needsAttention);
-    for (const channel of all) applyRead(channel.id, channel.last_seq);
-    void markReadMany({ items: all.map((c) => ({ channelId: c.id, seq: c.last_seq })) }).then(refresh);
-  };
+  const markAll = () => markAllRead.conversations(visible.filter(needsAttention));
 
   return (
     <div className="app-scroll app-scroll-y h-full bg-background">
@@ -82,7 +73,7 @@ export function HomePane() {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[20px] font-semibold tracking-tight">{project ? project.title : "Home"}</h1>
             <p className="text-[13px] text-muted-foreground">
-              {unread.length ? `${unread.length} conversation${unread.length === 1 ? "" : "s"} with something new` : "You're all caught up."}
+              {loading ? "Loading…" : needing.length ? `${needing.length} conversation${needing.length === 1 ? "" : "s"} with something new` : "You're all caught up."}
             </p>
           </div>
           {project ? (
@@ -102,40 +93,38 @@ export function HomePane() {
         <Card
           title="Unread"
           icon={<CheckCheck size={15} />}
-          action={unread.length ? <button type="button" onClick={markAll} className="text-[12px] font-medium text-primary hover:underline">Mark all read</button> : null}
+          action={unread.length ? <button type="button" onClick={markAll} className="text-[12px] font-medium text-primary hover:underline">{MARK_ALL_LABEL}</button> : null}
         >
-          {unread.length ? unread.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">Nothing unread.</p>}
+          {unread.length ? unread.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">{loading ? "Loading…" : "Nothing unread."}</p>}
         </Card>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card title="Recent" icon={<Hash size={15} />}>
-            {recent.length ? recent.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">No other recent conversations.</p>}
-          </Card>
-          <Card title="Your threads" icon={<MessagesSquare size={15} />} action={<Link href="/messages/inbox?filter=threads" className="text-[12px] font-medium text-primary hover:underline">All</Link>}>
-            {(threads.data ?? []).slice(0, 5).map((t) => (
-              <Link key={`${t.channel_id}:${t.root_seq}`} href={threadHref(t.channel_id, t.root_seq)} className="flex min-h-11 items-center gap-2.5 rounded-[5px] px-2 hover:bg-muted">
-                <UserAvatar identity={t.author} size={24} roundedClassName="rounded-[4px]" />
-                <span className="min-w-0 flex-1">
-                  <span className={`block truncate text-[14px] ${t.unread ? "font-semibold" : ""}`}>{tokensToPlainText(t.body) || "Attachment"}</span>
-                  <span className="block truncate text-[12px] text-muted-foreground">{t.channel_name ? `#${t.channel_name}` : t.channel_title ?? "Direct message"} · {t.reply_count} {t.reply_count === 1 ? "reply" : "replies"}</span>
-                </span>
-                {t.unread ? <span className="size-2 flex-none rounded-full bg-[var(--chat-accent)]" aria-label="Unread" /> : null}
-              </Link>
-            ))}
-            {threads.data && !threads.data.length ? <p className="px-2 py-2 text-[13px] text-muted-foreground">Threads you start or reply to show up here.</p> : null}
-          </Card>
-        </div>
+        <Card
+          title="Recent"
+          icon={<Hash size={15} />}
+          // Threads live in one place, the Inbox's Threads tab (it has Reply).
+          action={<Link href="/messages/inbox?filter=threads" className="text-[12px] font-medium text-primary hover:underline">Open threads →</Link>}
+        >
+          {recent.length ? recent.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">{loading ? "Loading…" : "No other recent conversations."}</p>}
+        </Card>
       </div>
+      {markAllRead.dialog}
     </div>
   );
 }
 
-/** The List screen below 1024px; the Home pane at 1024px+ (the sidebar lists conversations). */
+const WIDE = "(min-width: 1024px)";
+const subscribeWide = (onChange: () => void) => {
+  const media = window.matchMedia(WIDE);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+};
+
+/**
+ * The List screen below 1024px; the Home pane at 1024px+ (the sidebar lists conversations).
+ * Only one mounts, so the conversation list and Home's queries don't run twice.
+ */
 export function ListOrHome() {
-  return (
-    <>
-      <div className="h-full lg:hidden"><ListScreen /></div>
-      <div className="hidden h-full lg:block"><HomePane /></div>
-    </>
-  );
+  const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => null);
+  if (wide === null) return null;
+  return <div className="h-full">{wide ? <HomePane /> : <ListScreen />}</div>;
 }

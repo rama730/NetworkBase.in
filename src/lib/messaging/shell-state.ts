@@ -41,9 +41,12 @@ function patchChannel(data: ChatBootstrap, channelId: string, patch: (channel: C
   return { ...data, channels };
 }
 
-/** Returns null when the channel is not cached yet (caller refetches). */
+/**
+ * Returns null when the channel is not cached yet (caller refetches). A mention or a
+ * thread reply also bumps the Inbox badge (muted conversations don't count, like the server).
+ */
 export function applyHint(data: ChatBootstrap, hint: ChatHint) {
-  return patchChannel(data, hint.channel_id, (channel) => {
+  const next = patchChannel(data, hint.channel_id, (channel) => {
     if (hint.seq <= channel.last_seq) return null;
     return {
       ...channel,
@@ -52,6 +55,10 @@ export function applyHint(data: ChatBootstrap, hint: ChatHint) {
       mention_count: channel.mention_count + (hint.mention ? 1 : 0),
     };
   });
+  if (!next || next === data) return next;
+  const muted = data.channels.find((channel) => channel.id === hint.channel_id)?.notify === "mute";
+  const inbox = !muted && (hint.mention || hint.thread_root_seq !== null);
+  return inbox ? { ...next, inbox_unread: (next.inbox_unread ?? 0) + 1 } : next;
 }
 
 export function applyReadMoved(data: ChatBootstrap, channelId: string, seq: number) {

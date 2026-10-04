@@ -19,7 +19,12 @@ export const useChatWindow = create<ChatWindowState>()((set) => ({
   open: false,
   stack: [{ type: "list" }],
   setOpen: (open) => set({ open }),
-  push: (screen) => set((state) => ({ open: true, stack: [...state.stack, screen] })),
+  // Opening the screen already on top (a double click) doesn't stack it twice.
+  push: (screen) => set((state) => {
+    const top = state.stack[state.stack.length - 1];
+    const same = top && JSON.stringify(top) === JSON.stringify(screen);
+    return { open: true, stack: same ? state.stack : [...state.stack, screen] };
+  }),
   back: () => set((state) => ({ stack: state.stack.length > 1 ? state.stack.slice(0, -1) : state.stack })),
   close: () => set({ open: false, stack: [{ type: "list" }] }),
 }));
@@ -31,9 +36,17 @@ export function openChatWindow(channelId?: string) {
   else setOpen(true);
 }
 
+/** The window (and its launcher) exists at this width and up, never on these routes. */
+export const CHAT_WINDOW_QUERY = "(min-width: 768px)";
+const NO_WINDOW_PREFIXES = ["/messages", "/projects/new"];
+
+export function chatWindowHiddenOn(pathname: string) {
+  return NO_WINDOW_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 /** True where "Message" buttons should use the window instead of navigating. */
 export function prefersChatWindow() {
   return typeof window !== "undefined"
-    && window.matchMedia("(min-width: 768px)").matches
-    && !window.location.pathname.startsWith("/messages");
+    && window.matchMedia(CHAT_WINDOW_QUERY).matches
+    && !chatWindowHiddenOn(window.location.pathname);
 }

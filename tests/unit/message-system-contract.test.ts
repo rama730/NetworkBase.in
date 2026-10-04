@@ -86,8 +86,8 @@ test("Messages system adheres to design specification contracts", () => {
     );
     assert.match(
         chatSectionsSource,
-        /Mark all read/,
-        "Individual project settings must include Mark all read",
+        /MARK_ALL_LABEL/,
+        "Project headers offer Mark all as read (one shared label)",
     );
     assert.match(
         chatSectionsSource,
@@ -103,9 +103,19 @@ test("Messages system adheres to design specification contracts", () => {
     );
     assert.match(
         fs.readFileSync(path.join(process.cwd(), "src/components/messages/Composer.tsx"), "utf8"),
-        /function TypingIndicator[\s\S]*absolute inset-x-3 bottom-full flex h-5[\s\S]*<TypingIndicator names=\{typingNames\} \/>/,
+        /function TypingIndicator[\s\S]*if \(!label\) return null;[\s\S]*absolute inset-x-3 bottom-\[calc\(100%\+1px\)\] flex h-5[\s\S]*transition-\[opacity,transform\][\s\S]*data-\[visible=false\]:opacity-0[\s\S]*<TypingIndicator names=\{typingNames\} \/>/,
         "Typing floats just above the composer box, so neither the box nor the timeline moves",
     );
+    {
+        const timeline = fs.readFileSync(path.join(process.cwd(), "src/components/messages/Timeline.tsx"), "utf8");
+        const thread = fs.readFileSync(path.join(process.cwd(), "src/components/messages/ThreadPane.tsx"), "utf8");
+        // The gap under the last message opens only while someone types (room for the indicator).
+        assert.match(timeline, /function TimelineFooter\(\{ context \}[\s\S]*context\?\.typing \? "h-6" : "h-2 transition-\[height\]/);
+        assert.match(timeline, /if \(!typing \|\| !atBottom\) return;[\s\S]*requestAnimationFrame\(\(\) => virtuoso\.current\?\.scrollTo\(\{ top: Number\.MAX_SAFE_INTEGER, behavior: "smooth" \}\)\)/);
+        assert.match(conversationViewSource, /typing=\{typing\.names\.length > 0\}/);
+        assert.match(thread, /THREAD_COMPONENTS = \{ Footer: [\s\S]*context\?\.typing \? "h-6" : "h-2 transition-\[height\]/);
+        assert.match(thread, /if \(!typingNow \|\| !atBottom\.current\) return;[\s\S]*requestAnimationFrame\(\(\) => list\.current\?\.scrollTo\(\{ top: Number\.MAX_SAFE_INTEGER, behavior: "smooth" \}\)\)/);
+    }
     assert.match(
         cssSource,
         /\.nb-message-composer\s*\{\s*padding-bottom:max\(8px,env\(safe-area-inset-bottom\)\);\s*\}/,
@@ -153,8 +163,8 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
     // 1.2 Floating Hover Action Bar on Message Rows (1-click reactions 👍, ❤️, Reply in thread, More actions)
     assert.match(
         rowSource,
-        /HOVER_QUICK_REACTIONS = \["👍", "❤️"\]/,
-        "MessageRow must define 1-click quick hover reactions",
+        /quick\.slice\(0, HOVER_QUICK_COUNT\)/,
+        "MessageRow hover bar shows 1-click quick reactions from the one shared set (plan #98)",
     );
     assert.match(
         rowSource,
@@ -204,8 +214,13 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
     );
     assert.match(
         tabsCacheSource,
-        /if \(options\.pinCount > 0 \|\| options\.active === "pins"\)[\s\S]*options\.active === "files" && !options\.shared\.some/,
-        "Pins is a built-in tab once something is pinned; Files is added from + (shown while opened)",
+        /if \(options\.pinCount > 0 \|\| options\.active === "pins"\)/,
+        "Pins is a built-in tab once something is pinned",
+    );
+    assert.doesNotMatch(
+        tabsCacheSource,
+        /options\.active === "files"/,
+        "Files is one shared tab added from + (no temporary Files tab)",
     );
     assert.match(
         tabBarSource,
@@ -247,10 +262,15 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
         /<TasksTab/,
         "ConversationView must render TasksTab when tasks tab is selected",
     );
-    assert.match(
+    assert.doesNotMatch(
         conversationViewSource,
-        /<ChannelLinkView/,
-        "ConversationView must render ChannelLinkView when custom link tab is selected",
+        /ChannelLinkView|<iframe/,
+        "Bookmark tabs are not framed inside the app (plan #19)",
+    );
+    assert.match(
+        tabBarSource,
+        /tab\.kind === "link" \? \(\s*<a[\s\S]*?href=\{normalizeSafeExternalUrl\(tab\.url \?\? ""\) \?\? undefined\}\s*target="_blank"\s*rel="noopener noreferrer"/,
+        "Bookmark tabs are real links to their (safe) URL in a new browser tab (plan #19/#90)",
     );
 
     // 1.4 Saved for later and reminders (the reorganization plan, item 2, approved 2026-10-03)
@@ -365,17 +385,14 @@ test("Section 3 (Keyboard Power-User Ergonomics) contracts", () => {
         "MessagesChrome must handle Shift+Esc to mark project channels read",
     );
 
-    // Message row shortcuts (E, T, S, U, R, ⌫, ⌘L) over the one action list
+    // Message row shortcuts (E, T, S, U, ⌫) on the focused row, over the one action list (plan #96/#97/#105)
     assert.match(
         rowSource,
-        /key === "e" \? byKey\("edit"\) : key === "t" \? byKey\("reply"\) : key === "s" \? byKey\("save"\) : key === "u" \? byKey\("unread"\)/,
+        /key === "e" \? "edit" : key === "t" \? "reply" : key === "s" \? "save" : key === "u" \? "unread"/,
         "MessageRow must handle E (edit), T (thread), S (save) and U (mark unread)",
     );
-    assert.match(
-        rowSource,
-        /key === "r"[\s\S]*toggleReaction\("👍"\)/,
-        "MessageRow must handle 'R' hotkey to add reaction",
-    );
+    assert.match(rowSource, /onKeyDown=\{onRowKeyDown\}/, "Shortcuts act on the focused row");
+    assert.doesNotMatch(rowSource, /window\.addEventListener\("keydown"|isHoveredRef|toggleReaction\("👍"\)|shortcut: "⌘L"/, "No per-row window listener, hover shortcuts, R or ⌘L");
 
     // Empty composer ArrowUp edits last message
     assert.match(
@@ -411,16 +428,16 @@ test("Section 4 (NetworkBase Integration) contracts", () => {
         "TaskCard must render status as interactive dropdown pill",
     );
 
-    // 4.2 Rich code snippets with line numbers and Open in IDE button
-    assert.match(
+    // 4.2 Rich code snippets with line numbers and Copy (no fake "Open in IDE": plan #20)
+    assert.doesNotMatch(
         codeSnippetSource,
-        /buildIdeLaunchUri/,
-        "CodeSnippetBlock must support desktop IDE deep linking",
+        /Open in IDE|buildIdeLaunchUri/,
+        "CodeSnippetBlock must not offer an IDE launch it can't fulfil",
     );
     assert.match(
         codeSnippetSource,
-        /Open in IDE/,
-        "CodeSnippetBlock must render 'Open in IDE' action",
+        /copyWithToast\(cleanCode/,
+        "CodeSnippetBlock copies the code",
     );
     assert.match(
         messageBodySource,
@@ -769,11 +786,16 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
         "Channel Intro must not render pre-card ('Invite teammates')",
     );
 
-    // 8.2 Consolidated ⋯ dropdown with notification settings submenu
+    // 8.2 Notifications live on the header bell, always shown to members (plan #11, #13)
     assert.match(
         conversationViewSource,
-        /<DropdownMenuSub>[\s\S]*Notifications[\s\S]*<\/DropdownMenuSub>/,
-        "ConversationView must consolidate channel notifications into more options submenu",
+        /\{isMember \? \(\s*<DropdownMenu>\s*<DropdownMenuTrigger className=\{headerButton\} aria-label=\{`Notifications:/,
+        "The header bell is always visible to members",
+    );
+    assert.doesNotMatch(
+        conversationViewSource,
+        /<DropdownMenuSub>|Pinned messages|Add a bookmark/,
+        "The ⋯ menu keeps only Add people, Copy link, Mark as read, Leave/Close and Archive",
     );
 
     // 8.3 Composer plus menu rich creation options (code snippet, media)
@@ -807,8 +829,8 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     );
     assert.match(
         rowSource,
-        /\(e\.metaKey \|\| e\.ctrlKey\) \? \(key === "l" \? byKey\("copy-link"\)/,
-        "MessageRow must support Cmd+L shortcut to copy message link",
+        /onClick=\{pending \? undefined : copyLink\}/,
+        "Clicking a message's time copies its link (⌘L is the browser's again, plan #97/#100)",
     );
 
     // 8.6 Canvas and Poll in the composer plus menu; Send later beside Send
@@ -819,8 +841,8 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     );
     assert.match(
         composerSource,
-        /aria-label="Schedule message"/,
-        "Composer offers Send later (scheduled messages)",
+        /"Schedule message \(not with files\)" : "Schedule message"/,
+        "Composer offers Send later (scheduled messages), disabled while files are attached (plan #111)",
     );
 
     // 8.7 Pre-cards removed: no Open canvas action pill in channel Intro
@@ -860,8 +882,8 @@ test("Section 9 (Project Selection First & Professional Empty Placeholder) contr
     );
     assert.doesNotMatch(
         messagesIndexSource,
-        /router\.replace/,
-        "MessagesIndex must not auto-redirect to any channel",
+        /router\.replace\((?!"\/messages"\))/,
+        "MessagesIndex must not auto-redirect to any channel (it only drops a failed ?userId=)",
     );
     assert.doesNotMatch(
         messagesIndexSource,
@@ -884,8 +906,8 @@ test("Section 9 (Project Selection First & Professional Empty Placeholder) contr
     // 9.3 HomePane professional empty state & project-aware placeholder
     assert.match(
         homePaneSource,
-        /title="Unread"[\s\S]*title="Recent"[\s\S]*title="Your threads"/,
-        "HomePane shows what needs you: unread, recent conversations and your threads",
+        /title="Unread"[\s\S]*title="Recent"[\s\S]*Open threads →/,
+        "HomePane shows what needs you: unread and recent conversations, with a link to threads",
     );
     assert.match(
         homePaneSource,
@@ -1001,7 +1023,7 @@ test("Section 11 (Slack-Exact About Section Layout & Channel Name Editing) contr
     );
     assert.match(
         detailsPaneSource,
-        /ID: \{channel\.id\}[\s\S]*navigator\.clipboard\?\.writeText\(channel\.id\)/,
+        /ID: \{channel\.id\}[\s\S]*copyWithToast\(channel\.id, "ID copied"\)/,
         "DetailsPane must render ID footer with copy button",
     );
     assert.doesNotMatch(
@@ -1028,15 +1050,16 @@ test("Section 12 (Messages reorganization, 96-item plan) contracts", () => {
     assert.match(read("next.config.ts"), /source: '\/messages\/activity', destination: '\/messages\/inbox'/, "Activity redirects to the Inbox");
     assert.match(read("next.config.ts"), /source: '\/messages\/:channelId\/thread\/:seq', destination: '\/messages\/:channelId\?thread=:seq'/, "Old thread links open the thread drawer");
     assert.match(views, /\{ id: "threads", label: "Threads" \}[\s\S]*\{ id: "reactions", label: "Reactions" \}/, "Inbox filters include Threads and Reactions");
-    assert.match(views, /markInboxRead\(\{ all: true \}\)/, "Inbox has Mark all read");
+    assert.match(views, /markInboxRead\(\{ all: true, scope \}\)/, "Inbox has Mark all read, scoped to the open tab");
     assert.match(sections, /data\?\.inbox_unread/, "The Inbox badge counts unread Inbox items (same rule as the list)");
 
     // B. Sidebar: switcher header, unreads filter, row menus, drafts markers.
     assert.match(sections, /function ProjectSwitcher[\s\S]*All projects/, "Project switcher header with an All projects mode");
-    assert.match(sections, /role="menuitemcheckbox" aria-checked=\{unreadsOnly\}[\s\S]*Show unreads only/, "Unreads filter lives in the project ⋯ menu");
+    assert.match(sections, /onClick=\{onToggleUnreads\}\s*aria-pressed=\{unreadsOnly\}/, "Unreads filter is a visible toggle in the sidebar header (plan #66)");
+    assert.doesNotMatch(sections, /role="menuitemcheckbox"/, "Unreads filter is no longer buried in ⋯");
     assert.doesNotMatch(sections, /aria-label="Search messages and conversations"/, "No local search box: the app header search covers it");
     assert.match(sections, /function HoverMenu[\s\S]*Options for/, "Desktop rows have a hover ⋯ menu");
-    assert.match(sections, /saveCollapsed\(next\)/, "Collapsed sections follow the account");
+    assert.match(sections, /saveAccountUi\(\{ collapsed: next \}\)[\s\S]*saveAccountUi\(\{ unreadsOnly: !current \}\)/, "Collapsed sections and the Unreads filter follow the account");
 
     // C/D. Search, shared tabs, Files.
     assert.match(conversation, /\/messages\/search\?in=\$\{channelId\}/, "Search in this conversation from the header");

@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { channelTopic, userTopic } from "@/lib/messaging/constants";
 import { chatPushTopic, createPushSuppressor } from "@/lib/messaging/push-policy";
+import { messageHref } from "@/lib/messaging/routes";
 import { chatRows, uuidArray } from "@/lib/messaging/server";
 import { tokensToPlainText } from "@/lib/messaging/tokens";
 import type { ChatMessageView } from "@/lib/messaging/types";
@@ -92,7 +93,7 @@ export function publishSentMessage(input: {
           id: `${message.channel_id}:${message.seq}`,
           title,
           body,
-          href: `/messages/${message.channel_id}?m=${message.seq}`,
+          href: messageHref(message.channel_id, message.seq, message.thread_root_seq),
           icon: message.author?.avatar_url ?? null,
           tag: `chat:${message.channel_id}`,
         }, { notificationId: null, topic: chatPushTopic(message.channel_id), recordDeliveries: false });

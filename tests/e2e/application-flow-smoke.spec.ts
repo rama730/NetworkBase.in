@@ -15,9 +15,9 @@ test.describe("Application flow smoke", () => {
 
         // The seeded application lives under Home → My applications.
         await measure(perf, "route.interactive.core", () =>
-            page.goto("/messages/home", { waitUntil: "domcontentloaded" })
+            page.goto("/messages", { waitUntil: "domcontentloaded" })
         );
-        await markNavigationMetrics(perf, page, "/messages/home");
+        await markNavigationMetrics(perf, page, "/messages");
         const section = page.getByRole("button", { name: /My applications|Applications/ }).first();
         test.skip(!(await section.isVisible({ timeout: 15000 }).catch(() => false)), "No application threads in the test account.");
 

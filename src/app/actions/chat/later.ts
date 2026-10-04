@@ -50,6 +50,8 @@ export type SavedItem = {
   channel_id: string;
   channel_name: string | null;
   channel_kind: string;
+  /** A group's title, or the other person's name for a DM. */
+  channel_title: string | null;
   seq: number;
   thread_root_seq: number | null;
   body: string;
@@ -67,6 +69,10 @@ export async function listSaved() {
   try {
     const items = await chatRows<SavedItem>(sql`
       SELECT s.channel_id, c.name AS channel_name, c.kind AS channel_kind, s.message_seq::int AS seq,
+             CASE WHEN c.kind = 'dm' THEN (
+               SELECT coalesce(op.full_name, op.username) FROM chat_channel_members o JOIN profiles op ON op.id = o.user_id
+               WHERE o.channel_id = c.id ORDER BY (o.user_id = ${user.id}::uuid) LIMIT 1
+             ) ELSE c.title END AS channel_title,
              m.thread_root_seq::int AS thread_root_seq, m.body, m.created_at, s.created_at AS saved_at, s.remind_at, s.reminded_at,
              CASE WHEN pr.id IS NULL THEN NULL ELSE jsonb_build_object(
                'id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url

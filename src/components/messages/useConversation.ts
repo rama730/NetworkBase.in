@@ -110,7 +110,7 @@ export function useChannelMessages(channelId: string, options: { around?: number
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const meId = user?.id ?? null;
-  const { applyRead } = useChatShell();
+  const { applyRead, data: shell } = useChatShell();
   const key = useMemo(() => queryKeys.chat.messages(channelId), [channelId]);
   const update = useUpdatePages(channelId);
   const [status, setStatus] = useState<BroadcastStatus>("connecting");
@@ -204,6 +204,15 @@ export function useChannelMessages(channelId: string, options: { around?: number
     return () => subscription.unsubscribe();
   }, [channelId, key, meId, options.isMember, queryClient, update]);
 
+  // Live updates down (no session, flag off, socket lost): the shell poll still learns the
+  // channel's newest seq, so catch the open timeline up instead of waiting for a reload.
+  const shellTopSeq = shell?.channels.find((c) => c.id === channelId)?.last_top_seq ?? 0;
+  const loadedTopSeq = query.data?.pages[0]?.at(-1)?.seq ?? 0;
+  useEffect(() => {
+    if (status === "connected" || !query.isSuccess || shellTopSeq <= loadedTopSeq) return;
+    void queryClient.invalidateQueries({ queryKey: key, refetchType: "active" });
+  }, [key, loadedTopSeq, query.isSuccess, queryClient, shellTopSeq, status]);
+
   const readTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readSent = useRef(0);
   const markSeen = useCallback((seq: number) => {
@@ -250,7 +259,7 @@ export function useTyping(channelId: string, options: { rootSeq: number | null; 
   const enabled = options.enabled && options.memberCount <= CHAT_TYPING_MAX_MEMBERS;
   const [typers, setTypers] = useState<Typers>({});
   const people = useRef(options.people);
-  const sendRef = useRef<(event: string, payload: Record<string, unknown>) => void>(() => undefined);
+  const sendRef = useRef<(event: string, payload: Record<string, unknown>) => boolean>(() => false);
   const lastSent = useRef(0);
   const allowed = Boolean(meId) && options.memberCount <= CHAT_TYPING_MAX_MEMBERS;
   useEffect(() => {
@@ -275,7 +284,7 @@ export function useTyping(channelId: string, options: { rootSeq: number | null; 
     return () => {
       if (lastSent.current && meId) typing.send("typing", { user_id: meId, root: rootSeq, on: false });
       lastSent.current = 0;
-      sendRef.current = () => undefined;
+      sendRef.current = () => false;
       typing.unsubscribe();
       messages.unsubscribe();
       setTypers({});
@@ -299,8 +308,8 @@ export function useTyping(channelId: string, options: { rootSeq: number | null; 
       return;
     }
     if (!shouldSendTyping(lastSent.current, now)) return;
-    lastSent.current = now;
-    sendRef.current("typing", { user_id: meId, root: rootSeq, on: true });
+    // Throttle only what actually went out; a drop before connect retries on the next key.
+    if (sendRef.current("typing", { user_id: meId, root: rootSeq, on: true })) lastSent.current = now;
   }, [allowed, meId, rootSeq]);
 
   const names = useMemo(() => Object.values(typers).map((t) => t.name), [typers]);
