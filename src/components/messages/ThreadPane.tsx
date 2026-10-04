@@ -65,9 +65,12 @@ export function ThreadPane({ channelId, rootSeq }: { channelId: string; rootSeq:
   const typingNow = typing.names.length > 0;
   const list = useRef<VirtuosoHandle>(null);
   const atBottom = useRef(true);
-  // The typing gap opened: at the bottom, keep the last reply fully in view.
+  // The typing gap opened: at the bottom, keep the last reply fully in view. Next frame,
+  // once the taller footer is in the DOM; scrolling past the end stops at the real bottom.
   useEffect(() => {
-    if (typingNow && atBottom.current) list.current?.autoscrollToBottom();
+    if (!typingNow || !atBottom.current) return;
+    const frame = requestAnimationFrame(() => list.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER }));
+    return () => cancelAnimationFrame(frame);
   }, [typingNow]);
   const saved = useSavedSeqs(channelId, isMember);
   const key = useMemo(() => queryKeys.chat.thread(channelId, rootSeq), [channelId, rootSeq]);

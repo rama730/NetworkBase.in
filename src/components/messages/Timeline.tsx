@@ -114,9 +114,12 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   useEffect(() => {
     if (atBottom && newestSeq > 0) onSeen(newestSeq);
   }, [atBottom, newestSeq, onSeen]);
-  // The typing gap opened: at the bottom, keep the last message fully in view.
+  // The typing gap opened: at the bottom, keep the last message fully in view. Next frame,
+  // once the taller footer is in the DOM; scrolling past the end stops at the real bottom.
   useEffect(() => {
-    if (typing && atBottom) virtuoso.current?.autoscrollToBottom();
+    if (!typing || !atBottom) return;
+    const frame = requestAnimationFrame(() => virtuoso.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER }));
+    return () => cancelAnimationFrame(frame);
   }, [atBottom, typing]);
   useEffect(() => {
     if (!highlight) return;
