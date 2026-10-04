@@ -459,7 +459,7 @@ export function ChatSections({ variant, onSelect, onNewMessage }: Props) {
         variant={variant}
         onSelect={onSelect}
         draft={draftChannels.has(channel.id)}
-        online={presenceIds.includes(channel.dm_user?.id ?? "") ? Boolean(online[channel.dm_user!.id]) : undefined}
+        online={presenceIds.includes(channel.dm_user?.id ?? "") ? online[channel.dm_user!.id] : undefined}
       />
     );
     if (!inPage) return element;

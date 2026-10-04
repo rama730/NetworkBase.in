@@ -9,6 +9,7 @@ import {
   isAway,
   isStatusEmoji,
   projectAvailabilityOf,
+  resolveLive,
   statusLabel,
   validStatusExpiry,
 } from "@/lib/presence/model";
@@ -27,8 +28,18 @@ test("availability: live wins, then today, this week, offline", () => {
 test("availability labels say how long ago within the week", () => {
   assert.equal(availabilityLabel("now"), "Active now");
   assert.equal(availabilityLabel("today"), "Active today");
+  assert.equal(availabilityLabel("today", new Date(2026, 9, 3, 13, 58), now), "Active just now");
+  assert.equal(availabilityLabel("today", new Date(2026, 9, 3, 13, 48), now), "Active 12m ago");
+  assert.equal(availabilityLabel("today", new Date(2026, 9, 3, 11, 0), now), "Active 3h ago");
   assert.equal(availabilityLabel("week", new Date(2026, 9, 1, 13, 0), now), "Active 2d ago");
   assert.equal(availabilityLabel("offline"), "Offline");
+});
+
+test("realtime answer wins both ways; unknown falls back to the server", () => {
+  assert.equal(resolveLive(false, true), false);
+  assert.equal(resolveLive(true, false), true);
+  assert.equal(resolveLive(undefined, true), true);
+  assert.equal(resolveLive(undefined, undefined), false);
 });
 
 test("an expired status counts as cleared", () => {
