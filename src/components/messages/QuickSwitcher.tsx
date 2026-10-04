@@ -3,7 +3,8 @@
 import { useQueries } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Hash, Lock, Search, Users } from "lucide-react";
+import { Search, Users } from "lucide-react";
+import { ConversationIcon, type ConversationKind } from "@/components/messages/ConversationIcon";
 import { toast } from "sonner";
 
 import { browseChannels } from "@/app/actions/chat/channels";
@@ -21,7 +22,7 @@ import type { ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 
 type Result =
-  | { type: "channel"; id: string; title: string; icon: "hash" | "lock" | "group" | "person"; person: ChatPerson | null; project: string | null; count: number; unread: boolean; joined: boolean }
+  | { type: "channel"; id: string; title: string; conversation: ConversationKind; person: ChatPerson | null; project: string | null; count: number; unread: boolean; joined: boolean }
   | { type: "person"; id: string; title: string; person: ChatPerson; canDm: boolean }
   | { type: "search"; id: string; title: string };
 
@@ -70,7 +71,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
         type: "channel" as const,
         id: c.id,
         title: channelTitle(c, meId),
-        icon: c.kind === "dm" ? ("person" as const) : c.name === null ? ("group" as const) : c.kind === "private" ? ("lock" as const) : ("hash" as const),
+        conversation: c,
         person: c.dm_user,
         project: c.project_id ? projects.get(c.project_id) ?? null : null,
         count: rowCount(c),
@@ -88,7 +89,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
       ? browsed.flatMap((q) => q.data ?? [])
           .filter((c) => !c.joined && !joinedIds.has(c.id) && c.name.includes(needle))
           .slice(0, 5)
-          .map((c) => ({ type: "channel" as const, id: c.id, title: c.name, icon: "hash" as const, person: null, project: c.project_title, count: 0, unread: false, joined: false }))
+          .map((c) => ({ type: "channel" as const, id: c.id, title: c.name, conversation: { kind: "public", name: c.name }, person: null, project: c.project_title, count: 0, unread: false, joined: false }))
       : [];
     const dmUsers = new Set((data?.channels ?? []).map((c) => c.dm_user?.id).filter(Boolean));
     const found: Result[] = needle.length >= 2
@@ -142,8 +143,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
   const optionId = (index: number) => `chat-switcher-option-${index}`;
   const renderOption = (result: Result) => {
     const index = results.indexOf(result);
-    const Icon = result.type === "search" ? Search : result.type === "channel" && result.icon === "hash" ? Hash : result.type === "channel" && result.icon === "lock" ? Lock : Users;
-    return (
+        return (
       <li
         key={`${result.type}:${result.id}`}
         id={optionId(index)}
@@ -153,7 +153,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
         onMouseEnter={() => setActive(index)}
         onClick={() => void choose(result)}
       >
-        {result.type !== "search" && result.person ? <UserAvatar identity={result.person} size={24} roundedClassName="rounded-[5px]" /> : <Icon size={16} aria-hidden="true" />}
+        {result.type !== "search" && result.person ? <UserAvatar identity={result.person} size={24} roundedClassName="rounded-[5px]" /> : result.type === "search" ? <Search size={16} aria-hidden="true" /> : result.type === "channel" ? <ConversationIcon channel={result.conversation} size={16} aria-hidden="true" /> : <Users size={16} aria-hidden="true" />}
         <span className={`min-w-0 flex-1 truncate ${result.type === "channel" && result.unread ? "font-semibold" : ""}`}>
           {result.type === "search" ? <>Search messages for &ldquo;{result.title}&rdquo;</> : result.title}
         </span>

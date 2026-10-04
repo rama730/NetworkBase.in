@@ -12,12 +12,10 @@ type ChatUiState = {
   /** Project ids whose Create channel / Invite people dialogs are open. */
   createChannelFor: string | null;
   inviteFor: string | null;
-  activeThreadRootSeq: number | null;
   setProject: (projectId: string | null) => void;
   setSwitcherOpen: (open: boolean) => void;
   setCreateChannelFor: (projectId: string | null) => void;
   setInviteFor: (projectId: string | null) => void;
-  setActiveThreadRootSeq: (seq: number | null) => void;
 };
 
 export const useChatUi = create<ChatUiState>()((set) => ({
@@ -25,17 +23,15 @@ export const useChatUi = create<ChatUiState>()((set) => ({
   switcherOpen: false,
   createChannelFor: null,
   inviteFor: null,
-  activeThreadRootSeq: null,
   setProject: (projectId) => set({ projectId }),
   setSwitcherOpen: (switcherOpen) => set({ switcherOpen }),
   setCreateChannelFor: (createChannelFor) => set({ createChannelFor }),
   setInviteFor: (inviteFor) => set({ inviteFor }),
-  setActiveThreadRootSeq: (activeThreadRootSeq) => set({ activeThreadRootSeq }),
 }));
 
-// Per-device preferences: collapsed sections, the Aa toolbar, the last open
-// conversation (localStorage `chat-ui-v1`). Every access tolerates blocked storage.
-type StoredUi = { collapsed?: Record<string, boolean>; formatting?: boolean; last?: string | null; unreadsOnly?: boolean; hiddenCanvas?: string[] };
+// Per-device preferences: collapsed sections, the Aa toolbar, Unreads only and
+// hidden canvases (localStorage `chat-ui-v1`). Every access tolerates blocked storage.
+type StoredUi = { collapsed?: Record<string, boolean>; formatting?: boolean; unreadsOnly?: boolean; hiddenCanvas?: string[] };
 const UI_KEY = "chat-ui-v1";
 
 export function readChatUi(): StoredUi {

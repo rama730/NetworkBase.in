@@ -5,11 +5,11 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, AtSign, Bell, BellOff, Bookmark, Check, Files, Hash, Link2, Lock, MoreHorizontal, Pin, Search, Star, Trash2, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, AtSign, Bell, BellOff, Check, Hash, Link2, Lock, MoreHorizontal, Search, Star, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
-import { addChannelTab, archiveChannel, joinChannel, leaveChannel, removeChannelTab, saveChannelTabs, unarchiveChannel } from "@/app/actions/chat/channels";
+import { addChannelTab, joinChannel, removeChannelTab, saveChannelTabs } from "@/app/actions/chat/channels";
 import { setMemberState } from "@/app/actions/chat/members";
 import { listPins } from "@/app/actions/chat/messages";
 import { markRead } from "@/app/actions/chat/read";
@@ -29,20 +29,22 @@ import { PersonPresenceBadge } from "@/components/presence/PersonPresence";
 import { StatusInline } from "@/components/presence/StatusInline";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import type { ChannelDetails } from "@/app/actions/chat/channels";
 import type { CanvasTemplate } from "@/lib/messaging/canvas-store";
 import { conversationTabs, type ChannelTabItem } from "@/lib/messaging/channel-tabs";
-import { channelTitle, isSelfDm, personName } from "@/lib/messaging/channel-view";
+import { canAddPeople, channelTitle, isSelfDm, personName } from "@/lib/messaging/channel-view";
 import { CHAT_BROADCAST_MENTION_MAX_MEMBERS } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, type DetailsTab } from "@/lib/messaging/routes";
 import type { ChatNotify } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
+import { useConversationExit } from "@/components/messages/useConversationExit";
+import { ConversationIcon } from "@/components/messages/ConversationIcon";
 
 type Props = {
   channelId: string;
@@ -155,7 +157,6 @@ const ChannelCanvas = dynamic(() => import("@/components/messages/ChannelCanvas"
 const CanvasTemplateModal = dynamic(() => import("@/components/messages/CanvasTemplateModal").then((m) => m.CanvasTemplateModal), { ssr: false });
 const AddTabLinkDialog = dynamic(() => import("@/components/messages/AddTabLinkDialog").then((m) => m.AddTabLinkDialog), { ssr: false });
 const EditTabsDialog = dynamic(() => import("@/components/messages/EditTabsDialog").then((m) => m.EditTabsDialog), { ssr: false });
-const ChannelLinkView = dynamic(() => import("@/components/messages/ChannelLinkView").then((m) => m.ChannelLinkView), { ssr: false, loading: () => <div className="flex-1" /> });
 const ExistingCanvasModal = dynamic(() => import("@/components/messages/ExistingCanvasModal").then((m) => m.ExistingCanvasModal), { ssr: false });
 const AddPeopleDialog = dynamic(() => import("@/components/messages/parts/AddPeople").then((m) => m.AddPeopleDialog), { ssr: false });
 const ShareDialog = dynamic(() => import("@/components/messages/parts/ShareDialog").then((m) => m.ShareDialog), { ssr: false });
@@ -281,9 +282,6 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   };
 
   useEffect(() => {
-    if (surface === "page") writeChatUi({ last: channelId });
-  }, [channelId, surface]);
-  useEffect(() => {
     const projectId = channel?.project_id;
     if (surface === "page" && projectId && shell.data?.projects?.some((p) => p.id === projectId)) setProject(projectId);
   }, [channel?.project_id, setProject, shell.data?.projects, surface]);
@@ -345,36 +343,20 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     shell.refresh();
     return true;
   };
-  const closeConversation = async () => {
-    if (!(await setState({ archived: true }))) return;
-    router.push("/messages");
-    toast("Conversation closed", {
-      action: { label: "Undo", onClick: () => void setState({ archived: false }).then(() => router.push(conversationHref(channelId))) },
-    });
-  };
+  const exit = useConversationExit({ id: channelId, project_id: channel?.project_id ?? null, kind: channel?.kind ?? "public", name: channel?.name ?? null });
+  const closeConversation = () => exit.close();
   const join = async () => {
     const result = await joinChannel({ channelId });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
     shell.refresh();
   };
-  const unarchive = async () => {
-    const result = await unarchiveChannel({ channelId });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
-    shell.refresh();
-    toast.success("Channel unarchived");
-  };
+  const unarchive = () => void exit.unarchive();
   const leaveOrArchive = async () => {
     const action = confirm;
     setConfirm(null);
-    const result = action === "archive" ? await archiveChannel({ channelId }) : await leaveChannel({ channelId });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    shell.refresh();
-    if (action === "archive") {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
-      toast("Channel archived", { action: { label: "Undo", onClick: () => void unarchive() } });
-    } else router.push(channel?.project_id ? `/messages/p/${channel.project_id}` : "/messages");
+    if (action === "archive") await exit.archive();
+    else await exit.leave();
   };
 
   if (details.isError) {
@@ -392,7 +374,6 @@ export function ConversationView({ channelId, around = null, surface = "page", o
 
   const title = channelTitle(channel, meId);
   const dmOnline = channel.kind === "dm" && channel.dm_user ? online[channel.dm_user.id] : undefined;
-  const ChannelIcon = channel.kind === "private" ? Lock : Hash;
   const placeholder = isDirect ? `Message ${title}` : `Message #${title}`;
   const displayName = isChannel ? `#${title}` : title;
   const notify = (channel.notify ?? "all") as ChatNotify;
@@ -431,7 +412,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 className="group/title inline-flex min-w-0 items-center gap-1 rounded-xs text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 title="Details (⌘I)"
               >
-                {isChannel ? <ChannelIcon size={18} strokeWidth={2.25} aria-hidden="true" className="shrink-0" /> : channel.kind !== "dm" ? <Users size={18} aria-hidden="true" className="shrink-0 text-muted-foreground" /> : null}
+                {channel.kind !== "dm" ? <ConversationIcon channel={channel} size={18} strokeWidth={2.25} aria-hidden="true" className="shrink-0" /> : null}
                 <h1 className="truncate text-[17px] font-bold leading-tight text-foreground group-hover/title:underline">{title}</h1>
               </button>
               {isMember && isChannel ? (
@@ -459,7 +440,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           </div>
           {surface === "window" ? windowActions : (
             <>
-              {isMember && notify !== "all" ? (
+              {isMember ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger className={headerButton} aria-label={`Notifications: ${NOTIFY_LABEL[notify]}`} title={`Notifications: ${NOTIFY_LABEL[notify]}`}>
                     <NotifyIcon size={16} />
@@ -504,19 +485,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     <MoreHorizontal size={16} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-60">
-                    <DropdownMenuItem onSelect={() => setTab("pins")}>
-                      <Pin size={14} className="mr-2" /> Pinned messages
-                      {pinCount ? <span className="ml-auto font-mono text-[11px] text-muted-foreground">{pinCount}</span> : null}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setTab("files")}><Files size={14} className="mr-2" /> Files</DropdownMenuItem>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger><NotifyIcon size={14} className="mr-2" /> Notifications: {NOTIFY_LABEL[notify]}</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>{notifyMenu}</DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                    <DropdownMenuSeparator />
-                    {channel.kind !== "dm" ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus size={14} className="mr-2" /> Add people</DropdownMenuItem> : null}
-                    <DropdownMenuItem onSelect={() => setDialog("bookmark")}><Bookmark size={14} className="mr-2" /> Add a bookmark</DropdownMenuItem>
-                    <DropdownMenuSeparator />
+                    {canAddPeople(channel) ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus size={14} className="mr-2" /> Add people</DropdownMenuItem> : null}
+                    {canAddPeople(channel) ? <DropdownMenuSeparator /> : null}
                     <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${conversationHref(channelId)}`, "Link copied"); }}>
                       <Link2 size={14} className="mr-2" /> Copy link
                     </DropdownMenuItem>
@@ -580,8 +550,6 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               canManageWorkflow={Boolean(channel.can_admin)}
             />
           </div>
-        ) : activeTab.kind === "link" ? (
-          <ChannelLinkView tab={activeTab} />
         ) : (
           <>
             {conversation.query.isLoading && !conversation.messages.length ? <TimelineSkeleton /> : (

@@ -1,9 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Loader2, SendHorizontal, X } from "lucide-react";
-import { toast } from "sonner";
+import { Loader2, X } from "lucide-react";
 
 import { renameGroup } from "@/app/actions/chat/channels";
 import { createGroup, getOrCreateDm } from "@/app/actions/chat/members";
@@ -14,14 +14,17 @@ import { ViewScreen } from "@/components/messages/ViewScreen";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { personName } from "@/lib/messaging/channel-view";
-import { CHAT_MAX_BODY, CHAT_MAX_GROUP_OTHERS } from "@/lib/messaging/constants";
-import { chatErrorMessage } from "@/lib/messaging/errors";
+import { CHAT_MAX_GROUP_OTHERS } from "@/lib/messaging/constants";
+import { conversationHref } from "@/lib/messaging/routes";
 import type { ChatPerson } from "@/lib/messaging/types";
+
+const Composer = dynamic(() => import("@/components/messages/Composer").then((m) => m.Composer), { ssr: false });
 
 /**
  * "To:" chips of people you may message, then the first message. One person
  * opens (or creates) the DM; more create a group chat (D8). The conversation
- * is created on the first send.
+ * is created on the first send, from the same Composer as every conversation
+ * (draft key "new"; files and scheduling wait until the conversation exists).
  */
 export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void }) {
   const router = useRouter();
@@ -29,8 +32,6 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
   const { data, refresh } = useChatShell();
   const [query, setQuery] = useState("");
   const [to, setTo] = useState<ChatPerson[]>([]);
-  const [body, setBody] = useState("");
-  const [sending, setSending] = useState(false);
   const [groupName, setGroupName] = useState("");
   // The group made by a send that then failed: a retry reuses it instead of creating a second one.
   const [opened, setOpened] = useState<{ key: string; channelId: string } | null>(null);
@@ -62,28 +63,22 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
     return list.filter((p) => !to.some((t) => t.id === p.id));
   }, [isSearching, people.data, suggestedPeople, to]);
 
-  const send = async () => {
-    const text = body.trim();
-    if (!to.length || !text || sending) return;
-    setSending(true);
+  const send = async (body: string) => {
     const key = to.map((p) => p.id).sort().join(",");
     let channelId = opened?.key === key ? opened.channelId : null;
     if (!channelId) {
       const result = to.length === 1 ? await getOrCreateDm({ userId: to[0]!.id }) : await createGroup({ userIds: to.map((p) => p.id) });
-      if (!result.success) {
-        setSending(false);
-        return void toast.error(chatErrorMessage(result.error));
-      }
+      if (!result.success) return { success: false as const, error: result.error };
       channelId = result.channelId;
       setOpened({ key, channelId });
       if (to.length > 1 && groupName.trim()) await renameGroup({ channelId, title: groupName.trim().slice(0, 80) });
     }
-    const sent = await sendMessage({ channelId, body: text, clientId: crypto.randomUUID() });
-    setSending(false);
-    if (!sent.success) return void toast.error(chatErrorMessage(sent.error));
+    const sent = await sendMessage({ channelId, body, clientId: crypto.randomUUID() });
+    if (!sent.success) return { success: false as const, error: sent.error };
     if (onOpen) onOpen(channelId);
-    else router.push(`/messages/${channelId}`);
+    else router.push(conversationHref(channelId));
     void refresh();
+    return { success: true as const };
   };
 
   // One person you already talk to: say so and offer the existing conversation.
@@ -91,7 +86,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
   const openExisting = () => {
     if (!existing) return;
     if (onOpen) onOpen(existing.id);
-    else router.push(`/messages/${existing.id}`);
+    else router.push(conversationHref(existing.id));
   };
 
   const content = (
@@ -166,28 +161,20 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
         ) : null}
       </div>
       <div className="flex-1" />
-      <div className="nb-message-composer border-t border-border px-3 pt-2 sm:px-4">
-        <div className="flex items-end gap-2 rounded-lg border border-input p-1">
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value.slice(0, CHAT_MAX_BODY))}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }}
-            rows={2}
-            placeholder={to.length ? `Message ${to.map((p) => personName(p).split(" ")[0]).join(", ")}` : "Write a message"}
-            aria-label="Message"
-            className="block max-h-[160px] flex-1 resize-none bg-transparent px-2 py-1.5 text-[15px] outline-none pointer-coarse:text-[17px]"
+      {to.length ? (
+        <div className="px-3 pb-2 sm:px-4">
+          <Composer
+            channelId="new"
+            placeholder={`Message ${to.map((p) => personName(p).split(" ")[0]).join(", ")}`}
+            people={to}
+            allowBroadcast={false}
+            canCreateTask={false}
+            send={send}
           />
-          <button
-            type="button"
-            onClick={() => void send()}
-            disabled={!to.length || !body.trim() || sending}
-            aria-label="Send"
-            className="inline-flex h-8 items-center gap-1 rounded-[5px] bg-primary text-primary-foreground px-3 text-[13px] font-medium disabled:opacity-40 transition-colors pointer-coarse:h-11"
-          >
-            {sending ? <Loader2 size={16} className="animate-spin" /> : <SendHorizontal size={16} />}
-          </button>
         </div>
-      </div>
+      ) : (
+        <p className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">Add someone above to start the conversation.</p>
+      )}
     </div>
   );
   if (onOpen) return content;

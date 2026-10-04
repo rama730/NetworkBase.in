@@ -25,6 +25,7 @@ import {
     type ProjectInvitationKind,
 } from "@/lib/projects/project-invitations";
 import { postInviteCard } from "@/lib/messaging/integrations";
+import { conversationHref } from "@/lib/messaging/routes";
 
 type CreateInvitationActionInput = {
     projectId: string;
@@ -85,7 +86,7 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
                 importance: "important",
                 title: `${user.user_metadata?.full_name || user.user_metadata?.username || "A project Lead"} invited you to ${invitation.projectTitle}`,
                 body: `Role: ${roleTitle}`,
-                href: chatChannelId ? `/messages/${chatChannelId}` : "/messages",
+                href: chatChannelId ? conversationHref(chatChannelId) : "/messages",
                 entityRefs: {
                     projectId: invitation.projectId,
                     projectSlug: created.projectSlug,

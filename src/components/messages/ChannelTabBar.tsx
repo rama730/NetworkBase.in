@@ -2,11 +2,11 @@
 
 import { useCallback, useRef } from "react";
 import { Bookmark, CheckSquare, FileText, Files, LayoutTemplate, MessageSquare, Pin, Plus, SlidersHorizontal, X } from "lucide-react";
-import { toast } from "sonner";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ChannelTabItem } from "@/lib/messaging/channel-tabs";
 import { copyWithToast } from "@/lib/clipboard";
+import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
 
 type Props = {
   activeTab: string;
@@ -35,6 +35,11 @@ const ICONS: Record<ChannelTabItem["kind"], typeof Pin> = {
 };
 
 /** Messages, Canvas, Pins, Files, then shared Tasks and bookmarks; "+" adds a canvas, Tasks or a bookmark. */
+function openBookmark(url: string | null | undefined) {
+  const safe = url ? normalizeSafeExternalUrl(url) : null;
+  if (safe) window.open(safe, "_blank", "noopener,noreferrer");
+}
+
 export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseTab, onAddCanvas, onAddTasks, onAddFiles, onAddBookmark, onEditTabs }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -72,7 +77,9 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
               role="tab"
               aria-selected={selected}
               tabIndex={selected ? 0 : -1}
-              onClick={() => onSelectTab(tab.id)}
+              // Bookmarks open the site in a new browser tab (many sites refuse to load in a frame).
+              onClick={() => (tab.kind === "link" ? openBookmark(tab.url) : onSelectTab(tab.id))}
+              title={tab.kind === "link" && tab.url ? `Open ${tab.url} in a new tab` : undefined}
               onKeyDown={(e) => handleKeyDown(e, tab)}
               className={`nb-tab inline-flex items-center border-b-2 px-2 pb-2 text-[13px] font-medium transition-colors ${
                 selected ? "border-[var(--chat-accent)] text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"

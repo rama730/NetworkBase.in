@@ -48,6 +48,7 @@ import { refreshWorkspaceCountersForUsers } from '@/lib/workspace/profile-counte
 import { addProjectMemberInternal } from '@/lib/projects/collaborator-lifecycle';
 import { computeProjectReadAccess } from '@/lib/data/project-access';
 import { isUuid } from '@/lib/validations/uuid';
+import { conversationHref } from '@/lib/messaging/routes';
 
 // ============================================================================
 // TYPES
@@ -314,7 +315,7 @@ async function enqueueApplicationDecisionBestEffort(params: {
             title: `${params.actorName || "Someone"} ${params.status === "accepted" ? "accepted" : params.status === "rejected" ? "updated" : "reopened"} your application`,
             body: params.projectTitle ? `Project: ${params.projectTitle}` : null,
             href: params.channelId
-                ? `/messages/${params.channelId}`
+                ? conversationHref(params.channelId)
                 : `/network?tab=requests&applicationId=${encodeURIComponent(params.applicationId)}`,
             entityRefs: {
                 applicationId: params.applicationId,

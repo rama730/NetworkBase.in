@@ -214,8 +214,13 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
     );
     assert.match(
         tabsCacheSource,
-        /if \(options\.pinCount > 0 \|\| options\.active === "pins"\)[\s\S]*options\.active === "files" && !options\.shared\.some/,
-        "Pins is a built-in tab once something is pinned; Files is added from + (shown while opened)",
+        /if \(options\.pinCount > 0 \|\| options\.active === "pins"\)/,
+        "Pins is a built-in tab once something is pinned",
+    );
+    assert.doesNotMatch(
+        tabsCacheSource,
+        /options\.active === "files"/,
+        "Files is one shared tab added from + (no temporary Files tab)",
     );
     assert.match(
         tabBarSource,
@@ -257,10 +262,15 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
         /<TasksTab/,
         "ConversationView must render TasksTab when tasks tab is selected",
     );
-    assert.match(
+    assert.doesNotMatch(
         conversationViewSource,
-        /<ChannelLinkView/,
-        "ConversationView must render ChannelLinkView when custom link tab is selected",
+        /ChannelLinkView|<iframe/,
+        "Bookmark tabs are not framed inside the app (plan #19)",
+    );
+    assert.match(
+        tabBarSource,
+        /tab\.kind === "link" \? openBookmark\(tab\.url\)[\s\S]*window\.open\(safe, "_blank", "noopener,noreferrer"\)|window\.open\(safe, "_blank", "noopener,noreferrer"\)[\s\S]*tab\.kind === "link" \? openBookmark\(tab\.url\)/,
+        "Bookmark tabs open their (safe) URL in a new browser tab",
     );
 
     // 1.4 Saved for later and reminders (the reorganization plan, item 2, approved 2026-10-03)
@@ -421,16 +431,16 @@ test("Section 4 (NetworkBase Integration) contracts", () => {
         "TaskCard must render status as interactive dropdown pill",
     );
 
-    // 4.2 Rich code snippets with line numbers and Open in IDE button
-    assert.match(
+    // 4.2 Rich code snippets with line numbers and Copy (no fake "Open in IDE": plan #20)
+    assert.doesNotMatch(
         codeSnippetSource,
-        /buildIdeLaunchUri/,
-        "CodeSnippetBlock must support desktop IDE deep linking",
+        /Open in IDE|buildIdeLaunchUri/,
+        "CodeSnippetBlock must not offer an IDE launch it can't fulfil",
     );
     assert.match(
         codeSnippetSource,
-        /Open in IDE/,
-        "CodeSnippetBlock must render 'Open in IDE' action",
+        /copyWithToast\(cleanCode/,
+        "CodeSnippetBlock copies the code",
     );
     assert.match(
         messageBodySource,
@@ -779,11 +789,16 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
         "Channel Intro must not render pre-card ('Invite teammates')",
     );
 
-    // 8.2 Consolidated ⋯ dropdown with notification settings submenu
+    // 8.2 Notifications live on the header bell, always shown to members (plan #11, #13)
     assert.match(
         conversationViewSource,
-        /<DropdownMenuSub>[\s\S]*Notifications[\s\S]*<\/DropdownMenuSub>/,
-        "ConversationView must consolidate channel notifications into more options submenu",
+        /\{isMember \? \(\s*<DropdownMenu>\s*<DropdownMenuTrigger className=\{headerButton\} aria-label=\{`Notifications:/,
+        "The header bell is always visible to members",
+    );
+    assert.doesNotMatch(
+        conversationViewSource,
+        /<DropdownMenuSub>|Pinned messages|Add a bookmark/,
+        "The ⋯ menu keeps only Add people, Copy link, Mark as read, Leave/Close and Archive",
     );
 
     // 8.3 Composer plus menu rich creation options (code snippet, media)
@@ -894,8 +909,8 @@ test("Section 9 (Project Selection First & Professional Empty Placeholder) contr
     // 9.3 HomePane professional empty state & project-aware placeholder
     assert.match(
         homePaneSource,
-        /title="Unread"[\s\S]*title="Recent"[\s\S]*title="Your threads"/,
-        "HomePane shows what needs you: unread, recent conversations and your threads",
+        /title="Unread"[\s\S]*title="Recent"[\s\S]*Open threads →/,
+        "HomePane shows what needs you: unread and recent conversations, with a link to threads",
     );
     assert.match(
         homePaneSource,

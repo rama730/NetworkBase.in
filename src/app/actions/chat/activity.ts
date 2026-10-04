@@ -181,7 +181,6 @@ export async function listThreads() {
   }
 }
 
-/** The full DM and group-chat list with previews (beyond the 100 in the entry payload). */
 export async function listDirectMessages(input: { before?: string | null } = {}) {
   const user = await requireChatUser();
   if (!user) return unauthorized;

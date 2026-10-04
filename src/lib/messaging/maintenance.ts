@@ -6,7 +6,7 @@ export const CHAT_MENTION_RETENTION_DAYS = 90;
 // ponytail: messages themselves are kept forever (L-16). ceiling: ~700 GB/yr at
 // 1M users. upgrade: a retention policy when storage budget or law requires it.
 
-/** Delete one batch of Activity rows older than 90 days; returns how many went. */
+/** Delete one batch of Inbox mention rows older than 90 days; returns how many went. */
 // ponytail: no created_at-only index; old rows sit early in the heap so each
 // batch finds them quickly. ceiling: job runtime. upgrade: index created_at.
 export async function purgeOldChatMentions(limit: number) {

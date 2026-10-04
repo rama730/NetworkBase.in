@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Input } from "@/components/ui/input";
 import { CHAT_CHANNEL_NAME_PATTERN, CHAT_MAX_DESCRIPTION } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
+import { conversationHref } from "@/lib/messaging/routes";
 
 /** Name, optional description, a private switch (report 7.10 D6). The 200-per-project cap is enforced in SQL. */
 export function CreateChannelDialog({ projectId, open, onOpenChange }: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -38,7 +39,7 @@ export function CreateChannelDialog({ projectId, open, onOpenChange }: { project
     setName("");
     setDescription("");
     setPrivate(false);
-    router.push(`/messages/${result.channelId}`);
+    router.push(conversationHref(result.channelId));
   };
 
   return (

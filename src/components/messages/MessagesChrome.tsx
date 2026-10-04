@@ -101,7 +101,7 @@ function useKeyboardSafeHeight() {
   }, []);
 }
 
-/** Dialogs shared by every /messages screen; opened through the chat UI store. */
+/** Every /messages screen: the keys above, the ⌘K switcher, and the shared dialogs (opened through the chat UI store). */
 export function MessagesChrome() {
   useKeyboardSafeHeight();
   const [markAll, setMarkAll] = useState<ChatChannelSummary[] | null>(null);
