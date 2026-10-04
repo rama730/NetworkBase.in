@@ -35,3 +35,9 @@ export function threadHref(channelId: string, rootSeq: number) {
 export function messageHref(channelId: string, seq: number, threadRootSeq?: number | null) {
   return conversationHref(channelId, threadRootSeq ? { thread: threadRootSeq, m: seq } : { m: seq });
 }
+
+/** "Show in conversation": at 1024px+ the thread stays open beside it; below, the thread covers the screen, so it closes. */
+export function showInConversationHref(channelId: string, rootSeq: number) {
+  const wide = typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+  return conversationHref(channelId, wide ? { m: rootSeq, thread: rootSeq } : { m: rootSeq });
+}

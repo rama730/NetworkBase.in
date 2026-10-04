@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { bootstrap } from "@/app/actions/chat/read";
 import { useAuth } from "@/hooks/useAuth";
 import { CHAT_POLL_BASE_MS, CHAT_POLL_JITTER_MS, userTopic } from "@/lib/messaging/constants";
-import { applyHint, applyReadMoved, chatBadge, mergeDelta, type ChatHint } from "@/lib/messaging/shell-state";
+import { applyHint, applyInboxCounts, applyReadMoved, chatBadge, mergeDelta, type ChatHint, type InboxCounts } from "@/lib/messaging/shell-state";
 import type { ChatBootstrap } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast, type BroadcastStatus } from "@/lib/realtime/private-broadcast";
@@ -159,7 +159,12 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
           if (!next) return void pollDelta();
           if (next !== current.data) queryClient.setQueryData<Snapshot>(key, { ...current, data: next });
         } else if (event === "read.moved" && typeof payload.channel_id === "string" && typeof payload.seq === "number") {
-          queryClient.setQueryData<Snapshot>(key, { ...current, data: applyReadMoved(current.data, payload.channel_id, payload.seq) });
+          // Reads carry the fresh Inbox counts, so the badge, the Inbox row and the tab title drop together.
+          const moved = applyReadMoved(current.data, payload.channel_id, payload.seq);
+          queryClient.setQueryData<Snapshot>(key, { ...current, data: applyInboxCounts(moved, payload as InboxCounts) });
+        } else if (event === "inbox.count") {
+          queryClient.setQueryData<Snapshot>(key, { ...current, data: applyInboxCounts(current.data, payload as InboxCounts) });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
         }
       },
       (next) => {

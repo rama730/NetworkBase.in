@@ -18,9 +18,22 @@ interface ReactionQuickBarProps {
     selectedReactions?: string[];
     onReact: (emoji: string) => void;
     onClose: () => void;
+    /** What a pick does, for screen readers: "React with" (messages) or "Insert" (the composer). */
+    verb?: string;
 }
 
-export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = [], onReact, onClose }: ReactionQuickBarProps) {
+/** ←/→ (and ↑/↓) move between the emoji, like any toolbar. */
+function moveFocus(event: React.KeyboardEvent<HTMLDivElement>) {
+    const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+    if (!step) return;
+    const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button'));
+    const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    if (at < 0) return;
+    event.preventDefault();
+    buttons[(at + step + buttons.length) % buttons.length]?.focus();
+}
+
+export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = [], onReact, onClose, verb = 'React with' }: ReactionQuickBarProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [showExtended, setShowExtended] = useState(false);
     const quick = useQuickReactions();
@@ -95,7 +108,8 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
         <div
             ref={ref}
             role="toolbar"
-            aria-label="Quick reactions"
+            aria-label={verb === 'Insert' ? 'Emoji' : 'Quick reactions'}
+            onKeyDown={moveFocus}
             className="msg-reaction-quick-bar fixed z-[130] flex flex-col rounded-lg border border-border bg-popover p-1.5 shadow-lg"
         >
             <div className="flex items-center gap-1">
@@ -112,7 +126,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                             "nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-muted",
                             selectedReactions.includes(emoji) && "bg-accent/50 ring-1 ring-ring/30"
                         )}
-                        aria-label={`React with ${emoji}`}
+                        aria-label={`${verb} ${emoji}`}
                     >
                         {emoji}
                     </button>
@@ -146,7 +160,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                                 "nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-muted",
                                 selectedReactions.includes(emoji) && "bg-accent/50 ring-1 ring-ring/30"
                             )}
-                            aria-label={`React with ${emoji}`}
+                            aria-label={`${verb} ${emoji}`}
                         >
                             {emoji}
                         </button>

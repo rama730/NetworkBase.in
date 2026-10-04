@@ -306,7 +306,7 @@ function SwipeActions({ channel, children }: { channel: ChatChannelSummary; chil
         {children}
       </div>
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger className="sr-only grid size-11 flex-none place-items-center rounded-[5px] text-muted-foreground focus:not-sr-only" aria-label={`Actions for ${channel.name ?? "conversation"}`}>
+        <DropdownMenuTrigger className="sr-only grid size-11 flex-none place-items-center rounded-[5px] text-muted-foreground focus:not-sr-only pointer-fine:not-sr-only pointer-fine:size-8 pointer-fine:opacity-0 pointer-fine:group-hover/row:opacity-100 pointer-fine:focus-visible:opacity-100 pointer-fine:data-[state=open]:opacity-100" aria-label={`Actions for ${channel.name ?? "conversation"}`}>
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -318,8 +318,10 @@ function SwipeActions({ channel, children }: { channel: ChatChannelSummary; chil
   );
 }
 
-function Section({ id, title, count, collapsed, onToggle, action, children }: {
+function Section({ id, title, count, collapsed, onToggle, action, children, attention }: {
   id: string; title: ReactNode; count?: number; collapsed: boolean; onToggle: (id: string) => void; action?: ReactNode; children: ReactNode;
+  /** Rows still shown while collapsed (the ones needing attention). */
+  attention?: ReactNode;
 }) {
   const headingId = `chat-section-${id}`;
   return (
@@ -335,7 +337,8 @@ function Section({ id, title, count, collapsed, onToggle, action, children }: {
         {count ? <span className="nb-chat-count" aria-hidden="true">{count}</span> : null}
         {action}
       </div>
-      {collapsed ? null : <div className="space-y-px">{children}</div>}
+      {/* Collapsed sections still show rows that need attention, like Slack. */}
+      {collapsed ? (attention ? <div className="space-y-px">{attention}</div> : null) : <div className="space-y-px">{children}</div>}
     </section>
   );
 }
@@ -501,7 +504,8 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   // ponytail: "N more" expands the bootstrap's DMs (the 100 most recent) in place; older ones via ⌘K
   // or search. upgrade: page older DMs from the server when someone has more than 100.
   const [allDms, setAllDms] = useState(false);
-  const dmRows = variant === "sidebar" && !allDms ? others.slice(0, DM_SIDEBAR_LIMIT) : others;
+  // An unread DM always shows, however old: "N more" only hides read ones.
+  const dmRows = variant === "sidebar" && !allDms ? others.filter((c, i) => i < DM_SIDEBAR_LIMIT || needsAttention(c)) : others;
   const hiddenDms = others.length - dmRows.length;
   const presenceIds = useMemo(
     () => dmRows.filter((c) => c.kind === "dm" && c.dm_user && c.dm_user.id !== meId).slice(0, 3).map((c) => c.dm_user!.id),
@@ -554,7 +558,9 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   const starred = sections.starred.filter(keep);
   const myApplications = sections.myApplications.filter(keep);
   const dmUnread = sections.dms.filter(needsAttention).length;
-  const markProjectRead = (id: string) => () => markAll.conversations(data.channels.filter((c) => c.project_id === id && isUnread(c)));
+  // The same rows the Unreads filter shows (needsAttention): the button appears when any of them is unread.
+  const projectAttention = (id: string) => (byProject.get(id) ?? []).filter(needsAttention);
+  const markProjectRead = (id: string) => () => markAll.conversations(projectAttention(id));
   const browseRow = (id: string) => inPage ? (
     <Link href={`/messages/p/${id}/browse`} className="nb-chat-row text-muted-foreground"><Hash size={16} aria-hidden="true" /><span className="flex-1">Browse channels</span></Link>
   ) : null;
@@ -580,9 +586,9 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       </>
     );
   };
-  const projectActions = (id: string, unread: number) => (
+  const projectActions = (id: string) => (
     <>
-      {unread ? <HeaderButton label={MARK_ALL_LABEL} onClick={markProjectRead(id)}><CheckCheck size={14} /></HeaderButton> : null}
+      {projectAttention(id).length ? <HeaderButton label={MARK_ALL_LABEL} onClick={markProjectRead(id)}><CheckCheck size={14} /></HeaderButton> : null}
       {inPage ? <HeaderButton label="Create channel" onClick={() => setCreateFor(id)}><Plus size={14} /></HeaderButton> : null}
     </>
   );
@@ -637,7 +643,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       ) : null}
 
       {starred.length ? (
-        <Section id="starred" title="Starred" count={starred.filter(needsAttention).length} collapsed={Boolean(collapsed.starred)} onToggle={toggle}>{starred.map(row)}</Section>
+        <Section id="starred" title="Starred" count={starred.filter(needsAttention).length} collapsed={Boolean(collapsed.starred)} onToggle={toggle} attention={starred.filter(needsAttention).map(row)}>{starred.map(row)}</Section>
       ) : null}
 
       {open ? (
@@ -647,7 +653,8 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
           count={badges.get(open.id) ?? 0}
           collapsed={Boolean(collapsed.channels)}
           onToggle={toggle}
-          action={projectActions(open.id, badges.get(open.id) ?? 0)}
+          action={projectActions(open.id)}
+          attention={[...sections.channels, ...sections.applications].filter(needsAttention).map(row)}
         >
           {projectRows(open.id, sections.channels.filter(keep), sections.applications.filter(keep))}
         </Section>
@@ -664,7 +671,8 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
               count={count}
               collapsed={Boolean(collapsed[`project:${project.id}`])}
               onToggle={toggle}
-              action={projectActions(project.id, count)}
+              action={projectActions(project.id)}
+              attention={rows.filter(needsAttention).map(row)}
             >
               {projectRows(project.id, rows.filter((c) => !c.application_id), rows.filter((c) => c.application_id))}
             </Section>
@@ -682,6 +690,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
         count={dmUnread}
         collapsed={Boolean(collapsed.dms)}
         onToggle={toggle}
+        attention={others.filter(needsAttention).map(row)}
         action={onNewMessage
           ? <HeaderButton label="New message" onClick={onNewMessage}><SquarePen size={14} /></HeaderButton>
           : <HeaderButton label="New message" href="/messages/new"><SquarePen size={14} /></HeaderButton>}
@@ -702,7 +711,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
       </Section>
 
       {myApplications.length ? (
-        <Section id="applications" title="My applications" count={myApplications.filter(needsAttention).length} collapsed={Boolean(collapsed.applications)} onToggle={toggle}>
+        <Section id="applications" title="My applications" count={myApplications.filter(needsAttention).length} collapsed={Boolean(collapsed.applications)} onToggle={toggle} attention={myApplications.filter(needsAttention).map(row)}>
           {myApplications.map(row)}
         </Section>
       ) : null}

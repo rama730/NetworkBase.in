@@ -44,9 +44,21 @@ function patchChannel(data: ChatBootstrap, channelId: string, patch: (channel: C
   return { ...data, channels };
 }
 
+export type InboxCounts = { inbox_unread?: number; inbox_mentions?: number; threads_unread?: number };
+
+/** The server's fresh Inbox counts (sent after reads), applied as they are. */
+export function applyInboxCounts(data: ChatBootstrap, counts: InboxCounts) {
+  const next = { ...data };
+  for (const key of ["inbox_unread", "inbox_mentions", "threads_unread"] as const) {
+    if (typeof counts[key] === "number") next[key] = counts[key];
+  }
+  return next;
+}
+
 /**
  * Returns null when the channel is not cached yet (caller refetches). A mention or a
- * thread reply also bumps the Inbox badge (muted conversations don't count, like the server).
+ * thread reply also bumps the Inbox badge. Muted conversations: mentions still count,
+ * thread replies don't (same rule as the server).
  */
 export function applyHint(data: ChatBootstrap, hint: ChatHint) {
   const next = patchChannel(data, hint.channel_id, (channel) => {
@@ -60,8 +72,9 @@ export function applyHint(data: ChatBootstrap, hint: ChatHint) {
   });
   if (!next || next === data) return next;
   const muted = data.channels.find((channel) => channel.id === hint.channel_id)?.notify === "mute";
-  const inbox = !muted && (hint.mention || hint.thread_root_seq !== null);
-  return inbox ? { ...next, inbox_unread: (next.inbox_unread ?? 0) + 1 } : next;
+  const inbox = hint.mention || (!muted && hint.thread_root_seq !== null);
+  if (!inbox) return next;
+  return { ...next, inbox_unread: (next.inbox_unread ?? 0) + 1, inbox_mentions: (next.inbox_mentions ?? 0) + (hint.mention ? 1 : 0) };
 }
 
 export function applyReadMoved(data: ChatBootstrap, channelId: string, seq: number) {

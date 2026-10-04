@@ -40,7 +40,16 @@ export async function sendDueScheduledMessages(limit = 200) {
   return { due: due.length, sent };
 }
 
-type DueReminder = { user_id: string; channel_id: string; seq: number; thread_root_seq: number | null; body: string; channel_name: string | null; author: string | null; eligible: boolean };
+type DueReminder = {
+  user_id: string; channel_id: string; seq: number; thread_root_seq: number | null; body: string;
+  channel_name: string | null; channel_title: string | null; partner: string | null; author: string | null; eligible: boolean;
+};
+
+/** Where a reminder's message lives: "#design", a group's name, or the DM partner. */
+export function reminderPlace(row: Pick<DueReminder, "channel_name" | "channel_title" | "partner">) {
+  if (row.channel_name) return `#${row.channel_name}`;
+  return row.channel_title || row.partner || null;
+}
 
 /** Fire "Remind me about this" as a notification linking back to the message. */
 export async function fireDueReminders(limit = 500) {
@@ -52,7 +61,11 @@ export async function fireDueReminders(limit = 500) {
       WHERE reminded_at IS NULL AND remind_at IS NOT NULL AND remind_at <= now()
       ORDER BY remind_at LIMIT ${limit} FOR UPDATE SKIP LOCKED
     ) AND m.channel_id = s.channel_id AND m.channel_seq = s.message_seq AND c.id = s.channel_id
-    RETURNING s.user_id, s.channel_id, s.message_seq::int AS seq, m.thread_root_seq::int AS thread_root_seq, m.body, c.name AS channel_name,
+    RETURNING s.user_id, s.channel_id, s.message_seq::int AS seq, m.thread_root_seq::int AS thread_root_seq, m.body, c.name AS channel_name, c.title AS channel_title,
+              -- A DM or unnamed group is named by its other people.
+              (SELECT string_agg(coalesce(pp.full_name, pp.username), ', ') FROM (
+                 SELECT o.user_id FROM chat_channel_members o WHERE o.channel_id = s.channel_id AND o.user_id <> s.user_id ORDER BY o.joined_at LIMIT 3
+               ) others JOIN profiles pp ON pp.id = others.user_id) AS partner,
               -- Left the conversation, or the message is gone: close the reminder without revealing it.
               (m.deleted_at IS NULL AND app_private.chat_is_member(s.channel_id, s.user_id)) AS eligible,
               (SELECT coalesce(pr.full_name, pr.username) FROM profiles pr WHERE pr.id = m.author_id) AS author
@@ -64,10 +77,10 @@ export async function fireDueReminders(limit = 500) {
       kind: "chat_reminder",
       category: "mentions",
       importance: "important",
-      title: `Reminder: ${row.author ?? "a message"}${row.channel_name ? ` in #${row.channel_name}` : ""}`,
+      title: `Reminder: ${row.author ?? "a message"}${reminderPlace(row) ? ` in ${reminderPlace(row)}` : ""}`,
       body: preview || null,
       href: messageHref(row.channel_id, row.seq, row.thread_root_seq),
-      preview: { contextLabel: row.channel_name ? `#${row.channel_name}` : "Messages", contextKind: "workflow", secondaryText: "Saved" },
+      preview: { contextLabel: reminderPlace(row) ?? "Messages", contextKind: "workflow", secondaryText: "Saved" },
       dedupeKey: `chat-reminder:${row.user_id}:${row.channel_id}:${row.seq}:${Date.now()}`,
     }).catch((error) => logger.error("chat.reminder.failed", { module: "chat", error: String(error) }));
   }

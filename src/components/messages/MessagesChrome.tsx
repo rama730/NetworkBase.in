@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import { useEffect } from "react";
 
-import { useChatUi } from "@/components/messages/chat-ui-store";
+import { restoredProject, useChatUi } from "@/components/messages/chat-ui-store";
+import { useSelectedProject } from "@/components/messages/useSelectedProject";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 import { ShortcutsDialog } from "@/components/messages/ShortcutsDialog";
@@ -34,6 +35,7 @@ function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[
   const router = useRouter();
   const pathname = usePathname();
   const { data, refresh, applyRead } = useChatShell();
+  const projectId = useSelectedProject();
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -49,7 +51,6 @@ function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[
       }
       // Text fields keep their keys (Alt+↑/↓ moves the caret on macOS); dialogs and menus keep Escape.
       if (isTypingTarget(e.target) || escapeTaken(e)) return;
-      const projectId = useChatUi.getState().projectId ?? null;
       const currentId = pathname.match(/\/messages\/([0-9a-fA-F-]{36})/)?.[1];
 
       if (e.altKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
@@ -77,19 +78,18 @@ function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[
         if (!current || !isUnread(current)) return;
         e.preventDefault();
         applyRead(current.id, current.last_seq);
+        // The bold going away is the feedback; only a failure toasts.
         void markRead({ channelId: current.id, seq: current.last_seq }).then((result) => {
-          if (!result.success) {
-            refresh();
-            return void toast.error(chatErrorMessage(result.error));
-          }
-          toast.success("Conversation marked as read");
+          if (result.success) return;
+          refresh();
+          toast.error(chatErrorMessage(result.error));
         });
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [applyRead, confirmMarkAll, data, pathname, refresh, router]);
+  }, [applyRead, confirmMarkAll, data, pathname, projectId, refresh, router]);
 }
 
 function useKeyboardSafeHeight() {
@@ -110,6 +110,12 @@ function useKeyboardSafeHeight() {
 /** Every /messages screen: the keys above, the ⌘K switcher, and the shared dialogs (opened through the chat UI store). */
 export function MessagesChrome() {
   useKeyboardSafeHeight();
+  // A reload keeps the project picked earlier in this tab (pages whose URL has no project).
+  useEffect(() => {
+    const ui = useChatUi.getState();
+    const stored = restoredProject();
+    if (ui.projectId === undefined && stored !== undefined) ui.setProject(stored);
+  }, []);
   const markAll = useMarkAllRead();
   useMessagesKeyboardShortcuts(markAll.conversations);
   const createFor = useChatUi((state) => state.createChannelFor);

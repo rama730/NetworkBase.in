@@ -4,17 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { EditorContent, type Editor } from "@tiptap/react";
-import { ALargeSmall, BarChart3, ChevronDown, Clock, Code2, FileText, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "lucide-react";
+import { ALargeSmall, BarChart3, Camera, ChevronDown, Clock, Code2, FileText, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { scheduleMessage } from "@/app/actions/chat/later";
-import { createTaskFromMessage, sendMessage } from "@/app/actions/chat/messages";
+import { createTaskFromMessage, react, sendMessage } from "@/app/actions/chat/messages";
 import { applyLink, chatDraftToHtmlish, chatMarkdown, FormatToolbar, isBlank, useChatEditor } from "@/components/messages/ChatEditor";
 import { readChatUi, readDraft, writeChatUi, writeDraft } from "@/components/messages/chat-ui-store";
 import { matchMentions, MentionDropdown } from "@/components/messages/parts/MentionDropdown";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
 import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
-import { failSend } from "@/components/messages/failed-sends";
+import { LOAD_DRAFT_EVENT, failSend, type LoadDraftDetail } from "@/components/messages/failed-sends";
 import { DROP_EVENT, DropOverlay, draftKeyOf, useFileDrop, type DropDetail } from "@/components/messages/useFileDrop";
 import { uploadChatFile } from "@/components/messages/upload";
 import { useUpdatePages } from "@/components/messages/useConversation";
@@ -22,8 +22,9 @@ import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { CHAT_MAX_ATTACHMENTS, CHAT_MAX_BODY } from "@/lib/messaging/constants";
-import { formatChatTime } from "@/lib/messaging/channel-view";
+import { formatChatTime, formatFileSize } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
+import { laterTimes } from "@/lib/messaging/reminders";
 import { upsertMessage } from "@/lib/messaging/timeline";
 import { queryKeys } from "@/lib/query-keys";
 import { typingLabel } from "@/lib/messaging/typing";
@@ -41,6 +42,8 @@ type Upload = {
   progress: number;
   assetId: string | null;
   error: boolean;
+  /** Why it failed, shown on the tile. */
+  reason?: string;
   previewUrl?: string | null;
   isImage?: boolean;
   /** Kept so a failed upload can be retried. */
@@ -50,7 +53,7 @@ type Upload = {
 const SLASH_COMMANDS = [
   { command: "/task", group: "Create", description: "Create a project task", example: "/task Finish API documentation" },
   { command: "/poll", group: "Create", description: "Ask a question with options", example: "/poll Best time to meet? | 10am | 2pm | 4pm" },
-  { command: "/code", group: "Create", description: "Insert a code block", example: "/code typescript" },
+  { command: "/code", group: "Create", description: "Code block", example: "/code typescript" },
   { command: "/status", group: "You", description: "Set your status", example: "/status" },
 ];
 
@@ -73,23 +76,16 @@ type Props = {
   alsoSendTo?: string | null;
   /** New message: no conversation exists yet, so the caller sends the text (no files or scheduling until it does). */
   send?: (body: string) => Promise<{ success: true } | { success: false; error: string }>;
+  /** Focus the box once it's ready (opening a thread with a mouse or keyboard; never on touch, where it would pop the keyboard). */
+  autoFocus?: boolean;
 };
-
-/** "Send later" times, computed when picked (a menu left open stays right). */
-function nextAt(daysAhead: (now: Date) => number) {
-  const at = new Date();
-  at.setDate(at.getDate() + daysAhead(at));
-  at.setHours(9, 0, 0, 0);
-  return at;
-}
-const SCHEDULE_TIMES = [
-  { label: "In 1 hour", at: () => new Date(Date.now() + 60 * 60_000) },
-  { label: "Tomorrow at 9:00", at: () => nextAt(() => 1) },
-  { label: "Monday at 9:00", at: () => nextAt((now) => (8 - now.getDay()) % 7 || 7) },
-];
 
 // Clock reads for editor and submit callbacks (never called while rendering).
 const clock = () => Date.now();
+const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+// Polls: the chips voters click are added with the poll, so nobody hunts for 1️⃣ in a picker.
+const POLL_NUMBERS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
+const POLL_DEFAULT = ["👍", "👎", "🤷"];
 
 /** Before sending: "Aisha is on vacation until Oct 14…" for someone you mentioned who is away. */
 function AwayMentionNotice({ userId, name }: { userId: string; name: string }) {
@@ -145,7 +141,7 @@ function personLabel(person: ChatPerson) {
 }
 
 /** Slack-style composer (WYSIWYG, markdown out): @mentions, /task, uploads, per-conversation drafts. */
-export function Composer({ channelId, placeholder, people, threadRootSeq = null, allowBroadcast, canCreateTask, onOpenCanvas, onTyping, typingNames = [], onEditLast, onSent, alsoSendTo = null, send }: Props) {
+export function Composer({ channelId, placeholder, people, threadRootSeq = null, allowBroadcast, canCreateTask, onOpenCanvas, onTyping, typingNames = [], onEditLast, onSent, alsoSendTo = null, send, autoFocus = false }: Props) {
   const { user, profile } = useAuth();
   const update = useUpdatePages(channelId);
   const queryClient = useQueryClient();
@@ -164,7 +160,6 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   const [formatting, setFormatting] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [mention, setMention] = useState<{ query: string } | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [link, setLink] = useState<{ text: string; url: string } | null>(null);
   const [emojiAnchor, setEmojiAnchor] = useState<HTMLElement | null>(null);
@@ -274,10 +269,18 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     };
   }, []);
   useEffect(() => setFormatting(Boolean(readChatUi().formatting)), []);
+  useEffect(() => {
+    if (autoFocus && editor && !editor.isDestroyed && window.matchMedia("(pointer: fine)").matches) editor.commands.focus("end");
+  }, [autoFocus, editor]);
 
   const mentionable = useMemo(() => {
-    const list = people.filter((p) => p.id !== user?.id).map((p) => ({ id: p.id, username: p.username, fullName: p.full_name, avatarUrl: p.avatar_url }));
-    if (allowBroadcast) list.unshift({ id: "here", username: "here", fullName: "here", avatarUrl: null }, { id: "channel", username: "channel", fullName: "channel", avatarUrl: null });
+    const list: { id: string; username: string | null; fullName: string | null; avatarUrl: string | null; hint?: string }[] = people.filter((p) => p.id !== user?.id).map((p) => ({ id: p.id, username: p.username, fullName: p.full_name, avatarUrl: p.avatar_url }));
+    if (allowBroadcast) {
+      list.unshift(
+        { id: "here", username: "here", fullName: "here", avatarUrl: null, hint: "Notify everyone online" },
+        { id: "channel", username: "channel", fullName: "channel", avatarUrl: null, hint: "Notify everyone in this conversation" },
+      );
+    }
     return list;
   }, [allowBroadcast, people, user?.id]);
 
@@ -366,14 +369,16 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         : list));
       uploadChatFile(channelId, file, onProgress, controller.signal)
         .then((assetId) => setUploads((list) => list.map((u) => (u.id === id ? { ...u, assetId, progress: 100 } : u))))
-        .catch(() => {
-          if (!controller.signal.aborted) setUploads((list) => list.map((u) => (u.id === id ? { ...u, error: true } : u)));
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
+          const reason = !navigator.onLine ? "You're offline" : error instanceof Error && error.message.length < 80 ? error.message : "Upload failed";
+          setUploads((list) => list.map((u) => (u.id === id ? { ...u, error: true, reason } : u)));
         })
         .finally(() => transfers.current.delete(id));
   };
   const retryUpload = (u: Upload) => {
     if (!u.file) return;
-    setUploads((list) => list.map((x) => (x.id === u.id ? { ...x, error: false, progress: 0 } : x)));
+    setUploads((list) => list.map((x) => (x.id === u.id ? { ...x, error: false, reason: undefined, progress: 0 } : x)));
     startUpload(u.id, u.file);
   };
 
@@ -385,7 +390,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (picked.length > room) toast.error(`Up to ${CHAT_MAX_ATTACHMENTS} files per message; ${picked.length - Math.max(room, 0)} skipped.`);
     for (const file of picked.slice(0, Math.max(room, 0))) {
       if (file.size > ATTACHMENT_UPLOAD_MAX_FILE_BYTES) {
-        toast.error(`${file.name} is too large.`);
+        toast.error(`${file.name} is too large (max ${formatFileSize(ATTACHMENT_UPLOAD_MAX_FILE_BYTES)}).`);
         continue;
       }
       const id = crypto.randomUUID();
@@ -407,6 +412,24 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     };
     window.addEventListener(DROP_EVENT, onDrop);
     return () => window.removeEventListener(DROP_EVENT, onDrop);
+  }, [draftKey]);
+  // "Edit" on a failed send puts its text back here (below anything already typed).
+  const loadRef = useRef<(body: string) => void>(() => undefined);
+  useEffect(() => {
+    loadRef.current = (body: string) => {
+      const next = value.trim() ? `${value.trim()}\n\n${body}` : body;
+      load(next);
+      writeDraft(draftKey, next);
+      editor?.commands.focus("end");
+    };
+  });
+  useEffect(() => {
+    const onLoad = (event: Event) => {
+      const detail = (event as CustomEvent<LoadDraftDetail>).detail;
+      if (detail?.draftKey === draftKey) loadRef.current(detail.body);
+    };
+    window.addEventListener(LOAD_DRAFT_EVENT, onLoad);
+    return () => window.removeEventListener(LOAD_DRAFT_EVENT, onLoad);
   }, [draftKey]);
 
   const clear = () => {
@@ -484,6 +507,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       return;
     }
     const draft = text;
+    let pollVotes: string[] = [];
     if (/^\/poll(\s+|$)/i.test(text)) {
       const raw = text.replace(/^\/poll\s*/i, "").trim();
       if (!raw) {
@@ -491,11 +515,13 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         return;
       }
       const parts = raw.split("|").map((p) => p.trim()).filter(Boolean);
-      const emojiList = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
       if (parts.length > 1) {
-        text = `📊 **Poll: ${parts[0]}**\n\n` + parts.slice(1).map((opt, i) => `${emojiList[i] ?? "🔹"} ${opt}`).join("\n") + "\n\n*React with the numbers above to vote!*";
+        const options = parts.slice(1, POLL_NUMBERS.length + 1);
+        pollVotes = POLL_NUMBERS.slice(0, options.length);
+        text = `📊 **Poll: ${parts[0]}**\n\n` + options.map((opt, i) => `${POLL_NUMBERS[i]} ${opt}`).join("\n") + "\n\n*Vote by clicking a number below.*";
       } else {
-        text = `📊 **Poll: ${raw}**\n\n👍 Yes\n👎 No\n🤷 Maybe\n\n*React below to vote!*`;
+        pollVotes = POLL_DEFAULT;
+        text = `📊 **Poll: ${raw}**\n\n👍 Yes\n👎 No\n🤷 Maybe\n\n*Vote by clicking below.*`;
       }
     } else if (/^\/code(\s+|$)/i.test(text)) {
       startCodeBlock(text.replace(/^\/code\s*/i, "").trim() || null);
@@ -517,12 +543,17 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       return;
     }
     const clientId = crypto.randomUUID();
+    // Files show at once from their on-device previews; the server's copy replaces them when it lands.
+    const localAttachments = uploads.filter((u) => u.assetId).map((u, idx) => ({
+      idx, asset_id: u.assetId!, name: u.name, mime: u.file?.type || "application/octet-stream", size: u.file?.size ?? 0,
+      width: null, height: null, local_url: u.previewUrl ?? undefined,
+    }));
     const optimistic: ChatMessageView = {
       channel_id: channelId, seq: -clock(), author_id: user?.id ?? null,
       author: user ? { id: user.id, username: profile?.username ?? null, full_name: profile?.fullName ?? null, avatar_url: profile?.avatarUrl ?? null } : null,
       kind: "user", body, thread_root_seq: threadRootSeq, reply_count: 0, last_reply_seq: null, last_reply_at: null,
       edited_at: null, deleted_at: null, created_at: new Date().toISOString(), client_message_id: clientId,
-      attachments: [], reactions: [], card: null, pinned: false,
+      attachments: localAttachments, reactions: [], card: null, pinned: false,
     };
     // The box clears at once; any failure puts the text and attachments back.
     const sentUploads = uploads;
@@ -539,9 +570,6 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     const result = await sendMessage({ channelId, body, clientId, threadRootSeq, assetIds: ready, alsoToChannel: Boolean(threadRootSeq && alsoToChannel) })
       .catch(() => ({ success: false as const, error: "chat_network" }))
       .finally(() => setSending(false));
-    sentUploads.forEach((u) => {
-      if (u.previewUrl) URL.revokeObjectURL(u.previewUrl);
-    });
     if (!result.success) {
       // It stays in place as "Not sent · Retry · Delete" (failed-sends.ts), files included.
       failSend(queryClient, clientId, { channelId, threadRootSeq, body, assetIds: ready, alsoToChannel: Boolean(threadRootSeq && sentAlso) });
@@ -550,8 +578,28 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     }
     if (threadKey) putInThread((replies) => replies.map((m) => (m.client_message_id === clientId ? result.message : m)));
     else update((pages) => upsertMessage(pages, result.message));
+    // The server's copy is on screen: the on-device previews can go (a failed send keeps them).
+    sentUploads.forEach((u) => {
+      if (u.previewUrl) URL.revokeObjectURL(u.previewUrl);
+    });
+    for (const emoji of pollVotes) await react({ channelId, seq: result.message.seq, emoji, on: true });
+    // The channel copy of a thread reply: say where it went.
+    if (threadRootSeq && sentAlso && alsoSendTo) toast.success(`Also sent to ${alsoSendTo}`);
     onSent?.();
   };
+  // Screen readers follow the highlighted command while focus stays in the editor (like @mentions).
+  useEffect(() => {
+    const input = editor && !editor.isDestroyed ? editor.view.dom : null;
+    if (!input || !matchingSlash.length) return;
+    input.setAttribute("aria-controls", `${draftKey}-slash`);
+    input.setAttribute("aria-expanded", "true");
+    input.setAttribute("aria-activedescendant", `${draftKey}-slash-${activeSlash}`);
+    return () => {
+      input.removeAttribute("aria-controls");
+      input.removeAttribute("aria-expanded");
+      input.removeAttribute("aria-activedescendant");
+    };
+  }, [activeSlash, draftKey, editor, matchingSlash.length]);
   useEffect(() => {
     submitRef.current = () => {
       if (matchingSlash.length) pickSlash(matchingSlash[activeSlash]!.command);
@@ -567,11 +615,14 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     };
   });
 
-  const openAttach = () => {
-    if (window.matchMedia("(pointer: coarse)").matches) setSheetOpen(true);
-    else fileInput.current?.click();
-  };
-  const canSend = Boolean(plain.trim() || uploads.some((u) => u.assetId)) && !uploads.some((u) => u.error);
+  const coarse = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+  const uploading = uploads.filter((u) => !u.assetId && !u.error);
+  const uploadPercent = uploading.length ? Math.round(uploading.reduce((sum, u) => sum + u.progress, 0) / uploading.length) : 100;
+  const canSend = Boolean(plain.trim() || uploads.some((u) => u.assetId)) && !uploads.some((u) => u.error) && !uploading.length;
+  const sendBlockedReason = uploading.length ? "Wait for the upload to finish" : uploads.some((u) => u.error) ? "Retry or remove the failed file" : "Type a message to send";
+  // A counter only near the limit.
+  const nearLimit = value.length > CHAT_MAX_BODY * 0.9;
+  const slashHint = /^\/(task|poll) $/i.test(plain) ? SLASH_COMMANDS.find((cmd) => plain.toLowerCase().startsWith(cmd.command))?.example ?? null : null;
   const mentionedIds = useMemo(() => Array.from(new Set(Array.from(value.matchAll(/<@([0-9a-f-]{36})>/g), (match) => match[1]!))).filter((id) => id !== user?.id).slice(0, 5), [user?.id, value]);
 
   return (
@@ -593,12 +644,12 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
                   </div>
                 ) : null}
                 {u.error ? (
-                  <button type="button" onClick={() => retryUpload(u)} className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-destructive/80 text-[11px] font-semibold text-destructive-foreground" aria-label={`Retry ${u.name}`}>
-                    Failed
+                  <button type="button" onClick={() => retryUpload(u)} title={u.reason} className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-destructive/80 px-1 text-center text-[11px] font-semibold text-destructive-foreground" aria-label={`${u.name} didn't upload: ${u.reason ?? "Upload failed"}. Retry`}>
+                    {u.reason === "You're offline" ? "Offline" : "Failed"}
                     <span className="underline">Retry</span>
                   </button>
                 ) : null}
-                <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-black/60 text-white hover:bg-black">
+                <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-black/60 text-white hover:bg-black pointer-coarse:size-8">
                   <X size={12} />
                 </button>
               </li>
@@ -607,7 +658,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
                 <Paperclip size={14} aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate">{u.name}</span>
                 {u.error ? (
-                  <button type="button" onClick={() => retryUpload(u)} className="font-mono text-[11px] underline" aria-label={`Retry ${u.name}`}>Retry</button>
+                  <button type="button" onClick={() => retryUpload(u)} title={u.reason} className="font-mono text-[11px] underline" aria-label={`${u.name} didn't upload: ${u.reason ?? "Upload failed"}. Retry`}>Retry</button>
                 ) : (
                   <span className="font-mono text-[11px]">{u.assetId ? "Ready" : `${u.progress}%`}</span>
                 )}
@@ -625,18 +676,22 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           <button type="button" onClick={discardDraft} className="font-medium text-primary hover:underline">Discard</button>
         </div>
       ) : null}
+      {slashHint ? <p className="mb-1 px-1 font-mono text-[12px] text-muted-foreground">e.g. {slashHint}</p> : null}
       <div className="relative rounded-lg border border-input bg-card focus-within:border-ring">
         {matchingSlash.length > 0 ? (
-          <div className="absolute bottom-full left-0 z-30 mb-1 w-80 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md" role="listbox" aria-label="Slash commands">
-            <div className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
+          <div className="absolute bottom-full left-0 z-30 mb-1 w-80 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
+            <div className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold uppercase text-muted-foreground" aria-hidden="true">
               <span>Slash commands</span>
               <span className="font-normal normal-case">↑↓ to move · ↵ to pick · esc</span>
             </div>
-            {matchingSlash.map((cmd, index) => (
-              <div key={cmd.command}>
-              {index === 0 || matchingSlash[index - 1]!.group !== cmd.group ? <p className="px-2 pb-0.5 pt-1.5 text-[11px] font-semibold text-muted-foreground">{cmd.group}</p> : null}
+            <div id={`${draftKey}-slash`} role="listbox" aria-label="Slash commands">
+            {[...new Set(matchingSlash.map((cmd) => cmd.group))].map((group) => (
+              <div key={group} role="group" aria-label={group}>
+              <p className="px-2 pb-0.5 pt-1.5 text-[11px] font-semibold text-muted-foreground" aria-hidden="true">{group}</p>
+              {matchingSlash.map((cmd, index) => cmd.group !== group ? null : (
               <button
                 key={cmd.command}
+                id={`${draftKey}-slash-${index}`}
                 type="button"
                 role="option"
                 aria-selected={index === activeSlash}
@@ -650,8 +705,10 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
                 <span><span className="font-mono font-medium text-primary">{cmd.command}</span> <span className="text-muted-foreground">{cmd.description}</span></span>
                 <span className="font-mono text-[11px] text-muted-foreground">{cmd.example}</span>
               </button>
+              ))}
               </div>
             ))}
+            </div>
           </div>
         ) : null}
         {formatting && editor ? <FormatToolbar editor={editor} onLink={openLink} /> : null}
@@ -683,7 +740,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
             <DropdownMenuContent side="top" align="start" className="w-56 p-1">
               {send ? null : (
                 <>
-                  <DropdownMenuItem onSelect={openAttach} className="gap-2.5 cursor-pointer">
+                  <DropdownMenuItem onSelect={() => fileInput.current?.click()} className="gap-2.5 cursor-pointer">
                     <Paperclip size={14} className="text-muted-foreground" />
                     <span>Upload file</span>
                   </DropdownMenuItem>
@@ -691,6 +748,12 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
                     <ImageIcon size={14} className="text-muted-foreground" />
                     <span>Photos and videos</span>
                   </DropdownMenuItem>
+                  {coarse ? (
+                    <DropdownMenuItem onSelect={() => cameraInput.current?.click()} className="gap-2.5 cursor-pointer">
+                      <Camera size={14} className="text-muted-foreground" />
+                      <span>Camera</span>
+                    </DropdownMenuItem>
+                  ) : null}
                 </>
               )}
               <DropdownMenuItem
@@ -700,12 +763,12 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
                 className="gap-2.5 cursor-pointer"
               >
                 <Code2 size={14} className="text-muted-foreground" />
-                <span>Code snippet</span>
+                <span>Code block</span>
               </DropdownMenuItem>
               {onOpenCanvas && !threadRootSeq ? (
                 <DropdownMenuItem onSelect={onOpenCanvas} className="gap-2.5 cursor-pointer">
                   <FileText size={14} className="text-muted-foreground" />
-                  <span>Canvas</span>
+                  <span>Open canvas</span>
                 </DropdownMenuItem>
               ) : null}
               {canCreateTask && !threadRootSeq ? (
@@ -727,7 +790,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
             type="button"
             data-reaction-trigger
             aria-label="Emoji"
-            title="Emoji (⌃⌘Space for more)"
+            title={isMac() ? "Emoji (⌃⌘Space for more)" : "Emoji"}
             aria-expanded={Boolean(emojiAnchor)}
             onMouseDown={(e) => e.preventDefault()}
             onClick={(e) => setEmojiAnchor(emojiAnchor ? null : e.currentTarget)}
@@ -760,20 +823,24 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           >
             <Slash size={18} />
           </button>
+          {nearLimit ? <span className={`ml-auto font-mono text-[11px] ${value.length > CHAT_MAX_BODY ? "text-destructive" : "text-muted-foreground"}`}>{value.length.toLocaleString()}/{CHAT_MAX_BODY.toLocaleString()}</span> : null}
+          {/* aria-disabled (not disabled): keyboard and screen-reader users can still reach it and hear why. */}
           <button
             type="button"
-            onClick={() => void submit()}
-            disabled={!canSend || sending}
-            aria-label="Send"
-            title={canSend ? "Send (Enter) · Shift+Enter for new line" : uploads.some((u) => u.error) ? "Retry or remove the failed file" : "Type a message to send"}
-            className={`ml-auto inline-flex h-8 items-center gap-1.5 ${send ? "rounded-[5px]" : "rounded-l-[5px]"} px-3.5 text-[13px] font-medium transition-colors shadow-2xs pointer-coarse:h-11 ${
+            onClick={() => canSend && !sending && void submit()}
+            aria-disabled={!canSend || sending}
+            aria-describedby={canSend ? undefined : `${draftKey}-send-why`}
+            aria-label={uploading.length ? `Uploading, ${uploadPercent}%` : "Send"}
+            title={canSend ? "Send (Enter) · Shift+Enter for new line" : sendBlockedReason}
+            className={`${nearLimit ? "ml-2" : "ml-auto"} inline-flex h-8 items-center gap-1.5 ${send ? "rounded-[5px]" : "rounded-l-[5px]"} px-3.5 text-[13px] font-medium transition-colors shadow-2xs pointer-coarse:h-11 ${
               canSend && !sending
                 ? "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
                 : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
             }`}
           >
-            <SendHorizontal size={15} /> <span className="hidden sm:inline">Send</span>
+            <SendHorizontal size={15} /> <span className={uploading.length ? "" : "hidden sm:inline"}>{uploading.length ? `${uploadPercent}%` : "Send"}</span>
           </button>
+          <span id={`${draftKey}-send-why`} className="sr-only">{sendBlockedReason}</span>
           {send ? null : <span className="contents" title={uploads.length ? "Scheduled messages can't carry files yet" : undefined}><DropdownMenu>
             <DropdownMenuTrigger
               disabled={!plain.trim() || sending || uploads.length > 0}
@@ -785,7 +852,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="end" className="w-56">
               <DropdownMenuLabel className="flex items-center gap-2"><Clock size={14} /> Schedule message</DropdownMenuLabel>
-              {SCHEDULE_TIMES.map((option) => (
+              {laterTimes("schedule").map((option) => (
                 <DropdownMenuItem key={option.label} onSelect={() => void schedule(option.at())}>
                   <span className="flex-1">{option.label}</span>
                 </DropdownMenuItem>
@@ -808,6 +875,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           anchor={emojiAnchor}
           onReact={(emoji) => { setEmojiAnchor(null); insertText(emoji); }}
           onClose={() => setEmojiAnchor(null)}
+          verb="Insert"
         />
       ) : null}
       <TimePickerDialog
@@ -823,7 +891,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       <input ref={mediaInput} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
       <Dialog open={link !== null} onOpenChange={(open) => !open && setLink(null)}>
         <DialogContent className="sm:max-w-md">
-          <DialogTitle>Add link</DialogTitle>
+          <DialogTitle>{link?.url ? "Edit link" : "Add link"}</DialogTitle>
           <form
             className="space-y-3"
             onSubmit={(event) => {
@@ -839,20 +907,13 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
               <input autoFocus type="url" inputMode="url" placeholder="https://" value={link?.url ?? ""} onChange={(e) => setLink((l) => l && { ...l, url: e.target.value })} className="mt-1 h-9 w-full rounded-[5px] border border-input bg-background px-3 text-[14px] outline-none focus:border-ring" />
             </label>
             <DialogFooter>
+              {editor?.isActive("link") ? (
+                <button type="button" onClick={() => { editor.chain().focus().extendMarkRange("link").unsetLink().run(); setLink(null); }} className="mr-auto h-9 rounded-[5px] px-3 text-[13px] text-destructive hover:bg-muted">Remove link</button>
+              ) : null}
               <button type="button" onClick={() => setLink(null)} className="h-9 rounded-[5px] border border-border px-3 text-[13px]">Cancel</button>
               <button type="submit" className="h-9 rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground">Save</button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
-        <DialogContent presentation="bottom-sheet" showCloseButton={false}>
-          <DialogTitle className="px-4 pb-1 pt-4 text-[17px]">Attach</DialogTitle>
-          <div className="px-2 pb-3 [&>button]:flex [&>button]:min-h-11 [&>button]:w-full [&>button]:items-center [&>button]:rounded-[5px] [&>button]:px-3 [&>button]:text-[15px]">
-            <button type="button" onClick={() => { setSheetOpen(false); cameraInput.current?.click(); }}>Camera</button>
-            <button type="button" onClick={() => { setSheetOpen(false); mediaInput.current?.click(); }}>Photos and videos</button>
-            <button type="button" onClick={() => { setSheetOpen(false); fileInput.current?.click(); }}>Files</button>
-          </div>
         </DialogContent>
       </Dialog>
     </div>

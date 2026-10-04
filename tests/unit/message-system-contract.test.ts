@@ -269,8 +269,8 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
     );
     assert.match(
         tabBarSource,
-        /tab\.kind === "link" \? \(\s*<a[\s\S]*?href=\{normalizeSafeExternalUrl\(tab\.url \?\? ""\) \?\? undefined\}\s*target="_blank"\s*rel="noopener noreferrer"/,
-        "Bookmark tabs are real links to their (safe) URL in a new browser tab (plan #19/#90)",
+        /const href = normalizeSafeExternalUrl\(tab\.url \?\? ""\) \?\? undefined;[\s\S]*?<a\s+href=\{href\}\s+target="_blank"\s+rel="noopener noreferrer"/,
+        "Bookmarks are real links to their (safe) URL in a new browser tab (plan #19/#90; round 2 #109: links, not tabs)",
     );
 
     // 1.4 Saved for later and reminders (the reorganization plan, item 2, approved 2026-10-03)
@@ -538,8 +538,8 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         tabBarSource,
-        /New canvas[\s\S]*Canvas from another channel[\s\S]*Canvas from a template/,
-        "ChannelTabBar + menu offers a new, an existing or a template canvas",
+        /New canvas[\s\S]*Templates…[\s\S]*Copy from another channel…/,
+        "ChannelTabBar + menu offers a new canvas, a template or a copy of another channel's (round 2 #54)",
     );
     assert.match(
         canvasSource,
@@ -710,8 +710,8 @@ test("Section 7 (Header Ergonomics & Message Action Menu Fixes) contracts", () =
     // 7.2 Channel view header ergonomics: Clickable channel name opens About, project title inline
     assert.match(
         conversationViewSource,
-        /onClick=\{\(\) => openDetails\("about"\)\}[\s\S]*?title="Details \(⌘I\)"/,
-        "Clicking the conversation name opens Details (About), like ⌘I",
+        /onClick=\{\(\) => openDetails\("about"\)\}[\s\S]*?title="Conversation details \(⌘⇧I\)"/,
+        "Clicking the conversation name opens Details (About), like ⌘⇧I (round 2 #104: ⌘I stays Italic)",
     );
     assert.match(
         conversationViewSource,
@@ -801,8 +801,8 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.3 Composer plus menu rich creation options (code snippet, media)
     assert.match(
         composerSource,
-        /Code snippet/,
-        "Composer plus menu must include Code snippet creation option",
+        /Code block/,
+        "Composer plus menu must include the Code block option (one name everywhere, round 2 #161)",
     );
     assert.match(
         composerSource,
@@ -836,7 +836,7 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.6 Canvas and Poll in the composer plus menu; Send later beside Send
     assert.match(
         composerSource,
-        /<span>Canvas<\/span>[\s\S]*<span>Poll<\/span>/,
+        /<span>Open canvas<\/span>[\s\S]*<span>Poll<\/span>/,
         "Composer plus menu must include Canvas and Poll",
     );
     assert.match(
@@ -906,8 +906,8 @@ test("Section 9 (Project Selection First & Professional Empty Placeholder) contr
     // 9.3 HomePane professional empty state & project-aware placeholder
     assert.match(
         homePaneSource,
-        /title="Unread"[\s\S]*title="Recent"[\s\S]*Open threads →/,
-        "HomePane shows what needs you: unread and recent conversations, with a link to threads",
+        /Start a conversation[\s\S]*Message a teammate[\s\S]*title="Unread"/,
+        "HomePane shows what needs you (Unread; recent ones live in the sidebar), and first-time users get a way to start (round 2 #38, #39)",
     );
     assert.match(
         homePaneSource,
@@ -1001,7 +1001,7 @@ test("Section 11 (Slack-Exact About Section Layout & Channel Name Editing) contr
     // 11.2 Each row edits in place; admins rename (including default channels), validated
     assert.match(
         detailsPaneSource,
-        /label="Channel name"[\s\S]*editable=\{channel\.can_admin\}[\s\S]*CHAT_CHANNEL_NAME_PATTERN\.test\(v\)/,
+        /label="Channel name"[\s\S]*editable=\{canEdit\}[\s\S]*CHAT_CHANNEL_NAME_PATTERN\.test\(v\)/,
         "Admins edit the channel name in place, validated against the naming pattern",
     );
     assert.doesNotMatch(

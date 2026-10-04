@@ -188,6 +188,8 @@ export async function searchChannels(input: { query: string }) {
 export type ChannelDetails = ChatChannelSummary & {
   description: string | null;
   created_by: string | null;
+  /** The creator's name, even if they left (Details › Created). */
+  created_by_name: string | null;
   created_at: string;
   project_title: string | null;
   project_slug: string | null;
@@ -205,6 +207,7 @@ export async function getChannel(input: { channelId: string }) {
       SELECT c.id, c.kind, c.name, c.title, c.topic, c.description, c.project_id, c.application_id, c.is_default,
              c.last_seq, c.last_top_seq, c.last_message_at, c.last_preview, c.last_author_id, c.member_count,
              c.archived_at AS channel_archived_at, c.created_by, c.created_at,
+             (SELECT coalesce(cp.full_name, cp.username) FROM profiles cp WHERE cp.id = c.created_by) AS created_by_name,
              p.title AS project_title, p.slug AS project_slug,
              coalesce(m.last_read_seq, 0) AS last_read_seq, coalesce(m.mention_count, 0) AS mention_count,
              coalesce(m.notify, 'all') AS notify, coalesce(m.starred, false) AS starred, m.archived_at,

@@ -22,9 +22,10 @@ test("a mention or thread-reply hint bumps the Inbox badge; a plain DM message d
   assert.equal(applyHint(base, { channel_id: "dm", seq: 6, mention: false, thread_root_seq: null })?.inbox_unread, 2);
 });
 
-test("a muted conversation's hint never bumps the Inbox badge", () => {
+test("muted conversations: a mention still bumps the Inbox badge, a thread reply doesn't (round 2 #36)", () => {
   const base = data([channel("c1", { notify: "mute" })]);
-  assert.equal(applyHint(base, { channel_id: "c1", seq: 6, mention: true, thread_root_seq: null })?.inbox_unread, 2);
+  assert.equal(applyHint(base, { channel_id: "c1", seq: 6, mention: true, thread_root_seq: null })?.inbox_unread, 3);
+  assert.equal(applyHint(base, { channel_id: "c1", seq: 6, mention: false, thread_root_seq: 2 })?.inbox_unread, 2);
 });
 
 test("DM count is top-level messages only, like bold", () => {

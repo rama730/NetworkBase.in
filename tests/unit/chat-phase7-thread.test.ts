@@ -35,12 +35,15 @@ test("thread: newest replies first with Load earlier, true count, Following togg
   assert.match(pane, /root\?\.reply_count/);
   assert.match(pane, /<Check size=\{13\} aria-hidden="true" \/> Following/);
   assert.doesNotMatch(pane, /BellOff|Mark as read/);
-  assert.doesNotMatch(pane, /role="log" aria-label="Thread replies" aria-live/);
+  // The list stays quiet (aria-live off); only the sr-only line announces replies (round 2 #29).
+  assert.match(pane, /role="log"\s+aria-live="off"\s+aria-label="Thread replies"/);
   assert.match(pane, /aria-live="polite">\{announce\}/);
   assert.match(pane, /This channel is archived\. You can read it, but not reply\./);
   assert.match(pane, /Join \{channelLabel \?\? "the channel"\} to reply\./);
   assert.match(pane, /Jump to latest reply/);
-  assert.match(pane, /conversationHref\(channelId, \{ m: rootSeq, thread: rootSeq \}\)\} replace scroll=\{false\}/);
+  // Show in conversation keeps the thread open beside the timeline at 1024px+, closes it below (round 2 #32).
+  assert.match(pane, /router\.replace\(showInConversationHref\(channelId, rootSeq\)/);
+  assert.match(read("src/lib/messaging/routes.ts"), /wide \? \{ m: rootSeq, thread: rootSeq \} : \{ m: rootSeq \}/);
   const drawer = read("src/components/messages/ChatDrawer.tsx");
   assert.match(drawer, /aria-modal=\{modal \|\| undefined\}/);
   assert.match(drawer, /opener\?\.isConnected\) opener\.focus/);

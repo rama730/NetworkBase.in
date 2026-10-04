@@ -138,7 +138,8 @@ export function resolveNotificationDeliveryPolicy(params: {
     const now = params.now ?? new Date();
     if (actorUserId && actorUserId === recipientUserId) return { allowed: false, reason: "actor_self" };
     const preferences = preferenceMap.get(recipientUserId) ?? DEFAULT_NOTIFICATION_PREFERENCES;
-    if (!preferences[category]) return { allowed: false, reason: "category_off" };
+    // Reminders the user set themselves ("Remind me about this") come through whatever category is off.
+    if (kind !== "chat_reminder" && !preferences[category]) return { allowed: false, reason: "category_off" };
     const muted = preferences.mutedScopes.some((scope) => notificationMatchesMuteScope({
         kind,
         actorUserId,

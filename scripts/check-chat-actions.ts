@@ -479,7 +479,7 @@ async function main() {
       await activity.markInboxRead({ all: true, scope: "all" });
       return before && still && !(await unread());
     });
-    await check("muted conversations stay out of the Inbox list", async () => {
+    await check("muted conversations still show @mentions in the Inbox (like Slack)", async () => {
       as(member, "Mason");
       await members.setMemberState({ channelId: general, notify: "mute" });
       as(owner, "Olivia");
@@ -488,7 +488,7 @@ async function main() {
       as(member, "Mason");
       const inbox = await activity.listInbox();
       await members.setMemberState({ channelId: general, notify: "all" });
-      return sent.success && inbox.success && !inbox.items.some((i) => i.channel_id === general && i.seq === sent.message.seq);
+      return sent.success && inbox.success && inbox.items.some((i) => i.channel_id === general && i.seq === sent.message.seq);
     });
     await check("Saved names the DM partner", async () => {
       as(member, "Mason");
@@ -607,6 +607,67 @@ async function main() {
     await check("search hits carry the project label", async () => {
       const result = await search.searchMessages({ query: "", channelId: general, limit: 1 });
       return result.success && result.hits[0]?.project_title === "Actions test";
+    });
+    // Round 2 (#26-#36): read state, Inbox counts and the mute rule agree everywhere.
+    // The send bucket is 10 per user, 1/s refill: let it refill first.
+    await new Promise((resolve) => setTimeout(resolve, 11_000));
+    await check("#28 Inbox mark-all also clears the sidebar @ count", async () => {
+      as(owner, "Olivia");
+      const ping = await messages.sendMessage({ channelId: launch, body: `round two <@${member}>` });
+      as(member, "Mason");
+      const [before] = await sql`SELECT mention_count FROM chat_channel_members WHERE user_id = ${member} AND channel_id = ${launch}`;
+      const result = await activity.markInboxRead({ all: true, scope: "mentions" });
+      const [after] = await sql`SELECT mention_count FROM chat_channel_members WHERE user_id = ${member} AND channel_id = ${launch}`;
+      return ping.success && Number(before?.mention_count) > 0 && result.success && Number(after?.mention_count) === 0;
+    });
+    const threadRoot = await messages.sendMessage({ channelId: launch, body: "thread root for round two" });
+    await check("#26 reading a thread sends the new Inbox count to the user", async () => {
+      if (!threadRoot.success) return false;
+      as(owner, "Olivia");
+      const reply = await messages.sendMessage({ channelId: launch, body: "a reply", threadRootSeq: threadRoot.message.seq });
+      as(member, "Mason");
+      await flush();
+      broadcasts.length = 0;
+      if (!reply.success) return false;
+      const result = await read.markThreadRead({ channelId: launch, rootSeq: threadRoot.message.seq, seq: reply.message.seq });
+      await flush();
+      return result.success && broadcasts.some((b) => b.event === "inbox.count" && b.topic === `chat:user:${member}`);
+    });
+    await check("#35 marking a thread reply read in the Inbox also reads it in Threads", async () => {
+      if (!threadRoot.success) return false;
+      as(owner, "Olivia");
+      const reply = await messages.sendMessage({ channelId: launch, body: "another reply", threadRootSeq: threadRoot.message.seq });
+      as(member, "Mason");
+      if (!reply.success) return false;
+      const marked = await activity.markInboxRead({ items: [{ channelId: launch, seq: reply.message.seq }] });
+      const threads = await activity.listThreads();
+      const thread = threads.success ? threads.threads.find((t) => t.channel_id === launch && t.root_seq === threadRoot.message.seq) : null;
+      return marked.success && thread?.unread === false;
+    });
+    await check("#36 muted: thread replies don't count, mentions still do", async () => {
+      if (!threadRoot.success) return false;
+      await members.setMemberState({ channelId: launch, notify: "mute" });
+      as(owner, "Olivia");
+      await messages.sendMessage({ channelId: launch, body: "muted reply", threadRootSeq: threadRoot.message.seq });
+      await messages.sendMessage({ channelId: launch, body: `muted ping <@${member}>` });
+      as(member, "Mason");
+      const threads = await activity.listThreads();
+      const thread = threads.success ? threads.threads.find((t) => t.channel_id === launch && t.root_seq === threadRoot.message.seq) : null;
+      const inbox = await activity.listInbox({ filter: "all" });
+      const items = inbox.success ? inbox.items.filter((i) => i.channel_id === launch && !i.read) : [];
+      await members.setMemberState({ channelId: launch, notify: "all" });
+      return thread?.unread === false && items.some((i) => i.kind === "user") && !items.some((i) => i.kind === "thread_reply");
+    });
+    await check("#33 Also send to the channel carries the files", async () => {
+      if (!threadRoot.success) return false;
+      const [asset] = await sql`
+        INSERT INTO storage_assets (bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, owner_user_id, expires_at)
+        VALUES ('chat-attachments', ${`${launch}/${member}/round2-${Date.now()}.png`}, 'chat_attachment:file', 'verified', 'image/png', 10, 'image/png', 10, ${member}, now() + interval '1 day')
+        RETURNING id`;
+      const assetId = String(asset?.id);
+      const sentBoth = await messages.sendMessage({ channelId: launch, body: "", threadRootSeq: threadRoot.message.seq, assetIds: [assetId], alsoToChannel: true });
+      const page = await messages.listMessages({ channelId: launch });
+      return sentBoth.success && page.success && page.messages.some((m) => m.thread_root_seq === null && m.attachments.some((a) => a.asset_id === assetId));
     });
     await check("leaveChannel works for non-default channels only", async () => {
       const left = await channels.leaveChannel({ channelId: launch });

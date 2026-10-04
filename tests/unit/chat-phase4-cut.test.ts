@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { chatWindowHiddenOn } from "@/components/messages/chat-window-store";
 import { canAddPeople } from "@/lib/messaging/channel-view";
-import { REMINDER_TIMES } from "@/lib/messaging/reminders";
+import { laterTimes } from "@/lib/messaging/reminders";
 import { conversationHref, messageHref } from "@/lib/messaging/routes";
 
 const read = (path: string) => fs.readFileSync(path, "utf8");
@@ -34,10 +34,9 @@ test("Add people follows the server rule: any member of a live, non-DM conversat
 });
 
 test("one reminder list, used by the message menu and Saved", () => {
-  assert.deepEqual(REMINDER_TIMES.map((t) => t.label), ["In 20 minutes", "In 1 hour", "In 3 hours", "Tomorrow at 9:00", "Next Monday at 9:00"]);
-  for (const t of REMINDER_TIMES) assert.ok(Date.parse(t.at()) > Date.now());
-  assert.match(read("src/components/messages/MessageRow.tsx"), /REMINDER_TIMES\.map/);
-  assert.match(read("src/components/messages/MessagesViews.tsx"), /REMINDER_TIMES\.map/);
+  for (const t of laterTimes("remind")) assert.ok(t.at().getTime() > Date.now());
+  assert.match(read("src/components/messages/MessageRow.tsx"), /laterTimes\("remind"\)\.map/);
+  assert.match(read("src/components/messages/MessagesViews.tsx"), /laterTimes\("remind"\)\.map/);
 });
 
 test("the chat window and its launcher share one hidden-routes list", () => {

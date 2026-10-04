@@ -38,7 +38,12 @@ export async function hydrateCards(viewerId: string, refs: ChatCardRef[]): Promi
              p.key AS project_key, p.slug AS project_slug, p.title AS project_title,
              CASE WHEN asg.id IS NULL THEN NULL ELSE ${person("asg")} END AS assignee,
              t.deleted_at IS NOT NULL AS deleted,
-             app_private.chat_is_project_member(t.project_id, ${viewerId}::uuid) AS can_view
+             app_private.chat_is_project_member(t.project_id, ${viewerId}::uuid) AS can_view,
+             -- Same rule as updateTaskStatusAction (lockTaskForWrite): the owner, or a member who isn't a viewer.
+             (p.owner_id = ${viewerId}::uuid OR EXISTS (
+               SELECT 1 FROM project_members pm
+               WHERE pm.project_id = t.project_id AND pm.user_id = ${viewerId}::uuid AND lower(coalesce(pm.role, '')) <> 'viewer'
+             )) AS can_edit
       FROM tasks t
       JOIN projects p ON p.id = t.project_id
       LEFT JOIN profiles asg ON asg.id = t.assignee_id

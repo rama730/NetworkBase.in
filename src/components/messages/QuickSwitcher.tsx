@@ -48,7 +48,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
   const people = usePeopleSearch(query, open);
   // Public channels you haven't joined, in every project you're in (one server search, 250 ms after typing stops).
   useEffect(() => {
-    const timer = setTimeout(() => setChannelNeedle(query.trim().toLowerCase()), 250);
+    const timer = setTimeout(() => setChannelNeedle(query.trim().toLowerCase().replace(/^#/, "")), 250);
     return () => clearTimeout(timer);
   }, [query]);
   const unjoinedChannels = useQuery({
@@ -62,7 +62,8 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
   });
 
   const results = useMemo<Result[]>(() => {
-    const needle = query.trim().toLowerCase();
+    // "#gen" finds #general: channel names have no "#".
+    const needle = query.trim().toLowerCase().replace(/^#/, "");
     const meId = user?.id ?? null;
     const projects = new Map((data?.projects ?? []).map((p) => [p.id, p.title]));
     const mine: Result[] = (data?.channels ?? [])

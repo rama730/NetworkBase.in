@@ -24,10 +24,10 @@ export async function sendMessage(input: SendInput & { alsoToChannel?: boolean }
   try {
     const { alsoToChannel, ...message } = input;
     const sent = await sendAs(user, message, null);
-    // ponytail: "Also send to #channel" posts a second, top-level copy (L-31).
+    // ponytail: "Also send to #channel" posts a second, top-level copy (L-31), files included.
     // ceiling: the copy doesn't link back to the thread. upgrade: a reply-ref column.
-    if (sent.success && alsoToChannel && input.threadRootSeq && input.body.trim()) {
-      await sendAs(user, { channelId: input.channelId, body: input.body }, null);
+    if (sent.success && alsoToChannel && input.threadRootSeq && (input.body.trim() || input.assetIds?.length)) {
+      await sendAs(user, { channelId: input.channelId, body: input.body, assetIds: input.assetIds }, null);
     }
     return sent;
   } catch (error) {
