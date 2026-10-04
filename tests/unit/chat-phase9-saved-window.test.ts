@@ -22,7 +22,7 @@ test("Saved: custom time, Clear reminder, due badge, one wording (#137-139)", ()
   assert.match(views, /Clear reminder/);
   assert.match(read("src/app/actions/chat/later.ts"), /clearReminder/);
   assert.match(read("src/app/actions/chat/read.ts"), /saved_due/);
-  assert.match(read("src/components/messages/ChatSections.tsx"), /<Count value=\{savedDue\} \/>/);
+  assert.match(read("src/components/messages/ChatSections.tsx"), /<Count value=\{savedDue\} noun=/);
   const row = read("src/components/messages/MessageRow.tsx");
   assert.match(row, /saved \? "Remove from Saved" : "Save"/);
   for (const file of ["src/components/messages/MessageRow.tsx", "src/components/messages/MessagesViews.tsx", "src/components/messages/useConversation.ts"]) {

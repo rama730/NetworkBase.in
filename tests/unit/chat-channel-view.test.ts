@@ -63,9 +63,9 @@ test("titles, counts and project badges follow the report rules", () => {
   assert.equal(channelTitle(channel("g", { kind: "private", name: null, members_preview: [priya, me] }), "me"), "Priya, Me");
   assert.equal(rowCount(byId.get("dm")!), 3, "DMs count unread messages");
   assert.equal(rowCount(byId.get("general")!), 2, "channels count mentions only");
-  assert.equal(rowCount(byId.get("muted")!), 0);
+  assert.equal(rowCount(byId.get("muted")!), byId.get("muted")!.mention_count, "muted channels still show their mentions (#157)");
   const badges = projectBadges(data);
-  assert.equal(badges.get("p1"), 2 + 1, "general mentions + unread application");
+  assert.equal(badges.get("p1"), 2 + 1 + 4, "general mentions + unread application + the muted channel's mentions (rows and badge agree)");
   assert.equal(badges.get("p2"), undefined);
   assert.equal(badges.size, 1, "DMs never count toward a project");
 });

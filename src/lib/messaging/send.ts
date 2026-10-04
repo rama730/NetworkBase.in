@@ -28,14 +28,16 @@ type SendResult = {
 
 // The author comes from profiles, like every message the timeline loads. Auth
 // user_metadata holds the sign-in provider's picture (e.g. Google), not the profile photo.
-// The channel name (for push titles) rides along, so a send costs no extra roundtrip (ACT-02).
+// Where it was sent (for push titles: "#design", a group's name, nothing for a DM) rides along,
+// so a send costs no extra roundtrip (ACT-02).
 async function authorAndChannel(userId: string, channelId: string) {
-  const [row] = await chatRows<{ author: ChatPerson | null; channel_name: string | null }>(sql`
+  const [row] = await chatRows<{ author: ChatPerson | null; channel_label: string | null }>(sql`
     SELECT (SELECT jsonb_build_object('id', id, 'username', username, 'full_name', full_name, 'avatar_url', avatar_url)
               FROM profiles WHERE id = ${userId}::uuid) AS author,
-           (SELECT name FROM chat_channels WHERE id = ${channelId}::uuid) AS channel_name
+           (SELECT CASE WHEN name IS NOT NULL THEN '#' || name WHEN kind = 'dm' OR application_id IS NOT NULL THEN NULL ELSE coalesce(title, 'a group chat') END
+              FROM chat_channels WHERE id = ${channelId}::uuid) AS channel_label
   `);
-  return row ?? { author: null, channel_name: null };
+  return row ?? { author: null, channel_label: null };
 }
 
 /**
@@ -65,7 +67,7 @@ export async function sendAs(user: ChatSender, input: SendInput, card: ChatCardR
   }
 
   const { userIds, broadcast } = parseMentions(body);
-  const [result, { author, channel_name: channelName }] = await Promise.all([chatValue<SendResult>(sql`
+  const [result, { author, channel_label: channelLabel }] = await Promise.all([chatValue<SendResult>(sql`
     SELECT app_private.chat_send_message(
       ${input.channelId}::uuid, ${user.id}::uuid, ${body}, ${input.clientId ?? null},
       ${input.threadRootSeq ?? null}::bigint, ${uuidArray(userIds)}, ${broadcast},
@@ -95,7 +97,7 @@ export async function sendAs(user: ChatSender, input: SendInput, card: ChatCardR
   };
 
   if (!result.deduped) {
-    publishSentMessage({ message, notify: result.notify ?? [], mentioned: userIds, channelName });
+    publishSentMessage({ message, notify: result.notify ?? [], mentioned: userIds, channelLabel });
   }
   return { success: true as const, message };
 }

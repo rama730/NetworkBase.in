@@ -28,7 +28,7 @@ function ConversationLink({ channel, meId }: { channel: ChatChannelSummary; meId
         {channel.last_preview ? <span className="block truncate text-[12px] text-muted-foreground">{channel.last_author_id === meId ? "You: " : ""}{channel.last_preview}</span> : null}
       </span>
       {channel.last_message_at ? <span className="flex-none font-mono text-[11px] text-muted-foreground">{formatChatTime(channel.last_message_at)}</span> : null}
-      {count ? <span className="nb-chat-count">{count > 99 ? "99+" : count}</span> : null}
+      {count ? <span className="nb-chat-count">{count > 99 ? "99+" : count}<span className="sr-only"> unread</span></span> : null}
     </Link>
   );
 }
@@ -49,7 +49,7 @@ function Card({ title, icon, action, children }: { title: string; icon: React.Re
 /** The main pane when no conversation is open (desktop): what needs you, what's recent, your threads. */
 export function HomePane() {
   const projectId = useSelectedProject();
-  const { data } = useChatShell();
+  const { data, loadError, refresh } = useChatShell();
   const markAllRead = useMarkAllRead();
   const { user } = useAuth();
   const meId = user?.id ?? null;
@@ -73,7 +73,7 @@ export function HomePane() {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[20px] font-semibold tracking-tight">{project ? project.title : "Home"}</h1>
             <p className="text-[13px] text-muted-foreground">
-              {loading ? "Loading…" : needing.length ? `${needing.length} conversation${needing.length === 1 ? "" : "s"} with something new` : "You're all caught up."}
+              {loadError ? "Conversations didn't load." : loading ? "Loading…" : needing.length ? `${needing.length} conversation${needing.length === 1 ? "" : "s"} with something new` : "You're all caught up."}
             </p>
           </div>
           {project ? (
@@ -81,6 +81,13 @@ export function HomePane() {
           ) : null}
           <Link href="/messages/new" prefetch={true} className="inline-flex h-9 items-center gap-1.5 rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:bg-primary/90"><SquarePen size={14} aria-hidden="true" /> New message</Link>
         </header>
+
+        {loadError ? (
+          <div role="alert" className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-[14px]">
+            <span className="flex-1">Your conversations didn&apos;t load.</span>
+            <button type="button" onClick={refresh} className="rounded-[5px] border border-border px-3 py-1.5 text-[13px] font-medium hover:bg-muted">Retry</button>
+          </div>
+        ) : null}
 
         {inboxUnread ? (
           <Link href="/messages/inbox" className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:bg-muted">
@@ -95,7 +102,7 @@ export function HomePane() {
           icon={<CheckCheck size={15} />}
           action={unread.length ? <button type="button" onClick={markAll} className="text-[12px] font-medium text-primary hover:underline">{MARK_ALL_LABEL}</button> : null}
         >
-          {unread.length ? unread.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">{loading ? "Loading…" : "Nothing unread."}</p>}
+          {unread.length ? unread.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">{loadError ? "Not available right now." : loading ? "Loading…" : "Nothing unread."}</p>}
         </Card>
 
         <Card
@@ -104,7 +111,7 @@ export function HomePane() {
           // Threads live in one place, the Inbox's Threads tab (it has Reply).
           action={<Link href="/messages/inbox?filter=threads" className="text-[12px] font-medium text-primary hover:underline">Open threads →</Link>}
         >
-          {recent.length ? recent.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">{loading ? "Loading…" : "No other recent conversations."}</p>}
+          {recent.length ? recent.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">{loadError ? "Not available right now." : loading ? "Loading…" : "No other recent conversations."}</p>}
         </Card>
       </div>
       {markAllRead.dialog}

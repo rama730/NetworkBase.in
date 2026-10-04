@@ -32,7 +32,9 @@ test("header and tabs: archive icon, no delete key, ?tab= in the URL, canvas con
   assert.doesNotMatch(tabs, /"Backspace"|onContextMenu/);
   assert.match(tabs, /hasCanvas \? "Open canvas" : "New canvas"/);
   assert.match(read("src/components/messages/ChannelCanvas.tsx"), /Clear the canvas for everyone\?/);
-  assert.match(read("src/components/messages/DetailsPane.tsx"), /<option value="mute">Mute<\/option>/);
+  // #87 then #152: Details and the header share notifyChoices, whose mute choice reads "Mute".
+  assert.match(read("src/components/messages/DetailsPane.tsx"), /notifyChoices\(channel\)\.map/);
+  assert.match(read("src/lib/messaging/channel-view.ts"), /\{ value: "mute", label: "Mute" \}/);
 });
 
 test("message row: keyboard, time button, grouped icons, delete with replies, failed sends, pins", () => {

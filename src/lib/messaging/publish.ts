@@ -54,7 +54,8 @@ export function publishSentMessage(input: {
   message: ChatMessageView;
   notify: string[];
   mentioned: string[];
-  channelName: string | null;
+  /** "#design", a group chat's name, or null for a DM. */
+  channelLabel: string | null;
 }) {
   const { message, notify, mentioned } = input;
   after(async () => {
@@ -79,7 +80,7 @@ export function publishSentMessage(input: {
         SELECT id, notification_preferences FROM profiles WHERE id = ANY(${uuidArray(notify)})
       `);
       const authorName = message.author?.full_name || message.author?.username || "Someone";
-      const title = input.channelName ? `${authorName} in #${input.channelName}` : authorName;
+      const title = input.channelLabel ? `${authorName} in ${input.channelLabel}` : authorName;
       const body = tokensToPlainText(message.body).slice(0, 240) || (message.attachments.length ? "Sent an attachment" : "New message");
       const now = new Date();
       const pushOne = async (recipient: (typeof recipients)[number]) => {

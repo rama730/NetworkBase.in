@@ -1,4 +1,28 @@
-import type { ChatBootstrap, ChatChannelSummary, ChatPerson } from "@/lib/messaging/types";
+import type { ChatBootstrap, ChatChannelSummary, ChatNotify, ChatPerson } from "@/lib/messaging/types";
+
+/**
+ * Notification choices. Every message notifies only in DMs and group chats outside projects
+ * (chat_send_message); project channels notify on mentions and followed threads, so "All" would do nothing there.
+ */
+export function notifiesEveryMessage(channel: Pick<ChatChannelSummary, "kind" | "project_id">) {
+  return channel.kind === "dm" || (channel.kind === "private" && !channel.project_id);
+}
+
+export function notifyChoices(channel: Pick<ChatChannelSummary, "kind" | "project_id">): { value: ChatNotify; label: string }[] {
+  return notifiesEveryMessage(channel)
+    ? [{ value: "all", label: "All messages" }, { value: "mentions", label: "Mentions only" }, { value: "mute", label: "Mute" }]
+    : [{ value: "mentions", label: "Mentions & threads" }, { value: "mute", label: "Mute" }];
+}
+
+/** The selected choice: in channels "all" behaves (and shows) as mentions & threads. */
+export function notifyChoice(channel: Pick<ChatChannelSummary, "kind" | "project_id">, notify: ChatNotify): ChatNotify {
+  return notifiesEveryMessage(channel) || notify === "mute" ? notify : "mentions";
+}
+
+export function notifyLabel(channel: Pick<ChatChannelSummary, "kind" | "project_id">, notify: ChatNotify) {
+  const choice = notifyChoice(channel, notify);
+  return choice === "mute" ? "Muted" : notifyChoices(channel).find((c) => c.value === choice)!.label;
+}
 
 // Pure grouping of the bootstrap into the sidebar (report 7.10). Opening a
 // project re-runs this in memory; it never fetches.
@@ -38,7 +62,8 @@ export function isUnread(channel: ChatChannelSummary) {
 
 /** DM and application rows show a count; channels show bold plus mentions (L-25). */
 export function rowCount(channel: ChatChannelSummary) {
-  if (channel.notify === "mute") return 0;
+  // Muted: only mentions still count (like Slack).
+  if (channel.notify === "mute") return channel.mention_count;
   // Top-level messages only, like bold (isUnread): thread replies don't inflate the count.
   if (isDirectLike(channel) || channel.application_id) return isUnread(channel) ? Math.max(1, channel.last_top_seq - channel.last_read_seq) : 0;
   return channel.mention_count;
@@ -57,7 +82,7 @@ function byName(a: ChatChannelSummary, b: ChatChannelSummary) {
 }
 
 function attention(channel: ChatChannelSummary) {
-  if (channel.notify === "mute") return 0;
+  if (channel.notify === "mute") return channel.mention_count;
   if (isDirectLike(channel) || channel.application_id) return isUnread(channel) || channel.mention_count > 0 ? 1 : 0;
   return channel.mention_count;
 }
@@ -113,7 +138,7 @@ export function sidebarOrder(data: ChatBootstrap | undefined, projectId: string 
 
 /** Unread, or carrying a mention (the Unreads filter). Muted rows never count. */
 export function needsAttention(channel: ChatChannelSummary) {
-  return channel.notify !== "mute" && (isUnread(channel) || channel.mention_count > 0);
+  return channel.mention_count > 0 || (channel.notify !== "mute" && isUnread(channel));
 }
 
 /** Every visible project channel grouped by project (the "All projects" sidebar). */
@@ -164,8 +189,24 @@ export function initials(title: string) {
  * Chat timestamps: "clock" = 9:42 AM, "ago" = 5m ago, "auto" = clock today,
  * otherwise a short date (Oct 2).
  */
-export function formatChatTime(value: string, mode: "clock" | "ago" | "auto" = "auto") {
+/**
+ * Chat times. "auto": 3:42 PM today, else Oct 3. "at" (reminders, scheduled sends, past or future):
+ * "Today 3:42 PM", "Tomorrow 9:00 AM", else "Mon, Oct 6, 9:00 AM".
+ */
+export function formatChatTime(value: string | Date, mode: "clock" | "ago" | "auto" | "at" = "auto") {
   const date = new Date(value);
+  if (mode === "at") {
+    const clock = date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const day = new Date(date);
+    day.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Math.round((day.getTime() - today.getTime()) / 86_400_000);
+    if (days === 0) return `Today ${clock}`;
+    if (days === 1) return `Tomorrow ${clock}`;
+    if (days === -1) return `Yesterday ${clock}`;
+    return date.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
   if (mode === "ago") {
     const minutes = Math.round((Date.now() - date.getTime()) / 60_000);
     if (minutes < 1) return "just now";
@@ -191,3 +232,10 @@ export function swipeButtons(options: { unread: boolean; muted: boolean; direct:
 /** One "mark all as read" everywhere: same label, and it asks first above 5 items. */
 export const MARK_ALL_LABEL = "Mark all as read";
 export const needsMarkAllConfirm = (count: number) => count > 5;
+
+/** One file-size format for attachments and the Files tab: "820 B", "14.2 KB", "3.1 MB". */
+export function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
