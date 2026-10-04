@@ -251,7 +251,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
         label: "Undo",
         onClick: () => {
           const pending = pendingDeletes.get(key);
-          if (!pending) return;
+          // Hiding the page sent it already: say so instead of an Undo that does nothing.
+          if (!pending) return void toast("Already deleted");
           clearTimeout(pending.timer);
           pendingDeletes.delete(key);
           update((pages) => patchPages(pages, before.seq, () => before));

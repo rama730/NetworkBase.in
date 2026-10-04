@@ -62,6 +62,9 @@ async function inboxCounts(userId: string) {
   return counts ?? { inbox_unread: 0, inbox_mentions: 0, threads_unread: 0 };
 }
 
+/** For the read events only: a failed count must not fail a read that already happened (the poll catches up). */
+const countsOrNothing = (userId: string) => inboxCounts(userId).catch(() => ({}));
+
 /** Move the read cursor forward (only-if-newer) and tell the user's other tabs. */
 export async function markRead(input: { channelId: string; seq: number }) {
   const user = await requireChatUser();
@@ -72,7 +75,7 @@ export async function markRead(input: { channelId: string; seq: number }) {
       SELECT app_private.chat_mark_read(${input.channelId}::uuid, ${user.id}::uuid, ${input.seq}::bigint) AS value
     `);
     // The Inbox count moves too (reading a channel reads its mentions): every badge updates at once.
-    if (moved) publishUser(user.id, "read.moved", { channel_id: input.channelId, seq: input.seq, ...(await inboxCounts(user.id)) });
+    if (moved) publishUser(user.id, "read.moved", { channel_id: input.channelId, seq: input.seq, ...(await countsOrNothing(user.id)) });
     return { success: true as const, moved };
   } catch (error) {
     return chatFailure(error, "mark_read");
@@ -91,7 +94,7 @@ export async function markReadMany(input: { items: { channelId: string; seq: num
       FROM jsonb_to_recordset(${jsonParam(items.map((item) => ({ channel_id: item.channelId, seq: item.seq })))}) AS x(channel_id uuid, seq bigint)
       WHERE app_private.chat_mark_read(x.channel_id, ${user.id}::uuid, x.seq)
     `);
-    const counts = moved.length ? await inboxCounts(user.id) : null;
+    const counts = moved.length ? await countsOrNothing(user.id) : null;
     publishUserEvents(user.id, moved.map((row) => ({ event: "read.moved", payload: { channel_id: row.channel_id, seq: row.seq, ...counts } })));
     return { success: true as const, moved: moved.length };
   } catch (error) {
@@ -108,7 +111,7 @@ export async function markThreadRead(input: { channelId: string; rootSeq: number
       SELECT app_private.chat_mark_thread_read(${input.channelId}::uuid, ${user.id}::uuid, ${input.rootSeq}::bigint, ${input.seq}::bigint) AS value
     `);
     // Badges everywhere drop now, not at the next poll (the thread's mentions were read too).
-    publishUser(user.id, "inbox.count", await inboxCounts(user.id));
+    publishUser(user.id, "inbox.count", await countsOrNothing(user.id));
     return { success: true as const, moved };
   } catch (error) {
     return chatFailure(error, "mark_thread_read");
