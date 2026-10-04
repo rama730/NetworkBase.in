@@ -86,8 +86,8 @@ test("Messages system adheres to design specification contracts", () => {
     );
     assert.match(
         chatSectionsSource,
-        /MARK_ALL_LABEL/,
-        "Project headers offer Mark all as read (one shared label)",
+        /label=\{`Mark \$\{projectTitle\(id\)\} read`\}/,
+        "Project headers offer Mark read, naming the project it clears (round 2 #41)",
     );
     assert.match(
         chatSectionsSource,

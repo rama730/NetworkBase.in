@@ -134,6 +134,8 @@ export type BrowseChannel = {
   member_count: number;
   is_default: boolean;
   joined: boolean;
+  /** Archived channels are listed too (Browse › Archived), so admins can find one to unarchive. */
+  archived: boolean;
 };
 
 /** Public channels of a project, for its members (private channels are never listed). */
@@ -144,11 +146,12 @@ export async function browseChannels(input: { projectId: string }) {
   try {
     const channels = await chatRows<BrowseChannel>(sql`
       SELECT c.id, c.name, c.description, c.topic, c.member_count, c.is_default,
-             app_private.chat_is_member(c.id, ${user.id}::uuid) AS joined
+             app_private.chat_is_member(c.id, ${user.id}::uuid) AS joined,
+             c.archived_at IS NOT NULL AS archived
       FROM chat_channels c
-      WHERE c.project_id = ${input.projectId}::uuid AND c.kind = 'public' AND c.archived_at IS NULL
+      WHERE c.project_id = ${input.projectId}::uuid AND c.kind = 'public'
         AND app_private.chat_is_project_member(${input.projectId}::uuid, ${user.id}::uuid)
-      ORDER BY c.is_default DESC, c.name
+      ORDER BY c.archived_at IS NOT NULL, c.is_default DESC, c.name
       LIMIT 200
     `);
     return { success: true as const, channels };

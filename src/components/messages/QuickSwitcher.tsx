@@ -15,7 +15,7 @@ import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, needsAttention, rowCount } from "@/lib/messaging/channel-view";
+import { channelTitle, isVisible, needsAttention, rowCount } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref } from "@/lib/messaging/routes";
 import type { ChatPerson } from "@/lib/messaging/types";
@@ -66,8 +66,9 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
     const needle = query.trim().toLowerCase().replace(/^#/, "");
     const meId = user?.id ?? null;
     const projects = new Map((data?.projects ?? []).map((p) => [p.id, p.title]));
+    // Recent: what the sidebar shows (closed and archived ones stay out); a typed name also finds closed DMs.
     const mine: Result[] = (data?.channels ?? [])
-      .filter((c) => !c.channel_archived_at)
+      .filter((c) => (needle ? !c.channel_archived_at : isVisible(c)))
       .map((c) => ({
         type: "channel" as const,
         id: c.id,
@@ -98,7 +99,8 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
           .filter((p) => !dmUsers.has(p.id))
           .map((p) => ({ type: "person" as const, id: p.id, title: p.full_name || p.username || "Someone", person: p, canDm: p.can_dm }))
       : [];
-    const search: Result[] = needle.length >= 2 && !onSelect ? [{ type: "search", id: "search", title: query.trim() }] : [];
+    // Message search is always one row away, typed or not (empty: opens the search page).
+    const search: Result[] = !onSelect ? [{ type: "search", id: "search", title: needle.length >= 2 ? query.trim() : "" }] : [];
     return [...mine, ...unjoined, ...found, ...search];
   }, [data, onSelect, people.data, query, unjoinedChannels.data, user?.id]);
 
@@ -112,7 +114,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
     if (!result) return;
     if (result.type === "search") {
       setOpen(false);
-      router.push(`/messages/search?q=${encodeURIComponent(result.title)}`);
+      router.push(result.title ? `/messages/search?q=${encodeURIComponent(result.title)}` : "/messages/search");
       return;
     }
     let channelId = result.id;
@@ -166,7 +168,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
       >
         {result.type !== "search" && result.person ? <UserAvatar identity={result.person} size={24} roundedClassName="rounded-[5px]" /> : result.type === "search" ? <Search size={16} aria-hidden="true" /> : result.type === "channel" ? <ConversationIcon channel={result.conversation} size={16} aria-hidden="true" /> : <Users size={16} aria-hidden="true" />}
         <span className={`min-w-0 flex-1 truncate ${result.type === "channel" && result.unread ? "font-semibold" : ""}`}>
-          {result.type === "search" ? <>Search messages for &ldquo;{result.title}&rdquo;</> : result.title}
+          {result.type === "search" ? (result.title ? <>Search messages for &ldquo;{result.title}&rdquo;</> : "Search messages…") : result.title}
         </span>
         {result.type === "channel" && result.project ? <span className="max-w-[40%] flex-none truncate rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">{result.project}</span> : null}
         {result.type === "channel" && !result.joined ? <span className="flex-none text-[12px] text-muted-foreground">Not joined</span> : null}
@@ -212,7 +214,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
           {group("browse", "Channels you can join", browse)}
           {group("people", "People", personResults)}
           {searchRow.map(renderOption)}
-          {!results.length ? <li role="presentation" className="px-3 py-6 text-center text-[13px] text-muted-foreground">{people.isFetching ? "Searching…" : "No matches"}</li> : null}
+          {!results.some((r) => r.type !== "search") && query.trim() ? <li role="presentation" className="px-3 py-6 text-center text-[13px] text-muted-foreground">{people.isFetching ? "Searching…" : "No conversations or people match"}</li> : null}
         </ul>
       </DialogContent>
     </Dialog>

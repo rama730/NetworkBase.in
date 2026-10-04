@@ -66,12 +66,14 @@ test("in-app Back: a deep link has nothing behind it; browser back steps down", 
 
 test("sidebar: Search row, Unreads toggle, one-click +, focus-visible controls", () => {
   const sections = read("src/components/messages/ChatSections.tsx");
-  assert.match(sections, /onClick=\{\(\) => setSwitcherOpen\(true\)\}[\s\S]*<span className="flex-1">Search<\/span>/);
+  // Round 2 #40: the row opens the switcher, so it says "Jump to…"; message search is the switcher's last row.
+  assert.match(sections, /onClick=\{\(\) => setSwitcherOpen\(true\)\}[\s\S]*<span className="flex-1">Jump to…<\/span>/);
+  assert.match(read("src/components/messages/QuickSwitcher.tsx"), /"Search messages…"/);
   assert.match(sections, /label="Create channel" onClick=\{\(\) => setCreateFor\(id\)\}/);
   assert.match(sections, /Browse channels/);
   assert.match(sections, /group-focus-within\/row:opacity-100/);
   assert.match(sections, /pointer-fine:group-focus-within\/section:opacity-100/);
-  assert.match(sections, /title="Direct messages"\s*count=\{dmUnread\}/);
+  assert.match(sections, /title="Direct messages"\s*count=\{dmUnread\}\s*noun="unread conversations"/);
   assert.match(read("src/app/globals.css"), /\.nb-chat-hover:hover > \.nb-chat-row/);
   assert.match(read("src/components/messages/ConversationView.tsx"), /\{isMember \? \(\s*<button\s*type="button"\s*onClick=\{\(\) => void setState\(\{ starred: !channel\.starred \}\)\}/);
 });
