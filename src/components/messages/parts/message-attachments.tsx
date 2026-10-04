@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import {
+    Download,
     File,
     Image as ImageIcon,
+    Play,
     Video,
 } from 'lucide-react';
 import {
@@ -318,6 +320,15 @@ function MediaAttachmentTileV2({
                 />
             )}
 
+            {/* A video reads as a video, not a photo. */}
+            {attachment.type === 'video' && !hasError ? (
+                <span className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden="true">
+                    <span className="grid size-10 place-items-center rounded-full bg-black/55 text-white">
+                        <Play className="h-5 w-5 translate-x-px" fill="currentColor" />
+                    </span>
+                </span>
+            ) : null}
+
             {hasError ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-muted text-muted-foreground">
                     <File className="h-6 w-6 mb-1 text-muted-foreground" />
@@ -337,13 +348,16 @@ function FileAttachmentCardV2({
     attachment: ChatAttachmentV2;
     onPreview?: () => void;
 }) {
+    // The file's type at a glance ("PDF", "ZIP"), and Download always visible.
+    const extension = (attachment.filename.match(/\.([a-z0-9]{1,5})$/i)?.[1] ?? '').toUpperCase();
     const content = (
         <>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 dark:bg-primary/15">
+            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 dark:bg-primary/15">
                 <File className="h-5 w-5 text-primary" />
+                {extension ? <span className="absolute -bottom-1 rounded-[3px] bg-primary px-1 font-mono text-[9px] font-semibold leading-tight text-primary-foreground">{extension}</span> : null}
             </div>
             <div className="min-w-0 flex-1">
-                <p className="truncate break-all text-sm font-medium text-foreground dark:text-white">
+                <p className="truncate break-all text-sm font-medium text-foreground">
                     {attachment.filename}
                 </p>
                 {attachment.sizeBytes ? (
@@ -352,29 +366,36 @@ function FileAttachmentCardV2({
             </div>
         </>
     );
+    const download = (
+        <a
+            href={attachment.url}
+            download={attachment.filename}
+            className="grid size-9 shrink-0 place-items-center rounded-[5px] text-muted-foreground hover:bg-card hover:text-foreground pointer-coarse:size-11"
+            aria-label={`Download ${attachment.filename}`}
+            title="Download"
+        >
+            <Download className="h-4 w-4" />
+        </a>
+    );
 
     if (onPreview) {
         return (
-            <button
-                type="button"
-                onClick={onPreview}
-                className="flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-lg bg-muted p-3 text-left transition-colors hover:bg-secondary"
-            >
-                {content}
-            </button>
+            <div className="flex w-full min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-lg bg-muted pr-1.5 transition-colors hover:bg-secondary">
+                <button type="button" onClick={onPreview} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left">
+                    {content}
+                </button>
+                {download}
+            </div>
         );
     }
 
     return (
-        <a
-            href={attachment.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            download={attachment.filename}
-            className="flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-lg bg-muted p-3 transition-colors hover:bg-secondary"
-        >
-            {content}
-        </a>
+        <div className="flex w-full min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-lg bg-muted pr-1.5 transition-colors hover:bg-secondary">
+            <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 flex-1 items-center gap-3 p-3">
+                {content}
+            </a>
+            {download}
+        </div>
     );
 }
 

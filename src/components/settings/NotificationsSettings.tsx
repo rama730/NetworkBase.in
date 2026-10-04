@@ -112,6 +112,8 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
         <p className="nb-compact text-muted-foreground"><span className="font-medium text-foreground">{enabledCategoryCount} of {NOTIFICATION_PREFERENCE_CATEGORIES.length}</span> notification types are on.</p>
         <Button type="button" variant="outline" size="sm" onClick={() => setAllCategories(!allCategoriesEnabled)} disabled={isSaving}>{allCategoriesEnabled ? "Turn all off" : "Turn all on"}</Button>
       </div>
+      {/* What these switches don't cover, said once. */}
+      <p className="pt-3 nb-compact text-muted-foreground">Direct messages still notify you. Mute a conversation, or change what notifies you there, from its bell menu in Messages.</p>
       <div className="divide-y divide-border">
         {NOTIFICATION_PREFERENCE_CATEGORIES.map((category) => <PreferenceSwitch key={category.key} id={category.key} title={category.title} description={category.description} checked={preferences[category.key]} disabled={isSaving} onToggle={() => toggleCategory(category.key)} />)}
       </div>

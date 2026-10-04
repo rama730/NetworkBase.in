@@ -18,6 +18,8 @@ type Props = {
   meId: string | null;
   /** Inline after the last paragraph, e.g. "(edited)". */
   suffix?: ReactNode;
+  /** Wraps an @mention chip (the timeline adds the person's hover card). */
+  wrapMention?: (userId: string, chip: ReactNode) => ReactNode;
 };
 
 const escapeLabel = (text: string) => text.replace(/[[\]\\]/g, "\\$&");
@@ -39,19 +41,21 @@ function urlTransform(url: string) {
   return defaultUrlTransform(url);
 }
 
-export const MessageBody = memo(function MessageBody({ body, nameOf, channelNameOf, meId, suffix }: Props) {
+export const MessageBody = memo(function MessageBody({ body, nameOf, channelNameOf, meId, suffix, wrapMention }: Props) {
   const markdown = useMemo(() => tokensToMarkdown(body, nameOf, channelNameOf), [body, nameOf, channelNameOf]);
   const components = useMemo<Components>(() => ({
     a({ href, children }) {
       if (href?.startsWith("mention:")) {
-        const self = href.slice(8) === meId;
+        const id = href.slice(8);
+        const self = id === meId;
         // Mention chip: the Node person glyph + name; mentions of you take the warning tint.
-        return (
-          <span className={`inline-flex items-baseline gap-0.5 rounded-[3px] px-0.5 font-medium ${self ? "bg-[var(--status-warning-soft)] text-[var(--status-warning)]" : "bg-accent text-primary"}`}>
+        const chip = (
+          <span className={`inline-flex items-baseline gap-0.5 rounded-[3px] px-0.5 font-medium ${wrapMention ? "cursor-pointer" : ""} ${self ? "bg-[var(--status-warning-soft)] text-[var(--status-warning)]" : "bg-accent text-primary"}`}>
             <PresenceGlyph kind="person" className="size-[0.85em] translate-y-[0.1em] self-center" strokeWidth={2.2} />
             {typeof children === "string" ? children.replace(/^@/, "") : Array.isArray(children) && typeof children[0] === "string" ? [children[0].replace(/^@/, ""), ...children.slice(1)] : children}
           </span>
         );
+        return wrapMention ? wrapMention(id, chip) : chip;
       }
       if (href?.startsWith("broadcast:")) return <span className="rounded-[3px] bg-[var(--status-warning-soft)] px-0.5 font-medium text-[var(--status-warning)]">{children}</span>;
       if (href?.startsWith("channel:")) return <Link href={conversationHref(href.slice(8))} className="font-medium text-primary hover:underline">{children}</Link>;
@@ -92,7 +96,7 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
     img({ alt }) {
       return <span>{alt}</span>;
     },
-  }), [meId]);
+  }), [meId, wrapMention]);
 
   return (
     <div className={`text-[15px] leading-relaxed [overflow-wrap:anywhere] ${suffix ? "[&>p:nth-last-child(2)]:inline" : ""}`}>

@@ -328,6 +328,11 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   };
   const groups = [1, 2, 3].map((group) => list.filter((a) => a.group === group)).filter((g) => g.length);
   const remind = (at: () => Date) => ctx.setSaved?.(message.seq, true, at().toISOString());
+  // @mention chips open the person's card (the people list has their avatar and username).
+  const wrapMention = (userId: string, chip: React.ReactNode) => {
+    const person = ctx.people.find((p) => p.id === userId) ?? { id: userId, username: null, full_name: ctx.nameOf(userId) ?? null, avatar_url: null };
+    return <PersonHoverCard person={person}>{chip}</PersonHoverCard>;
+  };
   const fullTime = new Date(message.created_at).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
   const rowId = `msg-${ctx.channelId}-${ctx.inThread ? "t" : "c"}-${message.seq}`;
   const placeBar = () => {
@@ -399,6 +404,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
               labelOf={(raw) => (raw.startsWith("<#") ? `#${ctx.channelNameOf(raw.slice(2, -1)) ?? "channel"}` : `@${ctx.nameOf(raw.slice(2, -1)) ?? "someone"}`)}
               onSave={(markdown) => void saveEdit(markdown)}
               onCancel={() => ctx.setEditingSeq(null)}
+              people={ctx.people}
             />
           ) : (
             <>
@@ -408,6 +414,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                   nameOf={ctx.nameOf}
                   channelNameOf={ctx.channelNameOf}
                   meId={ctx.meId}
+                  wrapMention={wrapMention}
                   suffix={message.edited_at ? <span className="ml-1 text-[12px] text-muted-foreground" title={`Edited ${new Date(message.edited_at).toLocaleString()}`}>(edited)</span> : undefined}
                 />
               ) : message.edited_at ? <span className="text-[12px] text-muted-foreground">(edited)</span> : null}

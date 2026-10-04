@@ -1001,7 +1001,12 @@ svg.lucide { stroke-width:1.75; }
 .nb-chat-row:hover, .nb-chat-row:focus-visible { background:var(--muted); color:var(--foreground); }
 .nb-chat-row[aria-current="page"] { background:var(--sidebar-accent); color:var(--foreground); font-weight:500; }
 .nb-chat-row[data-unread="true"] { color:var(--foreground); font-weight:600; }
-.nb-chat-row[data-muted="true"] { opacity:.55; }
+/* 1024–1279px with a thread or details open: the conversation list steps aside so the timeline keeps its width. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  [data-messages-surface]:has([data-chat-pane="drawer"]) > .nb-chat-sidebar { display: none; }
+}
+/* Muted rows: the muted text colour (readable, 4.5:1), not faded opacity. */
+.nb-chat-row[data-muted="true"] { color: var(--muted-foreground); font-weight: 400; }
 /* Sidebar rows: on hover or keyboard focus the row makes room for its ⋯, so the count slides left instead of hiding. */
 @media (pointer:fine) { .nb-chat-hover:hover > .nb-chat-row, .nb-chat-hover:focus-within > .nb-chat-row, .nb-chat-hover:has([data-state="open"]) > .nb-chat-row { padding-right:34px; } }
 .nb-chat-row-preview { min-height:64px; padding:10px 12px; align-items:flex-start; }

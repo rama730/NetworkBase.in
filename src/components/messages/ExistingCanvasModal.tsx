@@ -16,10 +16,12 @@ type Props = {
   onSelectExisting: (title: string, body: string) => void;
   projectId: string | null;
   currentChannelId: string;
+  /** This channel's name, for the button ("Copy into #design"). */
+  channelName?: string | null;
 };
 
 /** Copy a canvas from another channel of this project (one you're in) into this one. */
-export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, projectId, currentChannelId }: Props) {
+export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, projectId, currentChannelId, channelName = null }: Props) {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const list = useQuery({
@@ -42,11 +44,12 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} className="flex h-[560px] max-h-[85vh] w-[860px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-border p-0 shadow-xl sm:max-w-3xl">
-        <DialogTitle className="sr-only">Add existing canvas</DialogTitle>
-        <div className="flex h-full min-h-0 flex-1 divide-x divide-border">
-          <div className="flex w-64 shrink-0 flex-col bg-muted/20 sm:w-72">
+        <DialogTitle className="sr-only">Copy from another channel</DialogTitle>
+        {/* Phones: the list on top, the preview below (side by side leaves ~90px for the preview). */}
+        <div className="flex h-full min-h-0 flex-1 flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">
+          <div className="flex max-h-[40%] shrink-0 flex-col bg-muted/20 sm:max-h-none sm:w-72">
             <div className="border-b border-border/70 p-3">
-              <h2 className="mb-2 text-[13px] font-semibold text-foreground">Add existing canvas</h2>
+              <h2 className="mb-2 text-[13px] font-semibold text-foreground">Copy from another channel</h2>
               <div className="relative">
                 <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -94,7 +97,8 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
                 <div className="grid h-full place-items-center text-[13px] text-muted-foreground">{selected ? "Loading…" : "Select a canvas to preview"}</div>
               )}
             </div>
-            <div className="flex h-14 flex-none items-center justify-end border-t border-border bg-card px-6">
+            <div className="flex h-14 flex-none items-center justify-end gap-2 border-t border-border bg-card px-6">
+              <button type="button" onClick={() => onOpenChange(false)} className="inline-flex h-9 items-center rounded-lg border border-border px-4 text-[13px] font-medium text-foreground hover:bg-muted">Cancel</button>
               <button
                 type="button"
                 disabled={!full.data || !selected}
@@ -105,7 +109,7 @@ export function ExistingCanvasModal({ open, onOpenChange, onSelectExisting, proj
                 }}
                 className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-5 text-[13px] font-semibold text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90 disabled:opacity-50"
               >
-                Add to channel
+                {channelName ? `Copy into #${channelName}` : "Copy here"}
               </button>
             </div>
           </div>

@@ -579,8 +579,8 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         canvasSource,
-        /Explore templates/,
-        "ChannelCanvas must render docked bottom 'Explore templates' tray",
+        /Start from a template/,
+        "ChannelCanvas must render the docked template tray (one name for templates, round 2 #54)",
     );
     assert.match(
         canvasSource,
@@ -652,8 +652,8 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         existingModalSource,
-        /Add to channel/,
-        "ExistingCanvasModal must provide 'Add to channel' insertion button",
+        /Copy into #\$\{channelName\}/,
+        "ExistingCanvasModal says what its button does: copy into this channel (round 2 #54)",
     );
     assert.match(
         existingModalSource,
@@ -1067,7 +1067,7 @@ test("Section 12 (Messages reorganization, 96-item plan) contracts", () => {
     assert.match(conversation, /hideCanvas\(true\)[\s\S]*Canvas tab hidden for you/, "Closing the canvas tab hides it for you only");
 
     // E/F. Timeline and message actions.
-    assert.match(timeline, /new message\{unreadAtOpen\.count === 1 \? "" : "s"\} since/, "Unread banner: N new messages since…");
+    assert.match(timeline, /new message\{unreadAtOpen\.count === 1 && !unreadAtOpen\.more \? "" : "s"\} since \{formatChatTime\(unreadAtOpen\.since, "at"\)\}/, "Unread banner: N (or N+) new messages since a day and time (round 2 #129, #130)");
     assert.match(timeline, /title="Jump to a date"/, "Day labels jump to a date");
     assert.match(row, /"Mark unread"[\s\S]*"Create task"[\s\S]*"Copy text"|"Copy text"[\s\S]*"Mark unread"[\s\S]*"Create task"/, "Message menu: copy text, mark unread, create task");
     assert.match(row, /listReactors/, "Reaction tooltips name who reacted");

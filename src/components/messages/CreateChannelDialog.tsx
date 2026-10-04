@@ -47,7 +47,8 @@ export function CreateChannelDialog({ projectId: initialProjectId, open, onOpenC
     setName("");
     setDescription("");
     setPrivate(false);
-    router.push(conversationHref(result.channelId));
+    // A new private channel has only you in it: open its members so you can add people.
+    router.push(conversationHref(result.channelId, isPrivate ? { details: "members" } : {}));
   };
 
   return (
@@ -68,7 +69,8 @@ export function CreateChannelDialog({ projectId: initialProjectId, open, onOpenC
             <span className="text-[13px] font-medium">Name</span>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. design" maxLength={80} autoFocus aria-invalid={name.length > 0 && !valid} aria-describedby="chat-channel-name-hint" />
             <span id="chat-channel-name-hint" className={`block text-[12px] ${name && !valid ? "text-destructive" : "text-muted-foreground"}`}>
-              Lowercase letters, numbers and hyphens, up to 80 characters.
+              {/* Show the name it'll really get ("Design Team" becomes #design-team). */}
+              {name.trim() && valid && normalized !== name.trim() ? <>Will be created as <span className="font-mono text-foreground">#{normalized}</span>.</> : "Lowercase letters, numbers and hyphens, up to 80 characters."}
             </span>
           </label>
           <label className="block space-y-1.5">

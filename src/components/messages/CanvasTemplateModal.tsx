@@ -60,8 +60,9 @@ export function CanvasTemplateModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} className="flex h-[600px] max-h-[88vh] w-[880px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-border p-0 shadow-xl sm:max-w-4xl">
         <DialogTitle className="sr-only">Canvas templates</DialogTitle>
-        <div className="flex h-full min-h-0 flex-1 divide-x divide-border">
-          <div className="flex min-h-0 w-60 shrink-0 flex-col bg-muted/20 sm:w-64">
+        {/* Phones: the list on top, the preview below. */}
+        <div className="flex h-full min-h-0 flex-1 flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">
+          <div className="flex max-h-[40%] min-h-0 shrink-0 flex-col bg-muted/20 sm:max-h-none sm:w-64">
             <div className="border-b border-border/70 p-3">
               <div className="relative">
                 <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />

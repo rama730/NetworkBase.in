@@ -80,7 +80,10 @@ export function publishSentMessage(input: {
         SELECT id, notification_preferences FROM profiles WHERE id = ANY(${uuidArray(notify)})
       `);
       const authorName = message.author?.full_name || message.author?.username || "Someone";
-      const title = input.channelLabel ? `${authorName} in ${input.channelLabel}` : authorName;
+      // A thread reply says so ("replied in a thread in #design"), so it isn't read as a channel message.
+      const title = message.thread_root_seq
+        ? `${authorName} replied in a thread${input.channelLabel ? ` in ${input.channelLabel}` : ""}`
+        : input.channelLabel ? `${authorName} in ${input.channelLabel}` : authorName;
       const body = tokensToPlainText(message.body).slice(0, 240) || (message.attachments.length ? "Sent an attachment" : "New message");
       const now = new Date();
       const pushOne = async (recipient: (typeof recipients)[number]) => {
