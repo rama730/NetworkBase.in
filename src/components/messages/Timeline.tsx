@@ -5,7 +5,7 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { ChevronDown, X } from "lucide-react";
 
 import { MessageRow } from "@/components/messages/MessageRow";
-import { buildTimeline, type TimelineItem } from "@/lib/messaging/timeline";
+import { buildTimeline, newFromOthers, type TimelineItem } from "@/lib/messaging/timeline";
 import type { ChatMessageView } from "@/lib/messaging/types";
 
 const START_INDEX = 1_000_000;
@@ -106,12 +106,15 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     for (let i = messages.length - 1; i >= 0; i -= 1) if (messages[i]!.seq > 0) return messages[i]!.seq;
     return 0;
   }, [messages]);
-  const lastCount = useRef(messages.length);
+  // "N new" counts only messages newer than what was there (older pages load at the top) and not your own.
+  const lastNewest = useRef(newestSeq);
   useEffect(() => {
-    const added = messages.length - lastCount.current;
-    lastCount.current = messages.length;
-    if (added > 0 && !atBottom) setUnseen((n) => n + added);
-  }, [atBottom, messages.length]);
+    const before = lastNewest.current;
+    lastNewest.current = newestSeq;
+    if (atBottom || newestSeq <= before) return;
+    const added = newFromOthers(messages, before, meId);
+    if (added) setUnseen((n) => n + added);
+  }, [atBottom, meId, messages, newestSeq]);
   useEffect(() => {
     if (atBottom && newestSeq > 0) onSeen(newestSeq);
   }, [atBottom, newestSeq, onSeen]);

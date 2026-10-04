@@ -42,13 +42,13 @@ function CardBody({ person }: { person: Person }) {
       </div>
       <div className="flex gap-2">
         {user?.id !== person.id ? (
-          <button
-            type="button"
+          <Link
+            href={`/messages?userId=${person.id}`}
             onClick={(event) => messageUserInWindow(person.id, event)}
-            className="min-h-11 flex-1 rounded-lg bg-primary text-[14px] font-semibold text-primary-foreground hover:bg-primary/90"
+            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-primary text-[14px] font-semibold text-primary-foreground hover:bg-primary/90"
           >
             Message
-          </button>
+          </Link>
         ) : null}
         <Link href={profileHref({ id: person.id, username: person.username })} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-border text-[14px] font-semibold hover:bg-muted">
           View profile
