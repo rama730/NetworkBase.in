@@ -16,6 +16,7 @@ import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
 import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
 import { LOAD_DRAFT_EVENT, failSend, type LoadDraftDetail } from "@/components/messages/failed-sends";
 import { DROP_EVENT, DropOverlay, draftKeyOf, useFileDrop, type DropDetail } from "@/components/messages/useFileDrop";
+import { isMac } from "@/components/messages/keys";
 import { uploadChatFile } from "@/components/messages/upload";
 import { useUpdatePages } from "@/components/messages/useConversation";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -82,7 +83,6 @@ type Props = {
 
 // Clock reads for editor and submit callbacks (never called while rendering).
 const clock = () => Date.now();
-const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 // Polls: the chips voters click are added with the poll, so nobody hunts for 1️⃣ in a picker.
 const POLL_NUMBERS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
 const POLL_DEFAULT = ["👍", "👎", "🤷"];

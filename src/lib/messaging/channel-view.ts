@@ -84,7 +84,6 @@ export function rowCount(channel: ChatChannelSummary) {
 export function isVisible(channel: ChatChannelSummary) {
   return !channel.archived_at && !channel.channel_archived_at;
 }
-const visible = isVisible;
 
 function byRecent(a: ChatChannelSummary, b: ChatChannelSummary) {
   return (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "");
@@ -117,7 +116,7 @@ export function sectionsFor(data: ChatBootstrap | undefined, projectId: string |
   if (!data) return sections;
   const memberOf = new Set((data.projects ?? []).map((project) => project.id));
   for (const channel of data.channels) {
-    if (!visible(channel)) continue;
+    if (!isVisible(channel)) continue;
     // Starred follows the open project (DMs and groups always); a starred row isn't repeated below.
     if (channel.starred && (!projectId || isDirectLike(channel) || channel.project_id === projectId)) {
       sections.starred.push(channel);
@@ -161,7 +160,7 @@ export function channelsByProject(data: ChatBootstrap | undefined) {
   if (!data) return groups;
   const memberOf = new Set((data.projects ?? []).map((project) => project.id));
   for (const channel of data.channels) {
-    if (!visible(channel) || isDirectLike(channel) || !channel.project_id || !memberOf.has(channel.project_id)) continue;
+    if (!isVisible(channel) || isDirectLike(channel) || !channel.project_id || !memberOf.has(channel.project_id)) continue;
     const list = groups.get(channel.project_id) ?? [];
     list.push(channel);
     groups.set(channel.project_id, list);
@@ -176,7 +175,7 @@ export function projectBadges(data: ChatBootstrap | undefined) {
   if (!data) return badges;
   const memberOf = new Set((data.projects ?? []).map((project) => project.id));
   for (const channel of data.channels) {
-    if (!visible(channel) || isDirectLike(channel) || !channel.project_id || !memberOf.has(channel.project_id)) continue;
+    if (!isVisible(channel) || isDirectLike(channel) || !channel.project_id || !memberOf.has(channel.project_id)) continue;
     const count = attention(channel);
     if (count) badges.set(channel.project_id, (badges.get(channel.project_id) ?? 0) + count);
   }

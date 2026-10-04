@@ -10,7 +10,7 @@ import { usePanes } from "@/components/messages/usePanes";
 import { useChannelDetails } from "@/components/messages/useConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle } from "@/lib/messaging/channel-view";
-import { editingWithText, escapeTaken } from "@/components/messages/keys";
+import { editingWithText, escapeTaken, rovingTabKey } from "@/components/messages/keys";
 import { showInConversationHref } from "@/lib/messaging/routes";
 
 // Each pane's code loads when first opened.
@@ -56,10 +56,8 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
   };
   // ←/→, Home and End move between the two tabs.
   const tabKeys = (event: React.KeyboardEvent, index: number) => {
-    const next = event.key === "ArrowRight" || event.key === "End" ? (event.key === "End" ? 1 : (index + 1) % 2)
-      : event.key === "ArrowLeft" || event.key === "Home" ? (event.key === "Home" ? 0 : (index + 1) % 2) : null;
+    const next = rovingTabKey(event, index, VIEWS.length);
     if (next === null) return;
-    event.preventDefault();
     pickTab(VIEWS[next]!);
     document.getElementById(`drawer-tab-${VIEWS[next]}`)?.focus();
   };

@@ -32,6 +32,7 @@ import { conversationHref } from "@/lib/messaging/routes";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 import { useConversationExit } from "@/components/messages/useConversationExit";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
+import { isMac } from "@/components/messages/keys";
 import { queryKeys } from "@/lib/query-keys";
 
 export type ChatSectionsVariant = "sidebar" | "list";
@@ -365,7 +366,7 @@ function HeaderButton({ label, onClick, children, href }: { label: string; onCli
 }
 
 const noSubscribe = () => () => undefined;
-const modKeyHint = () => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K");
+const modKeyHint = () => (isMac() ? "⌘K" : "Ctrl K");
 
 /**
  * The project switcher, always at the top (Slack's workspace header): the

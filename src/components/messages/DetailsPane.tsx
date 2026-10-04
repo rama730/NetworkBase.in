@@ -32,6 +32,7 @@ import { profileHref } from "@/lib/routing/identifiers";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
 import { useConversationExit } from "@/components/messages/useConversationExit";
+import { rovingTabKey } from "@/components/messages/keys";
 
 type Field = "name" | "topic" | "description" | "title";
 
@@ -432,9 +433,8 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
   // The server lets channel admins edit name, topic and description; nothing is edited while archived.
   const canEdit = channel.can_admin && !archived;
   const tabKeys = (event: React.KeyboardEvent, index: number) => {
-    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft" && event.key !== "Home" && event.key !== "End") return;
-    event.preventDefault();
-    const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : (index + 1) % 2;
+    const next = rovingTabKey(event, index, 2);
+    if (next === null) return;
     onTab((["about", "members"] as const)[next]!);
     document.getElementById(`details-tab-${next ? "members" : "about"}`)?.focus();
   };
