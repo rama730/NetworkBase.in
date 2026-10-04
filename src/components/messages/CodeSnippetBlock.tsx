@@ -21,6 +21,28 @@ export function CodeSnippetBlock({ language = "text", code }: Props) {
   };
 
   const displayLang = language.replace(/^language-/, "").toLowerCase() || "code";
+  const copyButton = (extra = "") => (
+    <button
+      type="button"
+      onClick={() => void copy()}
+      className={`inline-flex h-6 items-center gap-1 rounded-[4px] px-2 text-[11px] font-medium hover:bg-card hover:text-foreground transition-colors pointer-coarse:h-9 ${extra}`}
+      aria-label="Copy code"
+      title="Copy code"
+    >
+      {copied ? <Check size={12} className="text-[var(--status-success)]" /> : <Copy size={12} />}
+      <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
+    </button>
+  );
+
+  // A line or two: no header or line numbers, just the code and a Copy on hover.
+  if (lines.length < 3) {
+    return (
+      <div className="group/code relative my-2 overflow-hidden rounded-lg border border-border bg-muted/60">
+        <pre className="app-scroll overflow-x-auto p-3 pr-16 font-mono text-[13px] leading-relaxed text-foreground">{cleanCode || " "}</pre>
+        {copyButton("absolute right-1.5 top-1.5 bg-muted/90 text-muted-foreground pointer-fine:opacity-0 pointer-fine:group-hover/code:opacity-100 focus-visible:opacity-100")}
+      </div>
+    );
+  }
 
   return (
     <div className="my-2.5 overflow-hidden rounded-lg border border-border bg-muted/60 text-[13px] shadow-xs">
@@ -35,37 +57,18 @@ export function CodeSnippetBlock({ language = "text", code }: Props) {
             {lines.length} {lines.length === 1 ? "line" : "lines"}
           </span>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => void copy()}
-            className="inline-flex h-6 items-center gap-1 rounded-[4px] px-2 text-[11px] font-medium hover:bg-card hover:text-foreground transition-colors"
-            aria-label="Copy code"
-            title="Copy code"
-          >
-            {copied ? <Check size={12} className="text-[var(--status-success)]" /> : <Copy size={12} />}
-            <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
-          </button>
-        </div>
+        <div className="flex items-center gap-1">{copyButton()}</div>
       </div>
 
-      {/* Code Body with Line Numbers */}
-      <div className="app-scroll overflow-x-auto p-3 font-mono text-[13px] leading-relaxed">
-        <table className="w-full border-collapse">
-          <tbody>
-            {lines.map((line, idx) => (
-              <tr key={idx} className="hover:bg-card/40 transition-colors">
-                <td className="w-8 select-none pr-3 text-right font-mono text-[11px] text-muted-foreground/60 align-top">
-                  {idx + 1}
-                </td>
-                <td className="whitespace-pre font-mono text-foreground align-top">
-                  {line || " "}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Code with line numbers: a <pre> (read as code), the numbers hidden from screen readers and copy. */}
+      <pre className="app-scroll overflow-x-auto p-3 font-mono text-[13px] leading-relaxed text-foreground">
+        {lines.map((line, idx) => (
+          <span key={idx} className="block hover:bg-card/40">
+            <span aria-hidden="true" className="inline-block w-8 select-none pr-3 text-right text-[11px] text-muted-foreground/60">{idx + 1}</span>
+            {line || " "}
+          </span>
+        ))}
+      </pre>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Copy, FileDown, FileText, ImagePlus, Link2, MoreHorizontal, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Copy, Eraser, FileDown, FileText, ImagePlus, Link2, MoreHorizontal, Sparkles, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { saveCanvas, type ChannelCanvas as CanvasRow } from "@/app/actions/chat/canvas";
@@ -17,6 +17,8 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { CANVAS_MAX_TITLE, CANVAS_TEMPLATES, type CanvasTemplate } from "@/lib/messaging/canvas-store";
 import { chatErrorMessage } from "@/lib/messaging/errors";
+import { formatChatTime } from "@/lib/messaging/channel-view";
+import { conversationHref } from "@/lib/messaging/routes";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
 
@@ -82,7 +84,10 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
       return;
     }
     if (result.error === "chat_canvas_conflict") {
-      toast.message(chatErrorMessage(result.error));
+      // Someone saved first: keep your edits on the clipboard before showing their version.
+      const mine = `${nextTitle ? `# ${nextTitle}\n\n` : ""}${body}`;
+      const kept = await navigator.clipboard?.writeText(mine).then(() => true, () => false);
+      toast.message(kept ? "Someone else just edited this canvas. Your edits were copied: paste them to re-apply." : chatErrorMessage(result.error), { duration: 8_000 });
       loaded.current = false;
       void query.refetch();
       setStatus("idle");
@@ -171,7 +176,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
   };
 
   const copyLink = () => {
-    void copyWithToast(`${window.location.origin}/messages/${channelId}?tab=canvas`, "Canvas link copied").then((ok) => {
+    void copyWithToast(`${window.location.origin}${conversationHref(channelId, { tab: "canvas" })}`, "Canvas link copied").then((ok) => {
       if (!ok) return;
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -190,25 +195,27 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
     : status === "error"
       ? "Not saved"
       : canvas?.updated_at && canvas.version > 0
-        ? `Edited ${new Date(canvas.updated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${canvas.updated_by_name ? ` by ${canvas.updated_by_name}` : ""}`
+        ? `Edited ${formatChatTime(canvas.updated_at, "at")}${canvas.updated_by_name ? ` by ${canvas.updated_by_name}` : ""}`
         : null;
 
+  // Inside the conversation's tab panel already: no second tabpanel.
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-background" role="tabpanel" aria-label="Channel canvas">
+    <div className="flex flex-1 flex-col overflow-hidden bg-background">
       <div className="flex h-11 flex-none items-center justify-between border-b border-border/70 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 text-[12px] font-medium text-muted-foreground">
           <FileText size={14} className="flex-none text-primary" />
           <span className="truncate">{channel.name ? `#${channel.name}` : "Channel"} canvas</span>
-          {edited ? <span className="hidden truncate text-[11px] text-muted-foreground/70 sm:inline" aria-live="polite">· {edited}</span> : null}
+          {/* "Saving…" and "Not saved" show on phones too; the edit time only where there's room. */}
+          {edited ? <span className={`truncate text-[11px] ${status === "error" ? "text-destructive" : "text-muted-foreground/70"} ${status === "idle" ? "hidden sm:inline" : ""}`} aria-live="polite">· {edited}</span> : null}
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={copyLink}
-            className="inline-flex h-7 items-center gap-1.5 rounded-[5px] border border-border px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted"
+            className="inline-flex h-7 items-center gap-1.5 rounded-[5px] border border-border px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted pointer-coarse:h-11"
           >
             {copied ? <Check size={13} className="text-primary" /> : <Link2 size={13} />}
-            <span>{copied ? "Copied" : "Share"}</span>
+            <span>{copied ? "Copied" : "Copy link"}</span>
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger className="grid size-7 place-items-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="More canvas options">
@@ -216,13 +223,13 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuItem onSelect={() => imageInput.current?.click()}><ImagePlus size={14} /> Upload image</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setTemplatesOpen(true)}><Sparkles size={14} className="text-primary" /> Templates…</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={copyLink}><Link2 size={14} /> Copy link</DropdownMenuItem>
               <DropdownMenuItem onSelect={copyMarkdown}><Copy size={14} /> Copy as Markdown</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => editor && printCanvas(titleRef.current.trim(), editor.getHTML())}><FileDown size={14} /> Download as PDF</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setTemplatesOpen(true)}><Sparkles size={14} className="text-primary" /> Template gallery</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setPendingReplace({ kind: "clear" })}><Trash2 size={14} /> Clear canvas</DropdownMenuItem>
+              {/* Clearing wipes it for everyone: it reads as destructive, but isn't Delete. */}
+              <DropdownMenuItem onSelect={() => setPendingReplace({ kind: "clear" })} className="text-destructive focus:text-destructive"><Eraser size={14} /> Clear canvas</DropdownMenuItem>
               {onDelete ? <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive"><Trash2 size={14} /> Delete canvas</DropdownMenuItem> : null}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -264,7 +271,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
         <div className="flex-none px-4 pb-4 sm:px-8">
           <div className="mx-auto w-full max-w-3xl rounded-xl border border-border bg-card p-4 shadow-2xs">
             <div className="flex items-center justify-between pb-3">
-              <span className="text-[13px] font-semibold text-foreground">Explore templates</span>
+              <span className="text-[13px] font-semibold text-foreground">Start from a template</span>
               <button
                 type="button"
                 onClick={() => setTrayHidden(true)}
@@ -286,7 +293,7 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
                 </button>
               ))}
               <button type="button" onClick={() => setTemplatesOpen(true)} className="inline-flex h-8 items-center px-1.5 text-[13px] font-medium text-primary hover:underline">
-                Explore more…
+                More templates…
               </button>
             </div>
           </div>

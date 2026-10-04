@@ -48,6 +48,7 @@ import { useChatWindow } from "@/components/messages/chat-window-store";
 import { ConnectionBanner } from "@/components/messages/ConnectionBanner";
 import { DropOverlay, draftKeyOf, dropFilesTo, useFileDrop } from "@/components/messages/useFileDrop";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
+import { ConversationSkeleton, TimelineSkeleton } from "@/components/messages/ConversationSkeleton";
 
 type Props = {
   channelId: string;
@@ -185,22 +186,6 @@ export function Pins({ channelId }: { channelId: string }) {
   }
   if (!pins.data?.length) return <p className="p-6 text-center text-[13px] text-muted-foreground">Nothing pinned yet. Pin important messages from their actions menu.</p>;
   return <ul aria-label="Pins" className="app-scroll app-scroll-y min-h-0 flex-1">{pins.data.map((m) => <PinRow key={m.seq} message={m} channelId={channelId} />)}</ul>;
-}
-
-function TimelineSkeleton() {
-  return (
-    <div role="status" aria-label="Loading messages" className="flex-1 space-y-5 overflow-hidden p-4">
-      {[64, 80, 48, 72, 56].map((width, row) => (
-        <div key={row} className="flex animate-pulse gap-2.5">
-          <div className="size-[34px] flex-none rounded-[5px] bg-muted" />
-          <div className="flex-1 space-y-2 pt-1">
-            <div className="h-3 w-28 rounded bg-muted" />
-            <div className="h-3 rounded bg-muted" style={{ width: `${width}%` }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 // The editors (Tiptap) load after the timeline; the placeholders hold their space.
@@ -475,7 +460,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       </div>
     );
   }
-  if (!channel) return <div role="status" aria-label="Loading conversation" className="h-full animate-pulse bg-card" />;
+  if (!channel) return <ConversationSkeleton />;
 
   const self = isSelfDm(channel, meId);
   const title = self ? `${personName(channel.dm_user)} (you)` : channelTitle(channel, meId);
@@ -772,6 +757,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           }}
           projectId={channel.project_id}
           currentChannelId={channelId}
+          channelName={channel.name}
         />
       ) : null}
       {dialog === "people" ? <AddPeopleDialog channelId={channelId} title={displayName} onClose={() => setDialog(null)} /> : null}

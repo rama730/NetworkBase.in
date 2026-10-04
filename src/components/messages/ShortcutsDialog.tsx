@@ -12,8 +12,8 @@ function groups(mod: string) {
       [`${mod}↵ in the switcher`, "Search messages"],
       ["Alt ↑ / Alt ↓", "Previous / next conversation with something new"],
       ["Esc", "Mark this conversation as read, or close the thread or details"],
-      ["Shift Esc", "Mark all as read"],
-      [`${mod}I`, "Conversation details"],
+      ["Shift Esc", "Mark every conversation needing you as read"],
+      [`${mod}⇧I`, "Open or close conversation details"],
       [`${mod}/`, "These shortcuts"],
     ] },
     { title: "Writing", keys: [
@@ -22,6 +22,17 @@ function groups(mod: string) {
       ["↑ in an empty box", "Edit your last message"],
       ["@", "Mention someone"],
       ["/", "Commands (/task, /poll, /code…)"],
+      ["Tab", "Pick the highlighted command or person"],
+    ] },
+    { title: "Formatting", keys: [
+      [`${mod}B`, "Bold"],
+      [`${mod}I`, "Italic"],
+      [`${mod}⇧X`, "Strikethrough"],
+      [`${mod}⇧U`, "Link"],
+      [`${mod}⇧7 / ${mod}⇧8`, "Numbered / bulleted list"],
+      [`${mod}⇧9`, "Quote"],
+      [`${mod}⇧C`, "Inline code"],
+      [`${mod}⌥⇧C`, "Code block"],
     ] },
     { title: "On a message (Tab to the list, then ↑ / ↓)", keys: [
       ["↑ / ↓", "Previous / next message"],
@@ -29,7 +40,7 @@ function groups(mod: string) {
       ["S", "Save"],
       ["U", "Mark unread"],
       ["E", "Edit (your messages)"],
-      ["⌫", "Delete (your messages)"],
+      ["⌫", "Delete"],
     ] },
   ] as const;
 }

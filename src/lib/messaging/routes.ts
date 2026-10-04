@@ -10,6 +10,8 @@ export type Panes = {
   details?: DetailsTab | null;
   /** Message to jump to and highlight. */
   m?: number | null;
+  /** A conversation tab to open (canvas, pins…). */
+  tab?: string | null;
 };
 
 export function asDetailsTab(value: string | null | undefined): DetailsTab | null {
@@ -23,6 +25,7 @@ export function conversationHref(channelId: string, panes: Panes = {}) {
   if (panes.m) params.set("m", String(panes.m));
   if (panes.thread) params.set("thread", String(panes.thread));
   if (panes.details) params.set("details", panes.details);
+  if (panes.tab) params.set("tab", panes.tab);
   const query = params.toString();
   return `/messages/${channelId}${query ? `?${query}` : ""}`;
 }

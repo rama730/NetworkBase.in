@@ -5,6 +5,7 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { ChevronDown, X } from "lucide-react";
 
 import { MessageRow } from "@/components/messages/MessageRow";
+import { formatChatTime } from "@/lib/messaging/channel-view";
 import { buildTimeline, newFromOthers, type TimelineItem } from "@/lib/messaging/timeline";
 import type { ChatMessageView } from "@/lib/messaging/types";
 
@@ -139,10 +140,13 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   // Roving tabindex: Tab lands on one row (the newest until you move), ↑/↓ walk the rows.
   const [focusSeq, setFocusSeq] = useState<number | null>(null);
 
-  // "12 new messages since 3:42 PM": what was unread when the conversation opened.
+  // "12 new messages since Today 3:42 PM": what was unread when the conversation opened. When the
+  // first loaded message is already unread and older pages exist, there are more than we can count: "50+".
   const [unreadAtOpen] = useState(() => {
     const unread = messages.filter((m) => m.seq > lastReadSeq && m.seq > 0 && m.author_id !== meId && m.kind === "user");
-    return unread.length ? { count: unread.length, since: unread[0]!.created_at } : null;
+    const firstLoaded = messages.find((m) => m.seq > 0);
+    const more = hasOlder && Boolean(firstLoaded && firstLoaded.seq > lastReadSeq);
+    return unread.length ? { count: unread.length, more, since: unread[0]!.created_at } : null;
   });
   const [bannerOpen, setBannerOpen] = useState(Boolean(unreadAtOpen));
 
@@ -313,7 +317,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
       {bannerOpen && unreadAtOpen && onMarkRead ? (
         <div className="absolute inset-x-3 top-2 z-20 flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-[13px] text-primary-foreground shadow-md">
           <button type="button" onClick={toFirstUnread} className="min-w-0 flex-1 truncate text-left font-medium hover:underline">
-            {unreadAtOpen.count} new message{unreadAtOpen.count === 1 ? "" : "s"} since {new Date(unreadAtOpen.since).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+            {unreadAtOpen.count}{unreadAtOpen.more ? "+" : ""} new message{unreadAtOpen.count === 1 && !unreadAtOpen.more ? "" : "s"} since {formatChatTime(unreadAtOpen.since, "at")}
           </button>
           <button type="button" onClick={markRead} className="flex-none rounded-[4px] px-1.5 py-0.5 font-medium hover:bg-primary-foreground/15">Mark as read</button>
           <button type="button" onClick={() => setBannerOpen(false)} className="grid size-6 flex-none place-items-center rounded-[4px] hover:bg-primary-foreground/15" aria-label="Dismiss"><X size={14} /></button>

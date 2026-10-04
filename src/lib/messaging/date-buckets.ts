@@ -78,10 +78,13 @@ export function formatMessageCalendarLabel(
     if (key === today.key) return 'Today';
     if (key === yesterday.key) return 'Yesterday';
 
-    return new Intl.DateTimeFormat('en-US', {
+    // The viewer's own locale; the year only when it isn't this one (last October isn't this October).
+    const otherYear = key.slice(0, 4) !== today.key.slice(0, 4);
+    return new Intl.DateTimeFormat(undefined, {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
+        ...(otherYear ? { year: 'numeric' as const } : {}),
         timeZone: getTimeZone(options.timeZone),
     }).format(dateFromCalendarKey(key));
 }
