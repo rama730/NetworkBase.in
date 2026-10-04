@@ -5,6 +5,7 @@ const REPO_ROOT = process.cwd();
 const ALLOWED_SUPABASE_CHANNEL_FILES = new Set([
   "src/lib/realtime/subscriptions.ts",
   "src/lib/realtime/presence-client.ts",
+  "src/lib/realtime/private-broadcast.ts",
 ]);
 
 function toPosix(filePath: string) {
@@ -81,7 +82,8 @@ function main() {
   for (const absoluteFile of sourceFiles) {
     const rel = toPosix(path.relative(REPO_ROOT, absoluteFile));
     const content = fs.readFileSync(absoluteFile, "utf8");
-    if (content.includes(".channel(") && !ALLOWED_SUPABASE_CHANNEL_FILES.has(rel)) {
+    // queryKeys.chat.channel(...) is a React Query key, not a Supabase channel.
+    if (content.replace(/queryKeys\.chat\.channel\(/g, "").includes(".channel(") && !ALLOWED_SUPABASE_CHANNEL_FILES.has(rel)) {
       errors.push(`Direct Supabase channel usage is only allowed in approved wrappers (${rel}).`);
     }
   }
@@ -93,7 +95,7 @@ function main() {
     errors.push("getUserProfile must not use wildcard profile selects; authenticated shell bootstrap must stay explicit and bounded.");
   }
 
-  const mainLayoutPath = path.join(REPO_ROOT, "src", "app", "(main)", "layout.tsx");
+  const mainLayoutPath = path.join(REPO_ROOT, "src", "app", "(site)", "(main)", "layout.tsx");
   const mainLayout = fs.readFileSync(mainLayoutPath, "utf8");
   if (mainLayout.includes("getViewerProfileContext")) {
     errors.push("Main route layout must not fetch the full viewer profile on every render; bootstrap from auth snapshot only.");

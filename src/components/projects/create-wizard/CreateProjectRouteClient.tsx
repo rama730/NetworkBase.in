@@ -1,42 +1,77 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query-keys'
 import CreateProjectWizard from './CreateProjectWizard'
-
-type CreateProjectSource = 'scratch' | 'github' | 'upload' | null
+import { CreateProjectShellSkeleton } from './CreateProjectShellSkeleton'
+import { clearCreateProjectReturnPath, readCreateProjectReturnPath } from './create-project-return'
+import {
+    clearGithubOAuthResume,
+    getCreateProjectReturnPath,
+    parseCreateProjectSource,
+    readGithubOAuthResume,
+    type CreateProjectGithubOAuthResume,
+    type CreateProjectSource,
+} from './github-oauth-resume'
 
 interface CreateProjectRouteClientProps {
-    initialSource?: CreateProjectSource
+    initialSource?: CreateProjectSource | null
 }
 
+type Handoff = { source: CreateProjectSource | null; resume: CreateProjectGithubOAuthResume | null }
+
+/** The only home of the create-project wizard: the /projects/new page (spec §18). */
 export function CreateProjectRouteClient({
     initialSource = null,
 }: CreateProjectRouteClientProps) {
     const router = useRouter()
+    const queryClient = useQueryClient()
+    // The wizard mounts once, with restored values, so it waits for the GitHub hand-off to be read.
+    const [handoff, setHandoff] = useState<Handoff | null>(null)
 
-    const handleClose = useCallback(() => {
-        if (typeof window !== 'undefined' && window.history.length > 1) {
-            router.back()
-            return
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        const returnPath = getCreateProjectReturnPath(window.location)
+        const resume = readGithubOAuthResume(returnPath)
+        setHandoff({
+            source: parseCreateProjectSource(params.get('createProjectSource'))
+                ?? resume?.values.import_source?.type
+                ?? initialSource,
+            resume,
+        })
+        if (params.has('createProject') || params.has('createProjectSource')) {
+            window.history.replaceState(window.history.state, '', returnPath)
         }
+    }, [initialSource])
 
-        router.push('/discover')
+    // Replace, not back: after a GitHub sign-in the previous history entry is github.com.
+    const handleClose = useCallback(() => {
+        router.replace(readCreateProjectReturnPath() ?? '/discover')
     }, [router])
 
     const handleSuccess = useCallback((projectId: string) => {
-        // ponytail: creator goes straight to their new project. ceiling: valid project ID or slug. upgrade: None needed.
-        router.push(`/projects/${projectId}`)
-    }, [router])
+        void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() })
+        void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() })
+        clearCreateProjectReturnPath()
+        // Replace so Back from the new project does not reopen the wizard.
+        router.replace(`/projects/${projectId}`)
+    }, [queryClient, router])
+
+    const handleResumeRestored = useCallback((resumeId: string) => {
+        clearGithubOAuthResume(resumeId)
+    }, [])
+
+    if (!handoff) return <CreateProjectShellSkeleton />
 
     return (
-        <div className="h-full min-h-0 bg-background">
-            <CreateProjectWizard
-                presentation="page"
-                onClose={handleClose}
-                onSuccess={handleSuccess}
-                initialSource={initialSource}
-            />
-        </div>
+        <CreateProjectWizard
+            onClose={handleClose}
+            onSuccess={handleSuccess}
+            initialSource={handoff.source}
+            githubOAuthResume={handoff.resume}
+            onGithubOAuthResumeRestored={handleResumeRestored}
+        />
     )
 }

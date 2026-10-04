@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
+import { componentSource } from "./_helpers/component-source";
 
 const ROOT = process.cwd();
 
@@ -36,21 +37,11 @@ test("Empty state architectural contract: My Profile surfaces", () => {
     assert.match(editProfileTabs, /className=["'][^"']*nb-empty-state nb-grid-ground/);
 });
 
-test("Empty state architectural contract: Messages surfaces", () => {
-    const convList = readFileSync(resolve(ROOT, "src/components/chat/v2/ConversationListV2.tsx"), "utf-8");
-    const emptyConv = readFileSync(resolve(ROOT, "src/components/chat/v2/EmptyConversation.tsx"), "utf-8");
-    const messagesWs = readFileSync(resolve(ROOT, "src/components/chat/v2/MessagesWorkspaceV2.tsx"), "utf-8");
-
-    assert.match(convList, /className=["'][^"']*nb-empty-state nb-grid-ground/);
-    assert.match(emptyConv, /className=["'][^"']*nb-empty-state nb-grid-ground/);
-    assert.match(messagesWs, /className=["'][^"']*nb-empty-state/);
-});
-
 test("Empty state architectural contract: Projects and Tasks surfaces", () => {
     const docTab = readFileSync(resolve(ROOT, "src/components/projects/tabs/DocTab.tsx"), "utf-8");
     const sprintPlanning = readFileSync(resolve(ROOT, "src/components/projects/tabs/SprintPlanning.tsx"), "utf-8");
     const sprintTimeline = readFileSync(resolve(ROOT, "src/components/projects/tabs/sprint/SprintTimelineContent.tsx"), "utf-8");
-    const updatesTab = readFileSync(resolve(ROOT, "src/components/projects/tabs/UpdatesTab.tsx"), "utf-8");
+    const updatesTab = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const subtasksTab = readFileSync(resolve(ROOT, "src/components/projects/v2/tasks/TaskDetailTabs/SubtasksTab.tsx"), "utf-8");
     const commentsTab = readFileSync(resolve(ROOT, "src/components/projects/v2/tasks/TaskDetailTabs/CommentsTab.tsx"), "utf-8");
     const explorerTree = readFileSync(resolve(ROOT, "src/components/projects/v2/explorer/ExplorerTree.tsx"), "utf-8");

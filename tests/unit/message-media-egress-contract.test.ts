@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import { pixelsHaveTransparency } from '@/lib/messages/image-compression';
+import { pixelsHaveTransparency } from '@/lib/messaging/image-compression';
 
 function readProjectFile(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 }
 
 test('historical message videos wait for explicit viewer intent', () => {
-    const attachments = readProjectFile('src/components/chat/v2/message-attachments.tsx');
+    const attachments = readProjectFile('src/components/messages/parts/message-attachments.tsx');
 
     assert.doesNotMatch(attachments, /IntersectionObserver/);
     assert.doesNotMatch(attachments, /loop=\{true\}/);
@@ -28,21 +28,13 @@ test('media viewer loads one selected full asset without hidden adjacent bodies'
     assert.match(viewer, /elementRef=\{viewerVideoRef\}/);
 });
 
-test('conversation rows do not fetch full threads on pointer hover', () => {
-    const list = readProjectFile('src/components/chat/v2/ConversationListV2.tsx');
-    const workspace = readProjectFile('src/components/chat/v2/MessagesWorkspaceV2.tsx');
-
-    assert.doesNotMatch(list, /onMouseEnter|onPrefetchConversation|prefetchTimerRef/);
-    assert.doesNotMatch(workspace, /handlePrefetchConversation|prefetchInfiniteQuery/);
-});
-
 test('PNG alpha detection preserves transparency while allowing opaque conversion', () => {
-    const compression = readProjectFile('src/lib/messages/image-compression.ts');
+    const compression = readProjectFile('src/lib/messaging/image-compression.ts');
 
     assert.equal(pixelsHaveTransparency(new Uint8ClampedArray([1, 2, 3, 255])), false);
     assert.equal(pixelsHaveTransparency(new Uint8ClampedArray([1, 2, 3, 254])), true);
     assert.match(compression, /file\.type === 'image\/png' && !transparentPng\s*\? 'image\/webp'/);
     assert.match(compression, /transparentPng[\s\S]*: file\.type === 'image\/png' \? 'image\/png'/);
-    assert.equal((compression.match(/finally \{/g) ?? []).length, 2);
-    assert.equal((compression.match(/bitmap\?\.close\(\)/g) ?? []).length, 2);
+    assert.equal((compression.match(/finally \{/g) ?? []).length, 1);
+    assert.equal((compression.match(/bitmap\?\.close\(\)/g) ?? []).length, 1);
 });

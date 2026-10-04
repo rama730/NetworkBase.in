@@ -1,53 +1,26 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useMemo, useState, type HTMLAttributes } from "react";
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Ban, Check, ChevronDown, Loader2, MessageSquare, UserMinus, Users } from "lucide-react";
-import { VirtuosoGrid } from "react-virtuoso";
+import { Ban, Check, ChevronDown, MapPin, MessageSquare, UserMinus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
 
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Skeleton } from "@/components/ui/skeleton";
 import { SkillIcon } from "@/components/skills";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { PERSON_CARD_TAGS, PersonCardGrid, PersonCardLayout } from "@/components/network/PersonCard";
+import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useConnectionMutations, useConnections, type NetworkConnectionItem } from "@/hooks/useConnections";
 import { profileHref } from "@/lib/routing/identifiers";
-import { resolveClientSkill } from "@/lib/skills/client";
-import { formatLastActive } from "@/lib/ui/date-formatting";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
+import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
 import { formatDistanceToNow } from "@/lib/utils/date";
-
-const GridList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
-    <div {...props} ref={ref} className="grid grid-cols-1 gap-[14px] pb-8 sm:grid-cols-2" />
-));
-GridList.displayName = "ConnectionsGrid";
-
-const GridItem = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
-    <div {...props} ref={ref} className="h-[158px]" />
-));
-GridItem.displayName = "ConnectionItem";
-
-function PresenceDot({ lastActiveAt }: { lastActiveAt?: string | null }) {
-    const activeLabel = formatLastActive(lastActiveAt);
-    const tone = activeLabel === "Active today"
-        ? "bg-[var(--status-success)]"
-        : activeLabel === "Active this week"
-            ? "bg-amber-500"
-            : "bg-zinc-300 dark:bg-zinc-600";
-    return <span className={`absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-card ${tone}`} title={activeLabel ?? "Offline"} />;
-}
+import { messageUserInWindow } from "@/components/messages/message-user";
 
 export default function ConnectionsClient({ searchQuery }: { searchQuery: string }) {
     const [debouncedSearch] = useDebounce(searchQuery, 300);
-    const [routeScrollParent, setRouteScrollParent] = useState<HTMLElement | null>(() =>
-        typeof document === "undefined" ? null : document.querySelector<HTMLElement>("[data-scroll-root=\"route\"]"),
-    );
-
-    useEffect(() => {
-        setRouteScrollParent(document.querySelector<HTMLElement>("[data-scroll-root=\"route\"]"));
-    }, []);
-
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useConnections(50, debouncedSearch || undefined, "recent");
     const { disconnect, blockProfile } = useConnectionMutations();
     const connections = useMemo(
@@ -75,7 +48,7 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
         return (
             <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2" aria-label="Loading connections">
                 <span className="sr-only" role="status">Loading connections…</span>
-                {[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-[158px] rounded-lg border border-border" />)}
+                {[1, 2, 3, 4].map((item) => <PersonCardSkeleton key={item} />)}
             </div>
         );
     }
@@ -86,37 +59,27 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
                 icon={Users}
                 title={debouncedSearch ? "No connections match your search." : "Your connections live here"}
                 description={debouncedSearch ? "Try a different name, skill, or location." : "People you connect with will appear here."}
-                action={!debouncedSearch ? <Link href="/network?tab=suggested" className="text-sm font-medium text-primary hover:underline">Find people to connect with</Link> : undefined}
+                action={!debouncedSearch ? <Link href="/network?tab=suggested" className="text-sm max-md:text-[13px] font-medium text-primary hover:underline">Find people to connect with</Link> : undefined}
             />
         );
     }
 
     return (
-        <div style={{ minHeight: 400 }}>
-            <VirtuosoGrid
-                customScrollParent={routeScrollParent ?? undefined}
-                increaseViewportBy={600}
-                data={connections}
-                computeItemKey={(_, connection) => connection.id}
-                endReached={() => {
-                    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-                }}
-                components={{
-                    List: GridList,
-                    Item: GridItem,
-                    Footer: () => isFetchingNextPage ? (
-                        <div className="col-span-full flex justify-center py-6"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="Loading more connections" /></div>
-                    ) : null,
-                }}
-                itemContent={(_, connection) => (
-                    <ConnectionCard
-                        connection={connection}
-                        onDisconnect={handleDisconnect}
-                        onBlock={handleBlock}
-                    />
-                )}
-            />
-        </div>
+        <PersonCardGrid
+            items={connections}
+            getKey={(connection) => connection.id}
+            hasNextPage={Boolean(hasNextPage)}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+            loadingLabel="Loading more connections"
+            renderItem={(connection) => (
+                <ConnectionCard
+                    connection={connection}
+                    onDisconnect={handleDisconnect}
+                    onBlock={handleBlock}
+                />
+            )}
+        />
     );
 }
 
@@ -129,37 +92,41 @@ function ConnectionCard({
     onDisconnect: (id: string) => Promise<void>;
     onBlock: (id: string) => Promise<void>;
 }) {
+    useSkillCatalog();
     const user = connection.otherUser;
     if (!user) return null;
     const displayName = user.fullName || user.username || "NetworkBase member";
     const skills = (user.skills ?? []).slice(0, 2);
+    const headline = user.headline?.trim();
 
     return (
-        <article className="flex h-full min-h-[158px] items-center gap-3.5 rounded-lg border border-border bg-card p-4 transition-colors hover:border-input">
-            <Link href={profileHref(user)} className="relative shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <UserAvatar identity={user} size={54} fallbackClassName="text-lg font-semibold" />
-                <PresenceDot lastActiveAt={user.lastActiveAt} />
-            </Link>
-
-            <Link href={profileHref(user)} className="min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <h3 className="nb-card-title break-words text-foreground">{displayName}</h3>
-                    {user.location ? <span className="nb-meta min-w-0 break-words">{user.location}</span> : null}
-                </div>
-                {user.headline ? <p className="mt-1 truncate text-sm text-muted-foreground">{user.headline}</p> : <p className="mt-1 text-sm text-muted-foreground">NetworkBase member</p>}
-                {skills.length ? <div className="mt-2 flex flex-wrap gap-1.5">{skills.map((skillName) => {
-                    const skill = resolveClientSkill(skillName);
-                    return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
-                })}</div> : null}
-                <p className="nb-meta mt-2">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>
-            </Link>
-
-            <div className="flex shrink-0 items-center">
+        <PersonCardLayout
+            avatar={
+                <Link href={profileHref(user)} className="relative shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <UserAvatar identity={user} size={48} fallbackClassName="text-base font-semibold" />
+                    <PersonPresenceDot userId={user.id} lastActiveAt={user.lastActiveAt} />
+                </Link>
+            }
+            head={
+                <Link href={profileHref(user)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <h3 className="nb-card-title truncate text-foreground" title={displayName}>{displayName}</h3>
+                </Link>
+            }
+            location={user.location ? <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={user.location}><MapPin className="size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{user.location}</span></p> : null}
+            meta={[
+                <p key="connected" className="nb-meta mt-1 truncate">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>,
+            ]}
+            headline={headline ? <p className="nb-body truncate text-muted-foreground" title={headline}>{headline}</p> : null}
+            body={skills.length ? <div className={PERSON_CARD_TAGS}>{skills.map((skillName) => {
+                const skill = resolveClientSkill(skillName);
+                return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
+            })}</div> : null}
+            aside={
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm font-medium text-foreground hover:bg-muted" aria-label={`Connection actions for ${displayName}`}>
+                        <button type="button" className="nb-touch-target inline-flex h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted" aria-label={`Connection actions for ${displayName}`}>
                             <Check className="size-4 text-[var(--status-success)]" aria-hidden="true" />
-                            <span className="hidden lg:inline">Connected</span>
+                            <span className="max-sm:sr-only">Connected</span>
                             <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
                         </button>
                     </DropdownMenuTrigger>
@@ -167,7 +134,7 @@ function ConnectionCard({
                         {user.canSendMessage ? (
                             <>
                                 <DropdownMenuItem asChild>
-                                    <Link href={`/messages?userId=${user.id}`}><MessageSquare className="size-4" />Message</Link>
+                                    <Link href={`/messages?userId=${user.id}`} onClick={(event) => messageUserInWindow(user.id, event)}><MessageSquare className="size-4" />Message</Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                             </>
@@ -177,7 +144,7 @@ function ConnectionCard({
                         <DropdownMenuItem onClick={() => void onBlock(user.id)} variant="destructive"><Ban className="size-4" />Block profile</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            </div>
-        </article>
+            }
+        />
     );
 }

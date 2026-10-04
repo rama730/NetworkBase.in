@@ -90,15 +90,15 @@ test("the New filter follows notification seen state, not linked-content read st
 
 test("notificationMatchesMuteScope matches the narrow app scopes", () => {
   assert.equal(notificationMatchesMuteScope({
-    kind: "message_burst",
+    kind: "task_assigned",
     actorUserId: "actor-1",
-    entityRefs: { conversationId: "conversation-1" },
-  }, { kind: "conversation", value: "conversation-1" }), true);
+    entityRefs: { taskId: "task-1" },
+  }, { kind: "task", value: "task-1" }), true);
   assert.equal(notificationMatchesMuteScope({
     kind: "task_assigned",
     actorUserId: "actor-1",
     entityRefs: { taskId: "task-1" },
-  }, { kind: "notification_type", value: "message_burst" }), false);
+  }, { kind: "notification_type", value: "chat_invite" }), false);
 });
 
 test("buildNotificationHref only accepts in-app destinations", () => {
@@ -108,69 +108,16 @@ test("buildNotificationHref only accepts in-app destinations", () => {
   assert.equal(buildNotificationHref(item({ id: "missing", updatedAt: "2026-04-21T08:00:00.000Z", href: null })), null);
 });
 
-test("message notification targets prefer their durable source-message reference", () => {
-  const notification = item({
-    id: "message-target",
-    updatedAt: "2026-04-21T08:00:00.000Z",
-    href: "/messages?conversationId=conversation-1",
-    entityRefs: {
-      conversationId: "conversation-1",
-      sourceMessageId: "message-1",
-    },
-  });
-
-  assert.equal(
-    buildNotificationHref(notification),
-    "/messages?conversationId=conversation-1&messageId=message-1",
-  );
-});
-
-test("application notifications never retain a message-specific destination", () => {
-  const notification = item({
-    id: "application-target",
-    updatedAt: "2026-04-21T08:00:00.000Z",
-    href: "/messages?conversationId=conversation-1&messageId=message-1",
-    entityRefs: {
-      applicationId: "application-1",
-      conversationId: "conversation-1",
-      sourceMessageId: "message-1",
-    },
-  });
-
-  assert.equal(
-    buildNotificationHref(notification),
-    "/messages?conversationId=conversation-1",
-  );
-});
-
 test("getNarrowestNotificationMuteScope prefers the most specific available scope", () => {
   assert.deepEqual(
     getNarrowestNotificationMuteScope(item({
       id: "task-scope",
       updatedAt: "2026-04-21T08:00:00.000Z",
-      entityRefs: { projectId: "project-1", taskId: "task-1", conversationId: "conversation-1" },
+      entityRefs: { projectId: "project-1", taskId: "task-1", channelId: "channel-1" },
     })),
     { kind: "task", value: "task-1", label: "Assigned", mutedAt: null },
   );
 
-  assert.deepEqual(
-    getNarrowestNotificationMuteScope(item({
-      id: "conversation-scope",
-      updatedAt: "2026-04-21T08:00:00.000Z",
-      kind: "message_burst",
-      reason: "message",
-      entityRefs: { conversationId: "conversation-1" },
-      preview: {
-        actorName: "Ana",
-        actorAvatarUrl: null,
-        contextLabel: "Design chat",
-        contextKind: "conversation",
-        secondaryText: null,
-        thumbnailUrl: null,
-      },
-    })),
-    { kind: "conversation", value: "conversation-1", label: "Design chat", mutedAt: null },
-  );
 });
 
 test("getAggregateLabel returns null for count <= 1 and plural noun otherwise", () => {
@@ -178,8 +125,7 @@ test("getAggregateLabel returns null for count <= 1 and plural noun otherwise", 
   assert.equal(getAggregateLabel("task_comment_reply", 1), null);
   assert.equal(getAggregateLabel("task_comment_reply", 3), "3 new replies");
   assert.equal(getAggregateLabel("task_comment_mention", 5), "5 new mentions");
-  assert.equal(getAggregateLabel("message_burst", 2), "2 new messages");
-  assert.equal(getAggregateLabel("message_reaction", 2), "2 new reactions");
+  assert.equal(getAggregateLabel("chat_invite", 2), "2 new invitations");
   assert.equal(getAggregateLabel("task_file_version", 4), "4 new versions");
   assert.equal(getAggregateLabel("connection_request_received", 7), "7 new requests");
 });
@@ -254,36 +200,6 @@ test("shouldSuppressNotificationToast suppresses active destinations", () => {
     pathname: "/projects/network",
     search: "?drawerId=task-1&panelTab=comments",
     trayOpen: false,
-  }), true);
-
-  assert.equal(shouldSuppressNotificationToast({
-    item: item({
-      id: "active-reaction",
-      kind: "message_reaction",
-      reason: "message",
-      updatedAt: "2026-04-21T08:00:00.000Z",
-      href: "/messages?conversationId=conversation-1",
-      entityRefs: { conversationId: "conversation-1", sourceMessageId: "message-1", reactionEmoji: "👍" },
-    }),
-    pathname: "/discover",
-    search: "",
-    trayOpen: false,
-    activeConversationId: "conversation-1",
-  }), true);
-
-  assert.equal(shouldSuppressNotificationToast({
-    item: item({
-      id: "popup-message",
-      kind: "message_burst",
-      reason: "message",
-      updatedAt: "2026-04-21T08:00:00.000Z",
-      href: "/messages?conversationId=conversation-1",
-      entityRefs: { conversationId: "conversation-1" },
-    }),
-    pathname: "/discover",
-    search: "",
-    trayOpen: false,
-    activeConversationId: "conversation-1",
   }), true);
 
   assert.equal(shouldSuppressNotificationToast({

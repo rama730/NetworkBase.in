@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Search, X, ChevronRight, ChevronDown } from "lucide-react";
 
 import {
@@ -36,6 +37,7 @@ export function SprintLeftRail({
   canCreate,
   onCreate,
 }: SprintLeftRailProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
     cancelled: true,
@@ -134,7 +136,43 @@ export function SprintLeftRail({
   const isFiltering = searchQuery.trim().length > 0;
 
   return (
-    <aside className="w-full min-h-0 overflow-y-auto pr-2 lg:border-r lg:border-border lg:pr-5 app-scroll app-scroll-y app-scroll-gutter lg:sticky lg:top-[calc(var(--project-tabs-height,0px)+1rem)] lg:max-h-[calc(100dvh-var(--project-tabs-height,0px)-2rem)]">
+    <>
+    {/* Phones: one native picker instead of the stacked rail, so the selected sprint stays on screen (spec §21). */}
+    <div className="flex items-center gap-2 md:hidden">
+      <label className="sr-only" htmlFor="sprint-picker">Sprint</label>
+      <select
+        id="sprint-picker"
+        value={selectedSprintId ?? ""}
+        onChange={(event) => {
+          const sprint = sprints.find((item) => item.id === event.target.value);
+          if (sprint) router.push(buildProjectSprintDetailHref(projectSlug, sprint.id, { sprintCode: sprint.code }));
+        }}
+        className="h-11 min-w-0 flex-1 rounded-[5px] border border-border bg-card px-3 text-[16px] text-foreground"
+      >
+        {!selectedSprintId ? <option value="">Select a sprint</option> : null}
+        {SPRINT_GROUPS.map((group) => {
+          const groupSprints = sprintsByStatus.get(group.status) ?? [];
+          return groupSprints.length > 0 ? (
+            <optgroup key={group.status} label={group.label}>
+              {groupSprints.map((sprint) => (
+                <option key={sprint.id} value={sprint.id}>{sprint.name} · {sprint.code}</option>
+              ))}
+            </optgroup>
+          ) : null;
+        })}
+      </select>
+      {canCreate ? (
+        <button
+          type="button"
+          onClick={onCreate}
+          aria-label="New sprint"
+          className="inline-flex size-11 shrink-0 items-center justify-center rounded-[5px] bg-primary text-primary-foreground"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+        </button>
+      ) : null}
+    </div>
+    <aside className="w-full min-h-0 overflow-y-auto pr-2 max-md:hidden lg:border-r lg:border-border lg:pr-5 app-scroll app-scroll-y app-scroll-gutter lg:sticky lg:top-[calc(var(--project-tabs-height,0px)+1rem)] lg:max-h-[calc(100dvh-var(--project-tabs-height,0px)-2rem)]">
       <div className="space-y-4">
         {/* Rail Header */}
         <div className="space-y-2.5">
@@ -142,7 +180,7 @@ export function SprintLeftRail({
             <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
               Sprints
             </span>
-            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] font-semibold text-muted-foreground">
+            <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground">
               {sprints.length}
             </span>
           </div>
@@ -227,7 +265,7 @@ export function SprintLeftRail({
                   </span>
                   <span
                     aria-label={`${groupedSprints.length} ${group.label.toLowerCase()} sprints`}
-                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] font-semibold text-muted-foreground"
+                    className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground"
                   >
                     {groupedSprints.length}
                   </span>
@@ -249,7 +287,7 @@ export function SprintLeftRail({
                             sprint.id,
                             { sprintCode: sprint.code },
                           )}
-                          prefetch={false}
+                         
                           aria-current={isSelected ? "page" : undefined}
                           className={cn(
                             "group relative flex flex-col gap-1 rounded-[5px] border px-2.5 py-2 text-left transition-colors select-none",
@@ -277,7 +315,7 @@ export function SprintLeftRail({
                           </div>
 
                           {dateRange ? (
-                            <span className="truncate pl-3.5 font-mono text-[10px] text-muted-foreground">
+                            <span className="truncate pl-3.5 font-mono text-[10px] max-md:text-[11px] text-muted-foreground">
                               {dateRange}
                             </span>
                           ) : null}
@@ -298,5 +336,6 @@ export function SprintLeftRail({
         </nav>
       </div>
     </aside>
+    </>
   );
 }

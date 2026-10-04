@@ -2,16 +2,19 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { componentSource } from "./_helpers/component-source";
 
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project general settings renders 3 canonical cards and removes redundant overview cards", () => {
-  const content = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // General tab block extraction
-  const generalBlock = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
+  const tabGeneralSlot = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
+  assert.match(tabGeneralSlot, /<GeneralSettingsSection/, "The General slot must render GeneralSettingsSection");
+  const generalBlock = source("src/components/projects/settings/GeneralSettingsSection.tsx");
   assert.ok(generalBlock.length > 0, "General settings block must exist");
 
   // Removed unnecessary overview/disclosure cards
@@ -54,20 +57,22 @@ test("project general settings renders 3 canonical cards and removes redundant o
 });
 
 test("project general settings removes duplicate header card and renders card-level Save Changes and Cancel buttons", () => {
-  const content = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // Duplicate header card removed from general tab
   assert.match(content, /activeSection !== "general"/, "SectionHeader must be skipped for General tab to avoid duplicate header");
   assert.doesNotMatch(content, /data-testid="project-settings-dirty-banner"/, "Header dirty banner must be removed in favor of card footers");
 
   // General tab block extraction
-  const generalBlock = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
+  const tabGeneralSlot = content.split('activeSection === "general" && (')[1]?.split('activeSection === "access"')[0] ?? "";
+  assert.match(tabGeneralSlot, /<GeneralSettingsSection/, "The General slot must render GeneralSettingsSection");
+  const generalBlock = source("src/components/projects/settings/GeneralSettingsSection.tsx");
   assert.match(generalBlock, /Save changes/, "General settings cards must provide Save changes button in footer");
   assert.match(generalBlock, /Cancel/, "General settings cards must provide Cancel button in footer");
 });
 
 test("project settings sidebar and header follow NetworkBase layout standards", () => {
-  const content = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const content = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   assert.match(content, /max-w-\[1320px\]/, "Settings container max width must be 1320px matching Layout Pattern G");
   assert.match(content, /border-border bg-card/, "Sidebar aside must use semantic border and card background");

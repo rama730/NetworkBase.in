@@ -306,7 +306,7 @@ export default function SprintEditorModal({
                   value={draft.name}
                   onChange={(event) => handleFieldChange("name", event.target.value)}
                   placeholder="e.g., Sprint 4"
-                  className={cn("h-[34px]", inputClassName(!!fieldErrors.name))}
+                  className={cn("nb-touch-target h-[34px]", inputClassName(!!fieldErrors.name))}
                 />
               </Field>
 
@@ -316,7 +316,7 @@ export default function SprintEditorModal({
                   value={draft.goal}
                   onChange={(event) => handleFieldChange("goal", event.target.value)}
                   placeholder="What should this sprint accomplish?"
-                  className={cn("h-[34px]", inputClassName(!!fieldErrors.goal))}
+                  className={cn("nb-touch-target h-[34px]", inputClassName(!!fieldErrors.goal))}
                 />
               </Field>
 
@@ -336,27 +336,27 @@ export default function SprintEditorModal({
             <div className="space-y-3.5">
               <SectionDivider title="Schedule">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5">
+                  <span className="font-mono text-[10px] max-md:text-[11px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5">
                     Quick set:
                   </span>
                   <button
                     type="button"
                     onClick={() => setDuration(7)}
-                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     1 week
                   </button>
                   <button
                     type="button"
                     onClick={() => setDuration(14)}
-                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     2 weeks
                   </button>
                   <button
                     type="button"
                     onClick={() => setDuration(28)}
-                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="inline-flex h-6 items-center rounded-[3px] border border-border bg-card px-2 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     4 weeks
                   </button>
@@ -371,7 +371,7 @@ export default function SprintEditorModal({
                     required
                     value={draft.startDate}
                     onChange={(event) => handleFieldChange("startDate", event.target.value)}
-                    className={cn("h-[34px]", inputClassName(!!fieldErrors.startDate))}
+                    className={cn("nb-touch-target h-[34px]", inputClassName(!!fieldErrors.startDate))}
                   />
                 </Field>
 
@@ -383,7 +383,7 @@ export default function SprintEditorModal({
                     min={draft.startDate}
                     value={draft.endDate}
                     onChange={(event) => handleFieldChange("endDate", event.target.value)}
-                    className={cn("h-[34px]", inputClassName(!!fieldErrors.endDate))}
+                    className={cn("nb-touch-target h-[34px]", inputClassName(!!fieldErrors.endDate))}
                   />
                 </Field>
               </div>
@@ -420,7 +420,7 @@ export default function SprintEditorModal({
                         Only an empty Planning sprint can be deleted. Sprints with work history are permanent.
                       </p>
                     </div>
-                    <span className="rounded-[3px] border border-border px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
+                    <span className="rounded-[3px] border border-border px-2 py-0.5 font-mono text-[10px] max-md:text-[11px] font-medium uppercase tracking-[0.09em] text-muted-foreground">
                       {sprint?.status ?? "planning"}
                     </span>
                   </div>
@@ -443,7 +443,7 @@ export default function SprintEditorModal({
                           type="button"
                           disabled={!!pendingAction}
                           onClick={() => setConfirmDelete(false)}
-                          className="inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-3 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted"
+                          className="nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-3 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted"
                         >
                           Keep sprint
                         </button>
@@ -451,7 +451,7 @@ export default function SprintEditorModal({
                           type="button"
                           disabled={!!pendingAction}
                           onClick={() => void handleDelete()}
-                          className="inline-flex h-[34px] items-center gap-1.5 rounded-[5px] bg-destructive px-3 font-mono text-xs font-medium uppercase tracking-[0.09em] text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
+                          className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 rounded-[5px] bg-destructive px-3 font-mono text-xs font-medium uppercase tracking-[0.09em] text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                           {isDeleting ? "Deleting..." : "Delete sprint"}
@@ -463,7 +463,7 @@ export default function SprintEditorModal({
                       type="button"
                       disabled={!!pendingAction}
                       onClick={() => setConfirmDelete(true)}
-                      className="inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-destructive/30 px-3 font-mono text-xs font-medium uppercase tracking-[0.09em] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                      className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-destructive/30 px-3 font-mono text-xs font-medium uppercase tracking-[0.09em] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Delete sprint
@@ -480,14 +480,14 @@ export default function SprintEditorModal({
               type="button"
               disabled={!!pendingAction}
               onClick={onClose}
-              className="inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              className="nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!!pendingAction}
-              className="inline-flex h-[34px] items-center justify-center rounded-[5px] bg-primary px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              className="nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] bg-primary px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {isSubmitting ? "Saving..." : mode === "create" ? "Create Sprint" : "Save changes"}
             </button>

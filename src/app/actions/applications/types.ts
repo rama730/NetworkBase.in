@@ -30,7 +30,8 @@ export type ApplicationActionResult = {
     error?: string;
     errorCode?: ApplicationActionErrorCode;
     applicationId?: string;
-    conversationId?: string;
+    /** The application's private chat thread. */
+    channelId?: string | null;
     applicationTraceId?: string;
     idempotent?: boolean;
 };
@@ -51,7 +52,6 @@ export type ApplicationStatusResult = {
     applicationId?: string;
     proposedRoleId?: string;
     proposedRoleTitle?: string;
-    workflowItemId?: string;
 };
 
 export interface ApplicationRequestHistoryItem {
@@ -62,7 +62,7 @@ export interface ApplicationRequestHistoryItem {
     decisionReason?: string | null;
     eventAt: string;
     createdAt: string;
-    conversationId?: string | null;
+    channelId?: string | null;
     project: {
         id: string;
         title: string;

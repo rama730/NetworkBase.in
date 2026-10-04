@@ -22,7 +22,7 @@ export function useProjectDoc(projectId: string, docSlug: string | null) {
     return useQuery({
         queryKey: PROJECT_DOC_QUERY_KEY(projectId, docSlug),
         queryFn: async () => {
-            const { readProjectDocAction } = await import("@/app/actions/project");
+            const { readProjectDocAction } = await import("@/app/actions/project/doc");
             const result = await readProjectDocAction(projectId, docSlug);
             if (!result.success) throw new Error(result.error);
             queryClient.setQueryData(PROJECT_DOC_LIST_QUERY_KEY(projectId), result.data.docs);
@@ -86,7 +86,7 @@ export function useProjectDocSmartBlockPreviews(projectId: string, blocks: Proje
             }
 
             if (missingBlocks.length > 0) {
-                const { readProjectDocSmartBlockPreviewsAction } = await import("@/app/actions/project");
+                const { readProjectDocSmartBlockPreviewsAction } = await import("@/app/actions/project/doc");
                 const chunks: any[][] = [];
                 for (let index = 0; index < missingBlocks.length; index += 20) {
                     chunks.push(missingBlocks.slice(index, index + 20));
@@ -116,7 +116,7 @@ export function useProjectDocList(projectId: string, enabled = true) {
     return useQuery({
         queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId),
         queryFn: async () => {
-            const { listProjectDocsAction } = await import("@/app/actions/project");
+            const { listProjectDocsAction } = await import("@/app/actions/project/doc");
             const result = await listProjectDocsAction(projectId);
             if (!result.success) throw new Error(result.error);
             return result.markdowns;

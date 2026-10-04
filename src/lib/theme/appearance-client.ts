@@ -5,6 +5,7 @@ export type AppearanceSyncState = "idle" | "saving" | "saved" | "save_failed";
 export type AppearanceSettingsPayload = {
     userId: string | null;
     snapshot: AppearanceSnapshot | null;
+    remoteSynced: boolean;
 };
 
 const APPEARANCE_REQUEST_TIMEOUT_MS = 4_000;
@@ -29,6 +30,7 @@ async function readAppearanceJson(response: Response): Promise<AppearanceSetting
     return {
         userId: typeof json?.data?.userId === "string" ? json.data.userId : null,
         snapshot: parseAppearanceSnapshot(json?.data?.snapshot),
+        remoteSynced: json?.data?.remoteSynced !== false,
     };
 }
 

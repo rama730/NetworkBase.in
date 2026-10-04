@@ -7,19 +7,23 @@ function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-test("top-nav profile picture opens accessible dropdown with My Profile and Sign Out", () => {
+test("top-nav profile picture opens accessible dropdown with My profile and Sign out", () => {
   const topNav = source("src/components/layout/header/TopNav.tsx");
 
   // Profile avatar trigger is a dropdown trigger, not a raw Link
   assert.match(topNav, /<DropdownMenu open=\{isProfileMenuOpen\} onOpenChange=\{setIsProfileMenuOpen\}>/);
   assert.match(topNav, /<DropdownMenuTrigger asChild>/);
   assert.match(topNav, /data-testid="topnav-profile-menu-trigger"/);
+  assert.match(topNav, /ref=\{profileMenuTriggerRef\}/);
   assert.match(topNav, /aria-label="User menu"/);
   assert.match(topNav, /<ProfileAvatar profile=\{profile\} size=\{32\} priority \/>/);
-  assert.match(topNav, /<OnlineIndicator online size="sm" \/>/);
+  assert.match(topNav, /<PersonPresenceBadge userId=\{user\?\.id\} live size=\{12\}/);
 
   // Dropdown content matches design specification popover geometry
-  assert.match(topNav, /<DropdownMenuContent[^>]*align="end"[^>]*sideOffset=\{8\}/);
+  assert.match(topNav, /<DropdownMenuContent[^>]*side="bottom"[^>]*align="end"[^>]*sideOffset=\{12\}[^>]*alignOffset=\{0\}[^>]*collisionPadding=\{12\}/);
+  assert.match(topNav, /className="w-48[^\"]*rounded-\[8px\]/);
+  assert.doesNotMatch(topNav, /className="w-56[^\"]*rounded-\[8px\]/);
+  assert.match(topNav, /<div className="px-2 py-1\.5">/);
   assert.match(topNav, /bg-popover/);
   assert.match(topNav, /border-border/);
 
@@ -32,16 +36,13 @@ test("top-nav profile picture opens accessible dropdown with My Profile and Sign
   assert.match(topNav, /<UserRound/);
   assert.match(topNav, />My Profile<\/span>/);
 
-  // Sign Out option
+  // Sign out option
   assert.match(topNav, /<DropdownMenuItem[^>]*variant="destructive"[^>]*onSelect=\{[^}]*setShowSignOutConfirm\(true\)[^}]*\}/);
   assert.match(topNav, /<LogOut/);
-  assert.match(topNav, />Sign Out<\/span>/);
+  assert.match(topNav, />Sign out<\/span>/);
 
-  // Sign out ConfirmDialog
-  assert.match(topNav, /<ConfirmDialog[^>]*open=\{showSignOutConfirm\}/);
-  assert.match(topNav, /title="Sign out of your account\?"/);
-  assert.match(topNav, /confirmLabel="Sign out"/);
-  assert.match(topNav, /variant="destructive"/);
-  assert.match(topNav, /loading=\{isSigningOut\}/);
-  assert.match(topNav, /onConfirm=\{handleSignOut\}/);
+  // Every desktop entry point uses the shared sign-out confirmation contract.
+  assert.match(topNav, /<SignOutConfirmDialog[^>]*open=\{showSignOutConfirm\}/);
+  assert.match(topNav, /returnFocusRef=\{profileMenuTriggerRef\}/);
+  assert.match(topNav, /onConfirm=\{signOut\}/);
 });

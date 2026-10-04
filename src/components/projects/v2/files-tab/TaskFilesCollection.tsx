@@ -35,6 +35,8 @@ import { useFilesTabRole } from "./FilesTabRoleContext";
 import { taskFilesHref } from "@/lib/files/task-navigation";
 import { useFilesWorkspaceView } from "./FilesWorkspaceViews";
 import { formatRelativeTime } from "./folder/format";
+import type { ProjectNode } from "@/lib/db/schema";
+import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 import { FolderListHeader } from "./folder/FolderListHeader";
 import {
   FolderListLoading,
@@ -304,37 +306,46 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
         sizeBytes: file.size,
       }));
 
-      const batch = await getBatchUploadUrls(
-        plans.map(({ key, contentType, sizeBytes }) => ({ key, contentType, sizeBytes })),
-      );
-      if ("error" in batch) {
-        throw new Error(batch.error || "Failed to generate upload URLs");
+      const batchNodes: ProjectNode[] = [];
+      for (let offset = 0; offset < plans.length; offset += 16) {
+        const chunk = plans.slice(offset, offset + 16);
+        const batch = await getBatchUploadUrls(
+          chunk.map(({ key, contentType, sizeBytes }) => ({ key, contentType, sizeBytes })),
+        );
+        if ("error" in batch) {
+          throw new Error(batch.error || "Failed to generate upload URLs");
+        }
+
+        await Promise.all(
+          chunk.map(async ({ file, key, contentType }) => {
+            const url = batch.urls?.[key];
+            const uploadToken = batch.uploadTokens?.[key];
+            const storageKey = batch.storageKeys?.[key];
+            const operationId = batch.uploadIntentIds?.[key];
+            if (!url || !uploadToken || !storageKey || !operationId) throw new Error("Upload allocation unavailable");
+            await uploadToSupabaseSignedUrl({
+              bucket: "project-files",
+              storagePath: storageKey,
+              uploadToken,
+              uploadUrl: url,
+              contentType,
+              operationId,
+            }, file, { cacheProfile: "immutable" });
+          }),
+        );
+
+        batchNodes.push(...await finalizeBatchUpload(
+          projectId,
+          confirmResult.targetFolderId ?? null,
+          chunk.map(({ file, key, contentType }) => ({
+            name: file.name,
+            s3Key: batch.storageKeys[key]!,
+            size: file.size,
+            mimeType: contentType,
+            uploadIntentId: batch.uploadIntentIds?.[key] ?? undefined,
+          })),
+        ));
       }
-
-      await Promise.all(
-        plans.map(async ({ file, key, contentType }) => {
-          const url = batch.urls?.[key];
-          if (!url) throw new Error("Upload URL unavailable");
-          const res = await fetch(url, {
-            method: "PUT",
-            headers: { "Content-Type": contentType },
-            body: file,
-          });
-          if (!res.ok) throw new Error(`Upload failed for ${file.name}`);
-        }),
-      );
-
-      const batchNodes = await finalizeBatchUpload(
-        projectId,
-        confirmResult.targetFolderId ?? null,
-        plans.map(({ file, key, contentType }) => ({
-          name: file.name,
-          s3Key: key,
-          size: file.size,
-          mimeType: contentType,
-          uploadIntentId: batch.uploadIntentIds?.[key] ?? undefined,
-        })),
-      );
 
       const targetTaskId = confirmResult.taskId ?? targetUploadTask?.id;
       if (targetTaskId && batchNodes.length > 0) {
@@ -580,7 +591,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                       toast.info("Create a task first to attach files to tasks.");
                     }
                   }}
-                  className="flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                  className="nb-touch-target flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                   aria-label="Upload to task"
                 >
                   <Upload className="size-3.5" aria-hidden="true" />
@@ -629,7 +640,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                     <span>{item.label}</span>
                     <span
                       className={cn(
-                        "text-[10px] tabular-nums",
+                        "text-[10px] max-md:text-[11px] tabular-nums",
                         statusFilter === item.id
                           ? "text-white/80"
                           : "text-[#8E9AA1] dark:text-muted-foreground",
@@ -788,7 +799,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                           <span
                             data-testid="task-group-status-badge"
                             className={cn(
-                              "shrink-0 inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[10px] font-mono font-medium uppercase tracking-wider",
+                              "shrink-0 inline-flex items-center rounded-[3px] px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-mono font-medium uppercase tracking-wider",
                               getTaskStatusBadgeClass(group.status),
                             )}
                           >
@@ -797,7 +808,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                           {group.reviewStatus === "pending" && (
                             <span
                               data-testid="task-group-review-badge"
-                              className="shrink-0 inline-flex items-center gap-1 rounded-[3px] bg-[#FCF0EA] px-1.5 py-0.5 text-[10px] font-mono font-medium text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]"
+                              className="shrink-0 inline-flex items-center gap-1 rounded-[3px] bg-[#FCF0EA] px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-mono font-medium text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]"
                             >
                               <span className="size-1 rounded-[1px] bg-[#B23F1C]" />
                               Review pending
@@ -806,7 +817,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                           {group.reviewStatus === "rejected" && (
                             <span
                               data-testid="task-group-review-badge"
-                              className="shrink-0 inline-flex items-center gap-1 rounded-[3px] bg-[#FCF0EA] px-1.5 py-0.5 text-[10px] font-mono font-medium text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]"
+                              className="shrink-0 inline-flex items-center gap-1 rounded-[3px] bg-[#FCF0EA] px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-mono font-medium text-[#B23F1C] dark:bg-[#B23F1C]/20 dark:text-[#FCF0EA]"
                             >
                               <span className="size-1 rounded-[1px] bg-[#B23F1C]" />
                               Changes requested
@@ -889,7 +900,7 @@ export function TaskFilesCollection({ projectId }: { projectId: string }) {
                             <button
                               type="button"
                               aria-label={`Actions for ${group.title}`}
-                              className="flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] focus-visible:ring-2 focus-visible:ring-[#D14E24] dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
+                              className="nb-touch-target flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] focus-visible:ring-2 focus-visible:ring-[#D14E24] dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
                             >
                               <MoreHorizontal aria-hidden="true" className="size-4" />
                             </button>

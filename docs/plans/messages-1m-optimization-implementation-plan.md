@@ -1,3 +1,5 @@
+> **Superseded (2026-10).** The conversation/message system described here was replaced by the Slack-style chat rebuild (migrations 0180/0181). See `docs/architecture/messaging.md` and `docs/plans/messaging-slack-rebuild-report.md`.
+
 # Messaging System 1M+ User Pure Optimization Implementation Plan
 
 This implementation plan translates the entire **150+ issue audit** and **10 systemic beyond-category dimensions** from [messages-performance-1m-architecture-audit.md](file:///Users/chrama/.gemini/antigravity/brain/769e60ec-34cb-4849-881d-8d1d265a3886/messages-performance-1m-architecture-audit.md) into an exhaustive, phased engineering roadmap. It strictly enforces the **Ponytail** engineering standard: pure optimization, native/stdlib priority, zero bloat, sub-100ms P95 latency, and zero connection/memory exhaustion for 1,000,000 concurrent active users.

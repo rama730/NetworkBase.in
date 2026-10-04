@@ -176,7 +176,21 @@
     "drizzle/0171_sql_naming.sql",
     "drizzle/0173_node_events_single_table.sql",
     "drizzle/0174_drop_unused.sql",
-    "drizzle/0175_docs_retired_objects.sql"
+    "drizzle/0175_docs_retired_objects.sql",
+    "drizzle/0176_docs_any_slug_removable.sql",
+    "drizzle/0177_projects_member_file_upload_default.sql",
+    "drizzle/0178_storage_asset_lifecycle.sql",
+    "drizzle/0179_live_catalog_storage_release_hardening.sql",
+    "drizzle/0180_chat_rebuild_additive.sql",
+    "drizzle/0181_chat_rebuild_cutover.sql",
+    "drizzle/0182_chat_canvases.sql",
+    "drizzle/0183_chat_typing_topic.sql",
+    "drizzle/0184_presence_status.sql",
+    "drizzle/0185_chat_rename_default_channel.sql",
+    "drizzle/0186_status_emoji.sql",
+    "drizzle/0187_chat_reorganize.sql",
+    "drizzle/0188_chat_tab_files.sql",
+    "drizzle/0189_chat_audit_fixes.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
@@ -187,6 +201,15 @@
     "0078_notification_deliveries",
     "0079_job_heartbeats"
   ],
-  "allowedUtilitySqlFiles": [],
+  "allowedUtilitySqlFiles": [
+    "scripts/chat-db/local-app-stubs.sql",
+    "scripts/chat-db/supabase-shim.sql",
+    "scripts/chat-load/baseline.sql",
+    "scripts/chat-load/bootstrap-full.sql",
+    "scripts/chat-load/bootstrap.sql",
+    "scripts/chat-load/seed.sql",
+    "scripts/chat-load/send.sql",
+    "scripts/chat-load/timeline.sql"
+  ],
   "breakGlassExceptions": []
 }

@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MAIN_NAV_ITEMS, SETTINGS_NAV_ITEM, isMainNavRouteActive } from "./header/nav-items";
 import { ROUTES } from "@/constants/routes";
 import { useAuth } from "@/hooks/use-auth";
-import { useMessageAttention } from "@/components/providers/MessageAttentionProvider";
+import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 import WorkspaceIndicator from "./header/WorkspaceIndicator";
@@ -58,10 +58,15 @@ async function fetchSidebarProjects(profileId: string): Promise<SidebarProject[]
     return (body?.data?.projects ?? []).filter((project) => project.id && project.title && project.href);
 }
 
-export function AppSidebar() {
+/**
+ * Main navigation body shared by the desktop sidebar and the mobile quick-nav drawer
+ * (Discover → Network → Messages → My profile → My work → Workspaces), so the two cannot drift.
+ */
+// ponytail: the drawer mounts this only while open, so its ids duplicate the (display:none) aside's only on mobile; use per-instance ids if that ever matters.
+export function SidebarNav() {
     const pathname = usePathname();
     const { profile, isAuthenticated } = useAuth();
-    const messageAttention = useMessageAttention();
+    const { badge: chatBadge } = useChatShell();
     const { connectionHealth } = useRealtime();
     const people = useNetworkNotifications();
     const profileId = profile?.id ?? null;
@@ -73,6 +78,45 @@ export function AppSidebar() {
         refetchOnWindowFocus: false,
     });
     const projects = projectsQuery.data ?? [];
+
+    return (
+        <div className="nb-sidebar-scroll app-scroll app-scroll-y min-h-0 flex-1 space-y-3 pr-1">
+            <nav id="application-sidebar-navigation" aria-label="Main navigation" className="space-y-1">
+                {MAIN_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+                    const active = isMainNavRouteActive(pathname, href);
+                    const count = href === ROUTES.MESSAGES ? chatBadge : href === ROUTES.NETWORK ? people.totalPending : 0;
+                    return <Link key={href} href={href} className="nb-nav-link" aria-label={label} title={label} aria-current={active ? "page" : undefined}>
+                        <Icon size={16} aria-hidden="true" /><span className="nb-sidebar-label">{label}</span>
+                        {href === ROUTES.NETWORK && connectionHealth !== "healthy" && <span className="sr-only">Connection {connectionHealth}</span>}
+                        {count > 0 && <span className="nb-nav-count" aria-label={`${count} unread items`}>{count > 99 ? "99+" : count}</span>}
+                    </Link>;
+                })}
+                <Link href={ROUTES.MY_PROFILE} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={pathname === ROUTES.MY_PROFILE ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>
+                {isAuthenticated && <WorkspaceIndicator />}
+            </nav>
+            {isAuthenticated && <section className="nb-sidebar-workspace space-y-3" aria-labelledby="sidebar-workspace-heading">
+                <div className="flex items-center gap-3 px-2">
+                    <h2 id="sidebar-workspace-heading" className="nb-micro whitespace-nowrap">Workspaces</h2>
+                    <div className="h-px min-w-0 flex-1 bg-border" aria-hidden="true" />
+                </div>
+                <div className="space-y-1" aria-label="Your projects" aria-busy={projectsQuery.isLoading}>
+                    {projectsQuery.isLoading && <><span className="sr-only" role="status">Loading workspaces…</span>{[1, 2, 3].map((key) => <Skeleton key={key} className="mx-2 h-8 rounded" />)}</>}
+                    {projects.map((project) => {
+                        const active = pathname === project.href || pathname?.startsWith(`${project.href}/`);
+                        return <Link key={project.id} href={project.href} className="nb-nav-link" title={project.title} aria-current={active ? "page" : undefined}>
+                            <span className="nb-sidebar-label truncate">{project.title}</span>
+                        </Link>;
+                    })}
+                    {!projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No projects yet</p>}
+                    {projectsQuery.isError && <p className="px-2 py-1 text-xs text-muted-foreground">Projects unavailable</p>}
+                </div>
+            </section>}
+        </div>
+    );
+}
+
+export function AppSidebar() {
+    const pathname = usePathname();
     const settingsActive = isMainNavRouteActive(pathname, SETTINGS_NAV_ITEM.href);
     const collapsed = useUIStore((state) => state.sidebarCollapsed);
     const setSidebarCollapsed = useUIStore((state) => state.setSidebarCollapsed);
@@ -109,7 +153,7 @@ export function AppSidebar() {
             <div className="nb-sidebar-brand">
                 <Link
                     href={ROUTES.DISCOVER}
-                    prefetch={false}
+                   
                     className="nb-wordmark nb-sidebar-wordmark"
                     aria-label="NetworkBase home"
                 >
@@ -117,42 +161,13 @@ export function AppSidebar() {
                 </Link>
             </div>
             <div className="nb-sidebar-body">
-                <div className="nb-sidebar-scroll app-scroll app-scroll-y min-h-0 flex-1 space-y-5 pr-1">
-                    <nav id="application-sidebar-navigation" aria-label="Main navigation" className="space-y-1">
-                        {MAIN_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-                            const active = isMainNavRouteActive(pathname, href);
-                            const count = href === ROUTES.MESSAGES ? messageAttention.unreadCount : href === ROUTES.NETWORK ? people.totalPending : 0;
-                            return <Link key={href} href={href} prefetch={false} className="nb-nav-link" aria-label={label} title={label} aria-current={active ? "page" : undefined}>
-                                <Icon size={16} aria-hidden="true" /><span className="nb-sidebar-label">{label}</span>
-                                {href === ROUTES.MESSAGES && messageAttention.hasUnreadMessages && count === 0 && <span className="size-1.5 rounded-full bg-primary" aria-label="Unread messages" />}
-                                {href === ROUTES.NETWORK && connectionHealth !== "healthy" && <span className="sr-only">Connection {connectionHealth}</span>}
-                                {count > 0 && <span className="nb-nav-count" aria-label={`${count} unread items`}>{count > 99 ? "99+" : count}</span>}
-                            </Link>;
-                        })}
-                        <Link href={ROUTES.MY_PROFILE} prefetch={false} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={pathname === ROUTES.MY_PROFILE ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>
-                        {isAuthenticated && <WorkspaceIndicator />}
-                    </nav>
-                    {isAuthenticated && <section className="nb-sidebar-workspace space-y-2" aria-labelledby="sidebar-workspace-heading">
-                        <h2 id="sidebar-workspace-heading" className="nb-micro px-2">Workspaces</h2>
-                        <div className="space-y-1" aria-label="Your projects" aria-busy={projectsQuery.isLoading}>
-                            {projectsQuery.isLoading && <><span className="sr-only" role="status">Loading workspaces…</span>{[1, 2, 3].map((key) => <Skeleton key={key} className="mx-2 h-8 rounded" />)}</>}
-                            {projects.map((project) => {
-                                const active = pathname === project.href || pathname?.startsWith(`${project.href}/`);
-                                return <Link key={project.id} href={project.href} prefetch={false} className="nb-nav-link" title={project.title} aria-current={active ? "page" : undefined}>
-                                    <span className="nb-sidebar-label truncate">{project.title}</span>
-                                </Link>;
-                            })}
-                            {!projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">No projects yet</p>}
-                            {projectsQuery.isError && <p className="px-2 py-1 text-xs text-muted-foreground">Projects unavailable</p>}
-                        </div>
-                    </section>}
-                </div>
+                <SidebarNav />
                 <nav
                     aria-label="Settings and sidebar controls"
                     className="nb-sidebar-footer"
                     data-layout={preferenceReady ? (collapsed ? "stacked" : "inline") : undefined}
                 >
-                    <Link href={SETTINGS_NAV_ITEM.href} prefetch={false} className="nb-nav-link" aria-label={SETTINGS_NAV_ITEM.label} title={SETTINGS_NAV_ITEM.label} aria-current={settingsActive ? "page" : undefined}>
+                    <Link href={SETTINGS_NAV_ITEM.href} className="nb-nav-link" aria-label={SETTINGS_NAV_ITEM.label} title={SETTINGS_NAV_ITEM.label} aria-current={settingsActive ? "page" : undefined}>
                         <SETTINGS_NAV_ITEM.icon size={16} aria-hidden="true" /><span className="nb-sidebar-label">{SETTINGS_NAV_ITEM.label}</span>
                     </Link>
                     <button

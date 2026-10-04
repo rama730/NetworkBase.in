@@ -160,7 +160,7 @@ function DiscussionEntry({
         {entry.author?.username ? (
           <Link
             href={`/u/${entry.author.username}`}
-            prefetch={false}
+           
             className="flex items-center justify-center shrink-0 transition-opacity hover:opacity-80"
           >
             <UserAvatar
@@ -194,7 +194,7 @@ function DiscussionEntry({
                 {entry.author?.username ? (
                   <Link
                     href={`/u/${entry.author.username}`}
-                    prefetch={false}
+                   
                     className="hover:underline"
                   >
                     {name}
@@ -671,7 +671,7 @@ export default function CommentsTab({
   };
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 p-6 max-md:p-4">
       {focusedThread ? (
         <button
           type="button"
@@ -722,12 +722,12 @@ export default function CommentsTab({
                   {currentUser?.fullName ?? "You"}
                 </span>
                 {currentUserRole ? (
-                  <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
+                  <span className="font-mono text-[10px] max-md:text-[11px] text-muted-foreground uppercase tracking-wider">
                     · {currentUserRole}
                   </span>
                 ) : null}
               </div>
-              <div className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-1.5 font-mono text-[10px] max-md:text-[11px] text-muted-foreground">
                 <span className="inline-flex items-center rounded-[3px] border border-border/80 bg-background px-1.5 py-0.5 uppercase tracking-[0.09em]">
                   Markdown
                 </span>
@@ -764,7 +764,7 @@ export default function CommentsTab({
                 </button>
                 <span className="hidden sm:inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground/80">
                   <span>Press</span>
-                  <kbd className="rounded-[3px] border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                  <kbd className="rounded-[3px] border border-border bg-background px-1.5 py-0.5 text-[10px] max-md:text-[11px] font-medium text-foreground">
                     ⌘↵
                   </kbd>
                   <span>to post</span>
@@ -776,7 +776,7 @@ export default function CommentsTab({
                     type="button"
                     onClick={handleClearRootDraft}
                     disabled={submittingRoot}
-                    className="h-[28px] rounded-[5px] px-2.5 font-mono text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-40"
+                    className="nb-touch-target h-[28px] rounded-[5px] px-2.5 font-mono text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-40"
                   >
                     Clear
                   </button>
@@ -786,7 +786,7 @@ export default function CommentsTab({
                   size="sm"
                   onClick={() => void submit()}
                   disabled={!draft.trim() || submittingRoot}
-                  className="h-[28px] gap-1.5 rounded-[5px] px-3.5 text-[12px] font-medium shadow-xs disabled:opacity-40"
+                  className="nb-touch-target h-[28px] gap-1.5 rounded-[5px] px-3.5 text-[12px] font-medium shadow-xs disabled:opacity-40"
                   aria-label="Post comment"
                 >
                   {submittingRoot ? (
@@ -1029,13 +1029,13 @@ export default function CommentsTab({
                                 type="button"
                                 onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => replyComposerRef.current?.triggerMention()}
-                                className="inline-flex items-center gap-1 rounded-[3px] border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] font-medium text-muted-foreground transition hover:border-foreground/30 hover:bg-muted hover:text-foreground"
+                                className="inline-flex items-center gap-1 rounded-[3px] border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[10px] max-md:text-[11px] font-medium text-muted-foreground transition hover:border-foreground/30 hover:bg-muted hover:text-foreground"
                                 title="Mention teammates"
                               >
                                 <span className="font-semibold text-primary">@</span>
                                 <span>Mention</span>
                               </button>
-                              <span className="font-mono text-[10px] text-muted-foreground">
+                              <span className="font-mono text-[10px] max-md:text-[11px] text-muted-foreground">
                                 ⌘↵ to reply
                               </span>
                             </div>

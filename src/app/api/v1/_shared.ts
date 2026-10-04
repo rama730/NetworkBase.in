@@ -63,7 +63,7 @@ export async function enforceRouteLimit(
   key: string,
   limit: number,
   windowSeconds: number,
-  route: "default" | "publicRead" | "health" | "ready" = "default",
+  route: "default" | "publicRead" | "health" = "default",
   identityKey?: string,
 ) {
   const identifier = identityKey || getRequestIp(request);

@@ -109,8 +109,16 @@ export function FileVersionHistoryPanel({
   onVersionChanged,
   onClose,
 }: FileVersionHistoryPanelProps): React.JSX.Element {
-  const { versions, isLoading, error, listVersions, restoreVersion, deleteVersion } =
-    useFileVersions(projectId, nodeId);
+  const {
+    versions,
+    isLoading,
+    error,
+    hasMore,
+    listVersions,
+    loadMoreVersions,
+    restoreVersion,
+    deleteVersion,
+  } = useFileVersions(projectId, nodeId);
 
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
   const [pendingDeleteVersion, setPendingDeleteVersion] =
@@ -333,7 +341,7 @@ export function FileVersionHistoryPanel({
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
-        {isLoading ? (
+        {isLoading && versions.length === 0 ? (
           <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             Loading versions…
@@ -391,7 +399,7 @@ export function FileVersionHistoryPanel({
                         {sizeDeltaMap.has(version.version) && (
                           <span
                             className={cn(
-                              "px-1 py-0.2 rounded-[2px] text-[10px] font-semibold tabular-nums",
+                              "px-1 py-0.2 rounded-[2px] text-[10px] max-md:text-[11px] font-semibold tabular-nums",
                               sizeDeltaMap.get(version.version)?.tone === "positive" &&
                                 "bg-[#EDF5F0] text-[#245A41] dark:bg-emerald-950/40 dark:text-emerald-300",
                               sizeDeltaMap.get(version.version)?.tone === "negative" &&
@@ -408,7 +416,7 @@ export function FileVersionHistoryPanel({
                     </div>
 
                     {isCurrent ? (
-                      <span className="inline-flex items-center gap-1 rounded-[2px] border border-[#D8E8DF] bg-[#EDF5F0] px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#245A41] dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                      <span className="inline-flex items-center gap-1 rounded-[2px] border border-[#D8E8DF] bg-[#EDF5F0] px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-wider text-[#245A41] dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
                         <span className="h-1.5 w-1.5 rounded-[2px] bg-[#2F6B4F]" aria-hidden="true" />
                         Active
                       </span>
@@ -457,7 +465,7 @@ export function FileVersionHistoryPanel({
                         onClick={() => void handleDownload(version)}
                         aria-label={`Download version ${version.version}`}
                         title="Download"
-                        className="inline-flex h-7 items-center justify-center gap-1.5 rounded-[5px] border border-[#DBD5C8] bg-white px-2.5 text-[12px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
+                        className="nb-touch-target inline-flex h-7 items-center justify-center gap-1.5 rounded-[5px] border border-[#DBD5C8] bg-white px-2.5 text-[12px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
                       >
                         {pendingAction === dlKey ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -478,7 +486,7 @@ export function FileVersionHistoryPanel({
                           onClick={() => void handleDownload(version)}
                           aria-label={`Download version ${version.version}`}
                           title="Download"
-                          className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#DBD5C8] bg-white px-1.5 text-[11px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
+                          className="nb-touch-target inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#DBD5C8] bg-white px-1.5 text-[11px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
                         >
                           {pendingAction === dlKey ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -495,7 +503,7 @@ export function FileVersionHistoryPanel({
                             onClick={() => onCompareClick(version.version)}
                             aria-label={`Compare version ${version.version} with active`}
                             title="Compare with active"
-                            className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#DBD5C8] bg-white px-1.5 text-[11px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
+                            className="nb-touch-target inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#DBD5C8] bg-white px-1.5 text-[11px] font-medium text-[#141A1E] whitespace-nowrap transition-colors hover:bg-[#F3F0EA] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
                           >
                             <GitCompare className="h-3.5 w-3.5 text-[#4C5A61] dark:text-muted-foreground shrink-0" />
                             <span>Compare</span>
@@ -511,7 +519,7 @@ export function FileVersionHistoryPanel({
                             aria-label={`Restore version ${version.version}`}
                             title={`Restore version ${version.version}`}
                             data-testid={`version-restore-${version.version}`}
-                            className="inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#D14E24]/30 bg-[#FCF0EA] px-1.5 text-[11px] font-medium text-[#D14E24] whitespace-nowrap transition-colors hover:bg-[#F7DFD5] disabled:opacity-50 dark:border-[#D14E24]/50 dark:bg-[#D14E24]/20 dark:text-[#FCF0EA]"
+                            className="nb-touch-target inline-flex h-7 flex-1 items-center justify-center gap-1 rounded-[5px] border border-[#D14E24]/30 bg-[#FCF0EA] px-1.5 text-[11px] font-medium text-[#D14E24] whitespace-nowrap transition-colors hover:bg-[#F7DFD5] disabled:opacity-50 dark:border-[#D14E24]/50 dark:bg-[#D14E24]/20 dark:text-[#FCF0EA]"
                           >
                             {pendingAction === restoreKey ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -527,6 +535,19 @@ export function FileVersionHistoryPanel({
                 </li>
               );
             })}
+            {hasMore ? (
+              <li className="flex justify-center py-2">
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => void loadMoreVersions()}
+                  className="nb-touch-target inline-flex min-h-9 items-center justify-center gap-2 rounded-[5px] border border-[#DBD5C8] bg-white px-3 text-xs font-medium text-[#141A1E] transition-colors hover:bg-[#F3F0EA] disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-muted"
+                >
+                  {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Load older versions
+                </button>
+              </li>
+            ) : null}
           </ul>
         )}
       </div>

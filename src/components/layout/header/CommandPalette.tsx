@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Skeleton } from "@/components/ui/skeleton";
 import { isGlobalSearchPreview, useGlobalSearchPreviews, type GlobalSearchPreview } from "@/hooks/useGlobalSearchPreviews";
 import { getConnectionRequestSuccessMessage, useConnectionMutations } from "@/hooks/useConnections";
-import { resolveClientSkill } from "@/lib/skills/client";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { SearchPreviewError } from "@/lib/search/contracts";
 import {
     ProfileSearchResultCard,
@@ -119,7 +119,7 @@ function RecentSearchList({
                             <button
                                 type="button"
                                 onClick={() => onRemove(recent.key)}
-                                className="absolute right-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-[5px] text-muted-foreground opacity-100 transition-[color,background-color,opacity] hover:bg-muted-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
+                                className="nb-touch-target absolute right-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-[5px] text-muted-foreground opacity-100 transition-[color,background-color,opacity] hover:bg-muted-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
                                 aria-label={`Remove ${recent.label} from recent searches`}
                             >
                                 <X className="size-3.5" aria-hidden />
@@ -133,6 +133,7 @@ function RecentSearchList({
 }
 
 export default function CommandPalette({ isOpen, onClose, initialQuery = "", context, recentSearchOwnerId = "" }: CommandPaletteProps) {
+    useSkillCatalog();
     const queryClient = useQueryClient();
     const pathname = usePathname();
     const router = useRouter();
@@ -363,7 +364,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                         />
                         {normalizedQuery ? (
                             <>
-                                <button type="button" onClick={() => setQuery("")} className="inline-flex size-7 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Clear search">
+                                <button type="button" onClick={() => setQuery("")} className="nb-touch-target inline-flex size-7 items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Clear search">
                                     <X className="size-4" aria-hidden />
                                 </button>
                                 <span data-testid="global-search-enter-hint" aria-hidden className="inline-flex shrink-0 items-center gap-1 rounded-[3px] border border-border bg-muted/60 px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground">
@@ -371,7 +372,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                 </span>
                             </>
                         ) : (
-                            <button type="button" onClick={onClose} className="inline-flex h-7 shrink-0 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-2 text-[11px] font-mono font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Close search">
+                            <button type="button" onClick={onClose} className="nb-touch-target inline-flex h-7 shrink-0 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-2 text-[11px] font-mono font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Close search">
                                 <kbd>Esc</kbd>
                             </button>
                         )}
@@ -413,7 +414,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                     {recentSearches.length ? (
                                         <RecentSearchList items={recentSearches} onSelectQuery={setQuery} onOpenPreview={openPreviewResult} onConnect={connectProfile} connectingUserId={sendRequest.isPending ? sendRequest.variables?.userId : undefined} onRemove={removeRecentSearch} />
                                     ) : (
-                                        /* ponytail: hide Search by options when recent searches are present */
+                                        /* Hide Search by options when recent searches are present */
                                         <div>
                                             <p className="nb-micro uppercase tracking-[0.09em] text-muted-foreground">Search by</p>
                                             <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -478,7 +479,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                                                             onMouseEnter={() => setActiveIndex(index)}
                                                             onFocus={() => setActiveIndex(index)}
                                                             onClick={() => openPreviewResult(result)}
-                                                            className={`inline-flex h-[28px] shrink-0 items-center gap-1.5 rounded-[3px] border px-2.5 text-xs font-mono transition-colors ${index === activeIndex ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                                                            className={`nb-touch-target inline-flex h-[28px] shrink-0 items-center gap-1.5 rounded-[3px] border px-2.5 text-xs font-mono transition-colors ${index === activeIndex ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                                                         >
                                                             <SkillIcon skill={resolveClientSkill(result.title)} size={14} />{result.title}
                                                         </button>

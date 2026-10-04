@@ -1,7 +1,11 @@
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { extensionRecoveryDrafts, extensionRecoverySessions } from "@/lib/db/schema";
+import {
+  extensionRecoveryDrafts,
+  extensionRecoverySessions,
+  storageAssets,
+} from "@/lib/db/schema";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export const EXTENSION_RECOVERY_BUCKET = "extension-recovery-drafts";
@@ -12,6 +16,7 @@ export const RECOVERY_GENERATIONS_TO_KEEP = 3;
 type DraftStorageRow = {
   id: string;
   storageKey: string;
+  assetId?: string | null;
 };
 
 async function removeStorageObjects(rows: DraftStorageRow[]) {
@@ -26,17 +31,53 @@ async function removeStorageObjects(rows: DraftStorageRow[]) {
 
 export async function deleteExtensionRecoveryDraftRows(rows: DraftStorageRow[]) {
   if (rows.length === 0) return 0;
-  await removeStorageObjects(rows);
-  const deleted = await db
-    .delete(extensionRecoveryDrafts)
-    .where(inArray(extensionRecoveryDrafts.id, rows.map((row) => row.id)))
-    .returning({ id: extensionRecoveryDrafts.id });
-  return deleted.length;
+  const canonical = rows.filter((row): row is DraftStorageRow & { assetId: string } => Boolean(row.assetId));
+  const legacy = rows.filter((row) => !row.assetId);
+
+  let deletedCount = 0;
+  if (canonical.length > 0) {
+    deletedCount += await db.transaction(async (tx) => {
+      const deleted = await tx
+        .delete(extensionRecoveryDrafts)
+        .where(inArray(extensionRecoveryDrafts.id, canonical.map((row) => row.id)))
+        .returning({ assetId: extensionRecoveryDrafts.assetId });
+      const assetIds = deleted.flatMap((row) => row.assetId ? [row.assetId] : []);
+      if (assetIds.length > 0) {
+        await tx.update(storageAssets)
+          .set({
+            state: "delete_pending",
+            deleteAfter: new Date(),
+            backupState: "not_required",
+            lastErrorCode: "RECOVERY_DRAFT_DETACHED",
+            updatedAt: new Date(),
+          })
+          .where(and(
+            inArray(storageAssets.id, assetIds),
+            inArray(storageAssets.state, ["pending", "verified"]),
+          ));
+      }
+      return deleted.length;
+    });
+  }
+
+  if (legacy.length > 0) {
+    await removeStorageObjects(legacy);
+    const deleted = await db
+      .delete(extensionRecoveryDrafts)
+      .where(inArray(extensionRecoveryDrafts.id, legacy.map((row) => row.id)))
+      .returning({ id: extensionRecoveryDrafts.id });
+    deletedCount += deleted.length;
+  }
+  return deletedCount;
 }
 
 export async function deleteExtensionRecoveryDraftsForUser(userId: string) {
   const rows = await db
-    .select({ id: extensionRecoveryDrafts.id, storageKey: extensionRecoveryDrafts.storageKey })
+    .select({
+      id: extensionRecoveryDrafts.id,
+      storageKey: extensionRecoveryDrafts.storageKey,
+      assetId: extensionRecoveryDrafts.assetId,
+    })
     .from(extensionRecoveryDrafts)
     .where(eq(extensionRecoveryDrafts.userId, userId));
   return deleteExtensionRecoveryDraftRows(rows);
@@ -45,7 +86,11 @@ export async function deleteExtensionRecoveryDraftsForUser(userId: string) {
 export async function purgeExpiredExtensionRecoveryDrafts(limit = 500) {
   const now = new Date();
   const rows = await db
-    .select({ id: extensionRecoveryDrafts.id, storageKey: extensionRecoveryDrafts.storageKey })
+    .select({
+      id: extensionRecoveryDrafts.id,
+      storageKey: extensionRecoveryDrafts.storageKey,
+      assetId: extensionRecoveryDrafts.assetId,
+    })
     .from(extensionRecoveryDrafts)
     .where(lt(extensionRecoveryDrafts.expiresAt, now))
     .orderBy(asc(extensionRecoveryDrafts.expiresAt))
@@ -56,7 +101,11 @@ export async function purgeExpiredExtensionRecoveryDrafts(limit = 500) {
 export async function purgeCleanSessionRecoveryDrafts(limit = 500) {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const rows = await db
-    .select({ id: extensionRecoveryDrafts.id, storageKey: extensionRecoveryDrafts.storageKey })
+    .select({
+      id: extensionRecoveryDrafts.id,
+      storageKey: extensionRecoveryDrafts.storageKey,
+      assetId: extensionRecoveryDrafts.assetId,
+    })
     .from(extensionRecoveryDrafts)
     .innerJoin(
       extensionRecoverySessions,
@@ -88,7 +137,7 @@ export async function pruneExtensionRecoveryGenerations(input: {
       eq(extensionRecoveryDrafts.filePath, input.filePath),
       eq(extensionRecoveryDrafts.status, "finalized"),
     ),
-    columns: { id: true, storageKey: true },
+    columns: { id: true, storageKey: true, assetId: true },
     orderBy: (draft, { desc }) => [desc(draft.capturedAt), desc(draft.createdAt)],
   });
   return deleteExtensionRecoveryDraftRows(rows.slice(RECOVERY_GENERATIONS_TO_KEEP));

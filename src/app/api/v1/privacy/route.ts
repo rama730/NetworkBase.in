@@ -7,6 +7,7 @@ import {
   requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
 import { logger } from "@/lib/logger";
+import { validateCsrf } from "@/lib/security/csrf";
 import { listPrivacyActivity } from "@/lib/privacy/audit";
 import { getPrivacySettingsPayload, listBlockedAccounts } from "@/lib/privacy/settings";
 
@@ -184,6 +185,8 @@ const PRIVACY_SETTINGS = [
 ] as const;
 
 export async function PATCH(request: Request) {
+  const csrfError = validateCsrf(request);
+  if (csrfError) return csrfError;
   const body = await request.clone().json().catch(() => null) as Record<string, unknown> | null;
   const setting = PRIVACY_SETTINGS.find((candidate) => body && candidate.bodyKey in body);
   if (!setting) return jsonError("Unknown privacy setting", 400, "BAD_REQUEST");

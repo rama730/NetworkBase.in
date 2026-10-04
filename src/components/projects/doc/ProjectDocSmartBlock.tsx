@@ -115,7 +115,7 @@ export function ProjectDocSmartBlock({
                 {block.kind !== "unknown" ? (
                     <Link
                         href={href}
-                        className="inline-flex h-[28px] items-center justify-center rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                        className="nb-touch-target inline-flex h-[28px] items-center justify-center rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                     >
                         Open
                     </Link>

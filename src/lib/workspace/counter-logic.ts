@@ -23,10 +23,6 @@ export function serializeWorkspaceCounterTimestamp(value: Date | string) {
     return typeof value === 'string' ? value : value.toISOString()
 }
 
-export function isOpenWorkspaceTaskStatus(status: string | null | undefined) {
-    return status !== 'done'
-}
-
 export function buildWorkspaceTaskCounterFilters(
     deletedAtExpression: SQL,
     statusExpression: SQL,

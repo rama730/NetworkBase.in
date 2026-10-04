@@ -60,37 +60,6 @@ export function assertBulkLimit(nodeIds: string[]) {
     }
 }
 
-export async function formatSqlLight(content: string) {
-    const normalized = (content || "").replace(/\r\n/g, "\n");
-    try {
-        // ponytail: dynamic import keeps sql-formatter out of default server action bundle. ceiling: on-demand SQL formatting. upgrade: static import if SQL formatting becomes standard in all file paths.
-        const { format: sqlFormat } = await import("sql-formatter");
-        const formatted = sqlFormat(normalized, {
-            language: "postgresql",
-            keywordCase: "upper",
-            tabWidth: 2,
-            linesBetweenQueries: 1,
-            denseOperators: false,
-        });
-        const trimmed = formatted
-            .split("\n")
-            .map((line) => line.replace(/[ \t]+$/g, ""))
-            .join("\n")
-            .replace(/\n{3,}/g, "\n\n")
-            .trim();
-        return trimmed ? `${trimmed}\n` : "";
-    } catch {
-        const withStatementBreaks = normalized
-            .split("\n")
-            .map((line) => line.replace(/[ \t]+$/g, ""))
-            .join("\n")
-            .replace(/;[ \t]*(\n|$)/g, ";\n")
-            .replace(/\n{3,}/g, "\n\n")
-            .trim();
-        return withStatementBreaks ? `${withStatementBreaks}\n` : "";
-    }
-}
-
 export function isWithParent(parentId: string | null) {
     return parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId);
 }

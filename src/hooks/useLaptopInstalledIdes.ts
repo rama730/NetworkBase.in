@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { SupportedIde, SUPPORTED_IDES } from "@/lib/extension/ide-protocol";
-import { detectInstalledLaptopIdesAction } from "@/app/actions/laptop-ides";
+import { readInstalledLaptopIdes } from "@/lib/files-tab-batch";
 
 const INSTALLED_IDES_STORAGE_KEY = "nb:laptop-installed-ides:v2";
 const LEGACY_STORAGE_KEY = "nb:laptop-installed-ides";
@@ -42,7 +42,7 @@ export function useLaptopInstalledIdes() {
     if (installedIdes.length > 0) return;
     let cancelled = false;
     const clientPlatform = getClientPlatform();
-    detectInstalledLaptopIdesAction(clientPlatform)
+    readInstalledLaptopIdes(clientPlatform)
       .then((res) => {
         if (cancelled || !res.success) return;
         startTransition(() => {

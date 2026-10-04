@@ -13,22 +13,23 @@ test("Storage and private Realtime share the application key/topic contracts", (
   assert.match(migration, /CREATE POLICY application_topic_read ON realtime\.messages/);
   assert.match(migration, /CREATE POLICY application_topic_send ON realtime\.messages/);
   assert.match(migration, /app_private\.nb_can_observe_user_presence/);
-  assert.match(migration, /target\.conversation_id = viewer\.conversation_id/);
-  assert.match(migration, /app_private\.nb_is_conversation_participant/);
   assert.match(migration, /app_private\.nb_project_can_read/);
+  // Since the chat cutover, presence follows shared DMs and group chats.
+  const cutover = read("drizzle/0181_chat_rebuild_cutover.sql");
+  assert.match(cutover, /nb_can_observe_user_presence[\s\S]*chat_channel_members viewer/);
+  assert.doesNotMatch(cutover, /presence:conversation/);
 });
 
 test("private Realtime is fail-closed until database authorization is promoted", () => {
   const authorization = read("src/lib/realtime/authorization.ts");
   const presence = read("src/lib/realtime/presence-client.ts");
-  const subscriptions = read("src/lib/realtime/subscriptions.ts");
   const activation = read("drizzle/0160_realtime_authorization_activation.sql");
   const exampleEnv = read(".env.local.example");
 
   assert.match(authorization, /NEXT_PUBLIC_REALTIME_AUTHORIZATION_ENABLED/);
   assert.match(presence, /if \(!isPrivateRealtimeAuthorizationEnabled\(\)\)/);
   assert.match(presence, /await supabase\.realtime\.setAuth\(accessToken\)/);
-  assert.match(subscriptions, /if \(!isPrivateRealtimeAuthorizationEnabled\(\)\) return null/);
+  assert.doesNotMatch(read("src/lib/realtime/subscriptions.ts"), /private:\s*true/);
   assert.match(activation, /CREATE POLICY application_topic_read ON realtime\.messages/);
   assert.match(activation, /realtime\.messages\.extension IN \('presence', 'broadcast'\)/);
   assert.match(activation, /realtime\.messages\.extension = 'broadcast'/);
@@ -71,30 +72,22 @@ test("resource retention is bounded and observable", () => {
   assert.match(registry, /dataLifecycleRetention/);
 });
 
-test("account cleanup covers every owned project Storage prefix", () => {
+test("account cleanup preserves lifecycle evidence before domain cascades", () => {
   const cleanup = read("src/inngest/functions/account-cleanup.ts");
-  for (const contract of [
-    '["project-files", project.id]',
-    '["project-files", `projects/${project.id}`]',
-    '["project-files", `${userId}/project-images/${project.id}`]',
-    '["project-files", `${userId}/project-covers/${project.id}`]',
-    '["task-files", project.id]',
-    '["project-updates-media", `projects/${project.id}`]',
-  ]) {
-    assert.ok(cleanup.includes(contract), contract);
-  }
-  assert.match(cleanup, /createAdminClient/);
-  assert.match(cleanup, /deleteStoragePrefix\(supabase, "avatars", userId\)/);
-  assert.match(cleanup, /deleteStoragePrefix\(supabase, "chat-attachments", userId\)/);
-  assert.match(cleanup, /throw new Error\(`\$\{bucket\}\/\$\{prefix\} cleanup failed/);
+  assert.match(cleanup, /check-unregistered-references/);
+  assert.match(cleanup, /schedule-registered-assets/);
+  assert.match(cleanup, /state: "delete_pending"/);
+  assert.match(cleanup, /physicalDeletionOwner: "storage-asset-deletion"/);
+  assert.doesNotMatch(cleanup, /\.storage[\s\S]*\.remove\(/);
 });
 
-test("project-file reconciliation attaches verified path-correlated objects idempotently", () => {
+test("project-file reconciliation quarantines path-correlated objects pending proof", () => {
   const reconciliation = read("src/inngest/functions/project-files-reconciliation.ts");
   assert.match(reconciliation, /buildProjectFileKey/);
   assert.match(reconciliation, /metadataMatches/);
-  assert.match(reconciliation, /isNull\(projectNodes\.s3Key\)/);
-  assert.match(reconciliation, /storage_reconcile_attached_object/);
+  assert.match(reconciliation, /storage_reconcile_unclaimed_candidate/);
+  assert.match(reconciliation, /quarantineRequired: true/);
+  assert.doesNotMatch(reconciliation, /storage_reconcile_attached_object/);
   assert.match(reconciliation, /storage_reconcile_ambiguous_path/);
   assert.match(reconciliation, /orphanStorageRows\.filter\(\(row\) => !candidateByName\.has\(row\.name\)\)/);
   assert.match(reconciliation, /reconciliationKey/);
@@ -102,15 +95,12 @@ test("project-file reconciliation attaches verified path-correlated objects idem
 });
 
 test("compatibility and typing behavior have one exact owner", () => {
-  const projects = read("src/app/actions/project/_all.ts");
-  const typing = read("src/lib/chat/typing-state.ts");
+  const projects = read("src/app/actions/project/index.ts");
   const avatars = read("src/lib/services/avatar-service.ts");
 
   const catchStart = projects.indexOf('} catch (error) {', projects.indexOf("toggleProjectFollowAction"));
   const fallbackStart = projects.indexOf("if (shouldFollow)", catchStart);
   assert.ok(projects.indexOf('return { success: false, error: "Failed to update follow status" };', catchStart) < fallbackStart);
-  assert.match(typing, /toPresenceTypingUser/);
-  assert.doesNotMatch(typing, /function toTypingUser/);
   assert.doesNotMatch(avatars, /uploadAvatarWithPreview|fileToDataUrl|export async function uploadAvatar\(/);
 });
 

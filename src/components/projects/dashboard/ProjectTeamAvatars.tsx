@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { profileHref } from "@/lib/routing/identifiers";
 import { buildProjectPersonReference, formatProjectTeamRole } from "@/lib/projects/settings-policies";
@@ -44,6 +45,7 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
     members = [],
     loading = false,
 }: ProjectTeamAvatarsProps) {
+    const [rosterOpen, setRosterOpen] = useState(false);
     const avatars = useMemo<HeaderAvatar[]>(() => {
         const owner = project?.owner;
         const guidance = project?.guidance;
@@ -111,7 +113,8 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
 
     return (
         <TooltipProvider delayDuration={130}>
-            <div className="flex items-center -space-x-1.5" aria-label={`${avatars.length} project team ${avatars.length === 1 ? "member" : "members"}`}>
+            {/* Below md the stack is decorative; the members button opens the roster (tooltips never show on touch). */}
+            <div className="flex items-center -space-x-1.5 max-md:pointer-events-none max-md:[&_.nb-avatar-trigger]:min-h-0 max-md:[&_.nb-avatar-trigger]:min-w-0" aria-label={`${avatars.length} project team ${avatars.length === 1 ? "member" : "members"}`}>
                 {visibleAvatars.map((avatar) => {
                     const portrait = (
                         <Avatar className="size-[34px] rounded-[5px] border-2 border-card bg-muted shadow-none">
@@ -156,8 +159,50 @@ const ProjectTeamAvatars = memo(function ProjectTeamAvatars({
                     </Tooltip>
                 ) : null}
             </div>
+            <button
+                type="button"
+                onClick={() => setRosterOpen(true)}
+                className="nb-touch-target nb-ui-label inline-flex items-center rounded-[5px] px-1 text-muted-foreground md:hidden"
+            >
+                {avatars.length} {avatars.length === 1 ? "member" : "members"}
+            </button>
+            <Dialog open={rosterOpen} onOpenChange={setRosterOpen}>
+                <DialogContent presentation="right-drawer" className="gap-0 p-0 md:hidden">
+                    <DialogTitle className="nb-card-title border-b border-border px-4 py-4">Team</DialogTitle>
+                    <ul className="app-scroll app-scroll-y flex-1 divide-y divide-border overflow-y-auto">
+                        {avatars.map((avatar) => (
+                            <li key={avatar.id}>
+                                {avatar.username && avatar.canOpenProfile ? (
+                                    <Link href={profileHref({ id: avatar.id, username: avatar.username })} onClick={() => setRosterOpen(false)} className="flex min-h-14 items-center gap-3 px-4 py-2">
+                                        <RosterRow avatar={avatar} />
+                                    </Link>
+                                ) : (
+                                    <div className="flex min-h-14 items-center gap-3 px-4 py-2"><RosterRow avatar={avatar} /></div>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </DialogContent>
+            </Dialog>
         </TooltipProvider>
     );
 });
+
+function RosterRow({ avatar }: { avatar: HeaderAvatar }) {
+    return (
+        <>
+            <Avatar className="size-[34px] shrink-0 rounded-[5px] bg-muted">
+                <AvatarImage src={avatar.avatarUrl ?? undefined} alt="" className="object-cover" />
+                <AvatarFallback identityKey={avatar.id} className="rounded-[5px] font-mono text-[11px] font-semibold text-muted-foreground">
+                    {initials(avatar.name)}
+                </AvatarFallback>
+            </Avatar>
+            <span className="min-w-0">
+                <span className="nb-ui-label block truncate text-foreground">{avatar.name}</span>
+                <span className="nb-compact block truncate text-muted-foreground">{avatar.role}</span>
+            </span>
+        </>
+    );
+}
 
 export default ProjectTeamAvatars;

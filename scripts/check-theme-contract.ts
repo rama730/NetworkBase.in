@@ -9,6 +9,9 @@ type CheckResult = {
 const ALLOWED_NEXT_THEMES_IMPORT = "src/components/providers/theme-provider.tsx";
 const LEGACY_THEME_PROVIDER_PATH = "src/components/theme/ThemeProvider.tsx";
 const SOURCE_DIR = "src";
+// Chat UI uses spec tokens only (report 7.11, rule R17).
+const CHAT_UI_DIR = "src/components/messages";
+const RAW_PALETTE_CLASS = /\b(?:zinc|rose|blue|amber)-\d{2,3}\b/;
 
 function toPosix(filePath: string): string {
   return filePath.split(path.sep).join("/");
@@ -60,10 +63,19 @@ function checkLegacyProviderFile(repoRoot: string): string[] {
   return [];
 }
 
+function checkChatPalette(repoRoot: string): string[] {
+  const chatRoot = path.join(repoRoot, CHAT_UI_DIR);
+  if (!fs.existsSync(chatRoot)) return [];
+  return listSourceFiles(chatRoot)
+    .filter((filePath) => RAW_PALETTE_CLASS.test(fs.readFileSync(filePath, "utf8")))
+    .map((filePath) => `${toPosix(path.relative(repoRoot, filePath))} uses a raw zinc/rose/blue/amber class; use spec tokens.`);
+}
+
 export function validateThemeContract(repoRoot: string = process.cwd()): CheckResult {
   const errors = [
     ...checkImports(repoRoot),
     ...checkLegacyProviderFile(repoRoot),
+    ...checkChatPalette(repoRoot),
   ];
   return { errors };
 }

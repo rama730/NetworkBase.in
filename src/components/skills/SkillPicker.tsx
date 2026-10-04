@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Loader2, Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { DEFAULT_CLIENT_SKILLS, resolveClientSkill } from '@/lib/skills/client'
-import { SKILL_CLIENT_CATALOG_VERSION, SKILL_CLIENT_CATEGORIES, SKILL_CLIENT_LOOKUP } from '@/lib/skills/generated-client-catalog'
+import { defaultClientSkills, resolveClientSkill, useSkillCatalog, type SkillCatalog } from '@/lib/skills/client'
 import { normalizeSkillLookup } from '@/lib/skills/normalization'
 import type { SkillSummary } from '@/lib/skills/types'
 import { SkillChip } from './SkillChip'
@@ -12,12 +11,10 @@ import { SkillIcon } from './SkillIcon'
 
 type SkillsEnvelope = { success: true; data: { skills: SkillSummary[] } }
 
-// Pre-index canonical skills by category on the client for instantaneous 0ms category switching
-// and ultra-fast 60fps performance without redundant server requests.
-const CATEGORY_CLIENT_SKILLS: Record<string, SkillSummary[]> = (() => {
+function buildCategorySkills(catalog: SkillCatalog | null): Record<string, SkillSummary[]> {
     const map: Record<string, SkillSummary[]> = {}
     const seen = new Set<string>()
-    for (const [, tuple] of Object.entries(SKILL_CLIENT_LOOKUP)) {
+    for (const tuple of Object.values(catalog?.lookup ?? {})) {
         const canonicalKey = tuple[0]
         if (seen.has(canonicalKey)) continue
         seen.add(canonicalKey)
@@ -26,7 +23,7 @@ const CATEGORY_CLIENT_SKILLS: Record<string, SkillSummary[]> = (() => {
         map[cat].push(resolveClientSkill(tuple[1]))
     }
     return map
-})()
+}
 
 export function SkillPicker({
     value,
@@ -53,16 +50,19 @@ export function SkillPicker({
     placeholder?: string
     className?: string
 }) {
+    const skillCatalog = useSkillCatalog()
+    const defaultSkills = useMemo(() => (skillCatalog ? defaultClientSkills() : []), [skillCatalog])
+    const categorySkills = useMemo(() => buildCategorySkills(skillCatalog), [skillCatalog])
     const inputId = useId()
     const listboxId = useId()
     const [query, setQuery] = useState('')
     const [category, setCategory] = useState<string | null>(null)
-    const [results, setResults] = useState<SkillSummary[]>(DEFAULT_CLIENT_SKILLS)
+    const [results, setResults] = useState<SkillSummary[]>(defaultSkills)
     const [loading, setLoading] = useState(false)
     const [activeIndex, setActiveIndex] = useState(0)
     const [catalogOpen, setCatalogOpen] = useState(!progressive)
     const requestRef = useRef<AbortController | null>(null)
-    const selectedKeys = useMemo(() => new Set(value.map((skill) => resolveClientSkill(skill).canonicalKey)), [value])
+    const selectedKeys = useMemo(() => new Set(value.map((skill) => resolveClientSkill(skill).canonicalKey)), [value, skillCatalog])
 
     const handleCategoryClick = useCallback((key: string) => {
         if (category === key) {
@@ -79,9 +79,9 @@ export function SkillPicker({
     useEffect(() => {
         if (!query.trim()) {
             if (!category || category === 'all') {
-                setResults(DEFAULT_CLIENT_SKILLS)
+                setResults(defaultSkills)
             } else {
-                setResults(CATEGORY_CLIENT_SKILLS[category] || [])
+                setResults(categorySkills[category] || [])
             }
             setActiveIndex(0)
             return
@@ -93,7 +93,7 @@ export function SkillPicker({
         const timer = window.setTimeout(async () => {
             setLoading(true)
             try {
-                const params = new URLSearchParams({ limit: '40', catalog: SKILL_CLIENT_CATALOG_VERSION })
+                const params = new URLSearchParams({ limit: '40', catalog: skillCatalog?.version ?? '' })
                 params.set('q', query.trim())
                 if (category && category !== 'all') params.set('category', category)
                 const response = await fetch(`/api/v1/skills?${params}`, { signal: controller.signal })
@@ -111,8 +111,8 @@ export function SkillPicker({
                     // Fallback to local client search
                     const normalized = normalizeSkillLookup(query)
                     const pool = !category || category === 'all'
-                        ? DEFAULT_CLIENT_SKILLS
-                        : (CATEGORY_CLIENT_SKILLS[category] || [])
+                        ? defaultSkills
+                        : (categorySkills[category] || [])
                     const localMatches = pool.filter((s) => normalizeSkillLookup(s.name).includes(normalized))
                     setResults(localMatches)
                     console.warn('[skills] catalog search unavailable, using client fallback', error)
@@ -126,7 +126,7 @@ export function SkillPicker({
             window.clearTimeout(timer)
             controller.abort()
         }
-    }, [category, query])
+    }, [category, categorySkills, defaultSkills, query, skillCatalog?.version])
 
     // Strictly filter selectable results by category in programming to ensure no foreign skills leak in
     const selectableResults = useMemo(() => {
@@ -145,8 +145,8 @@ export function SkillPicker({
 
     // Top curated skills for the horizontal scroll shelf in "All" category
     const popularShelfSkills = useMemo(() => {
-        return DEFAULT_CLIENT_SKILLS.filter((skill) => !selectedKeys.has(skill.canonicalKey)).slice(0, 14)
-    }, [selectedKeys])
+        return defaultSkills.filter((skill) => !selectedKeys.has(skill.canonicalKey)).slice(0, 14)
+    }, [defaultSkills, selectedKeys])
 
     const exactMatch = results.some((skill) => normalizeSkillLookup(skill.name) === normalizeSkillLookup(query))
     const canAddCustom = allowCustom && query.trim().length >= 2 && !exactMatch && !selectedKeys.has(resolveClientSkill(query).canonicalKey)
@@ -272,7 +272,7 @@ export function SkillPicker({
                 >
                     All
                 </button>
-                {SKILL_CLIENT_CATEGORIES.map((item) => (
+                {(skillCatalog?.categories ?? []).map((item) => (
                     <button
                         key={item.key}
                         type="button"

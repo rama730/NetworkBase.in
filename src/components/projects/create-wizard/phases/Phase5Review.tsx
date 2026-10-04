@@ -2,17 +2,23 @@
 
 import { useEffect, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { Edit3, Folder, GitBranch, Globe, Link2, Lock, Tag, Users, Workflow } from 'lucide-react';
+import { Bell, BookOpen, Edit3, Folder, GitBranch, Globe, ImageIcon, Link2, Lock, Tag, Users, Workflow } from 'lucide-react';
 import { CreateProjectInput } from '@/lib/validations/project';
 import { SkillList } from '@/components/skills/SkillList';
 import { Button } from '@/components/ui/button';
 import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
 import { resolveSocialPresence, socialLinkItemsFromStorage } from '@/lib/profile/normalization';
+import { CREATE_PROJECT_NOTIFICATION_ROWS } from '@/lib/notifications/project-policy';
+import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY, PROJECT_PUBLIC_TAB_LABELS, type ProjectPublicTabId } from '@/lib/projects/settings-policies';
 
 interface Phase5ReviewProps {
     goToPhase: (phase: 1 | 2 | 3 | 4) => void;
     onReady: () => void;
+    /** Step 4 picture lives outside the form until it is uploaded after creation. */
+    projectImage?: File | null;
 }
+
+const PUBLIC_TAB_ORDER: ProjectPublicTabId[] = ['dashboard', 'readme', 'updates', 'files', 'sprints', 'tasks'];
 
 interface ReviewSectionProps {
     eyebrow: string;
@@ -83,7 +89,7 @@ const sourceCopy = {
     },
 };
 
-export default function Phase5Review({ goToPhase, onReady }: Phase5ReviewProps) {
+export default function Phase5Review({ goToPhase, onReady, projectImage = null }: Phase5ReviewProps) {
     const { control } = useFormContext<CreateProjectInput>();
     const formData = useWatch({ control }) as CreateProjectInput;
 
@@ -105,6 +111,12 @@ export default function Phase5Review({ goToPhase, onReady }: Phase5ReviewProps) 
     const uploadFileCount = Number(sourceMetadata.fileCount || 0);
     const lifecycleStages = formData.lifecycle_stages || [];
     const VisibilityIcon = formData.visibility === 'private' ? Lock : Globe;
+    const publicTabs = { ...DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY, ...(formData.public_tab_visibility || {}) };
+    const publicTabLabels = PUBLIC_TAB_ORDER.filter((tab) => publicTabs[tab]).map((tab) => PROJECT_PUBLIC_TAB_LABELS[tab]);
+    const docSkipped = formData.readme?.mode === 'skip';
+    const notificationRows = { roles_applications: true, work: true, updates_docs: true, ...(formData.notification_rows || {}) };
+    const memberUpdates = formData.member_updates_enabled !== false;
+    const memberUploads = formData.member_file_upload_default !== false;
 
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
@@ -182,18 +194,6 @@ export default function Phase5Review({ goToPhase, onReady }: Phase5ReviewProps) 
                         </div>
                     ) : <p className="nb-compact text-muted-foreground">No tags or technologies added.</p>}
                 </ReviewRow>
-                <ReviewRow label="Project journey" icon={Workflow}>
-                    {lifecycleStages.length ? (
-                        <ol className="space-y-2">
-                            {lifecycleStages.map((stage, index) => (
-                                <li key={`${stage}-${index}`} className="flex items-center gap-2">
-                                    <span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] border border-border font-mono text-[11px] text-muted-foreground">{index + 1}</span>
-                                    <span className="nb-compact text-foreground">{stage}</span>
-                                </li>
-                            ))}
-                        </ol>
-                    ) : <p className="nb-compact text-muted-foreground">No journey stages added.</p>}
-                </ReviewRow>
             </ReviewSection>
 
             <ReviewSection eyebrow="Phase 3 · team" title="Team and roles" onEdit={() => goToPhase(3)}>
@@ -210,8 +210,8 @@ export default function Phase5Review({ goToPhase, onReady }: Phase5ReviewProps) 
                                     <div className="flex flex-wrap items-center gap-2">
                                         <p className="nb-ui-label text-foreground">{role.role}</p>
                                         <DetailLabel>{role.count} {role.count === 1 ? 'opening' : 'openings'}</DetailLabel>
-                                        <DetailLabel>{role.experience_level}</DetailLabel>
-                                        <DetailLabel>{role.compensation_type.replace('_', ' ')}</DetailLabel>
+                                        <DetailLabel>{role.experienceLevel || 'any'}</DetailLabel>
+                                        <DetailLabel>{(role.compensationType || 'unpaid').replace('_', ' ')}</DetailLabel>
                                     </div>
                                     {role.description ? <p className="nb-compact mt-2 whitespace-pre-wrap text-muted-foreground">{role.description}</p> : null}
                                     {role.skills?.length ? <div className="mt-2"><SkillList skills={role.skills} size="sm" /></div> : null}
@@ -223,16 +223,15 @@ export default function Phase5Review({ goToPhase, onReady }: Phase5ReviewProps) 
             </ReviewSection>
 
             <ReviewSection eyebrow="Phase 4 · settings" title="Launch settings" onEdit={() => goToPhase(4)}>
+                <ReviewRow label="Project picture" icon={ImageIcon}>
+                    <p className="nb-compact text-foreground">{projectImage ? `${projectImage.name} · uploads after creation` : 'Initials until a picture is added.'}</p>
+                </ReviewRow>
                 <ReviewRow label="Visibility" icon={VisibilityIcon}>
                     <p className="nb-ui-label text-foreground">{formData.visibility === 'private' ? 'Private project' : 'Public project'}</p>
                     <p className="nb-compact mt-1 text-muted-foreground">
-                        {formData.visibility === 'private' ? 'Only collaborators can access the project at launch.' : 'The project is visible to everyone at launch.'}
-                    </p>
-                </ReviewRow>
-                <ReviewRow label="Collaborator availability" icon={Users}>
-                    <p className="nb-ui-label text-foreground">{openRoles.length ? 'Open to collaborators' : 'No openings planned'}</p>
-                    <p className="nb-compact mt-1 text-muted-foreground">
-                        {openRoles.length ? `${openPositionCount} role openings will be visible at launch.` : 'Roles can be added later from project settings.'}
+                        {formData.visibility === 'private'
+                            ? 'Only collaborators can access the project at launch.'
+                            : `Public tabs: ${publicTabLabels.join(' · ') || 'none'}.`}
                     </p>
                 </ReviewRow>
                 <ReviewRow label="Project links" icon={Link2}>
@@ -257,6 +256,37 @@ export default function Phase5Review({ goToPhase, onReady }: Phase5ReviewProps) 
                             })}
                         </ul>
                     ) : <p className="nb-compact text-muted-foreground">No project links added.</p>}
+                </ReviewRow>
+                <ReviewRow label="Documentation" icon={BookOpen}>
+                    <p className="nb-compact text-foreground">
+                        {docSkipped
+                            ? 'No doc yet.'
+                            : `Starter template, ${formData.readme?.publishOnCreate ? 'published at launch' : 'kept as a draft'}. ${formData.doc_edit_policy === 'members' ? 'Members can edit.' : 'Leaders edit.'}`}
+                    </p>
+                </ReviewRow>
+                <ReviewRow label="Project journey" icon={Workflow}>
+                    {lifecycleStages.length ? (
+                        <ol className="space-y-2">
+                            {lifecycleStages.map((stage, index) => (
+                                <li key={`${stage}-${index}`} className="flex items-center gap-2">
+                                    <span className="flex size-6 shrink-0 items-center justify-center rounded-[3px] border border-border font-mono text-[11px] text-muted-foreground">{index + 1}</span>
+                                    <span className="nb-compact text-foreground">{stage}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    ) : <p className="nb-compact text-muted-foreground">No journey stages added.</p>}
+                </ReviewRow>
+                <ReviewRow label="Team permissions" icon={Users}>
+                    <p className="nb-compact text-foreground">Updates: {memberUpdates ? 'members can post' : 'leaders only'} · New-member uploads: {memberUploads ? 'on' : 'off'}</p>
+                </ReviewRow>
+                <ReviewRow label="Files and storage" icon={Folder}>
+                    <p className="nb-compact text-foreground">{source.detail}</p>
+                </ReviewRow>
+                <ReviewRow label="Notifications" icon={Bell}>
+                    <p className="nb-compact text-foreground">
+                        {CREATE_PROJECT_NOTIFICATION_ROWS.map((row) => `${row.label}: ${notificationRows[row.id] ? 'on' : 'off'}`).join(' · ')}
+                    </p>
+                    <p className="nb-compact mt-1 text-muted-foreground">Membership and security alerts always stay on.</p>
                 </ReviewRow>
             </ReviewSection>
 

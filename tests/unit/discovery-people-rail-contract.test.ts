@@ -27,18 +27,20 @@ test("Discovery people rail is a compact, shared-avatar recommendation surface",
   assert.match(css, /\.nb-discover-person-card/);
   assert.match(css, /\.nb-person-presence-dot/);
   assert.match(css, /\.nb-person-connect/);
-  assert.doesNotMatch(hub, /variant="compact"/);
+  // Compact rail lives only in the mobile People drawer (DiscoverHeader `people` slot).
+  assert.match(hub, /people=\{currentUser\?\.id \? <DiscoverPeopleRail initialPage=\{initialPeopleSuggestions\} variant="compact" \/> : null\}/);
+  assert.equal(hub.match(/variant="compact"/g)?.length, 1);
 });
 
 test("rail recommendations use the same privacy-safe source as the connection list", () => {
   const connections = source("src/app/actions/connections.ts");
   const suggestions = source("src/inngest/functions/social-graph-suggestions.ts");
   const profile = source("src/app/actions/profile.ts");
-  const hubPage = source("src/app/(main)/discover/page.tsx");
+  const hubPage = source("src/app/(site)/(main)/discover/page.tsx");
 
   assert.match(hubPage, /getConnectionsFeed\(\{ tab: 'discover', limit: 3, includeMeta: false \}\)/);
   assert.doesNotMatch(connections, /recommendationMode/);
-  assert.match(connections, /applySuggestedProfilePrivacy\(user\.id, items, privacyProfiles\)/);
+  assert.match(connections, /applySuggestedProfilePrivacy\(user\.id, items\)/);
   assert.match(connections, /NOT EXISTS \(\s*SELECT 1 FROM \$\{connections\} existing/);
   assert.match(suggestions, /notInArray\(connectionSuggestions\.suggestedUserId/);
   assert.match(suggestions, /db\.delete\(connectionSuggestions\)/);

@@ -18,9 +18,9 @@ test("project dashboard keeps journey connectors, statements, and skills stable"
   assert.match(journey, /app-scroll-x app-scroll-hidden/);
   assert.match(journey, /data-stage-index="\$\{safeCurrentStageIndex\}"/);
   assert.match(journey, /getJourneyCenteredScrollLeft/);
-  assert.match(journey, /ResizeObserver\(alignCurrentStage\)/);
+  assert.match(journey, /new ResizeObserver\(\(\) => \{\s*window\.requestAnimationFrame\(alignCurrentStage\)/);
   assert.match(journey, /stages\.map/);
-  assert.match(journey, /index <= safeCurrentStageIndex/);
+  assert.match(journey, /index === safeCurrentStageIndex/);
   assert.match(journey, /index < safeCurrentStageIndex/);
   assert.doesNotMatch(journey, /progress \/ 100/);
   assert.doesNotMatch(journey, /projectUpdatedAt/);
@@ -76,7 +76,8 @@ test("project detail keeps identity and team in the header while the dashboard s
 
   assert.doesNotMatch(dashboard, /TeamCard/);
   assert.match(dashboard, /layout="rail"/);
-  assert.match(dashboard, /xl:grid-cols-\[minmax\(0,1fr\)_clamp\(360px,30%,420px\)\]/);
+  assert.match(dashboard, /lg:grid-cols-12/);
+  assert.match(dashboard, /lg:col-span-8[\s\S]*lg:col-span-4/);
   assert.match(railJourney, /app-scroll app-scroll-x app-scroll-hidden overflow-x-auto/);
   assert.match(railJourney, /gridTemplateColumns/);
   assert.match(railJourney, /left-0 right-1\/2/);
@@ -118,7 +119,7 @@ test("completed journey stages always have an honest hover label", () => {
 });
 
 test("journey stage transitions record all crossed stages and lifecycle edits remap dates", () => {
-  const actions = source("src/app/actions/project/_all.ts");
+  const actions = source("src/app/actions/project/index.ts");
 
   assert.match(actions, /currentStageIndex: projects\.currentStageIndex/);
   assert.match(actions, /stageCompletionDates: projects\.stageCompletionDates/);

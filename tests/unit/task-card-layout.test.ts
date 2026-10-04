@@ -88,7 +88,8 @@ test("all task columns retain the same base height and width, whether empty or p
     "utf8",
   );
 
-  assert.match(board, /w-\[300px\] shrink-0/);
+  // Fixed 300px from md up; phones clamp to the viewport so one column fits.
+  assert.match(board, /w-\[min\(300px,calc\(100vw-48px\)\)\] shrink-0[^"]*md:w-\[300px\]/);
   assert.match(board, /p-3 space-y-3 min-h-\[150px\] flex-1 flex flex-col/);
 });
 
@@ -142,7 +143,7 @@ test("task-card footers keep the avatar and use its former label space for task 
 
   assert.doesNotMatch(html, /<span[^>]*>Rama<\/span>/);
   assert.match(html, /title="Rama"/);
-  assert.match(source, /avatar \+ task counts share one fixed footer row/);
+  assert.match(source, /avatar \+ task counts share one fixed footer row/i);
   assert.doesNotMatch(
     source,
     /flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar/,

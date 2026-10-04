@@ -1,15 +1,20 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 import {
-  classifyRouteRenderingMode,
-  getRouteCachePolicy,
   PAGE_PERFORMANCE_CONTRACTS,
   resolveRouteContract,
 } from "@/lib/performance/page-contract";
 
 describe("page performance contract", () => {
   it("has one contract per page route", () => {
-    assert.equal(Object.keys(PAGE_PERFORMANCE_CONTRACTS).length, 18);
+    const pageFiles = (fs.readdirSync(path.join(process.cwd(), "src/app"), { recursive: true }) as string[])
+      .filter((file) => path.basename(file) === "page.tsx")
+      .map((file) => path.posix.join("src/app", file.split(path.sep).join("/")))
+      .sort();
+    const contractFiles = Object.values(PAGE_PERFORMANCE_CONTRACTS).map((contract) => contract.pageFile).sort();
+    assert.deepEqual(contractFiles, pageFiles);
   });
 
   it("resolves dynamic route contracts from concrete URLs", () => {
@@ -20,25 +25,7 @@ describe("page performance contract", () => {
     assert.equal(userRoute?.routeId, "/u/[username]");
   });
 
-  it("classifies rendering mode from route id", () => {
-    assert.equal(classifyRouteRenderingMode("/discover"), "dynamic");
-    assert.equal(classifyRouteRenderingMode("/settings"), "dynamic");
-    assert.equal(classifyRouteRenderingMode("/login"), "dynamic");
-  });
 
-  it("returns deterministic cache policy by route class", () => {
-    assert.deepEqual(getRouteCachePolicy("/discover"), {
-      strategy: "none",
-      ttlSeconds: 0,
-      invalidationOwner: "api",
-    });
-
-    assert.deepEqual(getRouteCachePolicy("/settings", { isAuthenticated: true }), {
-      strategy: "request",
-      ttlSeconds: 30,
-      invalidationOwner: "server-action",
-    });
-  });
 
   it("tracks explicit bootstrap and overload contracts for hot routes", () => {
     assert.deepEqual(

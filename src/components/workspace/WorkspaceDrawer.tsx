@@ -64,10 +64,12 @@ export default function WorkspaceDrawer() {
         className="z-[201] h-full w-full max-w-full gap-0 border-border bg-card p-0 text-card-foreground shadow-lg sm:w-[520px] sm:max-w-[520px]"
       >
         <div className="flex-shrink-0 border-b border-border">
-          <div className="flex h-14 items-center justify-between px-6">
+          <div className="flex h-14 items-center justify-between px-4 md:px-6">
             <div className="flex items-center gap-2">
               <DialogTitle className="nb-card-title text-[17px] font-semibold text-foreground">
-                Workspace
+                {/* ponytail: dual label keeps desktop copy frozen; drop the desktop span once a desktop copy pass is approved. */}
+                <span className="md:hidden">My work</span>
+                <span className="hidden md:inline">Workspace</span>
               </DialogTitle>
               <DialogDescription className="sr-only">
                 Review open work and pending invitations.
@@ -83,7 +85,7 @@ export default function WorkspaceDrawer() {
 
           <div
             role="tablist"
-            className="flex w-full items-center gap-4 px-6 pb-0"
+            className="flex w-full items-center gap-4 px-4 pb-0 md:px-6"
           >
             {tabs.map((tab, index) => {
               const Icon = tab.icon;
@@ -113,7 +115,7 @@ export default function WorkspaceDrawer() {
         </div>
 
         <div className={cn(
-          "relative flex-1 overflow-y-auto bg-card px-6 pb-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+          "relative flex-1 overflow-y-auto bg-card px-4 pb-6 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-6",
         )}>
           {activeTab === "tasks" ? (
             <WorkspaceTasksTab isActive={activeTab === "tasks"} />

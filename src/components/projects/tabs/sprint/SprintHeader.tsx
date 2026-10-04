@@ -56,9 +56,10 @@ export function SprintHeader({
     (permissions.canWrite && sprint.status !== "archived");
 
   return (
-    <header className="mb-8 flex items-start justify-between gap-4 border-b border-border pb-5">
+    <header className="mb-8 flex items-start justify-between gap-4 border-b border-border pb-5 max-md:mb-5 max-md:pb-4">
       <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-4">
+        {/* Phones stack title, meta, then actions so the title keeps the full width (spec §21). */}
+        <div className="flex items-start justify-between gap-4 max-md:flex-col max-md:gap-3">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <h2 className="nb-section-title text-foreground">
@@ -108,7 +109,7 @@ export function SprintHeader({
             ) : null}
           </div>
 
-          <div className="flex shrink-0 items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3 max-md:w-full max-md:justify-between">
             <span className="nb-micro font-mono text-xs font-medium uppercase tracking-[0.09em] text-muted-foreground">
               {sprint.code}
             </span>

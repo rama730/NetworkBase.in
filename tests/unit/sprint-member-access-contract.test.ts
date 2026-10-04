@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 const projectActionsSource = fs.readFileSync(
-  path.join(process.cwd(), "src/app/actions/project/_all.ts"),
+  path.join(process.cwd(), "src/app/actions/project/index.ts"),
   "utf8",
 );
 const projectActionsBarrelSource = fs.readFileSync(

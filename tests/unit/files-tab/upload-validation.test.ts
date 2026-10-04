@@ -187,10 +187,10 @@ describe("Design & UX Hardening Contracts (Darkening & Upload Scenarios)", () =>
     "src/components/projects/v2/explorer/useExplorerMutations.ts"
   );
 
-  it("dialog.tsx uses subtle backdrop overlay without pitch dark background", () => {
+  it("dialog.tsx uses the design-system modal scrim without backdrop blur", () => {
     const source = readFileSync(dialogPath, "utf-8");
-    assert.match(source, /bg-black\/20 backdrop-blur-\[0\.5px\]/);
-    assert.doesNotMatch(source, /bg-\[#0D1114\]\/44/);
+    assert.match(source, /bg-\[rgba\(13,17,20,0\.44\)\]/);
+    assert.doesNotMatch(source, /backdrop-blur/);
   });
 
   it("ExplorerDialogsHost uses transparent non-darkening backdrop overlay for all modal dialogs", () => {

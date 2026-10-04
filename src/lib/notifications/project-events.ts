@@ -235,7 +235,7 @@ function dedupeKeyFor(input: EnqueueProjectNotificationEventInput, recipientUser
     const bucket = bucketForAggregate(input.eventKey);
     const source = bucket
         ? `burst:${bucket}`
-        : input.sourceEventId ?? input.entityRefs?.fileId ?? input.entityRefs?.taskId ?? input.entityRefs?.applicationId ?? input.entityRefs?.workflowItemId ?? "latest";
+        : input.sourceEventId ?? input.entityRefs?.fileId ?? input.entityRefs?.taskId ?? input.entityRefs?.applicationId ?? input.entityRefs?.invitationId ?? "latest";
     return `project:${input.projectId}:${input.eventKey}:${source}:${recipientUserId}`;
 }
 

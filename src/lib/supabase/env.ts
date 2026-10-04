@@ -47,3 +47,10 @@ export function resolveSupabaseServiceEnv(context: string): SupabaseServiceEnv {
     }
     return cachedServiceEnv
 }
+
+const AUTH_FETCH_TIMEOUT_MS = 8_000;
+
+export const authBoundedFetch: typeof fetch = (input, init) =>
+  String(input instanceof Request ? input.url : input).includes("/auth/v1/") && !init?.signal
+    ? fetch(input, { ...init, signal: AbortSignal.timeout(AUTH_FETCH_TIMEOUT_MS) })
+    : fetch(input, init);

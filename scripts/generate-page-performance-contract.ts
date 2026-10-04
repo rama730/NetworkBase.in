@@ -8,7 +8,7 @@ function normalizeRoute(input: string): string {
 }
 
 function routeToPageFile(routeId: string): string {
-  if (routeId === "/") return "src/app/page.tsx";
+  if (routeId === "/") return "src/app/(site)/page.tsx";
   return path.posix.join("src/app", routeId, "page.tsx");
 }
 

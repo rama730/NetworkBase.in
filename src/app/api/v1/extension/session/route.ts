@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   const now = Date.now();
   const cached = sessionStatusCache.get(tokenHash);
   if (cached && now - cached.cachedAt < SESSION_CACHE_TTL_MS) {
-    // ponytail: revoked tokens may read only their own liveness so the IDE can erase them after web-side disconnect.
+    // Revoked tokens may read only their own liveness so the IDE can erase them after web-side disconnect.
     return jsonSuccess(
       {
         sessionId: cached.sessionId,
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
   }
   sessionStatusCache.set(tokenHash, { sessionId: session.id, active, cachedAt: now });
 
-  // ponytail: revoked tokens may read only their own liveness so the IDE can erase them after web-side disconnect.
+  // Revoked tokens may read only their own liveness so the IDE can erase them after web-side disconnect.
   return jsonSuccess(
     {
       sessionId: session.id,

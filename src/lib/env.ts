@@ -16,8 +16,13 @@ const envSchema = z.object({
     GITHUB_IMPORT_TOKEN_ENCRYPTION_KEY: z.string().min(1).optional(),
     JOB_REQUEST_SECRET: z.string().min(1).optional(),
     GITHUB_WEBHOOK_SECRET: z.string().min(1).optional(),
-    NEXT_PUBLIC_YJS_WEBSOCKET_URL: z.string().url().optional(),
     INNGEST_SIGNING_KEY: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_SESSION_TOKEN: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_REGION: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_BUCKET: z.string().min(1).optional(),
+    STORAGE_BACKUP_AWS_ENDPOINT: z.string().url().optional(),
     E2E_AUTH_FALLBACK: z.string().optional(),
     NEXT_PUBLIC_E2E_AUTH_FALLBACK: z.string().optional(),
 
@@ -28,8 +33,6 @@ const envSchema = z.object({
 
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     SUPABASE_STORAGE_IMAGE_TRANSFORMATIONS_ENABLED: z.string().optional(),
-    RATE_LIMIT_MODE: z.enum(['best-effort', 'distributed-only']).optional(),
-    EXECUTION_BACKEND_URL: z.string().url().optional(),
 })
 
 export type Env = z.infer<typeof envSchema>
@@ -54,6 +57,8 @@ function assertProductionSecurityEnv(env: Env) {
         ['GITHUB_WEBHOOK_SECRET', env.GITHUB_WEBHOOK_SECRET],
         ['INNGEST_EVENT_KEY', env.INNGEST_EVENT_KEY],
         ['INNGEST_SIGNING_KEY', env.INNGEST_SIGNING_KEY],
+        // ponytail: STORAGE_BACKUP_AWS_* optional until the backup bucket exists; published
+        // assets stay backup "pending" (never deleted early). Re-add the four names here once set.
     ] as const
 
     const missing = requiredSecrets

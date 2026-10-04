@@ -1212,6 +1212,104 @@
       "when": 1790575420904,
       "tag": "0175_docs_retired_objects",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1790575421904,
+      "tag": "0176_docs_any_slug_removable",
+      "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1790575422904,
+      "tag": "0177_projects_member_file_upload_default",
+      "breakpoints": true
+    },
+    {
+      "idx": 175,
+      "version": "7",
+      "when": 1790741708000,
+      "tag": "0178_storage_asset_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1790828100000,
+      "tag": "0179_live_catalog_storage_release_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 177,
+      "version": "7",
+      "when": 1790908157000,
+      "tag": "0180_chat_rebuild_additive",
+      "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1790908158000,
+      "tag": "0181_chat_rebuild_cutover",
+      "breakpoints": true
+    },
+    {
+      "idx": 179,
+      "version": "7",
+      "when": 1790908159000,
+      "tag": "0182_chat_canvases",
+      "breakpoints": true
+    },
+    {
+      "idx": 180,
+      "version": "7",
+      "when": 1790908160000,
+      "tag": "0183_chat_typing_topic",
+      "breakpoints": true
+    },
+    {
+      "idx": 181,
+      "version": "7",
+      "when": 1790908161000,
+      "tag": "0184_presence_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 182,
+      "version": "7",
+      "when": 1790908162000,
+      "tag": "0185_chat_rename_default_channel",
+      "breakpoints": true
+    },
+    {
+      "idx": 183,
+      "version": "7",
+      "when": 1790908163000,
+      "tag": "0186_status_emoji",
+      "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1790908164000,
+      "tag": "0187_chat_reorganize",
+      "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1790908165000,
+      "tag": "0188_chat_tab_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1790908166000,
+      "tag": "0189_chat_audit_fixes",
+      "breakpoints": true
     }
   ]
 }

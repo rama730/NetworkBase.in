@@ -1,3 +1,5 @@
+> **Superseded (2026-10).** The conversation/message system described here was replaced by the Slack-style chat rebuild (migrations 0180/0181). See `docs/architecture/messaging.md` and `docs/plans/messaging-slack-rebuild-report.md`.
+
 # Comprehensive End-to-End Messages Audit Report
 
 > Historical snapshot. Its scale claims and completion markers are not current database/capacity evidence; use the 2026-08-13 complete SQL/Supabase audit and a fresh verification run.

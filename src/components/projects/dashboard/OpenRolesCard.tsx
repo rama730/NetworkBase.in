@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import { Briefcase, CheckCircle, Clock, Loader2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DashboardCard from "./DashboardCard";
@@ -35,6 +35,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
     onDeclineInvitation,
     invitationLoading = false,
 }: OpenRolesCardProps) {
+    const [showAllMobile, setShowAllMobile] = useState(false);
     const openRoles = useMemo(() => {
         return roles.filter((role: any) => {
             const remaining = (role?.count || 0) - (role?.filled || 0);
@@ -78,7 +79,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
     const showMoreCount = openRoles.length - 10;
 
     return (
-        <DashboardCard title="Open roles" icon={Briefcase} compact>
+        <DashboardCard title="Open roles" icon={Briefcase} compact id="open-roles" className="scroll-mt-28">
             <div className="space-y-3">
                 {blockedReason ? (
                     <p id="open-roles-apply-disabled-reason" className="px-1 text-[11px] text-muted-foreground">
@@ -106,14 +107,14 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                 {isGuidanceInvitation ? (
                     <div className="flex w-full flex-col gap-2 rounded-[5px] border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] p-3 text-left">
                         <div className="min-w-0 flex-1">
-                            <h4 className="text-[14px] font-semibold leading-snug text-foreground">
+                            <h4 className="text-[14px] font-semibold leading-snug text-foreground max-md:text-[17px]">
                                 {invitationTitle}
                             </h4>
                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                 <span className="nb-status shrink-0" data-status="draft">
                                     Invited
                                 </span>
-                                <span className="shrink-0 inline-flex items-center rounded-[3px] border border-border/70 bg-card/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+                                <span className="shrink-0 inline-flex items-center rounded-[3px] border border-border/70 bg-card/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.04em] max-md:text-[11px] text-muted-foreground">
                                     Leadership
                                 </span>
                             </div>
@@ -127,7 +128,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                     type="button"
                                     disabled={invitationLoading}
                                     onClick={() => onDeclineInvitation?.()}
-                                    className="inline-flex h-[28px] cursor-pointer items-center gap-1 rounded-[5px] border border-border bg-card px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
+                                    className="nb-touch-target inline-flex h-[28px] cursor-pointer items-center justify-center gap-1 rounded-[5px] border border-border bg-card px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
                                 >
                                     Decline
                                 </button>
@@ -135,7 +136,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                     type="button"
                                     disabled={invitationLoading}
                                     onClick={() => onAcceptInvitation?.()}
-                                    className="inline-flex h-[28px] cursor-pointer items-center gap-1 rounded-[5px] bg-[var(--status-success,#2F6B4F)] px-3 text-[12px] font-medium text-white shadow-none transition-colors hover:brightness-110 active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
+                                    className="nb-touch-target inline-flex h-[28px] cursor-pointer items-center justify-center gap-1 rounded-[5px] bg-[var(--status-success,#2F6B4F)] px-3 text-[12px] font-medium text-white shadow-none transition-colors hover:brightness-110 active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
                                 >
                                     {invitationLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                                     Accept
@@ -146,9 +147,11 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                 ) : null}
 
                 {openRoles.length > 0 ? (
-                    <div className="flex max-h-[320px] flex-col gap-1 overflow-y-auto pr-1">
+                    <div className="flex max-h-[320px] flex-col gap-1 overflow-y-auto pr-1 max-md:max-h-none max-md:overflow-visible max-md:pr-0">
                         <div className="space-y-1">
-                            {openRoles.slice(0, 10).map((role) => {
+                            {openRoles.slice(0, 10).map((role, roleIndex) => {
+                                // Below md only the first three roles show until "Show all" (no nested scroller, R10).
+                                const hiddenOnMobile = !showAllMobile && roleIndex >= 3;
                                 const remaining = (role?.count || 0) - (role?.filled || 0);
                                 const isInteractive = !isCreator && !isCollaborator;
                                 const isThisProposedRole = isProposed && (role.id === applicationStatus.proposedRoleId || role.id === applicationStatus.roleId);
@@ -158,17 +161,17 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                     return (
                                         <div
                                             key={role.id}
-                                            className="my-2 flex w-full flex-col gap-2 rounded-[5px] border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] p-3 text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms] first:mt-0 last:mb-0"
+                                            className={cn("my-2 flex w-full flex-col gap-2 rounded-[5px] border border-[var(--status-warning)]/30 bg-[var(--status-warning-soft)] p-3 text-left transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-[180ms] first:mt-0 last:mb-0", hiddenOnMobile && "max-md:hidden")}
                                         >
                                             <div className="min-w-0 flex-1">
-                                                <h4 className="text-[14px] font-semibold leading-snug text-foreground">
+                                                <h4 className="text-[14px] font-semibold leading-snug text-foreground max-md:text-[17px]">
                                                     {role.role}
                                                 </h4>
                                                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                                     <span className="nb-status shrink-0" data-status="draft">
                                                         Invited
                                                     </span>
-                                                    <span className="shrink-0 inline-flex items-center rounded-[3px] border border-border/70 bg-card/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+                                                    <span className="shrink-0 inline-flex items-center rounded-[3px] border border-border/70 bg-card/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.04em] max-md:text-[11px] text-muted-foreground">
                                                         {remaining} {remaining === 1 ? "spot" : "spots"} left
                                                     </span>
                                                 </div>
@@ -195,7 +198,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                             ) : null}
 
                                             {role.description ? (
-                                                <p className="nb-compact line-clamp-2 text-[12px] leading-relaxed text-muted-foreground">
+                                                <p className="nb-compact line-clamp-2 text-[12px] leading-relaxed text-muted-foreground max-md:text-[13px]">
                                                     {role.description}
                                                 </p>
                                             ) : null}
@@ -215,7 +218,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                                             event.stopPropagation();
                                                             onDeclineInvitation?.();
                                                         }}
-                                                        className="inline-flex h-[28px] cursor-pointer items-center gap-1 rounded-[5px] border border-border bg-card px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
+                                                        className="nb-touch-target inline-flex h-[28px] cursor-pointer items-center justify-center gap-1 rounded-[5px] border border-border bg-card px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
                                                     >
                                                         Decline
                                                     </button>
@@ -226,7 +229,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                                             event.stopPropagation();
                                                             onAcceptInvitation?.();
                                                         }}
-                                                        className="inline-flex h-[28px] cursor-pointer items-center gap-1 rounded-[5px] bg-[var(--status-success,#2F6B4F)] px-3 text-[12px] font-medium text-white shadow-none transition-colors hover:brightness-110 active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
+                                                        className="nb-touch-target inline-flex h-[28px] cursor-pointer items-center justify-center gap-1 rounded-[5px] bg-[var(--status-success,#2F6B4F)] px-3 text-[12px] font-medium text-white shadow-none transition-colors hover:brightness-110 active:translate-y-px disabled:pointer-events-none disabled:opacity-50"
                                                     >
                                                         {invitationLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                                                         Accept
@@ -241,7 +244,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                     <>
                                         <div className="min-w-0 flex-1">
                                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                                <span className="text-[13.5px] font-semibold text-foreground transition-colors group-hover:text-primary">
+                                                <span className="text-[13.5px] font-semibold text-foreground transition-colors group-hover:text-primary max-md:text-[17px]">
                                                     {role.role}
                                                 </span>
                                                 {isThisAppliedRole ? (
@@ -249,7 +252,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                                         Applied
                                                     </span>
                                                 ) : null}
-                                                <span className="shrink-0 inline-flex items-center rounded-[3px] border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.04em] text-muted-foreground">
+                                                <span className="shrink-0 inline-flex items-center rounded-[3px] border border-border/70 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.04em] max-md:text-[11px] text-muted-foreground">
                                                     {remaining} {remaining === 1 ? "spot" : "spots"} left
                                                 </span>
                                             </div>
@@ -275,7 +278,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                             ) : null}
 
                                             {role.description ? (
-                                                <p className="nb-compact mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted-foreground">
+                                                <p className="nb-compact mt-1 line-clamp-2 text-[12px] leading-relaxed text-muted-foreground max-md:text-[13px]">
                                                     {role.description}
                                                 </p>
                                             ) : null}
@@ -306,6 +309,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                 const isInteractiveRow = isInteractive;
                                 const className = cn(
                                     "flex w-full items-start justify-between border-b border-border px-2 py-2.5 text-left last:border-b-0",
+                                    hiddenOnMobile && "max-md:hidden",
                                     isInteractiveRow
                                         ? "group cursor-pointer rounded-[5px] transition-[background-color,color] duration-[130ms] hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
                                         : "",
@@ -334,10 +338,20 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                     </div>
                 ) : null}
 
+                {!showAllMobile && Math.min(openRoles.length, 10) > 3 ? (
+                    <button
+                        type="button"
+                        onClick={() => setShowAllMobile(true)}
+                        className="nb-touch-target nb-ui-label inline-flex w-full items-center justify-center text-primary md:hidden"
+                    >
+                        Show all {openRoles.length} roles
+                    </button>
+                ) : null}
+
                 {showMoreCount > 0 ? (
                     <div className="mt-1.5 flex justify-center border-t border-border pt-1.5">
                         {isCreator ? (
-                            <button type="button" onClick={onManageRoles} className="px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:underline">
+                            <button type="button" onClick={onManageRoles} className="nb-touch-target px-2.5 py-1 text-[11px] font-semibold text-primary transition-colors hover:underline">
                                 + {showMoreCount} more {showMoreCount === 1 ? "role" : "roles"}
                             </button>
                         ) : (
@@ -352,7 +366,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                     <button
                         type="button"
                         onClick={onManageRoles}
-                        className="inline-flex h-[34px] w-full items-center justify-center rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-[background-color,border-color,color] duration-[130ms] hover:bg-muted"
+                        className="nb-touch-target inline-flex h-[34px] w-full items-center justify-center rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-[background-color,border-color,color] duration-[130ms] hover:bg-muted"
                     >
                         Manage roles
                     </button>

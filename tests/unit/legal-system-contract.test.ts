@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { CURRENT_LEGAL_ACCEPTANCE, LEGAL_VERSIONS } from "@/lib/legal/versions";
+import { componentSource } from "./_helpers/component-source";
 
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
@@ -13,7 +14,7 @@ test("all public legal routes exist and use a versioned document surface", () =>
     "copyright", "grievances", "security-reporting", "dpa", "open-source",
   ];
   for (const page of pages) {
-    const source = read(`src/app/${page}/page.tsx`);
+    const source = read(`src/app/(legal)/${page}/page.tsx`);
     assert.match(source, /LegalDocumentPage/);
     assert.match(source, /LEGAL_VERSIONS/);
   }
@@ -36,7 +37,7 @@ test("public legal documents are discoverable and security reports have a standa
 });
 
 test("signup requires affirmative age, terms, EULA, and privacy acknowledgement", () => {
-  const signup = read("src/app/(auth)/signup/page.tsx");
+  const signup = read("src/components/auth/SignupForm.tsx");
   const route = read("src/app/api/v1/auth/signup/route.ts");
   assert.match(signup, /I am at least 18/);
   assert.match(signup, /Terms of Service/);
@@ -47,10 +48,10 @@ test("signup requires affirmative age, terms, EULA, and privacy acknowledgement"
 });
 
 test("existing signed-in accounts must accept the current unexpired versions", () => {
-  const layout = read("src/app/(main)/layout.tsx");
+  const layout = read("src/app/(site)/(main)/layout.tsx");
   const requestBoundary = read("src/proxy.ts");
   const acceptance = read("src/lib/legal/acceptance.ts");
-  const page = read("src/app/legal/accept/page.tsx");
+  const page = read("src/app/(site)/legal/accept/page.tsx");
 
   assert.match(layout, /hasCurrentLegalAcceptance\(user\.id\)/);
   assert.match(layout, /redirect\(`\/legal\/accept\?next=/);
@@ -81,7 +82,7 @@ test("settings and project detail expose contextual legal controls", () => {
   assert.ok(settingsDocument.indexOf('id="settings-privacy-policies"') > settingsDocument.indexOf('id="settings-integrations"'));
   const layout = read("src/components/projects/dashboard/ProjectLayout.tsx");
   assert.doesNotMatch(layout, /id: "privacy", label: "Privacy & terms"/);
-  const settings = read("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const settings = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
   assert.match(settings, /"privacy-policies": Scale/);
   assert.match(settings, /LegalAndDataRightsSection/);
   const policies = read("src/lib/projects/settings-policies.ts");

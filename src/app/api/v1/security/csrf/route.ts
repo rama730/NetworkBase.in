@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 import { jsonError, jsonSuccess } from "@/app/api/v1/_envelope";
-import { enforceRouteLimit } from "@/app/api/v1/_shared";
 import { CSRF_COOKIE_NAME } from "@/lib/security/csrf-constants";
 import {
   createSignedCsrfToken,
@@ -24,10 +23,7 @@ const CSRF_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12;
  * If no valid cookie exists, a fresh signed token is minted and set, keeping
  * the middleware's lazy-issue behaviour in sync.
  */
-export async function GET(request: Request): Promise<NextResponse> {
-  const rateLimitResponse = await enforceRouteLimit(request, "api:v1:security:csrf", 120, 60);
-  if (rateLimitResponse) return rateLimitResponse;
-
+export async function GET(): Promise<NextResponse> {
   try {
     const cookieStore = await cookies();
     const existing = cookieStore.get(CSRF_COOKIE_NAME)?.value?.trim() || "";

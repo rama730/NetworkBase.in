@@ -5,15 +5,19 @@ import { db } from "@/lib/db";
 import {
   projects,
   projectNodes,
+  projectEventCounters,
   projectNodeEvents,
   fileVersions,
   profiles,
   githubSyncConnections,
   githubSyncFiles,
   githubSyncRuns,
+  githubSyncSnapshotAssets,
   githubContributorIdentities,
+  storageAssets,
 } from "@/lib/db/schema";
 import { createAdminClient } from "@/lib/supabase/server";
+import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
 import { resolveGithubRepoAccess } from "./auth-resolver";
 import {
   sanitizeGitErrorMessage,
@@ -46,6 +50,7 @@ import {
   type SyncRunView,
 } from "./sync-contract";
 import { runWithConcurrency } from "@/lib/utils/concurrency";
+import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import {
   buildProjectFileKey,
   parseProjectIdFromProjectFileKey,
@@ -79,14 +84,23 @@ function cacheBlobMeta(hash: string, meta: CachedBlobMeta) {
 }
 
 export async function requireSyncOwner(projectId: string, userId: string) {
-  const project = await db.query.projects.findFirst({
-    where: and(eq(projects.id, projectId), isNull(projects.deletedAt)),
-  });
+  const [project, counter] = await Promise.all([
+    db.query.projects.findFirst({
+      where: and(eq(projects.id, projectId), isNull(projects.deletedAt)),
+    }),
+    db.query.projectEventCounters.findFirst({
+      where: eq(projectEventCounters.projectId, projectId),
+      columns: { nextSequence: true },
+    }),
+  ]);
   if (!project || project.ownerId !== userId)
     throw new Error(
       "Only the project owner can manage GitHub synchronization.",
     );
-  return project;
+  return {
+    ...project,
+    currentSequenceNumber: counter?.nextSequence ?? project.currentSequenceNumber,
+  };
 }
 export async function resolveSyncContext(
   projectId: string,
@@ -134,6 +148,14 @@ export async function readStoredSyncContent(
     throw new Error("File content is outside this project");
   const storage =
     storageOverride || (await createAdminClient()).storage.from("project-files");
+  if (!storageOverride) {
+    const bytes = await readBoundedStorageBytes({
+      bucket: "project-files",
+      storageKey: key,
+      maxBytes: SYNC_LIMITS.fileBytes,
+    });
+    return Buffer.from(bytes);
+  }
   const { data, error } = await storage.download(key);
   if (error || !data)
     throw new Error("Unable to read file content. Please retry.");
@@ -554,11 +576,15 @@ export async function compareSync(
   );
   if (repo && headSha && matching.length)
     await db.transaction(async (tx) => {
-      const locked = await tx.execute<{ current_sequence_number: number }>(
-        sql`SELECT current_sequence_number FROM projects WHERE id=${ctx.project.id} FOR UPDATE`,
+      await tx.insert(projectEventCounters).values({
+        projectId: ctx.project.id,
+        nextSequence: latest.currentSequenceNumber,
+      }).onConflictDoNothing();
+      const locked = await tx.execute<{ next_sequence: number }>(
+        sql`SELECT next_sequence FROM project_event_counters WHERE project_id=${ctx.project.id} FOR UPDATE`,
       );
       if (
-        Number(locked[0]?.current_sequence_number) !==
+        Number(locked[0]?.next_sequence) !==
         latest.currentSequenceNumber
       )
         throw new Error("Files changed during comparison. Compare again.");
@@ -641,7 +667,7 @@ export async function createSyncReview(
       "Configure GITHUB_IMPORT_TOKEN_ENCRYPTION_KEY or a GitHub App before queuing sync",
     );
   const storage = (await createAdminClient()).storage.from("project-files");
-  const uploaded: string[] = [];
+  const snapshotRefs: Array<{ path: string; assetId: string }> = [];
   const resolver = choices.some((choice) => choice.resolution === "merge")
     ? await db.query.profiles.findFirst({
         where: eq(profiles.id, ctx.project.ownerId),
@@ -737,45 +763,108 @@ export async function createSyncReview(
         );
       const uploads = await Promise.allSettled(
         prepared.map(async ({ item, content }) => {
-          if (!content || !item.snapshotKey) return null;
-          const { error } = await storage.upload(item.snapshotKey, content, {
-            // Internal reviewed snapshots are opaque bytes; the manifest keeps
-            // the original MIME type for the eventual project revision.
-            contentType: "application/octet-stream",
-            upsert: false,
+          if (!item.snapshotKey) return null;
+          if (!content) {
+            const [asset] = await db
+              .select({ id: storageAssets.id })
+              .from(storageAssets)
+              .where(and(
+                eq(storageAssets.bucket, "project-files"),
+                eq(storageAssets.storageKey, item.snapshotKey),
+                eq(storageAssets.state, "verified"),
+              ))
+              .limit(1);
+            if (!asset) throw new Error(`Storage registration is pending for ${item.path}`);
+            return { path: item.path, assetId: asset.id };
+          }
+          const intent = await createUploadIntent({
+            userId: ctx.project.ownerId,
+            projectId: ctx.project.id,
+            bucket: "project-files",
+            storageKey: item.snapshotKey,
+            scope: "sync_snapshot",
+            kind: "snapshot",
+            expectedMimeType: "application/octet-stream",
+            expectedSize: content.byteLength,
+            idempotencyKey: `github-sync:${id}:${item.path}`,
+            metadata: { runId: id, path: item.path, source: "reviewed_github_sync" },
           });
-          if (error)
-            throw new Error(
-              `Unable to retain reviewed content for ${item.path}. Please retry.`,
-            );
-          return item.snapshotKey;
+          if (intent.status === "pending") {
+            const { error } = await storage.upload(intent.storageKey, content, {
+              contentType: "application/octet-stream",
+              cacheControl: "31536000",
+              upsert: false,
+            });
+            if (error) {
+              const { data: existingObject } = await storage.info(intent.storageKey);
+              if (!existingObject) {
+                throw new Error(`Unable to retain reviewed content for ${item.path}. Please retry.`);
+              }
+            }
+          }
+          const verified = await finalizeUploadIntent({
+            intentId: intent.id,
+            bucket: intent.bucket,
+            storageKey: intent.storageKey,
+            userId: ctx.project.ownerId,
+            projectId: ctx.project.id,
+            expectedScope: "sync_snapshot",
+            expectedKind: "snapshot",
+          });
+          if (!verified.assetId) throw new Error(`Snapshot verification failed for ${item.path}`);
+          const [asset] = await db
+            .select({ id: storageAssets.id, contentHash: storageAssets.contentHash })
+            .from(storageAssets)
+            .where(and(
+              eq(storageAssets.id, verified.assetId),
+              eq(storageAssets.state, "verified"),
+            ))
+            .limit(1);
+          if (!asset || asset.contentHash !== item.resultHash) {
+            throw new Error(`Snapshot content changed for ${item.path}. Compare again.`);
+          }
+          return { path: item.path, assetId: asset.id };
         }),
       );
       for (const upload of uploads)
         if (upload.status === "fulfilled" && upload.value)
-          uploaded.push(upload.value);
+          snapshotRefs.push(upload.value);
       const failed = uploads.find((upload) => upload.status === "rejected");
       if (failed?.status === "rejected") throw failed.reason;
       selected.push(...prepared.map(({ item }) => item));
     }
-    const [run] = await db
-      .insert(githubSyncRuns)
-      .values({
-        id,
-        projectId: ctx.project.id,
-        actorId: ctx.project.ownerId,
-        manifest: { ...manifest, message, files: selected },
-        credential,
-      })
-      .returning();
+    const run = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(githubSyncRuns)
+        .values({
+          id,
+          projectId: ctx.project.id,
+          actorId: ctx.project.ownerId,
+          manifest: { ...manifest, message, files: selected },
+          credential,
+        })
+        .returning();
+      if (!created) return null;
+      if (snapshotRefs.length > 0) {
+        await tx.insert(githubSyncSnapshotAssets).values(snapshotRefs.map((ref) => ({
+          runId: id,
+          assetId: ref.assetId,
+          path: ref.path,
+        })));
+        await tx.update(storageAssets)
+          .set({
+            backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+            updatedAt: new Date(),
+          })
+          .where(inArray(storageAssets.id, snapshotRefs.map((ref) => ref.assetId)));
+      }
+      return created;
+    });
     if (!run) throw new Error("Failed to persist sync review");
     return syncRunView(run);
   } catch (error) {
-    const persisted = await db.query.githubSyncRuns.findFirst({
-      where: eq(githubSyncRuns.id, id),
-      columns: { id: true },
-    });
-    if (!persisted && uploaded.length) await storage.remove(uploaded);
+    // Verified but unpublished snapshots remain unattached and are reclaimed
+    // by the canonical abandoned-asset worker after credential grace.
     throw error;
   }
 }
@@ -799,10 +888,17 @@ export async function cleanupReviewedSyncSnapshots() {
     .limit(25);
   const storage = (await createAdminClient()).storage.from("project-files");
   for (const run of runs) {
+    const registeredRefs = await db
+      .select({ assetId: githubSyncSnapshotAssets.assetId, purpose: storageAssets.purpose })
+      .from(githubSyncSnapshotAssets)
+      .innerJoin(storageAssets, eq(storageAssets.id, githubSyncSnapshotAssets.assetId))
+      .where(eq(githubSyncSnapshotAssets.runId, run.id));
     const keys = run.manifest.files.flatMap((file) =>
       file.snapshotKey ? [file.snapshotKey] : [],
     );
-    if (keys.length) {
+    // Compatibility cleanup for reviews created before snapshot assets were
+    // normalized. Current reviews are detached and deleted by asset ID below.
+    if (keys.length && registeredRefs.length === 0) {
       const versions = await db
         .select({ key: fileVersions.s3Key })
         .from(fileVersions)
@@ -822,10 +918,32 @@ export async function cleanupReviewedSyncSnapshots() {
         if (error) throw new Error("Snapshot cleanup could not finish");
       }
     }
-    await db
-      .update(githubSyncRuns)
-      .set({ result: { ...run.result, snapshotsCleaned: true } })
-      .where(eq(githubSyncRuns.id, run.id));
+    await db.transaction(async (tx) => {
+      if (registeredRefs.length > 0) {
+        await tx.delete(githubSyncSnapshotAssets)
+          .where(eq(githubSyncSnapshotAssets.runId, run.id));
+        const ownedSnapshotIds = registeredRefs
+          .filter((ref) => ref.purpose === "sync_snapshot:snapshot")
+          .map((ref) => ref.assetId);
+        if (ownedSnapshotIds.length > 0) {
+          await tx.update(storageAssets)
+            .set({
+              state: "delete_pending",
+              deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+              lastErrorCode: "SYNC_SNAPSHOT_EXPIRED",
+              updatedAt: new Date(),
+            })
+            .where(and(
+              inArray(storageAssets.id, ownedSnapshotIds),
+              eq(storageAssets.state, "verified"),
+            ));
+        }
+      }
+      await tx
+        .update(githubSyncRuns)
+        .set({ result: { ...run.result, snapshotsCleaned: true } })
+        .where(eq(githubSyncRuns.id, run.id));
+    });
   }
   return runs.length;
 }

@@ -10,13 +10,12 @@ const GRADIENT_ACTION_CLASS = "app-accent-gradient-horizontal";
 const DISALLOWED_HARDCODED_ACCENT = /\b(?:bg|text|border|ring|from|to)-(?:blue|indigo|purple|violet|pink|fuchsia)-/;
 
 const CORE_APPEARANCE_FILES = [
-  "src/components/layout/header/NavLink.tsx",
   "src/components/layout/header/TopNav.tsx",
   "src/components/layout/header/MobileMenu.tsx",
   "src/components/discover/DiscoverHeader.tsx",
-  "src/components/chat/v2/ChatPopupV2.tsx",
-  "src/components/chat/v2/MessageComposerV2.tsx",
-  "src/components/chat/v2/MessagesWorkspaceV2.tsx",
+  "src/components/messages/ChatLauncher.tsx",
+  "src/components/messages/Composer.tsx",
+  "src/components/messages/ConversationView.tsx",
   "src/components/settings/AppearanceSettings.tsx",
   "src/components/projects/dashboard/ProjectLayout.tsx",
   "src/components/projects/dashboard/ProjectOverviewCard.tsx",

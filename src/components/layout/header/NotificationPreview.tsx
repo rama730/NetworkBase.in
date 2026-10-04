@@ -145,7 +145,7 @@ export default function NotificationPreview(props: NotificationPreviewProps) {
             <DropdownMenuContent
                 align="end"
                 sideOffset={8}
-                className="mr-2 flex w-[min(26rem,calc(100vw-1.5rem))] max-w-[26rem] flex-col overflow-hidden rounded-xl border border-border bg-card p-0 text-card-foreground shadow-xl duration-[180ms] data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 md:mr-0 dark:border-border dark:bg-card"
+                className="mr-2 flex w-[min(26rem,calc(100vw-1.5rem))] max-w-[26rem] flex-col overflow-hidden rounded-xl border border-border bg-card p-0 text-card-foreground shadow-xl duration-[180ms] data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 md:mr-0 dark:border-border dark:bg-card max-md:mr-0 max-md:h-[calc(100dvh-var(--ui-topnav-height)-8px)] max-md:!max-h-none max-md:w-screen max-md:max-w-none max-md:rounded-none max-md:border-x-0 max-md:shadow-none"
                 style={{ maxHeight: "min(38rem, calc(100dvh - var(--ui-topnav-height) - 1rem))" }}
             >
                 <div role="status" aria-live="polite" className="sr-only">
@@ -203,7 +203,7 @@ export default function NotificationPreview(props: NotificationPreviewProps) {
                                 onClick={() => onFilterChange(filter.id)}
                                 onKeyDown={(event) => handleFilterKeyDown(event, index)}
                                 className={cn(
-                                    "nb-ui-label relative flex h-7 flex-1 items-center justify-center rounded-[6px] px-3 font-medium transition-[background-color,color,box-shadow] duration-[130ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                    "nb-touch-target nb-ui-label relative flex h-7 flex-1 items-center justify-center rounded-[6px] px-3 font-medium transition-[background-color,color,box-shadow] duration-[130ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                     activeFilter === filter.id
                                         ? "bg-card text-foreground shadow-2xs dark:bg-zinc-800"
                                         : "text-muted-foreground hover:text-foreground",

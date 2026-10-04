@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useContext, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
   ExternalLink,
   Github,
+  Laptop,
   Info,
   Loader2,
   MoreHorizontal,
@@ -13,7 +14,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { getHeaderGitHubSyncStatus } from "@/app/actions/github-sync";
+import { readHeaderGitHubSyncStatus } from "@/lib/files-tab-batch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,7 +41,7 @@ import { QuickOpenDialog } from "./quick-open/QuickOpenDialog";
 // ponytail: portal only controls, not state or mutation handlers. ceiling: single shared header slot. upgrade: separate floating toolbar if sub-panels require decoupled toolbars.
 import { FilesHeaderContext, FilesHeaderSlot } from "./FilesHeaderSlot";
 export { FilesHeaderSlot } from "./FilesHeaderSlot";
-import { OpenInIdeButton } from "./OpenInIdeButton";
+import { OpenInIdeButton, OpenInIdeSheet } from "./OpenInIdeButton";
 
 export function FilesWorkspaceHeader({
   projectId,
@@ -70,7 +71,7 @@ export function FilesWorkspaceHeader({
   const isFile = location?.type === "file";
   const hasLocation = location && location.type !== "root";
   return (
-    <FilesHeaderContext.Provider value={{ actions, status, canOpenGitHub }}>
+    <FilesHeaderContext.Provider value={{ actions, status, canOpenGitHub, ide: { projectId, projectSlug, location, taskId: workspace?.taskId } }}>
       <header
         data-testid="files-workspace-header"
         className="flex h-12 min-h-12 shrink-0 items-center gap-2 border-b border-border bg-card px-2"
@@ -183,16 +184,19 @@ export function FilesWorkspaceHeader({
           ref={setStatus}
           className="nb-meta flex shrink-0 items-center gap-2"
         />
+        {/* Phones keep the row to tree, breadcrumb, Upload and ⋯; GitHub and the IDE handoff live in ⋯ (spec §23). */}
         {canOpenGitHub && workspace?.view !== "trash" && (
-          <HeaderGitHubSyncButton projectId={projectId} />
+          <span className="hidden md:contents"><HeaderGitHubSyncButton projectId={projectId} /></span>
         )}
         {workspace?.view !== "trash" && (
-          <OpenInIdeButton
-            projectId={projectId}
-            projectSlug={projectSlug}
-            location={location}
-            taskId={workspace?.taskId}
-          />
+          <span className="hidden md:contents">
+            <OpenInIdeButton
+              projectId={projectId}
+              projectSlug={projectSlug}
+              location={location}
+              taskId={workspace?.taskId}
+            />
+          </span>
         )}
         <div ref={setActions} className="flex shrink-0 items-center gap-1" />
         {!!transfers?.active && <button type="button" onClick={transfers.open} className="nb-ui-label min-h-[var(--ui-control-height)] shrink-0 rounded-md px-2" aria-label={`Show ${transfers.active} active transfers`}>↑ {transfers.active}</button>}
@@ -228,7 +232,7 @@ function HeaderGitHubSyncButton({ projectId }: { projectId: string }) {
   React.useEffect(() => {
     let active = true;
     const fetchStatus = () => {
-      getHeaderGitHubSyncStatus(projectId)
+      readHeaderGitHubSyncStatus(projectId)
         .then((res) => {
           if (active && res.success) {
             setStatus(res.data);
@@ -418,10 +422,11 @@ export function FilesWorkspaceMenu({
 }) {
   const workspace = useFilesWorkspaceView();
   const transfers = useFileTransfers();
+  const header = useContext(FilesHeaderContext);
   const trigger = useRef<HTMLButtonElement>(null);
-  const pendingSurface = useRef<"search" | "info" | null>(null);
+  const pendingSurface = useRef<"search" | "info" | "ide" | null>(null);
   const searchInput = useRef<HTMLInputElement>(null);
-  const [surface, setSurface] = useState<"search" | "info" | null>(null);
+  const [surface, setSurface] = useState<"search" | "info" | "ide" | null>(null);
   const [draft, setDraft] = useState("");
   const view = workspace?.view ?? "project";
   const label = fileCollectionViews.find((item) => item.id === view)!.label;
@@ -447,7 +452,7 @@ export function FilesWorkspaceMenu({
               }
               title={selectionMode ? "Selected file actions" : "Files actions"}
               data-testid="files-workspace-menu"
-              className="flex size-8 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-[#D14E24]"
+              className="nb-touch-target flex size-8 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-[#D14E24]"
             >
               <MoreHorizontal className="size-4" aria-hidden="true" />
             </button>
@@ -479,6 +484,23 @@ export function FilesWorkspaceMenu({
             {!selectionMode && (
               <>
                 <DropdownMenuSeparator />
+                {header?.canOpenGitHub && view !== "trash" && workspace?.selectView ? (
+                  <DropdownMenuItem className="md:hidden" onSelect={() => workspace.selectView("github")}>
+                    <Github className="size-4" />
+                    GitHub sync
+                  </DropdownMenuItem>
+                ) : null}
+                {header?.ide && view !== "trash" ? (
+                  <DropdownMenuItem
+                    className="md:hidden"
+                    onSelect={() => {
+                      pendingSurface.current = "ide";
+                    }}
+                  >
+                    <Laptop className="size-4" />
+                    Connect desktop IDE…
+                  </DropdownMenuItem>
+                ) : null}
                 {transfers && <DropdownMenuItem onSelect={transfers.open}>Transfers…</DropdownMenuItem>}
                 <DropdownMenuItem
                   onSelect={() => {
@@ -509,6 +531,9 @@ export function FilesWorkspaceMenu({
           }}
         />
       )}
+      {header?.ide ? (
+        <OpenInIdeSheet open={surface === "ide"} onOpenChange={(open) => { if (!open) closeSurface(); }} {...header.ide} />
+      ) : null}
       <Dialog
         open={
           surface === "info" || (surface === "search" && view !== "project")
@@ -557,20 +582,20 @@ export function FilesWorkspaceMenu({
                   maxLength={256}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  className="mt-2 h-9 w-full rounded-[5px] border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D14E24]"
+                  className="nb-touch-target mt-2 h-9 w-full rounded-[5px] border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D14E24]"
                 />
               </label>
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={closeSurface}
-                  className="h-9 rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted"
+                  className="nb-touch-target h-9 rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-9 rounded-[5px] bg-primary px-3 text-xs font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                  className="nb-touch-target h-9 rounded-[5px] bg-primary px-3 text-xs font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                 >
                   Show results
                 </button>

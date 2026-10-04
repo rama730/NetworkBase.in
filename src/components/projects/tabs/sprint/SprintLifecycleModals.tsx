@@ -196,7 +196,7 @@ export function SprintLifecycleModals({
               <label className="block space-y-2 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground">
                 Destination Sprint
                 <select
-                  className="h-[34px] w-full rounded-[5px] border border-input bg-background px-3 font-mono text-xs uppercase tracking-[0.09em] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="nb-touch-target h-[34px] w-full rounded-[5px] border border-input bg-background px-3 font-mono text-xs uppercase tracking-[0.09em] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   disabled={isMutating || carryOverSprints.length === 0}
                   onChange={(event) => setNextSprintId(event.target.value)}
                   value={nextSprintId}
@@ -219,7 +219,7 @@ export function SprintLifecycleModals({
 
         <DialogFooter>
           <button
-            className="inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            className="nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isMutating}
             onClick={close}
             type="button"
@@ -228,7 +228,7 @@ export function SprintLifecycleModals({
           </button>
           <button
             className={cn(
-              "inline-flex h-[34px] items-center justify-center rounded-[5px] px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+              "nb-touch-target inline-flex h-[34px] items-center justify-center rounded-[5px] px-4 font-mono text-xs font-medium uppercase tracking-[0.09em] transition-colors disabled:cursor-not-allowed disabled:opacity-50",
               openModal === "cancel"
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : "bg-primary text-primary-foreground hover:bg-primary/90",

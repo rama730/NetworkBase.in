@@ -59,7 +59,7 @@ describe("GitHub Sync Setup Workbench Redesign Contract", () => {
     assert.match(
       source,
       /bg-primary\s+text-primary-foreground/,
-      "Active toggle must use the theme primary color",
+      "Active toggle must use the NetworkBase primary token",
     );
   });
 

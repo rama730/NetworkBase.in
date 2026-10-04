@@ -28,7 +28,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
-import { readTaskSourceMessageLinksAction } from "@/app/actions/messaging/linked-work";
+import { listTaskSourceMessages } from "@/app/actions/chat/messages";
+import { queryKeys } from "@/lib/query-keys";
 import { approveTaskReviewAction } from "@/app/actions/task";
 import type { TaskFileReadinessWarning } from "@/lib/projects/task-file-intelligence";
 import { normalizeTaskTitleDraft } from "@/lib/projects/task-file-intelligence";
@@ -205,17 +206,12 @@ export default function DetailsTab({
 
   const showDoneWarnings = task.status === "done" && fileWarnings.length > 0;
   const sourceLinksQuery = useQuery({
-    queryKey: ["task-source-message-links", task.projectId, task.id],
-    enabled: Boolean(task.projectId),
+    queryKey: queryKeys.chat.taskSource(task.id),
     staleTime: 60_000,
     queryFn: async () => {
-      if (!task.projectId) return [];
-      const result = await readTaskSourceMessageLinksAction(
-        task.projectId,
-        task.id,
-      );
+      const result = await listTaskSourceMessages({ taskId: task.id });
       if (!result.success)
-        throw new Error(result.error || "Failed to load source message");
+        throw new Error("Failed to load source message");
       return result.links;
     },
   });
@@ -247,7 +243,7 @@ export default function DetailsTab({
   };
 
   return (
-    <div className="min-w-0 space-y-6 p-6">
+    <div className="min-w-0 space-y-6 p-6 max-md:p-4">
       {mutationError ? (
         <div className="rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {mutationError}
@@ -274,7 +270,7 @@ export default function DetailsTab({
                     type="button"
                     onClick={() => void handleApprove()}
                     disabled={isApproving}
-                    className="inline-flex h-[34px] items-center gap-1.5 px-3 rounded-[5px] bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 px-3 rounded-[5px] bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
                   >
                     <Check className="size-3.5" />
                     {isApproving ? "Approving..." : "Done"}
@@ -283,7 +279,7 @@ export default function DetailsTab({
                     type="button"
                     onClick={handleReject}
                     disabled={isApproving}
-                    className="inline-flex h-[34px] items-center gap-1.5 px-3 rounded-[5px] border border-border bg-card text-foreground text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
+                    className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 px-3 rounded-[5px] border border-border bg-card text-foreground text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50"
                   >
                     <XIcon className="size-3.5" />
                     Issues
@@ -418,7 +414,7 @@ export default function DetailsTab({
 
       {sourceLinks.map((sourceLink, index) => (
         <div
-          key={String(sourceLink.id ?? index)}
+          key={`${sourceLink.channel_id}:${sourceLink.seq}:${index}`}
           className="rounded-[6px] border border-border bg-card px-4 py-3 text-sm text-foreground"
         >
           <div className="flex items-start gap-3">
@@ -428,18 +424,14 @@ export default function DetailsTab({
                 Created from message
               </div>
               <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                {String(
-                  sourceLink.metadata?.sourcePreview ||
-                    sourceLink.subtitle ||
-                    "Open the original conversation context.",
-                )}
+                {sourceLink.channel_name
+                  ? `In #${sourceLink.channel_name}`
+                  : "Open the original conversation."}
               </div>
             </div>
-            {typeof sourceLink.metadata?.sourceMessageHref === "string" ? (
+            {sourceLink.channel_id ? (
               <a
-                href={sourceLink.metadata.sourceMessageHref}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`/messages/${sourceLink.channel_id}?m=${sourceLink.seq}`}
                 className="inline-flex items-center gap-1 rounded-[5px] border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
               >
                 Open source
@@ -489,15 +481,15 @@ export default function DetailsTab({
             />
             <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
               <span className="font-mono text-[11px] text-muted-foreground">
-                <kbd className="rounded-[3px] border border-border bg-muted/50 px-1 py-0.5 text-[10px]">
+                <kbd className="rounded-[3px] border border-border bg-muted/50 px-1 py-0.5 text-[10px] max-md:text-[11px]">
                   ⌘/Ctrl
                 </kbd>{" "}
                 +{" "}
-                <kbd className="rounded-[3px] border border-border bg-muted/50 px-1 py-0.5 text-[10px]">
+                <kbd className="rounded-[3px] border border-border bg-muted/50 px-1 py-0.5 text-[10px] max-md:text-[11px]">
                   Enter
                 </kbd>{" "}
                 to save ·{" "}
-                <kbd className="rounded-[3px] border border-border bg-muted/50 px-1 py-0.5 text-[10px]">
+                <kbd className="rounded-[3px] border border-border bg-muted/50 px-1 py-0.5 text-[10px] max-md:text-[11px]">
                   Esc
                 </kbd>{" "}
                 to cancel
@@ -509,14 +501,14 @@ export default function DetailsTab({
                     setDescriptionDraft(task.description || "");
                     setIsEditingDescription(false);
                   }}
-                  className="h-7 rounded-[4px] border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                  className="nb-touch-target h-7 rounded-[4px] border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={() => void saveDescription()}
-                  className="h-7 rounded-[4px] bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs hover:bg-primary/90 transition"
+                  className="nb-touch-target h-7 rounded-[4px] bg-primary px-3 text-xs font-medium text-primary-foreground shadow-2xs hover:bg-primary/90 transition"
                 >
                   Save description
                 </button>
@@ -580,7 +572,7 @@ export default function DetailsTab({
                 <button
                   type="button"
                   disabled={!canEdit || isMutating}
-                  className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
+                  className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
                   aria-label="Select status"
                 >
                   <span className="flex items-center gap-2">
@@ -648,7 +640,7 @@ export default function DetailsTab({
                 <button
                   type="button"
                   disabled={!canEdit || isMutating}
-                  className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
+                  className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
                   aria-label="Select priority"
                 >
                   <span className="flex items-center gap-2">
@@ -696,7 +688,7 @@ export default function DetailsTab({
                 <button
                   type="button"
                   disabled={!canEdit || isMutating}
-                  className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
+                  className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
                   aria-label="Select assignee"
                 >
                   <div className="flex items-center gap-2 min-w-0 truncate">
@@ -726,7 +718,7 @@ export default function DetailsTab({
                       value={assigneeSearch}
                       onChange={(e) => setAssigneeSearch(e.target.value)}
                       placeholder="Search team members…"
-                      className="h-[28px] w-full rounded-[3px] border border-border bg-muted/40 pl-7 pr-2 text-xs text-foreground outline-none focus:border-primary"
+                      className="nb-touch-target h-[28px] w-full rounded-[3px] border border-border bg-muted/40 pl-7 pr-2 text-xs text-foreground outline-none focus:border-primary"
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
                     />
@@ -788,7 +780,7 @@ export default function DetailsTab({
                 <button
                   type="button"
                   disabled={!canEdit || !canManageSprint || isMutating}
-                  className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
+                  className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground flex items-center justify-between transition hover:border-foreground/30 focus:border-primary disabled:opacity-50"
                   aria-label="Select sprint"
                 >
                   <span className="flex items-center gap-2 truncate">
@@ -829,7 +821,7 @@ export default function DetailsTab({
                       <div className="truncate min-w-0">
                         <span className="font-medium truncate">{sprint.name}</span>
                         {!assignable && sprint.status ? (
-                          <span className="text-[10px] text-muted-foreground ml-1.5">
+                          <span className="text-[10px] max-md:text-[11px] text-muted-foreground ml-1.5">
                             (
                             {SPRINT_STATUS_PRESENTATION[sprint.status]?.label ||
                               "Unavailable"}
@@ -855,7 +847,7 @@ export default function DetailsTab({
                 Due date
               </label>
               {isOverdue ? (
-                <span className="inline-flex items-center rounded-[3px] border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
+                <span className="inline-flex items-center rounded-[3px] border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
                   Overdue
                 </span>
               ) : null}
@@ -867,14 +859,14 @@ export default function DetailsTab({
                 void onUpdateField("dueDate", event.target.value || null)
               }
               disabled={!canEdit || isMutating}
-              className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
+              className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
             />
             <div className="flex flex-wrap items-center gap-1 pt-0.5">
               <button
                 type="button"
                 disabled={!canEdit || isMutating}
                 onClick={() => setDueDatePreset(0)}
-                className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
+                className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
               >
                 Today
               </button>
@@ -882,7 +874,7 @@ export default function DetailsTab({
                 type="button"
                 disabled={!canEdit || isMutating}
                 onClick={() => setDueDatePreset(7)}
-                className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
+                className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
               >
                 +1 Week
               </button>
@@ -890,7 +882,7 @@ export default function DetailsTab({
                 type="button"
                 disabled={!canEdit || isMutating}
                 onClick={() => setDueDatePreset(14)}
-                className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
+                className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition disabled:opacity-50"
               >
                 +2 Weeks
               </button>
@@ -899,7 +891,7 @@ export default function DetailsTab({
                   type="button"
                   disabled={!canEdit || isMutating}
                   onClick={() => setDueDatePreset(null)}
-                  className="h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition disabled:opacity-50"
+                  className="nb-touch-target h-5 rounded-[3px] border border-border bg-muted/30 px-1.5 font-mono text-[10px] font-medium max-md:text-[11px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition disabled:opacity-50"
                 >
                   Clear
                 </button>
@@ -927,10 +919,10 @@ export default function DetailsTab({
               }}
               placeholder="Unestimated"
               disabled={!canEdit || isMutating}
-              className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 font-mono text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
+              className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 font-mono text-[13px] text-foreground outline-none transition focus:border-primary disabled:opacity-50"
             />
             <div className="flex flex-wrap items-center gap-1 pt-0.5">
-              <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
+              <span className="shrink-0 font-mono text-[10px] max-md:text-[11px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
                 Presets:
               </span>
               {[1, 2, 3, 5, 8, 13].map((points) => (
@@ -945,7 +937,7 @@ export default function DetailsTab({
                   }
                   disabled={!canEdit || isMutating}
                   className={cn(
-                    "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[3px] border font-mono text-[10px] font-semibold transition-colors disabled:opacity-50",
+                    "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[3px] border font-mono text-[10px] max-md:text-[11px] font-semibold transition-colors disabled:opacity-50",
                     task.storyPoints === points
                       ? "border-primary bg-primary/10 text-primary font-semibold"
                       : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",

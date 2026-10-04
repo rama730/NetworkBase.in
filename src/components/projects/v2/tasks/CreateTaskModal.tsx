@@ -283,7 +283,7 @@ export default function CreateTaskModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close create task dialog"
-                className="size-7 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="nb-touch-target size-7 flex items-center justify-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <X className="size-4" />
               </button>
@@ -484,13 +484,13 @@ export default function CreateTaskModal({
                           });
                         }}
                         className={cn(
-                          "h-[34px]",
+                          "nb-touch-target h-[34px]",
                           inputClassName(!!fieldErrors.dueDate),
                           "font-mono",
                         )}
                       />
                       <div className="flex flex-wrap items-center gap-1">
-                        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
+                        <span className="shrink-0 font-mono text-[10px] max-md:text-[11px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
                           Quick set:
                         </span>
                         {[
@@ -505,7 +505,7 @@ export default function CreateTaskModal({
                               type="button"
                               onClick={() => handleQuickSetDueDate(preset.days)}
                               className={cn(
-                                "inline-flex h-6 items-center rounded-[3px] shrink-0 whitespace-nowrap border px-1.5 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors",
+                                "inline-flex h-6 items-center rounded-[3px] shrink-0 whitespace-nowrap border px-1.5 font-mono text-[10px] max-md:text-[11px] uppercase tracking-[0.06em] transition-colors",
                                 isActive
                                   ? "border-primary bg-primary/10 text-primary font-semibold"
                                   : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground font-medium",
@@ -535,13 +535,13 @@ export default function CreateTaskModal({
                         onChange={(e) => setStoryPoints(e.target.value)}
                         placeholder="e.g., 3, 5, 8"
                         className={cn(
-                          "h-[34px]",
+                          "nb-touch-target h-[34px]",
                           inputClassName(!!fieldErrors.storyPoints),
                           "font-mono",
                         )}
                       />
                       <div className="flex flex-wrap items-center gap-1">
-                        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
+                        <span className="shrink-0 font-mono text-[10px] max-md:text-[11px] uppercase tracking-[0.06em] text-muted-foreground mr-0.5 whitespace-nowrap">
                           Presets:
                         </span>
                         {[1, 2, 3, 5, 8, 13].map((points) => (
@@ -556,7 +556,7 @@ export default function CreateTaskModal({
                               )
                             }
                             className={cn(
-                              "inline-flex h-6 w-6 items-center justify-center rounded-[3px] shrink-0 whitespace-nowrap border font-mono text-[10px] font-semibold transition-colors",
+                              "inline-flex h-6 w-6 items-center justify-center rounded-[3px] shrink-0 whitespace-nowrap border font-mono text-[10px] max-md:text-[11px] font-semibold transition-colors",
                               storyPoints === String(points)
                                 ? "border-primary bg-primary/10 text-primary"
                                 : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -576,12 +576,12 @@ export default function CreateTaskModal({
                 <SectionDivider title="Subtasks & References">
                   <div className="flex items-center gap-2">
                     {subtasks.length > 0 && (
-                      <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/40 px-1 font-mono text-[10px] font-semibold text-muted-foreground">
+                      <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/40 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground">
                         {subtasks.length} {subtasks.length === 1 ? "subtask" : "subtasks"}
                       </span>
                     )}
                     {attachments.length > 0 && (
-                      <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/40 px-1 font-mono text-[10px] font-semibold text-muted-foreground">
+                      <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-[3px] border border-border bg-muted/40 px-1 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground">
                         {attachments.length} {attachments.length === 1 ? "file" : "files"}
                       </span>
                     )}
@@ -638,7 +638,7 @@ export default function CreateTaskModal({
                       type="button"
                       onClick={handleAddSubtask}
                       disabled={!newSubtaskTitle.trim()}
-                      className="h-[34px] rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50 shrink-0"
+                      className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50 shrink-0"
                     >
                       + Add
                     </button>
@@ -654,7 +654,7 @@ export default function CreateTaskModal({
                     <button
                       type="button"
                       onClick={() => setIsFilePickerOpen(true)}
-                      className="inline-flex h-7 items-center gap-1.5 rounded-[5px] border border-dashed border-border bg-card px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                      className="nb-touch-target inline-flex h-7 items-center gap-1.5 rounded-[5px] border border-dashed border-border bg-card px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
                     >
                       <Paperclip className="size-3" />
                       Attach files
@@ -704,14 +704,14 @@ export default function CreateTaskModal({
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="h-[34px] rounded-[5px] border border-border bg-card px-4 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-4 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="h-[34px] rounded-[5px] bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="nb-touch-target h-[34px] rounded-[5px] bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-2xs transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmitting ? "Creating..." : "Create Task"}
               </button>

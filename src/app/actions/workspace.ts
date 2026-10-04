@@ -2,7 +2,8 @@
 
 import { db } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
-import { projects, tasks, projectMembers, roleApplications, messageWorkflowItems } from "@/lib/db/schema";
+import { projects, tasks, projectMembers, roleApplications } from "@/lib/db/schema";
+import { countPendingInvitationsForCandidate } from "@/lib/projects/project-invitations";
 import { eq, and, isNull, sql, exists, ne, or, count } from "drizzle-orm";
 import { normalizeTaskSurfaceRecord } from "@/lib/projects/task-presentation";
 
@@ -41,11 +42,7 @@ export async function getWorkspaceSummaryAction() {
                 eq(roleApplications.creatorId, user.id),
                 eq(roleApplications.status, "pending"),
             )),
-            db.select({ value: count() }).from(messageWorkflowItems).where(and(
-                eq(messageWorkflowItems.assigneeUserId, user.id),
-                eq(messageWorkflowItems.kind, "project_invite"),
-                eq(messageWorkflowItems.status, "pending"),
-            )),
+            countPendingInvitationsForCandidate(user.id).then((value) => [{ value }]),
         ]);
 
         return {

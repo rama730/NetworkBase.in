@@ -14,6 +14,7 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 
 import * as React from "react";
@@ -28,7 +29,7 @@ import {
   Trash2,
   Upload,
   X,
-  MoreHorizontal, Download, Info, History, ListTodo, ArrowDownWideNarrow, BookOpenText, FileUp, Link2, Tag,
+  MoreHorizontal, Download, Info, History, ListTodo, ArrowDownWideNarrow, FileUp, Link2, Tag,
 } from "lucide-react";
 
 import {
@@ -48,8 +49,6 @@ import { getProjectNodes } from "@/app/actions/files/nodes";
 import { getProjectFileSignedUrl } from "@/app/actions/files/content";
 import { useFilesWorkspaceView } from "../FilesWorkspaceViews";
 import { FilesWorkspaceMenu, FilesHeaderSlot } from "../FilesWorkspaceHeader";
-import { TaskSearchPicker } from "../picker/TaskSearchPicker";
-import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
 import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
 import { isTextLike as isTextFile } from "../../utils/fileKind";
 import type { ProjectNode } from "@/lib/db/schema";
@@ -64,7 +63,6 @@ import { EMPTY_ARRAY, EMPTY_OBJECT } from "../../explorer/explorerTypes";
 import { useExplorerDragDrop } from "../../explorer/useExplorerDragDrop";
 import { useExplorerMutations } from "../../explorer/useExplorerMutations";
 import { useExplorerOperationLog } from "../../explorer/useExplorerOperationLog";
-import { ExplorerDialogsHost } from "../../explorer/ExplorerDialogsHost";
 
 import { useFolderContents, FilesTabBootContext } from "../hooks/useFolderContents";
 import { useNavigateTo } from "../hooks/useNavigateTo";
@@ -86,6 +84,10 @@ import {
   type FilesTabUploadConfirmResult,
 } from "../upload/FilesTabUploadModal";
 import { validateUploadSelection } from "@/lib/files/upload-validator";
+
+const TaskSearchPicker = dynamic(() => import("../picker/TaskSearchPicker").then((mod) => mod.TaskSearchPicker), { ssr: false });
+const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
+const ExplorerDialogsHost = dynamic(() => import("../../explorer/ExplorerDialogsHost").then((mod) => mod.ExplorerDialogsHost), { ssr: false });
 
 /**
  * Stable empty reference for the git `changedFiles` slice. The store
@@ -196,7 +198,7 @@ const FolderListRowItem = React.memo(function FolderListRowItem({
           <button
             type="button"
             aria-label={`Actions for ${node.name}`}
-            className="flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
+            className="nb-touch-target flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:text-[#141A1E] hover:bg-[#F3F0EA] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-foreground"
           >
             <MoreHorizontal aria-hidden="true" className="size-4" />
           </button>
@@ -311,7 +313,7 @@ export function FolderListView({
   }
   const { loadFolderContent } = bootContext;
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
-  const loadMore = React.useCallback(async () => {
+  const loadMore = async () => {
     if (!folderPage.hasMore || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
@@ -323,7 +325,7 @@ export function FolderListView({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [folderId, folderPage.hasMore, isLoadingMore, loadFolderContent]);
+  };
 
   // ── Folder contents (status / children / retry) ───────────────────
   const cachedFolder = useFolderContents(projectId, folderId, !collection && !search && sort === "name");
@@ -487,8 +489,7 @@ export function FolderListView({
   const [pendingRevisionFile, setPendingRevisionFile] = React.useState<File | null>(null);
   const [isRevisionModalOpen, setIsRevisionModalOpen] = React.useState(false);
 
-  const triggerRevisionFileInput = React.useCallback(
-    (node: FolderListRowNode) => {
+  const triggerRevisionFileInput = (node: FolderListRowNode) => {
       setTargetRevisionNode(node);
       const fileInputEl = document.createElement("input");
       fileInputEl.type = "file";
@@ -509,9 +510,7 @@ export function FolderListView({
         setIsRevisionModalOpen(true);
       };
       fileInputEl.click();
-    },
-    [],
-  );
+    };
 
   const handleRevisionOptionSelected = React.useCallback(
     async (choice: { option: "overwrite" | "commit"; comment?: string }) => {
@@ -521,12 +520,10 @@ export function FolderListView({
       setPendingRevisionFile(null);
 
       try {
-        const [{ saveFileRevision }, { createClient }, { logger }] = await Promise.all([
+        const [{ saveFileRevision }, { logger }] = await Promise.all([
           import("@/hooks/useFileVersions"),
-          import("@/lib/supabase/client"),
           import("@/lib/logger"),
         ]);
-        const supabaseClient = createClient();
         const result = await saveFileRevision({
           projectId,
           nodeId: node.id,
@@ -534,7 +531,6 @@ export function FolderListView({
           mode: choice.option === "commit" ? "new_revision" : "active_revision",
           comment: choice.comment || (choice.option === "commit" ? "Uploaded via Files Tab" : null),
           baseVersion: node.currentVersion,
-          supabase: supabaseClient,
         });
 
         if (result.success) {
@@ -588,41 +584,31 @@ export function FolderListView({
     };
   }, [resetDragState]);
 
-  const handleDragEnter = React.useCallback(
-    (e: React.DragEvent) => {
-      if (!canEdit) return;
-      if (!e.dataTransfer.types.includes("Files")) return;
-      e.preventDefault();
-      dragCounterRef.current += 1;
-      setIsDragActive(true);
-    },
-    [canEdit],
-  );
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (!canEdit) return;
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    setIsDragActive(true);
+  };
 
-  const handleDragOver = React.useCallback(
-    (e: React.DragEvent) => {
-      if (!canEdit) return;
-      if (!e.dataTransfer.types.includes("Files")) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-    },
-    [canEdit],
-  );
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!canEdit) return;
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
 
-  const handleDragLeave = React.useCallback(
-    (e: React.DragEvent) => {
+  const handleDragLeave = (e: React.DragEvent) => {
       if (!canEdit) return;
       e.preventDefault();
       dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
       if (dragCounterRef.current === 0) {
         setIsDragActive(false);
       }
-    },
-    [canEdit],
-  );
+    };
 
-  const handleDrop = React.useCallback(
-    (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
       if (!canEdit) return;
       e.preventDefault();
       e.stopPropagation();
@@ -639,9 +625,7 @@ export function FolderListView({
 
       setTargetDropFolderId(folderId);
       setPendingUploadFiles(validation.files);
-    },
-    [canEdit, folderId, resetDragState],
-  );
+    };
 
   // ── Desktop file drop wiring (opens modal with target folder) ──────────
   const handleDesktopFileDrop = React.useCallback(
@@ -671,14 +655,11 @@ export function FolderListView({
         try {
           const file = filesToUpload[0]!;
           const { saveFileRevision } = await import("@/hooks/useFileVersions");
-          const { createClient } = await import("@/lib/supabase/client");
-          const supabase = createClient();
           const saveRes = await saveFileRevision({
             projectId,
             nodeId: result.versionNodeId,
             file,
             mode: "new_revision",
-            supabase,
           });
           if (!saveRes.success) {
             throw new Error(saveRes.error || "Failed to save new version");
@@ -894,38 +875,6 @@ export function FolderListView({
                       Attach task…
                     </DropdownMenuItem>
                   )}
-                  {canEdit && (/\.(md|mdx|markdown|txt)$/i.test(menuNode.name) || /^readme(\.|$)/i.test(menuNode.name)) && (
-                    <DropdownMenuItem
-                      onSelect={async () => {
-                        try {
-                          const { normalizeProjectDocSlug } = await import("@/lib/projects/doc");
-                          const { linkProjectDocAction } = await import("@/app/actions/project/doc");
-                          const docSlug = normalizeProjectDocSlug(menuNode.name, "doc");
-                          const res = await linkProjectDocAction(projectId, menuNode.id, docSlug);
-                          if (res?.error) {
-                            toast.error(res.error);
-                          } else {
-                            toast.success("File linked to Doc successfully", {
-                              action: {
-                                label: "View in Docs",
-                                onClick: () => {
-                                  const url = new URL(window.location.href);
-                                  url.searchParams.set("tab", "docs");
-                                  url.searchParams.set("doc", docSlug);
-                                  window.location.href = url.toString();
-                                },
-                              },
-                            });
-                          }
-                        } catch {
-                          toast.error("Failed to link file to Doc");
-                        }
-                      }}
-                    >
-                      <BookOpenText className="mr-2 size-4" />
-                      Use as a doc
-                    </DropdownMenuItem>
-                  )}
                   {workspace?.canReadTasks && (
                     <DropdownMenuItem onSelect={() => openInspector(menuNode, "linked_tasks")}>
                       <Link2 className="mr-2 size-4" />
@@ -1059,7 +1008,7 @@ export function FolderListView({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                  className="nb-touch-target flex h-8 items-center gap-1.5 rounded-[5px] bg-primary px-2.5 text-xs font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                   aria-label="Upload files or folder"
                 >
                   <Upload className="size-3.5" aria-hidden="true" />
@@ -1082,7 +1031,7 @@ export function FolderListView({
               <button
                 type="button"
                 onClick={() => openCreateInFolder(folderId, "folder")}
-                className="flex h-8 items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+                className="nb-touch-target flex h-8 items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-xs font-medium text-foreground hover:bg-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
                 aria-label="New folder"
               >
                 <FolderPlus className="size-3.5" aria-hidden="true" />
@@ -1278,7 +1227,7 @@ export function FolderListView({
               type="button"
               onClick={resetDragState}
               aria-label="Dismiss drop overlay"
-              className="absolute top-2.5 right-2.5 size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[#F3F0EA] dark:hover:bg-muted transition-colors"
+              className="nb-touch-target absolute top-2.5 right-2.5 size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[#F3F0EA] dark:hover:bg-muted transition-colors"
             >
               <X className="size-4" />
             </button>
@@ -1342,4 +1291,3 @@ export function FolderListView({
 }
 
 export default FolderListView;
-

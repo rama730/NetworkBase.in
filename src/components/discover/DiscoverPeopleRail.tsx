@@ -17,7 +17,7 @@ import {
     useSuggestedPeople,
 } from "@/hooks/useConnections";
 import { canonicalSkillKey, matchingSkillLabels } from "@/lib/skills/matching";
-import { resolveClientSkill } from "@/lib/skills/client";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { profileHref } from "@/lib/routing/identifiers";
 
 type DiscoverPeopleRailProps = {
@@ -32,6 +32,7 @@ function SuggestedPersonCard({
     profile: DiscoverConnectionItem;
     viewerSkills: string[];
 }) {
+    useSkillCatalog();
     const { sendRequest } = useConnectionMutations();
     const [requestSent, setRequestSent] = useState(false);
     const displayName = profile.fullName || profile.username || "NetworkBase member";
@@ -71,7 +72,7 @@ function SuggestedPersonCard({
             <Check className="size-4" aria-hidden="true" /> Sent
         </span>
     ) : status === "pending_received" ? (
-        <Link href="/network?tab=invitations" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href="/network?tab=invitations" className="nb-touch-target inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium text-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Clock className="size-4" aria-hidden="true" /> Review
         </Link>
     ) : null;
@@ -80,7 +81,7 @@ function SuggestedPersonCard({
         <article className="nb-discover-person-card">
             <Link href={profileHref(profile)} className="nb-discover-person-avatar focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <UserAvatar identity={profile} size={56} fallbackClassName="text-base font-semibold" />
-                <PersonPresenceDot lastActiveAt={profile.lastActiveAt} compact />
+                <PersonPresenceDot userId={profile.id} lastActiveAt={profile.lastActiveAt} compact />
             </Link>
             <div className="nb-discover-person-content">
                 <div className="flex min-w-0 items-baseline gap-1.5">

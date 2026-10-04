@@ -200,7 +200,7 @@ export function ProjectRolesEditor({
                         variant="outline"
                         onClick={handleAddRoleAndSelect}
                         disabled={disabled}
-                        className="mt-4 h-[34px] gap-1.5 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
+                        className="nb-touch-target mt-4 h-[34px] gap-1.5 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
                     >
                         <Plus className="h-3.5 w-3.5" />
                         Add Position
@@ -240,7 +240,7 @@ export function ProjectRolesEditor({
                         variant="outline"
                         onClick={handleAddRoleAndSelect}
                         disabled={disabled}
-                        className="h-[34px] gap-1.5 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted shrink-0"
+                        className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted shrink-0"
                     >
                         <Plus className="h-3.5 w-3.5" />
                         Add Position
@@ -301,7 +301,7 @@ export function ProjectRolesEditor({
                                             <span className="font-semibold text-foreground text-xs leading-tight truncate max-w-[120px]">
                                                 {entry.member.fullName || entry.member.username}
                                             </span>
-                                            <span className="text-[10px] text-muted-foreground leading-tight truncate max-w-[120px]">
+                                            <span className="text-[10px] max-md:text-[11px] text-muted-foreground leading-tight truncate max-w-[120px]">
                                                 {entry.field.role || "Lead"}
                                             </span>
                                         </div>
@@ -372,7 +372,7 @@ export function ProjectRolesEditor({
                                             <span className="font-semibold text-foreground text-xs leading-tight truncate max-w-[120px]">
                                                 {entry.field.role || "Untitled Role"}
                                             </span>
-                                            <span className="text-[10px] text-muted-foreground leading-tight">
+                                            <span className="text-[10px] max-md:text-[11px] text-muted-foreground leading-tight">
                                                 {entry.openCount === 1 ? "1 open spot" : `${entry.openCount} open spots`}
                                             </span>
                                         </div>
@@ -508,7 +508,7 @@ export function ProjectRolesEditor({
                                         {...register(`roles.${activeIndex}.role`)}
                                         disabled={disabled}
                                         placeholder="e.g. Frontend Lead"
-                                        className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60"
                                     />
                                     {roleErrors?.[activeIndex]?.role?.message ? (
                                         <p className="text-xs text-destructive">{roleErrors[activeIndex]?.role?.message}</p>
@@ -524,7 +524,7 @@ export function ProjectRolesEditor({
                                             min={Math.max(1, activeOccupiedCount)}
                                             {...register(`roles.${activeIndex}.count`, { valueAsNumber: true })}
                                             disabled={disabled}
-                                            className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                            className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60"
                                         />
                                         <p className="nb-compact text-[11px] text-muted-foreground leading-tight">
                                             {activeOccupiedCount} occupied {activeOccupiedCount === 1 ? "seat" : "seats"} · {activeRemainingOpenCount} open {activeRemainingOpenCount === 1 ? "seat" : "seats"}
@@ -605,7 +605,7 @@ export function ProjectRolesEditor({
                                         aria-label={`Remove role ${activeIndex + 1}`}
                                         onClick={() => handleRemoveRoleAndSelect(activeIndex, activeField.id)}
                                         disabled={disabled || isLeadRole}
-                                        className="h-[34px] gap-1.5 rounded-[5px] px-3 text-[13px] font-medium leading-[1.2] text-muted-foreground hover:bg-destructive/10 hover:text-destructive shrink-0"
+                                        className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] px-3 text-[13px] font-medium leading-[1.2] text-muted-foreground hover:bg-destructive/10 hover:text-destructive shrink-0"
                                         style={isLeadRole ? { opacity: 0.3, cursor: "not-allowed" } : undefined}
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />
@@ -623,7 +623,7 @@ export function ProjectRolesEditor({
                                         {...register(`roles.${activeIndex}.role`)}
                                         disabled={disabled}
                                         placeholder="e.g. Frontend Developer"
-                                        className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60"
                                     />
                                     {roleErrors?.[activeIndex]?.role?.message ? (
                                         <p className="text-xs text-destructive">{roleErrors[activeIndex]?.role?.message}</p>
@@ -638,7 +638,7 @@ export function ProjectRolesEditor({
                                         min={Math.max(1, activeOccupiedCount)}
                                         {...register(`roles.${activeIndex}.count`, { valueAsNumber: true })}
                                         disabled={disabled || isLeadRole}
-                                        className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 text-[13px] leading-[1.5] text-foreground placeholder:text-muted-foreground outline-none transition focus:border-foreground focus:ring-1 focus:ring-foreground/20 disabled:cursor-not-allowed disabled:opacity-60"
                                     />
                                     <p className="nb-compact text-[11px] text-muted-foreground leading-tight">
                                         {activeOccupiedCount} occupied {activeOccupiedCount === 1 ? "seat" : "seats"} · {activeRemainingOpenCount} open {activeRemainingOpenCount === 1 ? "seat" : "seats"}
@@ -714,12 +714,12 @@ export function ProjectRolesEditor({
                                 {Array.isArray(activeField.skills) && activeField.skills.length > 0 ? (
                                     <div className="flex flex-wrap gap-1 pt-1">
                                         {activeField.skills.slice(0, 4).map((sk) => (
-                                            <span key={sk} className="inline-flex items-center rounded-[3px] px-1.5 py-0.5 bg-background border border-border text-foreground font-mono text-[10px]">
+                                            <span key={sk} className="inline-flex items-center rounded-[3px] px-1.5 py-0.5 bg-background border border-border text-foreground font-mono text-[10px] max-md:text-[11px]">
                                                 {sk}
                                             </span>
                                         ))}
                                         {activeField.skills.length > 4 ? (
-                                            <span className="text-[10px] text-muted-foreground self-center font-mono">
+                                            <span className="text-[10px] max-md:text-[11px] text-muted-foreground self-center font-mono">
                                                 +{activeField.skills.length - 4} more
                                             </span>
                                         ) : null}
@@ -730,7 +730,7 @@ export function ProjectRolesEditor({
                                         type="button"
                                         variant="outline"
                                         disabled
-                                        className="h-[34px] w-full rounded-[5px] text-[13px] font-medium leading-[1.2] opacity-70 cursor-default"
+                                        className="nb-touch-target h-[34px] w-full rounded-[5px] text-[13px] font-medium leading-[1.2] opacity-70 cursor-default"
                                     >
                                         Apply for this role
                                     </Button>

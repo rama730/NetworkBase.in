@@ -140,7 +140,7 @@ function TaskRow({
                 {hasValidDueDate && taskRecord.status !== "done" && (
                     <div
                         className={cn(
-                            "flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 font-mono text-[10px] font-semibold",
+                            "flex items-center gap-1 rounded-[3px] border px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold",
                             timeHealth.state === "overdue" || timeHealth.state === "overtime"
                                 ? "border-destructive/20 bg-destructive/10 text-destructive"
                                 : "border-border bg-muted/40 text-muted-foreground",
@@ -161,7 +161,7 @@ function TaskRow({
                             size={18}
                             className="size-[18px]"
                             roundedClassName="rounded-[3px]"
-                            fallbackClassName="text-[10px]"
+                            fallbackClassName="text-[10px] max-md:text-[11px]"
                         />
                     </div>
                 ) : (
@@ -272,7 +272,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
             group.tasks.push(task);
             grouped.set(project.id, group);
         }
-        // ponytail: keep the API's urgency-aware task order when grouping,
+        // Keep the API's urgency-aware task order when grouping,
         // rather than re-sorting projects alphabetically and burying work that
         // needs attention.
         return Array.from(grouped.values());
@@ -312,7 +312,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
         } catch {
             // In-memory handoff still covers browsers with blocked storage.
         }
-        // ponytail: router.push is sufficient here. A prefetch immediately
+        // Router.push is sufficient here. A prefetch immediately
         // followed by a navigation has no user-visible benefit and competes
         // with the task surface's own data request.
         router.push(`/projects/${projectIdentifier}?tab=tasks`);
@@ -370,7 +370,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                             aria-label="Filter workspace tasks"
                             title="Filter workspace tasks"
                             className={cn(
-                                "nb-icon-button h-8 w-8 rounded-[5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                "nb-touch-target nb-icon-button h-8 w-8 rounded-[5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                 hasActiveFilters
                                     ? "border border-border bg-muted/80 text-primary"
                                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -411,7 +411,7 @@ export default function WorkspaceTasksTab({ isActive = true }: WorkspaceTasksTab
                                 onChange={(event) => setSearch(event.target.value)}
                                 onKeyDown={(event) => event.stopPropagation()}
                                 placeholder="Search tasks or projects"
-                                className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                                className="nb-touch-target h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-xs text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                             />
                         </label>
                     </DropdownMenuContent>

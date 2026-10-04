@@ -14,33 +14,37 @@ describe("SQL audit query remediations", () => {
   });
 
   it("bounds Git storage writes and persists only confirmed uploads", () => {
-    const source = read("src/inngest/functions/git-sync.ts");
-    assert.match(source, /runWithConcurrency\(\s*repoFiles,\s*GITHUB_WORKER_BUDGETS\.applyConcurrency/);
-    assert.match(source, /confirmedUploads\.map/);
-    assert.match(source, /Leave the database hash\/key unchanged so the next pull retries/);
-    assert.doesNotMatch(source, /s3UploadPromises/);
+    const source = read("src/lib/github/sync-service.ts");
+    assert.match(source, /const uploads = await Promise\.allSettled\(/);
+    assert.match(source, /if \(upload\.status === "fulfilled" && upload\.value\)\s*snapshotRefs\.push\(upload\.value\)/);
+    assert.match(source, /if \(failed\?\.status === "rejected"\) throw failed\.reason;/);
+    assert.match(source, /githubSyncSnapshotAssets/);
+    assert.match(source, /canonical abandoned-asset worker/);
+    assert.doesNotMatch(source, /if \(!persisted && uploaded\.length\) await storage\.remove\(uploaded\);/);
+    assert.match(source, /for \(let offset = 0; offset < choices\.length; offset \+= batchSize\)/);
   });
 
-  it("claims a bounded upload-intent cleanup batch and retries Storage failures", () => {
+  it("claims a bounded upload-intent batch and delegates canonical deletion", () => {
     const source = read("src/lib/upload/upload-intents.ts");
-    assert.match(source, /\.limit\(100\)\s*\.for\("update", \{ skipLocked: true \}\)/);
-    assert.match(source, /retryIds\.push/);
-    assert.match(source, /eq\(uploadIntents\.status, "expired"\), inArray\(uploadIntents\.id, removedIds\)/);
+    assert.match(source, /\.limit\(100\)\s*\.for\("update", \{ of: uploadIntents, skipLocked: true \}\)/);
+    assert.match(source, /credentialGraceCutoff/);
+    assert.match(source, /state: "delete_pending"/);
+    assert.match(source, /legacyExpired/);
   });
 
   it("serializes connection reactivation and application capacity", () => {
     const connections = read("src/app/actions/connections.ts");
     const applications = read("src/app/actions/applications/internal.ts");
-    assert.match(connections, /pg_advisory_xact_lock\(hashtext\('connection-pair'\)/);
+    assert.match(connections, /pg_advisory_xact_lock\(hashtextextended\('connection-pair:' \|\| \$\{pairKey\}, 0\)\)/);
     assert.match(connections, /eq\(connections\.status, 'pending'\)/);
     assert.match(connections, /jsonb_to_recordset/);
-    assert.match(applications, /pg_advisory_xact_lock\(hashtext\('application-pending-cap'\)/);
+    assert.match(applications, /pg_advisory_xact_lock\(hashtextextended\('application-pending-cap:' \|\| \$\{candidate\.applicantId\}, 0\)\)/);
     assert.match(applications, /APPLICATION_PENDING_CAP_PER_USER/);
   });
 
   it("keeps selector reads search-keyset paginated and bounded", () => {
     const profile = read("src/lib/profile/collaboration.ts");
-    const projects = read("src/app/actions/project/_all.ts");
+    const projects = read("src/app/actions/project/index.ts");
     assert.match(profile, /input: \{ search\?: string; cursor\?: string; limit\?: number; projectId\?: string \}/);
     assert.match(profile, /ORDER BY p\.updated_at DESC, p\.id DESC/);
     assert.match(projects, /input: \{ search\?: string; cursor\?: string; limit\?: number \}/);
@@ -66,12 +70,12 @@ describe("SQL audit query remediations", () => {
 
   it("bounds workspace pages and consolidates project task aggregates", () => {
     const workspace = read("src/app/actions/workspace.ts");
-    const projects = read("src/app/actions/project/_all.ts");
+    const projects = read("src/app/actions/project/index.ts");
     assert.match(workspace, /function normalizeWorkspaceLimit/);
     assert.match(workspace, /Number\.isFinite\(parsed\)/);
-    assert.match(workspace, /isUuid\(cursor\.beforeId\)/);
-    assert.match(workspace, /SELECT 1 FROM \$\{projects\} project/);
-    assert.match(workspace, /limit: limit \+ 1/);
+    assert.match(workspace, /const visibleProjectCheck = exists\(/);
+    assert.match(workspace, /eq\(projectMembers\.userId, user\.id\)/);
+    assert.match(workspace, /limit: safeLimit \+ 1/);
     assert.match(projects, /WITH selected_tasks AS/);
     assert.match(projects, /subtask_counts AS/);
     assert.match(projects, /file_counts AS/);
@@ -90,20 +94,15 @@ describe("SQL audit query remediations", () => {
     assert.match(actions, /applyConnectionPairsToRedis\(accepted, 'add'\)/);
   });
 
-  it("paginates both unified history sources without dropping application pages", () => {
-    const unified = read("src/app/actions/request-history.ts");
+  it("paginates application request history without dropping pages", () => {
     const applications = read("src/app/actions/applications/internal.ts");
-    assert.match(unified, /connectionCursor/);
-    assert.match(unified, /applicationCursor/);
-    assert.match(unified, /getApplicationRequestHistory\(effectiveLimit, sourceCursor\.applicationCursor/);
-    assert.doesNotMatch(unified, /cursor \? Promise\.resolve/);
     assert.match(applications, /applicationEventAt/);
     assert.match(applications, /limit: effectiveLimit \+ 1/);
     assert.match(applications, /isUuid\(cursorId\)/);
   });
 
   it("uses OCC for lifecycle writes and one project snapshot for update access", () => {
-    const projects = read("src/app/actions/project/_all.ts");
+    const projects = read("src/app/actions/project/index.ts");
     const updates = read("src/app/actions/project/updates.ts");
     assert.match(projects, /eq\(projects\.updatedAt, project\.updatedAt\)/);
     assert.match(projects, /Project lifecycle changed\. Refresh and retry\./);

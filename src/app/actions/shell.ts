@@ -1,7 +1,7 @@
 "use server";
 
+import { bootstrap as readChatSummary } from "@/app/actions/chat/read";
 import { readNetworkPendingCountsAction } from "@/app/actions/connections";
-import { getUnreadCount } from "@/app/actions/messaging/_all";
 import { readNotificationPreferencesAction, readNotificationUnreadCountAction } from "@/app/actions/notifications";
 import { getWorkspaceSummaryAction } from "@/app/actions/workspace";
 
@@ -9,7 +9,7 @@ const SHELL_READERS = {
     workspaceSummary: getWorkspaceSummaryAction,
     notificationUnreadCount: readNotificationUnreadCountAction,
     notificationPreferences: readNotificationPreferencesAction,
-    messageUnreadCount: getUnreadCount,
+    chatSummary: () => readChatSummary(),
     networkPendingCounts: readNetworkPendingCountsAction,
 };
 

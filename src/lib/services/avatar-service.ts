@@ -9,6 +9,7 @@
 export async function compressAvatar(file: File): Promise<Blob> {
     return new Promise((resolve, reject) => {
         const img = new Image()
+        const objectUrl = URL.createObjectURL(file)
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
 
@@ -18,6 +19,11 @@ export async function compressAvatar(file: File): Promise<Blob> {
         }
 
         img.onload = () => {
+            URL.revokeObjectURL(objectUrl)
+            if (img.width <= 0 || img.height <= 0 || img.width * img.height > 16_000_000) {
+                reject(new Error('Image dimensions exceed the 16 megapixel limit'))
+                return
+            }
             const size = 400
             const minDim = Math.min(img.width, img.height)
             const sx = (img.width - minDim) / 2
@@ -38,7 +44,10 @@ export async function compressAvatar(file: File): Promise<Blob> {
             )
         }
 
-        img.onerror = () => reject(new Error('Failed to load image'))
-        img.src = URL.createObjectURL(file)
+        img.onerror = () => {
+            URL.revokeObjectURL(objectUrl)
+            reject(new Error('Failed to load image'))
+        }
+        img.src = objectUrl
     })
 }

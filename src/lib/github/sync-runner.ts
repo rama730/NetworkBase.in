@@ -53,18 +53,26 @@ async function ensureIncomingParent(
   path: string,
   actorId: string,
 ) {
+  const segments = path.split("/").slice(0, -1);
+  if (segments.length === 0) return null;
+  const prefixes = segments.map((_, index) => `/${segments.slice(0, index + 1).join("/")}`);
+  const existingByPath = new Map(
+    (
+      await tx.query.projectNodes.findMany({
+        where: and(
+          eq(projectNodes.projectId, projectId),
+          inArray(projectNodes.path, prefixes),
+          isNull(projectNodes.taskId),
+          isNull(projectNodes.deletedAt),
+        ),
+        columns: { id: true, path: true, type: true },
+      })
+    ).map((node) => [node.path, node]),
+  );
   let parentId: string | null = null;
-  let prefix = "";
-  for (const segment of path.split("/").slice(0, -1)) {
-    prefix += `/${segment}`;
-    const existing = await tx.query.projectNodes.findFirst({
-      where: and(
-        eq(projectNodes.projectId, projectId),
-        eq(projectNodes.path, prefix),
-        isNull(projectNodes.taskId),
-        isNull(projectNodes.deletedAt),
-      ),
-    });
+  for (const [index, segment] of segments.entries()) {
+    const prefix = prefixes[index]!;
+    const existing = existingByPath.get(prefix);
     if (existing && existing.type !== "folder")
       throw new Error("Incoming folder collides with a file");
     if (existing) parentId = existing.id;

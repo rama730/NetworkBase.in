@@ -38,8 +38,9 @@ test("phase 1 keeps one named radio source selector and a flat accessible reposi
   assert.match(selector, /Choose a starting point/);
   assert.match(selector, /border-primary bg-secondary/);
   assert.match(selector, /md:grid-cols-2 lg:grid-cols-3/);
-  assert.match(selector, /min-h-44/);
-  assert.match(selector, /p-6 text-left/);
+  // Tiles size to their content (compact rows on phones), no fixed minimum height.
+  assert.doesNotMatch(selector, /min-h-44/);
+  assert.match(selector, /p-4 text-left md:p-6/);
   assert.doesNotMatch(selector, /size-2 rounded-full bg-primary/);
   assert.doesNotMatch(selector, /rounded-full border/);
   assert.match(phase, /role="treeitem"/);
@@ -67,21 +68,27 @@ test("phase 1 keeps one named radio source selector and a flat accessible reposi
 });
 
 test("wizard shell is reactive, uses the project-setup exit dialog, and chunks upload signing", async () => {
-  const [wizard, hook, footer] = await Promise.all([
+  const [wizard, hook, footer, folderUpload] = await Promise.all([
     readFile("src/components/projects/create-wizard/CreateProjectWizard.tsx", "utf8"),
     readFile("src/components/projects/create-wizard/useCreateProjectWizard.ts", "utf8"),
     readFile("src/components/projects/create-wizard/WizardFooter.tsx", "utf8"),
+    readFile("src/lib/upload/chunked-upload.ts", "utf8"),
   ]);
 
-  assert.match(wizard, /methods\.watch\('import_source\.metadata'\)/);
+  // Reactive via a real subscription (useWatch); render-time watch() went stale after GitHub -> Scratch.
+  assert.match(wizard, /useWatch\(\{[\s\S]*'import_source\.metadata'\]/);
   assert.match(wizard, /<LeaveProjectSetupDialog/);
   assert.match(wizard, /app-scroll app-scroll-y app-scroll-gutter/);
-  assert.ok(wizard.includes("sm:h-[calc(100dvh-48px)]"));
-  assert.ok(wizard.includes("sm:max-h-[calc(100dvh-48px)]"));
-  assert.ok(wizard.includes("sm:max-w-[1000px]"));
-  assert.match(wizard, /presentation === 'page'.*: 'h-full max-h-full'/);
-  assert.match(hook, /offset \+= 200/);
-  assert.match(hook, /uploadUrlRequests\.slice\(offset, offset \+ 200\)/);
+  // A page in the app shell (spec §18): fills the main area, content in the shared 1000px column.
+  assert.ok(wizard.includes("relative flex h-full min-h-0 w-full flex-col"));
+  assert.ok(footer.includes("max-w-[1000px]"));
+  assert.doesNotMatch(wizard, /presentation/);
+  assert.match(hook, /getUploadPresignedUrl/);
+  assert.match(folderUpload, /getPresignedUrl/);
+  assert.match(folderUpload, /const DEFAULT_MAX_CONCURRENCY = 4/);
+  assert.match(folderUpload, /Math\.min\(DEFAULT_MAX_CONCURRENCY,/);
+  assert.match(folderUpload, /uploadToSupabaseSignedUrl/);
+  assert.doesNotMatch(hook, /uploadUrlRequests\.slice\(offset, offset \+ 200\)/);
   assert.match(hook, /branchOverride \?\? watchedBranch/);
   assert.match(hook, /setGithubFolderEntries\(\{\}\)/);
   assert.doesNotMatch(hook, /window\.scrollTo/);

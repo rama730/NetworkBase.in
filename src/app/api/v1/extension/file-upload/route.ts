@@ -12,13 +12,13 @@ import {
   resolveWritableExtensionFile,
 } from "@/app/api/v1/extension/_file-revision";
 import { db } from "@/lib/db";
-import { fileVersions, projectNodes, uploadIntents } from "@/lib/db/schema";
+import { fileVersions, projectNodes, storageAssets, uploadIntents } from "@/lib/db/schema";
 import { recordExtensionMetric } from "@/lib/extension/observability";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import { FILE_REVISION_MODES, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/server";
-import { createUploadIntent } from "@/lib/upload/upload-intents";
+import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { validateCsrf } from "@/lib/security/csrf";
 
 export const runtime = "nodejs";
@@ -139,7 +139,7 @@ async function handleIntent(userId: string, body: z.infer<typeof intentSchema>) 
       const adminClient = await createAdminClient();
       const { data: uploadSession, error } = await adminClient.storage
         .from(previousIntent.bucket)
-        .createSignedUploadUrl(previousIntent.storageKey);
+        .createSignedUploadUrl(previousIntent.storageKey, { upsert: false });
       if (!error && uploadSession) {
         return jsonSuccess({
           uploadIntentId: previousIntent.id,
@@ -162,22 +162,14 @@ async function handleIntent(userId: string, body: z.infer<typeof intentSchema>) 
   if (conflict) return conflict;
 
   const contentHash = body.contentHash.toLowerCase();
-  const storageKey = buildExtensionRevisionStorageKey(body.projectId, node.id, body.path, contentHash);
+  const storageKey = buildExtensionRevisionStorageKey(
+    body.projectId,
+    node.id,
+    body.path,
+    contentHash,
+    body.operationId,
+  );
   const bucket = "project-files";
-  const adminClient = await createAdminClient();
-  const { data: uploadSession, error: storageError } = await adminClient.storage
-    .from(bucket)
-    .createSignedUploadUrl(storageKey);
-
-  if (storageError || !uploadSession) {
-    logger.error("[api/v1/extension/file-upload] signed upload url failed", {
-      error: storageError?.message || "missing upload session",
-      projectId: body.projectId,
-      nodeId: node.id,
-    });
-    return jsonError("Failed to create upload URL", 500, "INTERNAL_ERROR");
-  }
-
   const intent = await createUploadIntent({
     userId,
     projectId: body.projectId,
@@ -187,6 +179,7 @@ async function handleIntent(userId: string, body: z.infer<typeof intentSchema>) 
     kind: "file",
     expectedMimeType: body.mimeType,
     expectedSize: body.size,
+    idempotencyKey: body.operationId ? `extension:${body.operationId}` : null,
     metadata: {
       source: "extension_large_file",
       nodeId: node.id,
@@ -203,6 +196,19 @@ async function handleIntent(userId: string, body: z.infer<typeof intentSchema>) 
       fencingToken: body.fencingToken,
     },
   });
+  const adminClient = await createAdminClient();
+  const { data: uploadSession, error: storageError } = await adminClient.storage
+    .from(bucket)
+    .createSignedUploadUrl(storageKey, { upsert: false });
+
+  if (storageError || !uploadSession) {
+    logger.error("[api/v1/extension/file-upload] signed upload url failed", {
+      error: storageError?.message || "missing upload session",
+      projectId: body.projectId,
+      nodeId: node.id,
+    });
+    return jsonError("Failed to create upload URL", 500, "INTERNAL_ERROR");
+  }
 
   recordExtensionMetric("extension.file_upload.intent", {
     action: "intent",
@@ -294,16 +300,32 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
     return conflict;
   }
 
-  const adminClient = await createAdminClient();
-  const { data: info, error: infoError } = await adminClient.storage.from(intent.bucket).info(intent.storageKey);
-  if (infoError || !info) {
-    await markIntentFailed(intent.id, infoError?.message || "Uploaded object missing");
-    return jsonError("Uploaded object not found in storage", 404, "NOT_FOUND");
-  }
-
-  if (info.size !== intent.expectedSize) {
-    await markIntentFailed(intent.id, "Uploaded object size mismatch");
-    return jsonError("File size mismatch", 400, "BAD_REQUEST");
+  const verifiedIntent = await finalizeUploadIntent({
+    intentId: intent.id,
+    bucket: intent.bucket,
+    storageKey: intent.storageKey,
+    userId,
+    projectId: intent.projectId,
+    expectedScope: "project_file",
+    expectedKind: "file",
+  });
+  const [verifiedAsset] = verifiedIntent.assetId
+    ? await db
+        .select({ contentHash: storageAssets.contentHash })
+        .from(storageAssets)
+        .where(and(eq(storageAssets.id, verifiedIntent.assetId), eq(storageAssets.state, "verified")))
+        .limit(1)
+    : [];
+  if (verifiedAsset?.contentHash && verifiedAsset.contentHash !== contentHash) {
+    await db.transaction(async (tx) => {
+      await tx.update(storageAssets)
+        .set({ state: "delete_pending", lastErrorCode: "CONTENT_MISMATCH", updatedAt: new Date() })
+        .where(eq(storageAssets.id, verifiedIntent.assetId!));
+      await tx.update(uploadIntents)
+        .set({ status: "failed", failureReason: "Uploaded object checksum mismatch", updatedAt: new Date() })
+        .where(eq(uploadIntents.id, intent.id));
+    });
+    return jsonError("File checksum mismatch", 400, "BAD_REQUEST");
   }
 
   let result;
@@ -313,6 +335,7 @@ async function handleFinalize(userId: string, body: z.infer<typeof finalizeSchem
       nodeId,
       actorUserId: userId,
       storageKey: intent.storageKey,
+      assetId: verifiedIntent.assetId,
       size: intent.expectedSize,
       mimeType: intent.expectedMimeType,
       contentHash,

@@ -7,15 +7,14 @@ function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 }
 
-test('the persistent header opens Create Project in place instead of navigating to Discover', () => {
+test('every New project entry opens the full-page create route instead of a modal', () => {
     const header = source('src/components/layout/header/TopNav.tsx');
+    const mobileMenu = source('src/components/layout/header/MobileMenu.tsx');
+    const discover = source('src/components/discover/DiscoverClient.tsx');
 
-    assert.match(header, /const CreateProjectWizard = dynamic/);
-    assert.match(header, /const \[showCreateProject, setShowCreateProject\] = useState\(false\)/);
-    assert.match(header, /setShowCreateProject\(true\)/);
-    assert.match(header, /\{showCreateProject && \(/);
-    assert.match(header, /onClose=\{\(\) => \{/);
-    assert.match(header, /setShowCreateProject\(false\)/);
-    assert.match(header, /router\.push\(`\/projects\/\$\{projectId\}`\)/);
-    assert.doesNotMatch(header, /href=\{`\$\{ROUTES\.HUB\}\?createProject=1`\}/);
+    for (const entry of [header, mobileMenu, discover]) {
+        assert.match(entry, /<Link\s+href="\/projects\/new"/);
+        assert.doesNotMatch(entry, /CreateProjectWizard|showCreateProject|showCreateModal|onNewProject/);
+    }
+    assert.doesNotMatch(discover, /discover:create-project-modal-state/);
 });

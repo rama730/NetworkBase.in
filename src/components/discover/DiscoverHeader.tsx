@@ -1,8 +1,9 @@
 'use client';
 
-import { memo } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { memo, useState, type ReactNode } from 'react';
+import { ChevronDown, Users } from 'lucide-react';
 import { FILTER_VIEWS, FilterView } from '@/constants/discover';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 const DISCOVERY_SCOPES: Array<{ id: FilterView; label: string }> = [
     { id: FILTER_VIEWS.ALL, label: 'All projects' },
@@ -14,12 +15,16 @@ const DISCOVERY_SCOPES: Array<{ id: FilterView; label: string }> = [
 interface HubHeaderProps {
     filterView: FilterView;
     onSelectView: (view: FilterView) => void;
+    /** Phones reach the People rail through a labeled button (spec §09 R5); the rail itself is desktop-only. */
+    people?: ReactNode;
 }
 
 const DiscoverHeader = memo(function DiscoverHeader({
     filterView,
     onSelectView,
+    people,
 }: HubHeaderProps) {
+    const [peopleOpen, setPeopleOpen] = useState(false);
     return (
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
@@ -49,6 +54,24 @@ const DiscoverHeader = memo(function DiscoverHeader({
                     aria-hidden="true"
                 />
             </label>
+            {people ? (
+                <>
+                    <button
+                        type="button"
+                        onClick={() => setPeopleOpen(true)}
+                        className="nb-ui-label inline-flex h-[var(--ui-control-height-lg)] shrink-0 items-center gap-2 rounded-md border border-input bg-card px-3 text-foreground md:hidden"
+                    >
+                        <Users className="size-4" aria-hidden="true" />
+                        People
+                    </button>
+                    <Dialog open={peopleOpen} onOpenChange={setPeopleOpen}>
+                        <DialogContent presentation="right-drawer" className="overflow-y-auto p-4 md:hidden">
+                            <DialogTitle className="nb-card-title">People you should meet</DialogTitle>
+                            {peopleOpen ? people : null}
+                        </DialogContent>
+                    </Dialog>
+                </>
+            ) : null}
             </div>
         </div>
     );

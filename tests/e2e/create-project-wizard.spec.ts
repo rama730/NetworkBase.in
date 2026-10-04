@@ -9,11 +9,13 @@ test.describe("Create project wizard", () => {
     const page = await context.newPage();
 
     await login(page);
-    await page.goto("/discover?createProject=1", { waitUntil: "domcontentloaded" });
+    await page.goto("/projects/new", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("dialog")).toBeVisible();
+    // Full-page focus route: no app shell, no dialog; clicking the corner does not close it.
+    await expect(page.getByRole("heading", { level: 1, name: "Create project" })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await page.mouse.click(8, 8);
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create project" })).toBeVisible();
 
     await expect(page.getByTestId("create-project-phase1-source-grid")).toBeVisible();
     await expect(page.getByText("Create New Project")).toHaveCount(0);
@@ -26,7 +28,7 @@ test.describe("Create project wizard", () => {
     await page.getByTestId("create-project-github-manual-url").fill("networkbase/tools");
     await expect(page.getByTestId("create-project-github-manual-url")).toHaveValue("https://github.com/networkbase/tools");
     await page.waitForTimeout(1000);
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create project" })).toBeVisible();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
 
     await page.getByTestId("create-project-source-card-upload").click();
@@ -48,7 +50,8 @@ test.describe("Create project wizard", () => {
     await login(page);
     await page.goto("/discover", { waitUntil: "domcontentloaded" });
 
-    await page.getByRole("button", { name: /new project/i }).click();
+    await page.getByRole("link", { name: /new project/i }).click();
+    await expect(page).toHaveURL(/\/projects\/new$/);
     await page.getByTestId("create-project-source-card-github").click();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
 
@@ -75,14 +78,14 @@ test.describe("Create project wizard", () => {
     await context.close();
   });
 
-  test("oauth callback query opens the wizard and keeps it open after url cleanup", async ({ browser }) => {
+  test("oauth callback query lands on the create route and keeps the wizard after url cleanup", async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
     await login(page);
-    await page.goto("/discover?createProject=1&createProjectSource=github", { waitUntil: "domcontentloaded" });
+    await page.goto("/projects/new?createProject=1&createProjectSource=github", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create project" })).toBeVisible();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
 
     await expect
@@ -90,7 +93,7 @@ test.describe("Create project wizard", () => {
       .toBeNull();
 
     await page.waitForTimeout(1000);
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create project" })).toBeVisible();
     await expect(page.getByTestId("create-project-source-view-github")).toBeVisible();
 
     await context.close();

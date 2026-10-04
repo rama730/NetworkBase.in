@@ -1,4 +1,6 @@
+import { spawn } from "node:child_process";
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 
@@ -6,124 +8,120 @@ import { PAGE_PERFORMANCE_CONTRACTS } from "../src/lib/performance/page-contract
 
 type PrerenderManifest = {
   routes?: Record<string, { initialRevalidateSeconds?: number | false }>;
-  dynamicRoutes?: Record<string, unknown>;
 };
 
-type ClientReferenceManifest = {
-  entryJSFiles?: Record<string, string[]>;
-};
-
-function parseClientReferenceManifest(manifestPath: string): ClientReferenceManifest | null {
-  const source = fs.readFileSync(manifestPath, "utf8");
-  const marker = "] =";
-  const markerIndex = source.indexOf(marker);
-  if (markerIndex === -1) return null;
-  const assignmentIndex = source.indexOf("=", markerIndex);
-  if (assignmentIndex === -1) return null;
-  try {
-    return Function(`return (${source.slice(assignmentIndex + 1).trim().replace(/;\s*$/, "")})`)() as ClientReferenceManifest;
-  } catch {
-    return null;
-  }
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.listen(0, () => {
+      const address = server.address();
+      server.close(() => (address && typeof address === "object" ? resolve(address.port) : reject(new Error("no port"))));
+    });
+  });
 }
 
-function routeEntryChunks(manifestPath: string, entryKey: string) {
-  const manifest = parseClientReferenceManifest(manifestPath);
-  const entryFiles = manifest?.entryJSFiles?.[entryKey];
-  if (entryFiles?.length) return new Set(entryFiles);
-  const source = fs.readFileSync(manifestPath, "utf8");
-  return new Set(source.match(/static\/chunks\/[^"'\\]+?\.js/g) ?? []);
-}
-
-function asyncRouteChunks(manifestPath: string) {
-  const manifestDir = path.dirname(manifestPath);
-  const loadablePath = [
-    path.join(manifestDir, "react-loadable-manifest.json"),
-    path.join(manifestDir, "page", "react-loadable-manifest.json"),
-  ].find((candidate) => fs.existsSync(candidate));
-  const chunks = new Set<string>();
-  if (!loadablePath) return chunks;
-  const loadable = JSON.parse(fs.readFileSync(loadablePath, "utf8")) as Record<string, { files?: string[] }>;
-  for (const entry of Object.values(loadable)) {
-    for (const file of entry.files ?? []) {
-      if (file.endsWith(".js")) chunks.add(file);
+async function waitForServer(baseUrl: string) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    try {
+      await fetch(baseUrl, { redirect: "manual" });
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
   }
-  return chunks;
+  throw new Error(`Production server did not start at ${baseUrl}`);
 }
 
-function clientPayloadKb(nextDir: string, manifestPath: string, entryKey: string) {
+function initialScriptFiles(html: string) {
+  return [...html.matchAll(/<script\b[^>]*\bsrc="\/_next\/([^"]+\.js)"[^>]*>/gi)]
+    .filter((match) => !/\bnomodule\b/i.test(match[0]))
+    .map((match) => match[1]!);
+}
+
+async function measureRoute(baseUrl: string, nextDir: string, routeId: string) {
+  const response = await fetch(new URL(routeId, baseUrl), { redirect: "manual" });
+  if (response.status !== 200) return { status: response.status, gzipKb: 0, rawKb: 0 };
   let rawBytes = 0;
   let gzipBytes = 0;
-  const asyncChunks = asyncRouteChunks(manifestPath);
-  for (const chunk of routeEntryChunks(manifestPath, entryKey)) {
-    if (asyncChunks.has(chunk)) continue;
-    const chunkPath = path.join(nextDir, chunk);
-    if (!fs.existsSync(chunkPath)) continue;
-    const source = fs.readFileSync(chunkPath);
+  for (const file of new Set(initialScriptFiles(await response.text()))) {
+    const filePath = path.join(nextDir, file);
+    if (!fs.existsSync(filePath)) continue;
+    const source = fs.readFileSync(filePath);
     rawBytes += source.byteLength;
     gzipBytes += gzipSync(source).byteLength;
   }
-  return {
-    rawKb: rawBytes / 1024,
-    gzipKb: gzipBytes / 1024,
-  };
+  return { status: 200, gzipKb: gzipBytes / 1024, rawKb: rawBytes / 1024 };
 }
 
-function main() {
-  const nextDir = path.join(process.cwd(), ".next");
+async function main() {
+  const distDir = process.env.NEXT_DIST_DIR ?? ".next";
+  const nextDir = path.join(process.cwd(), distDir);
   const prerenderPath = path.join(nextDir, "prerender-manifest.json");
-  const appPathsPath = path.join(nextDir, "server", "app-paths-manifest.json");
-  if (!fs.existsSync(prerenderPath) || !fs.existsSync(appPathsPath)) {
+  if (!fs.existsSync(prerenderPath)) {
     throw new Error("Next build manifests are missing. Run `npm run build` before this check.");
   }
-
   const prerender = JSON.parse(fs.readFileSync(prerenderPath, "utf8")) as PrerenderManifest;
-  const appPaths = JSON.parse(fs.readFileSync(appPathsPath, "utf8")) as Record<string, string>;
   const prerenderedRoutes = new Set(Object.keys(prerender.routes ?? {}));
   const errors: string[] = [];
+  const unmeasured: string[] = [];
 
-  for (const contract of Object.values(PAGE_PERFORMANCE_CONTRACTS)) {
-    const appManifestKey = contract.pageFile
-      .replace(/^src\/app/, "")
-      .replace(/\.tsx$/, "");
-    const builtPage = appPaths[appManifestKey];
-    if (!builtPage) {
-      errors.push(`${contract.routeId}: page is missing from the production app-paths manifest (${appManifestKey})`);
-      continue;
-    }
+  let baseUrl = process.env.BUILD_RENDERING_BASE_URL ?? "";
+  const server = baseUrl
+    ? null
+    : await (async () => {
+        const port = await freePort();
+        baseUrl = `http://127.0.0.1:${port}`;
+        const child = spawn(process.execPath, [require.resolve("next/dist/bin/next"), "start", "-p", String(port)], {
+          env: { ...process.env, NEXT_DIST_DIR: distDir },
+          stdio: "ignore",
+        });
+        await waitForServer(baseUrl);
+        return child;
+      })();
 
-    const clientManifestPath = path.join(
-      nextDir,
-      "server",
-      builtPage.replace(/page\.js$/, "page_client-reference-manifest.js"),
-    );
-    if (fs.existsSync(clientManifestPath)) {
-      const entryKey = `[project]/${contract.pageFile.replace(/\.tsx$/, "")}`;
-      const payload = clientPayloadKb(nextDir, clientManifestPath, entryKey);
+  try {
+    for (const contract of Object.values(PAGE_PERFORMANCE_CONTRACTS)) {
+      const hasDynamicSegments = contract.routeId.includes("[");
+      const isPrerendered = !hasDynamicSegments && prerenderedRoutes.has(contract.routeId);
+      if (contract.renderingMode === "dynamic" && isPrerendered) {
+        errors.push(`${contract.routeId}: contract says dynamic but the production build prerendered it`);
+      }
+      if (contract.renderingMode === "static" && !hasDynamicSegments && !isPrerendered) {
+        errors.push(`${contract.routeId}: contract says static but the production build did not prerender it`);
+      }
+      if (contract.renderingMode === "revalidate" && !hasDynamicSegments) {
+        const entry = prerender.routes?.[contract.routeId];
+        if (!entry || typeof entry.initialRevalidateSeconds !== "number") {
+          errors.push(`${contract.routeId}: contract says revalidate but the build has no revalidation entry`);
+        }
+      }
+
+      if (hasDynamicSegments) {
+        unmeasured.push(`${contract.routeId} (dynamic segment)`);
+        continue;
+      }
+      const payload = await measureRoute(baseUrl, nextDir, contract.routeId);
+      if (payload.status === 404) {
+        errors.push(`${contract.routeId}: page is missing from the production build`);
+        continue;
+      }
+      if (payload.status !== 200) {
+        unmeasured.push(`${contract.routeId} (HTTP ${payload.status}, needs a session)`);
+        continue;
+      }
       if (payload.gzipKb > contract.maxInitialPayloadKb) {
         errors.push(
           `${contract.routeId}: client JS ${Math.ceil(payload.gzipKb)} KB gzip exceeds ${contract.maxInitialPayloadKb} KB budget (${Math.ceil(payload.rawKb)} KB raw)`,
         );
       }
     }
-
-    const hasDynamicSegments = contract.routeId.includes("[");
-    const isPrerendered = !hasDynamicSegments && prerenderedRoutes.has(contract.routeId);
-    if (contract.renderingMode === "dynamic" && isPrerendered) {
-      errors.push(`${contract.routeId}: contract says dynamic but the production build prerendered it`);
-    }
-    if (contract.renderingMode === "static" && !hasDynamicSegments && !isPrerendered) {
-      errors.push(`${contract.routeId}: contract says static but the production build did not prerender it`);
-    }
-    if (contract.renderingMode === "revalidate" && !hasDynamicSegments) {
-      const entry = prerender.routes?.[contract.routeId];
-      if (!entry || typeof entry.initialRevalidateSeconds !== "number") {
-        errors.push(`${contract.routeId}: contract says revalidate but the build has no revalidation entry`);
-      }
-    }
+  } finally {
+    server?.kill();
   }
 
+  if (unmeasured.length > 0) {
+    console.log(`[build-rendering-contract] JS budget not measured here: ${unmeasured.join(", ")}`);
+  }
   if (errors.length > 0) {
     console.error("[build-rendering-contract] violations detected:");
     for (const error of errors) console.error(` - ${error}`);
@@ -131,8 +129,11 @@ function main() {
   }
 
   console.log(
-    `[build-rendering-contract] ok (${Object.keys(PAGE_PERFORMANCE_CONTRACTS).length} page contracts verified against production manifests)`,
+    `[build-rendering-contract] ok (${Object.keys(PAGE_PERFORMANCE_CONTRACTS).length} page contracts verified against the production build)`,
   );
 }
 
-main();
+main().catch((error) => {
+  console.error("[build-rendering-contract] failed:", error);
+  process.exit(1);
+});

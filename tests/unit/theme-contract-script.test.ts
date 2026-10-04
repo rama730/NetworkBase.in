@@ -41,4 +41,13 @@ describe("check-theme-contract script", () => {
     assert.ok(result.errors.some((line) => line.includes("imports next-themes directly")));
     assert.ok(result.errors.some((line) => line.includes("Legacy provider file must not exist")));
   });
+
+  it("fails on raw palette classes in the chat UI", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "theme-contract-chat-"));
+    write(path.join(tmp, "src/components/messages/Badge.tsx"), `export const c = "bg-rose-500 text-white";`);
+    write(path.join(tmp, "src/components/messages/Row.tsx"), `export const c = "bg-card text-foreground";`);
+
+    const result = validateThemeContract(tmp);
+    assert.deepEqual(result.errors, ["src/components/messages/Badge.tsx uses a raw zinc/rose/blue/amber class; use spec tokens."]);
+  });
 });

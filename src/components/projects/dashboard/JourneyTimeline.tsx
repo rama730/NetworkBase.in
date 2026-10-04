@@ -4,7 +4,7 @@ import { memo, useLayoutEffect, useRef } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DashboardCardHeader } from "./DashboardCard";
-import { getStageCompletionTooltip } from "@/lib/projects/journey-completion";
+import { formatJourneyCompletionDate, getStageCompletionTooltip } from "@/lib/projects/journey-completion";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
 interface JourneyTimelineProps {
@@ -107,6 +107,11 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                         title="Journey"
                         icon={CheckCircle}
                         compact
+                        badge={stages[safeCurrentStageIndex] ? (
+                            <span className="nb-compact min-w-0 truncate text-muted-foreground md:hidden">
+                                {stages[safeCurrentStageIndex]} ({safeCurrentStageIndex + 1} of {stages.length})
+                            </span>
+                        ) : null}
                         action={isCreator ? (
                             <div className="flex items-center gap-1.5">
                                 {onRedoStage ? (
@@ -114,7 +119,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                         type="button"
                                         onClick={onRedoStage}
                                         disabled={safeCurrentStageIndex === 0}
-                                        className="flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="nb-touch-target flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                                         aria-label="Return to previous stage"
                                         title="Previous stage"
                                     >
@@ -126,7 +131,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                         type="button"
                                         onClick={onAdvanceStage}
                                         disabled={safeCurrentStageIndex >= lastIndex}
-                                        className="flex h-[28px] w-[28px] items-center justify-center rounded-[5px] bg-primary text-primary-foreground transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="nb-touch-target flex h-[28px] w-[28px] items-center justify-center rounded-[5px] bg-primary text-primary-foreground transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
                                         aria-label="Advance to next stage"
                                         title="Next stage"
                                     >
@@ -139,7 +144,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                     <div className="px-4 py-4">
                         <div
                             ref={scrollContainerRef}
-                            className="app-scroll app-scroll-x app-scroll-hidden overflow-x-auto pb-2 select-none"
+                            className="app-scroll app-scroll-x app-scroll-hidden overflow-x-auto pb-2 select-none max-md:snap-x max-md:snap-mandatory"
                             aria-label="Project journey stages"
                         >
                             <div
@@ -156,7 +161,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                 const hasPrevious = index > 0;
                                 const hasNext = index < lastIndex;
                                 const stageItem = (
-                                    <div key={`${stage}-${index}`} data-stage-index={index} className="relative z-[1] flex min-w-0 flex-col items-center gap-2 py-0.5 text-center">
+                                    <div key={`${stage}-${index}`} data-stage-index={index} className="relative z-[1] flex min-w-0 flex-col items-center gap-2 py-0.5 text-center max-md:snap-center">
                                         {hasPrevious ? (
                                             <span
                                                 aria-hidden="true"
@@ -194,12 +199,17 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                             {isCompleted ? <Check className="size-3 stroke-[2.5]" /> : isCurrent ? <span className="size-1.5 rounded-[2px] bg-primary" /> : null}
                                         </span>
                                         <p className={cn(
-                                            "w-full truncate px-2 text-xs font-medium",
+                                            "w-full truncate px-2 text-xs font-medium max-md:whitespace-normal max-md:[overflow-wrap:anywhere]",
                                             isCurrent ? "font-semibold text-primary" : isCompleted ? "text-foreground" : "text-muted-foreground",
                                         )}>
                                             {stage}
                                         </p>
                                         {isCurrent ? <span className="nb-micro uppercase tracking-[0.09em] text-primary">Current</span> : null}
+                                        {isCompleted && formatJourneyCompletionDate(stageCompletionDates[String(index)]) ? (
+                                            <span className="font-mono text-[11px] text-muted-foreground md:hidden">
+                                                {formatJourneyCompletionDate(stageCompletionDates[String(index)])}
+                                            </span>
+                                        ) : null}
                                     </div>
                                 );
 
@@ -237,7 +247,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                     type="button"
                                     onClick={onRedoStage}
                                     disabled={safeCurrentStageIndex === 0}
-                                    className="flex h-[28px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                                    className="nb-touch-target flex h-[28px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                                 >
                                     <ArrowLeft className="h-3 w-3" />
                                     Redo

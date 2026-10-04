@@ -1,13 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useContext } from "react";
 import { toast } from "sonner";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 import { useExplorerMutations } from "../../explorer/useExplorerMutations";
 import { useExplorerOperationLog } from "../../explorer/useExplorerOperationLog";
-import { ExplorerDialogsHost } from "../../explorer/ExplorerDialogsHost";
 import { FilesTabBootContext } from "../hooks/useFolderContents";
 import { useNavigateTo } from "../hooks/useNavigateTo";
+
+const ExplorerDialogsHost = dynamic(() => import("../../explorer/ExplorerDialogsHost").then((mod) => mod.ExplorerDialogsHost), { ssr: false });
 
 const EMPTY = {};
 const EMPTY_IDS: string[] = [];

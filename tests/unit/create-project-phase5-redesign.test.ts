@@ -7,7 +7,7 @@ function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 }
 
-test('Phase 5 is a complete, live review with no project-document section', () => {
+test('Phase 5 is a complete, live review including every step 4 launch setting', () => {
     const phase = source('src/components/projects/create-wizard/phases/Phase5Review.tsx');
 
     assert.match(phase, /useWatch\(\{ control \}\)/);
@@ -23,9 +23,11 @@ test('Phase 5 is a complete, live review with no project-document section', () =
     assert.doesNotMatch(phase, /max-w-4xl/);
     assert.match(phase, /Nothing has been created yet/);
     assert.match(phase, /Create project in the footer/);
-    assert.doesNotMatch(phase, /Project document/);
-    assert.doesNotMatch(phase, /BookOpen/);
-    assert.doesNotMatch(phase, /readmeIntent/);
+    // Step 4 now chooses the starter doc, so Review shows it (as "Documentation"), plus the other launch settings.
+    for (const label of ['Project picture', 'Visibility', 'Project links', 'Documentation', 'Project journey', 'Team permissions', 'Files and storage', 'Notifications']) {
+        assert.match(phase, new RegExp(`label="${label}"`));
+    }
+    assert.doesNotMatch(phase, /Collaborator availability/);
 });
 
 test('entering review cannot create a project until the review is ready and the final action is explicit', () => {
@@ -40,5 +42,5 @@ test('entering review cannot create a project until the review is ready and the 
     assert.match(wizard, /submissionRef\.current = true/);
     assert.match(footer, /Preparing review…/);
     assert.match(footer, /disabled=\{isSubmitting \|\| isPhaseTransitioning \|\| !isReviewReady\}/);
-    assert.match(modal, /<Phase5Review goToPhase=\{goToPhase\} onReady=\{handleReviewReady\} \/>/);
+    assert.match(modal, /<Phase5Review goToPhase=\{goToPhase\} onReady=\{handleReviewReady\} projectImage=\{projectImage\} \/>/);
 });

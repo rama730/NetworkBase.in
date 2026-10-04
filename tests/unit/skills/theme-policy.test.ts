@@ -3,7 +3,10 @@ import { describe, it } from 'node:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { SkillIcon } from '../../../src/components/skills/SkillIcon'
-import { resolveClientSkill } from '../../../src/lib/skills/client'
+import { resolveClientSkill, setSkillCatalog, type SkillCatalog } from '../../../src/lib/skills/client'
+import { readFileSync } from 'node:fs'
+
+setSkillCatalog(JSON.parse(readFileSync('public/skill-catalog.json', 'utf8')) as SkillCatalog)
 
 function render(name: string, colorMode: 'brand' | 'current' = 'brand') {
     return renderToStaticMarkup(createElement(SkillIcon, {

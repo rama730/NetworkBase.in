@@ -7,7 +7,7 @@
 // For any interactive element on mobile viewport, the touch target MUST
 // be at least 44px × 44px. This is enforced via:
 //   - Explicit `min-h-[44px]` classes on mobile (e.g., Step1Identity "Change photo")
-//   - Sufficient padding that ensures ≥44px total height (e.g., RadioCardGroup py-[14px])
+//   - Sufficient padding that ensures ≥44px total height
 //   - ChipSelector md-size chips: py-2 (8px) + text + border = sufficient with tap area
 //   - SectionNav pills: py-2 (8px) + text = sufficient with tap area
 //   - StepFooter buttons: use --ui-control-height variable
@@ -445,11 +445,6 @@ const CHIP_SELECTOR_SOURCE = readFileSync(
   "utf8",
 );
 
-const RADIO_CARD_SOURCE = readFileSync(
-  path.resolve(__dirname, "../RadioCardGroup.tsx"),
-  "utf8",
-);
-
 const SECTION_NAV_SOURCE = readFileSync(
   path.resolve(__dirname, "../SectionNav.tsx"),
   "utf8",
@@ -519,35 +514,6 @@ describe("TouchTargets — source-level structural contracts (Req 14.6)", () => 
     );
   });
 
-  // ─── RadioCardGroup: padding ensures 44px+ touch target ───
-
-  it("RadioCardGroup cards use py-[14px] (14px vertical padding each side = 28px total)", () => {
-    // **Validates: Requirements 14.6**
-    assert.match(
-      RADIO_CARD_SOURCE,
-      /py-\[14px\]/,
-      "RadioCardGroup must use py-[14px] for sufficient vertical padding (28px total ≥ 44px with content)",
-    );
-  });
-
-  it("RadioCardGroup cards use px-4 (16px horizontal padding each side)", () => {
-    // **Validates: Requirements 14.6**
-    assert.match(
-      RADIO_CARD_SOURCE,
-      /px-4/,
-      "RadioCardGroup must use px-4 for horizontal padding ensuring wide touch target",
-    );
-  });
-
-  it("RadioCardGroup cards are buttons (tappable interactive elements)", () => {
-    // **Validates: Requirements 14.6**
-    assert.match(
-      RADIO_CARD_SOURCE,
-      /<button/,
-      "RadioCardGroup cards must be <button> elements for proper touch interaction",
-    );
-  });
-
   // ─── SectionNav: pills have sufficient padding ───
 
   it("SectionNav pills use py-2 (8px vertical padding each side)", () => {
@@ -614,7 +580,6 @@ describe("TouchTargets — source-level structural contracts (Req 14.6)", () => 
     // (not <div onClick> or <span onClick> which have no implicit touch target)
     const sources = [
       { name: "ChipSelector", source: CHIP_SELECTOR_SOURCE },
-      { name: "RadioCardGroup", source: RADIO_CARD_SOURCE },
       { name: "SectionNav", source: SECTION_NAV_SOURCE },
       { name: "StepFooter", source: STEP_FOOTER_SOURCE },
       { name: "Step1Identity", source: STEP1_SOURCE },
@@ -636,7 +601,6 @@ describe("TouchTargets — source-level structural contracts (Req 14.6)", () => 
     // Pattern: <div ... onClick or <span ... onClick (without role="button")
     const sources = [
       { name: "ChipSelector", source: CHIP_SELECTOR_SOURCE },
-      { name: "RadioCardGroup", source: RADIO_CARD_SOURCE },
       { name: "SectionNav", source: SECTION_NAV_SOURCE },
     ];
 

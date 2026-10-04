@@ -211,7 +211,7 @@ export async function GET(request: Request) {
         } else {
             const sealed = sealGithubImportToken(providerToken)
             if (sealed) setGithubImportAccessCookie(response, sealed)
-            // ponytail: Next.js after() ensures contributor identity enrichment and audit logging
+            // Next.js after() ensures contributor identity enrichment and audit logging
             // do not block the OAuth HTTP redirect back to the user's browser.
             const isReplaced = successUrl.searchParams.get('githubIdentity') === 'replaced'
             after(async () => {

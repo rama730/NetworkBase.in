@@ -28,12 +28,6 @@ export interface PagePerformanceContract {
   allowForceDynamic?: boolean;
 }
 
-export interface RouteCachePolicy {
-  strategy: RouteCacheStrategy;
-  ttlSeconds: number;
-  invalidationOwner: PagePerformanceContract["invalidationOwner"];
-}
-
 type ViewerContext = {
   isAuthenticated?: boolean;
 };
@@ -132,8 +126,21 @@ function buildActiveSurfaceContract(
   };
 }
 
+// Every Slack-style chat route shares the /messages surface budget.
+function messagesRoute(routeId: string) {
+  return {
+    [routeId]: buildActiveSurfaceContract(routeId, `src/app/(site)/(main)${routeId}/page.tsx`, {
+      renderingMode: "dynamic",
+      invalidationOwner: "realtime",
+      hydrationBoundary: "heavy",
+      bootstrapReadModel: "auth_snapshot",
+      maxInitialPayloadKb: 320,
+    }),
+  };
+}
+
 export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract> = {
-  "/": buildPublicContract("/", "src/app/page.tsx", {
+  "/": buildPublicContract("/", "src/app/(site)/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 300,
     invalidationOwner: "none",
@@ -141,7 +148,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/login": buildPublicContract("/login", "src/app/(auth)/login/page.tsx", {
+  "/login": buildPublicContract("/login", "src/app/(site)/(auth)/login/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 60,
     invalidationOwner: "none",
@@ -149,7 +156,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 220,
   }),
-  "/signup": buildPublicContract("/signup", "src/app/(auth)/signup/page.tsx", {
+  "/signup": buildPublicContract("/signup", "src/app/(site)/(auth)/signup/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 60,
     invalidationOwner: "none",
@@ -157,7 +164,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 220,
   }),
-  "/forgot-password": buildPublicContract("/forgot-password", "src/app/(auth)/forgot-password/page.tsx", {
+  "/forgot-password": buildPublicContract("/forgot-password", "src/app/(site)/(auth)/forgot-password/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 30,
     invalidationOwner: "none",
@@ -165,7 +172,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 220,
   }),
-  "/reset-password": buildPublicContract("/reset-password", "src/app/(auth)/reset-password/page.tsx", {
+  "/reset-password": buildPublicContract("/reset-password", "src/app/(site)/(auth)/reset-password/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 0,
     invalidationOwner: "none",
@@ -173,7 +180,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 220,
   }),
-  "/verify-email": buildPublicContract("/verify-email", "src/app/(auth)/verify-email/page.tsx", {
+  "/verify-email": buildPublicContract("/verify-email", "src/app/(site)/(auth)/verify-email/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 30,
     invalidationOwner: "none",
@@ -181,7 +188,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 220,
   }),
-  "/authorize": buildUserShellContract("/authorize", "src/app/(auth)/authorize/page.tsx", {
+  "/authorize": buildUserShellContract("/authorize", "src/app/(site)/(auth)/authorize/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 0,
     cacheStrategy: "none",
@@ -191,7 +198,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 260,
     allowForceDynamic: true,
   }),
-  "/onboarding": buildUserShellContract("/onboarding", "src/app/(onboarding)/onboarding/page.tsx", {
+  "/onboarding": buildUserShellContract("/onboarding", "src/app/(site)/(onboarding)/onboarding/page.tsx", {
     renderingMode: "dynamic",
     cacheStrategy: "none",
     cacheTtlSeconds: 0,
@@ -201,7 +208,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 320,
     allowForceDynamic: false,
   }),
-  "/discover": buildUserShellContract("/discover", "src/app/(main)/discover/page.tsx", {
+  "/discover": buildUserShellContract("/discover", "src/app/(site)/(main)/discover/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 45,
     invalidationOwner: "api",
@@ -210,7 +217,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 340,
     allowForceDynamic: true,
   }),
-  "/network": buildUserShellContract("/network", "src/app/(main)/network/page.tsx", {
+  "/network": buildUserShellContract("/network", "src/app/(site)/(main)/network/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 30,
     invalidationOwner: "server-action",
@@ -219,7 +226,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 260,
     allowForceDynamic: true,
   }),
-  "/projects/[slug]": buildPublicContract("/projects/[slug]", "src/app/(main)/projects/[slug]/page.tsx", {
+  "/projects/[slug]": buildPublicContract("/projects/[slug]", "src/app/(site)/(main)/projects/[slug]/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 60,
     invalidationOwner: "server-action",
@@ -227,7 +234,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "server_query",
     maxInitialPayloadKb: 300,
   }),
-  "/projects/new": buildUserShellContract("/projects/new", "src/app/(main)/projects/new/page.tsx", {
+  "/projects/new": buildUserShellContract("/projects/new", "src/app/(site)/(main)/projects/new/page.tsx", {
     renderingMode: "dynamic",
     cacheStrategy: "none",
     cacheTtlSeconds: 0,
@@ -237,7 +244,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 280,
     allowForceDynamic: true,
   }),
-  "/admin/notifications": buildUserShellContract("/admin/notifications", "src/app/admin/notifications/page.tsx", {
+  "/admin/notifications": buildUserShellContract("/admin/notifications", "src/app/(site)/admin/notifications/page.tsx", {
     renderingMode: "dynamic",
     cacheStrategy: "none",
     cacheTtlSeconds: 0,
@@ -247,7 +254,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 240,
     allowForceDynamic: true,
   }),
-  "/my-profile": buildUserShellContract("/my-profile", "src/app/(main)/my-profile/page.tsx", {
+  "/my-profile": buildUserShellContract("/my-profile", "src/app/(site)/(main)/my-profile/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 60,
     invalidationOwner: "server-action",
@@ -255,7 +262,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "auth_snapshot",
     maxInitialPayloadKb: 240,
   }),
-  "/messages": buildActiveSurfaceContract("/messages", "src/app/(main)/messages/page.tsx", {
+  "/messages": buildActiveSurfaceContract("/messages", "src/app/(site)/(main)/messages/page.tsx", {
     renderingMode: "dynamic",
     invalidationOwner: "realtime",
     hydrationBoundary: "heavy",
@@ -263,7 +270,17 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 320,
     allowForceDynamic: true,
   }),
-  "/u/[username]": buildPublicContract("/u/[username]", "src/app/(main)/u/[username]/page.tsx", {
+  ...messagesRoute("/messages/home"),
+  ...messagesRoute("/messages/[channelId]"),
+  ...messagesRoute("/messages/p/[projectId]"),
+  ...messagesRoute("/messages/p/[projectId]/browse"),
+  ...messagesRoute("/messages/dms"),
+  ...messagesRoute("/messages/inbox"),
+  ...messagesRoute("/messages/saved"),
+  ...messagesRoute("/messages/drafts"),
+  ...messagesRoute("/messages/search"),
+  ...messagesRoute("/messages/new"),
+  "/u/[username]": buildPublicContract("/u/[username]", "src/app/(site)/(main)/u/[username]/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 60,
     invalidationOwner: "server-action",
@@ -272,7 +289,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 260,
     allowForceDynamic: true,
   }),
-  "/workspace": buildActiveSurfaceContract("/workspace", "src/app/(main)/workspace/page.tsx", {
+  "/workspace": buildActiveSurfaceContract("/workspace", "src/app/(site)/(main)/workspace/page.tsx", {
     renderingMode: "dynamic",
     invalidationOwner: "realtime",
     hydrationBoundary: "heavy",
@@ -280,7 +297,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     maxInitialPayloadKb: 320,
     allowForceDynamic: true,
   }),
-  "/settings": buildUserShellContract("/settings", "src/app/(main)/settings/page.tsx", {
+  "/settings": buildUserShellContract("/settings", "src/app/(site)/(main)/settings/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 30,
     invalidationOwner: "server-action",
@@ -288,55 +305,55 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "auth_snapshot",
     maxInitialPayloadKb: 260,
   }),
-  "/acceptable-use": buildPublicContract("/acceptable-use", "src/app/acceptable-use/page.tsx", {
-    renderingMode: "dynamic",
+  "/acceptable-use": buildPublicContract("/acceptable-use", "src/app/(legal)/acceptable-use/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/cookies": buildPublicContract("/cookies", "src/app/cookies/page.tsx", {
-    renderingMode: "dynamic",
+  "/cookies": buildPublicContract("/cookies", "src/app/(legal)/cookies/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/copyright": buildPublicContract("/copyright", "src/app/copyright/page.tsx", {
-    renderingMode: "dynamic",
+  "/copyright": buildPublicContract("/copyright", "src/app/(legal)/copyright/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/dpa": buildPublicContract("/dpa", "src/app/dpa/page.tsx", {
-    renderingMode: "dynamic",
+  "/dpa": buildPublicContract("/dpa", "src/app/(legal)/dpa/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/eula": buildPublicContract("/eula", "src/app/eula/page.tsx", {
-    renderingMode: "dynamic",
+  "/eula": buildPublicContract("/eula", "src/app/(legal)/eula/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/grievances": buildPublicContract("/grievances", "src/app/grievances/page.tsx", {
-    renderingMode: "dynamic",
+  "/grievances": buildPublicContract("/grievances", "src/app/(legal)/grievances/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/legal/accept": buildUserShellContract("/legal/accept", "src/app/legal/accept/page.tsx", {
+  "/legal/accept": buildUserShellContract("/legal/accept", "src/app/(site)/legal/accept/page.tsx", {
     renderingMode: "dynamic",
     cacheTtlSeconds: 0,
     invalidationOwner: "none",
@@ -344,40 +361,40 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "auth_snapshot",
     maxInitialPayloadKb: 200,
   }),
-  "/open-source": buildPublicContract("/open-source", "src/app/open-source/page.tsx", {
-    renderingMode: "dynamic",
+  "/open-source": buildPublicContract("/open-source", "src/app/(legal)/open-source/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/privacy": buildPublicContract("/privacy", "src/app/privacy/page.tsx", {
-    renderingMode: "dynamic",
+  "/privacy": buildPublicContract("/privacy", "src/app/(legal)/privacy/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/security-reporting": buildPublicContract("/security-reporting", "src/app/security-reporting/page.tsx", {
-    renderingMode: "dynamic",
+  "/security-reporting": buildPublicContract("/security-reporting", "src/app/(legal)/security-reporting/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/subprocessors": buildPublicContract("/subprocessors", "src/app/subprocessors/page.tsx", {
-    renderingMode: "dynamic",
+  "/subprocessors": buildPublicContract("/subprocessors", "src/app/(legal)/subprocessors/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
-  "/terms": buildPublicContract("/terms", "src/app/terms/page.tsx", {
-    renderingMode: "dynamic",
+  "/terms": buildPublicContract("/terms", "src/app/(legal)/terms/page.tsx", {
+    renderingMode: "static",
     cacheTtlSeconds: 86400,
     invalidationOwner: "none",
     hydrationBoundary: "minimal",
@@ -391,43 +408,6 @@ export const FORCE_DYNAMIC_ALLOWLIST = new Set(
     .filter((contract) => contract.allowForceDynamic)
     .map((contract) => contract.routeId),
 );
-
-export function classifyRouteRenderingMode(routeId: string): RouteRenderingMode {
-  const contract = PAGE_PERFORMANCE_CONTRACTS[routeId];
-  return contract?.renderingMode ?? "static";
-}
-
-export function getRouteCachePolicy(
-  routeId: string,
-  viewerContext?: ViewerContext,
-): RouteCachePolicy {
-  const contract = PAGE_PERFORMANCE_CONTRACTS[routeId];
-  if (!contract) {
-    return { strategy: "none", ttlSeconds: 0, invalidationOwner: "none" };
-  }
-
-  if (contract.routeClass === "active_surface" || contract.cacheStrategy === "none") {
-    return {
-      strategy: "none",
-      ttlSeconds: 0,
-      invalidationOwner: contract.invalidationOwner,
-    };
-  }
-
-  if (contract.routeClass === "user_shell" && !viewerContext?.isAuthenticated) {
-    return {
-      strategy: "none",
-      ttlSeconds: 0,
-      invalidationOwner: contract.invalidationOwner,
-    };
-  }
-
-  return {
-    strategy: contract.cacheStrategy,
-    ttlSeconds: contract.cacheTtlSeconds,
-    invalidationOwner: contract.invalidationOwner,
-  };
-}
 
 function normalizePathname(pathname: string): string {
   const trimmed = pathname.split("?")[0]?.split("#")[0] ?? pathname;

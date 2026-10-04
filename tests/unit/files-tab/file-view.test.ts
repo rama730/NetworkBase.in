@@ -137,9 +137,8 @@ describe("AssetPreview PDF delivery", () => {
       "utf8",
     );
     assert.match(source, /\/api\/v1\/projects\/\$\{encodeURIComponent\(node\.projectId\)\}\/files\/\$\{encodeURIComponent\(node\.id\)\}\/preview/);
-    assert.match(source, /fetch\(previewUrl/);
-    assert.match(source, /URL\.createObjectURL/);
-    assert.match(source, /<iframe title=\{name\} src=\{objectUrl\}/);
+    assert.match(source, /<iframe[\s\S]*src=\{previewUrl\}/);
+    assert.doesNotMatch(source, /URL\.createObjectURL/);
   });
 });
 

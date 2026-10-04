@@ -1,11 +1,13 @@
+import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { projectNodes } from "@/lib/db/schema";
-import { assertProjectFileReadAccess } from "@/lib/files/internal-helpers";
+import { fileVersions, projectNodes, storageAssets } from "@/lib/db/schema";
+import { assertProjectFileReadAccess, assertTaskFileNodeVisible } from "@/lib/files/internal-helpers";
 import { parseProjectFileKey } from "@/lib/storage/project-file-key";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
+import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { UUID_RE } from "@/app/actions/files/_constants";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +15,6 @@ export const dynamic = "force-dynamic";
 type RouteContext = {
   params: Promise<{ id: string; nodeId: string }>;
 };
-
-function inlineFilename(name: string): string {
-  const safeFallback = name.replace(/[\\"\r\n]/g, "_") || "file";
-  return `inline; filename="${safeFallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
-}
 
 /**
  * Streams a project file with browser-facing inline headers. The storage key
@@ -33,9 +30,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  try {
-    await assertProjectFileReadAccess(projectId, user?.id ?? null);
-  } catch {
+  const access = await assertProjectFileReadAccess(projectId, user?.id ?? null).catch(() => null);
+  if (!access) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -46,60 +42,98 @@ export async function GET(request: NextRequest, context: RouteContext) {
       eq(projectNodes.type, "file"),
       isNull(projectNodes.deletedAt),
     ),
-    columns: { s3Key: true, name: true, mimeType: true, currentVersion: true },
+    columns: {
+      s3Key: true,
+      assetId: true,
+      name: true,
+      mimeType: true,
+      size: true,
+      currentVersion: true,
+      taskId: true,
+      path: true,
+      deletedAt: true,
+    },
   });
-  if (!node?.s3Key || parseProjectFileKey(node.s3Key)?.projectId !== projectId) {
+  if (!node) {
+    return new Response("File content is unavailable", { status: 404 });
+  }
+  try {
+    assertTaskFileNodeVisible(access, node);
+  } catch {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  const requestedRevision = request.nextUrl.searchParams.get("revision");
+  const revisionNumber = requestedRevision == null ? null : Number(requestedRevision);
+  if (requestedRevision != null && (!Number.isSafeInteger(revisionNumber) || revisionNumber! < 1)) {
+    return new Response("Invalid revision", { status: 400 });
+  }
+  const historical = revisionNumber == null
+    ? null
+    : await db.query.fileVersions.findFirst({
+        where: and(
+          eq(fileVersions.nodeId, nodeId),
+          eq(fileVersions.version, revisionNumber!),
+        ),
+        columns: { s3Key: true, assetId: true, size: true, mimeType: true, contentHash: true },
+      });
+  const target = historical ?? node;
+  if (!target?.s3Key || !target.assetId || parseProjectFileKey(target.s3Key)?.projectId !== projectId) {
+    return new Response("File content is unavailable", { status: 404 });
+  }
+  const [asset] = await db.select({
+    storageKey: storageAssets.storageKey,
+    size: storageAssets.verifiedSize,
+    mimeType: storageAssets.verifiedMimeType,
+    contentHash: storageAssets.contentHash,
+  }).from(storageAssets).where(and(
+    eq(storageAssets.id, target.assetId),
+    eq(storageAssets.bucket, "project-files"),
+    eq(storageAssets.storageKey, target.s3Key),
+    eq(storageAssets.state, "verified"),
+  )).limit(1);
+  if (
+    !asset
+    || asset.size == null
+    || !asset.mimeType
+    || (historical && (!historical.contentHash || historical.contentHash !== asset.contentHash))
+  ) {
     return new Response("File content is unavailable", { status: 404 });
   }
 
-  const version = String(node.currentVersion);
-  if (request.nextUrl.searchParams.get("v") !== version) {
+  const revisionIdentity = createHash("sha256")
+    .update(`${revisionNumber ?? node.currentVersion}:${target.s3Key}:${asset.contentHash ?? ""}`)
+    .digest("base64url")
+    .slice(0, 20);
+  if (request.nextUrl.searchParams.get("v") !== revisionIdentity) {
     const canonicalUrl = request.nextUrl.clone();
-    canonicalUrl.searchParams.set("v", version);
+    canonicalUrl.searchParams.set("v", revisionIdentity);
     return new Response(null, {
       status: 307,
       headers: { Location: canonicalUrl.toString(), "Cache-Control": "private, no-store" },
     });
   }
 
-  const etag = `"${nodeId}-v${version}"`;
-  if (request.headers.get("if-none-match") === etag) {
-    return new Response(null, {
-      status: 304,
-      headers: {
-        ETag: etag,
-        "Cache-Control": "private, max-age=86400, immutable",
-      },
-    });
-  }
-
+  const etag = `"${nodeId}-${revisionIdentity}"`;
   const admin = await createAdminClient();
   const { data, error } = await admin.storage
     .from("project-files")
-    .createSignedUrl(node.s3Key, 60);
+    .createSignedUrl(target.s3Key, 60);
   if (error || !data?.signedUrl) {
     return new Response("Failed to prepare file preview", { status: 502 });
   }
 
-  const range = request.headers.get("range");
-  const upstream = await fetch(data.signedUrl, {
-    headers: range ? { range } : undefined,
+  return streamPrivateObject({
+    request,
+    signedUrl: data.signedUrl,
+    totalSize: asset.size,
+    mimeType: asset.mimeType,
+    filename: node.name,
+    disposition: request.nextUrl.searchParams.get("download") === "1" ? "attachment" : "inline",
+    etag,
   });
-  if (!upstream.ok || !upstream.body) {
-    return new Response("Failed to load file preview", { status: upstream.status || 502 });
-  }
+}
 
-  const headers = new Headers();
-  headers.set("Content-Type", node.mimeType?.trim() || upstream.headers.get("content-type") || "application/octet-stream");
-  headers.set("Content-Disposition", inlineFilename(node.name));
-  headers.set("Cache-Control", "private, max-age=86400, immutable");
-  headers.set("ETag", etag);
-  headers.set("X-Content-Type-Options", "nosniff");
-  headers.set("Accept-Ranges", upstream.headers.get("accept-ranges") || "bytes");
-  for (const name of ["content-length", "content-range"]) {
-    const value = upstream.headers.get(name);
-    if (value) headers.set(name, value);
-  }
-
-  return new Response(upstream.body, { status: upstream.status, headers });
+export async function HEAD(request: NextRequest, context: RouteContext) {
+  return GET(request, context);
 }

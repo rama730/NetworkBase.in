@@ -38,7 +38,7 @@ import { getTaskPriorityPresentation, getTaskStatusPresentation } from "@/lib/pr
 import { getTaskTitlePresentation } from "@/lib/projects/task-presentation";
 import { projectStageLabel } from "@/lib/projects/status-presentation";
 import type { SocialPresenceIconKey } from "@/lib/profile/normalization";
-import { resolveClientSkill } from "@/lib/skills/client";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { cn } from "@/lib/utils";
 import type { SettingsSearchItem } from "./global-search";
 
@@ -102,7 +102,7 @@ function ResultShell({
                         event.stopPropagation();
                         onRemove();
                     }}
-                    className="mt-1 inline-flex size-7 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground opacity-100 transition-[color,background-color,opacity] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
+                    className="nb-touch-target mt-1 inline-flex size-7 shrink-0 items-center justify-center rounded-[5px] text-muted-foreground opacity-100 transition-[color,background-color,opacity] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
                     aria-label={removeLabel}
                 >
                     <X className="size-3.5" aria-hidden />
@@ -123,6 +123,7 @@ function ResultShell({
 }
 
 function SkillIconRail({ skills, max = 5 }: { skills: string[]; max?: number }) {
+    useSkillCatalog();
     if (!skills.length) return null;
     const visible = skills.slice(0, max);
     const hidden = Math.max(0, skills.length - visible.length);
@@ -236,7 +237,7 @@ export function ProfileSearchResultCard({ result, onOpen, onConnect, isConnectin
                 : (
                     <div className="relative shrink-0">
                         <UserAvatar identity={{ username: result.username, fullName: result.title, avatarUrl: result.avatarUrl }} size={40} className="rounded-[5px]" roundedClassName="rounded-[5px]" />
-                        <PersonPresenceDot lastActiveAt={result.lastActiveAt} compact />
+                        <PersonPresenceDot userId={result.userId} lastActiveAt={result.lastActiveAt} compact />
                     </div>
                 )}
             trailing={<span className="hidden self-center sm:block"><SkillIconRail skills={result.skills} /></span>}
@@ -248,7 +249,7 @@ export function ProfileSearchResultCard({ result, onOpen, onConnect, isConnectin
                         event.stopPropagation();
                         void onConnect(result);
                     }}
-                    className="inline-flex h-[28px] shrink-0 items-center gap-1.5 self-center rounded-[5px] bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
+                    className="nb-touch-target inline-flex h-[28px] shrink-0 items-center gap-1.5 self-center rounded-[5px] bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
                     aria-label={`Connect with ${result.title}`}
                 >
                     {isConnecting ? <Loader2 className="size-3 animate-spin motion-reduce:animate-none" aria-hidden /> : <UserPlus className="size-3" aria-hidden />}

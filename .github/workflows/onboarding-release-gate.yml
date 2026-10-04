@@ -6,6 +6,13 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -18,16 +25,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node 22 matches the Dockerfile; `tsx --test 'tests/unit/**'` needs Node's own glob (21+).
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install deps
         run: npm ci
 
       - name: Lint
-        run: npm run lint -- . --ext .ts,.tsx,.js,.jsx
+        run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck
@@ -54,10 +62,16 @@ jobs:
           npm run check:rls-contract
           npm run check:authz-contract
 
-      # The migration history does not replay on an empty database
-      # (it assumes Supabase setup done outside migrations), so validate the
-      # migration files offline instead.
-      - name: Migration checks
+      # Throwaway Postgres from the runner's preinstalled binaries: Supabase shim,
+      # schema push, then the chat migrations (same script as local runs).
+      - name: Disposable database
         run: |
-          npm run check:db:migration-journal
-          npm run check:db:migration-sources
+          set -o pipefail
+          export PATH="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1):$PATH"
+          url=$(scripts/chat-db/local-db.sh "$RUNNER_TEMP/pg" | tail -1) || { cat "$RUNNER_TEMP/pg/server.log"; exit 1; }
+          echo "DATABASE_URL_FRESH=$url" >> "$GITHUB_ENV"
+
+      - name: Chat database and action checks
+        run: |
+          npm run check:chat:db
+          npm run check:chat:actions

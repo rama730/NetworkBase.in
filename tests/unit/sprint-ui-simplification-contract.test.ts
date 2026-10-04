@@ -25,7 +25,7 @@ const sprintLifecycleModalsSource = readSource(
 const sprintEditorSource = readSource(
   "src/components/projects/v2/sprints/CreateSprintModal.tsx",
 );
-const sprintActionsSource = readSource("src/app/actions/project/_all.ts");
+const sprintActionsSource = readSource("src/app/actions/project/index.ts");
 
 describe("sprint tab target architecture contract", () => {
   it("keeps canonical Sprint and task references in URLs", () => {
@@ -117,7 +117,7 @@ describe("sprint tab target architecture contract", () => {
     assert.match(sprintEditorSource, /initializedDraftKeyRef/);
     assert.match(
       sprintActionsSource,
-      /a read must not mutate Sprint lifecycle state/,
+      /a read must not mutate Sprint lifecycle state/i,
     );
     assert.doesNotMatch(sprintActionsSource, /await startDueSprints\(/);
   });
@@ -126,7 +126,7 @@ describe("sprint tab target architecture contract", () => {
     assert.doesNotMatch(sprintActionsSource, /\bt\.completed_at\b/);
     assert.match(
       sprintActionsSource,
-      /tasks persist status and updated_at, not a completed_at/,
+      /tasks persist status and updated_at, not a completed_at/i,
     );
   });
 });

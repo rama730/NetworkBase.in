@@ -53,7 +53,7 @@ function ProviderRow({ provider, linking, onLink }: { provider: AuthConnectionMe
       </div>
     </div>
     {provider.state === "not_linked" && provider.provider !== "email" ? <Button className="self-start sm:self-auto" size="sm" variant="outline" onClick={onLink} disabled={linking}>{linking ? <Loader2 className="size-4 animate-spin" /> : null}Link</Button> : null}
-    {provider.state === "not_linked" && provider.provider === "email" ? <Button size="sm" variant="outline" asChild><Link href="/settings?tab=security" prefetch={false}>Set password</Link></Button> : null}
+    {provider.state === "not_linked" && provider.provider === "email" ? <Button size="sm" variant="outline" asChild><Link href="/settings?tab=security">Set password</Link></Button> : null}
   </div>;
 }
 

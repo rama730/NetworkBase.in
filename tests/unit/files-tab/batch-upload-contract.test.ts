@@ -13,14 +13,14 @@ describe("2PC Batch Upload & Finalize Architecture Contract", () => {
     "src/components/projects/v2/explorer/useExplorerMutations.ts",
   );
 
-  it("mutations.ts exports finalizeBatchUpload with 100-file ceiling and 2PC batch invariants", () => {
+  it("mutations.ts exports finalizeBatchUpload with the canonical 50-file ceiling and publication invariants", () => {
     const source = readFileSync(mutationsPath, "utf-8");
 
     // Must export finalizeBatchUpload
     assert.match(source, /export async function finalizeBatchUpload\(/);
 
-    // Must enforce batch limit of 100 files
-    assert.match(source, /if \(files\.length > 100\)/);
+    // Keep one batch inside the shared server contract.
+    assert.match(source, /if \(files\.length > 50\)/);
 
     // Must preload intents in a single batch query using inArray (not sequential findFirst loop)
     assert.match(source, /inArray\(uploadIntents\.id, intentIds\)/);
@@ -30,10 +30,11 @@ describe("2PC Batch Upload & Finalize Architecture Contract", () => {
     assert.match(source, /await db\.transaction\(async \(tx\) =>/);
 
     // Must deduplicate files and insert in a single SQL operation
-    assert.match(source, /await tx\.insert\(projectNodes\)\.values\(valuesToInsert\)\.returning\(\)/);
+    assert.match(source, /await tx\.insert\(projectNodes\)\.values\(valuesToInsert\.map/);
 
-    // Must batch-record node events rather than firing individual sequential DB calls
-    assert.match(source, /recordNodeEventsBatch\(/);
+    // Publication attaches verified assets and creates initial versions atomically.
+    assert.match(source, /await tx\.insert\(fileVersions\)\.values/);
+    assert.match(source, /eq\(storageAssets\.state, "verified"\)/);
 
     // Must return the optimistic attribution shape matching getProjectNodes
     assert.match(source, /updatedById:\s*user\.id/);
@@ -48,8 +49,6 @@ describe("2PC Batch Upload & Finalize Architecture Contract", () => {
     // Must scope sibling collision lookup by taskId and deletedAt
     assert.match(source, /isNull\(projectNodes\.taskId\)/);
 
-    // Must await batch record node events
-    assert.match(source, /await recordNodeEventsBatch\(/);
   });
 
   it("useExplorerMutations.ts integrates finalizeBatchUpload for 2-round-trip uploads", () => {
@@ -61,7 +60,9 @@ describe("2PC Batch Upload & Finalize Architecture Contract", () => {
     // Must call finalizeBatchUpload after S3 direct upload finishes
     assert.match(source, /const batchNodes = await finalizeBatchUpload\(/);
 
-    // Must have a fallback loop for resilience if batch call fails
-    assert.match(source, /createFileNode\(projectId, parentId,/);
+    // Signing and publication stay in bounded windows.
+    assert.match(source, /offset \+= 16/);
+    assert.match(source, /offset \+= 50/);
+    assert.match(source, /uploadToSupabaseSignedUrl/);
   });
 });

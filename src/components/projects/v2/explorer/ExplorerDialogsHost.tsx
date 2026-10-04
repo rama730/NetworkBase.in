@@ -271,7 +271,7 @@ export function FolderPicker({
         >
           <button
             type="button"
-            className="inline-flex h-8 w-5 items-center justify-center text-[#4C5A61]"
+            className="nb-touch-target inline-flex h-8 w-5 items-center justify-center text-[#4C5A61]"
             onClick={() => void toggle(node)}
             aria-label={isOpen ? "Collapse" : "Expand"}
           >
@@ -528,7 +528,7 @@ export function FolderPicker({
                 Boolean(disabledReason(selectedNode ?? null))
               }
               onClick={() => void createSelectedFolder()}
-              className="h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#F3F0EA] dark:border-zinc-700"
+              className="nb-touch-target h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#F3F0EA] dark:border-zinc-700"
             >
               <Plus className="mr-1 h-4 w-4" /> Create
             </Button>
@@ -600,14 +600,14 @@ export function CreateDialog({
             <Button
               variant="outline"
               onClick={() => setCreateDialog({ open: false })}
-              className="h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
+              className="nb-touch-target h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
             >
               Cancel
             </Button>
             <Button
               onClick={() => void confirmCreate()}
               disabled={!canEdit || !createDialog.name.trim()}
-              className="h-[34px] rounded-[5px] bg-[#D14E24] hover:bg-[#B23F1C] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="nb-touch-target h-[34px] rounded-[5px] bg-[#D14E24] hover:bg-[#B23F1C] text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Create
             </Button>
@@ -668,7 +668,7 @@ export function RenameDialog({
             <Button
               variant="outline"
               onClick={() => setRenameState({ nodeId: null, value: "", original: "" })}
-              className="h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
+              className="nb-touch-target h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
             >
               Cancel
             </Button>
@@ -679,7 +679,7 @@ export function RenameDialog({
                 !renameState.value.trim() ||
                 renameState.value.trim() === renameState.original
               }
-              className="h-[34px] rounded-[5px] bg-[#D14E24] hover:bg-[#B23F1C] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="nb-touch-target h-[34px] rounded-[5px] bg-[#D14E24] hover:bg-[#B23F1C] text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Save
             </Button>
@@ -728,7 +728,7 @@ export function DeleteDialog({
           <Button
             variant="outline"
             onClick={() => setDeleteDialog({ open: false, nodes: [] })}
-            className="h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
+            className="nb-touch-target h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
           >
             Cancel
           </Button>
@@ -736,7 +736,7 @@ export function DeleteDialog({
             variant="destructive"
             onClick={() => void confirmDelete()}
             disabled={!canEdit}
-            className="h-[34px] rounded-[5px]"
+            className="nb-touch-target h-[34px] rounded-[5px]"
           >
             Move to Trash
           </Button>
@@ -853,14 +853,14 @@ export function MoveDialog({
             onClick={() =>
               setMoveDialog({ open: false, nodes: [], targetFolderId: null })
             }
-            className="h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
+            className="nb-touch-target h-[34px] rounded-[5px] border-[#DBD5C8] hover:bg-[#DBD5C8]/30"
           >
             Cancel
           </Button>
           <Button
             onClick={() => void runMove()}
             disabled={!canEdit || isMoving || Boolean(invalidReason)}
-            className="h-[34px] rounded-[5px] bg-[#D14E24] hover:bg-[#B23F1C] text-white"
+            className="nb-touch-target h-[34px] rounded-[5px] bg-[#D14E24] hover:bg-[#B23F1C] text-white"
           >
             {isMoving ? (mode === "publish" ? "Publishing…" : "Moving…") : mode === "publish" ? "Publish" : "Move"}
           </Button>

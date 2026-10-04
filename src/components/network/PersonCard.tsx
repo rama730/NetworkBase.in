@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Ban, Check, ChevronDown, Clock, Loader2, Lock, MapPin, MessageSquare } from "lucide-react";
 
@@ -8,11 +8,13 @@ import type { SuggestedProfile } from "@/app/actions/connections";
 import { SkillIcon } from "@/components/skills";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
-import { resolveClientSkill } from "@/lib/skills/client";
+import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { profileHref } from "@/lib/routing/identifiers";
 import { canonicalSkillKey, matchingSkillLabels } from "@/lib/skills/matching";
 import { useConnectionMutations } from "@/hooks/useConnections";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { boundPersonCardItems } from "@/lib/network/person-card-bounds";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -20,6 +22,108 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { messageUserInWindow } from "@/components/messages/message-user";
+
+/**
+ * Shared Network person-card anatomy (profile-header style): avatar top-left, name and primary action beside it.
+ * Placement rule: the one line under the name is the location, else the real headline; the headline drops
+ * full width below the avatar only when a location took that line. Cards size to their content.
+ */
+export function PersonCardLayout({
+    avatar,
+    head,
+    location,
+    meta = [],
+    headline,
+    aside,
+    body,
+    className,
+}: {
+    avatar: ReactNode;
+    head: ReactNode;
+    /** Mono location line; when present it owns the slot under the name. */
+    location?: ReactNode;
+    /** Keyed mono lines after the slot ("shared connections", "Connected …", "Role · …"); falsy entries are skipped. */
+    meta?: ReactNode[];
+    /** Real headline only; never filler text. */
+    headline?: ReactNode;
+    /** Primary action beside the name; keeps the card compact. */
+    aside?: ReactNode;
+    body?: ReactNode;
+    className?: string;
+}) {
+    const headlineBelow = location ? headline : null;
+    return (
+        <article className={cn("flex h-full min-w-0 flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:border-input", className)}>
+            <div className="flex min-w-0 items-start gap-3">
+                {avatar}
+                <div className="min-w-0 flex-1 pt-0.5">
+                    {head}
+                    {location ?? (headline ? <div className="mt-1 min-w-0">{headline}</div> : null)}
+                    {meta.filter(Boolean)}
+                </div>
+                {aside ? <div className="flex shrink-0 items-center">{aside}</div> : null}
+            </div>
+            {headlineBelow || body ? (
+                <div className="mt-3 min-w-0 space-y-2">
+                    {headlineBelow}
+                    {body}
+                </div>
+            ) : null}
+        </article>
+    );
+}
+
+export function PersonCardGrid<T>({
+    items,
+    getKey,
+    renderItem,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    loadingLabel,
+}: {
+    items: T[];
+    getKey: (item: T) => string;
+    renderItem: (item: T, index: number) => ReactNode;
+    hasNextPage: boolean;
+    isFetchingNextPage: boolean;
+    fetchNextPage: () => unknown;
+    loadingLabel: string;
+}) {
+    const sentinelRef = useRef<HTMLDivElement>(null);
+    const boundedItems = boundPersonCardItems(items);
+
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel || !hasNextPage || isFetchingNextPage) return;
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0]?.isIntersecting) void fetchNextPage();
+        }, { rootMargin: "600px" });
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+    return (
+        <div className="pb-8">
+            {/* Rows stretch to their tallest card, so a sparse card beside a rich one stays aligned. */}
+            <div className="grid grid-cols-1 gap-[14px] sm:grid-cols-2">
+                {boundedItems.map((item, index) => (
+                    <div key={getKey(item)} className="[contain-intrinsic-size:auto_150px] [content-visibility:auto]">
+                        {renderItem(item, index)}
+                    </div>
+                ))}
+            </div>
+            <div ref={sentinelRef} aria-hidden="true" />
+            {isFetchingNextPage ? (
+                <div className="flex justify-center py-6"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label={loadingLabel} /></div>
+            ) : null}
+        </div>
+    );
+}
+
+/** One-row tag strip: tags that would wrap to a second row are hidden, keeping card heights even. */
+export const PERSON_CARD_TAGS = "flex h-6 min-w-0 flex-wrap gap-1.5 overflow-hidden";
 
 export interface PersonCardProps {
     profile: SuggestedProfile;
@@ -34,6 +138,7 @@ function PersonCard({
     priority = false,
     viewerSkills,
 }: PersonCardProps) {
+    useSkillCatalog();
     const { cancelRequest, blockProfile } = useConnectionMutations();
     const [localStatus, setLocalStatus] = useState<"none" | "pending_sent" | null>(null);
     const [connecting, setConnecting] = useState(false);
@@ -42,6 +147,7 @@ function PersonCard({
     const status = localStatus ?? profile.connectionStatus;
     const isLocked = Boolean(profile.isLockedProfile);
     const displayName = profile.fullName || profile.username || "User";
+    const headline = profile.headline?.trim();
     const matchingSkills = matchingSkillLabels(profile.skills ?? [], viewerSkills ?? []);
     const matchingSkillKeys = new Set(matchingSkills.map(canonicalSkillKey));
     const skills = [...(profile.skills ?? [])]
@@ -114,7 +220,7 @@ function PersonCard({
                 <button
                     type="button"
                     disabled={cancelling}
-                    className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 transition-colors"
+                    className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm max-md:text-[13px] font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 transition-colors"
                     aria-label={`Options for connection request to ${displayName}`}
                 >
                     {cancelling ? (
@@ -122,7 +228,7 @@ function PersonCard({
                     ) : (
                         <Clock className="size-4 text-muted-foreground" aria-hidden="true" />
                     )}
-                    <span>Requested</span>
+                    <span className="max-sm:sr-only">Requested</span>
                     <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
                 </button>
             </DropdownMenuTrigger>
@@ -131,6 +237,7 @@ function PersonCard({
                     <DropdownMenuItem asChild>
                         <Link
                             href={`/messages?userId=${profile.id}`}
+                            onClick={(event) => messageUserInWindow(profile.id, event)}
                             className="flex items-center gap-2 cursor-pointer w-full"
                         >
                             <MessageSquare className="size-4" />
@@ -160,56 +267,54 @@ function PersonCard({
             </DropdownMenuContent>
         </DropdownMenu>
     ) : status === "pending_received" ? (
-        <Link href="/network?tab=invitations" className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-primary hover:bg-muted">
+        <Link href="/network?tab=invitations" className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 rounded-md border border-border px-3 text-sm max-md:text-[13px] font-medium text-primary hover:bg-muted">
             <Clock className="size-4" aria-hidden="true" /> Review
         </Link>
     ) : status === "connected" ? (
-        <span className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 px-2 text-sm font-medium text-[var(--status-success)]">
-            <Check className="size-4" aria-hidden="true" /> Connected
+        <span className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 px-2 text-sm max-md:text-[13px] font-medium text-[var(--status-success)]">
+            <Check className="size-4" aria-hidden="true" /> <span className="max-sm:sr-only">Connected</span>
         </span>
     ) : null;
 
     return (
-        <article className="flex h-full min-w-0 min-h-[158px] items-center gap-3.5 rounded-lg border border-border bg-card p-4 transition-colors hover:border-input">
-            <Link href={profileHref(profile)} className="relative inline-flex shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                <UserAvatar identity={profile} size={54} priority={priority} fallbackClassName="text-lg font-semibold" />
-                <PersonPresenceDot lastActiveAt={profile.lastActiveAt} />
-            </Link>
-
-            <Link href={profileHref(profile)} className="min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <h3 className="nb-card-title block min-w-0 truncate text-foreground" title={displayName}>{displayName}</h3>
-
-                {isLocked ? (
-                    <p className="nb-compact mt-1 flex items-center gap-1 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />Private profile</p>
-                ) : profile.headline ? (
-                    <p className="nb-compact mt-1 truncate text-muted-foreground">{profile.headline}</p>
-                ) : (
-                    <p className="nb-compact mt-1 text-muted-foreground">NetworkBase member</p>
-                )}
-
-                {!isLocked && profile.location ? (
-                    <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={profile.location}>
-                        <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-                        <span className="min-w-0 truncate">{profile.location}</span>
-                    </p>
-                ) : null}
-
-                {!isLocked && skills.length ? (
-                    <div className="mt-2 flex min-w-0 flex-wrap gap-1.5" aria-label="Skills">
-                        {skills.map((skillName) => {
-                            const skill = resolveClientSkill(skillName);
-                            return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
-                        })}
-                    </div>
-                ) : null}
-
-                {!isLocked && (profile.mutualConnections ?? 0) > 0 ? (
-                    <p className="nb-meta mt-2">{profile.mutualConnections} shared connections</p>
-                ) : null}
-            </Link>
-
-            {action}
-        </article>
+        <PersonCardLayout
+            avatar={
+                <Link href={profileHref(profile)} className="relative inline-flex shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                    <UserAvatar identity={profile} size={48} priority={priority} fallbackClassName="text-base font-semibold" />
+                    <PersonPresenceDot userId={profile.id} lastActiveAt={profile.lastActiveAt} />
+                </Link>
+            }
+            head={
+                <Link href={profileHref(profile)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <h3 className="nb-card-title min-w-0 truncate text-foreground" title={displayName}>{displayName}</h3>
+                </Link>
+            }
+            location={!isLocked && profile.location ? (
+                <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={profile.location}>
+                    <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 truncate">{profile.location}</span>
+                </p>
+            ) : null}
+            meta={isLocked ? [] : [
+                (profile.mutualConnections ?? 0) > 0 ? (
+                    <p key="shared" className="nb-meta mt-1 truncate">{profile.mutualConnections} shared connections</p>
+                ) : null,
+            ]}
+            headline={isLocked ? (
+                <p className="nb-compact flex items-center gap-1 text-muted-foreground"><Lock className="size-3.5" aria-hidden="true" />Private profile</p>
+            ) : headline ? (
+                <p className="nb-body truncate text-muted-foreground" title={headline}>{headline}</p>
+            ) : null}
+            aside={action}
+            body={!isLocked && skills.length ? (
+                <div className={PERSON_CARD_TAGS} aria-label="Skills">
+                    {skills.map((skillName) => {
+                        const skill = resolveClientSkill(skillName);
+                        return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
+                    })}
+                </div>
+            ) : null}
+        />
     );
 }
 

@@ -229,14 +229,14 @@ async function validateDatabase(
       throw new Error(`[${label}] missing onboarding SLO view: public.onboarding_slo_daily`);
     }
 
-    const [dmPairsPkRow] = await sql<{ count: number }[]>`
+    const [chatPkRow] = await sql<{ count: number }[]>`
       SELECT count(*)::int AS count
       FROM pg_constraint
-      WHERE conrelid = to_regclass('public.dm_pairs')
+      WHERE conrelid = to_regclass('public.chat_channels')
         AND contype = 'p'
     `;
-    if (options.strict && (dmPairsPkRow?.count ?? 0) !== 1) {
-      throw new Error(`[${label}] dm_pairs must have exactly 1 primary key`);
+    if (options.strict && (chatPkRow?.count ?? 0) !== 1) {
+      throw new Error(`[${label}] chat_channels must have exactly 1 primary key`);
     }
 
     console.log(`[db-remigration] ${label}: validation passed`);

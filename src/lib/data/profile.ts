@@ -20,7 +20,9 @@ import {
 } from '@/lib/profile/collaboration'
 import { getRedisClient } from '@/lib/redis'
 
-type StandardProfile = Omit<Profile, 'workspaceLayout'> & { hasRecoveryCodes: boolean }
+// Presence columns (0184) are read only through app/actions/presence.ts, never with the profile.
+type PresenceColumns = 'showActivity' | 'statusEmoji' | 'statusText' | 'statusExpiresAt' | 'statusSetAt' | 'statusPausesNotifications' | 'statusVisibility'
+type StandardProfile = Omit<Profile, 'workspaceLayout' | PresenceColumns> & { hasRecoveryCodes: boolean }
 
 function toBootstrapProfile(
     profile: Pick<
@@ -67,6 +69,8 @@ function toBootstrapProfile(
         // The retired JSON field must never hydrate a second UI authority.
         experience: [],
         education: profile.education ?? [],
+        avatarAssetId: null,
+        bannerAssetId: null,
         openTo: profile.openTo ?? [],
         socialLinks: profile.socialLinks ?? {},
         // Compatibility only: the deployed column is no longer read by the safe-link flow.

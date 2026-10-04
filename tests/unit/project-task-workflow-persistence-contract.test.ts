@@ -51,9 +51,8 @@ test("workflow columns keep four default categories while allowing two project-s
     assert.match(board, /collisionDetection=\{closestCenter\}/);
     assert.match(board, /adjustScale=\{false\}/);
     assert.match(board, /activeTaskWidth/);
-    assert.match(board, /<TaskCard task=\{activeTask\} \/>/);
-    assert.match(board, /flex items-start gap-6/);
-    assert.match(board, /taskSizesRef/);
+    assert.match(board, /<TaskCard task=\{activeTask\} showStatus=\{false\} \/>/);
+    assert.match(board, /flex items-start gap-4 overflow-x-auto/);
     assert.match(board, /getBoundingClientRect/);
     assert.match(board, /buildTaskPreviewColumns/);
     assert.match(board, /previewMove/);

@@ -2,6 +2,7 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 
 import React, {
@@ -30,7 +31,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  BookOpenText,
   FilePlus2,
   FileUp,
   FolderOpen,
@@ -56,11 +56,12 @@ import {
 } from "../explorer/ExplorerTree";
 import { EMPTY_ARRAY, EMPTY_OBJECT } from "../explorer/explorerTypes";
 import { useExplorerOperationLog } from "../explorer/useExplorerOperationLog";
-import { ExplorerDialogsHost } from "../explorer/ExplorerDialogsHost";
 
 import { useNavigateTo } from "./hooks/useNavigateTo";
 import { FilesTabBootContext } from "./hooks/useFolderContents";
 import { FILES_TAB_SIDEBAR_WIDTH_PX } from "./sidebarSearch";
+
+const ExplorerDialogsHost = dynamic(() => import("../explorer/ExplorerDialogsHost").then((mod) => mod.ExplorerDialogsHost), { ssr: false });
 
 // Re-export the pure helpers so consumers (Task 3.2 tests, FilesTabMain's
 // collapsed-state floating toggle) can depend on a single import path.
@@ -638,7 +639,7 @@ export function FilesTabSidebar({
             aria-label={collapsedToggleLabel}
             title={collapsedToggleLabel}
             data-testid="files-tab-sidebar-collapse"
-            className="flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:bg-[#F3F0EA] hover:text-[#141A1E] focus-visible:ring-2 focus-visible:ring-[#D14E24] dark:hover:bg-muted dark:hover:text-foreground"
+            className="nb-touch-target flex size-7 items-center justify-center rounded-[5px] text-[#6B7880] hover:bg-[#F3F0EA] hover:text-[#141A1E] focus-visible:ring-2 focus-visible:ring-[#D14E24] dark:hover:bg-muted dark:hover:text-foreground"
           >
             <PanelLeftClose aria-hidden="true" className="size-4" />
           </button>
@@ -832,29 +833,6 @@ export function FilesTabSidebar({
                       >
                         <ListTodo className="w-4 h-4 mr-2" />
                         Attach to task…
-                      </DropdownMenuItem>
-                    )}
-                    {canEdit && (/\.(md|mdx|markdown|txt)$/i.test(contextMenuState.node.name) || /^readme(\.|$)/i.test(contextMenuState.node.name)) && (
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          if (!contextMenuState.node) return;
-                          try {
-                            const { normalizeProjectDocSlug } = await import("@/lib/projects/doc");
-                            const { linkProjectDocAction } = await import("@/app/actions/project/doc");
-                            const docSlug = normalizeProjectDocSlug(contextMenuState.node.name, "doc");
-                            const res = await linkProjectDocAction(projectId, contextMenuState.node.id, docSlug);
-                            if (res?.error) {
-                              toast.error(res.error);
-                            } else {
-                              toast.success("File linked to Doc successfully");
-                            }
-                          } catch {
-                            toast.error("Failed to link file to Doc");
-                          }
-                        }}
-                      >
-                        <BookOpenText className="w-4 h-4 mr-2" />
-                        Use as Doc
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem

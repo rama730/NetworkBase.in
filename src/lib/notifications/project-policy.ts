@@ -56,8 +56,6 @@ export type ProjectNotificationEventKey =
     | "tasks.mentions"
     | "tasks.replies"
     | "tasks.bulk_changed"
-    | "workflows.assigned"
-    | "workflows.resolved"
     | "files.uploaded"
     | "files.bulk_uploaded"
     | "files.folder_created"
@@ -524,36 +522,6 @@ export const PROJECT_NOTIFICATION_EVENT_REGISTRY = {
         // Bulk task editing is not an application capability yet.
         visible: false,
     }),
-    "workflows.assigned": E({
-        key: "workflows.assigned",
-        group: "tasks_workflow",
-        label: "Workflow assigned",
-        description: "Notify users assigned to a project workflow request.",
-        category: "workflows",
-        notificationKind: "workflow_assigned",
-        defaultEnabled: true,
-        defaultImportance: "important",
-        defaultRecipients: ["affected_member"],
-        allowMemberOverride: false,
-        mandatory: true,
-        aggregate: "none",
-        visible: true,
-    }),
-    "workflows.resolved": E({
-        key: "workflows.resolved",
-        group: "tasks_workflow",
-        label: "Workflow resolved",
-        description: "Notify requesters when a workflow request is resolved.",
-        category: "workflows",
-        notificationKind: "workflow_resolved",
-        defaultEnabled: true,
-        defaultImportance: "more",
-        defaultRecipients: ["affected_member"],
-        allowMemberOverride: true,
-        mandatory: false,
-        aggregate: "none",
-        visible: true,
-    }),
     "files.uploaded": E({
         key: "files.uploaded",
         group: "files_workspace",
@@ -963,4 +931,31 @@ export function summarizeProjectNotificationPolicy(policy: ProjectNotificationPo
         mandatoryCount: mandatory.length,
         optionalEnabledCount: enabled.filter((entry) => !entry.mandatory).length,
     };
+}
+
+/**
+ * Create-project step 4 shows three plain switches over the real policy groups. Membership and
+ * security stay on (mandatory events are never switched off). Switched-off rows disable the
+ * non-mandatory events in their groups; switched-on rows keep the balanced defaults.
+ */
+export const CREATE_PROJECT_NOTIFICATION_ROWS = [
+    { id: "roles_applications", label: "Roles and applications", description: "Applications, decisions, and role changes.", groups: ["roles_applications"] },
+    { id: "work", label: "Tasks and workflow", description: "Assignments, lifecycle stages, and file reviews.", groups: ["tasks_workflow", "project_lifecycle", "files_workspace"] },
+    { id: "updates_docs", label: "Updates and doc changes", description: "Progress posts and documentation publishing.", groups: ["updates", "readme"] },
+] as const satisfies ReadonlyArray<{ id: string; label: string; description: string; groups: readonly ProjectNotificationGroupId[] }>;
+
+export type CreateProjectNotificationRowId = (typeof CREATE_PROJECT_NOTIFICATION_ROWS)[number]["id"];
+
+export function buildCreateProjectNotificationPolicy(
+    rows: Partial<Record<CreateProjectNotificationRowId, boolean>> | null | undefined,
+): ProjectNotificationPolicy {
+    const policy = buildDefaultProjectNotificationPolicy("balanced");
+    const offGroups = new Set<ProjectNotificationGroupId>(
+        CREATE_PROJECT_NOTIFICATION_ROWS.filter((row) => rows?.[row.id] === false).flatMap((row) => row.groups),
+    );
+    for (const key of PROJECT_NOTIFICATION_EVENT_KEYS) {
+        const entry = PROJECT_NOTIFICATION_EVENT_REGISTRY[key];
+        if (!entry.mandatory && offGroups.has(entry.group)) policy.rules[key].enabled = false;
+    }
+    return policy;
 }

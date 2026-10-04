@@ -1,8 +1,6 @@
 export type NotificationKind =
-    | "message_burst"
-    | "message_reaction"
-    | "workflow_assigned"
-    | "workflow_resolved"
+    | "chat_invite"
+    | "chat_reminder"
     | "application_received"
     | "application_decision"
     | "connection_request_received"
@@ -45,7 +43,6 @@ export type NotificationReason =
     | "update";
 
 export type NotificationPreferenceCategory =
-    | "messages"
     | "mentions"
     | "workflows"
     | "projects"
@@ -53,7 +50,7 @@ export type NotificationPreferenceCategory =
     | "applications"
     | "connections";
 
-export type NotificationMuteScopeKind = "notification_type" | "project" | "task" | "conversation" | "person";
+export type NotificationMuteScopeKind = "notification_type" | "project" | "task" | "person";
 
 export type NotificationMuteScope = {
     kind: NotificationMuteScopeKind;
@@ -86,11 +83,8 @@ export type NotificationEntityRefs = {
     updateId?: string | null;
     taskId?: string | null;
     commentId?: string | null;
-    conversationId?: string | null;
-    sourceMessageId?: string | null;
-    reactionEmoji?: string | null;
-    messageDeletedAt?: string | null;
-    workflowItemId?: string | null;
+    invitationId?: string | null;
+    channelId?: string | null;
     applicationId?: string | null;
     connectionId?: string | null;
     fileId?: string | null;
@@ -110,7 +104,7 @@ export type NotificationPreview = {
     thumbnailUrl?: string | null;
     secondaryText?: string | null;
     contextLabel?: string | null;
-    contextKind?: "project" | "task" | "conversation" | "connection" | "application" | "workflow" | "file" | null;
+    contextKind?: "project" | "task" | "connection" | "application" | "workflow" | "file" | null;
 };
 
 export type NotificationItem = {

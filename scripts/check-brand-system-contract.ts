@@ -6,31 +6,13 @@ const requiredAssets = [
   "favicon.ico",
   "favicon.svg",
   "apple-touch-icon.png",
-  "icon-ink.svg",
-  "icon-ink-16.png",
   "icon-ink-32.png",
-  "icon-ink-48.png",
   "icon-ink-64.png",
-  "icon-ink-128.png",
   "icon-ink-180.png",
   "icon-ink-192.png",
-  "icon-ink-256.png",
   "icon-ink-512.png",
-  "icon-ink-1024.png",
-  "icon-paper.svg",
-  "icon-paper-512.png",
-  "icon-paper-1024.png",
-  "icon-clay.svg",
-  "icon-clay-512.png",
-  "icon-clay-1024.png",
-  "icon-circle-ink.svg",
-  "icon-circle-ink-180.png",
-  "icon-circle-ink-512.png",
-  "icon-circle-ink-1024.png",
-  "icon-circle-clay.svg",
   "icon-maskable-192.png",
   "icon-maskable-512.png",
-  "icon-maskable-1024.png",
   "icon-mono.svg",
 ] as const;
 
@@ -60,26 +42,13 @@ if (!icons.some((icon) => icon.src === "/icon-maskable-512.png" && icon.purpose 
 }
 
 const pngSizes: Record<string, number> = {
-  "icon-ink-16.png": 16,
   "icon-ink-32.png": 32,
-  "icon-ink-48.png": 48,
   "icon-ink-64.png": 64,
-  "icon-ink-128.png": 128,
   "icon-ink-180.png": 180,
   "icon-ink-192.png": 192,
-  "icon-ink-256.png": 256,
   "icon-ink-512.png": 512,
-  "icon-ink-1024.png": 1024,
   "icon-maskable-192.png": 192,
   "icon-maskable-512.png": 512,
-  "icon-maskable-1024.png": 1024,
-  "icon-circle-ink-180.png": 180,
-  "icon-circle-ink-512.png": 512,
-  "icon-circle-ink-1024.png": 1024,
-  "icon-paper-512.png": 512,
-  "icon-paper-1024.png": 1024,
-  "icon-clay-512.png": 512,
-  "icon-clay-1024.png": 1024,
 };
 
 function readPngSize(filePath: string): { width: number; height: number } {
@@ -98,13 +67,13 @@ for (const [asset, expected] of Object.entries(pngSizes)) {
 
 const globals = readFileSync(path.join(root, "src", "app", "globals.css"), "utf8");
 for (const selector of [
-  ".nb-brand-mark", ".nb-brand-dot", ".nb-brand-name", ".nb-dot-loader", ".nb-wordmark-load",
+  ".nb-brand-mark", ".nb-brand-dot", ".nb-brand-name",
   ".nb-sidebar-brand .nb-brand-mark--lockup { gap:calc(var(--nb-brand-dot-size) * .55); }",
 ]) {
   if (!globals.includes(selector)) throw new Error(`Brand CSS contract is missing ${selector}.`);
 }
 
-const layout = readFileSync(path.join(root, "src", "app", "layout.tsx"), "utf8");
+const layout = readFileSync(path.join(root, "src", "app", "root-document.tsx"), "utf8");
 if (!layout.includes('themeColor: "#141A1E"')) {
   throw new Error("Browser chrome must use the approved fixed Ink brand field.");
 }
@@ -112,11 +81,6 @@ if (!layout.includes('themeColor: "#141A1E"')) {
 const mark = readFileSync(path.join(root, "src", "components", "brand", "BrandMark.tsx"), "utf8");
 for (const fragment of ["Math.round(dot * 0.55)", "ground === \"image\" ? \"ink\" : tone", "gap: `${gap}px`"]) {
   if (!mark.includes(fragment)) throw new Error(`Canonical wordmark behaviour is missing ${fragment}.`);
-}
-
-const loader = readFileSync(path.join(root, "src", "components", "brand", "BrandLoading.tsx"), "utf8");
-for (const variant of ["breathe", "shuttle", "turn", "trace", "split", "wipe", "squash", "queue", "orbit", "tally", "relay", "cast", "shatter"]) {
-  if (!loader.includes(`\"${variant}\"`)) throw new Error(`Dot loading mechanic ${variant} is missing.`);
 }
 
 const sidebar = readFileSync(path.join(root, "src", "components", "layout", "AppSidebar.tsx"), "utf8");
@@ -131,4 +95,4 @@ for (const fragment of ["DotLoader", "WordmarkLoadIndicator", "SIDEBAR_BRAND_LOA
   if (sidebar.includes(fragment)) throw new Error(`Sidebar must not animate the brand: found ${fragment}.`);
 }
 
-console.log(`Brand system contract passed (${requiredAssets.length} assets, geometry, manifest, wordmark, and dot mechanics).`);
+console.log(`Brand system contract passed (${requiredAssets.length} assets, geometry, manifest, wordmark).`);

@@ -43,15 +43,16 @@ async function main() {
     const columnSet = new Set(journalColumns.map((column) => column.columnName));
     const hasChecksum = columnSet.has("checksum");
     const hasStatus = columnSet.has("status");
+    const hasJournalIndex = columnSet.has("journal_index");
 
-    const rows = hasChecksum && hasStatus
-      ? await sql<{ tag: string; checksum: string | null; status: string; appliedAt: Date }[]>`
-          SELECT tag, checksum, status, applied_at AS "appliedAt"
+    const rows = hasChecksum && hasStatus && hasJournalIndex
+      ? await sql<{ tag: string; checksum: string | null; status: string; appliedAt: Date; journalIndex: number | null }[]>`
+          SELECT tag, checksum, status, applied_at AS "appliedAt", journal_index AS "journalIndex"
           FROM public.app_migration_journal
-          ORDER BY applied_at, tag
+          ORDER BY journal_index NULLS FIRST, applied_at, tag
         `
-      : await sql<{ tag: string; checksum: string | null; status: string; appliedAt: Date }[]>`
-          SELECT tag, NULL::text AS checksum, 'completed'::text AS status, applied_at AS "appliedAt"
+      : await sql<{ tag: string; checksum: string | null; status: string; appliedAt: Date; journalIndex: number | null }[]>`
+          SELECT tag, NULL::text AS checksum, 'completed'::text AS status, applied_at AS "appliedAt", NULL::integer AS "journalIndex"
           FROM public.app_migration_journal
           ORDER BY applied_at, tag
         `;
@@ -109,8 +110,8 @@ async function main() {
     `;
 
     const errors: string[] = [];
-    if (!hasChecksum || !hasStatus) {
-      errors.push("app_migration_journal is missing checksum/status columns; run the migration setup in an approved deployment.");
+    if (!hasChecksum || !hasStatus || !hasJournalIndex) {
+      errors.push("app_migration_journal is missing checksum/status/journal_index columns; run the migration setup in an approved deployment.");
     }
     if (missing.length > 0) errors.push(`missing applied migrations: ${missing.join(", ")}`);
     if (unexpected.length > 0) errors.push(`unexpected live migration tags: ${unexpected.join(", ")}`);

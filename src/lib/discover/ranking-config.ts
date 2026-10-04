@@ -1,7 +1,6 @@
 export const DISCOVER_RANKING_WEIGHTS = {
     candidateLimit: 280,
     maxSnapshotItems: 400,
-    snapshotTtlSeconds: 180,
     trending: {
         views: 0.45,
         follows: 1.3,

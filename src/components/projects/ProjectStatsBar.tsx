@@ -24,14 +24,16 @@ export default function ProjectStatsBar({
     const textClass = size === "sm" ? "text-xs" : "text-xs";
 
     return (
-        <div className={cn("flex items-center gap-3 font-mono tabular-nums text-zinc-500 dark:text-zinc-400", textClass, className)}>
+        <div className={cn("flex items-center gap-3 font-mono tabular-nums text-zinc-500 dark:text-zinc-400 max-md:text-muted-foreground", textClass, className)}>
             <div className="flex items-center gap-1" title="Total views" aria-label={`Views: ${viewCount}`} data-testid={`${testIdPrefix}-view-count`}>
-                <BarChart2 className={iconClass} aria-hidden="true" />
-                <span className="font-semibold text-zinc-900 dark:text-zinc-200">{viewCount}</span>
+                <BarChart2 className={cn(iconClass, "max-md:hidden")} aria-hidden="true" />
+                <span className="nb-micro md:hidden">Views</span>
+                <span className="font-semibold text-zinc-900 dark:text-zinc-200 max-md:text-foreground">{viewCount}</span>
             </div>
             <div className="flex items-center gap-1" title="Total followers" aria-label={`Followers: ${followersCount}`} data-testid={`${testIdPrefix}-follower-count`}>
-                <UsersRound className={iconClass} aria-hidden="true" />
-                <span className="font-semibold text-zinc-900 dark:text-zinc-200">{followersCount}</span>
+                <UsersRound className={cn(iconClass, "max-md:hidden")} aria-hidden="true" />
+                <span className="nb-micro md:hidden">Followers</span>
+                <span className="font-semibold text-zinc-900 dark:text-zinc-200 max-md:text-foreground">{followersCount}</span>
             </div>
         </div>
     );

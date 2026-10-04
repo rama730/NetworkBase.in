@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (file: string) => readFileSync(file, "utf8");
 
 test("personal settings render as one navigable scroll document", () => {
-  const route = read("src/app/(main)/settings/page.tsx");
+  const route = read("src/app/(site)/(main)/settings/page.tsx");
   const document = read("src/components/settings/SettingsDocument.tsx");
   const layout = read("src/components/settings/SettingsLayout.tsx");
   const globals = read("src/app/globals.css");
@@ -92,6 +92,6 @@ test("sign out is located in account settings after cache management and removed
   const signoutIndex = account.indexOf('title="Sign out"');
   assert.ok(cacheIndex > 0 && signoutIndex > cacheIndex, "Sign out must be placed directly after Cache management in Account settings");
 
-  assert.match(account, /ConfirmDialog/, "Account settings should trigger a ConfirmDialog for signing out");
-  assert.match(account, /signOut\(\)/, "Account settings should call signOut when confirmed");
+  assert.match(account, /SignOutConfirmDialog/, "Account settings should use the shared sign-out confirmation");
+  assert.match(account, /onConfirm=\{signOut\}/, "Account settings should call signOut when confirmed");
 });

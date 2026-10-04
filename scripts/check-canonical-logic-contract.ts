@@ -9,7 +9,6 @@ type ValidationResult = {
 const REQUIRED_CANONICAL_MODULES = [
   "src/components/ui/UserAvatar.tsx",
   "src/lib/ui/identity.ts",
-  "src/lib/ui/status-config.ts",
   "src/lib/profile/display.ts",
   "src/lib/import/import-filters.ts",
 ] as const;

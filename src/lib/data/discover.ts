@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { connections, profiles, projectFollows, projectMembers, projectOpenRoles, projects, roleApplications } from '@/lib/db/schema';
 import { recordDiscoverMetric } from '@/lib/discover/observability';
 import { DISCOVER_RANKING_SCHEMA_VERSION, DISCOVER_RANKING_WEIGHTS } from '@/lib/discover/ranking-config';
-import { buildDiscoverSnapshotKey, getDiscoverSnapshotCached } from '@/lib/discover/snapshot-cache';
+import { buildDiscoverSnapshotKey } from '@/lib/discover/snapshot-cache';
 import { logger } from '@/lib/logger';
 import { buildProjectOwnerPresentation } from '@/lib/privacy/presentation';
 import { resolvePrivacyRelationships } from '@/lib/privacy/resolver';
@@ -576,70 +576,54 @@ const getFeedSnapshot = async (
     personalizationTerms: string[],
 ) => {
     const weights = DISCOVER_RANKING_WEIGHTS;
-    const cacheKey = buildDiscoverSnapshotKey({
-        version: DISCOVER_RANKING_SCHEMA_VERSION,
-        view,
-        viewerScope: view === FILTER_VIEWS.RECOMMENDATIONS ? viewerId : 'global',
-        filters,
-        terms: personalizationTerms,
+    const candidateConditions = buildBaseConditions(filters, view, viewerId);
+    const candidates = await fetchSnapshotCandidates(candidateConditions);
+
+    const scored = candidates.map((candidate) => {
+        const trendScore = calculateTrendScore(candidate);
+        const qualityScore = calculateQualityScore(candidate);
+
+        if (view === FILTER_VIEWS.RECOMMENDATIONS) {
+            const recommendation = calculateRecommendationScore(candidate, personalizationTerms);
+            return {
+                id: candidate.id,
+                ownerId: candidate.ownerId,
+                category: candidate.category,
+                score: recommendation.score,
+                reasons: buildReasonLabels({
+                    view,
+                    matchedTerms: recommendation.matchedTerms,
+                    trendScore,
+                    qualityScore,
+                    updatedAt: candidate.updatedAt,
+                }),
+            };
+        }
+
+        return {
+            id: candidate.id,
+            ownerId: candidate.ownerId,
+            category: candidate.category,
+            score: trendScore + qualityScore,
+            reasons: buildReasonLabels({
+                view,
+                matchedTerms: 0,
+                trendScore,
+                qualityScore,
+                updatedAt: candidate.updatedAt,
+            }),
+        };
     });
 
-    const { value, cacheHit } = await getDiscoverSnapshotCached<SnapshotPayload>(
-        cacheKey,
-        weights.snapshotTtlSeconds,
-        async () => {
-            const candidateConditions = buildBaseConditions(filters, view, viewerId);
-            const candidates = await fetchSnapshotCandidates(candidateConditions);
+    const reranked = applyDiversityRerank(scored)
+        .slice(0, weights.maxSnapshotItems)
+        .map((entry) => ({
+            id: entry.id,
+            score: entry.score,
+            reasons: entry.reasons,
+        }));
 
-            const scored = candidates.map((candidate) => {
-                const trendScore = calculateTrendScore(candidate);
-                const qualityScore = calculateQualityScore(candidate);
-
-                if (view === FILTER_VIEWS.RECOMMENDATIONS) {
-                    const recommendation = calculateRecommendationScore(candidate, personalizationTerms);
-                    return {
-                        id: candidate.id,
-                        ownerId: candidate.ownerId,
-                        category: candidate.category,
-                        score: recommendation.score,
-                        reasons: buildReasonLabels({
-                            view,
-                            matchedTerms: recommendation.matchedTerms,
-                            trendScore,
-                            qualityScore,
-                            updatedAt: candidate.updatedAt,
-                        }),
-                    };
-                }
-
-                return {
-                    id: candidate.id,
-                    ownerId: candidate.ownerId,
-                    category: candidate.category,
-                    score: trendScore + qualityScore,
-                    reasons: buildReasonLabels({
-                        view,
-                        matchedTerms: 0,
-                        trendScore,
-                        qualityScore,
-                        updatedAt: candidate.updatedAt,
-                    }),
-                };
-            });
-
-            const reranked = applyDiversityRerank(scored)
-                .slice(0, weights.maxSnapshotItems)
-                .map((entry) => ({
-                    id: entry.id,
-                    score: entry.score,
-                    reasons: entry.reasons,
-                }));
-
-            return { items: reranked };
-        },
-    );
-
-    return { snapshot: value, cacheHit };
+    return { snapshot: { items: reranked } as SnapshotPayload, cacheHit: false };
 };
 
 const fetchProjectsByIds = async (projectIds: string[], conditions: SQL<unknown>[] = []) => {

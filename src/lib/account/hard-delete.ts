@@ -1,18 +1,13 @@
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { anonymizeChatAuthor, deleteDirectMessagesSql } from "@/lib/messaging/account";
 import {
   accountDeletions,
-  conversations,
-  dmPairs,
   extensionRecoveryDrafts,
   profiles,
   projects,
 } from "@/lib/db/schema";
-import {
-  deleteExtensionRecoveryDraftsForUser,
-  EXTENSION_RECOVERY_BUCKET,
-} from "@/lib/extension/recovery-drafts";
 import { logger } from "@/lib/logger";
 import { verifySignedJobRequestToken } from "@/lib/security/job-request";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -96,47 +91,28 @@ export async function executeHardDelete(
     }
 
     if (deletion.cleanupStatus === "completed") {
-      // Recovery drafts contain unpublished source text. Remove their private
-      // storage objects before deleting auth/DB ownership so the cleanup remains
-      // retryable and cannot leave ownerless draft bytes behind.
+      // A recovery draft without a lifecycle record would lose its cleanup
+      // evidence when the profile cascade runs. Registration must finish first.
       const recoveryDraftCount = await db
         .select({ id: extensionRecoveryDrafts.id })
         .from(extensionRecoveryDrafts)
-        .where(eq(extensionRecoveryDrafts.userId, userId));
+        .where(and(
+          eq(extensionRecoveryDrafts.userId, userId),
+          isNull(extensionRecoveryDrafts.assetId),
+        ));
       if (recoveryDraftCount.length > 0) {
-        await deleteExtensionRecoveryDraftsForUser(userId);
-        logger.info("account.hard-delete.extension-recovery-drafts.removed", {
-          module: "account",
-          userId,
-          bucket: EXTENSION_RECOVERY_BUCKET,
-          count: recoveryDraftCount.length,
-        });
+        return {
+          success: false,
+          error: `Storage registration pending for ${recoveryDraftCount.length} recovery drafts`,
+        };
       }
 
       // Database cleanup is the durable first phase. `in_progress` means this
       // phase committed and a retry must resume at Auth deletion.
+      await anonymizeChatAuthor(userId);
       await db.transaction(async (tx) => {
-        const ownedDmPairs = await tx
-          .select({ conversationId: dmPairs.conversationId })
-          .from(dmPairs)
-          .where(or(eq(dmPairs.userLow, userId), eq(dmPairs.userHigh, userId)));
-        const ownedProjects = await tx
-          .select({ conversationId: projects.conversationId })
-          .from(projects)
-          .where(eq(projects.ownerId, userId));
-        const conversationIdsToDelete = Array.from(new Set([
-          ...ownedDmPairs.map((pair) => pair.conversationId),
-          ...ownedProjects
-            .map((project) => project.conversationId)
-            .filter((id): id is string => Boolean(id)),
-        ]));
-
+        await tx.execute(deleteDirectMessagesSql(userId));
         await tx.delete(projects).where(eq(projects.ownerId, userId));
-        if (conversationIdsToDelete.length > 0) {
-          await tx
-            .delete(conversations)
-            .where(inArray(conversations.id, conversationIdsToDelete));
-        }
 
         await tx.delete(profiles).where(eq(profiles.id, userId));
         await tx

@@ -8,7 +8,6 @@ function getWorkerOnlyFunctions() {
   const { flushUpdateLikes } = loadModule("./functions/flush-likes");
   const { cleanupProjectUpdate } = loadModule("./functions/cleanup-update");
   const { gitPull, gitPush, gitSyncRecovery, lockCleanup, uploadIntentCleanup } = loadModule("./functions/git-sync");
-  const { migrateProjectFileLegacyKeys } = loadModule("./functions/project-files-key-migration");
   const { finishPendingFileDeletions } = loadModule("./functions/project-files-permanent-delete");
   const { reconcileProjectFiles } = loadModule("./functions/project-files-reconciliation");
   const { onboardingClaimsRepair } = loadModule("./functions/onboarding-claims-repair");
@@ -25,11 +24,12 @@ function getWorkerOnlyFunctions() {
   const { notificationFanout } = loadModule("./functions/notification-fanout");
   const { notificationPushDelivery } = loadModule("./functions/notification-push-delivery");
   const { extensionRecoveryRetention } = loadModule("./functions/extension-recovery-retention");
-  const { messageAttachmentRetention } = loadModule("./functions/message-attachment-retention");
-  const { messageDataIntegrityAudit } = loadModule("./functions/message-data-integrity-audit");
+  const { chatMentionsRetention, chatIntegrityAudit, chatDue } = loadModule("./functions/chat-maintenance");
   const { reconcileSprintSchedule } = loadModule("./functions/sprint-schedule");
   const { cleanupSupersededProfileImage } = loadModule("./functions/profile-image-cleanup");
   const { dataLifecycleRetention } = loadModule("./functions/data-lifecycle-retention");
+  const { storageAssetDeletion } = loadModule("./functions/storage-asset-deletion");
+  const { storageAssetBackup } = loadModule("./functions/storage-asset-backup");
 
   return [
     projectImport,
@@ -45,7 +45,6 @@ function getWorkerOnlyFunctions() {
     cleanupProjectUpdate,
     reconcileProjectFiles,
     finishPendingFileDeletions,
-    migrateProjectFileLegacyKeys,
     projectImportStaleReconcile,
     reconcileWorkspaceProfileCounters,
     workspaceCountersRefresh,
@@ -58,14 +57,18 @@ function getWorkerOnlyFunctions() {
     notificationFanout,
     notificationPushDelivery,
     extensionRecoveryRetention,
-    messageAttachmentRetention,
-    messageDataIntegrityAudit,
+    chatMentionsRetention,
+    chatDue,
+    chatIntegrityAudit,
     reconcileSprintSchedule,
     cleanupSupersededProfileImage,
     dataLifecycleRetention,
+    storageAssetDeletion,
+    storageAssetBackup,
   ] as const;
 }
 
+// ponytail: a separate worker isolates GitHub imports from web memory. ceiling: two services to run. upgrade: merge them if imports move to streaming.
 export function getInngestExecutionRole(): InngestExecutionRole {
   const configured = process.env.INNGEST_EXECUTION_ROLE?.trim().toLowerCase();
   if (configured === "web" || configured === "worker") {

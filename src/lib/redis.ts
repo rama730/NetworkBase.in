@@ -10,6 +10,20 @@ export type CacheEnvelope<T> = {
 
 declare global {
     var __redisClient: Redis | null | undefined
+    var __redisCacheFailureLoggedAt: number | undefined
+}
+
+const CACHE_FAILURE_LOG_INTERVAL_MS = 60_000
+
+function recordCacheFailure(operation: 'get' | 'set', error: unknown) {
+    const now = Date.now()
+    if (now - (globalThis.__redisCacheFailureLoggedAt ?? 0) < CACHE_FAILURE_LOG_INTERVAL_MS) return
+    globalThis.__redisCacheFailureLoggedAt = now
+    logger.warn('redis.cache.unavailable', {
+        module: 'redis',
+        operation,
+        error: error instanceof Error ? error.message : String(error),
+    })
 }
 
 function hasRedisEnv() {
@@ -24,6 +38,8 @@ function createRedisClient() {
     return new Redis({
         url: process.env.UPSTASH_REDIS_REST_URL,
         token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        signal: () => AbortSignal.timeout(1_500),
+        retry: { retries: 1, backoff: () => 50 },
     })
 }
 
@@ -73,14 +89,28 @@ function isCacheEnvelope<T>(value: unknown): value is CacheEnvelope<T> {
 async function setJsonValue<T>(key: string, payload: T, ttlSeconds: number) {
     const client = getRedisClient()
     if (!client) return
-    await client.set(key, JSON.stringify(payload), { ex: ttlSeconds })
+    try {
+        await client.set(key, JSON.stringify(payload), { ex: ttlSeconds })
+    } catch (error) {
+        // Application caches are optional. A cache timeout must not fail the
+        // authoritative database request or the page that triggered it.
+        recordCacheFailure('set', error)
+    }
 }
 
 async function getJsonValue<T>(key: string): Promise<T | null> {
     const client = getRedisClient()
     if (!client) return null
 
-    const raw = await client.get<unknown>(key)
+    let raw: unknown
+    try {
+        raw = await client.get<unknown>(key)
+    } catch (error) {
+        // Treat cache transport failures as misses. Callers will read the
+        // authoritative source and may repopulate the cache later.
+        recordCacheFailure('get', error)
+        return null
+    }
     if (!raw) return null
 
     if (typeof raw !== 'string') {

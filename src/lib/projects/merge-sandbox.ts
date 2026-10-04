@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { projects, projectNodes, } from "@/lib/db/schema";
+import { projectEventCounters, projectNodes, } from "@/lib/db/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { recordNodeEvent } from "@/lib/files/internal-helpers";
 
@@ -16,20 +16,24 @@ export async function mergeSandboxTask(
 ) {
   return await db.transaction(async (tx) => {
     // 0. Increment project sequence clock atomically
-    const [project] = await tx
-      .update(projects)
-      .set({
-        currentSequenceNumber: sql`${projects.currentSequenceNumber} + 1`
+    const [counter] = await tx
+      .insert(projectEventCounters)
+      .values({ projectId, nextSequence: 1 })
+      .onConflictDoUpdate({
+        target: projectEventCounters.projectId,
+        set: {
+          nextSequence: sql`${projectEventCounters.nextSequence} + 1`,
+          updatedAt: new Date(),
+        },
       })
-      .where(eq(projects.id, projectId))
       .returning({
-        newSequenceNumber: projects.currentSequenceNumber
+        newSequenceNumber: projectEventCounters.nextSequence,
       });
 
-    if (!project) {
+    if (!counter) {
       throw new Error(`Project ${projectId} not found`);
     }
-    const seqNum = project.newSequenceNumber;
+    const seqNum = counter.newSequenceNumber;
 
     // Step 1: Lock target canonical nodes, parent folders, and target paths on the main branch
     await tx.execute(sql`
