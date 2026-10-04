@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuickReactions } from '@/components/messages/useQuickReactions';
 import { cn } from '@/lib/utils';
-
-const QUICK_REACTIONS = ['\u{1F44D}', '\u2764\uFE0F', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F64F}'];
 
 const EXTENDED_REACTIONS = [
     '🔥', '🎉', '👏', '🚀', '👀', '💯',
@@ -24,6 +23,25 @@ interface ReactionQuickBarProps {
 export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = [], onReact, onClose }: ReactionQuickBarProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [showExtended, setShowExtended] = useState(false);
+    const quick = useQuickReactions();
+
+    // Focus lands in the picker once; Esc closes it and returns focus to what opened it.
+    const latest = useRef({ anchor, onClose });
+    useEffect(() => {
+        latest.current = { anchor, onClose };
+    });
+    useEffect(() => {
+        ref.current?.querySelector<HTMLButtonElement>('button')?.focus();
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            latest.current.onClose();
+            latest.current.anchor?.focus();
+        };
+        document.addEventListener('keydown', onKeyDown, true);
+        return () => document.removeEventListener('keydown', onKeyDown, true);
+    }, []);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent | TouchEvent) => {
@@ -81,7 +99,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
             className="msg-reaction-quick-bar fixed z-[130] flex flex-col rounded-lg border border-border bg-popover p-1.5 shadow-lg"
         >
             <div className="flex items-center gap-1">
-                {QUICK_REACTIONS.map((emoji) => (
+                {quick.map((emoji) => (
                     <button
                         key={emoji}
                         type="button"

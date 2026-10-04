@@ -96,6 +96,8 @@ export type ChatMessageView = {
   reactions: ChatReactionView[];
   card: ChatCardRef | null;
   pinned: boolean;
+  /** Client only: an optimistic send the server refused; the row offers Retry and Delete. */
+  failed?: boolean;
 };
 
 export type ApplicationCardView = {

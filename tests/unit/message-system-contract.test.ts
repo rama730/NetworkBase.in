@@ -163,8 +163,8 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
     // 1.2 Floating Hover Action Bar on Message Rows (1-click reactions 👍, ❤️, Reply in thread, More actions)
     assert.match(
         rowSource,
-        /HOVER_QUICK_REACTIONS = \["👍", "❤️"\]/,
-        "MessageRow must define 1-click quick hover reactions",
+        /quick\.slice\(0, HOVER_QUICK_COUNT\)/,
+        "MessageRow hover bar shows 1-click quick reactions from the one shared set (plan #98)",
     );
     assert.match(
         rowSource,
@@ -269,8 +269,8 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
     );
     assert.match(
         tabBarSource,
-        /tab\.kind === "link" \? openBookmark\(tab\.url\)[\s\S]*window\.open\(safe, "_blank", "noopener,noreferrer"\)|window\.open\(safe, "_blank", "noopener,noreferrer"\)[\s\S]*tab\.kind === "link" \? openBookmark\(tab\.url\)/,
-        "Bookmark tabs open their (safe) URL in a new browser tab",
+        /tab\.kind === "link" \? \(\s*<a[\s\S]*?href=\{normalizeSafeExternalUrl\(tab\.url \?\? ""\) \?\? undefined\}\s*target="_blank"\s*rel="noopener noreferrer"/,
+        "Bookmark tabs are real links to their (safe) URL in a new browser tab (plan #19/#90)",
     );
 
     // 1.4 Saved for later and reminders (the reorganization plan, item 2, approved 2026-10-03)
@@ -385,17 +385,14 @@ test("Section 3 (Keyboard Power-User Ergonomics) contracts", () => {
         "MessagesChrome must handle Shift+Esc to mark project channels read",
     );
 
-    // Message row shortcuts (E, T, S, U, R, ⌫, ⌘L) over the one action list
+    // Message row shortcuts (E, T, S, U, ⌫) on the focused row, over the one action list (plan #96/#97/#105)
     assert.match(
         rowSource,
-        /key === "e" \? byKey\("edit"\) : key === "t" \? byKey\("reply"\) : key === "s" \? byKey\("save"\) : key === "u" \? byKey\("unread"\)/,
+        /key === "e" \? "edit" : key === "t" \? "reply" : key === "s" \? "save" : key === "u" \? "unread"/,
         "MessageRow must handle E (edit), T (thread), S (save) and U (mark unread)",
     );
-    assert.match(
-        rowSource,
-        /key === "r"[\s\S]*toggleReaction\("👍"\)/,
-        "MessageRow must handle 'R' hotkey to add reaction",
-    );
+    assert.match(rowSource, /onKeyDown=\{onRowKeyDown\}/, "Shortcuts act on the focused row");
+    assert.doesNotMatch(rowSource, /window\.addEventListener\("keydown"|isHoveredRef|toggleReaction\("👍"\)|shortcut: "⌘L"/, "No per-row window listener, hover shortcuts, R or ⌘L");
 
     // Empty composer ArrowUp edits last message
     assert.match(
@@ -832,8 +829,8 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     );
     assert.match(
         rowSource,
-        /\(e\.metaKey \|\| e\.ctrlKey\) \? \(key === "l" \? byKey\("copy-link"\)/,
-        "MessageRow must support Cmd+L shortcut to copy message link",
+        /onClick=\{pending \? undefined : copyLink\}/,
+        "Clicking a message's time copies its link (⌘L is the browser's again, plan #97/#100)",
     );
 
     // 8.6 Canvas and Poll in the composer plus menu; Send later beside Send

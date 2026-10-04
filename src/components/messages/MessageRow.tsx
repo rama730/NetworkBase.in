@@ -18,6 +18,8 @@ import { LinkPreviewCard } from "@/components/messages/parts/LinkPreviewCard";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
 import { ReportMessageDialog } from "@/components/messages/parts/ReportMessageDialog";
 import { useUpdatePages } from "@/components/messages/useConversation";
+import { noteReaction, useQuickReactions } from "@/components/messages/useQuickReactions";
+import { discardSend, failedSend, retrySend } from "@/components/messages/failed-sends";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -35,8 +37,8 @@ import type { ChatAttachmentView, ChatMessageView } from "@/lib/messaging/types"
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
 
-const QUICK = ["👍", "❤️", "😂", "🎉", "👀", "🙏"];
-const HOVER_QUICK_REACTIONS = ["👍", "❤️"];
+/** The hover bar shows the first few of the shared quick set (recently used first). */
+const HOVER_QUICK_COUNT = 3;
 const LONG_PRESS_MS = 500;
 const UNDO_DELETE_MS = 5_000;
 
@@ -119,7 +121,11 @@ function SystemRow({ message, others }: { message: ChatMessageView; others?: Cha
   );
 }
 
-export const MessageRow = memo(function MessageRow({ message, grouped, highlighted = false, others }: { message: ChatMessageView; grouped: boolean; highlighted?: boolean; others?: ChatMessageView[] }) {
+export const MessageRow = memo(function MessageRow({ message, grouped, highlighted = false, others, tabStop = false }: {
+  message: ChatMessageView; grouped: boolean; highlighted?: boolean; others?: ChatMessageView[];
+  /** The one row the Tab key lands on in the timeline (roving tabindex); ↑/↓ move between rows. */
+  tabStop?: boolean;
+}) {
   const ctx = useConversationContext();
   const queryClient = useQueryClient();
   const update = useUpdatePages(ctx.channelId);
@@ -133,8 +139,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   const [closing, setClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isHoveredRef = useRef(false);
-  const actionsRef = useRef<Action[]>([]);
+  const quick = useQuickReactions();
 
   const own = message.author_id === ctx.meId;
   const pending = message.seq < 0;
@@ -150,10 +155,13 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     return Boolean(broadcast) || (ctx.meId ? userIds.includes(ctx.meId) : false);
   })();
   const plain = () => tokensToPlainText(message.body, ctx.nameOf);
+  const hasContent = Boolean(message.body || message.attachments.length);
+  const failed = message.failed ? failedSend(message.client_message_id) : null;
 
   const toggleReaction = async (emoji: string) => {
     if (pending) return;
     const on = !message.reactions.some((r) => r.emoji === emoji && r.me);
+    if (on) noteReaction(emoji);
     update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, reactions: applyReaction(m.reactions, emoji, on, true) })));
     const result = await react({ channelId: ctx.channelId, seq: message.seq, emoji, on });
     if (!result.success) {
@@ -166,7 +174,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     void copyWithToast(`${window.location.origin}${messageHref(ctx.channelId, message.seq, message.thread_root_seq)}`, "Link copied");
   };
   const copyText = () => {
-    void copyWithToast(plain(), "Text copied");
+    // Attachment-only messages copy their file names.
+    void copyWithToast(plain() || message.attachments.map((a) => a.name || "file").join(", "), "Text copied");
   };
   const startEdit = () => ctx.setEditingSeq(message.seq);
   const saveEdit = async (markdown: string) => {
@@ -246,44 +255,33 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   if (actions) {
     if (!ctx.inThread) list.push({ id: "reply", label: "Reply in thread", icon: MessageSquareText, run: () => ctx.openThread(message.seq), shortcut: "T", group: 1 });
     if (ctx.setSaved) list.push({ id: "save", label: saved ? "Remove from saved" : "Save for later", icon: saved ? BookmarkCheck : Bookmark, run: () => ctx.setSaved?.(message.seq, !saved), shortcut: "S", group: 1 });
-    if (ctx.share && message.body) list.push({ id: "share", label: "Share message", icon: Forward, run: () => ctx.share?.(message.seq), group: 1 });
-    if (message.body) list.push({ id: "copy-text", label: "Copy text", icon: Copy, run: copyText, group: 2 });
-    list.push({ id: "copy-link", label: "Copy link", icon: Link2, run: copyLink, shortcut: "⌘L", group: 2 });
+    if (ctx.share && hasContent) list.push({ id: "share", label: "Share message", icon: Forward, run: () => ctx.share?.(message.seq), group: 1 });
+    if (hasContent) list.push({ id: "copy-text", label: "Copy text", icon: Copy, run: copyText, group: 2 });
+    list.push({ id: "copy-link", label: "Copy link", icon: Link2, run: copyLink, group: 2 });
     if (!ctx.inThread) list.push({ id: "unread", label: "Mark unread", icon: MailOpen, run: () => void unread(), shortcut: "U", group: 2 });
     if (ctx.projectId && message.kind === "user" && !message.card && message.body) list.push({ id: "task", label: "Create task", icon: SquareCheck, run: () => void createTask(), group: 2 });
     list.push({ id: "pin", label: message.pinned ? "Unpin" : "Pin to conversation", icon: Pin, run: () => void togglePin(), group: 2 });
     if (own && !message.card) list.push({ id: "edit", label: "Edit message", icon: Pencil, run: startEdit, shortcut: "E", group: 3 });
-    if (canDelete) list.push({ id: "delete", label: "Delete message", icon: Trash2, run: () => (own ? removeWithUndo() : setConfirmDelete(true)), shortcut: "⌫", destructive: true, group: 3 });
+    if (canDelete) list.push({ id: "delete", label: "Delete message", icon: Trash2, run: () => (own && !message.reply_count ? removeWithUndo() : setConfirmDelete(true)), shortcut: "⌫", destructive: true, group: 3 });
     if (!own) list.push({ id: "report", label: "Report message", icon: Flag, run: () => setReportOpen(true), group: 3 });
   }
-  useEffect(() => { actionsRef.current = list; });
   useEffect(() => () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
   }, []);
   const find = (id: string) => list.find((a) => a.id === id);
 
-  useEffect(() => {
-    if (!actions) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (!isHoveredRef.current) return;
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
-      const byKey = (id: string) => actionsRef.current.find((a) => a.id === id);
-      const key = e.key.toLowerCase();
-      const action = (e.metaKey || e.ctrlKey) ? (key === "l" ? byKey("copy-link") : undefined)
-        : key === "e" ? byKey("edit") : key === "t" ? byKey("reply") : key === "s" ? byKey("save") : key === "u" ? byKey("unread")
-        : key === "backspace" || key === "delete" ? byKey("delete") : undefined;
-      if (key === "r" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        void toggleReaction("👍");
-      } else if (action) {
-        e.preventDefault();
-        action.run();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  });
+  // Shortcuts act on the focused row (Tab or ↑/↓ in the timeline), never on whatever the mouse is over.
+  const onRowKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!actions || e.target !== e.currentTarget || e.metaKey || e.ctrlKey || e.altKey) return;
+    const key = e.key.toLowerCase();
+    const id = key === "e" ? "edit" : key === "t" ? "reply" : key === "s" ? "save" : key === "u" ? "unread"
+      : key === "backspace" || key === "delete" ? "delete" : null;
+    const action = id ? find(id) : undefined;
+    if (!action) return;
+    e.preventDefault();
+    e.stopPropagation();
+    action.run();
+  };
 
   if (message.kind === "system") return <SystemRow message={message} others={others} />;
 
@@ -296,15 +294,18 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   };
   const groups = [1, 2, 3].map((group) => list.filter((a) => a.group === group)).filter((g) => g.length);
   const remind = (at: () => string) => ctx.setSaved?.(message.seq, true, at());
+  const fullTime = new Date(message.created_at).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
   return (
     <div
       data-seq={message.seq}
       data-testid={`chat-message-${message.seq}`}
       data-mentioned={mentioned ? "true" : undefined}
-      className={`group/msg relative px-4 ${grouped ? "pt-0.5" : "pt-3"} pb-0.5 hover:bg-muted/50 focus-within:bg-muted/50 ${highlighted ? "bg-[var(--status-warning-soft)]" : ""} ${mentioned ? "border-l-2 border-[var(--status-warning)] bg-[var(--status-warning-soft)]/40" : ""} ${pending ? "opacity-60" : ""}`}
-      onMouseEnter={() => { isHoveredRef.current = true; }}
-      onMouseLeave={() => { isHoveredRef.current = false; }}
+      data-message-row=""
+      tabIndex={tabStop ? 0 : -1}
+      aria-label={`${authorName}, ${new Date(message.created_at).toLocaleString()}`}
+      onKeyDown={onRowKeyDown}
+      className={`group/msg relative px-4 ${grouped ? "pt-0.5" : "pt-3"} pb-0.5 outline-none hover:bg-muted/50 focus-within:bg-muted/50 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring ${highlighted ? "bg-[var(--status-warning-soft)]" : ""} ${mentioned ? "border-l-2 border-[var(--status-warning)] bg-[var(--status-warning-soft)]/40" : ""} ${pending && !message.failed ? "opacity-60" : ""}`}
       onTouchStart={() => {
         if (!actions) return;
         pressTimer.current = setTimeout(() => setSheet("actions"), LONG_PRESS_MS);
@@ -315,7 +316,15 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       <div className="flex gap-2.5">
         <div className="w-[34px] flex-none">
           {grouped ? (
-            <span className="hidden pt-1 font-mono text-[11px] text-muted-foreground group-hover/msg:block">{formatChatTime(message.created_at, "clock")}</span>
+            <>
+              <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="hidden pt-1 font-mono text-[11px] text-muted-foreground hover:underline group-hover/msg:block">{formatChatTime(message.created_at, "clock")}</button>
+              {message.pinned || saved ? (
+                <span className="flex gap-0.5 pt-1.5 group-hover/msg:hidden">
+                  {message.pinned ? <Pin size={11} aria-label="Pinned" className="text-muted-foreground" /> : null}
+                  {saved ? <Bookmark size={11} aria-label="Saved for later" className="text-[var(--chat-accent)]" fill="currentColor" /> : null}
+                </span>
+              ) : null}
+            </>
           ) : (
             <PersonHoverCard person={message.author}>
               <UserAvatar identity={message.author} size={34} roundedClassName="rounded-[5px]" />
@@ -328,7 +337,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
               <PersonHoverCard person={message.author}>
                 <span className="text-[13px] font-medium hover:underline">{authorName}</span>
               </PersonHoverCard>
-              <span className="font-mono text-[12px] text-muted-foreground">{formatChatTime(message.created_at, "clock")}</span>
+              <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="font-mono text-[12px] text-muted-foreground hover:underline">{formatChatTime(message.created_at, "clock")}</button>
               {message.pinned ? <Pin size={12} aria-label="Pinned" className="text-muted-foreground" /> : null}
               {saved ? <Bookmark size={12} aria-label="Saved for later" className="text-[var(--chat-accent)]" fill="currentColor" /> : null}
             </div>
@@ -366,8 +375,20 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                 {message.reactions.map((r) => (
                   <ReactionChip key={r.emoji} emoji={r.emoji} count={r.count} me={r.me} seq={message.seq} onToggle={() => void toggleReaction(r.emoji)} />
                 ))}
+                {actions ? (
+                  <button type="button" data-reaction-trigger onClick={(e) => setPickerAnchor(pickerAnchor ? null : e.currentTarget)} aria-label="Add reaction" title="Add reaction" className="inline-flex h-6 items-center rounded-[5px] border border-border bg-card px-1.5 text-muted-foreground hover:text-foreground pointer-coarse:h-9">
+                    <SmilePlus size={13} />
+                  </button>
+                ) : null}
               </div>
             </TooltipProvider>
+          ) : null}
+          {message.failed ? (
+            <p role="alert" className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[var(--status-danger)]">
+              <span>Not sent{failed?.assetIds.length ? ` · ${failed.assetIds.length} file${failed.assetIds.length === 1 ? "" : "s"}` : ""}</span>
+              {failed ? <button type="button" onClick={() => message.client_message_id && void retrySend(queryClient, message.client_message_id)} className="font-medium underline">Retry</button> : null}
+              <button type="button" onClick={() => message.client_message_id && discardSend(queryClient, message.client_message_id, ctx.channelId, message.thread_root_seq)} className="font-medium underline">Delete</button>
+            </p>
           ) : null}
           {!ctx.inThread && message.reply_count > 0 ? (
             <button type="button" onClick={() => ctx.openThread(message.seq)} className="mt-1 inline-flex min-h-7 items-center gap-2 rounded-[5px] px-1 text-[13px] font-medium text-primary hover:bg-card hover:underline">
@@ -384,7 +405,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           role="toolbar"
           aria-label="Message actions"
         >
-          {HOVER_QUICK_REACTIONS.map((emoji) => (
+          {quick.slice(0, HOVER_QUICK_COUNT).map((emoji) => (
             <button key={emoji} type="button" className="grid size-8 place-items-center rounded-[5px] hover:bg-muted" aria-label={`React ${emoji}`} onClick={() => void toggleReaction(emoji)}>{emoji}</button>
           ))}
           <button type="button" data-reaction-trigger className="grid size-8 place-items-center rounded-[5px] hover:bg-muted" aria-label="Add reaction" title="Add reaction" onClick={(e) => setPickerAnchor(pickerAnchor ? null : e.currentTarget)}><SmilePlus size={16} /></button>
@@ -459,7 +480,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           ) : (
             <>
               <div className="flex justify-around px-2 py-3">
-                {QUICK.map((emoji) => (
+                {quick.map((emoji) => (
                   <button key={emoji} type="button" className="grid size-11 place-items-center rounded-full text-xl hover:bg-muted" aria-label={`React ${emoji}`} onClick={() => { setSheet(null); void toggleReaction(emoji); }}>{emoji}</button>
                 ))}
               </div>
@@ -482,11 +503,16 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title={`Delete ${authorName}'s message?`}
-        description={message.reply_count ? "It's removed for everyone. Replies in its thread stay." : "It's removed for everyone. This can't be undone."}
+        title={own ? "Delete your message?" : `Delete ${authorName}'s message?`}
+        description={own ? "Replies in its thread stay. You can undo for a few seconds." : message.reply_count ? "It's removed for everyone. Replies in its thread stay." : "It's removed for everyone. This can't be undone."}
         confirmLabel="Delete"
         variant="destructive"
-        onConfirm={() => void remove()}
+        onConfirm={() => {
+          if (own) {
+            setConfirmDelete(false);
+            removeWithUndo();
+          } else void remove();
+        }}
       />
       <ReportMessageDialog
         isOpen={reportOpen}

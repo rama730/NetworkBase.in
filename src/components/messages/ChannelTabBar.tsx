@@ -5,7 +5,6 @@ import { Bookmark, CheckSquare, FileText, Files, LayoutTemplate, MessageSquare, 
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ChannelTabItem } from "@/lib/messaging/channel-tabs";
-import { copyWithToast } from "@/lib/clipboard";
 import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
 
 type Props = {
@@ -23,6 +22,8 @@ type Props = {
   onAddFiles?: () => void;
   onAddBookmark: () => void;
   onEditTabs?: () => void;
+  /** A canvas exists: "+" offers to open it rather than start a new one. */
+  hasCanvas?: boolean;
 };
 
 const ICONS: Record<ChannelTabItem["kind"], typeof Pin> = {
@@ -34,29 +35,25 @@ const ICONS: Record<ChannelTabItem["kind"], typeof Pin> = {
   link: Bookmark,
 };
 
-/** Messages, Canvas, Pins, Files, then shared Tasks and bookmarks; "+" adds a canvas, Tasks or a bookmark. */
-function openBookmark(url: string | null | undefined) {
-  const safe = url ? normalizeSafeExternalUrl(url) : null;
-  if (safe) window.open(safe, "_blank", "noopener,noreferrer");
-}
-
-export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseTab, onAddCanvas, onAddTasks, onAddFiles, onAddBookmark, onEditTabs }: Props) {
+/**
+ * Messages, Canvas, Pins, Files, then shared Tasks and bookmarks; "+" adds a canvas, Tasks or a bookmark.
+ * Bookmarks are plain links to a new browser tab, so the browser's own menu copies them.
+ */
+export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseTab, onAddCanvas, onAddTasks, onAddFiles, onAddBookmark, onEditTabs, hasCanvas = false }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent, tab?: ChannelTabItem) => {
+  // Arrows move between tabs. No delete key: removing a shared tab affects everyone, so it's the × (with Undo).
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const elements = Array.from(containerRef.current?.querySelectorAll<HTMLElement>('[role="tab"], [data-add-tab-trigger]') ?? []);
     const index = elements.indexOf(e.currentTarget as HTMLElement);
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
       e.preventDefault();
       const step = e.key === "ArrowRight" ? 1 : -1;
       elements[(index + step + elements.length) % elements.length]?.focus();
-    } else if ((e.key === "Delete" || e.key === "Backspace") && tab && (tab.shared || tab.kind === "canvas")) {
-      e.preventDefault();
-      onCloseTab(tab);
-      elements[0]?.focus();
     }
-  }, [onCloseTab]);
+  }, []);
 
+  const tabClass = "nb-tab inline-flex items-center border-b-2 px-2 pb-2 text-[13px] font-medium transition-colors";
   return (
     <div ref={containerRef} className="flex h-10 flex-none items-end gap-1 overflow-x-auto scroll-smooth border-b border-border px-4" role="tablist" aria-label="Conversation views">
       {tabs.map((tab) => {
@@ -64,31 +61,37 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
         const selected = activeTab === tab.id;
         const closable = tab.shared || tab.kind === "canvas";
         return (
-          <div
-            key={tab.id}
-            className="group relative -mb-px inline-flex flex-none items-center"
-            onContextMenu={tab.kind === "link" && tab.url ? (e) => {
-              e.preventDefault();
-              void copyWithToast(tab.url!, `Copied "${tab.title}" link`);
-            } : undefined}
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              tabIndex={selected ? 0 : -1}
-              // Bookmarks open the site in a new browser tab (many sites refuse to load in a frame).
-              onClick={() => (tab.kind === "link" ? openBookmark(tab.url) : onSelectTab(tab.id))}
-              title={tab.kind === "link" && tab.url ? `Open ${tab.url} in a new tab` : undefined}
-              onKeyDown={(e) => handleKeyDown(e, tab)}
-              className={`nb-tab inline-flex items-center border-b-2 px-2 pb-2 text-[13px] font-medium transition-colors ${
-                selected ? "border-[var(--chat-accent)] text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon size={13} className="mr-1.5 shrink-0 opacity-70" aria-hidden="true" />
-              <span className="max-w-[130px] truncate">{tab.title}</span>
-              {tab.kind === "pins" && pinCount > 0 ? <span className="nb-tab-count ml-1.5" aria-label={`${pinCount} pinned messages`}>{pinCount}</span> : null}
-            </button>
+          <div key={tab.id} className="group relative -mb-px inline-flex flex-none items-center">
+            {tab.kind === "link" ? (
+              <a
+                role="tab"
+                aria-selected={false}
+                tabIndex={-1}
+                href={normalizeSafeExternalUrl(tab.url ?? "") ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={tab.url ? `Open ${tab.url} in a new tab` : undefined}
+                onKeyDown={handleKeyDown}
+                className={`${tabClass} border-transparent text-muted-foreground hover:text-foreground`}
+              >
+                <Icon size={13} className="mr-1.5 shrink-0 opacity-70" aria-hidden="true" />
+                <span className="max-w-[130px] truncate">{tab.title}</span>
+              </a>
+            ) : (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => onSelectTab(tab.id)}
+                onKeyDown={handleKeyDown}
+                className={`${tabClass} ${selected ? "border-[var(--chat-accent)] text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              >
+                <Icon size={13} className="mr-1.5 shrink-0 opacity-70" aria-hidden="true" />
+                <span className="max-w-[130px] truncate">{tab.title}</span>
+                {tab.kind === "pins" && pinCount > 0 ? <span className="nb-tab-count ml-1.5" aria-label={`${pinCount} pinned messages`}>{pinCount}</span> : null}
+              </button>
+            )}
             {closable ? (
               <button
                 type="button"
@@ -113,7 +116,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
             data-add-tab-trigger
             aria-label="Add a tab"
             title="Add a tab"
-            onKeyDown={(e) => handleKeyDown(e)}
+            onKeyDown={handleKeyDown}
             className="inline-flex size-7 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <Plus size={15} />
@@ -121,7 +124,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
           <DropdownMenuContent align="start" className="w-56">
             {onAddCanvas ? (
               <>
-                <DropdownMenuItem onSelect={() => onAddCanvas("blank")} className="gap-2"><FileText size={15} className="text-muted-foreground" /> New canvas</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onAddCanvas("blank")} className="gap-2"><FileText size={15} className="text-muted-foreground" /> {hasCanvas ? "Open canvas" : "New canvas"}</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onAddCanvas("existing")} className="gap-2"><Files size={15} className="text-muted-foreground" /> Canvas from another channel</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onAddCanvas("template")} className="gap-2"><LayoutTemplate size={15} className="text-muted-foreground" /> Canvas from a template</DropdownMenuItem>
                 <DropdownMenuSeparator />

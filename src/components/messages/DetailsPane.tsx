@@ -104,7 +104,7 @@ function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (
       <select value={channel.notify} onChange={(e) => onChange(e.target.value as ChatNotify)} className="h-8 rounded-[5px] border border-input bg-card px-2 text-[13px]">
         <option value="all">All messages</option>
         <option value="mentions">Mentions only</option>
-        <option value="mute">Muted</option>
+        <option value="mute">Mute</option>
       </select>
     </label>
   );
