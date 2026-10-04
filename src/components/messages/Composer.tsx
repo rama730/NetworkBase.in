@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { EditorContent, type Editor } from "@tiptap/react";
 import { ALargeSmall, BarChart3, ChevronDown, Clock, Code2, FileText, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ import { applyLink, chatDraftToHtmlish, chatMarkdown, FormatToolbar, isBlank, us
 import { readChatUi, readDraft, writeChatUi, writeDraft } from "@/components/messages/chat-ui-store";
 import { matchMentions, MentionDropdown } from "@/components/messages/parts/MentionDropdown";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
+import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
 import { failSend } from "@/components/messages/failed-sends";
 import { DROP_EVENT, DropOverlay, draftKeyOf, useFileDrop, type DropDetail } from "@/components/messages/useFileDrop";
 import { uploadChatFile } from "@/components/messages/upload";
@@ -88,11 +90,6 @@ const SCHEDULE_TIMES = [
 // Clock reads for editor and submit callbacks (never called while rendering).
 const clock = () => Date.now();
 
-function localInput(date: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
 /** Before sending: "Aisha is on vacation until Oct 14…" for someone you mentioned who is away. */
 function AwayMentionNotice({ userId, name }: { userId: string; name: string }) {
   const presence = usePersonPresence(userId);
@@ -151,6 +148,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   const { user, profile } = useAuth();
   const update = useUpdatePages(channelId);
   const queryClient = useQueryClient();
+  const router = useRouter();
   const draftKey = draftKeyOf(channelId, threadRootSeq);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -171,7 +169,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   const [emojiAnchor, setEmojiAnchor] = useState<HTMLElement | null>(null);
   const [restored, setRestored] = useState(false);
   const [alsoToChannel, setAlsoToChannel] = useState(false);
-  const [customSchedule, setCustomSchedule] = useState<string | null>(null);
+  const [customSchedule, setCustomSchedule] = useState<Date | null>(null);
   const submitRef = useRef<() => void>(() => undefined);
   const typedAt = useRef(0);
   const onTypingRef = useRef(onTyping);
@@ -451,8 +449,9 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     setSending(false);
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     clear();
+    void queryClient.invalidateQueries({ queryKey: queryKeys.chat.scheduled() });
     toast.success(`Scheduled for ${at.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`, {
-      action: { label: "View", onClick: () => window.location.assign("/messages/drafts") },
+      action: { label: "View", onClick: () => router.push("/messages/drafts") },
     });
   };
 
@@ -791,7 +790,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setCustomSchedule(localInput(new Date(clock() + 2 * 60 * 60_000)))}>Custom time…</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setCustomSchedule(new Date(clock() + 2 * 60 * 60_000))}>Custom time…</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu></span>}
         </div>
@@ -810,27 +809,14 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           onClose={() => setEmojiAnchor(null)}
         />
       ) : null}
-      <Dialog open={customSchedule !== null} onOpenChange={(open) => !open && setCustomSchedule(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogTitle>Schedule message</DialogTitle>
-          <form
-            className="space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (customSchedule) void schedule(new Date(customSchedule));
-              setCustomSchedule(null);
-            }}
-          >
-            <label className="block text-[13px] font-medium">Send at
-              <input type="datetime-local" required min={localInput(new Date(clock() + 60_000))} value={customSchedule ?? ""} onChange={(e) => setCustomSchedule(e.target.value)} className="mt-1 h-10 w-full rounded-[5px] border border-input bg-background px-3 text-[14px]" />
-            </label>
-            <DialogFooter>
-              <button type="button" onClick={() => setCustomSchedule(null)} className="h-9 rounded-[5px] border border-border px-3 text-[13px]">Cancel</button>
-              <button type="submit" className="h-9 rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground">Schedule</button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <TimePickerDialog
+        initial={customSchedule}
+        title="Schedule message"
+        label="Send at"
+        confirmLabel="Schedule"
+        onPick={(at) => void schedule(at)}
+        onClose={() => setCustomSchedule(null)}
+      />
       <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
       <input ref={mediaInput} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />

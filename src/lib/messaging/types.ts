@@ -58,6 +58,8 @@ export type ChatBootstrap = {
   activity_latest_at: string | null;
   /** Unread Inbox items (mentions and thread replies), the Inbox badge. */
   inbox_unread?: number;
+  /** Saved items whose reminder time has come: the Saved row's badge. */
+  saved_due?: number;
   channels: ChatChannelSummary[];
   projects: ChatProjectSummary[] | null;
 };

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArrowLeft, AtSign, Bell, BellOff, Check, Hash, Link2, Lock, MoreHorizontal, Search, Star, UserPlus, Users } from "lucide-react";
+import { Archive, ArrowLeft, AtSign, Bell, BellOff, Check, ExternalLink, Hash, Link2, Lock, MoreHorizontal, Search, Star, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
@@ -44,6 +44,7 @@ import type { ChatMessageView, ChatNotify } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
 import { useConversationExit } from "@/components/messages/useConversationExit";
+import { useChatWindow } from "@/components/messages/chat-window-store";
 import { DropOverlay, draftKeyOf, dropFilesTo, useFileDrop } from "@/components/messages/useFileDrop";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 
@@ -54,7 +55,7 @@ type Props = {
   surface?: "page" | "window";
   onBack?: () => void;
   onOpenThread?: (rootSeq: number) => void;
-  /** Launcher header controls (open full page, minimize, close). */
+  /** Launcher header controls (minimize, close); the window ⋯ adds Open in Messages. */
   windowActions?: React.ReactNode;
 };
 
@@ -415,7 +416,10 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     return true;
   };
   const exit = useConversationExit({ id: channelId, project_id: channel?.project_id ?? null, kind: channel?.kind ?? "public", name: channel?.name ?? null });
-  const closeConversation = () => exit.close();
+  // In the window, a conversation you close or leave drops back to the list.
+  const closeConversation = async () => {
+    if (await exit.close() && surface === "window") onBack?.();
+  };
   const join = async () => {
     const result = await joinChannel({ channelId });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
@@ -427,7 +431,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     const action = confirm;
     setConfirm(null);
     if (action === "archive") await exit.archive();
-    else await exit.leave();
+    else if (await exit.leave() && surface === "window") onBack?.();
   };
 
   if (details.isError) {
@@ -509,7 +513,33 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               <button type="button" onClick={() => openDetails("about")} className="block text-left text-[12px] text-muted-foreground/80 hover:text-foreground">Add a topic</button>
             ) : null}
           </div>
-          {surface === "window" ? windowActions : (
+          {surface === "window" ? (
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="nb-icon-button nb-touch-target" aria-label="More options">
+                  <MoreHorizontal size={16} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {isMember ? (
+                    <>
+                      <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                      {notifyMenu}
+                      <DropdownMenuSeparator />
+                      {channel.kind === "dm" ? (
+                        <DropdownMenuItem onSelect={() => void closeConversation()}>Close conversation</DropdownMenuItem>
+                      ) : !channel.is_default && !channel.application_id ? (
+                        <DropdownMenuItem onSelect={() => setConfirm("leave")}>Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
+                      ) : null}
+                    </>
+                  ) : null}
+                  <DropdownMenuItem onSelect={() => { useChatWindow.getState().close(); router.push(conversationHref(channelId)); }}>
+                    <ExternalLink size={14} className="mr-2" /> Open in Messages
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {windowActions}
+            </>
+          ) : (
             <>
               {isMember ? (
                 <DropdownMenu>

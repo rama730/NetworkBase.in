@@ -569,6 +569,45 @@ async function main() {
       return toPrivate.success && browse.success && !browse.channels.some((c) => c.id === made.channelId) && !notAdmin.success
         && toPublic.success && row?.kind === "public" && !general_.success && !groupRefused.success;
     });
+    // ── Phase 9 (Saved, Scheduled, Search) ──
+    await check("Saved: Clear reminder keeps the item; due reminders count in bootstrap", async () => {
+      as(member, "Mason");
+      await later.saveMessage({ channelId: general, seq: rootSeq, on: true, remindAt: new Date(Date.now() + 3_600_000).toISOString() });
+      await sql`UPDATE chat_saved SET remind_at = now() - interval '1 minute' WHERE user_id = ${member} AND channel_id = ${general} AND message_seq = ${rootSeq}`;
+      const due = await read.bootstrap();
+      const cleared = await later.saveMessage({ channelId: general, seq: rootSeq, on: true, clearReminder: true });
+      const [row] = await sql`SELECT remind_at, reminded_at FROM chat_saved WHERE user_id = ${member} AND channel_id = ${general} AND message_seq = ${rootSeq}`;
+      const after = await read.bootstrap();
+      await later.saveMessage({ channelId: general, seq: rootSeq, on: false });
+      return due.success && (due.data.saved_due ?? 0) >= 1 && cleared.success && row !== undefined && row.remind_at === null
+        && row.reminded_at === null && after.success && (after.data.saved_due ?? 0) === (due.data.saved_due ?? 0) - 1;
+    });
+    await check("Scheduled: send now, retry a failed one, reschedule", async () => {
+      as(owner, "Olivia");
+      const a = await later.scheduleMessage({ channelId: general, body: "send me now", sendAt: new Date(Date.now() + 3_600_000).toISOString() });
+      const b = await later.scheduleMessage({ channelId: general, body: "failed before", sendAt: new Date(Date.now() + 3_600_000).toISOString() });
+      if (!a.success || !b.success) return false;
+      const now = await later.sendScheduledNow({ id: a.id });
+      await sql`UPDATE chat_scheduled_messages SET failed_reason = 'chat_not_member' WHERE id = ${b.id}`;
+      const past = await later.rescheduleScheduled({ id: b.id, sendAt: new Date(Date.now() - 1000).toISOString() });
+      const moved = await later.rescheduleScheduled({ id: b.id, sendAt: new Date(Date.now() + 7_200_000).toISOString() });
+      const [movedRow] = await sql`SELECT failed_reason, send_at FROM chat_scheduled_messages WHERE id = ${b.id}`;
+      await sql`UPDATE chat_scheduled_messages SET failed_reason = 'chat_not_member' WHERE id = ${b.id}`;
+      // The owner's send bucket (1 token/s) is spent by earlier checks.
+      await new Promise((resolve) => setTimeout(resolve, 1_200));
+      const retried = await later.sendScheduledNow({ id: b.id });
+      const left = await later.listScheduled();
+      const page = await messages.listMessages({ channelId: general });
+      as(member, "Mason");
+      return now.success && retried.success && !past.success && moved.success && movedRow?.failed_reason === null
+        && Date.parse(String(movedRow?.send_at)) > Date.now() + 3_600_000
+        && left.success && !left.items.some((i) => i.id === a.id || i.id === b.id)
+        && page.success && page.messages.some((m) => m.body === "send me now") && page.messages.some((m) => m.body === "failed before");
+    });
+    await check("search hits carry the project label", async () => {
+      const result = await search.searchMessages({ query: "", channelId: general, limit: 1 });
+      return result.success && result.hits[0]?.project_title === "Actions test";
+    });
     await check("leaveChannel works for non-default channels only", async () => {
       const left = await channels.leaveChannel({ channelId: launch });
       const refused = await channels.leaveChannel({ channelId: general });

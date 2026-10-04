@@ -276,7 +276,7 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
     // 1.4 Saved for later and reminders (the reorganization plan, item 2, approved 2026-10-03)
     assert.match(
         rowSource,
-        /"Save for later"[\s\S]*Remind me about this/,
+        /"Save"[\s\S]*Remind me about this/,
         "Messages can be saved for later, with a reminder",
     );
 
