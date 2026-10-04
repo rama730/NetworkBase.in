@@ -31,9 +31,13 @@ import {
     projectSprints,
     projects,
     projectUpdateComments,
+    projectUpdateDraftMediaAssets,
     projectUpdateDrafts,
     projectUpdateLikes,
+    projectUpdateMediaAssets,
     projectUpdates,
+    storageAssets,
+    storageLegacyCleanupTargets,
     tasks,
 } from "@/lib/db/schema";
 import { computeProjectReadAccess } from "@/lib/data/project-access";
@@ -60,6 +64,7 @@ import {
     PROJECT_UPDATE_PAGE_SIZE,
     PROJECT_UPDATE_PERFORMANCE_BUDGETS,
     projectUpdateImageExtensionFromMimeType,
+    projectUpdateMediaApplicationUrl,
     composeProjectUpdateRoleLabel,
     isGenericProjectUpdateRoleTitle,
     normalizeProjectUpdateAuthorRoleSnapshot,
@@ -84,6 +89,194 @@ import { logger } from "@/lib/logger";
 
 const UPDATES_PAGE_SIZE = PROJECT_UPDATE_PAGE_SIZE;
 const COMMENTS_PAGE_SIZE = PROJECT_UPDATE_COMMENT_PAGE_SIZE;
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+function updateMediaBinding(item: ProjectUpdateMediaItem) {
+    return `${item.bucket ?? ""}\0${item.storageKey ?? ""}`;
+}
+
+async function queueRemovedLegacyUpdateMedia(params: {
+    tx: DbTransaction;
+    sourceType: "project_update_media" | "project_update_draft_media";
+    sourceId: string;
+    projectId: string;
+    previous: ProjectUpdateMediaItem[] | null | undefined;
+    next: ProjectUpdateMediaItem[];
+}) {
+    const retained = new Set(params.next.map(updateMediaBinding));
+    const targets = normalizeMedia(params.previous).filter((item) => (
+        !item.assetId
+        && item.bucket === PROJECT_UPDATE_MEDIA_BUCKET
+        && !!item.storageKey
+        && item.storageKey.startsWith(`projects/${params.projectId}/update-media/`)
+        && !retained.has(updateMediaBinding(item))
+    ));
+    if (targets.length === 0) return;
+    await params.tx.insert(storageLegacyCleanupTargets)
+        .values(targets.map((item) => ({
+            sourceType: params.sourceType,
+            sourceId: params.sourceId,
+            sourceProjectId: params.projectId,
+            bucket: PROJECT_UPDATE_MEDIA_BUCKET,
+            storageKey: item.storageKey!,
+            nextAttemptAt: new Date(),
+        })))
+        .onConflictDoNothing();
+}
+
+async function replaceUpdateMediaAssetRefs(params: {
+    tx: DbTransaction;
+    updateId: string;
+    projectId: string;
+    ownerUserId: string;
+    media: ProjectUpdateMediaItem[];
+    allowedLegacyBindings?: Set<string>;
+}) {
+    const previous = await params.tx
+        .select({ assetId: projectUpdateMediaAssets.assetId })
+        .from(projectUpdateMediaAssets)
+        .where(eq(projectUpdateMediaAssets.updateId, params.updateId));
+    await params.tx
+        .delete(projectUpdateMediaAssets)
+        .where(eq(projectUpdateMediaAssets.updateId, params.updateId));
+
+    const attachedAssetIds = new Set<string>();
+    for (const [ordinal, item] of params.media.entries()) {
+        if (!item.assetId) {
+            if (
+                (item.bucket || item.storageKey) &&
+                !params.allowedLegacyBindings?.has(updateMediaBinding(item))
+            ) {
+                throw new Error("Update media must use a verified asset identity");
+            }
+            continue;
+        }
+        if (
+            !isLooseUuid(item.assetId) ||
+            item.bucket !== PROJECT_UPDATE_MEDIA_BUCKET ||
+            !item.storageKey ||
+            attachedAssetIds.has(item.assetId)
+        ) {
+            throw new Error("Invalid update media asset binding");
+        }
+        const [publishable] = await params.tx.update(storageAssets)
+            .set({
+                backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+                updatedAt: new Date(),
+            })
+            .where(and(
+                eq(storageAssets.id, item.assetId),
+                eq(storageAssets.ownerUserId, params.ownerUserId),
+                eq(storageAssets.projectId, params.projectId),
+                eq(storageAssets.bucket, PROJECT_UPDATE_MEDIA_BUCKET),
+                eq(storageAssets.storageKey, item.storageKey),
+                eq(storageAssets.state, "verified"),
+            ))
+            .returning({ id: storageAssets.id });
+        if (!publishable) throw new Error("Update media asset is no longer publishable");
+        attachedAssetIds.add(item.assetId);
+        await params.tx.insert(projectUpdateMediaAssets).values({
+            updateId: params.updateId,
+            assetId: item.assetId,
+            ordinal,
+        });
+    }
+
+    const removed = previous
+        .map((row) => row.assetId)
+        .filter((assetId) => !attachedAssetIds.has(assetId));
+    if (removed.length > 0) {
+        await params.tx.update(storageAssets)
+            .set({
+                state: "delete_pending",
+                deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+                updatedAt: new Date(),
+            })
+            .where(and(
+                inArray(storageAssets.id, removed),
+                eq(storageAssets.state, "verified"),
+            ));
+    }
+}
+
+async function replaceDraftMediaAssetRefs(params: {
+    tx: DbTransaction;
+    projectId: string;
+    userId: string;
+    media: ProjectUpdateMediaItem[];
+    allowedLegacyBindings?: Set<string>;
+}) {
+    const previous = await params.tx
+        .select({ assetId: projectUpdateDraftMediaAssets.assetId })
+        .from(projectUpdateDraftMediaAssets)
+        .where(and(
+            eq(projectUpdateDraftMediaAssets.projectId, params.projectId),
+            eq(projectUpdateDraftMediaAssets.userId, params.userId),
+        ));
+    await params.tx.delete(projectUpdateDraftMediaAssets).where(and(
+        eq(projectUpdateDraftMediaAssets.projectId, params.projectId),
+        eq(projectUpdateDraftMediaAssets.userId, params.userId),
+    ));
+
+    const attachedAssetIds = new Set<string>();
+    for (const [ordinal, item] of params.media.entries()) {
+        if (!item.assetId) {
+            if (
+                (item.bucket || item.storageKey) &&
+                !params.allowedLegacyBindings?.has(updateMediaBinding(item))
+            ) {
+                throw new Error("Draft media must use a verified asset identity");
+            }
+            continue;
+        }
+        if (
+            !isLooseUuid(item.assetId) ||
+            item.bucket !== PROJECT_UPDATE_MEDIA_BUCKET ||
+            !item.storageKey ||
+            attachedAssetIds.has(item.assetId)
+        ) {
+            throw new Error("Invalid draft media asset binding");
+        }
+        const [publishable] = await params.tx.update(storageAssets)
+            .set({
+                backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+                updatedAt: new Date(),
+            })
+            .where(and(
+                eq(storageAssets.id, item.assetId),
+                eq(storageAssets.ownerUserId, params.userId),
+                eq(storageAssets.projectId, params.projectId),
+                eq(storageAssets.bucket, PROJECT_UPDATE_MEDIA_BUCKET),
+                eq(storageAssets.storageKey, item.storageKey),
+                eq(storageAssets.state, "verified"),
+            ))
+            .returning({ id: storageAssets.id });
+        if (!publishable) throw new Error("Draft media asset is no longer available");
+        attachedAssetIds.add(item.assetId);
+        await params.tx.insert(projectUpdateDraftMediaAssets).values({
+            projectId: params.projectId,
+            userId: params.userId,
+            assetId: item.assetId,
+            ordinal,
+        });
+    }
+
+    const removed = previous
+        .map((row) => row.assetId)
+        .filter((assetId) => !attachedAssetIds.has(assetId));
+    if (removed.length > 0) {
+        await params.tx.update(storageAssets)
+            .set({
+                state: "delete_pending",
+                deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+                updatedAt: new Date(),
+            })
+            .where(and(
+                inArray(storageAssets.id, removed),
+                eq(storageAssets.state, "verified"),
+            ));
+    }
+}
 
 type ProjectUpdateCursor = {
     pinned: boolean;
@@ -1181,10 +1374,6 @@ export async function readProjectUpdateContextOptionsAction(projectId: string, i
     }
 }
 
-function projectUpdateMediaRoute(projectId: string, storageKey: string) {
-    return `/api/v1/projects/${encodeURIComponent(projectId)}/update-media?key=${encodeURIComponent(storageKey)}`;
-}
-
 export async function createProjectUpdateMediaUploadUrlAction(projectId: string, input: {
     mimeType?: string | null;
     sizeBytes?: number | null;
@@ -1232,6 +1421,7 @@ export async function createProjectUpdateMediaUploadUrlAction(projectId: string,
             uploadUrl: data.signedUrl,
             uploadToken: data.token,
             uploadIntentId: intent.id,
+            operationId: intent.id,
             storagePath: storageKey,
             bucket: PROJECT_UPDATE_MEDIA_BUCKET,
             contentType: mimeType,
@@ -1269,7 +1459,8 @@ export async function finalizeProjectUpdateMediaUploadAction(projectId: string, 
         });
         const media: ProjectUpdateMediaItem = {
             type: "image",
-            url: projectUpdateMediaRoute(projectId, intent.storageKey),
+            assetId: intent.assetId,
+            url: projectUpdateMediaApplicationUrl(intent.bucket, intent.storageKey),
             label: typeof input.label === "string" && input.label.trim() ? input.label.trim().slice(0, 160) : null,
             altText: typeof input.altText === "string" && input.altText.trim() ? input.altText.trim().slice(0, 240) : null,
             mimeType: intent.finalizedMimeType || intent.expectedMimeType || "image/jpeg",
@@ -1325,22 +1516,33 @@ export async function createProjectUpdateAction(projectId: string, input: {
             projectOwnerId: access.project.ownerId,
             memberRole: access.memberRole,
         });
-        const [inserted] = await db
-            .insert(projectUpdates)
-            .values({
+        const inserted = await db.transaction(async (tx) => {
+            const [row] = await tx
+                .insert(projectUpdates)
+                .values({
+                    projectId,
+                    authorId: viewer.userId,
+                    content,
+                    updateType,
+                    visibility,
+                    replyPolicy,
+                    entityRefs,
+                    media,
+                    metadata: { authorRoleSnapshot },
+                    createdAt,
+                    updatedAt: createdAt,
+                })
+                .returning({ id: projectUpdates.id });
+            if (!row) throw new Error("Failed to create project update");
+            await replaceUpdateMediaAssetRefs({
+                tx,
+                updateId: row.id,
                 projectId,
-                authorId: viewer.userId,
-                content,
-                updateType,
-                visibility,
-                replyPolicy,
-                entityRefs,
+                ownerUserId: viewer.userId!,
                 media,
-                metadata: { authorRoleSnapshot },
-                createdAt,
-                updatedAt: createdAt,
-            })
-            .returning({ id: projectUpdates.id });
+            });
+            return row;
+        });
 
         if (!inserted?.id) return { success: false as const, error: "Failed to post update." };
 
@@ -1436,14 +1638,6 @@ export async function editProjectUpdateAction(projectId: string, updateId: strin
         if (!viewer.userId) return { success: false as const, error: "Please log in to edit updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
-        const [existing] = await db
-            .select({ id: projectUpdates.id, authorId: projectUpdates.authorId, deletedAt: projectUpdates.deletedAt })
-            .from(projectUpdates)
-            .where(and(eq(projectUpdates.id, updateId), eq(projectUpdates.projectId, projectId)))
-            .limit(1);
-        if (!existing || existing.deletedAt) return { success: false as const, error: "Project update not found." };
-        if (existing.authorId !== viewer.userId) return { success: false as const, error: "You can only edit your own update." };
-
         const content = sanitizeProjectUpdateContent(input.content);
         const entityRefs = normalizeEntityRefs(input.entityRefs);
         const media = normalizeMedia(input.media);
@@ -1452,17 +1646,52 @@ export async function editProjectUpdateAction(projectId: string, updateId: strin
         const hasMedia = media.length > 0;
         if (!content && !hasReferences && !hasMedia) return { success: false as const, error: "Update cannot be empty." };
         const now = new Date();
-        await db
-            .update(projectUpdates)
-            .set({
-                content,
-                updateType: normalizeProjectUpdateType(input.updateType),
-                entityRefs,
+        await db.transaction(async (tx) => {
+            const [existing] = await tx
+                .select({
+                    authorId: projectUpdates.authorId,
+                    deletedAt: projectUpdates.deletedAt,
+                    media: projectUpdates.media,
+                })
+                .from(projectUpdates)
+                .where(and(eq(projectUpdates.id, updateId), eq(projectUpdates.projectId, projectId)))
+                .limit(1)
+                .for("update");
+            if (!existing || existing.deletedAt) throw new Error("Project update not found.");
+            if (existing.authorId !== viewer.userId) throw new Error("You can only edit your own update.");
+            const allowedLegacyBindings = new Set(
+                normalizeMedia(existing.media)
+                    .filter((item) => !item.assetId && item.bucket && item.storageKey)
+                    .map(updateMediaBinding),
+            );
+            await queueRemovedLegacyUpdateMedia({
+                tx,
+                sourceType: "project_update_media",
+                sourceId: updateId,
+                projectId,
+                previous: existing.media,
+                next: media,
+            });
+            await replaceUpdateMediaAssetRefs({
+                tx,
+                updateId,
+                projectId,
+                ownerUserId: viewer.userId!,
                 media,
-                editedAt: now,
-                updatedAt: now,
-            })
-            .where(eq(projectUpdates.id, updateId));
+                allowedLegacyBindings,
+            });
+            await tx
+                .update(projectUpdates)
+                .set({
+                    content,
+                    updateType: normalizeProjectUpdateType(input.updateType),
+                    entityRefs,
+                    media,
+                    editedAt: now,
+                    updatedAt: now,
+                })
+                .where(eq(projectUpdates.id, updateId));
+        });
         const rows = await readUpdateRowsByIds([updateId], access);
         const [likedIds, contextByUpdateId] = await Promise.all([
             likedUpdateIds([updateId], viewer.userId),
@@ -1482,34 +1711,52 @@ export async function deleteProjectUpdateAction(projectId: string, updateId: str
         if (!viewer.userId) return { success: false as const, error: "Please log in to delete updates." };
         const access = await resolveProjectUpdateAccess(projectId, viewer.userId);
         if (!access.canRead || !access.project) return { success: false as const, error: "Project update unavailable." };
-        const [existing] = await db
-            .select({
-                id: projectUpdates.id,
-                authorId: projectUpdates.authorId,
-                deletedAt: projectUpdates.deletedAt,
-                media: projectUpdates.media,
-            })
-            .from(projectUpdates)
-            .where(and(eq(projectUpdates.id, updateId), eq(projectUpdates.projectId, projectId)))
-            .limit(1);
-        if (!existing || existing.deletedAt) return { success: false as const, error: "Project update not found." };
-        if (existing.authorId !== viewer.userId && !access.canManage) {
-            return { success: false as const, error: "You do not have permission to delete this update." };
-        }
         const now = new Date();
-        await db
-            .update(projectUpdates)
-            .set({
-                content: "",
-                entityRefs: {},
+        await db.transaction(async (tx) => {
+            const [existing] = await tx
+                .select({
+                    id: projectUpdates.id,
+                    authorId: projectUpdates.authorId,
+                    deletedAt: projectUpdates.deletedAt,
+                    media: projectUpdates.media,
+                })
+                .from(projectUpdates)
+                .where(and(eq(projectUpdates.id, updateId), eq(projectUpdates.projectId, projectId)))
+                .limit(1)
+                .for("update");
+            if (!existing || existing.deletedAt) throw new Error("Project update not found.");
+            if (existing.authorId !== viewer.userId && !access.canManage) {
+                throw new Error("You do not have permission to delete this update.");
+            }
+            await queueRemovedLegacyUpdateMedia({
+                tx,
+                sourceType: "project_update_media",
+                sourceId: updateId,
+                projectId,
+                previous: existing.media,
+                next: [],
+            });
+            await replaceUpdateMediaAssetRefs({
+                tx,
+                updateId,
+                projectId,
+                ownerUserId: viewer.userId!,
                 media: [],
-                metadata: {},
-                deletedAt: now,
-                deletedBy: viewer.userId,
-                isPinned: false,
-                updatedAt: now,
-            })
-            .where(eq(projectUpdates.id, updateId));
+            });
+            await tx
+                .update(projectUpdates)
+                .set({
+                    content: "",
+                    entityRefs: {},
+                    media: [],
+                    metadata: {},
+                    deletedAt: now,
+                    deletedBy: viewer.userId,
+                    isPinned: false,
+                    updatedAt: now,
+                })
+                .where(eq(projectUpdates.id, updateId));
+        });
 
         // Asynchronously clean up storage assets and comments via Inngest background job
         try {
@@ -1519,7 +1766,6 @@ export async function deleteProjectUpdateAction(projectId: string, updateId: str
                 data: {
                     projectId,
                     updateId,
-                    media: normalizeMedia(existing.media).filter((item) => item.storageKey),
                 },
             });
         } catch (inngestErr) {
@@ -2015,8 +2261,9 @@ export async function deleteProjectUpdateCommentAction(projectId: string, commen
 export async function readProjectUpdateDraftAction(projectId: string) {
     const auth = await getViewerAuthContext();
     if (!auth || !auth.userId) return { success: false, error: "Unauthorized" };
+    const userId = auth.userId;
 
-    const access = await resolveProjectUpdateAccess(projectId, auth.userId);
+    const access = await resolveProjectUpdateAccess(projectId, userId);
     if (!access.canCreate) return { success: false, error: "Not found" };
 
     try {
@@ -2026,7 +2273,7 @@ export async function readProjectUpdateDraftAction(projectId: string) {
             .where(
                 and(
                     eq(projectUpdateDrafts.projectId, projectId),
-                    eq(projectUpdateDrafts.userId, auth.userId)
+                    eq(projectUpdateDrafts.userId, userId)
                 )
             )
             .limit(1);
@@ -2049,8 +2296,9 @@ export async function saveProjectUpdateDraftAction(
 ) {
     const auth = await getViewerAuthContext();
     if (!auth || !auth.userId) return { success: false, error: "Unauthorized" };
+    const userId = auth.userId;
 
-    const access = await resolveProjectUpdateAccess(projectId, auth.userId);
+    const access = await resolveProjectUpdateAccess(projectId, userId);
     if (!access.canCreate) return { success: false, error: "Not found" };
 
     try {
@@ -2062,41 +2310,99 @@ export async function saveProjectUpdateDraftAction(
         const hasReferences = normalizeProjectUpdateReferences(entityRefs.references).length > 0
             || Boolean(entityRefs.taskId || entityRefs.sprintId || entityRefs.fileId || entityRefs.readmeVersionId || entityRefs.roleId || entityRefs.milestoneId);
         if (!content.trim() && !hasReferences && media.length === 0) {
-            await db
-                .delete(projectUpdateDrafts)
-                .where(
+            await db.transaction(async (tx) => {
+                const [existingDraft] = await tx
+                    .select({ media: projectUpdateDrafts.media })
+                    .from(projectUpdateDrafts)
+                    .where(and(
+                        eq(projectUpdateDrafts.projectId, projectId),
+                        eq(projectUpdateDrafts.userId, userId),
+                    ))
+                    .limit(1)
+                    .for("update");
+                if (existingDraft) {
+                    await queueRemovedLegacyUpdateMedia({
+                        tx,
+                        sourceType: "project_update_draft_media",
+                        sourceId: userId,
+                        projectId,
+                        previous: existingDraft.media,
+                        next: [],
+                    });
+                    await replaceDraftMediaAssetRefs({
+                        tx,
+                        projectId,
+                        userId,
+                        media: [],
+                    });
+                }
+                await tx.delete(projectUpdateDrafts).where(
                     and(
                         eq(projectUpdateDrafts.projectId, projectId),
-                        eq(projectUpdateDrafts.userId, auth.userId)
+                        eq(projectUpdateDrafts.userId, userId)
                     )
                 );
+            });
             return { success: true, data: null };
         }
 
-        const [draft] = await db
-            .insert(projectUpdateDrafts)
-            .values({
+        const draft = await db.transaction(async (tx) => {
+            const [existingDraft] = await tx
+                .select({ media: projectUpdateDrafts.media })
+                .from(projectUpdateDrafts)
+                .where(and(
+                    eq(projectUpdateDrafts.projectId, projectId),
+                    eq(projectUpdateDrafts.userId, userId),
+                ))
+                .limit(1)
+                .for("update");
+            const allowedLegacyBindings = new Set(
+                normalizeMedia(existingDraft?.media)
+                    .filter((item) => !item.assetId && item.bucket && item.storageKey)
+                    .map(updateMediaBinding),
+            );
+            await queueRemovedLegacyUpdateMedia({
+                tx,
+                sourceType: "project_update_draft_media",
+                sourceId: userId,
                 projectId,
-                userId: auth.userId,
-                content,
-                visibility,
-                updateType,
-                entityRefs,
-                media,
-                updatedAt: sql`now()`,
-            })
-            .onConflictDoUpdate({
-                target: [projectUpdateDrafts.projectId, projectUpdateDrafts.userId],
-                set: {
+                previous: existingDraft?.media,
+                next: media,
+            });
+            const [row] = await tx
+                .insert(projectUpdateDrafts)
+                .values({
+                    projectId,
+                    userId,
                     content,
                     visibility,
                     updateType,
                     entityRefs,
                     media,
                     updatedAt: sql`now()`,
-                },
-            })
-            .returning();
+                })
+                .onConflictDoUpdate({
+                    target: [projectUpdateDrafts.projectId, projectUpdateDrafts.userId],
+                    set: {
+                        content,
+                        visibility,
+                        updateType,
+                        entityRefs,
+                        media,
+                        updatedAt: sql`now()`,
+                    },
+                })
+                .returning();
+            if (!row) throw new Error("Failed to save update draft");
+            await replaceDraftMediaAssetRefs({
+                tx,
+                projectId,
+                userId,
+                media,
+                allowedLegacyBindings,
+            });
+            return row;
+        });
 
         return { success: true, data: draft };
     } catch (error) {

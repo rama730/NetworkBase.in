@@ -186,14 +186,13 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   const notifications = source("src/components/layout/header/NotificationPreview.tsx");
   const runtime = source("src/components/providers/MainRuntimeProviders.tsx");
   const realtime = source("src/lib/realtime/subscriptions.ts");
-  const chat = source("src/components/chat/ChatProvider.tsx");
+  const chat = source("src/components/providers/PresenceProvider.tsx");
   const layout = source("src/components/layout/MainLayout.tsx");
   const notificationActions = source("src/app/actions/notifications.ts");
-  const messages = source("src/components/chat/v2/MessagesWorkspaceV2.tsx");
   const people = source("src/components/network/NetworkClient.tsx");
   const discoverPeople = source("src/components/network/NetworkPeopleTab.tsx");
   const networkPeople = source("src/components/network/ConnectionsClient.tsx");
-  const taskAction = source("src/app/actions/project/_all.ts");
+  const taskAction = source("src/app/actions/project/index.ts");
   const commandPalette = source("src/components/layout/header/CommandPalette.tsx");
   const globalSearch = source("src/components/layout/header/GlobalSearch.tsx");
   const globalSearchContract = source("src/components/layout/header/global-search.ts");
@@ -206,7 +205,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   const globals = source("src/app/globals.css");
 
   assert.match(topNav, /e\.key\.toLowerCase\(\) === "k"/);
-  assert.match(topNav, /setMessageSearchOpen\(true\)/);
+  assert.match(topNav, /useChatUi\.getState\(\)\.setSwitcherOpen\(true\)/);
   assert.match(topNav, /\[data-messages-surface\]/);
   assert.doesNotMatch(topNav, /OPEN_MESSAGES_SEARCH_EVENT|open-messages-local-search/);
   assert.match(source("src/components/layout/AppSidebar.tsx"), /MAIN_NAV_ITEMS/);
@@ -214,11 +213,16 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(topNav, /<div className="md:hidden">\s*<Logo/);
   assert.match(topNav, /className="nb-mobile-menu-trigger[^\"]*md:hidden"\s+aria-label="Open mobile menu"/);
   assert.match(globals, /@media \(min-width:768px\) \{[\s\S]*?\.nb-mobile-menu-trigger \{ display:none; \}/);
-  assert.match(topNav, /createProject=1/);
+  assert.doesNotMatch(topNav, /createProject=1/);
+  assert.match(topNav, /href="\/projects\/new"/);
   assert.match(topNav, /className="flex shrink-0 items-center gap-2"/);
   assert.match(topNav, /recentSearchOwnerId=\{user\?\.id\}/);
   assert.match(mobileMenu, /<Dialog open=\{props\.isOpen\}/);
   assert.match(mobileMenu, /p-4 md:hidden/);
+  // Mobile quick nav renders the sidebar's own nav body so destinations, order and counts cannot drift.
+  assert.match(mobileMenu, /import \{ SidebarNav \} from "@\/components\/layout\/AppSidebar"/);
+  assert.match(mobileMenu, /<SidebarNav \/>/);
+  assert.match(source("src/components/layout/AppSidebar.tsx"), /<SidebarNav \/>/);
   assert.match(notifications, /href=\{settingsTabHref\("notifications"\)\}/);
   assert.match(notifications, /onItemsViewed/);
   assert.match(notifications, /data-\[state=open\]/);
@@ -229,7 +233,6 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.doesNotMatch(realtime, /table: 'tasks'/);
   assert.match(chat, /usePublishOnlinePresence\(\)/);
   assert.match(layout, /WorkspaceDrawerHost/);
-  assert.doesNotMatch(messages, /open-messages-local-search|OPEN_MESSAGES_SEARCH_EVENT/);
   assert.match(people, /searchParams\?\.get\("q"\)/);
   assert.match(people, /searchQuery=\{routeQuery\}/);
   assert.doesNotMatch(discoverPeople, /type="search"|Search people by name/);
@@ -302,10 +305,15 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(searchPreviews, /fetchProjectTaskPreviewsAction/);
   assert.match(connectionsAction, /accepted_connection\.status = 'accepted'/);
   assert.match(connectionsAction, /blocked_connection\.status = 'blocked'/);
-  assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items, privacyProfiles\)/);
+  assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items\)/);
   assert.doesNotMatch(personCard, /onDismiss/);
   assert.match(personCard, /shared connections/);
-  assert.match(personCard, /min-h-\[158px\]/);
+  // Cards size to content: one line under the name is the location, else the real headline; no filler.
+  for (const card of [personCard, networkPeople]) {
+    assert.doesNotMatch(card, /h-\[168px\]|min-h-\[158px\]|VirtuosoGrid/);
+    assert.doesNotMatch(card, /\|\| "NetworkBase member"<\/p>/);
+  }
+  assert.match(personCard, /\{location \?\? \(headline \?/);
   assert.match(personCard, /title=\{displayName\}>\{displayName\}<\/h3>/);
   assert.match(personCard, /title=\{profile\.location\}/);
   assert.match(personCard, /<span className="min-w-0 truncate">\{profile\.location\}<\/span>/);

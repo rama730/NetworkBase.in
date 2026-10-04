@@ -18,6 +18,10 @@ async function compressInWorker(file: File, size = AVATAR_SIZE, quality = 0.85):
     }
 
     const bitmap = await createImageBitmap(file)
+    if (bitmap.width <= 0 || bitmap.height <= 0 || bitmap.width * bitmap.height > 16_000_000) {
+        bitmap.close()
+        throw new Error('Image dimensions exceed the 16 megapixel limit')
+    }
     const minDim = Math.min(bitmap.width, bitmap.height)
     const sx = Math.max(0, (bitmap.width - minDim) / 2)
     const sy = Math.max(0, (bitmap.height - minDim) / 2)

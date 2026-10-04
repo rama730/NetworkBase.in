@@ -28,7 +28,6 @@ test("normalizeNotificationPreferences preserves explicit category choices", () 
     ignoredLegacyKey: true,
   }), {
     ...DEFAULT_NOTIFICATION_PREFERENCES,
-    messages: false,
     mentions: true,
     workflows: false,
     projects: true,
@@ -44,7 +43,6 @@ test("normalizeNotificationPreferences fills newly added categories from default
     mentions: false,
   }), {
     ...DEFAULT_NOTIFICATION_PREFERENCES,
-    messages: false,
     mentions: false,
   });
 });

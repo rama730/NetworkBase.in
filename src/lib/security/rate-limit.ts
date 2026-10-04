@@ -10,7 +10,6 @@ export interface RateLimitResult {
     reason?: 'redis_unavailable' | 'redis_error'
 }
 
-export type RateLimitMode = 'best-effort' | 'distributed-only'
 export type RateLimitFailMode = 'fail_closed' | 'allow' | 'stale_or_shed'
 
 export interface RateLimitPolicy {
@@ -24,7 +23,6 @@ export interface RateLimitPolicy {
 }
 
 type RouteRateLimitPolicy = {
-    mode?: RateLimitMode
     failMode?: RateLimitFailMode
 }
 
@@ -116,9 +114,8 @@ function setL1Blocked(key: string, limit: number, resetAt: number, now: number) 
 
 export const RATE_LIMIT_ROUTE_POLICIES: Record<string, RouteRateLimitPolicy> = {
     default: {},
-    health: { mode: 'best-effort', failMode: 'allow' },
-    ready: { mode: 'best-effort', failMode: 'allow' },
-    publicRead: { mode: 'distributed-only', failMode: 'stale_or_shed' },
+    health: { failMode: 'allow' },
+    publicRead: { failMode: 'stale_or_shed' },
 }
 
 // SEC-H4 / SEC-L3: per-scope fail-mode registry. Without this, Redis outages
@@ -127,8 +124,7 @@ export const RATE_LIMIT_ROUTE_POLICIES: Record<string, RouteRateLimitPolicy> = {
 // typing / presence heartbeats).
 //
 // Matching is first-prefix-wins. Any identifier that does not match a scope
-// here falls back to the mode default — which is `fail_closed` in production
-// (`distributed-only`) and `allow` in tests / dev. New sensitive endpoints
+// here falls back to `fail_closed`. New sensitive endpoints
 // SHOULD be listed here explicitly so the fail posture is visible at review
 // time rather than buried in a call site.
 export type RateLimitScopePolicy = {
@@ -178,7 +174,6 @@ export function resolveScopeFailMode(identifier: string): RateLimitFailMode | un
 }
 
 export type ConsumeRateLimitOptions = {
-    mode?: RateLimitMode
     failMode?: RateLimitFailMode
     fallback?: 'deny' | 'allow' | 'local'
     route?: keyof typeof RATE_LIMIT_ROUTE_POLICIES
@@ -190,12 +185,6 @@ export type ConsumeRateLimitOptions = {
     scope?: string
     /** Number of tokens consumed by this operation. Defaults to one. */
     cost?: number
-}
-
-function getRateLimitMode(): RateLimitMode {
-    if (process.env.RATE_LIMIT_MODE === 'distributed-only') return 'distributed-only'
-    if (process.env.RATE_LIMIT_MODE === 'best-effort') return 'best-effort'
-    return process.env.NODE_ENV === 'test' ? 'best-effort' : 'distributed-only'
 }
 
 function normalizeFailMode(
@@ -214,34 +203,28 @@ function normalizeFailMode(
     }
 }
 
-function defaultFailMode(mode: RateLimitMode): RateLimitFailMode {
-    return mode === 'distributed-only' ? 'fail_closed' : 'allow'
-}
-
 function resolveConsumeOptions(
     identifier: string,
     options?: ConsumeRateLimitOptions,
 ): {
-    mode: RateLimitMode
     failMode: RateLimitFailMode
     testLocal: boolean
 } {
     const routePolicy = options?.route ? RATE_LIMIT_ROUTE_POLICIES[options.route] : undefined
-    const mode = options?.mode ?? routePolicy?.mode ?? getRateLimitMode()
     const scopeLookup = options?.scope ?? identifier
     const scopeFailMode = resolveScopeFailMode(scopeLookup)
     const failMode =
         normalizeFailMode(options)
         ?? routePolicy?.failMode
         ?? scopeFailMode
-        ?? defaultFailMode(mode)
+        ?? 'fail_closed'
     const testLocal =
         process.env.NODE_ENV === 'test'
         && options?.failMode === undefined
         && options?.fallback === undefined
         && routePolicy?.failMode === undefined
         && scopeFailMode === undefined
-    return { mode, failMode, testLocal }
+    return { failMode, testLocal }
 }
 
 function buildPolicy(
@@ -346,6 +329,7 @@ function consumeTestRateLimit(identifier: string, limit: number, windowSeconds: 
     }
 }
 
+// ponytail: Upstash token bucket per IP/user, kept only on abuse surfaces. ceiling: one region Redis. upgrade: none needed below ~1k rps.
 export async function consumeRateLimitPolicy(policy: RateLimitPolicy): Promise<RateLimitResult> {
     const burst = Math.max(1, Math.trunc(policy.burst))
     const refillRate = Math.max(1 / burst, policy.refillRate)

@@ -244,9 +244,14 @@ export function MetadataStrip({
         {linkedDoc && (
           <>
             <Separator />
-            <span className="font-semibold text-foreground" data-field="used-as-doc">
+            <button
+              type="button"
+              onClick={() => onNavigateToDoc?.(linkedDoc.slug)}
+              className="font-semibold text-foreground underline-offset-4 hover:underline"
+              data-field="used-as-doc"
+            >
               Used as a Doc
-            </span>
+            </button>
           </>
         )}
         {projectId && (taskLinkCount ?? 0) > 0 ? (
@@ -282,7 +287,6 @@ export function MetadataStrip({
         fileSize={node.size}
         mimeType={node.mimeType}
         linkedDoc={linkedDoc}
-        onNavigateToDoc={onNavigateToDoc}
         actionsTriggerRef={actionsTriggerRef}
         organizationActions={organizationActions}
       /></FilesHeaderSlot>

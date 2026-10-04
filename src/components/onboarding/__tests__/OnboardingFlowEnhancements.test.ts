@@ -39,7 +39,7 @@ describe('onboarding flow enhancements', () => {
 
   it('communicates recoverable save state and final action wording', () => {
     const footer = source('StepFooter.tsx')
-    const page = source('../../app/(onboarding)/onboarding/page.tsx')
+    const page = source('../../app/(site)/(onboarding)/onboarding/page.tsx')
     assert.match(footer, /Finish profile/)
     assert.match(footer, /disabledReason/)
     assert.match(footer, /saveStatus/)

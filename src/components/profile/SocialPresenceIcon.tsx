@@ -139,7 +139,7 @@ const BRAND_ASSETS: Partial<Record<SocialPresenceIconKey, string>> = {
     penpot: '/social-icons/penpot.svg',
     rive: '/skill-icons/v1/rive.svg',
     maze: '/social-icons/maze.svg',
-    // ponytail: Version the corrected glyph so browsers cannot reuse the earlier blue asset.
+    // Version the corrected glyph so browsers cannot reuse the earlier blue asset.
     heliyon: '/social-icons/heliyon.svg?v=20260830-2',
 };
 

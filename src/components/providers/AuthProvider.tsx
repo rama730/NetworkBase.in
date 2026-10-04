@@ -6,22 +6,22 @@ import type { User, Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import type { Profile } from '@/lib/db/schema';
 import { logger } from '@/lib/logger';
-import { getAuthHardeningPhase } from '@/lib/auth/hardening';
-import { buildOAuthRedirectTo, normalizeAuthNextPath, resolveAuthBaseUrl } from '@/lib/auth/redirects';
-import { continueBrowserOAuthRedirect } from '@/lib/auth/oauth';
+import {
+    type AuthResult,
+    type OAuthResult,
+    type SignUpOptions,
+    forgetSyncedBrowserSession,
+    signInWithGoogleIdToken as signInWithGoogleIdTokenAction,
+    signInWithPassword,
+    signUpWithPassword,
+    startOAuthSignIn,
+    syncBrowserSessionToServer,
+    verifyEmailOtp,
+} from '@/lib/auth/browser-auth-actions';
 import { resetMonotonicEntity, runMonotonicUpdate } from '@/lib/state/monotonic';
 import { loadBrowserProfile, normalizeProfileRecord, profileNeedsHydration } from '@/lib/profile/browser-profile';
 import { cacheManager } from '@/lib/utils/cache-manager';
 import { unsubscribeWebPush } from '@/lib/notifications/web-push-client';
-
-const AUTH_SIGN_IN_TIMEOUT_MS = 8_000;
-const AUTH_UNREACHABLE_MESSAGE = 'Authentication service is unavailable. Check your Supabase connection and try again.';
-function createAuthRequestId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
-    }
-    return `auth-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 // --- Types ---
 interface AuthState {
@@ -29,16 +29,6 @@ interface AuthState {
     session: Session | null;
     profile: Profile | null;
     isLoading: boolean;
-}
-
-interface AuthResult {
-    data: { user: User | null; session: Session | null } | null;
-    error: { message: string } | null;
-}
-
-interface OAuthResult {
-    data: { url: string } | null;
-    error: { message: string } | null;
 }
 
 type BrowserSessionBridgeResponse = {
@@ -52,22 +42,6 @@ type BrowserSessionBridgeResponse = {
     error?: string;
 };
 
-type SignUpApiResponse = {
-    success: boolean;
-    data?: {
-        session?: {
-            accessToken?: string | null;
-            refreshToken?: string | null;
-            expiresAt?: number | null;
-        } | null;
-        user?: {
-            id: string;
-            email?: string | null;
-        } | null;
-    };
-    message?: string;
-};
-
 interface AuthContextType extends AuthState {
     isAuthenticated: boolean;
     signIn: (email: string, password: string, captchaToken?: string) => Promise<AuthResult>;
@@ -77,7 +51,7 @@ interface AuthContextType extends AuthState {
         fullName?: string,
         captchaToken?: string,
         legalAccepted?: boolean,
-        options?: { suggestedUsername?: string; inviteToken?: string; website_hp?: string; idempotencyKey?: string }
+        options?: SignUpOptions
     ) => Promise<AuthResult>;
     verifyOtp: (email: string, token: string, type?: 'signup' | 'email') => Promise<AuthResult>;
     signOut: () => Promise<void>;
@@ -87,40 +61,15 @@ interface AuthContextType extends AuthState {
     refreshProfile: () => Promise<void>;
 }
 
+const signIn = signInWithPassword;
+const signUp = signUpWithPassword;
+const verifyOtp = verifyEmailOtp;
+const signInWithGoogleIdToken = signInWithGoogleIdTokenAction;
+const signInWithGoogle = (nextPath?: string | null) => startOAuthSignIn('google', nextPath);
+const signInWithGitHub = (nextPath?: string | null) => startOAuthSignIn('github', nextPath);
+
 // --- Context ---
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-let lastSyncedSessionToken: string | null = null;
-
-async function syncBrowserSessionToServer(session: Session | null) {
-    const token = session ? `${session.access_token}:${session.refresh_token}` : null;
-    // Logout must always reach the server, including after a hot reload where
-    // the module-level token cache has reset to null.
-    if (session && token === lastSyncedSessionToken) return;
-
-    const response = await fetch('/api/v1/auth/session', {
-        method: session ? 'POST' : 'DELETE',
-        headers: session ? { 'content-type': 'application/json' } : undefined,
-        credentials: 'same-origin',
-        body: session
-            ? JSON.stringify({
-                mode: 'sync',
-                accessToken: session.access_token,
-                refreshToken: session.refresh_token,
-            })
-            : undefined,
-    });
-
-    if (!response.ok) {
-        if (response.status === 400 || response.status === 401) {
-            const supabase = createClient();
-            await supabase.auth.signOut({ scope: 'local' }).catch(() => null);
-        }
-        throw new Error(`Browser session sync failed (${response.status})`);
-    }
-    
-    lastSyncedSessionToken = token;
-}
 
 async function bootstrapBrowserSessionFromServer() {
     const response = await fetch('/api/v1/auth/session', {
@@ -381,234 +330,6 @@ export function AuthProvider({
     }, [initialUser, router, transformedInitialProfile]);
 
     // --- Actions ---
-    const signIn = useCallback(async (email: string, password: string, captchaToken?: string) => {
-        const supabase = createClient();
-        try {
-            const result = await Promise.race([
-                supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                    options: captchaToken ? { captchaToken } : undefined,
-                }),
-                new Promise<never>((_, reject) => {
-                    setTimeout(() => reject(new Error('AUTH_TIMEOUT')), AUTH_SIGN_IN_TIMEOUT_MS);
-                }),
-            ]);
-            if (!result.error) {
-                if (result.data.session) {
-                    await syncBrowserSessionToServer(result.data.session).catch(() => null);
-                }
-                return result;
-            }
-
-            const message = (result.error.message || '').toLowerCase();
-            const isConnectivityError = message.includes('fetch failed') || message.includes('timeout');
-            if (isConnectivityError) {
-                return {
-                    data: null,
-                    error: { message: AUTH_UNREACHABLE_MESSAGE },
-                };
-            }
-            return result;
-        } catch (error) {
-            const message = error instanceof Error ? error.message : '';
-            const isConnectivityError = message === 'AUTH_TIMEOUT' || message.toLowerCase().includes('fetch failed');
-            if (isConnectivityError) {
-                return {
-                    data: null,
-                    error: { message: AUTH_UNREACHABLE_MESSAGE },
-                };
-            }
-            return {
-                data: null,
-                error: { message: 'Sign in failed' },
-            };
-        }
-    }, []);
-
-    const signUp = useCallback(async (
-        email: string,
-        password: string,
-        fullName?: string,
-        captchaToken?: string,
-        legalAccepted?: boolean,
-        options?: { suggestedUsername?: string; inviteToken?: string; website_hp?: string; idempotencyKey?: string }
-    ) => {
-        const supabase = createClient();
-        try {
-            const headers: Record<string, string> = { 'content-type': 'application/json' };
-            if (options?.idempotencyKey) {
-                headers['idempotency-key'] = options.idempotencyKey;
-            }
-            const response = await fetch('/api/v1/auth/signup', {
-                method: 'POST',
-                headers,
-                credentials: 'same-origin',
-                body: JSON.stringify({
-                    email,
-                    password,
-                    fullName,
-                    legalAccepted,
-                    ...(options?.suggestedUsername ? { suggestedUsername: options.suggestedUsername } : {}),
-                    ...(options?.inviteToken ? { inviteToken: options.inviteToken } : {}),
-                    ...(options?.website_hp ? { website_hp: options.website_hp } : {}),
-                    ...(captchaToken ? { captchaToken } : {}),
-                }),
-            });
-            const body = await response.json().catch(() => null) as SignUpApiResponse | null;
-            if (!response.ok || body?.success === false) {
-                return {
-                    data: null,
-                    error: { message: body?.message || 'Unable to create account' },
-                };
-            }
-
-            const sessionPayload = body?.data?.session;
-            if (sessionPayload?.accessToken && sessionPayload.refreshToken) {
-                const result = await supabase.auth.setSession({
-                    access_token: sessionPayload.accessToken,
-                    refresh_token: sessionPayload.refreshToken,
-                });
-                if (result.error) {
-                    return {
-                        data: null,
-                        error: { message: result.error.message || 'Unable to establish session' },
-                    };
-                }
-                if (result.data.session) {
-                    await syncBrowserSessionToServer(result.data.session).catch(() => null);
-                }
-                return result;
-            }
-
-            return {
-                data: {
-                    user: body?.data?.user
-                        ? ({
-                            id: body.data.user.id,
-                            email: body.data.user.email ?? undefined,
-                          } as User)
-                        : null,
-                    session: null,
-                },
-                error: null,
-            };
-        } catch (error) {
-            const message = error instanceof Error ? error.message : '';
-            const isConnectivityError = message.toLowerCase().includes('fetch failed') || message.toLowerCase().includes('network');
-            return {
-                data: null,
-                error: { message: isConnectivityError ? AUTH_UNREACHABLE_MESSAGE : 'Unable to create account' },
-            };
-        }
-    }, []);
-
-    const verifyOtp = useCallback(async (email: string, token: string, type: 'signup' | 'email' = 'signup') => {
-        const supabase = createClient();
-        try {
-            const result = await supabase.auth.verifyOtp({
-                email: email.trim(),
-                token: token.trim(),
-                type,
-            });
-            if (result.error) {
-                return {
-                    data: null,
-                    error: { message: result.error.message || 'Invalid or expired verification code' },
-                };
-            }
-            if (result.data.session) {
-                await syncBrowserSessionToServer(result.data.session).catch(() => null);
-            }
-            return {
-                data: result.data,
-                error: null,
-            };
-        } catch (error) {
-            return {
-                data: null,
-                error: { message: error instanceof Error ? error.message : 'Verification failed' },
-            };
-        }
-    }, []);
-
-    const signInWithGoogle = useCallback(async (nextPath?: string | null) => {
-        const supabase = createClient();
-        const normalizedNextPath = normalizeAuthNextPath(nextPath);
-        const baseUrl = resolveAuthBaseUrl();
-        const oauthRequestId = createAuthRequestId();
-        const hardeningPhase = getAuthHardeningPhase();
-        const redirectTo = buildOAuthRedirectTo(baseUrl, normalizedNextPath, oauthRequestId, 'google');
-        logger.metric('auth.oauth.start', {
-            requestId: oauthRequestId,
-            provider: 'google',
-            nextPath: normalizedNextPath,
-            baseUrl,
-            phase: hardeningPhase,
-        });
-        const result = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: { redirectTo },
-        });
-        if (!result.error) {
-            continueBrowserOAuthRedirect(result);
-        }
-        return result;
-    }, []);
-
-    const signInWithGoogleIdToken = useCallback(async (token: string, nonce: string) => {
-        const supabase = createClient();
-        try {
-            const result = await supabase.auth.signInWithIdToken({
-                provider: 'google',
-                token,
-                nonce,
-            });
-            if (result.error) {
-                return {
-                    data: result.data,
-                    error: { message: result.error.message || 'Unable to complete Google sign-in' },
-                };
-            }
-            if (result.data.session) {
-                await syncBrowserSessionToServer(result.data.session);
-            }
-            return { data: result.data, error: null };
-        } catch (error) {
-            logger.warn('auth.google_one_tap.failed', {
-                error: error instanceof Error ? error.message : String(error),
-            });
-            return {
-                data: null,
-                error: { message: 'Unable to complete Google sign-in' },
-            };
-        }
-    }, []);
-
-    const signInWithGitHub = useCallback(async (nextPath?: string | null) => {
-        const supabase = createClient();
-        const normalizedNextPath = normalizeAuthNextPath(nextPath);
-        const baseUrl = resolveAuthBaseUrl();
-        const oauthRequestId = createAuthRequestId();
-        const hardeningPhase = getAuthHardeningPhase();
-        const redirectTo = buildOAuthRedirectTo(baseUrl, normalizedNextPath, oauthRequestId, 'github');
-        logger.metric('auth.oauth.start', {
-            requestId: oauthRequestId,
-            provider: 'github',
-            nextPath: normalizedNextPath,
-            baseUrl,
-            phase: hardeningPhase,
-        });
-        const result = await supabase.auth.signInWithOAuth({
-            provider: 'github',
-            options: { redirectTo },
-        });
-        if (!result.error) {
-            continueBrowserOAuthRedirect(result);
-        }
-        return result;
-    }, []);
-
     const signOut = useCallback(async () => {
         const supabase = createClient();
 
@@ -635,7 +356,7 @@ export function AuthProvider({
                 error: signOutError.message,
             });
         }
-        lastSyncedSessionToken = null;
+        forgetSyncedBrowserSession();
         
         // 3. Clear all cached browser storages (IndexedDB, LocalStorage, Cache API)
         if (typeof window !== 'undefined') {
@@ -706,17 +427,7 @@ export function AuthProvider({
         signInWithGoogleIdToken,
         signInWithGitHub,
         refreshProfile
-    }), [
-        state,
-        signIn,
-        signUp,
-        verifyOtp,
-        signOut,
-        signInWithGoogle,
-        signInWithGoogleIdToken,
-        signInWithGitHub,
-        refreshProfile
-    ]);
+    }), [state, signOut, refreshProfile]);
 
 
     return (

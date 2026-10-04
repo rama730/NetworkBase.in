@@ -1,14 +1,21 @@
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
-import { importJobs, importJobFiles, uploadIntents } from '@/lib/db/schema';
+import { importJobs, importJobFiles } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
 import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
-import { randomUUID } from 'crypto';
+import { buildProjectFileKey } from '@/lib/storage/project-file-key';
+import { createUploadIntent } from '@/lib/upload/upload-intents';
+import {
+    normalizeAndValidateFileSize,
+    normalizeAndValidateMimeType,
+    normalizeAndValidateUploadRelativePath,
+    PROJECT_UPLOAD_MAX_FILE_BYTES,
+} from '@/lib/upload/security';
 
 const fileIntentSchema = z.object({
     jobId: z.string().uuid(),
@@ -47,6 +54,9 @@ export async function POST(request: NextRequest) {
         }
 
         const { jobId, path, size, mimeType, checksum } = parsed.data;
+        const normalizedPath = normalizeAndValidateUploadRelativePath(path);
+        const normalizedSize = normalizeAndValidateFileSize(size, PROJECT_UPLOAD_MAX_FILE_BYTES);
+        const normalizedMimeType = normalizeAndValidateMimeType(mimeType);
 
         // Fetch job and file state in parallel
         const [job, jobFile] = await Promise.all([
@@ -56,7 +66,7 @@ export async function POST(request: NextRequest) {
             db.query.importJobFiles.findFirst({
                 where: and(
                     eq(importJobFiles.jobId, jobId),
-                    eq(importJobFiles.path, path)
+                    eq(importJobFiles.path, normalizedPath)
                 ),
             }),
         ]);
@@ -70,66 +80,47 @@ export async function POST(request: NextRequest) {
         if (!jobFile) {
             return jsonError('File path not registered in job manifest', 404, 'NOT_FOUND');
         }
+        if (jobFile.size !== normalizedSize || jobFile.checksum.toLowerCase() !== checksum.toLowerCase()) {
+            return jsonError('File does not match the registered manifest', 400, 'BAD_REQUEST');
+        }
 
-        const fileId = randomUUID();
-        const storageKey = `imports/${jobId}/files/${fileId}-${checksum}`;
+        const storageKey = buildProjectFileKey(job.projectId, `imports/${jobId}/${jobFile.id}-${checksum.toLowerCase()}`);
         const bucket = 'project-files';
+
+        const intent = await createUploadIntent({
+            userId: user.id,
+            projectId: job.projectId,
+            bucket,
+            storageKey,
+            scope: 'project_file',
+            kind: 'file',
+            expectedMimeType: normalizedMimeType,
+            expectedSize: normalizedSize,
+            idempotencyKey: `github-import:${jobId}:${jobFile.id}:${checksum.toLowerCase()}`,
+            metadata: {
+                jobId,
+                path: normalizedPath,
+                checksum: checksum.toLowerCase(),
+                jobFileId: jobFile.id,
+            },
+        });
 
         const adminClient = await createAdminClient();
         const { data: uploadSession, error: storageError } = await adminClient.storage
             .from(bucket)
-            .createSignedUploadUrl(storageKey);
+            .createSignedUploadUrl(storageKey, { upsert: false });
 
         if (storageError || !uploadSession) {
             console.error('[github-import-file-intent] signed URL generation failed:', storageError);
             return jsonError('Failed to generate signed upload URL', 500, 'INTERNAL_ERROR');
         }
 
-        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiration
-
-        const result = await db.transaction(async (tx) => {
-            // Insert upload intent
-            const [intent] = await tx
-                .insert(uploadIntents)
-                .values({
-                    userId: user.id,
-                    projectId: job.projectId,
-                    bucket,
-                    storageKey,
-                    scope: 'project_file',
-                    kind: 'file',
-                    expectedMimeType: mimeType,
-                    expectedSize: size,
-                    status: 'pending',
-                    expiresAt,
-                    metadata: {
-                        jobId,
-                        path,
-                        checksum,
-                        fileId,
-                    },
-                })
-                .returning();
-
-            if (!intent) {
-                throw new Error("Failed to insert upload intent");
-            }
-
-            // Update file status in import_job_files
-            await tx
-                .update(importJobFiles)
-                .set({
-                    status: 'uploading',
-                    uploadIntentId: intent.id,
-                    s3Key: storageKey,
-                })
-                .where(eq(importJobFiles.id, jobFile.id));
-
-            return intent;
-        });
+        await db.update(importJobFiles)
+            .set({ status: 'uploading', uploadIntentId: intent.id, s3Key: storageKey, errorMessage: null })
+            .where(eq(importJobFiles.id, jobFile.id));
 
         return jsonSuccess({
-            uploadIntentId: result.id,
+            uploadIntentId: intent.id,
             signedUrl: uploadSession.signedUrl,
             storagePath: storageKey,
         });

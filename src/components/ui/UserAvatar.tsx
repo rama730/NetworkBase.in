@@ -4,9 +4,11 @@ import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
+import { avatarVariantSizeForDisplay, publicAvatarVariantUrl } from "@/lib/profile/avatar-variants";
 import { buildIdentityPresentation, type IdentityRecord } from "@/lib/ui/identity";
 import { getPersonAvatarTone, PERSON_AVATAR_TONE_STYLES } from "@/lib/ui/avatar";
 import { cn } from "@/lib/utils";
+import { PresenceGlyph } from "@/components/presence/PresenceGlyph";
 
 export type UserAvatarProps = {
   identity: IdentityRecord;
@@ -48,6 +50,9 @@ export function UserAvatar({
 
   const shouldRenderImage = Boolean(presentation.avatarUrl) && !imageFailed;
   const fallbackTone = getPersonAvatarTone(presentation.id ?? presentation.username ?? presentation.displayName);
+  const avatarUrl = presentation.avatarUrl && unoptimized
+    ? publicAvatarVariantUrl(presentation.avatarUrl, avatarVariantSizeForDisplay(size))
+    : presentation.avatarUrl;
 
   return (
     <div
@@ -62,7 +67,7 @@ export function UserAvatar({
     >
       {shouldRenderImage ? (
         <Image
-          src={presentation.avatarUrl as string}
+          src={avatarUrl as string}
           alt={presentation.alt}
           fill
           unoptimized={unoptimized}
@@ -84,7 +89,7 @@ export function UserAvatar({
             fallbackClassName,
           )}
         >
-          {presentation.initials}
+          {presentation.anonymous ? <PresenceGlyph kind="person" className="size-[58%]" /> : presentation.initials}
         </div>
       ) : null}
     </div>

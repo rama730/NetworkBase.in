@@ -8,7 +8,7 @@ async function readWorkspaceFile(relativePath: string) {
 async function main() {
   const [
     taskActions,
-    messagingActions,
+    chatAttachmentRoute,
     changePasswordRoute,
     gitSyncWorker,
     accountCleanupWorker,
@@ -16,7 +16,7 @@ async function main() {
     connectionsActions,
   ] = await Promise.all([
     readWorkspaceFile("src/app/actions/task.ts"),
-    readWorkspaceFile("src/app/actions/messaging/_all.ts"),
+    readWorkspaceFile("src/app/api/v1/chat/attachments/[assetId]/route.ts"),
     readWorkspaceFile("src/app/api/v1/auth/change-password/route.ts"),
     readWorkspaceFile("src/inngest/functions/git-sync.ts"),
     readWorkspaceFile("src/inngest/functions/account-cleanup.ts"),
@@ -32,8 +32,8 @@ async function main() {
         taskActions.includes(".where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)))"),
     ],
     [
-      "message attachments use authenticated access URLs instead of raw signed storage URLs",
-      messagingActions.includes("buildMessageAttachmentAccessUrl(attachment.id)"),
+      "chat attachments open only through the member-checked route (short-lived signed URL)",
+      chatAttachmentRoute.includes("app_private.chat_is_member(ca.channel_id") && chatAttachmentRoute.includes("createSignedUrl(storageKey, seconds)") && chatAttachmentRoute.includes("signedUrlSeconds("),
     ],
     [
       "passwordless password changes require MFA step-up",
@@ -54,10 +54,21 @@ async function main() {
     [
       "privacy-sensitive profile surfaces emit read audit events",
       profileData.includes("recordPrivacyReadEvent(") &&
-        connectionsActions.includes("recordPrivacyReadEvents(") &&
-        messagingActions.includes("recordPrivacyReadEvent("),
+        connectionsActions.includes("recordPrivacyReadEvents("),
     ],
   ];
+
+  // Every exported chat server action authenticates first (requireChatUser) and
+  // performs its permission checks in the app_private SQL functions.
+  const chatActionFiles = ["channels", "members", "messages", "read", "activity"];
+  for (const name of chatActionFiles) {
+    const source = await readWorkspaceFile(`src/app/actions/chat/${name}.ts`);
+    const exportsList = [...source.matchAll(/export async function (\w+)\([^)]*\)[^{]*\{([\s\S]*?)\n\}/g)];
+    checks.push([
+      `chat/${name}.ts: every action starts with requireChatUser()`,
+      exportsList.length > 0 && exportsList.every(([, , body]) => /^\s*const user = await requireChatUser\(\);\s*\n\s*if \(!user\) return unauthorized;/.test(body ?? "")),
+    ]);
+  }
 
   const failed = checks.filter(([, passed]) => !passed);
   if (failed.length > 0) {

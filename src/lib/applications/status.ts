@@ -1,3 +1,5 @@
+
+
 export const APPLICATION_CORE_STATUSES = ['none', 'pending', 'accepted', 'rejected', 'withdrawn', 'proposed'] as const;
 export type ApplicationCoreStatus = (typeof APPLICATION_CORE_STATUSES)[number];
 
@@ -21,7 +23,3 @@ export const CONNECTION_REQUEST_HISTORY_STATUSES = [
 export type ConnectionRequestHistoryStatus = (typeof CONNECTION_REQUEST_HISTORY_STATUSES)[number];
 
 const CONNECTION_HISTORY_SET = new Set<string>(CONNECTION_REQUEST_HISTORY_STATUSES);
-
-export function isConnectionHistoryStatus(value: unknown): value is ConnectionRequestHistoryStatus {
-    return typeof value === 'string' && CONNECTION_HISTORY_SET.has(value);
-}

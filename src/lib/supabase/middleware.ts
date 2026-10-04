@@ -12,7 +12,8 @@ import {
     isProtectedAppRoute,
 } from '@/lib/routing/route-class'
 import { resolveSupabaseServerCookieOptions } from '@/lib/supabase/cookie-options'
-import { resolveSupabasePublicEnv } from '@/lib/supabase/env'
+import { authBoundedFetch, resolveSupabasePublicEnv } from '@/lib/supabase/env'
+import { hasOnboardingClaims, onboardingCompleteCookieName } from '@/lib/onboarding/state'
 
 const AUTH_DEGRADED_MODE_ENABLED = readBooleanFromEnv('AUTH_DEGRADED_MODE_ENABLED', true)
 const AUTH_COOKIE_MARKERS = ['auth-token', 'sb-access-token', 'sb-refresh-token']
@@ -83,47 +84,6 @@ function hasAnyAuthCookie(request: NextRequest): boolean {
         if (AUTH_COOKIE_MARKERS.some((marker) => name.includes(marker))) return true
     }
     return false
-}
-
-async function resolveProfileOnboardingComplete(
-    supabase: ReturnType<typeof createServerClient>,
-    params: {
-        userId: string
-        requestId: string
-        pathname: string
-        routeClass: string
-    },
-): Promise<boolean> {
-    try {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('username, onboarding_status')
-            .eq('id', params.userId)
-            .maybeSingle()
-
-        if (error) {
-            logger.warn('[middleware] profile onboarding fallback failed', {
-                requestId: params.requestId,
-                path: params.pathname,
-                routeClass: params.routeClass,
-                message: error.message,
-            })
-            return false
-        }
-
-        if (data?.onboarding_status === 'completed') return true
-        if (data?.onboarding_status === 'not_started' || data?.onboarding_status === 'in_progress') return false
-        const username = typeof data?.username === 'string' ? data.username.trim() : ''
-        return username.length > 0
-    } catch (error) {
-        logger.warn('[middleware] profile onboarding fallback threw', {
-            requestId: params.requestId,
-            path: params.pathname,
-            routeClass: params.routeClass,
-            message: error instanceof Error ? error.message : String(error),
-        })
-        return false
-    }
 }
 
 function clearAuthCookies(request: NextRequest, response: NextResponse): number {
@@ -197,6 +157,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
         supabaseEnv.url,
         supabaseEnv.anonKey,
         {
+            global: { fetch: authBoundedFetch },
             cookieOptions: resolveSupabaseServerCookieOptions(),
             cookies: {
                 getAll() {
@@ -276,60 +237,8 @@ export async function updateSession(request: NextRequest, options: UpdateSession
     }
 
     const url = request.nextUrl.clone()
-    const onboardingCompleteCookie = user ? request.cookies.get(`onboarding_complete_${user.id}`)?.value === 'true' : false
-    if (onboardingCompleteCookie) {
+    if (user && (hasOnboardingClaims(user) || request.cookies.get(onboardingCompleteCookieName(user.id))?.value === 'true')) {
         onboardingComplete = true
-    } else if (user) {
-        // ponytail: JWT claims and cookie bypass cross-region DB query (<4ms vs 185ms). ceiling: valid user session metadata. upgrade: fallback to profiles table query if claims missing.
-        const metadataOnboarding =
-            user.app_metadata?.onboarding_completed === true ||
-            user.user_metadata?.onboarding_completed === true ||
-            user.user_metadata?.onboarding_status === 'completed' ||
-            (typeof user.user_metadata?.username === 'string' && user.user_metadata.username.trim().length > 0)
-        if (metadataOnboarding) {
-            onboardingComplete = true
-            supabaseResponse.cookies.set({
-                name: `onboarding_complete_${user.id}`,
-                value: 'true',
-                httpOnly: true,
-                sameSite: 'lax',
-                secure: process.env.NODE_ENV === 'production',
-                path: '/',
-                maxAge: 60 * 60 * 24 * 365, // 1 year
-            })
-        }
-    }
-
-    const shouldVerifyOnboardingFromProfile =
-        Boolean(user)
-        && emailVerified
-        && !onboardingComplete
-        && (
-            isProtectedAppRoute(pathname)
-            || isOnboardingRoute(pathname)
-            || isAuthOnlyRoute(pathname)
-            || pathname === '/'
-            || pathname === '/verify-email'
-        )
-
-    if (shouldVerifyOnboardingFromProfile && user) {
-        onboardingComplete = await resolveProfileOnboardingComplete(supabase, {
-            userId: user.id,
-            requestId,
-            pathname,
-            routeClass,
-        })
-        if (onboardingComplete) {
-            supabaseResponse.cookies.set({
-                name: `onboarding_complete_${user.id}`,
-                value: 'true',
-                httpOnly: true,
-                sameSite: 'lax',
-                secure: process.env.NODE_ENV === 'production',
-                path: '/',
-                maxAge: 60 * 60 * 24 * 365, // 1 year
-            })
-        }
     }
 
     if (!user && isProtectedAppRoute(pathname)) {
@@ -397,16 +306,6 @@ export async function updateSession(request: NextRequest, options: UpdateSession
 
     if (user && isOnboardingRoute(pathname) && onboardingComplete) {
         url.pathname = '/discover'
-        return redirectWithRequestId(url, requestId, routeClass, supabaseResponse)
-    }
-
-    if (user && isProtectedAppRoute(pathname) && !onboardingComplete) {
-        const returnPath = normalizeAuthNextPath(`${pathname}${request.nextUrl.search}`)
-        url.pathname = '/onboarding'
-        url.search = ''
-        if (returnPath !== '/discover' && returnPath !== '/onboarding') {
-            url.searchParams.set('next', returnPath)
-        }
         return redirectWithRequestId(url, requestId, routeClass, supabaseResponse)
     }
 

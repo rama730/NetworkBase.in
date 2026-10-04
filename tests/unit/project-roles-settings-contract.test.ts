@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { componentSource } from "./_helpers/component-source";
 
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project roles editor tab eliminates duplicate headers and renders a single canonical SettingsCard", () => {
-  const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // SectionHeader is suppressed on roles-applications tab to avoid duplicate titles
   assert.match(
@@ -79,13 +80,12 @@ test("ProjectRolesEditor provides rich master-detail workspaces for Occupied and
   assert.match(editorSrc, /Delete Position/, "Open position workspace must offer deletion action");
   assert.match(editorSrc, /Applicant View Preview/, "Open position workspace must render live applicant preview card");
 
-  // Empty state is styled with border-border/80, bg-muted/10, and Add Position button
-  assert.match(editorSrc, /border-dashed border-border\/80 bg-muted\/10/, "Empty state must use dashed border and muted background");
+  assert.match(editorSrc, /nb-empty-state nb-grid-ground[^"]*border-dashed border-border\/80/, "Empty state must use the shared empty-state surface with a dashed border");
   assert.match(editorSrc, /No roles configured/, "Empty state must display clear copy");
 });
 
 test("project roles editor enforces 1 member = 1 seat invariant and unifies lead focus with open roles", () => {
-  const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
   const editorSrc = source("src/components/projects/settings/ProjectRolesEditor.tsx");
 
   // ProjectSettingsTab checks if openRoles already define the lead focus to prevent duplicate role synthesis

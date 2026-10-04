@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   integer,
   bigint,
+  smallint,
   foreignKey,
   primaryKey,
   check,
@@ -59,7 +60,8 @@ type ProjectDocHeadingRecord = {
 };
 type ProjectDocQualityRecord = Record<string, unknown>;
 type NotificationPreferencesRecord = {
-  messages: boolean;
+  /** Legacy key from the old chat; still in the column default, ignored by normalization. */
+  messages?: boolean;
   mentions: boolean;
   workflows: boolean;
   projects: boolean;
@@ -68,7 +70,7 @@ type NotificationPreferencesRecord = {
   connections: boolean;
   pausedUntil?: string | null;
   mutedScopes?: Array<{
-    kind: "notification_type" | "project" | "task" | "conversation" | "person";
+    kind: "notification_type" | "project" | "task" | "person";
     value: string;
     label?: string | null;
     mutedAt?: string | null;
@@ -80,8 +82,8 @@ type UserNotificationEntityRefs = {
   updateId?: string | null;
   taskId?: string | null;
   commentId?: string | null;
-  conversationId?: string | null;
-  workflowItemId?: string | null;
+  invitationId?: string | null;
+  channelId?: string | null;
   applicationId?: string | null;
   connectionId?: string | null;
   fileId?: string | null;
@@ -181,6 +183,14 @@ export const profiles = pgTable(
     fullName: text("full_name"),
     avatarUrl: text("avatar_url"),
     bannerUrl: text("banner_url"),
+    avatarAssetId: uuid("avatar_asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
+    bannerAssetId: uuid("banner_asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
     bio: text("bio"),
     headline: text("headline"),
     location: text("location"),
@@ -296,6 +306,14 @@ export const profiles = pgTable(
       .notNull(),
     // Last activity timestamp (debounced, updated at most every 5 minutes via Redis guard)
     lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
+    // Presence (0184). Not granted to browsers; read via app/actions/presence.ts.
+    showActivity: boolean("show_activity").default(true).notNull(),
+    statusEmoji: text("status_emoji"),
+    statusText: text("status_text"),
+    statusExpiresAt: timestamp("status_expires_at", { withTimezone: true }),
+    statusSetAt: timestamp("status_set_at", { withTimezone: true }),
+    statusPausesNotifications: boolean("status_pauses_notifications").default(false).notNull(),
+    statusVisibility: text("status_visibility", { enum: ["everyone", "network", "team"] }).default("network").notNull(),
     openToCustomRoles: text("open_to_custom_roles")
       .array()
       .notNull()
@@ -344,6 +362,8 @@ export const profiles = pgTable(
     ).on(t.workspaceInProgressCount),
     // Index for "Active today/this week" filtering in discover
     lastActiveAtIdx: index("profiles_last_active_at_idx").on(t.lastActiveAt),
+    avatarAssetIdx: index("profiles_avatar_asset_idx").on(t.avatarAssetId),
+    bannerAssetIdx: index("profiles_banner_asset_idx").on(t.bannerAssetId),
     onboardingStatusIdx: index("profiles_onboarding_status_idx").on(
       t.onboardingStatus,
       t.updatedAt,
@@ -710,22 +730,6 @@ export const connectionSuggestions = pgTable(
 );
 
 // ============================================================================
-// CONVERSATIONS TABLE (Moved up for Project reference)
-// ============================================================================
-export const conversations = pgTable("conversations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  type: text("type", { enum: ["dm", "group", "project_group"] })
-    .default("dm")
-    .notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .defaultNow()
-    .notNull(),
-});
-
-// ============================================================================
 // PROJECTS TABLE
 // ============================================================================
 export const projects = pgTable(
@@ -735,10 +739,6 @@ export const projects = pgTable(
     ownerId: uuid("owner_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
-    // Optimization: O(1) Chat Lookup (1M Users)
-    conversationId: uuid("conversation_id").references(() => conversations.id, {
-      onDelete: "set null",
-    }),
     title: text("title").notNull(),
     slug: text("slug").unique(),
     description: text("description"),
@@ -748,6 +748,10 @@ export const projects = pgTable(
     coverImage: text("cover_image"),
     coverImageBucket: text("cover_image_bucket"),
     coverImageKey: text("cover_image_key"),
+    coverImageAssetId: uuid("cover_image_asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
     category: text("category"),
     viewCount: integer("view_count").default(0),
     followersCount: integer("followers_count").default(0).notNull(),
@@ -766,6 +770,12 @@ export const projects = pgTable(
     visibility: text("visibility", {
       enum: ["public", "private", "unlisted"],
     }).default("public"),
+    // Project status (0184), set by owners and admins.
+    statusEmoji: text("status_emoji"),
+    statusText: text("status_text"),
+    statusExpiresAt: timestamp("status_expires_at", { withTimezone: true }),
+    statusSetBy: uuid("status_set_by"),
+    statusSetAt: timestamp("status_set_at", { withTimezone: true }),
     publicTabVisibility: jsonb("public_tab_visibility")
       .$type<ProjectPublicTabVisibility>()
       .default({
@@ -801,6 +811,10 @@ export const projects = pgTable(
     memberUpdatesEnabled: boolean("member_updates_enabled")
       .default(true)
       .notNull(),
+    // Default for project_members.file_upload_enabled when someone joins (set at creation, editable in Settings).
+    memberFileUploadDefault: boolean("member_file_upload_default")
+      .default(true)
+      .notNull(),
     maxCollaborators: text("max_collaborators"),
     lifecycleStages: jsonb("lifecycle_stages").$type<string[]>().default([]),
     currentStageIndex: integer("current_stage_index").default(0),
@@ -834,7 +848,9 @@ export const projects = pgTable(
   },
   (t) => ({
     ownerIdx: index("projects_owner_idx").on(t.ownerId),
-    conversationIdx: index("projects_conversation_idx").on(t.conversationId),
+    coverImageAssetIdx: index("projects_cover_image_asset_idx").on(
+      t.coverImageAssetId,
+    ),
     // Multi-column indexes for filtering (critical for 1M users)
     statusVisibilityIdx: index("projects_status_visibility_idx").on(
       t.status,
@@ -1000,7 +1016,6 @@ export const projectInvitations = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     reviewAt: timestamp("review_at", { withTimezone: true }),
     idempotencyKey: text("idempotency_key"),
-    messageWorkflowItemId: uuid("message_workflow_item_id"),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     resolvedBy: uuid("resolved_by").references(() => profiles.id, {
       onDelete: "set null",
@@ -1509,7 +1524,6 @@ export const roleApplications = pgTable(
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }), // Denormalized for O(1) creator queries
     message: text("message"), // Application message from user
-    conversationId: uuid("conversation_id"), // Link to message thread (nullable)
     status: statusRoleApplicationEnum("status").default("pending").notNull(),
     proposedRoleId: uuid("proposed_role_id").references(
       () => projectOpenRoles.id,
@@ -1748,6 +1762,32 @@ export const projectUpdates = pgTable(
   }),
 );
 
+export const projectUpdateMediaAssets = pgTable(
+  "project_update_media_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    updateId: uuid("update_id")
+      .notNull()
+      .references(() => projectUpdates.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references((): AnyPgColumn => storageAssets.id, { onDelete: "restrict" }),
+    ordinal: integer("ordinal").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    updateOrdinalUnique: uniqueIndex("project_update_media_assets_update_ordinal_unique").on(
+      t.updateId,
+      t.ordinal,
+    ),
+    updateAssetUnique: uniqueIndex("project_update_media_assets_update_asset_unique").on(
+      t.updateId,
+      t.assetId,
+    ),
+    assetIdx: index("project_update_media_assets_asset_idx").on(t.assetId),
+  }),
+);
+
 export const projectUpdateDrafts = pgTable(
   "project_update_drafts",
   {
@@ -1788,6 +1828,32 @@ export const projectUpdateDrafts = pgTable(
     pk: primaryKey({ columns: [t.projectId, t.userId] }),
     updatedAtIdx: index("project_update_drafts_updated_at_idx").on(t.updatedAt),
     userIdx: index("project_update_drafts_user_idx").on(t.userId),
+  }),
+);
+
+export const projectUpdateDraftMediaAssets = pgTable(
+  "project_update_draft_media_assets",
+  {
+    projectId: uuid("project_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references((): AnyPgColumn => storageAssets.id, { onDelete: "restrict" }),
+    ordinal: integer("ordinal").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.projectId, t.userId, t.assetId] }),
+    draftOrdinalUnique: uniqueIndex("project_update_draft_media_assets_ordinal_unique").on(
+      t.projectId,
+      t.userId,
+      t.ordinal,
+    ),
+    assetIdx: index("project_update_draft_media_assets_asset_idx").on(t.assetId),
+    draftFk: foreignKey({
+      columns: [t.projectId, t.userId],
+      foreignColumns: [projectUpdateDrafts.projectId, projectUpdateDrafts.userId],
+    }).onDelete("cascade"),
   }),
 );
 
@@ -2597,6 +2663,10 @@ export const projectNodes = pgTable(
 
     // File specifics
     s3Key: text("s3_key"),
+    assetId: uuid("asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
     size: bigint("size", { mode: "number" }).default(0),
     mimeType: text("mime_type"),
     // Version counter — bumped each time replaceNodeWithNewVersion() lands a
@@ -2704,6 +2774,7 @@ export const projectNodes = pgTable(
     activeFileS3KeyIdx: index("project_nodes_active_file_s3_key_idx")
       .on(t.s3Key.op("text_pattern_ops"))
       .where(sql`${t.type} = 'file' AND ${t.deletedAt} IS NULL`),
+    assetIdx: index("project_nodes_asset_idx").on(t.assetId),
     permanentDeleteRootIdx: index("project_nodes_permanent_delete_root_idx")
       .on(t.updatedAt)
       .where(sql`${t.deletedAt} IS NOT NULL AND (${t.metadata}->>'permanentDeleteRoot') = ${t.id}::text`),
@@ -2727,6 +2798,10 @@ export const fileVersions = pgTable(
       .references(() => projectNodes.id, { onDelete: "cascade" }),
     version: integer("version").notNull(),
     s3Key: text("s3_key").notNull(),
+    assetId: uuid("asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
     size: bigint("size", { mode: "number" }).notNull(),
     mimeType: text("mime_type").notNull(),
     // Lowercase hex SHA-256 of the blob. NULL only for legacy rows backfilled
@@ -2753,11 +2828,252 @@ export const fileVersions = pgTable(
       t.version.desc(),
     ),
     contentHashIdx: index("file_versions_content_hash_idx").on(t.contentHash),
+    assetIdx: index("file_versions_asset_idx").on(t.assetId),
     uploadedByIdx: index("file_versions_uploaded_by_idx").on(t.uploadedBy),
     nodeUploadedAtIdx: index("file_versions_node_uploaded_at_idx").on(
       t.nodeId,
       t.uploadedAt.desc(),
     ),
+  }),
+);
+
+// Server-owned object lifecycle. Domain tables keep their own authorization;
+// this ledger owns byte identity, verification, quota accounting, and deletion.
+export const storageAssets = pgTable(
+  "storage_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Deliberately retained after profile/project deletion so cleanup and
+    // quota evidence cannot disappear with the domain row.
+    ownerUserId: uuid("owner_user_id"),
+    projectId: uuid("project_id"),
+    bucket: text("bucket").notNull(),
+    storageKey: text("storage_key").notNull(),
+    purpose: text("purpose").notNull(),
+    state: text("state", {
+      enum: ["pending", "verified", "delete_pending", "deleting", "deleted", "missing"],
+    }).default("pending").notNull(),
+    declaredMimeType: text("declared_mime_type").notNull(),
+    declaredSize: bigint("declared_size", { mode: "number" }).notNull(),
+    verifiedMimeType: text("verified_mime_type"),
+    verifiedSize: bigint("verified_size", { mode: "number" }),
+    contentHash: text("content_hash"),
+    sourceAssetId: uuid("source_asset_id").references(
+      (): AnyPgColumn => storageAssets.id,
+      { onDelete: "set null" },
+    ),
+    idempotencyKey: text("idempotency_key"),
+    requestFingerprint: text("request_fingerprint"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}).notNull(),
+    // Exactly one physical object in a derivative chain owns the logical
+    // quota charge. Private staging can therefore be replaced by a verified
+    // public derivative without double charging during publication.
+    quotaTracked: boolean("quota_tracked").default(true).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verificationLeaseToken: uuid("verification_lease_token"),
+    verificationLeaseExpiresAt: timestamp("verification_lease_expires_at", { withTimezone: true }),
+    verificationFence: bigint("verification_fence", { mode: "number" }).default(0).notNull(),
+    deleteAfter: timestamp("delete_after", { withTimezone: true }),
+    deletionLeaseToken: uuid("deletion_lease_token"),
+    deletionLeaseExpiresAt: timestamp("deletion_lease_expires_at", { withTimezone: true }),
+    deletionFence: bigint("deletion_fence", { mode: "number" }).default(0).notNull(),
+    backupState: text("backup_state", { enum: ["not_required", "pending", "verified"] })
+      .default("not_required")
+      .notNull(),
+    lastErrorCode: text("last_error_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    bucketKeyUnique: uniqueIndex("storage_assets_bucket_key_unique").on(t.bucket, t.storageKey),
+    ownerIdempotencyUnique: uniqueIndex("storage_assets_owner_purpose_idempotency_unique")
+      .on(t.ownerUserId, t.purpose, t.idempotencyKey)
+      .where(sql`${t.idempotencyKey} IS NOT NULL AND ${t.ownerUserId} IS NOT NULL`),
+    stateExpiryIdx: index("storage_assets_state_expiry_idx").on(t.state, t.expiresAt, t.id),
+    verificationLeaseIdx: index("storage_assets_verification_lease_idx")
+      .on(t.state, t.verificationLeaseExpiresAt, t.id)
+      .where(sql`${t.state} = 'pending'`),
+    verificationWorkIdx: index("storage_assets_verification_work_idx")
+      .on(t.verificationLeaseExpiresAt, t.updatedAt, t.id)
+      .where(sql`${t.state} = 'pending' AND (${t.verificationLeaseToken} IS NOT NULL OR ${t.lastErrorCode} IS NOT NULL)`),
+    backupDueIdx: index("storage_assets_backup_due_idx")
+      .on(t.verifiedAt, t.id)
+      .where(sql`${t.backupState} = 'pending' AND ${t.state} IN ('verified', 'delete_pending')`),
+    deletionDueIdx: index("storage_assets_deletion_due_idx")
+      .on(t.deleteAfter, t.id)
+      .where(sql`${t.state} = 'delete_pending'`),
+    ownerIdx: index("storage_assets_owner_idx").on(t.ownerUserId, t.createdAt),
+    projectIdx: index("storage_assets_project_idx").on(t.projectId, t.createdAt),
+    sourceIdx: index("storage_assets_source_idx").on(t.sourceAssetId),
+    declaredSizeCheck: check("storage_assets_declared_size_check", sql`${t.declaredSize} >= 0`),
+    verifiedSizeCheck: check(
+      "storage_assets_verified_size_check",
+      sql`${t.verifiedSize} IS NULL OR ${t.verifiedSize} >= 0`,
+    ),
+    verificationFenceCheck: check(
+      "storage_assets_verification_fence_check",
+      sql`${t.verificationFence} >= 0`,
+    ),
+    deletionFenceCheck: check(
+      "storage_assets_deletion_fence_check",
+      sql`${t.deletionFence} >= 0`,
+    ),
+  }),
+);
+
+export const storageAssetOperations = pgTable(
+  "storage_asset_operations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => storageAssets.id, { onDelete: "restrict" }),
+    ownerUserId: uuid("owner_user_id").references(() => profiles.id, { onDelete: "set null" }),
+    operation: text("operation", { enum: ["upload", "verify", "publish", "delete", "backup"] }).notNull(),
+    state: text("state", { enum: ["pending", "running", "succeeded", "failed", "cancelled"] })
+      .default("pending")
+      .notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    result: jsonb("result").$type<Record<string, unknown>>(),
+    errorCode: text("error_code"),
+    leaseToken: uuid("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    ownerIdempotencyUnique: uniqueIndex("storage_asset_operations_owner_idempotency_unique")
+      .on(t.ownerUserId, t.idempotencyKey)
+      .where(sql`${t.ownerUserId} IS NOT NULL`),
+    assetStateIdx: index("storage_asset_operations_asset_state_idx").on(t.assetId, t.state),
+    leaseIdx: index("storage_asset_operations_lease_idx")
+      .on(t.state, t.leaseExpiresAt, t.id)
+      .where(sql`${t.state} IN ('pending', 'running')`),
+  }),
+);
+
+// Serialized quota rows keep upload admission O(1) for large tenants. Every
+// writer locks the user row before an optional project row.
+export const storageQuotaScopes = pgTable(
+  "storage_quota_scopes",
+  {
+    scopeType: text("scope_type", { enum: ["user", "project"] }).notNull(),
+    scopeId: uuid("scope_id").notNull(),
+    limitBytes: bigint("limit_bytes", { mode: "number" }).notNull(),
+    reservedBytes: bigint("reserved_bytes", { mode: "number" }).default(0).notNull(),
+    retainedBytes: bigint("retained_bytes", { mode: "number" }).default(0).notNull(),
+    outstandingUploads: integer("outstanding_uploads").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.scopeType, t.scopeId] }),
+    dueIdx: index("storage_quota_scopes_outstanding_idx").on(t.outstandingUploads, t.updatedAt),
+    limitCheck: check("storage_quota_scopes_limit_check", sql`${t.limitBytes} > 0`),
+    reservedCheck: check("storage_quota_scopes_reserved_check", sql`${t.reservedBytes} >= 0`),
+    retainedCheck: check("storage_quota_scopes_retained_check", sql`${t.retainedBytes} >= 0`),
+    outstandingCheck: check("storage_quota_scopes_outstanding_check", sql`${t.outstandingUploads} >= 0`),
+  }),
+);
+
+// Short-lived references held while a response or background operation reads
+// immutable bytes. Physical deletion must ignore expired pins and reject any
+// asset with an active pin.
+export const storageAssetPins = pgTable(
+  "storage_asset_pins",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => storageAssets.id, { onDelete: "cascade" }),
+    operationId: uuid("operation_id").notNull(),
+    kind: text("kind", { enum: ["export"] }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    operationAssetUnique: uniqueIndex("storage_asset_pins_operation_asset_unique").on(
+      t.operationId,
+      t.assetId,
+    ),
+    activeAssetIdx: index("storage_asset_pins_asset_expiry_idx").on(t.assetId, t.expiresAt),
+    expiryIdx: index("storage_asset_pins_expiry_idx").on(t.expiresAt, t.id),
+  }),
+);
+
+// Durable cleanup evidence for pre-lifecycle objects. These rows deliberately
+// have no domain foreign keys so account/project cascades cannot erase the
+// last record needed to remove legacy bytes.
+export const storageLegacyCleanupTargets = pgTable(
+  "storage_legacy_cleanup_targets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceType: text("source_type", {
+      enum: ["project_update_media", "project_update_draft_media"],
+    }).notNull(),
+    sourceId: uuid("source_id").notNull(),
+    sourceProjectId: uuid("source_project_id"),
+    bucket: text("bucket").notNull(),
+    storageKey: text("storage_key").notNull(),
+    state: text("state", { enum: ["pending", "deleting", "retry", "deleted"] })
+      .default("pending")
+      .notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
+    leaseToken: uuid("lease_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    fence: bigint("fence", { mode: "number" }).default(0).notNull(),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (t) => ({
+    sourceObjectUnique: uniqueIndex("storage_legacy_cleanup_source_object_unique").on(
+      t.sourceType,
+      t.sourceId,
+      t.sourceProjectId,
+      t.bucket,
+      t.storageKey,
+    ),
+    dueIdx: index("storage_legacy_cleanup_due_idx").on(t.state, t.nextAttemptAt, t.id),
+    leaseIdx: index("storage_legacy_cleanup_lease_idx").on(t.state, t.leaseExpiresAt, t.id),
+    fenceCheck: check("storage_legacy_cleanup_fence_check", sql`${t.fence} >= 0`),
+    attemptsCheck: check("storage_legacy_cleanup_attempts_check", sql`${t.attempts} >= 0`),
+  }),
+);
+
+export const storageRepairFailures = pgTable(
+  "storage_repair_failures",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    repairKind: text("repair_kind").notNull(),
+    subjectId: text("subject_id").notNull(),
+    errorCode: text("error_code").notNull(),
+    detail: text("detail"),
+    attempts: integer("attempts").default(1).notNull(),
+    nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    subjectUnique: uniqueIndex("storage_repair_failures_subject_unique").on(
+      t.repairKind,
+      t.subjectId,
+    ),
+    dueIdx: index("storage_repair_failures_due_idx").on(
+      t.repairKind,
+      t.resolvedAt,
+      t.nextRetryAt,
+      t.id,
+    ),
+    unresolvedDueIdx: index("storage_repair_failures_unresolved_due_idx")
+      .on(t.nextRetryAt, t.createdAt, t.id)
+      .where(sql`${t.resolvedAt} IS NULL`),
   }),
 );
 
@@ -2771,12 +3087,14 @@ export const uploadIntents = pgTable(
     projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "cascade",
     }),
+    assetId: uuid("asset_id")
+      .references(() => storageAssets.id, { onDelete: "set null" }),
     bucket: text("bucket").notNull(),
     storageKey: text("storage_key").notNull(),
     scope: text("scope", {
-      enum: ["project_file", "project_update_media", "profile_image"],
+      enum: ["project_file", "project_update_media", "profile_image", "project_cover", "chat_attachment", "recovery_draft", "import_manifest", "sync_snapshot"],
     }).notNull(),
-    kind: text("kind", { enum: ["file", "avatar", "banner"] }).notNull(),
+    kind: text("kind", { enum: ["file", "avatar", "banner", "cover", "draft", "manifest", "snapshot"] }).notNull(),
     expectedMimeType: text("expected_mime_type").notNull(),
     expectedSize: bigint("expected_size", { mode: "number" }).notNull(),
     finalizedMimeType: text("finalized_mime_type"),
@@ -2814,6 +3132,9 @@ export const uploadIntents = pgTable(
       t.projectId,
       t.status,
     ),
+    assetIdx: uniqueIndex("upload_intents_asset_unique")
+      .on(t.assetId)
+      .where(sql`${t.assetId} IS NOT NULL`),
   }),
 );
 
@@ -2958,6 +3279,16 @@ export const projectNodeLocks = pgTable(
 // ============================================================================
 // PROJECT NODE EVENTS (Audit trail)
 // ============================================================================
+export const projectEventCounters = pgTable("project_event_counters", {
+  projectId: uuid("project_id")
+    .primaryKey()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  nextSequence: bigint("next_sequence", { mode: "number" }).default(0).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  nextSequenceCheck: check("project_event_counters_next_sequence_check", sql`${t.nextSequence} >= 0`),
+}));
+
 export const projectNodeEvents = pgTable(
   "project_node_events",
   {
@@ -3025,6 +3356,16 @@ export const githubSyncRuns = pgTable("github_sync_runs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, t => ({ projectIdx: index("github_sync_runs_project_idx").on(t.projectId, t.createdAt.desc()), queueIdx: index("github_sync_runs_queue_idx").on(t.status, t.updatedAt), activeIdx: uniqueIndex("github_sync_runs_active_idx").on(t.projectId).where(sql`${t.status} IN ('queued', 'running')`), actorIdx: index("github_sync_runs_actor_idx").on(t.actorId) }));
+export const githubSyncSnapshotAssets = pgTable("github_sync_snapshot_assets", {
+  runId: uuid("run_id").notNull().references(() => githubSyncRuns.id, { onDelete: "cascade" }),
+  assetId: uuid("asset_id").notNull().references(() => storageAssets.id, { onDelete: "restrict" }),
+  path: text("path").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, t => ({
+  pk: primaryKey({ columns: [t.runId, t.assetId] }),
+  runPathUnique: uniqueIndex("github_sync_snapshot_assets_run_path_unique").on(t.runId, t.path),
+  assetIdx: index("github_sync_snapshot_assets_asset_idx").on(t.assetId),
+}));
 export const githubSyncFiles = pgTable("github_sync_files", {
   projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   repositoryId: bigint("repository_id", { mode: "number" }).notNull(),
@@ -3087,7 +3428,6 @@ export const profilesRelations = relations(profiles, ({ many, one }) => ({
   createdRoleApplications: many(roleApplications, {
     relationName: "applicationCreator",
   }),
-  messages: many(messages),
   taskComments: many(taskComments),
   projectNodes: many(projectNodes),
 }));
@@ -3133,10 +3473,6 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   profileContributionStages: many(profileProjectContributionStages),
   markdowns: many(projectDocs),
   markdownVersions: many(projectDocVersions),
-  conversation: one(conversations, {
-    fields: [projects.conversationId],
-    references: [conversations.id],
-  }),
 }));
 
 export const projectOpenRolesRelations = relations(
@@ -3175,10 +3511,6 @@ export const roleApplicationsRelations = relations(
       fields: [roleApplications.decisionBy],
       references: [profiles.id],
       relationName: "applicationDecisionMaker",
-    }),
-    conversation: one(conversations, {
-      fields: [roleApplications.conversationId],
-      references: [conversations.id],
     }),
   }),
 );
@@ -3577,6 +3909,41 @@ export const uploadIntentsRelations = relations(uploadIntents, ({ one }) => ({
     fields: [uploadIntents.projectId],
     references: [projects.id],
   }),
+  asset: one(storageAssets, {
+    fields: [uploadIntents.assetId],
+    references: [storageAssets.id],
+  }),
+}));
+
+export const storageAssetsRelations = relations(storageAssets, ({ one, many }) => ({
+  owner: one(profiles, {
+    fields: [storageAssets.ownerUserId],
+    references: [profiles.id],
+  }),
+  project: one(projects, {
+    fields: [storageAssets.projectId],
+    references: [projects.id],
+  }),
+  source: one(storageAssets, {
+    fields: [storageAssets.sourceAssetId],
+    references: [storageAssets.id],
+    relationName: "storage_asset_derivatives",
+  }),
+  derivatives: many(storageAssets, {
+    relationName: "storage_asset_derivatives",
+  }),
+  operations: many(storageAssetOperations),
+}));
+
+export const storageAssetOperationsRelations = relations(storageAssetOperations, ({ one }) => ({
+  asset: one(storageAssets, {
+    fields: [storageAssetOperations.assetId],
+    references: [storageAssets.id],
+  }),
+  owner: one(profiles, {
+    fields: [storageAssetOperations.ownerUserId],
+    references: [profiles.id],
+  }),
 }));
 
 export const recoveryCodeRedemptionsRelations = relations(
@@ -3657,843 +4024,6 @@ export const projectNodeEventsRelations = relations(
 // Conversations table moved to top
 // ============================================================================
 
-// ============================================================================
-// DM PAIRS TABLE
-// Ensures a single DM conversation per (user_low, user_high) pair.
-// ============================================================================
-export const dmPairs = pgTable(
-  "dm_pairs",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userLow: uuid("user_low")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    userHigh: uuid("user_high")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    conversationId: uuid("conversation_id")
-      .notNull()
-      .references(() => conversations.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    pairUnique: unique("dm_pairs_user_low_high_unique").on(
-      t.userLow,
-      t.userHigh,
-    ),
-    conversationUnique: uniqueIndex("dm_pairs_conversation_unique").on(
-      t.conversationId,
-    ),
-    userHighIdx: index("dm_pairs_user_high_idx").on(t.userHigh),
-    orderedUsersCheck: check(
-      "dm_pairs_ordered_users_check",
-      sql`${t.userLow} < ${t.userHigh}`,
-    ),
-  }),
-);
-
-// ============================================================================
-// CONVERSATION PARTICIPANTS TABLE
-// ============================================================================
-export const conversationParticipants = pgTable(
-  "conversation_participants",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    conversationId: uuid("conversation_id")
-      .notNull()
-      .references(() => conversations.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    joinedAt: timestamp("joined_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    lastReadAt: timestamp("last_read_at", { withTimezone: true }).defaultNow(),
-    lastReadMessageId: uuid("last_read_message_id"),
-    archivedAt: timestamp("archived_at", { withTimezone: true }),
-    muted: boolean("muted").default(false).notNull(),
-    // Pure Optimization: Denormalized counts for O(1) badges (1M+ Users)
-    unreadCount: integer("unread_count").default(0).notNull(),
-    lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
-    lastMessageId: uuid("last_message_id"),
-    lastMessagePreview: text("last_message_preview"),
-    lastMessageType: text("last_message_type"),
-    lastMessageSenderId: uuid("last_message_sender_id"),
-    // Viewer-specific reaction activity for the inbox preview. This remains
-    // separate from the chronological last-message projection.
-    lastReactionAt: timestamp("last_reaction_at", { withTimezone: true }),
-    lastReactionMessageId: uuid("last_reaction_message_id"),
-    lastReactionEmoji: text("last_reaction_emoji"),
-    lastReactionActorId: uuid("last_reaction_actor_id"),
-  },
-  (t) => ({
-    conversationUserUnique: uniqueIndex("conversation_participants_unique").on(
-      t.conversationId,
-      t.userId,
-    ),
-    // Optimization: O(1) sorted list for "My Conversations" and "Global Badge"
-    myConversationsIdx: index(
-      "conversation_participants_my_conversations_idx",
-    ).on(t.userId, t.lastMessageAt),
-    activeIdx: index("conversation_participants_active_idx").on(
-      t.userId,
-      t.archivedAt,
-      t.lastMessageAt,
-    ),
-    activeInboxIdx: index("conversation_participants_active_inbox_idx")
-      .on(t.userId, t.lastMessageAt.desc(), t.conversationId.desc())
-      .where(sql`${t.archivedAt} IS NULL AND ${t.lastMessageId} IS NOT NULL`),
-    lastReadMessageConversationIdx: index(
-      "conversation_participants_last_read_message_conversation_idx",
-    ).on(t.lastReadMessageId, t.conversationId),
-    lastMessageConversationIdx: index(
-      "conversation_participants_last_message_conversation_idx",
-    ).on(t.lastMessageId, t.conversationId),
-    lastMessageSenderIdx: index(
-      "conversation_participants_last_message_sender_idx",
-    ).on(t.lastMessageSenderId),
-    lastReactionMessageConversationIdx: index(
-      "conversation_participants_last_reaction_message_conversation_idx",
-    ).on(t.lastReactionMessageId, t.conversationId),
-    lastReactionActorIdx: index(
-      "conversation_participants_last_reaction_actor_idx",
-    ).on(t.lastReactionActorId),
-    lastReadMessageConversationFk: foreignKey({
-      columns: [t.lastReadMessageId, t.conversationId],
-      foreignColumns: [messages.id, messages.conversationId],
-      name: "conversation_participants_last_read_message_conversation_fkey",
-    }),
-    lastMessageConversationFk: foreignKey({
-      columns: [t.lastMessageId, t.conversationId],
-      foreignColumns: [messages.id, messages.conversationId],
-      name: "conversation_participants_last_message_conversation_fkey",
-    }),
-    lastMessageSenderFk: foreignKey({
-      columns: [t.lastMessageSenderId],
-      foreignColumns: [profiles.id],
-      name: "conversation_participants_last_message_sender_fkey",
-    }).onDelete("set null"),
-    lastReactionMessageConversationFk: foreignKey({
-      columns: [t.lastReactionMessageId, t.conversationId],
-      foreignColumns: [messages.id, messages.conversationId],
-      name: "conversation_participants_last_reaction_message_conversation_fkey",
-    }),
-    lastReactionActorFk: foreignKey({
-      columns: [t.lastReactionActorId],
-      foreignColumns: [profiles.id],
-      name: "conversation_participants_last_reaction_actor_fkey",
-    }).onDelete("set null"),
-    unreadNonNegativeCheck: check(
-      "conversation_participants_unread_non_negative_check",
-      sql`${t.unreadCount} >= 0`,
-    ),
-  }),
-);
-
-// ============================================================================
-// MESSAGES TABLE
-// ============================================================================
-export const messages = pgTable(
-  "messages",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    conversationId: uuid("conversation_id")
-      .notNull()
-      .references(() => conversations.id, { onDelete: "cascade" }),
-    senderId: uuid("sender_id").references(() => profiles.id, {
-      onDelete: "set null",
-    }),
-    replyToMessageId: uuid("reply_to_message_id"),
-    clientMessageId: text("client_message_id"),
-    content: text("content"),
-    type: text("type", { enum: ["text", "image", "video", "file", "system"] })
-      .default("text")
-      .notNull(),
-    metadata: jsonb("metadata")
-      .$type<Record<string, unknown>>()
-      .default({})
-      .notNull(),
-    searchDocument: tsvector("search_document").generatedAlwaysAs(sql`
-        to_tsvector(
-            'simple'::regconfig,
-            btrim(regexp_replace(
-                coalesce("content", '')
-                    || ' ' || coalesce("metadata" #>> '{structured,title}', '')
-                    || ' ' || coalesce("metadata" #>> '{structured,summary}', ''),
-                '\\s+',
-                ' ',
-                'g'
-            ))
-        )
-    `),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    editedAt: timestamp("edited_at", { withTimezone: true }),
-    deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  },
-  (t) => ({
-    conversationCreatedIdx: index("messages_conversation_created_idx").on(
-      t.conversationId,
-      t.createdAt.desc(),
-      t.id.desc(),
-    ),
-    contentSearchIdx: index("messages_content_search_idx").using(
-      "gin",
-      t.searchDocument,
-    ),
-    contentTrgmSearchIdx: index("messages_content_trgm_idx").using(
-      "gin",
-      sql`${t.content} gin_trgm_ops`,
-    ),
-    structuredKindIdx: index("messages_structured_kind_idx").on(
-      sql`(coalesce(${t.metadata} #>> '{structured,kind}', ''))`,
-    ),
-    senderCreatedIdx: index("messages_sender_created_idx").on(
-      t.senderId,
-      t.createdAt,
-    ),
-    replyConversationIdx: index(
-      "messages_reply_to_message_conversation_idx",
-    ).on(t.replyToMessageId, t.conversationId),
-    conversationReplyCreatedIdx: index(
-      "messages_conversation_reply_created_idx",
-    ).on(t.conversationId, t.replyToMessageId, t.createdAt),
-    idempotencyUnique: uniqueIndex(
-      "messages_conversation_sender_client_unique",
-    ).on(t.conversationId, t.senderId, t.clientMessageId),
-    idConversationUniqueConstraint: unique(
-      "messages_id_conversation_unique",
-    ).on(t.id, t.conversationId),
-    replyToConversationFk: foreignKey({
-      columns: [t.replyToMessageId, t.conversationId],
-      foreignColumns: [t.id, t.conversationId],
-      name: "messages_reply_to_message_conversation_fkey",
-    }),
-    typeCheck: check(
-      "messages_type_check",
-      sql`${t.type} IN ('text', 'image', 'video', 'file', 'system')`,
-    ),
-    clientMessageIdCheck: check(
-      "messages_client_message_id_check",
-      sql`${t.clientMessageId} IS NULL OR (length(btrim(${t.clientMessageId})) BETWEEN 1 AND 160)`,
-    ),
-    metadataObjectCheck: check(
-      "messages_metadata_object_check",
-      sql`jsonb_typeof(${t.metadata}) = 'object'`,
-    ),
-    contentLengthCheck: check(
-      "messages_content_length_check",
-      sql`${t.content} IS NULL OR char_length(${t.content}) <= 4000`,
-    ),
-    systemIdempotencyCheck: check(
-      "messages_system_idempotency_check",
-      sql`${t.senderId} IS NOT NULL OR ${t.clientMessageId} IS NULL`,
-    ),
-    activePayloadCheck: check(
-      "messages_active_payload_check",
-      sql`${t.deletedAt} IS NOT NULL
-            OR ${t.type} <> 'text'
-            OR NULLIF(btrim(COALESCE(${t.content}, '')), '') IS NOT NULL
-            OR jsonb_typeof(${t.metadata}->'structured') = 'object'`,
-    ),
-  }),
-);
-
-export const messageWorkflowItems = pgTable(
-  "message_workflow_items",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    messageId: uuid("message_id").references(() => messages.id, {
-      onDelete: "cascade",
-    }),
-    conversationId: uuid("conversation_id")
-      .notNull()
-      .references(() => conversations.id, { onDelete: "cascade" }),
-    kind: text("kind", {
-      enum: [
-        "project_invite",
-        "feedback_request",
-        "availability_request",
-        "task_approval",
-        "follow_up",
-      ],
-    }).notNull(),
-    scope: text("scope", { enum: ["conversation", "private"] })
-      .default("conversation")
-      .notNull(),
-    creatorId: uuid("creator_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    assigneeUserId: uuid("assignee_user_id").references(() => profiles.id, {
-      onDelete: "set null",
-    }),
-    projectId: uuid("project_id").references(() => projects.id, {
-      onDelete: "set null",
-    }),
-    roleId: uuid("role_id").references(() => projectOpenRoles.id, {
-      onDelete: "set null",
-    }),
-    taskId: uuid("task_id").references(() => tasks.id, {
-      onDelete: "set null",
-    }),
-    status: text("status", {
-      enum: [
-        "pending",
-        "accepted",
-        "declined",
-        "completed",
-        "needs_changes",
-        "canceled",
-        "expired",
-      ],
-    })
-      .default("pending")
-      .notNull(),
-    payload: jsonb("payload")
-      .$type<Record<string, unknown>>()
-      .default({})
-      .notNull(),
-    dueAt: timestamp("due_at", { withTimezone: true }),
-    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    conversationIdx: index("message_workflow_items_conversation_idx").on(
-      t.conversationId,
-      t.updatedAt,
-    ),
-    messageIdx: index("message_workflow_items_message_idx").on(t.messageId),
-    messageConversationIdx: index(
-      "message_workflow_items_message_conversation_idx",
-    ).on(t.messageId, t.conversationId),
-    assigneeIdx: index("message_workflow_items_assignee_idx").on(
-      t.assigneeUserId,
-      t.status,
-      t.updatedAt,
-    ),
-    creatorScopeIdx: index("message_workflow_items_creator_scope_idx").on(
-      t.creatorId,
-      t.scope,
-      t.status,
-      t.updatedAt,
-    ),
-    kindStatusIdx: index("message_workflow_items_kind_status_idx").on(
-      t.kind,
-      t.status,
-      t.updatedAt,
-    ),
-    projectIdIdx: index("message_workflow_items_project_idx").on(t.projectId),
-    projectUpdatedIdx: index("message_workflow_items_project_updated_idx").on(
-      t.projectId,
-      t.updatedAt,
-    ),
-    taskIdIdx: index("message_workflow_items_task_idx").on(t.taskId),
-    roleIdIdx: index("message_workflow_items_role_idx").on(t.roleId),
-    pendingProjectInviteUnique: uniqueIndex(
-      "message_workflow_items_pending_project_invite_unique",
-    )
-      .on(
-        t.projectId,
-        t.assigneeUserId,
-        sql`coalesce(${t.roleId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
-      )
-      .where(sql`${t.kind} = 'project_invite' AND ${t.status} = 'pending'`),
-    pendingPrivateFollowUpUnique: uniqueIndex(
-      "message_workflow_items_pending_private_follow_up_unique",
-    )
-      .on(t.messageId, t.creatorId)
-      .where(
-        sql`${t.kind} = 'follow_up' AND ${t.scope} = 'private' AND ${t.status} = 'pending'`,
-      ),
-    messageConversationFk: foreignKey({
-      columns: [t.messageId, t.conversationId],
-      foreignColumns: [messages.id, messages.conversationId],
-      name: "message_workflow_items_message_conversation_fkey",
-    }),
-    kindCheck: check(
-      "message_workflow_items_kind_check",
-      sql`${t.kind} IN ('project_invite', 'feedback_request', 'availability_request', 'task_approval', 'follow_up')`,
-    ),
-    scopeCheck: check(
-      "message_workflow_items_scope_check",
-      sql`${t.scope} IN ('conversation', 'private')`,
-    ),
-    statusCheck: check(
-      "message_workflow_items_status_check",
-      sql`${t.status} IN ('pending', 'accepted', 'declined', 'completed', 'needs_changes', 'canceled', 'expired')`,
-    ),
-    resolutionCheck: check(
-      "message_workflow_items_resolution_check",
-      sql`(${t.status} = 'pending' AND ${t.resolvedAt} IS NULL) OR (${t.status} <> 'pending' AND ${t.resolvedAt} IS NOT NULL)`,
-    ),
-  }),
-);
-
-export const messageWorkLinks = pgTable(
-  "message_work_links",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    sourceMessageId: uuid("source_message_id")
-      .notNull()
-      .references(() => messages.id, { onDelete: "cascade" }),
-    sourceConversationId: uuid("source_conversation_id")
-      .notNull()
-      .references(() => conversations.id, { onDelete: "cascade" }),
-    targetType: text("target_type", {
-      enum: ["task", "follow_up", "workflow", "file_review", "decision"],
-    }).notNull(),
-    targetId: uuid("target_id").notNull(),
-    targetProjectId: uuid("target_project_id").references(() => projects.id, {
-      onDelete: "set null",
-    }),
-    visibility: text("visibility", { enum: ["private", "shared"] })
-      .default("shared")
-      .notNull(),
-    status: text("status", {
-      enum: [
-        "pending",
-        "active",
-        "done",
-        "dismissed",
-        "blocked",
-        "unavailable",
-      ],
-    })
-      .default("active")
-      .notNull(),
-    ownerUserId: uuid("owner_user_id").references(() => profiles.id, {
-      onDelete: "set null",
-    }),
-    assigneeUserId: uuid("assignee_user_id").references(() => profiles.id, {
-      onDelete: "set null",
-    }),
-    createdBy: uuid("created_by")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    href: text("href"),
-    metadata: jsonb("metadata")
-      .$type<MessageWorkLinkMetadata>()
-      .default({})
-      .notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  },
-  (t) => ({
-    sourceMessageIdx: index("message_work_links_source_message_idx").on(
-      t.sourceMessageId,
-      t.updatedAt,
-    ),
-    sourceMessageConversationIdx: index(
-      "message_work_links_source_message_conversation_idx",
-    ).on(t.sourceMessageId, t.sourceConversationId),
-    conversationIdx: index("message_work_links_conversation_idx").on(
-      t.sourceConversationId,
-      t.updatedAt,
-    ),
-    assigneeStatusIdx: index("message_work_links_assignee_status_idx").on(
-      t.assigneeUserId,
-      t.status,
-      t.updatedAt,
-    ),
-    ownerPrivateIdx: index("message_work_links_owner_private_idx").on(
-      t.ownerUserId,
-      t.visibility,
-      t.status,
-      t.updatedAt,
-    ),
-    targetIdx: index("message_work_links_target_idx").on(
-      t.targetType,
-      t.targetId,
-    ),
-    projectIdx: index("message_work_links_project_idx").on(
-      t.targetProjectId,
-      t.updatedAt,
-    ),
-    projectActiveUpdatedIdx: index(
-      "message_work_links_project_active_updated_idx",
-    )
-      .on(t.targetProjectId, t.updatedAt)
-      .where(sql`${t.deletedAt} IS NULL`),
-    createdByIdx: index("message_work_links_created_by_idx").on(t.createdBy),
-    sourceTargetUnique: uniqueIndex(
-      "message_work_links_source_target_unique",
-    ).on(t.sourceMessageId, t.targetType, t.targetId),
-    sourceMessageConversationFk: foreignKey({
-      columns: [t.sourceMessageId, t.sourceConversationId],
-      foreignColumns: [messages.id, messages.conversationId],
-      name: "message_work_links_source_message_conversation_fkey",
-    }),
-  }),
-);
-
-// ============================================================================
-// MESSAGE ATTACHMENTS TABLE
-// ============================================================================
-export const messageAttachments = pgTable(
-  "message_attachments",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    messageId: uuid("message_id")
-      .notNull()
-      .references(() => messages.id, { onDelete: "cascade" }),
-    type: text("type", { enum: ["image", "video", "file"] }).notNull(),
-    storagePath: text("storage_path"),
-    url: text("url"),
-    filename: text("filename").notNull(),
-    sizeBytes: bigint("size_bytes", { mode: "number" }),
-    mimeType: text("mime_type"),
-    thumbnailUrl: text("thumbnail_url"),
-    width: integer("width"),
-    height: integer("height"),
-    durationSeconds: integer("duration_seconds"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    messageIdx: index("message_attachments_message_idx").on(t.messageId),
-    typeCheck: check(
-      "message_attachments_type_check",
-      sql`${t.type} IN ('image', 'video', 'file')`,
-    ),
-    filenameCheck: check(
-      "message_attachments_filename_check",
-      sql`length(btrim(${t.filename})) BETWEEN 1 AND 255`,
-    ),
-    sizeCheck: check(
-      "message_attachments_size_check",
-      sql`${t.sizeBytes} IS NULL OR ${t.sizeBytes} BETWEEN 0 AND 1073741824`,
-    ),
-    dimensionsCheck: check(
-      "message_attachments_dimensions_check",
-      sql`(${t.width} IS NULL OR ${t.width} > 0) AND (${t.height} IS NULL OR ${t.height} > 0)`,
-    ),
-    storageReferenceCheck: check(
-      "message_attachments_storage_reference_check",
-      sql`NULLIF(btrim(${t.storagePath}), '') IS NOT NULL OR NULLIF(btrim(${t.url}), '') IS NOT NULL`,
-    ),
-  }),
-);
-
-// ============================================================================
-// MESSAGE USER HIDDEN STATE (Delete-for-me support)
-// ============================================================================
-export const messageHiddenForUsers = pgTable(
-  "message_hidden_for_users",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    messageId: uuid("message_id")
-      .notNull()
-      .references(() => messages.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    hiddenAt: timestamp("hidden_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    messageUserUnique: uniqueIndex("message_hidden_for_users_unique").on(
-      t.messageId,
-      t.userId,
-    ),
-    userIdx: index("message_hidden_for_users_user_idx").on(
-      t.userId,
-      t.hiddenAt,
-    ),
-    messageIdx: index("message_hidden_for_users_message_idx").on(t.messageId),
-  }),
-);
-
-// ============================================================================
-// MESSAGE EDIT LOGS (Audit trail)
-// ============================================================================
-export const messageEditLogs = pgTable(
-  "message_edit_logs",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    messageId: uuid("message_id")
-      .notNull()
-      .references(() => messages.id, { onDelete: "cascade" }),
-    editorId: uuid("editor_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    previousContent: text("previous_content"),
-    nextContent: text("next_content"),
-    editedAt: timestamp("edited_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    messageEditedIdx: index("message_edit_logs_message_idx").on(
-      t.messageId,
-      t.editedAt,
-    ),
-    editorIdx: index("message_edit_logs_editor_idx").on(t.editorId, t.editedAt),
-  }),
-);
-
-export const messagePins = pgTable(
-  "message_pins",
-  {
-    messageId: uuid("message_id").primaryKey(),
-    conversationId: uuid("conversation_id").notNull(),
-    pinnedBy: uuid("pinned_by")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    pinnedAt: timestamp("pinned_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    messageConversationFk: foreignKey({
-      columns: [t.messageId, t.conversationId],
-      foreignColumns: [messages.id, messages.conversationId],
-      name: "message_pins_message_conversation_fkey",
-    }).onDelete("cascade"),
-    conversationPinnedIdx: index("message_pins_conversation_pinned_idx").on(
-      t.conversationId,
-      t.pinnedAt,
-    ),
-    messageConversationIdx: index("message_pins_message_conversation_idx").on(
-      t.messageId,
-      t.conversationId,
-    ),
-    pinnedByIdx: index("message_pins_pinned_by_idx").on(t.pinnedBy),
-  }),
-);
-
-// ============================================================================
-// ATTACHMENT UPLOAD SESSIONS (Reliability / Resume-Aware Tracking)
-// ============================================================================
-export const attachmentUploads = pgTable(
-  "attachment_uploads",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    clientUploadId: text("client_upload_id").notNull(),
-    conversationId: uuid("conversation_id").references(() => conversations.id, {
-      onDelete: "set null",
-    }),
-    storagePath: text("storage_path"),
-    filename: text("filename").notNull(),
-    mimeType: text("mime_type"),
-    sizeBytes: bigint("size_bytes", { mode: "number" }),
-    status: text("status", {
-      enum: [
-        "queued",
-        "uploading",
-        "uploaded",
-        "committed",
-        "failed",
-        "canceled",
-        "expired",
-      ],
-    })
-      .default("queued")
-      .notNull(),
-    error: text("error"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }),
-  },
-  (t) => ({
-    userClientUnique: uniqueIndex("attachment_uploads_user_client_unique").on(
-      t.userId,
-      t.clientUploadId,
-    ),
-    userStatusIdx: index("attachment_uploads_user_status_idx").on(
-      t.userId,
-      t.status,
-      t.updatedAt,
-    ),
-    storagePathIdx: index("attachment_uploads_storage_path_idx").on(
-      t.storagePath,
-    ),
-    conversationIdx: index("attachment_uploads_conversation_idx").on(
-      t.conversationId,
-      t.updatedAt,
-    ),
-    clientUploadIdCheck: check(
-      "attachment_uploads_client_upload_id_check",
-      sql`length(btrim(${t.clientUploadId})) BETWEEN 1 AND 160`,
-    ),
-    statusCheck: check(
-      "attachment_uploads_status_check",
-      sql`${t.status} IN ('queued', 'uploading', 'uploaded', 'committed', 'failed', 'canceled', 'expired')`,
-    ),
-    expiryCheck: check(
-      "attachment_uploads_expiry_check",
-      sql`${t.expiresAt} IS NULL OR ${t.expiresAt} > ${t.createdAt}`,
-    ),
-    sizeCheck: check(
-      "attachment_uploads_size_check",
-      sql`${t.sizeBytes} IS NULL OR ${t.sizeBytes} BETWEEN 0 AND 1073741824`,
-    ),
-    storageStateCheck: check(
-      "attachment_uploads_storage_state_check",
-      sql`${t.status} NOT IN ('uploaded', 'committed') OR NULLIF(btrim(${t.storagePath}), '') IS NOT NULL`,
-    ),
-  }),
-);
-
-// ============================================================================
-// MESSAGING RELATIONS
-// ============================================================================
-export const conversationsRelations = relations(conversations, ({ many }) => ({
-  participants: many(conversationParticipants),
-  messages: many(messages),
-}));
-
-export const dmPairsRelations = relations(dmPairs, ({ one }) => ({
-  conversation: one(conversations, {
-    fields: [dmPairs.conversationId],
-    references: [conversations.id],
-  }),
-  userLow: one(profiles, {
-    fields: [dmPairs.userLow],
-    references: [profiles.id],
-    relationName: "dmPairUserLow",
-  }),
-  userHigh: one(profiles, {
-    fields: [dmPairs.userHigh],
-    references: [profiles.id],
-    relationName: "dmPairUserHigh",
-  }),
-}));
-
-export const conversationParticipantsRelations = relations(
-  conversationParticipants,
-  ({ one }) => ({
-    conversation: one(conversations, {
-      fields: [conversationParticipants.conversationId],
-      references: [conversations.id],
-    }),
-    user: one(profiles, {
-      fields: [conversationParticipants.userId],
-      references: [profiles.id],
-    }),
-  }),
-);
-
-export const messagesRelations = relations(messages, ({ one, many }) => ({
-  conversation: one(conversations, {
-    fields: [messages.conversationId],
-    references: [conversations.id],
-  }),
-  sender: one(profiles, {
-    fields: [messages.senderId],
-    references: [profiles.id],
-  }),
-  replyTo: one(messages, {
-    fields: [messages.replyToMessageId],
-    references: [messages.id],
-    relationName: "message_reply_reference",
-  }),
-  replies: many(messages, {
-    relationName: "message_reply_reference",
-  }),
-  attachments: many(messageAttachments),
-  reactions: many(messageReactions),
-  readReceipts: many(messageReadReceipts),
-  workflowItems: many(messageWorkflowItems),
-  workLinks: many(messageWorkLinks),
-}));
-
-export const messageAttachmentsRelations = relations(
-  messageAttachments,
-  ({ one }) => ({
-    message: one(messages, {
-      fields: [messageAttachments.messageId],
-      references: [messages.id],
-    }),
-  }),
-);
-
-export const messageWorkflowItemsRelations = relations(
-  messageWorkflowItems,
-  ({ one }) => ({
-    message: one(messages, {
-      fields: [messageWorkflowItems.messageId],
-      references: [messages.id],
-    }),
-    conversation: one(conversations, {
-      fields: [messageWorkflowItems.conversationId],
-      references: [conversations.id],
-    }),
-    creator: one(profiles, {
-      fields: [messageWorkflowItems.creatorId],
-      references: [profiles.id],
-      relationName: "message_workflow_item_creator",
-    }),
-    assignee: one(profiles, {
-      fields: [messageWorkflowItems.assigneeUserId],
-      references: [profiles.id],
-      relationName: "message_workflow_item_assignee",
-    }),
-    project: one(projects, {
-      fields: [messageWorkflowItems.projectId],
-      references: [projects.id],
-    }),
-    task: one(tasks, {
-      fields: [messageWorkflowItems.taskId],
-      references: [tasks.id],
-    }),
-  }),
-);
-
-export const messageWorkLinksRelations = relations(
-  messageWorkLinks,
-  ({ one }) => ({
-    sourceMessage: one(messages, {
-      fields: [messageWorkLinks.sourceMessageId],
-      references: [messages.id],
-    }),
-    sourceConversation: one(conversations, {
-      fields: [messageWorkLinks.sourceConversationId],
-      references: [conversations.id],
-    }),
-    targetProject: one(projects, {
-      fields: [messageWorkLinks.targetProjectId],
-      references: [projects.id],
-    }),
-    owner: one(profiles, {
-      fields: [messageWorkLinks.ownerUserId],
-      references: [profiles.id],
-      relationName: "message_work_link_owner",
-    }),
-    assignee: one(profiles, {
-      fields: [messageWorkLinks.assigneeUserId],
-      references: [profiles.id],
-      relationName: "message_work_link_assignee",
-    }),
-    creator: one(profiles, {
-      fields: [messageWorkLinks.createdBy],
-      references: [profiles.id],
-      relationName: "message_work_link_creator",
-    }),
-  }),
-);
-
 export const userNotificationsRelations = relations(
   userNotifications,
   ({ one }) => ({
@@ -4547,9 +4077,6 @@ export type ProjectUpdateLike = typeof projectUpdateLikes.$inferSelect;
 export type NewProjectUpdateLike = typeof projectUpdateLikes.$inferInsert;
 export type ProjectUpdateComment = typeof projectUpdateComments.$inferSelect;
 export type NewProjectUpdateComment = typeof projectUpdateComments.$inferInsert;
-export type Conversation = typeof conversations.$inferSelect;
-export type NewConversation = typeof conversations.$inferInsert;
-export type DmPair = typeof dmPairs.$inferSelect;
 // ============================================================================
 // COLLECTIONS TABLE
 // ============================================================================
@@ -4660,25 +4187,6 @@ export const legalAcceptances = pgTable(
 export type LegalAcceptance = typeof legalAcceptances.$inferSelect;
 export type NewLegalAcceptance = typeof legalAcceptances.$inferInsert;
 
-export type NewDmPair = typeof dmPairs.$inferInsert;
-export type ConversationParticipant =
-  typeof conversationParticipants.$inferSelect;
-export type NewConversationParticipant =
-  typeof conversationParticipants.$inferInsert;
-export type Message = typeof messages.$inferSelect;
-export type NewMessage = typeof messages.$inferInsert;
-export type MessageWorkflowItem = typeof messageWorkflowItems.$inferSelect;
-export type NewMessageWorkflowItem = typeof messageWorkflowItems.$inferInsert;
-export type MessageWorkLink = typeof messageWorkLinks.$inferSelect;
-export type NewMessageWorkLink = typeof messageWorkLinks.$inferInsert;
-export type MessageAttachment = typeof messageAttachments.$inferSelect;
-export type NewMessageAttachment = typeof messageAttachments.$inferInsert;
-export type MessageHiddenForUser = typeof messageHiddenForUsers.$inferSelect;
-export type NewMessageHiddenForUser = typeof messageHiddenForUsers.$inferInsert;
-export type MessageEditLog = typeof messageEditLogs.$inferSelect;
-export type NewMessageEditLog = typeof messageEditLogs.$inferInsert;
-export type AttachmentUpload = typeof attachmentUploads.$inferSelect;
-export type NewAttachmentUpload = typeof attachmentUploads.$inferInsert;
 
 export type Collection = typeof collections.$inferSelect;
 export type NewCollection = typeof collections.$inferInsert;
@@ -5148,248 +4656,7 @@ export const projectTags = pgTable(
   }),
 );
 
-// ============================================================================
-// MESSAGE REACTIONS TABLE
-// ============================================================================
-export const messageReactions = pgTable(
-  "message_reactions",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    messageId: uuid("message_id").notNull(),
-    conversationId: uuid("conversation_id").notNull(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    emoji: text("emoji").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    messageConversationFk: foreignKey({
-      columns: [t.messageId, t.conversationId],
-      foreignColumns: [messages.id, messages.conversationId],
-      name: "message_reactions_message_conversation_fkey",
-    }).onDelete("cascade"),
-    // A WhatsApp-style reaction is one mutable choice per person/message,
-    // rather than multiple independent reactions from the same person.
-    messageUserUnique: uniqueIndex("message_reactions_message_user_unique").on(
-      t.messageId,
-      t.userId,
-    ),
-    messageConversationIdx: index(
-      "message_reactions_message_conversation_idx",
-    ).on(t.messageId, t.conversationId),
-    messageIdx: index("message_reactions_message_idx").on(t.messageId),
-    conversationIdx: index("message_reactions_conversation_idx").on(
-      t.conversationId,
-    ),
-    userIdx: index("message_reactions_user_idx").on(t.userId),
-  }),
-);
-
-// ============================================================================
-// MESSAGE REPORTS TABLE
-// ============================================================================
-export const messageReports = pgTable(
-  "message_reports",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    messageId: uuid("message_id").notNull(),
-    conversationId: uuid("conversation_id").notNull(),
-    reporterId: uuid("reporter_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    reason: text("reason", {
-      enum: ["spam", "harassment", "hate_speech", "inappropriate", "other"],
-    }).notNull(),
-    details: text("details"),
-    status: statusReportEnum("status").default("pending").notNull(),
-    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-    reviewedBy: uuid("reviewed_by").references(() => profiles.id, {
-      onDelete: "set null",
-    }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    messageConversationFk: foreignKey({
-      columns: [t.messageId, t.conversationId],
-      foreignColumns: [messages.id, messages.conversationId],
-      name: "message_reports_message_conversation_fkey",
-    }).onDelete("cascade"),
-    messageIdx: index("message_reports_message_idx").on(t.messageId),
-    messageConversationIdx: index(
-      "message_reports_message_conversation_idx",
-    ).on(t.messageId, t.conversationId),
-    reporterIdx: index("message_reports_reporter_idx").on(t.reporterId),
-    statusIdx: index("message_reports_status_idx").on(t.status, t.createdAt),
-    messageReporterUnique: uniqueIndex(
-      "message_reports_message_reporter_unique",
-    ).on(t.messageId, t.reporterId),
-  }),
-);
-
-// ============================================================================
-// MESSAGE READ RECEIPTS TABLE
-// ============================================================================
-export const messageReadReceipts = pgTable(
-  "message_read_receipts",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    messageId: uuid("message_id").notNull(),
-    conversationId: uuid("conversation_id").notNull(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    readAt: timestamp("read_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    messageConversationFk: foreignKey({
-      columns: [t.messageId, t.conversationId],
-      foreignColumns: [messages.id, messages.conversationId],
-      name: "message_read_receipts_message_conversation_fkey",
-    }).onDelete("cascade"),
-    messageUserUnique: uniqueIndex(
-      "message_read_receipts_message_user_unique",
-    ).on(t.messageId, t.userId),
-    messageConversationIdx: index(
-      "message_read_receipts_message_conversation_idx",
-    ).on(t.messageId, t.conversationId),
-    messageIdx: index("message_read_receipts_message_idx").on(t.messageId),
-    userIdx: index("message_read_receipts_user_idx").on(t.userId, t.readAt),
-    conversationIdx: index("message_read_receipts_conversation_idx").on(
-      t.conversationId,
-      t.readAt,
-    ),
-  }),
-);
-
-// ============================================================================
-// MESSAGE DELIVERY RECEIPTS TABLE
-// ============================================================================
-export const messageDeliveryReceipts = pgTable(
-  "message_delivery_receipts",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    messageId: uuid("message_id").notNull(),
-    conversationId: uuid("conversation_id").notNull(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    deliveredAt: timestamp("delivered_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    messageConversationFk: foreignKey({
-      columns: [t.messageId, t.conversationId],
-      foreignColumns: [messages.id, messages.conversationId],
-      name: "message_delivery_receipts_message_conversation_fkey",
-    }).onDelete("cascade"),
-    messageUserUnique: uniqueIndex(
-      "message_delivery_receipts_message_user_unique",
-    ).on(t.messageId, t.userId),
-    messageConversationIdx: index(
-      "message_delivery_receipts_message_conversation_idx",
-    ).on(t.messageId, t.conversationId),
-    messageIdx: index("message_delivery_receipts_message_idx").on(t.messageId),
-    userIdx: index("message_delivery_receipts_user_idx").on(
-      t.userId,
-      t.deliveredAt,
-    ),
-    conversationIdx: index("message_delivery_receipts_conversation_idx").on(
-      t.conversationId,
-      t.deliveredAt,
-    ),
-  }),
-);
-
-// ============================================================================
-// MESSAGE REACTIONS RELATIONS
-// ============================================================================
-export const messageReactionsRelations = relations(
-  messageReactions,
-  ({ one }) => ({
-    message: one(messages, {
-      fields: [messageReactions.messageId],
-      references: [messages.id],
-    }),
-    user: one(profiles, {
-      fields: [messageReactions.userId],
-      references: [profiles.id],
-    }),
-  }),
-);
-
-// ============================================================================
-// MESSAGE REPORTS RELATIONS
-// ============================================================================
-export const messageReportsRelations = relations(messageReports, ({ one }) => ({
-  message: one(messages, {
-    fields: [messageReports.messageId],
-    references: [messages.id],
-  }),
-  reporter: one(profiles, {
-    fields: [messageReports.reporterId],
-    references: [profiles.id],
-  }),
-}));
-
-// ============================================================================
-// MESSAGE READ RECEIPTS RELATIONS
-// ============================================================================
-export const messageReadReceiptsRelations = relations(
-  messageReadReceipts,
-  ({ one }) => ({
-    message: one(messages, {
-      fields: [messageReadReceipts.messageId],
-      references: [messages.id],
-    }),
-    conversation: one(conversations, {
-      fields: [messageReadReceipts.conversationId],
-      references: [conversations.id],
-    }),
-    user: one(profiles, {
-      fields: [messageReadReceipts.userId],
-      references: [profiles.id],
-    }),
-  }),
-);
-
-// ============================================================================
-// MESSAGE DELIVERY RECEIPTS RELATIONS
-// ============================================================================
-export const messageDeliveryReceiptsRelations = relations(
-  messageDeliveryReceipts,
-  ({ one }) => ({
-    message: one(messages, {
-      fields: [messageDeliveryReceipts.messageId],
-      references: [messages.id],
-    }),
-    conversation: one(conversations, {
-      fields: [messageDeliveryReceipts.conversationId],
-      references: [conversations.id],
-    }),
-    user: one(profiles, {
-      fields: [messageDeliveryReceipts.userId],
-      references: [profiles.id],
-    }),
-  }),
-);
-
 // Type Exports for new tables
-export type MessageReaction = typeof messageReactions.$inferSelect;
-export type NewMessageReaction = typeof messageReactions.$inferInsert;
-export type MessageReport = typeof messageReports.$inferSelect;
-export type NewMessageReport = typeof messageReports.$inferInsert;
-export type MessageReadReceipt = typeof messageReadReceipts.$inferSelect;
-export type NewMessageReadReceipt = typeof messageReadReceipts.$inferInsert;
-export type MessageDeliveryReceipt =
-  typeof messageDeliveryReceipts.$inferSelect;
-export type NewMessageDeliveryReceipt =
-  typeof messageDeliveryReceipts.$inferInsert;
 export type UploadIntent = typeof uploadIntents.$inferSelect;
 export type NewUploadIntent = typeof uploadIntents.$inferInsert;
 export type RecoveryCodeRedemption =
@@ -5543,6 +4810,9 @@ export const extensionRecoveryDrafts = pgTable(
     sessionId: text("session_id").notNull(),
     filePath: text("file_path").notNull(),
     storageKey: text("storage_key").notNull().unique(),
+    assetId: uuid("asset_id").references(() => storageAssets.id, {
+      onDelete: "restrict",
+    }),
     size: bigint("size", { mode: "number" }).notNull(),
     mimeType: text("mime_type").default("text/plain").notNull(),
     contentHash: text("content_hash").notNull(),
@@ -5596,6 +4866,9 @@ export const extensionRecoveryDrafts = pgTable(
       t.expiresAt,
     ),
     nodeIdx: index("extension_recovery_drafts_node_idx").on(t.nodeId),
+    assetUnique: uniqueIndex("extension_recovery_drafts_asset_unique")
+      .on(t.assetId)
+      .where(sql`${t.assetId} IS NOT NULL`),
   }),
 );
 
@@ -5671,6 +4944,13 @@ export const importJobs = pgTable(
     totalFiles: integer("total_files").default(0).notNull(),
     processedFiles: integer("processed_files").default(0).notNull(),
     manifestS3Key: text("manifest_s3_key"),
+    manifestAssetId: uuid("manifest_asset_id").references(() => storageAssets.id, {
+      onDelete: "restrict",
+    }),
+    manifestUploadIntentId: uuid("manifest_upload_intent_id").references(
+      () => uploadIntents.id,
+      { onDelete: "set null" },
+    ),
     manifestHash: text("manifest_hash"),
     errorMessage: text("error_message"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -5682,6 +4962,12 @@ export const importJobs = pgTable(
   },
   (t) => ({
     projectIdx: index("import_jobs_project_idx").on(t.projectId),
+    manifestAssetUnique: uniqueIndex("import_jobs_manifest_asset_unique")
+      .on(t.manifestAssetId)
+      .where(sql`${t.manifestAssetId} IS NOT NULL`),
+    manifestIntentIdx: index("import_jobs_manifest_intent_idx").on(
+      t.manifestUploadIntentId,
+    ),
   }),
 );
 
@@ -5812,3 +5098,170 @@ export type NewTaskPush = typeof taskPushes.$inferInsert;
 export type ProjectWorkflowColumn = typeof projectWorkflowColumns.$inferSelect;
 export type NewProjectWorkflowColumn =
   typeof projectWorkflowColumns.$inferInsert;
+
+// ============================================================================
+// CHAT (Slack-style rebuild). Tables, partitions, constraints, indexes, RLS and
+// functions are owned by drizzle/0180_chat_rebuild_additive.sql.
+// ponytail: plain pgTable typings for queries only (L-20). ceiling:
+// drizzle-kit cannot express PARTITION BY HASH, so never generate migrations
+// from these definitions. upgrade: drop this note when drizzle supports
+// partitioned tables.
+// ============================================================================
+export const chatChannels = pgTable("chat_channels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  kind: text("kind", { enum: ["public", "private", "dm"] }).notNull(),
+  name: text("name"),
+  topic: text("topic"),
+  description: text("description"),
+  projectId: uuid("project_id"),
+  applicationId: uuid("application_id"),
+  isDefault: boolean("is_default").default(false).notNull(),
+  dmKey: text("dm_key"),
+  createdBy: uuid("created_by"),
+  lastSeq: bigint("last_seq", { mode: "number" }).default(0).notNull(),
+  lastTopSeq: bigint("last_top_seq", { mode: "number" }).default(0).notNull(),
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+  lastPreview: text("last_preview"),
+  lastAuthorId: uuid("last_author_id"),
+  memberCount: integer("member_count").default(0).notNull(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const chatChannelMembers = pgTable(
+  "chat_channel_members",
+  {
+    channelId: uuid("channel_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    role: text("role", { enum: ["owner", "admin", "member"] }).default("member").notNull(),
+    lastReadSeq: bigint("last_read_seq", { mode: "number" }).default(0).notNull(),
+    mentionCount: integer("mention_count").default(0).notNull(),
+    notify: text("notify", { enum: ["all", "mentions", "mute"] }).default("all").notNull(),
+    starred: boolean("starred").default(false).notNull(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.userId] }) }),
+);
+
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    channelId: uuid("channel_id").notNull(),
+    channelSeq: bigint("channel_seq", { mode: "number" }).notNull(),
+    authorId: uuid("author_id"),
+    kind: text("kind", { enum: ["user", "system"] }).default("user").notNull(),
+    body: text("body").default("").notNull(),
+    threadRootSeq: bigint("thread_root_seq", { mode: "number" }),
+    replyCount: integer("reply_count").default(0).notNull(),
+    lastReplySeq: bigint("last_reply_seq", { mode: "number" }),
+    lastReplyAt: timestamp("last_reply_at", { withTimezone: true }),
+    clientMessageId: text("client_message_id"),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.channelSeq] }) }),
+);
+
+export const chatMessageCards = pgTable(
+  "chat_message_cards",
+  {
+    channelId: uuid("channel_id").notNull(),
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+    kind: text("kind", { enum: ["application", "task", "invite"] }).notNull(),
+    refId: uuid("ref_id").notNull(),
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().default({}).notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.messageSeq] }) }),
+);
+
+export const chatAttachments = pgTable(
+  "chat_attachments",
+  {
+    channelId: uuid("channel_id").notNull(),
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+    idx: smallint("idx").notNull(),
+    assetId: uuid("asset_id").notNull(),
+    name: text("name").default("").notNull(),
+    mime: text("mime").notNull(),
+    size: bigint("size", { mode: "number" }).notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.messageSeq, t.idx] }) }),
+);
+
+export const chatReactions = pgTable(
+  "chat_reactions",
+  {
+    channelId: uuid("channel_id").notNull(),
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+    userId: uuid("user_id").notNull(),
+    emoji: text("emoji").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.messageSeq, t.userId, t.emoji] }) }),
+);
+
+export const chatMentions = pgTable(
+  "chat_mentions",
+  {
+    userId: uuid("user_id").notNull(),
+    channelId: uuid("channel_id").notNull(),
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+    kind: text("kind", { enum: ["user", "channel", "here", "thread_reply"] }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.channelId, t.messageSeq] }) }),
+);
+
+export const chatThreadFollows = pgTable(
+  "chat_thread_follows",
+  {
+    userId: uuid("user_id").notNull(),
+    channelId: uuid("channel_id").notNull(),
+    rootSeq: bigint("root_seq", { mode: "number" }).notNull(),
+    lastReadSeq: bigint("last_read_seq", { mode: "number" }).default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.channelId, t.rootSeq] }) }),
+);
+
+export const chatPins = pgTable(
+  "chat_pins",
+  {
+    channelId: uuid("channel_id").notNull(),
+    messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+    pinnedBy: uuid("pinned_by"),
+    pinnedAt: timestamp("pinned_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.channelId, t.messageSeq] }) }),
+);
+
+export const chatCanvases = pgTable("chat_canvases", {
+  channelId: uuid("channel_id").primaryKey(),
+  title: text("title").default("").notNull(),
+  body: text("body").default("").notNull(),
+  assetIds: uuid("asset_ids").array().default(sql`'{}'::uuid[]`).notNull(),
+  version: integer("version").default(1).notNull(),
+  updatedBy: uuid("updated_by"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const chatReports = pgTable("chat_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  channelId: uuid("channel_id").notNull(),
+  messageSeq: bigint("message_seq", { mode: "number" }).notNull(),
+  reporterId: uuid("reporter_id").notNull(),
+  reason: text("reason").notNull(),
+  status: text("status", { enum: ["open", "reviewed", "dismissed"] }).default("open").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type ChatChannel = typeof chatChannels.$inferSelect;
+export type ChatChannelMember = typeof chatChannelMembers.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type ChatMessageCard = typeof chatMessageCards.$inferSelect;
+export type ChatAttachment = typeof chatAttachments.$inferSelect;

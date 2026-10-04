@@ -6,7 +6,10 @@ import {
     searchMarketSkills,
     SKILL_CATEGORIES,
 } from '../../src/lib/skills/catalog'
-import { resolveClientSkill } from '../../src/lib/skills/client'
+import { resolveClientSkill, setSkillCatalog, type SkillCatalog } from '../../src/lib/skills/client'
+import { readFileSync } from 'node:fs'
+
+setSkillCatalog(JSON.parse(readFileSync('public/skill-catalog.json', 'utf8')) as SkillCatalog)
 import { canonicalizeSkillLabels, canonicalSkillKey, skillMatchScore } from '../../src/lib/skills/matching'
 import { normalizeSkillInputList, normalizeSkillLookup, skillSlug } from '../../src/lib/skills/normalization'
 import { getGeneratedSkillIcon } from '../../src/lib/skills/presentation'

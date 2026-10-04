@@ -5,8 +5,8 @@ import test from "node:test";
 
 test("Google and GitHub OAuth return through versioned legal acceptance", () => {
   const callback = readFileSync(resolve(process.cwd(), "src/app/auth/callback/route.ts"), "utf8");
-  const login = readFileSync(resolve(process.cwd(), "src/app/(auth)/login/page.tsx"), "utf8");
-  const signup = readFileSync(resolve(process.cwd(), "src/app/(auth)/signup/page.tsx"), "utf8");
+  const login = readFileSync(resolve(process.cwd(), "src/components/auth/LoginForm.tsx"), "utf8");
+  const signup = readFileSync(resolve(process.cwd(), "src/components/auth/SignupForm.tsx"), "utf8");
 
   assert.match(login, /signInWithGoogle\(legalNext\)/);
   assert.match(login, /signInWithGitHub\(legalNext\)/);
@@ -22,23 +22,25 @@ test("Google and GitHub OAuth return through versioned legal acceptance", () => 
 });
 
 test("cookie consent is available on authentication routes without a third-party analytics script", () => {
-  const layout = readFileSync(resolve(process.cwd(), "src/app/layout.tsx"), "utf8");
+  const layout = readFileSync(resolve(process.cwd(), "src/app/root-document.tsx"), "utf8");
   const runtime = readFileSync(resolve(process.cwd(), "src/components/privacy/CookieConsentRuntime.tsx"), "utf8");
+  const panel = readFileSync(resolve(process.cwd(), "src/components/privacy/CookieConsentPanel.tsx"), "utf8");
   const legalLinks = readFileSync(resolve(process.cwd(), "src/components/legal/LegalLinks.tsx"), "utf8");
 
   assert.match(layout, /<CookieConsentRuntime \/>/);
   assert.match(runtime, /new Set\(\["\/login", "\/signup"\]\)/);
   assert.doesNotMatch(runtime, /@vercel\/analytics|<Analytics/);
-  assert.match(runtime, /Reject optional/);
-  assert.match(runtime, /Accept all/);
-  assert.match(runtime, /Customize cookie settings/);
+  assert.match(runtime, /dynamic\(\(\) => import\("\.\/CookieConsentPanel"\)/);
+  assert.match(panel, /Reject optional/);
+  assert.match(panel, /Accept all/);
+  assert.match(panel, /Customize cookie settings/);
   assert.match(legalLinks, /CookieSettingsButton/);
 });
 
 test("Google One Tap uses a nonce, bridges the Supabase session, and preserves legal enforcement", () => {
   const oneTap = readFileSync(resolve(process.cwd(), "src/components/auth/GoogleOneTap.tsx"), "utf8");
-  const authProvider = readFileSync(resolve(process.cwd(), "src/components/providers/AuthProvider.tsx"), "utf8");
-  const mainLayout = readFileSync(resolve(process.cwd(), "src/app/(main)/layout.tsx"), "utf8");
+  const authProvider = readFileSync(resolve(process.cwd(), "src/lib/auth/browser-auth-actions.ts"), "utf8");
+  const mainLayout = readFileSync(resolve(process.cwd(), "src/app/(site)/(main)/layout.tsx"), "utf8");
 
   assert.match(oneTap, /createGoogleOneTapNonce\(\)/);
   assert.match(oneTap, /use_fedcm_for_prompt: true/);

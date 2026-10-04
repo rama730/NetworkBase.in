@@ -9,7 +9,7 @@ function source(relativePath: string) {
 const schema = source("src/lib/db/schema/index.ts");
 const hubAction = source("src/app/actions/discover.ts");
 const connectionsAction = source("src/app/actions/connections.ts");
-const taskAction = source("src/app/actions/project/_all.ts");
+const taskAction = source("src/app/actions/project/index.ts");
 const observability = source("src/lib/search/observability.ts");
 const previewHook = source("src/hooks/useGlobalSearchPreviews.ts");
 const commandPalette = source("src/components/layout/header/CommandPalette.tsx");

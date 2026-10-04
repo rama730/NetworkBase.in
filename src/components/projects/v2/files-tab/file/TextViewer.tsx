@@ -47,16 +47,16 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/providers/theme-provider";
 import type { ProjectNode } from "@/lib/db/schema";
-import { createClient as createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
-import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
 import { saveFileRevision } from "@/hooks/useFileVersions";
 import { getProjectFileContent } from "@/app/actions/files/content";
 import { listFileVersions } from "@/app/actions/files/versions";
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
 import type { FileLeaseStatus } from "../hooks/useFileLease";
+
+const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
 
 // Dynamic import keeps `@uiw/react-codemirror` (and its `@codemirror/*`
 // transitive tree) out of the Files-tab initial chunk. The import only
@@ -271,7 +271,6 @@ export function TextViewer({
       setSaveError(null);
 
       try {
-        const supabase = createSupabaseBrowserClient();
         const file = new File([content], node.name, {
           type: node.mimeType || "text/plain",
         });
@@ -284,7 +283,6 @@ export function TextViewer({
           baseVersion,
           baseHash,
           lease,
-          supabase,
         });
 
         if (result.success) {
@@ -349,7 +347,7 @@ export function TextViewer({
         data-testid="files-tab-text-viewer-raw"
         className={cn(
           "h-full min-h-0 w-full overflow-auto whitespace-pre-wrap break-words",
-          "bg-background p-4 font-mono text-[13px] leading-[1.55] text-foreground",
+          "bg-background p-4 font-mono text-[13px] leading-[1.55] text-foreground pointer-coarse:text-[14px]",
         )}
       >
         {savedContent}
@@ -375,7 +373,7 @@ export function TextViewer({
             }
             height="100%"
             width="100%"
-            className="h-full font-mono text-[13px] leading-[1.55]"
+            className="h-full font-mono text-[13px] leading-[1.55] pointer-coarse:text-[14px]"
             basicSetup={{
               lineNumbers: true,
               foldGutter: false,
@@ -434,7 +432,7 @@ export function TextViewer({
               onClick={onCancel}
               disabled={isSaving}
               data-testid="files-tab-text-viewer-cancel"
-              className="h-[28px] rounded-[5px] border-[#DBD5C8] px-2.5 text-xs font-medium hover:bg-[#F3F0EA] dark:border-white/10 dark:hover:bg-white/5"
+              className="nb-touch-target h-[28px] rounded-[5px] border-[#DBD5C8] px-2.5 text-xs font-medium hover:bg-[#F3F0EA] dark:border-white/10 dark:hover:bg-white/5"
             >
               Cancel
             </Button>
@@ -445,7 +443,7 @@ export function TextViewer({
             onClick={handleSaveClick}
             disabled={!canEdit || !isDirty || isSaving}
             data-testid="files-tab-text-viewer-save"
-            className="h-[28px] rounded-[5px] bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
+            className="nb-touch-target h-[28px] rounded-[5px] bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
           >
             {isSaving ? "Saving…" : "Save"}
           </Button>
@@ -487,7 +485,7 @@ export function TextViewer({
           }
           height="100%"
           width="100%"
-          className="h-full font-mono text-[13px] leading-[1.55]"
+          className="h-full font-mono text-[13px] leading-[1.55] pointer-coarse:text-[14px]"
           // Thinned basicSetup. No language extensions, no search keymap,
           // no lint keymap, no completion — the Edit surface is a plain
           // text editor, not an IDE.

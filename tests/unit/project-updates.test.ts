@@ -20,6 +20,7 @@ import {
     normalizeProjectUpdateType,
     projectUpdateDisplayText,
     projectUpdateImageExtensionFromMimeType,
+    projectUpdateMediaApplicationUrl,
     projectUpdateDraftStorageKey,
     projectUpdateExcerpt,
     resolveProjectUpdateAuthorRoleDisplay,
@@ -27,6 +28,7 @@ import {
     sanitizeProjectUpdateRoleTitle,
     shouldNotifyProjectUpdateFollowers,
 } from "../../src/lib/projects/updates";
+import { componentSource } from "./_helpers/component-source";
 
 test("project update normalization fails closed for unknown types and filters", () => {
     assert.equal(isProjectUpdateType("progress"), true);
@@ -98,6 +100,7 @@ test("project update media normalization keeps only safe public links", () => {
     ]), [
         {
             type: "link",
+            assetId: null,
             url: "https://example.com/demo",
             label: "Demo",
             altText: null,
@@ -110,6 +113,7 @@ test("project update media normalization keeps only safe public links", () => {
         },
         {
             type: "image",
+            assetId: null,
             url: "/api/v1/projects/project-1/update-media?key=projects/project-1/update-media/user-1/demo.png",
             label: "Demo image",
             altText: "Screenshot",
@@ -123,22 +127,36 @@ test("project update media normalization keeps only safe public links", () => {
     ]);
 });
 
-test("project update media route caches immutable signed redirects", () => {
+test("stored update media always uses the authorized application route", () => {
+    const projectId = "9a0966ed-c08c-4b52-98a1-3453fad1e26d";
+    const storageKey = `projects/${projectId}/update-media/user/demo.png`;
+    const expected = `/api/v1/projects/${projectId}/update-media?key=${encodeURIComponent(storageKey)}`;
+    assert.equal(projectUpdateMediaApplicationUrl(PROJECT_UPDATE_MEDIA_BUCKET, storageKey), expected);
+    assert.equal(projectUpdateMediaApplicationUrl("other", storageKey), null);
+    assert.equal(projectUpdateMediaApplicationUrl(PROJECT_UPDATE_MEDIA_BUCKET, `projects/${projectId}/update-media/../secret`), null);
+    assert.equal(normalizeProjectUpdateMediaItems([{
+        type: "image",
+        url: "https://example.supabase.co/storage/v1/object/public/project-updates-media/legacy.png",
+        bucket: PROJECT_UPDATE_MEDIA_BUCKET,
+        storageKey,
+    }])[0]?.url, expected);
+});
+
+test("project update media route authorizes normalized assets and streams bytes", () => {
     const routeSource = readFileSync(path.join(process.cwd(), "src/app/api/v1/projects/[id]/update-media/route.ts"), "utf8");
     const accessSource = readFileSync(path.join(process.cwd(), "src/lib/data/project-access.ts"), "utf8");
 
-    assert.match(routeSource, /SIGNED_URL_TTL_SECONDS = 15 \* 60/);
-    assert.match(routeSource, /PRIVATE_REDIRECT_MAX_AGE_SECONDS = 12 \* 60/);
-    assert.match(routeSource, /createSignedUrl\(storageKey, SIGNED_URL_TTL_SECONDS\)/);
+    assert.match(routeSource, /projectUpdateMediaAssets/);
+    assert.match(routeSource, /eq\(storageAssets\.state, "verified"\)/);
+    assert.match(routeSource, /createSignedUrl\(storageKey, 60\)/);
+    assert.match(routeSource, /streamPrivateObject/);
     assert.match(routeSource, /publicTabVisibility: access\.project\.publicTabVisibility/);
-    assert.match(routeSource, /"Vary", "Cookie, Authorization"/);
+    assert.match(routeSource, /private, no-store/);
     assert.equal(routeSource.includes(".from(projects)"), false);
     assert.match(accessSource, /publicTabVisibility\?: unknown/);
     assert.match(accessSource, /publicTabVisibility: projects\.publicTabVisibility/);
 
-    assert.match(routeSource, /: `private, max-age=\$\{PRIVATE_REDIRECT_MAX_AGE_SECONDS\}`/);
-    assert.match(routeSource, /response\.headers\.set\("Cache-Control", cacheControl\)/);
-    assert.match(routeSource, /if-none-match/);
+    assert.match(routeSource, /etag:/);
 });
 
 test("project update references and image upload contracts stay bounded", () => {
@@ -213,7 +231,7 @@ test("project update notifications avoid duplicate body and secondary text", () 
 });
 
 test("updates tab loads feed data once from the client-owned query path", () => {
-    const pageSource = readFileSync(path.join(process.cwd(), "src/app/(main)/projects/[slug]/page.tsx"), "utf8");
+    const pageSource = readFileSync(path.join(process.cwd(), "src/app/(site)/(main)/projects/[slug]/page.tsx"), "utf8");
     const actionSource = readFileSync(path.join(process.cwd(), "src/app/actions/project/updates.ts"), "utf8");
 
     assert.equal(pageSource.includes("readProjectUpdatesAction"), false);
@@ -235,7 +253,7 @@ test("project update draft hydration does not immediately autosave an unchanged 
 });
 
 test("project update comments share one project-scoped wildcard postgres binding", () => {
-    const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const subscriptionsSource = readFileSync(path.join(process.cwd(), "src/lib/realtime/subscriptions.ts"), "utf8");
 
     assert.equal(tabSource.includes('(["INSERT", "UPDATE", "DELETE"] as const).map'), false);
@@ -326,7 +344,7 @@ test("project update author roles repair stale open-role snapshots with authorit
 });
 
 test("updates tab right rail stays a shortcut index instead of a duplicate feed", () => {
-    const source = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const source = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const railStart = source.indexOf("function UpdatesRightRail");
     const detailStart = source.indexOf("function UpdateDetailPanel");
     assert.notEqual(railStart, -1);
@@ -365,10 +383,10 @@ test("updates tab right rail stays a shortcut index instead of a duplicate feed"
 });
 
 test("updates tab owns one composer placement and refreshes realtime posts directly", () => {
-    const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const composerSource = readFileSync(path.join(process.cwd(), "src/components/projects/updates/ProjectUpdateComposer.tsx"), "utf8");
 
-    assert.match(tabSource, /useDesktopUpdatesRail/);
+    assert.match(tabSource, /const isDesktopUpdatesRail = useMediaMatch\("\(min-width: 1280px\)"\)/);
     assert.match(tabSource, /isDesktopUpdatesRail === false/);
     assert.match(tabSource, /isDesktopUpdatesRail === true/);
     assert.match(tabSource, /invalidateQueries\(\{ queryKey: updatesQueryKey \}\)/);
@@ -403,7 +421,7 @@ test("project update composer renders structured context and image media before 
 });
 
 test("updates feed and detail render context references and actual images", () => {
-    const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const mediaFrameSource = readFileSync(path.join(process.cwd(), "src/components/projects/updates/ProjectUpdateMediaFrame.tsx"), "utf8");
     const referenceLinkStart = tabSource.indexOf("function ReferenceLink");
     const rendererStart = tabSource.indexOf("function UpdateContextAndMedia");
@@ -497,7 +515,7 @@ test("updates feed and detail render context references and actual images", () =
 });
 
 test("project update comments and replies use the compact feed conversation layout", () => {
-    const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const commentRowStart = tabSource.indexOf("function CommentRow");
     const updateCommentsStart = tabSource.indexOf("function UpdateComments");
     const updateCardStart = tabSource.indexOf("function UpdateCard");
@@ -509,8 +527,7 @@ test("project update comments and replies use the compact feed conversation layo
     const updateCommentsSource = tabSource.slice(updateCommentsStart, updateCardStart);
 
     assert.match(commentRowSource, /relative flex gap-2\.5 rounded-\[5px\] px-1/);
-    assert.match(tabSource, /function ThreadAvatarRail/);
-    assert.match(tabSource, /function ThreadRailBridge/);
+    assert.match(tabSource, /import \{ ThreadAvatarRail, ThreadRailBridge \} from "@\/components\/ui\/ThreadRail"/);
     assert.match(commentRowSource, /<ThreadAvatarRail incoming=\{!isFirst\} outgoing=\{!isLast\}>/);
     assert.equal(tabSource.includes("-z-10 left-[15px]"), false);
     assert.match(commentRowSource, /flex flex-wrap items-baseline gap-x-1\.5 gap-y-0\.5 text-\[13px\] leading-4/);
@@ -529,7 +546,7 @@ test("project update comments and replies use the compact feed conversation layo
     assert.match(updateCommentsSource, /mb-2 flex shrink-0 gap-2/);
     assert.match(updateCommentsSource, /size=\{28\}/);
     assert.match(updateCommentsSource, /h-8 min-w-0 flex-1/);
-    assert.match(updateCommentsSource, /h-8 shrink-0 animate-none rounded-\[5px\]/);
+    assert.match(updateCommentsSource, /nb-skeleton h-8 shrink-0 rounded-\[5px\]/);
     assert.match(updateCommentsSource, /min-h-0 flex-1 space-y-1\.5 overflow-y-auto/);
     assert.equal(updateCommentsSource.includes("rounded-2xl bg-zinc-50 px-3 py-2"), false);
     assert.equal(updateCommentsSource.includes("mt-1 whitespace-pre-wrap break-words text-sm"), false);
@@ -595,7 +612,7 @@ test("project update task mentions keep retrying until the task panel opens", ()
 });
 
 test("updates tab balances the feed with a bounded responsive supporting rail", () => {
-    const tabSource = readFileSync(path.join(process.cwd(), "src/components/projects/tabs/UpdatesTab.tsx"), "utf8");
+    const tabSource = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
     const layoutSource = readFileSync(path.join(process.cwd(), "src/components/projects/dashboard/ProjectLayout.tsx"), "utf8");
 
     assert.match(tabSource, /xl:grid-cols-\[minmax\(0,1fr\)_440px\]/);

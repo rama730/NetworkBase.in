@@ -64,8 +64,8 @@
     "reports": []
   },
   "paths": [
-    "src/app/(main)/projects/[slug]/page.tsx",
-    "src/app/(main)/projects/[slug]/sprints/[sprintId]/page.tsx",
+    "src/app/(site)/(main)/projects/[slug]/page.tsx",
+    "src/app/(site)/(main)/projects/[slug]/sprints/[sprintId]/page.tsx",
     "src/app/actions/project/_all.ts",
     "src/components/projects/dashboard/ProjectDashboardClient.tsx",
     "src/components/projects/tabs/SprintPlanning.tsx",

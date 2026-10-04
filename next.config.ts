@@ -5,20 +5,11 @@ import nextBundleAnalyzer from "@next/bundle-analyzer";
 const withBundleAnalyzer = nextBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
-const e2eAuthRouteImplRelativePath =
-  process.env.NODE_ENV === "production"
-    ? "./src/app/api/e2e/auth/route.disabled.ts"
-    : "./src/app/api/e2e/auth/route.dev.ts";
-const e2eAuthRouteImplAbsolutePath =
-  process.env.NODE_ENV === "production"
-    ? path.resolve(__dirname, "src/app/api/e2e/auth/route.disabled.ts")
-    : path.resolve(__dirname, "src/app/api/e2e/auth/route.dev.ts");
-
 const nextConfig: NextConfig = {
   // Keep verification builds isolated from an actively running local dev server.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone",
-  // ponytail: native HTTP 308 redirects preserve query params and offload route migration to edge.
+  // Native HTTP 308 redirects preserve query params and offload route migration to edge.
   async redirects() {
     return [
       { source: '/hub', destination: '/discover', permanent: true },
@@ -27,6 +18,12 @@ const nextConfig: NextConfig = {
       { source: '/people/:path*', destination: '/network/:path*', permanent: true },
       { source: '/profile', destination: '/my-profile', permanent: true },
       { source: '/profile/:path*', destination: '/my-profile/:path*', permanent: true },
+      // Messages: Activity and Threads became the Inbox; thread and details open as drawers on the conversation.
+      { source: '/messages/activity', destination: '/messages/inbox', permanent: false },
+      { source: '/messages/threads', destination: '/messages/inbox?filter=threads', permanent: false },
+      { source: '/messages/:channelId/thread/:seq', destination: '/messages/:channelId?thread=:seq', permanent: false },
+      { source: '/messages/:channelId/details', has: [{ type: 'query', key: 'tab', value: 'members' }], destination: '/messages/:channelId?details=members', permanent: false },
+      { source: '/messages/:channelId/details', destination: '/messages/:channelId?details=about', permanent: false },
     ];
   },
   // Security headers for all routes
@@ -73,9 +70,6 @@ const nextConfig: NextConfig = {
   // Turbopack configuration - use absolute path to silence warning
   turbopack: {
     root: path.resolve(__dirname),
-    resolveAlias: {
-      "@/app/api/e2e/auth/route-impl": e2eAuthRouteImplRelativePath,
-    },
   },
 
   // Image optimization configuration for external domains and local query strings
@@ -113,8 +107,9 @@ const nextConfig: NextConfig = {
 
   // Performance optimizations
   experimental: {
+    globalNotFound: true,
     scrollRestoration: true,
-    // ponytail: disabling persistent dev cache avoids observed multi-second compaction stalls.
+    // ponytail: disabling persistent dev cache avoids observed multi-second compaction stalls. ceiling: slower cold dev starts. upgrade: re-enable once Turbopack compaction stops stalling.
     turbopackFileSystemCacheForDev: false,
     optimizePackageImports: [
       'lucide-react',
@@ -150,10 +145,6 @@ const nextConfig: NextConfig = {
         crypto: false,
       };
     }
-    config.resolve.alias = {
-      ...(config.resolve.alias ?? {}),
-      "@/app/api/e2e/auth/route-impl": e2eAuthRouteImplAbsolutePath,
-    };
     if (dev) {
       config.cache = {
         type: 'filesystem',

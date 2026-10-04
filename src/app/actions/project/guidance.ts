@@ -24,7 +24,7 @@ import {
     resolveProjectInvitationInternal,
     type ProjectInvitationKind,
 } from "@/lib/projects/project-invitations";
-import { sendStructuredMessageActionV2 } from "@/app/actions/messaging/collaboration";
+import { postInviteCard } from "@/lib/messaging/integrations";
 
 type CreateInvitationActionInput = {
     projectId: string;
@@ -64,41 +64,32 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
         const invitation = created.invitation;
         const roleTitle = projectInvitationDisplayRole(invitation);
 
-        let messageResult: Awaited<ReturnType<typeof sendStructuredMessageActionV2>> | null = null;
-        if (created.created) {
-            messageResult = await sendStructuredMessageActionV2({
-                targetUserId: input.candidateId,
-                kind: "project_invite",
-                projectId: input.projectId,
-                roleId: invitation.roleId,
-                roleTitle,
-                summary: `Invitation to join ${invitation.projectTitle} as ${roleTitle}`,
+        // The invite card goes into the inviter↔candidate DM. A blocked pair
+        // has no DM; the invitation stays in the inbox either way.
+        const chatChannelId = created.created
+            ? await postInviteCard({
+                invitationId: invitation.id,
+                inviterId: user.id,
+                candidateId: input.candidateId,
                 note: invitation.note,
-                projectInvitationId: invitation.id,
-                projectInvitationKind: invitation.kind,
-                guidanceReviewAt: invitation.reviewAt?.toISOString() ?? null,
-            });
+            }).catch(() => null)
+            : null;
 
-            if (messageResult.success && messageResult.workflowItemId) {
-                await db.update(projectInvitations)
-                    .set({ messageWorkflowItemId: messageResult.workflowItemId, updatedAt: new Date() })
-                    .where(eq(projectInvitations.id, invitation.id));
-            }
-
+        if (created.created) {
             // The invitation inbox item is durable whether a direct message is allowed or not.
             await createNotification({
                 recipientUserId: input.candidateId,
                 actorUserId: user.id,
-                kind: "workflow_assigned",
+                kind: "chat_invite",
                 category: "workflows",
                 importance: "important",
                 title: `${user.user_metadata?.full_name || user.user_metadata?.username || "A project Lead"} invited you to ${invitation.projectTitle}`,
                 body: `Role: ${roleTitle}`,
-                href: "/messages",
+                href: chatChannelId ? `/messages/${chatChannelId}` : "/messages",
                 entityRefs: {
                     projectId: invitation.projectId,
                     projectSlug: created.projectSlug,
-                    workflowItemId: messageResult.workflowItemId ?? null,
+                    invitationId: invitation.id,
                     targetUserId: input.candidateId,
                 },
                 preview: {
@@ -113,7 +104,7 @@ export async function createProjectInvitationAction(input: CreateInvitationActio
         return {
             success: true as const,
             invitationId: invitation.id,
-            messageDelivered: Boolean(messageResult?.success),
+            messageDelivered: Boolean(chatChannelId),
             capacityWarning: Boolean(created.capacityWarning),
         };
     } catch (error) {
@@ -192,7 +183,7 @@ export async function getMyPendingProjectInvitationsAction() {
             eq(projectInvitations.candidateId, user.id),
             eq(projectInvitations.status, "pending"),
             // PostgreSQL evaluates this against the durable timestamp; no client clock is trusted.
-            // ponytail: expire on inbox read and acceptance; a scheduled sweeper is unnecessary until metrics require one.
+            // ponytail: expire on inbox read and acceptance. ceiling: expired invitations stay until someone reads them. upgrade: a scheduled sweep when stale invitations show up in metrics.
             sql`${projectInvitations.expiresAt} <= now()`,
         ));
     const invitations = await db
@@ -214,8 +205,6 @@ export async function getMyPendingProjectInvitationsAction() {
             eq(projectInvitations.candidateId, user.id),
             eq(projectInvitations.status, "pending"),
             sql`${projectInvitations.expiresAt} > now()`,
-            // The message application card is the primary surface. This list is the existing inbox fallback when DM delivery is unavailable.
-            sql`${projectInvitations.messageWorkflowItemId} IS NULL`,
         ))
         .orderBy(asc(projectInvitations.expiresAt));
     return { success: true as const, invitations };
@@ -245,7 +234,7 @@ export async function searchProjectInviteCandidatesAction(input: { projectId: st
     }
 
     const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
-    // ponytail: let the existing project-member index exclude members; never copy an entire team into application memory for a 20-row search.
+    // Let the existing project-member index exclude members; never copy an entire team into application memory for a 20-row search.
     const isNotProjectMember = notExists(db
         .select({ id: projectMembers.id })
         .from(projectMembers)

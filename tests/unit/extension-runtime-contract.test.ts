@@ -9,7 +9,7 @@ function readSource(relativePath: string) {
 
 describe("extension runtime contract", () => {
   it("uses one-time auth codes for browser editor authorization", () => {
-    const authorizePage = readSource("src/app/(auth)/authorize/page.tsx");
+    const authorizePage = readSource("src/app/(site)/(auth)/authorize/AuthorizeClient.tsx");
     const mainLayout = readSource("src/components/layout/MainLayout.tsx");
     const settingsPage = readSource("src/components/settings/IntegrationsSettings.tsx");
     const actionSource = readSource("src/app/actions/extension-sessions.ts");
@@ -46,7 +46,7 @@ describe("extension runtime contract", () => {
     assert.match(callbackSource, /inferExtensionCallbackUri/, "existing editor sessions should also receive a compatible disconnect callback");
     assert.match(actionSource, /isNull\(extensionDeviceSessions\.revokedAt\)/, "settings revocation must update an active session atomically");
     assert.match(sessionRouteSource, /export async function GET/, "the extension needs a minimal revocation-status endpoint");
-    assert.match(sessionRouteSource, /revoked tokens may read only their own liveness/, "status checks must not restore revoked bearer access");
+    assert.match(sessionRouteSource, /revoked tokens may read only their own liveness/i, "status checks must not restore revoked bearer access");
     assert.match(settingsQuerySource, /refetchOnWindowFocus: true/, "the active Integrations tab must reconcile IDE-side logout on focus");
     assert.doesNotMatch(settingsQuerySource, /refetchInterval:\s*EXTENSION_SESSION_POLL_MS/, "idle settings must not poll every three seconds");
     assert.match(baselineMigration, /auth_code_issued/, "fresh databases should allow auth-code issuance events");

@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { componentSource } from "./_helpers/component-source";
 
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 test("project collaborators tab eliminates duplicate headers and renders a single unified canonical SettingsCard", () => {
-  const settingsTab = source("src/components/projects/tabs/ProjectSettingsTab.tsx");
+  const settingsTab = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
 
   // SectionHeader is suppressed on collaborators tab to avoid duplicate title
   assert.match(settingsTab, /activeSection !== "collaborators"/, "SectionHeader must be suppressed on collaborators tab to avoid duplicate title");
@@ -34,6 +35,7 @@ test("project collaborators tab eliminates duplicate headers and renders a singl
 
   // Team search input, role filter pills, and empty state
   assert.match(collaboratorsBlock, /aria-label="Filter collaborators by role"/, "Role filter tablist must exist");
-  assert.match(collaboratorsBlock, /aria-label="Search collaborators"/, "Collaborator search input must exist");
+  assert.match(collaboratorsBlock, /<CollaboratorSearchField onCommit=\{setCollaboratorSearch\} \/>/, "Collaborator search input must exist");
+  assert.match(source("src/components/projects/settings/CollaboratorSearchField.tsx"), /aria-label="Search collaborators"/, "Collaborator search input must be labelled");
   assert.match(collaboratorsBlock, /No collaborators found/, "Team Directory must have empty state when filtered");
 });

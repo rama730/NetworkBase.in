@@ -59,10 +59,11 @@ test.describe('context-aware global search', () => {
         await expect(page).toHaveURL(/\/hub\?type=startup$/);
     });
 
-    test('delegates Messages to local search and resolves Settings intent', async ({ page }) => {
+    test('opens the Messages quick switcher and resolves Settings intent', async ({ page }) => {
         await page.goto('/messages');
-        await page.getByRole('button', { name: 'Open the dedicated Messages search' }).click();
-        await expect(page.getByPlaceholder('Search messages, people, projects…')).toBeVisible();
+        await page.getByRole('button', { name: 'Find a conversation' }).first().click();
+        await expect(page.getByPlaceholder('Find a channel or person')).toBeVisible();
+        await page.keyboard.press('Escape');
 
         await page.goto('/settings');
         await page.getByRole('button', { name: 'Search settings' }).click();

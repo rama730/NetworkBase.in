@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { useFormContext } from 'react-hook-form';
 import { Check, ChevronDown, ChevronRight, CircleHelp, File, Folder, FolderUp, GitBranch, Github, Loader2, RefreshCcw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
-
 import type { CreateProjectInput } from '@/lib/validations/project';
 import { logger } from '@/lib/logger';
 import { getAuthHardeningPhase } from '@/lib/auth/hardening';
@@ -25,9 +25,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Phase1SourceMethodGroup, type ProjectSourceType } from '@/components/projects/create-wizard/phase1/Phase1SourceMethodGroup';
 import { buildUploadManifest, type UploadManifest } from '@/components/projects/create-wizard/phase1/upload-manifest';
-import { UploadManifestPreview } from '@/components/projects/create-wizard/phase1/UploadManifestPreview';
-import { GithubImportDetails } from '@/components/projects/create-wizard/phase1/GithubImportDetails';
 import { clearGithubOAuthResume, getCreateProjectReturnPath, saveGithubOAuthResume } from '@/components/projects/create-wizard/github-oauth-resume';
+import { isGithubAccessRefreshError } from '@/components/projects/create-wizard/phase1/github-access';
+
+const UploadManifestPreview = dynamic(() => import('@/components/projects/create-wizard/phase1/UploadManifestPreview').then((mod) => mod.UploadManifestPreview));
+const GithubImportDetails = dynamic(() => import('@/components/projects/create-wizard/phase1/GithubImportDetails').then((mod) => mod.GithubImportDetails));
 
 type SourceType = ProjectSourceType;
 
@@ -50,18 +52,6 @@ type ImportSourceMetadata = Record<string, unknown> & {
     importAuth?: unknown;
     fileCount?: number;
 };
-
-function isGithubAccessRefreshError(message: string | null | undefined) {
-    const normalized = (message || '').toLowerCase();
-    if (!normalized) return false;
-    return (
-        normalized.includes('repository access is not available') ||
-        normalized.includes('unauthorized') ||
-        normalized.includes('connect github') ||
-        normalized.includes('log in to github') ||
-        normalized.includes('private. connect github')
-    );
-}
 
 const GITHUB_OAUTH_RETRY_DELAYS_MS = [250, 500, 1000, 1500];
 const TREE_INDENT_CLASSES = ['pl-2', 'pl-5', 'pl-8', 'pl-11', 'pl-14', 'pl-16'];
@@ -98,7 +88,7 @@ export default function Phase1SourceSelection({
     const repoUrl = watch('import_source.repoUrl');
     const branch = watch('import_source.branch');
 
-    const supabase = useMemo(() => createClient(), []);
+    const supabase = createClient();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const latestBranchRequestKeyRef = useRef('');
     const latestPreflightRequestKeyRef = useRef('');
@@ -620,7 +610,7 @@ export default function Phase1SourceSelection({
         void loadGithubPreview(repoUrl, branch || null);
     }, [branch, hasGithubRepoAccess, isResumingGithubOAuth, loadGithubPreview, repoUrl]);
 
-    const handlePickRepository = useCallback(async (item: GithubImportRepoItem) => {
+    const handlePickRepository = async (item: GithubImportRepoItem) => {
         latestRepoAnalysisKeyRef.current = item.htmlUrl;
         setGithubEntryMode('browse');
         setValue('import_source.repoUrl', item.htmlUrl, { shouldDirty: true });
@@ -642,7 +632,7 @@ export default function Phase1SourceSelection({
         });
         setRepoPickerOpen(false);
         await loadGithubPreview(item.htmlUrl, item.defaultBranch);
-    }, [loadGithubPreview, mergeImportSourceMetadata, setValue]);
+    };
 
     useEffect(() => {
         if (activeSourceView !== 'github' || !repoPickerOpen || !hasGithubRepoAccess) return;
@@ -761,15 +751,15 @@ export default function Phase1SourceSelection({
         await processUploadFiles(event.target.files);
     };
 
-    const handleUploadDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    const handleUploadDragOver = (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         event.stopPropagation();
         if (!isDragOverUpload) {
             setIsDragOverUpload(true);
         }
-    }, [isDragOverUpload]);
+    };
 
-    const handleUploadDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    const handleUploadDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         event.stopPropagation();
         const nextTarget = event.relatedTarget as Node | null;
@@ -777,15 +767,15 @@ export default function Phase1SourceSelection({
             return;
         }
         setIsDragOverUpload(false);
-    }, []);
+    };
 
-    const handleUploadDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
+    const handleUploadDrop = async (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
         event.stopPropagation();
         setIsDragOverUpload(false);
         const files = event.dataTransfer?.files ?? null;
         await processUploadFiles(files);
-    }, [processUploadFiles]);
+    };
 
     const rootEntries = githubFolderEntries[''] || githubPreview.rootEntries || [];
     const allLoadedEntries = Object.values(githubFolderEntries).flat();
@@ -823,7 +813,7 @@ export default function Phase1SourceSelection({
         }
     }, [expandedFolders, githubFolderEntries, loadGithubFolder]);
 
-    const renderTree = useCallback((entries: GithubPreviewEntry[], depth: number) => {
+    const renderTree = (entries: GithubPreviewEntry[], depth: number) => {
         if (!entries || entries.length === 0) {
             return (
                 <div className="nb-compact py-2 text-muted-foreground">
@@ -909,7 +899,7 @@ export default function Phase1SourceSelection({
                 })}
             </div>
         );
-    }, [expandedFolders, githubFolderEntries, loadingFolders, toggleFolder]);
+    };
 
     const renderScratchView = () => (
         <section
@@ -927,7 +917,7 @@ export default function Phase1SourceSelection({
                         Start with an empty project, then add its details, team, settings, and review it before publishing.
                     </p>
                 </div>
-                <dl className="border-l border-border pl-5">
+                <dl className="border-l border-border pl-5 max-md:border-l-0 max-md:border-t max-md:pl-0 max-md:pt-4">
                     <dt className="nb-label">Project source</dt>
                     <dd className="nb-card-title mt-2 text-foreground">Empty project</dd>
                     <dd className="nb-compact mt-1 text-muted-foreground">
@@ -1385,7 +1375,7 @@ export default function Phase1SourceSelection({
                                         warnings={preflightState.warnings}
                                         errorMessage={preflightState.error || githubPreview.errorMessage}
                                         branchControl={hasLoadedGithubRepo ? (
-                                            <div className="flex h-[var(--ui-control-height-sm)] items-center gap-1.5 rounded-md border border-input bg-card pl-2 pr-1 text-foreground focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
+                                            <div className="flex h-[var(--ui-control-height-sm)] items-center gap-1.5 rounded-md border border-input bg-card pl-2 pr-1 text-foreground focus-within:bg-muted/20">
                                                 <GitBranch className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                                                 <label htmlFor="create-project-github-resolved-branch" className="sr-only">Repository branch</label>
                                                 <select

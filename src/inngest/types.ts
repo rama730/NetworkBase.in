@@ -66,11 +66,6 @@ type ProjectUpdateCleanupEvent = {
     data: {
         projectId: string;
         updateId: string;
-        media: Array<{
-            url?: string | null;
-            bucket?: string | null;
-            storageKey?: string | null;
-        }>;
     };
 };
 

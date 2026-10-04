@@ -31,14 +31,13 @@ test("application wrappers do not compete with native Realtime reconnect", () =>
 test("Realtime health distinguishes authentication startup from terminal channel failure", () => {
   const provider = source("src/components/providers/RealtimeProvider.tsx");
   const notifications = source("src/hooks/useNotifications.ts");
-  const messages = source("src/hooks/useMessagesV2Realtime.ts");
   const typing = source("src/hooks/usePresenceTyping.ts");
   const online = source("src/hooks/useOnlineUsers.ts");
   const publisher = source("src/hooks/usePublishOnlinePresence.ts");
 
   assert.match(provider, /'idle' \| 'connecting' \| 'connected' \| 'disconnected'/);
   assert.match(notifications, /notificationStatus !== 'disconnected'/);
-  assert.match(messages, /messagingStatus === 'disconnected'/);
+  assert.match(provider, /notificationStatus === 'disconnected' \? 'unavailable' : 'reconnecting'/);
   for (const hook of [typing, online, publisher]) {
     assert.match(hook, /session\?\.access_token/);
     assert.match(hook, /realtimeReady/);
@@ -65,32 +64,34 @@ test("logout deletes the authenticated push record before local and Auth teardow
   assert.match(push, /return \{ ok: false, reason: "server_cleanup_failed" \}/);
   assert.ok(signOut.indexOf("await unsubscribeWebPush()") < signOut.indexOf("syncBrowserSessionToServer(null)"));
   assert.ok(signOut.indexOf("await unsubscribeWebPush()") < signOut.indexOf("supabase.auth.signOut({ scope: 'local' })"));
-  assert.match(auth, /if \(session && token === lastSyncedSessionToken\) return/);
+  assert.match(source("src/lib/auth/browser-auth-actions.ts"), /if \(session && token === lastSyncedSessionToken\) return/);
   assert.match(sessionRoute, /supabase\.auth\.signOut\(\{ scope: "local" \}\)/);
   assert.match(sessionRoute, /expireBrowserSessionCookies\(response, cookieNames\)/);
   assert.doesNotMatch(sessionRoute, /jsonError\("Failed to clear browser session"/);
 });
 
-test("presence is chat-scoped and debounce markers follow persistence", () => {
+test("presence is app-wide and debounce markers follow persistence", () => {
   const runtime = source("src/components/providers/MainRuntimeProviders.tsx");
-  const chat = source("src/components/chat/ChatProvider.tsx");
+  const chat = source("src/components/providers/PresenceProvider.tsx");
   const heartbeat = source("src/app/api/v1/presence/heartbeat/route.ts");
 
-  assert.match(runtime, /<LazyChatProvider presenceEnabled=\{isMessagesRoute \|\| popupOpen\}/);
-  assert.match(chat, /useMessagesV2OutboxSync\(active\)/);
+  assert.match(runtime, /<LazyPresenceProvider presenceEnabled=\{true\} \/>/);
   assert.match(chat, /const presenceActive = active && presenceEnabled/);
   assert.match(chat, /document\.hidden \? pause\(\) : resume\(\)/);
-  assert.match(chat, /CHAT_IDLE_MS/);
+  assert.match(chat, /IDLE_MS/);
   assert.match(chat, /presenceActive && engaged \? <OnlinePresencePublisher/);
   assert.match(heartbeat, /withDbRetry\("presence\.heartbeat\.last_active"/);
   assert.match(heartbeat, /lt\(profiles\.lastActiveAt/);
-  assert.doesNotMatch(heartbeat, /getRedisClient|localHeartbeatDebounce/);
+  // No debounce marker may gate the DB write. Redis holds only the short-lived
+  // "Active now" key (presence:live:<id>) and the time zone (presence:tz:<id>);
+  // neither ever skips a write.
+  assert.doesNotMatch(heartbeat, /localHeartbeatDebounce|heartbeat:debounce/);
+  for (const redisUse of heartbeat.match(/getRedisClient\(\)\?\.\w+\([^)]*/g) ?? []) assert.match(redisUse, /\.set\(`presence:(live|tz):/);
 });
 
 test("extension workspace bounds root files per project", () => {
   const workspace = source("src/app/api/v1/extension/workspace/route.ts");
 
-  assert.match(workspace, /row_number\(\) OVER \(\s*PARTITION BY \$\{projectNodes\.projectId\}/);
-  assert.match(workspace, /WHERE ranked\.rn <= 100/);
+  assert.match(workspace, /CROSS JOIN LATERAL \(\s*SELECT id\s*FROM project_nodes\s*WHERE project_id = p\.id[\s\S]*?LIMIT 100\s*\) n/);
   assert.doesNotMatch(workspace, /\.limit\(Math\.max\(100, projectIds\.length \* 100\)\)/);
 });

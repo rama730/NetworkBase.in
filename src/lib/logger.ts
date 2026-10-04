@@ -10,7 +10,7 @@ interface LogContext {
 }
 
 const REDACT_KEY_PATTERN = /password|token|secret|authorization/i
-const ALLOWED_CONTEXT_KEY_PATTERN = /^(module|domain|outcome|queryLengthBucket|tokenCount|resultCount|userId|viewerUserId|subjectUserId|targetUserId|actorUserId|requestId|sampleRate|route|action|status|success|errorCode|error|errors|failed|total|failedWrites|traceId|source|message|failureKind|reason|failureReason|eventType|event|type|kind|scope|conversationId|projectId|taskId|nodeId|attachmentId|sessionId|uploadIntentId|deliveryId|resourceType|resourceId|durationMs|count|remainingCount|sizeBytes|totalBytes|chunkCount|generatedCount|requestedCount|available|blocked|canViewProfile|visibilityReason|connectionState|currentPercent|targetPercent|runId|metric|normalizedUsername|bucket|storageKey|contentType|limit|offset|cursor|attempt|allowed|routePath|path|code|routeId|subjectCount|viewerCount|finalized|removedObjects|expiredIntents|nextCursor|hasMore|version|createdAt|updatedAt|finalizedAt|redeemedAt|expiresAt|remaining|statusCode|method|inputTokens|outputTokens|totalTokens|promptCredits|_type)$/;
+const ALLOWED_CONTEXT_KEY_PATTERN = /^(module|domain|outcome|queryLengthBucket|tokenCount|resultCount|userId|viewerUserId|subjectUserId|targetUserId|actorUserId|requestId|sampleRate|route|action|status|success|errorCode|error|errors|failed|total|failedWrites|traceId|source|message|failureKind|reason|failureReason|eventType|event|type|kind|scope|channelId|channelSeq|projectId|taskId|nodeId|attachmentId|sessionId|uploadIntentId|deliveryId|resourceType|resourceId|durationMs|count|remainingCount|sizeBytes|totalBytes|chunkCount|generatedCount|requestedCount|available|blocked|canViewProfile|visibilityReason|connectionState|currentPercent|targetPercent|runId|metric|normalizedUsername|bucket|contentType|limit|offset|cursor|attempt|attempted|scheduled|claimed|deleted|retryable|verified|oldestAgeMs|value|unit|phase|allowed|routePath|path|code|routeId|subjectCount|viewerCount|finalized|removedObjects|expiredIntents|expiredPins|nextCursor|hasMore|version|createdAt|updatedAt|finalizedAt|redeemedAt|expiresAt|remaining|statusCode|method|inputTokens|outputTokens|totalTokens|promptCredits|queue|depth|capped|_type)$/;
 
 const LEVEL_ORDER: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 }
 
@@ -74,6 +74,16 @@ function emit(level: LogLevel, message: string, context?: LogContext) {
     }
 }
 
+function emitMetric(metric: string, payload: Record<string, unknown>) {
+    const context = { ...payload, _type: 'metric' }
+    if (!shouldSample('info', metric, context)) return
+    // Production collectors consume stdout. Metrics must not depend on the
+    // verbose application-log switch or they disappear at the release build.
+    if (process.env.NODE_ENV !== 'production' && !isVerboseConsoleLoggingEnabled()) return
+    const { sampleRate: _sampleRate, ...safeContext } = sanitizeContext(context)
+    console.info("[logger]", { level: 'info', msg: metric, ts: Date.now(), ...safeContext })
+}
+
 function sanitizeValue(key: string, value: unknown): unknown {
     if (REDACT_KEY_PATTERN.test(key)) return '[REDACTED]'
     if (typeof value === 'string') {
@@ -115,6 +125,6 @@ export const logger = {
         }
     },
     metric: (metric: string, payload: Record<string, unknown>) => {
-        emit('info', metric, { ...payload, _type: 'metric' })
+        emitMetric(metric, payload)
     },
 }

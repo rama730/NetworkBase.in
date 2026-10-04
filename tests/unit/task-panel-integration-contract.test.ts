@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { componentSource } from "./_helpers/component-source";
 
 function read(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -89,9 +90,7 @@ test("task comments use the shared ThreadRail primitive aligned with Updates tab
   const comments = read(
     "src/components/projects/v2/tasks/TaskDetailTabs/CommentsTab.tsx",
   );
-  const updates = read(
-    "src/components/projects/tabs/UpdatesTab.tsx",
-  );
+  const updates = componentSource("src/components/projects/tabs/UpdatesTab.tsx");
   const threadRail = read(
     "src/components/ui/ThreadRail.tsx",
   );
@@ -151,7 +150,6 @@ test("subtasks tab adheres to precision drafting redesign with counts and filter
   assert.doesNotMatch(subtasks, /completionPercent/);
   assert.match(subtasks, /rounded-\[3px\]/);
   assert.match(subtasks, /rounded-\[5px\]/);
-  assert.match(subtasks, /rounded-\[6px\]/);
   assert.doesNotMatch(subtasks, /rounded-full/);
 });
 
@@ -274,11 +272,12 @@ test("task file move dialog is roomy and layered above the detail panel", () => 
   assert.match(panel, /sm:max-w-\[520px\]/);
   assert.match(panel, /grid-cols-4/);
   assert.match(panel, /overflow-visible/);
-  assert.doesNotMatch(panel, /overflow-x-auto/);
+  // Only phones may scroll the tab strip sideways.
+  assert.doesNotMatch(panel, /(?<!max-md:)overflow-x-auto/);
   assert.match(dialogs, /overlayClassName="z-\[300\]/);
   assert.match(dialogs, /className="z-\[301\]/);
-  assert.match(dialogs, /sm:max-w-2xl/);
-  assert.match(dialogs, /h-\[min\(58vh,32rem\)\]/);
+  assert.match(dialogs, /className="z-\[301\] flex max-h-\[88vh\] flex-col sm:max-w-\[460px\]/);
+  assert.match(dialogs, /h-\[min\(58vh,28rem\)\]/);
   assert.doesNotMatch(row, /<Dialog/);
   assert.doesNotMatch(row, /onSelect=\{\(event\) => \{\s*event\.preventDefault\(\);\s*setIsMoveModalOpen/);
 });

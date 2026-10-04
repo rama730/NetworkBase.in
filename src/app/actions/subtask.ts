@@ -79,7 +79,7 @@ export async function createSubtaskAction(
         await assertTaskWriteAccess(taskId, projectId, user.id);
 
         const created = await db.transaction(async (tx) => {
-            // ponytail: serialize only appends for this task; drag-and-drop is not a requirement.
+            // ponytail: serialize only appends for this task. ceiling: one append at a time per task. upgrade: fractional positions if subtask drag-and-drop is added.
             await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`task-subtask:${taskId}`}, 0))`);
             const currentMax = await tx.query.taskSubtasks.findFirst({
                 where: eq(taskSubtasks.taskId, taskId),

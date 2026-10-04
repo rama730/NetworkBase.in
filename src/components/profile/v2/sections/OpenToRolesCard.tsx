@@ -47,7 +47,7 @@ export function OpenToRolesCard({
       type="button"
       onClick={onEdit}
       aria-label="Edit role preferences"
-      className="rounded-[3px] p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="nb-touch-target inline-flex items-center justify-center rounded-[3px] p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground max-md:rounded-[5px]"
     >
       <Pencil className="h-4 w-4" aria-hidden="true" />
     </button>
@@ -57,11 +57,12 @@ export function OpenToRolesCard({
     <Card
       id="profile-open-to-roles"
       title="Open to Roles"
+      mobileTitle="Open to roles"
       density="compact"
       icon={<Briefcase className="h-4 w-4" />}
       action={editAction}
     >
-      <div className="space-y-4 px-5 py-4">
+      <div className="space-y-4 px-5 py-4 max-md:px-4">
         {roles.length > 0 ? (
           <ul aria-label="Preferred role types" className="flex flex-wrap gap-2">
             {roles.map((role) => (

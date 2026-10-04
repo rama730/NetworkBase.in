@@ -33,14 +33,14 @@ test("development launches the web runtime directly and references only live run
 
   assert.doesNotMatch(runtimeSources, /presence:dev|services\/presence|presence-token|PRESENCE_WS|PRESENCE_TOKEN_SECRET|presence-room-fanout/);
   const presenceClient = read("src/lib/realtime/presence-client.ts");
-  assert.match(presenceClient, /config:\s*\{\s*private:\s*true,\s*presence:\s*\{\s*key:/);
+  assert.match(presenceClient, /config:\s*\{\s*presence:\s*\{\s*key:\s*connectionId\s*\},\s*private:\s*true\s*\}/);
   assert.doesNotMatch(presenceClient, /\.joinRef\(/, "presence diagnostics must not call Supabase private channel methods");
   assert.doesNotMatch(read("src/app/api/v1/presence/heartbeat/route.ts"), /presence:live-session:/);
 });
 
 test("startup runtime avoids redundant remote work", () => {
   const appearanceRoute = read("src/app/api/v1/appearance/route.ts");
-  const chatProvider = read("src/components/chat/ChatProvider.tsx");
+  const chatProvider = read("src/components/providers/PresenceProvider.tsx");
 
   assert.doesNotMatch(appearanceRoute, /__getUserFromAuthServer|freshUser/);
   assert.match(appearanceRoute, /readAppearanceSnapshotFromMetadata\(auth\.user\)/);

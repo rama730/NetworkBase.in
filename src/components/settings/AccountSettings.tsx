@@ -7,18 +7,18 @@ import { Database, Loader2, LogOut } from "lucide-react";
 import { SettingsPageHeader } from "@/components/settings/ui/SettingsPageHeader";
 import { SettingsRow } from "@/components/settings/ui/SettingsRow";
 import { SettingsSectionCard } from "@/components/settings/ui/SettingsSectionCard";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SignOutConfirmDialog } from "@/components/auth/SignOutConfirmDialog";
 import PendingDeletionBanner from "@/components/settings/PendingDeletionBanner";
 import { useAccountDeletionStatus } from "@/hooks/useSettingsQueries";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import { cacheManager } from "@/lib/utils/cache-manager";
+import { normalizeIdentityFields } from "@/lib/ui/identity";
 
 export default function AccountPage({ embedded = false }: { embedded?: boolean }) {
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const { data: deletionStatus = { pending: false } } =
     useAccountDeletionStatus();
   const queryClient = useQueryClient();
@@ -63,9 +63,9 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
           description="The identity attached to your signed-in NetworkBase account."
         >
           <div className="divide-y divide-border">
-            <SettingsRow title="Name" right={<span className="nb-compact text-foreground">{profile?.fullName || user?.user_metadata?.full_name || "Not set"}</span>} />
+            <SettingsRow title="Name" right={<span className="nb-compact text-foreground">{profile?.fullName || normalizeIdentityFields(user?.user_metadata).fullName || "Not set"}</span>} />
             <SettingsRow title="Email" right={<span className="nb-compact text-foreground">{profile?.email || user?.email || "Not available"}</span>} />
-            <SettingsRow title="Username" right={<span className="nb-meta text-foreground">{profile?.username ? `@${profile.username}` : "Not set"}</span>} />
+            <SettingsRow title="Username" right={<span className="nb-meta text-foreground">{profile?.username ? `@${profile.username}` : profile ? "Not set" : "…"}</span>} />
           </div>
         </SettingsSectionCard>
 
@@ -97,9 +97,8 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
                 variant="outline"
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => setShowSignOutConfirm(true)}
-                disabled={isSigningOut}
               >
-                {isSigningOut ? <Loader2 className="size-4 animate-spin" /> : <LogOut className="size-4" />}
+                <LogOut className="size-4" />
                 Sign out
               </Button>
             }
@@ -107,25 +106,10 @@ export default function AccountPage({ embedded = false }: { embedded?: boolean }
         </SettingsSectionCard>
       </div>
 
-      <ConfirmDialog
+      <SignOutConfirmDialog
         open={showSignOutConfirm}
         onOpenChange={setShowSignOutConfirm}
-        title="Sign out of your account?"
-        description="You will be signed out on this device. Unsaved offline changes or drafts may be lost."
-        confirmLabel="Sign out"
-        variant="destructive"
-        loading={isSigningOut}
-        onConfirm={async () => {
-          setIsSigningOut(true);
-          try {
-            await signOut();
-            toast.info("Signed out successfully");
-          } catch {
-            toast.error("Failed to sign out. Please try again.");
-          } finally {
-            setIsSigningOut(false);
-          }
-        }}
+        onConfirm={signOut}
       />
     </>
   );

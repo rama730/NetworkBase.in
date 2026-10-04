@@ -22,6 +22,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { AboutCard } from './sections/AboutCard'
 import { ComponentErrorBoundary } from '@/components/ui/ComponentErrorBoundary'
 import { Skeleton } from '@/components/ui/skeleton'
+import { messageUserInWindow } from '@/components/messages/message-user'
 
 const ProfileHeader = dynamic(
     () => import('./ProfileHeader').then((module) => module.ProfileHeader),
@@ -684,7 +685,7 @@ export function ProfileV2Client({
                         onProjectsClick={handleOpenProjects}
                         onConnectPrimary={handleConnectPrimary}
                         onConnectSecondary={handleConnectSecondary}
-                        onMessage={() => router.push(`/messages?userId=${safeProfile.id}`)}
+                        onMessage={() => { if (!messageUserInWindow(safeProfile.id)) router.push(`/messages?userId=${safeProfile.id}`); }}
                         onToggleBlock={handleToggleBlock}
                         mutualCount={safeStats.mutualCount}
                         stats={safeStats}

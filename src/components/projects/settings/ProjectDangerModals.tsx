@@ -129,7 +129,7 @@ export function ProjectArchiveModal({
                         variant="outline"
                         onClick={() => onOpenChange(false)}
                         disabled={loading}
-                        className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium"
+                        className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium"
                     >
                         Cancel
                     </Button>
@@ -138,7 +138,7 @@ export function ProjectArchiveModal({
                         variant={isArchived ? "default" : "destructive"}
                         onClick={onConfirmArchive}
                         disabled={loading}
-                        className="h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
+                        className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
                     >
                         {loading ? <Loader2 className="size-4 animate-spin" /> : <Archive className="size-4" />}
                         {isArchived ? "Unarchive project" : "Archive project"}
@@ -283,7 +283,7 @@ export function ProjectTransferOwnershipModal({
                             placeholder={`Type "${verificationTarget}" to confirm`}
                             autoComplete="off"
                             spellCheck={false}
-                            className="h-[34px] w-full rounded-[5px] border border-border bg-background px-3 font-mono text-[13px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-background px-3 font-mono text-[13px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
                         />
                     </div>
                 </div>
@@ -297,7 +297,7 @@ export function ProjectTransferOwnershipModal({
                             onOpenChange(false);
                         }}
                         disabled={loading}
-                        className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium"
+                        className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium"
                     >
                         Cancel
                     </Button>
@@ -306,7 +306,7 @@ export function ProjectTransferOwnershipModal({
                         variant="destructive"
                         onClick={() => onConfirmTransfer(candidate)}
                         disabled={loading || !isConfirmed}
-                        className="h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
+                        className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
                     >
                         {loading ? <Loader2 className="size-4 animate-spin" /> : <Crown className="size-4" />}
                         Transfer ownership
@@ -448,7 +448,7 @@ export function ProjectDeleteModal({
                             placeholder={`Type "${requiredSlug}" to delete`}
                             autoComplete="off"
                             spellCheck={false}
-                            className="h-[34px] w-full rounded-[5px] border border-destructive/40 bg-background px-3 font-mono text-[13px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus:border-destructive focus:outline-none focus:ring-1 focus:ring-destructive"
+                            className="nb-touch-target h-[34px] w-full rounded-[5px] border border-destructive/40 bg-background px-3 font-mono text-[13px] text-foreground placeholder:text-muted-foreground/60 transition-colors focus:border-destructive focus:outline-none focus:ring-1 focus:ring-destructive"
                         />
                     </div>
                 </div>
@@ -462,7 +462,7 @@ export function ProjectDeleteModal({
                             onOpenChange(false);
                         }}
                         disabled={loading}
-                        className="h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium"
+                        className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium"
                     >
                         Cancel
                     </Button>
@@ -471,7 +471,7 @@ export function ProjectDeleteModal({
                         variant="destructive"
                         onClick={onConfirmDelete}
                         disabled={loading || !isConfirmed}
-                        className="h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
+                        className="nb-touch-target h-[34px] gap-2 rounded-[5px] px-4 text-[13px] font-medium"
                     >
                         {loading ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                         Delete project permanently

@@ -4,7 +4,7 @@ import path from "node:path";
 import { test } from "node:test";
 
 const PROJECT_ACTIONS_SRC = readFileSync(
-  path.resolve(__dirname, "../../src/app/actions/project/_all.ts"),
+  path.resolve(__dirname, "../../src/app/actions/project/index.ts"),
   "utf8",
 );
 
@@ -45,8 +45,8 @@ test("GitHub project import enqueue has a local inline fallback", () => {
     0;
   assert.equal(
     dispatchCallCount,
-    3,
-    "the helper definition plus create/retry call sites must use the same dispatch path",
+    2,
+    "the helper definition plus the create call site must use the same dispatch path",
   );
 });
 

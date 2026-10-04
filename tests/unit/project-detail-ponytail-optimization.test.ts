@@ -38,20 +38,20 @@ test("Domain A: Pruned 13 redundant indexes from schema/index.ts", () => {
 });
 
 test("Domain B: Task search query uses title GIN index without unindexed description ILIKE fallback", () => {
-  const actionsContent = readFileSync(resolve(ROOT, "src/app/actions/project/_all.ts"), "utf-8");
+  const actionsContent = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
 
   assert.doesNotMatch(actionsContent, /ilike\(t\.description,\s*searchPattern\)/);
   assert.match(actionsContent, /ilike\(t\.title,\s*searchPattern\)/);
 });
 
 test("Domain B: fetchProjectTasksForActor skips 4-table count CTE when surface is preview", () => {
-  const actionsContent = readFileSync(resolve(ROOT, "src/app/actions/project/_all.ts"), "utf-8");
+  const actionsContent = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
 
   assert.match(actionsContent, /const countRows = taskIds\.length === 0 \|\| surface === "preview"/);
 });
 
 test("Domain B: resolveProjectDetailTarget joins owner profile to eliminate shell waterfall", () => {
-  const actionsContent = readFileSync(resolve(ROOT, "src/app/actions/project/_all.ts"), "utf-8");
+  const actionsContent = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
 
   assert.match(actionsContent, /alias\(profiles,\s*"project_detail_owner_profiles"\)/);
   assert.match(actionsContent, /prefetchedOwner\?:/);
@@ -147,7 +147,7 @@ test("Domain E: ProjectOverviewCard memoizes StatementBox and click handlers", (
 
 test("Domain G: Project page route consolidates viewer identity context", () => {
   const pageContent = readFileSync(
-    resolve(ROOT, "src/app/(main)/projects/[slug]/page.tsx"),
+    resolve(ROOT, "src/app/(site)/(main)/projects/[slug]/page.tsx"),
     "utf-8"
   );
 

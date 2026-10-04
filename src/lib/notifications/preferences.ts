@@ -46,9 +46,8 @@ function normalizeQuietHours(value: unknown): NotificationQuietHours {
 }
 
 export const NOTIFICATION_PREFERENCE_CATEGORIES = [
-    { key: "messages", title: "Message bursts", description: "Grouped unread conversation activity instead of one row per message." },
-    { key: "mentions", title: "Mentions", description: "Direct task discussion mentions that need your attention." },
-    { key: "workflows", title: "Workflow requests", description: "Invites, approvals, feedback requests, availability checks, and follow-ups." },
+    { key: "mentions", title: "Mentions", description: "Mentions in task discussions and chat that need your attention." },
+    { key: "workflows", title: "Invitations", description: "Project invitations and leadership appointments." },
     { key: "projects", title: "Project activity", description: "Project-level updates that are important but not noisy." },
     { key: "tasks", title: "Task updates", description: "Assignments and attention states on work tied to you." },
     { key: "applications", title: "Applications", description: "Incoming applications and decisions on applications you submitted." },
@@ -59,14 +58,12 @@ const NOTIFICATION_MUTE_SCOPE_KINDS = [
     "notification_type",
     "project",
     "task",
-    "conversation",
     "person",
 ] as const satisfies readonly NotificationMuteScopeKind[];
 
 const NOTIFICATION_MUTE_SCOPE_KIND_SET = new Set<NotificationMuteScopeKind>(NOTIFICATION_MUTE_SCOPE_KINDS);
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
-    messages: true,
     mentions: true,
     workflows: true,
     projects: true,
@@ -132,7 +129,6 @@ export function normalizeNotificationPreferences(value: unknown): NotificationPr
 
     const candidate = value as Partial<Record<keyof NotificationPreferences, unknown>>;
     return {
-        messages: asBoolean(candidate.messages, DEFAULT_NOTIFICATION_PREFERENCES.messages),
         mentions: asBoolean(candidate.mentions, DEFAULT_NOTIFICATION_PREFERENCES.mentions),
         workflows: asBoolean(candidate.workflows, DEFAULT_NOTIFICATION_PREFERENCES.workflows),
         projects: asBoolean(candidate.projects, DEFAULT_NOTIFICATION_PREFERENCES.projects),

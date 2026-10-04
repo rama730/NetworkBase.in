@@ -46,13 +46,15 @@ test("migration lineage is exact and the duplicate backfill is quarantined", () 
   assert.deepEqual(manifest.breakGlassExceptions, []);
 });
 
-test("hard-delete retries Auth finalization and removes retained identity", () => {
+test("hard-delete retries Auth finalization and retention anonymizes the kept identity", () => {
   const hardDelete = source("src/lib/account/hard-delete.ts");
   const accountAction = source("src/app/actions/account.ts");
 
   assert.match(hardDelete, /cleanupStatus !== "completed"[\s\S]*cleanupStatus !== "in_progress"/);
-  assert.match(hardDelete, /userId: deletionId/);
-  assert.match(hardDelete, /email: "deleted-account@invalid"/);
+  assert.match(hardDelete, /minimalRegistrationRecordRetained: true/);
+  const retention = source("src/inngest/functions/data-lifecycle-retention.ts");
+  assert.match(retention, /legal_retention_until < now\(\)/);
+  assert.match(retention, /SET user_id = deletion\.id,\s*email = 'deleted-account@invalid',\s*username = NULL/);
   assert.doesNotMatch(accountAction, /randomBytes\(32\).*confirmationToken/);
 });
 

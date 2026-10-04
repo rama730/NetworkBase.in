@@ -4,7 +4,13 @@ import { toast } from "sonner";
 import { filesReturnQuery } from "@/lib/files/task-navigation";
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Check, Search, X } from "lucide-react";
+import { Plus, Check, Search, X, MoreHorizontal, Laptop } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import dynamic from "next/dynamic";
 import { useSearchParams, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -13,12 +19,7 @@ import {
   createTaskAction,
   getProjectTaskDetailAction,
 } from "@/app/actions/project";
-import {
-  createProjectWorkflowColumnAction,
-  deleteProjectWorkflowColumnAction,
-  getProjectWorkflowColumnsAction,
-  updateProjectWorkflowColumnsAction,
-} from "@/app/actions/project";
+import { createProjectWorkflowColumnAction, deleteProjectWorkflowColumnAction, getProjectWorkflowColumnsAction, updateProjectWorkflowColumnsAction } from "@/app/actions/project/workflow";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeActiveResource } from "@/lib/realtime/subscriptions";
 import {
@@ -53,8 +54,9 @@ import {
 } from "@/lib/projects/workflow-colors";
 import { queryKeys } from "@/lib/query-keys";
 import type { TaskPanelTab } from "@/hooks/useTaskPanelResource";
-import { OpenInIdeButton } from "@/components/projects/v2/files-tab/OpenInIdeButton";
+import { OpenInIdeButton, OpenInIdeSheet } from "@/components/projects/v2/files-tab/OpenInIdeButton";
 import { SkeletonTasks } from "@/components/projects/skeletons/SkeletonTasks";
+import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 
 const PAGE_NORMALIZED_TASKS_CACHE = new WeakMap<object, TaskSurfaceRecord[]>();
 
@@ -161,6 +163,7 @@ export default function TasksTab({
   });
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [ideSheetOpen, setIdeSheetOpen] = useState(false);
   const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
   const [sectionTitle, setSectionTitle] = useState("");
   const [sectionColor, setSectionColor] = useState<SemanticColor>("indigo");
@@ -177,6 +180,7 @@ export default function TasksTab({
   );
   const [editingInitialTab, setEditingInitialTab] =
     useState<TaskPanelTab | null>(null);
+  useDocumentTitlePrefix(editingTask?.title);
   const [createTaskError, setCreateTaskError] = useState<string | null>(null);
   const [initialTaskLoadError, setInitialTaskLoadError] = useState<
     string | null
@@ -744,22 +748,22 @@ export default function TasksTab({
             ) : null}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 max-md:w-full">
             {/* Instant Search Filter */}
-            <div className="relative flex items-center">
+            <div className="relative flex items-center max-md:basis-full">
               <Search className="pointer-events-none absolute left-2.5 size-3.5 text-muted-foreground" />
               <input
                 type="text"
                 value={searchInput}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="Filter tasks..."
-                className="h-[34px] w-36 rounded-[5px] border border-border bg-card pl-8 pr-7 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:w-48 transition-all"
+                className="nb-touch-target h-[34px] w-36 rounded-[5px] border border-border bg-card pl-8 pr-7 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:w-48 transition-all max-md:h-11 max-md:w-full"
               />
               {searchInput ? (
                 <button
                   type="button"
                   onClick={() => handleSearchChange("")}
-                  className="absolute right-2 text-muted-foreground hover:text-foreground"
+                  className="nb-touch-target absolute right-0 inline-flex items-center justify-center text-muted-foreground hover:text-foreground md:right-2"
                   aria-label="Clear task search"
                 >
                   <X className="size-3" />
@@ -770,19 +774,21 @@ export default function TasksTab({
             {/* Filter */}
             <TaskFilters scope={scope} setScope={setScope} />
 
-            {/* Connect Desktop IDE */}
-            <OpenInIdeButton
-              projectId={projectId}
-              projectSlug={projectSlug}
-              taskId={editingTask?.id}
-            />
+            {/* Connect Desktop IDE (desktop row; phones reach it from the ⋯ menu) */}
+            <span className="hidden md:contents">
+              <OpenInIdeButton
+                projectId={projectId}
+                projectSlug={projectSlug}
+                taskId={editingTask?.id}
+              />
+            </span>
 
             {/* New Section */}
             {canManageWorkflow ? (
               <button
                 type="button"
                 onClick={handleAddColumn}
-                className="inline-flex h-[34px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="nb-touch-target hidden h-[34px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:inline-flex"
               >
                 <Plus className="size-3.5" />
                 <span className="hidden sm:inline">New section</span>
@@ -794,12 +800,34 @@ export default function TasksTab({
               <button
                 type="button"
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex h-[34px] items-center gap-1.5 rounded-[5px] bg-primary px-3.5 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="nb-touch-target inline-flex h-[34px] items-center gap-1.5 rounded-[5px] bg-primary px-3.5 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-md:h-11"
               >
                 <Plus className="size-3.5" />
-                <span className="hidden sm:inline">New task</span>
+                <span>New task</span>
               </button>
             ) : null}
+
+            {/* Phone overflow: New section and the desktop IDE handoff (spec §20, primary action stays visible). */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" aria-label="More task actions" className="inline-flex size-11 items-center justify-center rounded-[5px] border border-border bg-card text-muted-foreground hover:bg-muted md:hidden">
+                  <MoreHorizontal className="size-4" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {canManageWorkflow ? (
+                  <DropdownMenuItem onSelect={handleAddColumn}>
+                    <Plus className="size-4" aria-hidden="true" />
+                    New section
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem onSelect={() => setIdeSheetOpen(true)}>
+                  <Laptop className="size-4" aria-hidden="true" />
+                  Connect desktop IDE
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <OpenInIdeSheet open={ideSheetOpen} onOpenChange={setIdeSheetOpen} projectId={projectId} projectSlug={projectSlug} taskId={editingTask?.id} />
           </div>
         </div>
       </div>
@@ -890,7 +918,7 @@ export default function TasksTab({
                     value={sectionTitle}
                     onChange={(e) => setSectionTitle(e.target.value)}
                     placeholder="e.g. In Review"
-                    className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -933,7 +961,7 @@ export default function TasksTab({
                           | "done",
                       )
                     }
-                    className="h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="nb-touch-target h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <option value="todo">To do</option>
                     <option value="in_progress">In progress</option>
@@ -952,14 +980,14 @@ export default function TasksTab({
                 <button
                   type="button"
                   onClick={() => setIsAddSectionOpen(false)}
-                  className="h-[34px] rounded-[5px] border border-border bg-card px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground hover:bg-muted transition-colors"
+                  className="nb-touch-target h-[34px] rounded-[5px] border border-border bg-card px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-foreground hover:bg-muted transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isAddingSection}
-                  className="h-[34px] rounded-[5px] bg-primary px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="nb-touch-target h-[34px] rounded-[5px] bg-primary px-3.5 font-mono text-xs font-medium uppercase tracking-[0.09em] text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
                   {isAddingSection ? "Adding..." : "Add Section"}
                 </button>

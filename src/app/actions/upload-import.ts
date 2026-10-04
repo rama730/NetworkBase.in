@@ -1,11 +1,11 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { projects, projectNodes } from '@/lib/db/schema';
+import { fileVersions, projects, projectNodes, storageAssets } from '@/lib/db/schema';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { buildProjectFileKey } from '@/lib/storage/project-file-key';
+import { isCanonicalProjectFileKey, parseProjectFileKey } from '@/lib/storage/project-file-key';
 import { randomUUID } from 'crypto';
 import { logger } from '@/lib/logger';
 import { buildProjectImportEventId, buildUploadManifestHash } from '@/lib/import/idempotency';
@@ -15,12 +15,14 @@ import {
   normalizeAndValidateUploadRelativePath,
   PROJECT_UPLOAD_MAX_FILE_BYTES,
 } from '@/lib/upload/security';
-import { finalizeUploadIntents } from '@/lib/upload/upload-intents';
+import { finalizeUploadIntent } from '@/lib/upload/upload-intents';
 
 export type UploadManifestEntry = {
   relativePath: string;
   size?: number | null;
   mimeType?: string | null;
+  storageKey: string;
+  uploadIntentId: string;
 };
 
 export type UploadReconcilePolicy = 'mirror' | 'additive';
@@ -41,11 +43,20 @@ type UploadSessionState = {
   status: 'pending' | 'uploading' | 'registering' | 'reconciling' | 'ready' | 'failed';
 };
 
-function normalizeManifestEntry(entry: UploadManifestEntry) {
+function normalizeManifestEntry(entry: UploadManifestEntry, projectId: string) {
   const relativePath = normalizeAndValidateUploadRelativePath(entry.relativePath);
   const size = normalizeAndValidateFileSize(entry.size ?? 0, PROJECT_UPLOAD_MAX_FILE_BYTES);
   const mimeType = normalizeAndValidateMimeType(entry.mimeType ?? 'application/octet-stream');
-  return { relativePath, size, mimeType };
+  const storageKey = typeof entry.storageKey === 'string' ? entry.storageKey.trim() : '';
+  const parsedKey = parseProjectFileKey(storageKey);
+  if (!parsedKey || !isCanonicalProjectFileKey(storageKey) || parsedKey.projectId !== projectId) {
+    throw new Error('Invalid folder upload storage key');
+  }
+  const uploadIntentId = typeof entry.uploadIntentId === 'string' ? entry.uploadIntentId.trim() : '';
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uploadIntentId)) {
+    throw new Error('Invalid folder upload intent');
+  }
+  return { relativePath, size, mimeType, storageKey, uploadIntentId };
 }
 
 function splitDirParts(dir: string) {
@@ -137,7 +148,12 @@ async function fetchExistingNodes(
   type: 'folder' | 'file',
   entries: Array<{ parentId: string | null; name: string }>
 ) {
-  const map = new Map<string, { id: string; parentId: string | null; name: string }>();
+  const map = new Map<string, {
+    id: string;
+    parentId: string | null;
+    name: string;
+    currentVersion: number;
+  }>();
   if (entries.length === 0) return map;
 
   for (const batch of chunkArray(entries, BATCH_SIZE)) {
@@ -166,12 +182,22 @@ async function fetchExistingNodes(
     }
 
     const rows = await tx
-      .select({ id: projectNodes.id, parentId: projectNodes.parentId, name: projectNodes.name })
+      .select({
+        id: projectNodes.id,
+        parentId: projectNodes.parentId,
+        name: projectNodes.name,
+        currentVersion: projectNodes.currentVersion,
+      })
       .from(projectNodes)
       .where(and(...conditions));
 
     for (const r of rows) {
-      map.set(makeKey(r.parentId ?? null, r.name), { id: r.id, parentId: r.parentId ?? null, name: r.name });
+      map.set(makeKey(r.parentId ?? null, r.name), {
+        id: r.id,
+        parentId: r.parentId ?? null,
+        name: r.name,
+        currentVersion: r.currentVersion,
+      });
     }
   }
 
@@ -317,24 +343,75 @@ export async function registerUploadedFolderAction(
   if (!project) throw new Error('Project not found');
   if (project.ownerId !== user.id) throw new Error('Unauthorized');
 
-  const entries = (manifest || []).map((entry) => normalizeManifestEntry(entry));
+  if (!Array.isArray(manifest) || manifest.length > 5_000) {
+    throw new Error('Folder upload exceeds the 5,000 file limit');
+  }
+  const entries = manifest.map((entry) => normalizeManifestEntry(entry, projectId));
+  const totalDeclaredBytes = entries.reduce((total, entry) => total + entry.size, 0);
+  if (!Number.isSafeInteger(totalDeclaredBytes) || totalDeclaredBytes > 1024 * 1024 * 1024) {
+    throw new Error('Folder upload exceeds the 1 GiB operation limit');
+  }
+  if (new Set(entries.map((entry) => entry.relativePath.toLowerCase())).size !== entries.length) {
+    throw new Error('Folder manifest contains duplicate paths');
+  }
+  if (new Set(entries.map((entry) => entry.storageKey)).size !== entries.length) {
+    throw new Error('Folder manifest reuses an uploaded asset');
+  }
 
+  const finalizedByStorageKey = new Map<string, {
+    assetId: string;
+    contentHash: string | null;
+    finalizedSize: number;
+    finalizedMimeType: string;
+  }>();
   if (entries.length > 0) {
-    const FINALIZE_BATCH_SIZE = 100;
+    const FINALIZE_BATCH_SIZE = 50;
     for (const batch of chunkArray(entries, FINALIZE_BATCH_SIZE)) {
-      await finalizeUploadIntents(
-        batch.map((entry) => {
-          const storageKey = buildProjectFileKey(projectId, entry.relativePath);
-          return {
+      const finalized: Awaited<ReturnType<typeof finalizeUploadIntent>>[] = [];
+      for (const verifyBatch of chunkArray(batch, 8)) {
+        finalized.push(...await Promise.all(
+          verifyBatch.map((entry) => finalizeUploadIntent({
+            intentId: entry.uploadIntentId,
             bucket: 'project-files',
-            storageKey,
+            storageKey: entry.storageKey,
             userId: user.id,
             projectId,
             expectedScope: 'project_file',
             expectedKind: 'file',
-          };
-        })
-      );
+          }))));
+      }
+      for (const result of finalized) {
+        if (!result.assetId || result.finalizedSize === null || !result.finalizedMimeType) {
+          throw new Error('Folder upload verification did not produce a publishable asset');
+        }
+        finalizedByStorageKey.set(result.storageKey, {
+          assetId: result.assetId,
+          contentHash: null,
+          finalizedSize: result.finalizedSize,
+          finalizedMimeType: result.finalizedMimeType,
+        });
+      }
+    }
+    if (finalizedByStorageKey.size !== entries.length) {
+      throw new Error('Folder upload verification is incomplete');
+    }
+    const assetIds = [...new Set([...finalizedByStorageKey.values()].map((asset) => asset.assetId))];
+    const verifiedAssets = await db.select({
+      id: storageAssets.id,
+      contentHash: storageAssets.contentHash,
+    }).from(storageAssets).where(and(
+      inArray(storageAssets.id, assetIds),
+      eq(storageAssets.state, 'verified'),
+      eq(storageAssets.ownerUserId, user.id),
+      eq(storageAssets.projectId, projectId),
+    ));
+    const verifiedAssetById = new Map(verifiedAssets.map((asset) => [asset.id, asset]));
+    if (verifiedAssetById.size !== assetIds.length) {
+      throw new Error('Folder upload contains an unavailable asset');
+    }
+    for (const asset of finalizedByStorageKey.values()) {
+      asset.contentHash = verifiedAssetById.get(asset.assetId)?.contentHash ?? null;
+      if (!asset.contentHash) throw new Error('Folder upload content hash is unavailable');
     }
   }
 
@@ -459,7 +536,7 @@ export async function registerUploadedFolderAction(
   try {
     const lockResult = await withProjectSyncLock(projectId, async (tx) => {
       const nowIso = new Date().toISOString();
-        const keepS3Keys = new Set(entries.map((entry) => buildProjectFileKey(projectId, entry.relativePath)));
+        const keepS3Keys = new Set(entries.map((entry) => entry.storageKey));
         const startedSessionAt = typeof currentSession?.startedAt === 'string' ? currentSession.startedAt : nowIso;
         let activeImportSource = buildUploadImportSource(currentImportSource, {
           syncPhase: 'registering',
@@ -544,6 +621,7 @@ export async function registerUploadedFolderAction(
             parentId: string | null;
             type: 'folder';
             name: string;
+            path: string;
             createdBy: string;
             createdAt: Date;
             updatedAt: Date;
@@ -563,6 +641,7 @@ export async function registerUploadedFolderAction(
                 parentId: item.parentId,
                 type: 'folder',
                 name: item.name,
+                path: `/${item.dirPath}`,
                 createdBy: user.id,
                 createdAt: now,
                 updatedAt: now,
@@ -592,14 +671,19 @@ export async function registerUploadedFolderAction(
             const parts = f.relativePath.split('/');
             const name = parts[parts.length - 1]!;
             const dir = parts.length > 1 ? parts.slice(0, -1).join('/') : '';
-            const parentId = dir ? folderIdByPath.get(dir) ?? null : null;
-            const s3Key = buildProjectFileKey(projectId, f.relativePath);
+            const parentId = dir ? folderIdByPath.get(dir) : null;
+            if (dir && !parentId) throw new Error(`Folder publication parent is missing for ${f.relativePath}`);
+            const asset = finalizedByStorageKey.get(f.storageKey);
+            if (!asset) throw new Error(`Verified asset is missing for ${f.relativePath}`);
             return {
               name,
-              parentId,
-              s3Key,
-              size: f.size ?? 0,
-              mimeType: f.mimeType ?? 'application/octet-stream',
+              parentId: parentId ?? null,
+              path: `/${f.relativePath}`,
+              s3Key: f.storageKey,
+              assetId: asset.assetId,
+              contentHash: asset.contentHash,
+              size: asset.finalizedSize,
+              mimeType: asset.finalizedMimeType,
             };
           });
 
@@ -615,14 +699,25 @@ export async function registerUploadedFolderAction(
             parentId: string | null;
             type: 'file';
             name: string;
+            path: string;
             s3Key: string;
+            assetId: string;
             size: number;
             mimeType: string;
             createdBy: string;
             createdAt: Date;
             updatedAt: Date;
           }> = [];
-          const toUpdate: Array<{ id: string; s3Key: string; size: number; mimeType: string; updatedAt: Date }> = [];
+          const toUpdate: Array<{
+            id: string;
+            s3Key: string;
+            assetId: string;
+            contentHash: string | null;
+            size: number;
+            mimeType: string;
+            currentVersion: number;
+            updatedAt: Date;
+          }> = [];
 
           for (const item of items) {
             const key = makeKey(item.parentId, item.name);
@@ -631,8 +726,11 @@ export async function registerUploadedFolderAction(
               toUpdate.push({
                 id: existing.id,
                 s3Key: item.s3Key,
+                assetId: item.assetId,
+                contentHash: item.contentHash,
                 size: item.size,
                 mimeType: item.mimeType,
+                currentVersion: existing.currentVersion + 1,
                 updatedAt: new Date(),
               });
             } else {
@@ -642,7 +740,9 @@ export async function registerUploadedFolderAction(
                 parentId: item.parentId,
                 type: 'file',
                 name: item.name,
+                path: item.path,
                 s3Key: item.s3Key,
+                assetId: item.assetId,
                 size: item.size,
                 mimeType: item.mimeType,
                 createdBy: user.id,
@@ -652,23 +752,78 @@ export async function registerUploadedFolderAction(
             }
           }
 
+          const batchAssetIds = [...new Set(items.map((item) => item.assetId))];
+          const publishableAssets = await tx.update(storageAssets)
+            .set({
+              backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
+              updatedAt: new Date(),
+            })
+            .where(and(
+              inArray(storageAssets.id, batchAssetIds),
+              eq(storageAssets.state, 'verified'),
+              eq(storageAssets.ownerUserId, user.id),
+              eq(storageAssets.projectId, projectId),
+            ))
+            .returning({ id: storageAssets.id });
+          if (publishableAssets.length !== batchAssetIds.length) {
+            throw new Error('One or more folder assets are no longer publishable');
+          }
+
+          let inserted: Array<{ id: string; currentVersion: number; s3Key: string | null }> = [];
           if (toInsert.length > 0) {
-            await tx.insert(projectNodes).values(toInsert);
+            inserted = await tx.insert(projectNodes).values(toInsert).returning({
+              id: projectNodes.id,
+              currentVersion: projectNodes.currentVersion,
+              s3Key: projectNodes.s3Key,
+            });
           }
 
           if (toUpdate.length > 0) {
             const values = toUpdate.map((u) =>
-              sql`(${u.id}, ${u.s3Key}, ${u.size}, ${u.mimeType}, ${u.updatedAt})`
+              sql`(${u.id}::uuid, ${u.s3Key}::text, ${u.assetId}::uuid, ${u.size}::bigint, ${u.mimeType}::text, ${u.currentVersion}::integer, ${u.updatedAt}::timestamptz)`
             );
             await tx.execute(sql`
               UPDATE ${projectNodes} AS t
               SET s3_key = v.s3_key,
+                  asset_id = v.asset_id,
                   size = v.size,
                   mime_type = v.mime_type,
+                  current_version = v.current_version,
                   updated_at = v.updated_at
-              FROM (VALUES ${sql.join(values, sql`,`)}) AS v(id, s3_key, size, mime_type, updated_at)
-              WHERE t.id = v.id
+              FROM (VALUES ${sql.join(values, sql`,`)}) AS v(id, s3_key, asset_id, size, mime_type, current_version, updated_at)
+              WHERE t.id = v.id AND t.project_id = ${projectId}::uuid
             `);
+          }
+
+          const itemByStorageKey = new Map(items.map((item) => [item.s3Key, item]));
+          const insertedVersions = inserted.map((node) => {
+            const item = node.s3Key ? itemByStorageKey.get(node.s3Key) : null;
+            if (!item) throw new Error('Inserted folder file could not be matched to its asset');
+            return {
+              nodeId: node.id,
+              version: node.currentVersion,
+              s3Key: item.s3Key,
+              assetId: item.assetId,
+              size: item.size,
+              mimeType: item.mimeType,
+              contentHash: item.contentHash,
+              uploadedBy: user.id,
+              attribution: { source: 'folder_upload', sessionId },
+            };
+          });
+          const updatedVersions = toUpdate.map((item) => ({
+            nodeId: item.id,
+            version: item.currentVersion,
+            s3Key: item.s3Key,
+            assetId: item.assetId,
+            size: item.size,
+            mimeType: item.mimeType,
+            contentHash: item.contentHash,
+            uploadedBy: user.id,
+            attribution: { source: 'folder_upload', sessionId },
+          }));
+          if (insertedVersions.length + updatedVersions.length > 0) {
+            await tx.insert(fileVersions).values([...insertedVersions, ...updatedVersions]);
           }
 
           registeredFiles += items.length;

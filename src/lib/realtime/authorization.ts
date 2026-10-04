@@ -1,5 +1,10 @@
 const ENABLED_VALUES = new Set(["1", "true", "yes", "on"]);
 
+/** Shared parse for boolean env flags: 1, true, yes, on (any case). */
+export function isEnabledFlag(value: string | undefined) {
+  return ENABLED_VALUES.has(value?.trim().toLowerCase() ?? "");
+}
+
 /**
  * Private Broadcast/Presence must not start until the matching
  * `realtime.messages` policies have been applied and verified in Supabase.
@@ -7,6 +12,5 @@ const ENABLED_VALUES = new Set(["1", "true", "yes", "on"]);
  * working, while optional presence/typing/stats channels remain unavailable.
  */
 export function isPrivateRealtimeAuthorizationEnabled() {
-  const value = process.env.NEXT_PUBLIC_REALTIME_AUTHORIZATION_ENABLED;
-  return ENABLED_VALUES.has(value?.trim().toLowerCase() ?? "");
+  return isEnabledFlag(process.env.NEXT_PUBLIC_REALTIME_AUTHORIZATION_ENABLED);
 }

@@ -44,7 +44,7 @@ export function areProjectSocialLinksEqual(left: unknown, right: unknown): boole
     });
 }
 
-/** ponytail: native text extraction covers paste and drop without a parser dependency. */
+/** Native text extraction covers paste and drop without a parser dependency. */
 export function extractProjectLinkUrls(value: string): string[] {
     return [...value.matchAll(/https?:\/\/[^\s]+/gi)]
         .map(([url]) => url.replace(/[),.;]+$/, ''))

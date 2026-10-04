@@ -1,8 +1,9 @@
 "use client";
 
+import { DashboardCardHeader } from "@/components/projects/dashboard/DashboardCard";
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/utils/date";
-import { CheckCircle2, FilePlus2, GitBranch, UserRoundPlus } from "lucide-react";
+import { Activity, CheckCircle2, FilePlus2, GitBranch, UserRoundPlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { readProjectRecentActivityAction } from "@/app/actions/project/recent-activity";
 import { queryKeys } from "@/lib/query-keys";
@@ -27,8 +28,9 @@ export function RecentActivityCard({ projectId }: { projectId: string }) {
   if (!activity.isPending && !activity.isError && activity.data?.length === 0) return null;
 
   return <section aria-labelledby="project-recent-activity-title" className="min-w-0">
-    <h2 id="project-recent-activity-title" className="mb-3 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Recent activity</h2>
-    <div className="rounded-lg border border-border bg-card p-4 text-sm text-card-foreground">
+    <h2 id="project-recent-activity-title" className="mb-3 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground max-md:hidden">Recent activity</h2>
+    <div className="rounded-lg border border-border bg-card p-4 text-sm text-card-foreground max-md:text-[13px]">
+      <div className="-mx-4 -mt-4 mb-4 md:hidden"><DashboardCardHeader title="Recent activity" icon={Activity} compact /></div>
       {activity.isPending ? <div role="status" aria-label="Loading recent activity" className="space-y-4">
         {[0, 1, 2].map((index) => <div key={index} aria-hidden="true" className="flex gap-3">
           <div className="nb-skeleton h-4 w-4 shrink-0 rounded" />

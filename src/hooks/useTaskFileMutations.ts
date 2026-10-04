@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import type { ProjectNode } from "@/lib/db/schema";
 import { linkNodeToTask, unlinkNodeFromTask } from "@/app/actions/files/links";
 import {
@@ -17,6 +16,7 @@ import { newClientId } from "@/lib/utils/client-id";
 import { saveFileAsNewVersion as saveFileAsNewVersionOrig } from "@/hooks/useFileVersions";
 import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
 import { confirmUploadCollisions } from "@/lib/files/upload-collisions";
+import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-client";
 
 async function runWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T, idx: number) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);
@@ -67,7 +67,6 @@ export function useTaskFileMutations(params: {
     onAfterMutation,
   } = params;
 
-  const supabase = useMemo(() => createClient(), []);
   const [isUploading, setIsUploading] = useState(false);
   const runAfterSuccess = useCallback(async () => {
     window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId, taskId } }));
@@ -91,15 +90,19 @@ export function useTaskFileMutations(params: {
 
       const uploadSession = await getUploadPresignedUrl(storagePath, contentType, file.size);
       if ("error" in uploadSession) throw new Error(uploadSession.error || "Failed to prepare upload");
+      storagePath = uploadSession.storageKey;
 
       const token = uploadSession.token || new URL(uploadSession.url).searchParams.get("token");
       if (!token) throw new Error("Upload token is missing");
 
-      const { error: uploadError } = await supabase.storage
-        .from("project-files")
-        .uploadToSignedUrl(storagePath, token, file, { contentType });
-
-      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+      await uploadToSupabaseSignedUrl({
+        bucket: "project-files",
+        storagePath,
+        uploadToken: token,
+        uploadUrl: uploadSession.url,
+        contentType,
+        operationId: uploadSession.uploadIntentId,
+      }, file, { cacheProfile: "immutable" });
 
       let candidateName = file.name;
       for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -129,7 +132,7 @@ export function useTaskFileMutations(params: {
       window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId, taskId } }));
       return { success: false as const, error: error instanceof Error ? error.message : "Upload failed" };
     }
-  }, [projectId, supabase.storage, taskId]);
+  }, [projectId, taskId]);
 
   const uploadFiles = useCallback(async (files: File[], options?: { annotation?: string; parentId?: string; role?: TaskFileRole }) => {
     if (!canEdit || files.length === 0) return { success: false as const, error: "Cannot upload files" };
@@ -268,7 +271,6 @@ export function useTaskFileMutations(params: {
         nodeId,
         file,
         comment: options?.comment || null,
-        supabase,
       });
 
       if (!result.success) throw new Error(result.error);
@@ -282,7 +284,7 @@ export function useTaskFileMutations(params: {
     } finally {
       setIsUploading(false);
     }
-  }, [canEdit, onError, projectId, runAfterSuccess, supabase]);
+  }, [canEdit, onError, projectId, runAfterSuccess]);
 
   const unlinkAttachment = useCallback(async (nodeId: string) => {
     if (!canEdit) return { success: false as const, error: "Forbidden" };

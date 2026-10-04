@@ -31,7 +31,9 @@ test("large reviewed selections are prepared in bounded failure-safe batches", (
   assert.match(source, /const batchSize = 6/);
   assert.match(source, /const manifestFiles = new Map/);
   assert.match(source, /await Promise\.allSettled\(/);
-  assert.match(source, /uploaded\.push\(upload\.value\)/);
+  assert.match(source, /snapshotRefs\.push\(upload\.value\)/);
+  assert.match(source, /githubSyncSnapshotAssets/);
+  assert.match(source, /finalizeUploadIntent/);
 });
 
 test("the action and UI use the shared selection limit with readable errors", () => {
@@ -65,7 +67,7 @@ test("large reviews avoid serial storage, database, and git staging work", () =>
   const service = readFileSync("src/lib/github/sync-service.ts", "utf8");
   const publisher = readFileSync("src/lib/github/sync-git.ts", "utf8");
 
-  assert.match(service, /runWithConcurrency\(\s*paths,[\s\S]{0,240}\s24,/);
+  assert.match(service, /runWithConcurrency\(\s*paths,[\s\S]{0,400}?\s24,/);
   assert.match(service, /const \[nodes, collisions\] = await Promise\.all/);
   assert.match(service, /runWithConcurrency\(files, 24/);
   assert.match(publisher, /runWithConcurrency\(manifest\.files, 24/);
@@ -80,7 +82,7 @@ test("comparison eliminates redundant S3 downloads via gitBlobCache and knownBlo
   assert.match(service, /const gitBlobCache = new Map<string, CachedBlobMeta>\(\)/);
   assert.match(service, /knownBlobs/);
   assert.match(service, /knownBlobMap/);
-  assert.match(service, /gitBlobCache\.has\(localHash\)/);
+  assert.match(service, /getCachedBlobMeta\(localHash\)/);
   assert.match(service, /sharedStorage/);
 });
 

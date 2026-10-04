@@ -115,7 +115,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // ponytail: replacement is rare; clearing the tiny shared health cache avoids
+  // Replacement is rare; clearing the tiny shared health cache avoids
   // carrying either the deleted id or login into the new OAuth callback.
   clearGithubAccountHealthCache();
   await recordSecurityEvent({

@@ -9,7 +9,7 @@ import { profileHref } from "@/lib/routing/identifiers";
 
 export type IncomingProjectApplication = {
   id: string;
-  isWorkflowItem?: boolean;
+  isInvitation?: boolean;
   projectId: string | null;
   projectTitle: string;
   projectSlug?: string | null;
@@ -45,7 +45,7 @@ export function IncomingProjectApplicationRow({
   const actor = app.actor ?? app.applicant;
   const actorName = actor.fullName || actor.username || "User";
   const projectHref = `/projects/${app.projectSlug || app.projectId}`;
-  const sourceLabel = app.isWorkflowItem ? "Project invitation" : "Project application";
+  const sourceLabel = app.isInvitation ? "Project invitation" : "Project application";
   const receivedAt = app.createdAt
     ? formatDistanceToNowStrict(new Date(app.createdAt), { addSuffix: true })
     : null;
@@ -59,12 +59,12 @@ export function IncomingProjectApplicationRow({
         <div className="flex flex-wrap items-center gap-1.5">
           <Link
             href={profileHref(actor)}
-            className="truncate text-sm font-semibold text-foreground transition-colors hover:text-primary"
+            className="truncate text-sm max-md:text-[13px] font-semibold text-foreground transition-colors hover:text-primary"
           >
             {actorName}
           </Link>
           <span className="text-xs text-muted-foreground">
-            {app.isWorkflowItem ? "invited you to join as" : "applied for"}
+            {app.isInvitation ? "invited you to join as" : "applied for"}
           </span>
           <span className="truncate text-xs font-medium text-primary">{app.roleTitle}</span>
           <span className="rounded-[3px] bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
+import { componentSource } from "./_helpers/component-source";
 
 const ROOT = process.cwd();
 
@@ -26,11 +27,11 @@ test("ProjectLayout conditionally renders ProjectAvatar scoped to two lines with
     assert.match(layoutSource, /<ProjectAvatar\s+project=\{project\}\s+size="detail"/);
 
     // Verify 2-line lockup: avatar is beside Title and Tagline only, with metadata below
-    assert.match(layoutSource, /<div className="flex (?:items-start|items-center) gap-4 sm:gap-5">\s*<ProjectAvatar[\s\S]*?nb-page-title/);
+    assert.match(layoutSource, /<div className="flex (?:min-w-0 )?(?:items-start|items-center) gap-4 sm:gap-5[^"]*">\s*<ProjectAvatar[\s\S]*?nb-page-title/);
     assert.match(layoutSource, /<\/div>\s*\{projectIdentityMetadata\}/);
 
     // Zero-presence fallback: when no avatar, renders flush without avatar container
-    assert.match(layoutSource, /:\s*\(\s*<div className="flex min-w-0 flex-1 flex-col items-start gap-3">\s*<div className="flex min-w-0 flex-wrap items-center gap-3">\s*<h1 className="nb-page-title/);
+    assert.match(layoutSource, /:\s*\(\s*<div className="flex min-w-0 flex-1 flex-col items-start gap-3[^"]*">\s*<div className="flex min-w-0 flex-wrap items-center gap-3">\s*<h1 className="nb-page-title/);
 
     // Line 3: update date removed completely
     assert.doesNotMatch(layoutSource, /data-testid="project-presence-indicator"/);
@@ -40,7 +41,7 @@ test("ProjectCard conditionally renders ProjectAvatar with card-size lockup and 
     const cardSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectCard.tsx"), "utf-8");
 
     assert.match(cardSource, /import ProjectAvatar,\s*\{\s*getProjectAvatarUrl\s*\}\s*from\s*"@\/components\/projects\/ProjectAvatar"/);
-    assert.match(cardSource, /const avatarUrl = getProjectAvatarUrl\(project\);/);
+    assert.match(cardSource, /const coverUrl = getProjectAvatarUrl\(project\);/);
     assert.match(cardSource, /<ProjectAvatar\s+project=\{project\}\s+size="card"/);
 
     // Verify zero-presence fallback branch exists
@@ -54,7 +55,7 @@ test("ProjectAvatar enforces inset ring framing, 80px detail size, presence dot 
     assert.match(avatarSource, /size-\[80px\] rounded-xl/, "Detail size must be 80px");
     assert.match(avatarSource, /size-11 rounded-md/, "Card size must be 44px");
     assert.match(avatarSource, /ProjectPresenceDot/, "Must render project presence dot on the profile picture");
-    assert.match(avatarSource, /data-testid="project-avatar-presence-dot"/, "Must test for presence dot");
+    assert.match(avatarSource, /(data-testid|testId)="project-avatar-presence-dot"/, "Must test for presence dot");
     assert.match(avatarSource, /formatProjectOfflinePresenceLabel/, "Must format offline presence label with last updated and date");
     assert.match(avatarSource, /Last updated:/, "Offline label must include Last updated prefix");
     assert.match(avatarSource, /if \(!avatarUrl \|\| hasError\) \{\s*return null;\s*\}/, "Must return null when no avatar image");
@@ -73,8 +74,9 @@ test("Architectural enhancements: native single tooltip, default cursor, zero-pr
     assert.doesNotMatch(avatarSource, /TooltipProvider/);
     assert.doesNotMatch(avatarSource, /TooltipContent/);
     assert.doesNotMatch(avatarSource, /cursor-help/);
-    assert.match(avatarSource, /title=\{label\}/);
-    assert.match(avatarSource, /aria-label=\{label\}/);
+    assert.match(avatarSource, /activityLabel=\{activityLabel\}/);
+    assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /title=\{label\}/);
+    assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /aria-label=\{label\}/);
 
     // 3. Clean offline presence format: Last updated: [date]
     assert.match(avatarSource, /Last updated: \$\{formattedDate\}/);
@@ -105,8 +107,9 @@ test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel s
     assert.match(avatarSource, /navigator\.language/);
 
     // Idea 4: Color-vision accessibility (WCAG 2.2 Compliant)
-    assert.match(avatarSource, /role="status"/);
-    assert.match(avatarSource, /ring-1 ring-black\/10 dark:ring-white\/15/);
+    assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /role=\{label \? "img" : undefined\}/);
+    // The Node badge separates from any photo with a 2 px cut-out in the surface color.
+    assert.match(readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8"), /\.nb-presence \{[^}]*box-shadow:0 0 0 2px var\(--presence-cut\)/);
 });
 
 test("Projects without a profile picture render standalone presence dot beside the project title and keep Line 3 cleanly separated", () => {
@@ -137,7 +140,7 @@ test("Header architecture: Created by and Guided by are completely removed, team
 
     // 3. Verify clean right actions column
     assert.match(layoutSource, /Right: Actions/);
-    assert.match(layoutSource, /<div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1">/);
+    assert.match(layoutSource, /<div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1[^"]*">/);
 });
 
 test("Discovery page ProjectCard and detail page ProjectStatsBar: last updated date removed from card, unified X-platform view icon (BarChart2)", () => {
@@ -155,27 +158,30 @@ test("Discovery page ProjectCard and detail page ProjectStatsBar: last updated d
 
     // 3. ProjectStatsBar on detail page also uses BarChart2 (unified with card)
     assert.match(statsSource, /import\s*\{[^}]*BarChart2[^}]*\}\s*from\s*"lucide-react"/);
-    assert.match(statsSource, /<BarChart2\s+className=\{iconClass\}\s+aria-hidden="true"\s*\/>/);
+    assert.match(statsSource, /<BarChart2\s+className=\{(?:iconClass|cn\(iconClass, "max-md:hidden"\))\}\s+aria-hidden="true"\s*\/>/);
 });
 
 test("Animated GIF avatar architecture: bypass canvas rasterization, preserve frames as image/gif, and render unoptimized", () => {
     const prepSource = readFileSync(resolve(ROOT, "src/lib/upload/image-prep-client.ts"), "utf-8");
-    const settingsSource = readFileSync(resolve(ROOT, "src/components/projects/tabs/ProjectSettingsTab.tsx"), "utf-8");
+    const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
 
     // 1. image-prep-client must bypass 2D canvas for GIFs so animation frames are never flattened
     assert.match(prepSource, /prepareProjectImageForUpload[\s\S]*?file\.type === "image\/gif"[\s\S]*?contentType:\s*"image\/gif"/);
 
     // 2. ProjectSettingsTab must preserve GIF type and avoid forcing outputType: "image/jpeg"
-    assert.match(settingsSource, /const isGif = coverDraft\.file\.type === "image\/gif"/);
-    assert.match(settingsSource, /outputType:\s*isGif \? undefined : "image\/jpeg"/);
+    // GIFs keep their frames: the shared upload helper (Settings and create step 4) skips JPEG output for them.
+    const uploadHelperSource = readFileSync(resolve(ROOT, "src/lib/upload/project-image-upload-client.ts"), "utf-8");
+    assert.match(uploadHelperSource, /const isGif = file\.type === "image\/gif"/);
+    assert.match(uploadHelperSource, /outputType:\s*isGif \? undefined : "image\/jpeg"/);
+    assert.match(settingsSource, /await uploadProjectImage\(projectId, coverDraft\.file,/);
 
     // 3. ProjectAvatar must use unoptimized so browser's native engine plays the animated GIF
     assert.match(avatarSource, /<Image[\s\S]*?src=\{avatarUrl\}[\s\S]*?unoptimized/);
 });
 
-test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, immutable edge caching, compositor throttling, and async decoding", () => {
-    const settingsSource = readFileSync(resolve(ROOT, "src/components/projects/tabs/ProjectSettingsTab.tsx"), "utf-8");
+test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, revocable caching, compositor throttling, and async decoding", () => {
+    const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const routeSource = readFileSync(resolve(ROOT, "src/app/api/v1/projects/[id]/image/route.ts"), "utf-8");
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
     const globalsCss = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");
@@ -187,9 +193,10 @@ test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, immutabl
     assert.match(settingsSource, /const isDraftGif = coverDraft\.file\.type === "image\/gif"/);
     assert.match(settingsSource, /Animated GIF · 1:1 Direct Upload/);
 
-    // 3. Immutable edge caching for versioned avatars (1M scale DB offload)
-    assert.match(routeSource, /const hasMatchingVersion = request\.nextUrl\.searchParams\.get\("v"\) === version/);
-    assert.match(routeSource, /public, max-age=31536000, s-maxage=31536000, immutable/);
+    // 3. Versioned cover responses remain inside the five-minute visibility-revocation budget.
+    assert.match(routeSource, /request\.nextUrl\.searchParams\.get\("v"\) !== version/);
+    assert.match(routeSource, /public, max-age=300, s-maxage=300, must-revalidate/);
+    assert.match(routeSource, /private, no-store/);
 
     // 4. Compositor throttling: content-visibility: auto on project cards prevents offscreen GIF decoding
     assert.match(globalsCss, /\.nb-project-card\s*\{[\s\S]*?content-visibility:\s*auto;[\s\S]*?contain-intrinsic-size:\s*auto 240px;/);
@@ -202,7 +209,7 @@ test("GIF avatar optimizations: 2MB preflight guard, adaptive draft UI, immutabl
 
 test("Project avatar fit architecture: enforces objectFit cover across detail page, cards, settings, and globals to eliminate gaps", () => {
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
-    const settingsSource = readFileSync(resolve(ROOT, "src/components/projects/tabs/ProjectSettingsTab.tsx"), "utf-8");
+    const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const globalsCss = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");
 
     // 1. ProjectAvatar enforces inline objectFit cover with 100% fill
@@ -216,9 +223,9 @@ test("Project avatar fit architecture: enforces objectFit cover across detail pa
 });
 
 test("Discovery page avatar cache synchronization & multi-tab real-time updates contract", () => {
-    const projectActionsSource = readFileSync(resolve(ROOT, "src/app/actions/project/_all.ts"), "utf-8");
+    const projectActionsSource = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
-    const settingsSource = readFileSync(resolve(ROOT, "src/components/projects/tabs/ProjectSettingsTab.tsx"), "utf-8");
+    const settingsSource = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const hubClientSource = readFileSync(resolve(ROOT, "src/components/discover/DiscoverClient.tsx"), "utf-8");
 
     // 1. Server route revalidation includes /discover, /hub, and /my-profile
@@ -267,4 +274,3 @@ test("Discovery feed smooth scrolling & Virtuoso stability contract", () => {
     assert.match(hubClientSource, /increaseViewportBy=\{VIRTUOSO_INCREASE_VIEWPORT_BY\}/);
     assert.match(hubClientSource, /const VIRTUOSO_INCREASE_VIEWPORT_BY = \{\s*top:\s*1200,\s*bottom:\s*800\s*\}\s*as const;/);
 });
-

@@ -25,12 +25,13 @@ describe("extension crash recovery contract", () => {
     assert.match(route, /requireAuthenticatedUser/);
     assert.match(route, /getProjectAccessById/);
     assert.match(route, /createSignedUploadUrl/);
-    assert.match(route, /createSignedUrl/);
+    assert.match(route, /streamPrivateObject/);
+    assert.match(route, /finalizeUploadIntent/);
     assert.match(route, /sha256/);
     assert.match(route, /MAX_RECOVERY_DRAFT_BYTES/);
   });
 
-  it("retains only finalized generations and removes expired/account-owned blobs", () => {
+  it("retains finalized generations and schedules expired assets through the lifecycle", () => {
     const route = source("src/app/api/v1/extension/recovery-drafts/route.ts");
     const helper = source("src/lib/extension/recovery-drafts.ts");
     const retention = source("src/inngest/functions/extension-recovery-retention.ts");
@@ -46,7 +47,9 @@ describe("extension crash recovery contract", () => {
     assert.match(helper, /EXTENSION_RECOVERY_BUCKET = "extension-recovery-drafts"/);
     assert.match(registry, /extensionRecoveryRetention/);
     assert.match(hardDelete, /extensionRecoveryDrafts/);
-    assert.match(hardDelete, /extension-recovery-drafts/);
+    assert.match(helper, /state: "delete_pending"/);
+    assert.match(helper, /RECOVERY_DRAFT_DETACHED/);
+    assert.match(hardDelete, /extensionRecoveryDrafts\.assetId/);
     assert.match(hardDelete, /createAdminClient/);
     assert.doesNotMatch(hardDelete, /delete_auth_user/);
   });
@@ -68,10 +71,6 @@ describe("extension crash recovery contract", () => {
     const migration = source("drizzle/0102_extension_recovery_sessions.sql");
     const sessionRoute = source("src/app/api/v1/extension/recovery-sessions/route.ts");
     const draftRoute = source("src/app/api/v1/extension/recovery-drafts/route.ts");
-    const extensionRoot = path.resolve(process.cwd(), "../workspace-extensions/nb-vscode-sync");
-    const recovery = fs.readFileSync(path.join(extensionRoot, "src/recovery.ts"), "utf8");
-    const extension = fs.readFileSync(path.join(extensionRoot, "src/extension.ts"), "utf8");
-    const sidebar = fs.readFileSync(path.join(extensionRoot, "media/sidebar.js"), "utf8");
 
     assert.match(schema, /extensionRecoverySessions/);
     assert.match(migration, /active.*clean.*interrupted.*resolved/);
@@ -80,6 +79,14 @@ describe("extension crash recovery contract", () => {
     assert.match(draftRoute, /view === "all" \|\| Boolean\(row\.incidentReason\)/);
     assert.match(draftRoute, /recoveryIncidentReason/);
     assert.match(draftRoute, /currentSessionId/);
+  });
+
+  // The extension is a sibling repo; CI checks out only nb-s3, so this half runs locally.
+  const extensionRoot = path.resolve(process.cwd(), "../workspace-extensions/nb-vscode-sync");
+  it("the extension shows interrupted-session incidents", { skip: !fs.existsSync(extensionRoot) && "sibling repo ../workspace-extensions not checked out" }, () => {
+    const recovery = fs.readFileSync(path.join(extensionRoot, "src/recovery.ts"), "utf8");
+    const extension = fs.readFileSync(path.join(extensionRoot, "src/extension.ts"), "utf8");
+    const sidebar = fs.readFileSync(path.join(extensionRoot, "media/sidebar.js"), "utf8");
     assert.match(recovery, /incidentSessionIds/);
     assert.match(recovery, /lastStateSignature/);
     assert.match(extension, /type: 'recoveryIncidentState'/);

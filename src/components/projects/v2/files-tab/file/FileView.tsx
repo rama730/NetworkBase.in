@@ -43,6 +43,7 @@
 
 "use client";
 
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 
 import * as React from "react";
@@ -92,10 +93,11 @@ import { FileInspectorPanelHeader } from "./FileInspectorPanelHeader";
 import { formatBytes, formatFileTimestamp, formatFileActor } from "../folder/format";
 import { taskFilesHref } from "@/lib/files/task-navigation";
 import { confirmFileNavigation } from "@/lib/files/unsaved-navigation";
-import { RevisionControlModal } from "@/components/ui/RevisionControlModal";
-import { createClient } from "@/lib/supabase/client";
 import { useFileLease, type FileLeaseStatus } from "../hooks/useFileLease";
 import type { BrowserFileLease, FileLeaseView } from "@/lib/files/file-lease-client";
+import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
+
+const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionControlModal").then((mod) => mod.RevisionControlModal), { ssr: false });
 
 // ---------------------------------------------------------------------------
 // Props
@@ -145,6 +147,7 @@ export function FileView({
   canEdit,
 }: FileViewProps): React.JSX.Element {
   const roleContext = React.useContext(FilesTabRoleContext);
+  useDocumentTitlePrefix(node.name);
   const { mutations, dialogs } = useFilePreviewMutations(projectId, node.id, canEdit, roleContext?.canManageFiles ?? false);
   // ── Fetch project members for uploader profiles ────────────────────
   const { data: membersData } = useProjectMembers(projectId);
@@ -409,7 +412,6 @@ export function FileView({
             mode: "active_revision",
             comment: choice.comment,
             baseVersion: node.currentVersion,
-            supabase: createClient(),
           });
 
           if (result.success) {
@@ -598,7 +600,7 @@ export function FileView({
               type="button"
               onClick={resetDragState}
               aria-label="Dismiss drop overlay"
-              className="absolute top-2.5 right-2.5 size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="nb-touch-target absolute top-2.5 right-2.5 size-7 rounded-[5px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
               <X className="size-4" />
             </button>

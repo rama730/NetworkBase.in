@@ -1,12 +1,11 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useMemo, useState, type HTMLAttributes } from "react";
-import { Loader2, Users } from "lucide-react";
-import { VirtuosoGrid } from "react-virtuoso";
+import { useCallback, useMemo } from "react";
+import { Users } from "lucide-react";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
 
-import PersonCard from "@/components/network/PersonCard";
+import PersonCard, { PersonCardGrid } from "@/components/network/PersonCard";
 import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getConnectionRequestSuccessMessage, useConnectionMutations, useSuggestedPeople } from "@/hooks/useConnections";
@@ -16,26 +15,8 @@ interface PeopleClientProps {
     searchQuery: string;
 }
 
-const GridList = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
-    <div {...props} ref={ref} className="grid grid-cols-1 gap-[14px] pb-8 sm:grid-cols-2" />
-));
-GridList.displayName = "SuggestedPeopleGrid";
-
-const GridItem = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
-    <div {...props} ref={ref} className="h-[158px]" />
-));
-GridItem.displayName = "SuggestedPersonItem";
-
 export default function NetworkPeopleTab({ initialUser, searchQuery }: PeopleClientProps) {
     const [debouncedSearch] = useDebounce(searchQuery, 300);
-    const [routeScrollParent, setRouteScrollParent] = useState<HTMLElement | null>(() =>
-        typeof document === "undefined" ? null : document.querySelector<HTMLElement>("[data-scroll-root=\"route\"]"),
-    );
-
-    useEffect(() => {
-        setRouteScrollParent(document.querySelector<HTMLElement>("[data-scroll-root=\"route\"]"));
-    }, []);
-
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useSuggestedPeople(20, debouncedSearch || undefined);
     const { sendRequest } = useConnectionMutations();
     const profiles = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data]);
@@ -74,31 +55,21 @@ export default function NetworkPeopleTab({ initialUser, searchQuery }: PeopleCli
     }
 
     return (
-        <div style={{ minHeight: 400 }}>
-            <VirtuosoGrid
-                customScrollParent={routeScrollParent ?? undefined}
-                increaseViewportBy={600}
-                data={profiles}
-                computeItemKey={(_, profile) => profile.id}
-                endReached={() => {
-                    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
-                }}
-                components={{
-                    List: GridList,
-                    Item: GridItem,
-                    Footer: () => isFetchingNextPage ? (
-                        <div className="col-span-full flex justify-center py-6"><Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="Loading more suggestions" /></div>
-                    ) : null,
-                }}
-                itemContent={(index, profile) => (
-                    <PersonCard
-                        profile={profile}
-                        onConnect={handleConnect}
-                        priority={index < 6}
-                        viewerSkills={viewerSkills}
-                    />
-                )}
-            />
-        </div>
+        <PersonCardGrid
+            items={profiles}
+            getKey={(profile) => profile.id}
+            hasNextPage={Boolean(hasNextPage)}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+            loadingLabel="Loading more suggestions"
+            renderItem={(profile, index) => (
+                <PersonCard
+                    profile={profile}
+                    onConnect={handleConnect}
+                    priority={index < 6}
+                    viewerSkills={viewerSkills}
+                />
+            )}
+        />
     );
 }

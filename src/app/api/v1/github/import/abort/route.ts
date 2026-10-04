@@ -1,8 +1,14 @@
 import { NextRequest } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
-import { importJobs, importJobFiles, uploadIntents } from '@/lib/db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import {
+    fileVersions,
+    importJobs,
+    importJobFiles,
+    projectNodes,
+    storageAssets,
+    uploadIntents,
+} from '@/lib/db/schema';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
 import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
@@ -58,52 +64,57 @@ export async function POST(request: NextRequest) {
 
         await assertProjectWriteAccess(job.projectId, user.id);
 
-        // 2. Fetch all files for this job that might have S3 objects
+        // 2. Resolve lifecycle identities. Raw object keys are never deletion authority.
         const filesWithKeys = await db.query.importJobFiles.findMany({
             where: eq(importJobFiles.jobId, jobId),
             columns: {
                 id: true,
-                s3Key: true,
                 uploadIntentId: true,
             },
         });
 
-        const keysToDelete: string[] = [];
         const intentIds: string[] = [];
 
-        if (job.manifestS3Key) {
-            keysToDelete.push(job.manifestS3Key);
-        }
-
         for (const f of filesWithKeys) {
-            if (f.s3Key) {
-                keysToDelete.push(f.s3Key);
-            }
             if (f.uploadIntentId) {
                 intentIds.push(f.uploadIntentId);
             }
         }
 
-        // 3. Delete from Supabase Storage
-        if (keysToDelete.length > 0) {
-            const adminClient = await createAdminClient();
-            const { error: storageDeleteError } = await adminClient.storage
-                .from('project-files')
-                .remove(keysToDelete);
-            
-            if (storageDeleteError) {
-                console.error('[github-import-abort] Failed to delete S3 objects during abort:', storageDeleteError);
-            }
-        }
-
-        // 4. Update database statuses inside transaction
+        // 3. Detach unpublished objects and let the fenced lifecycle worker
+        // remove bytes after credential grace. Published assets stay live.
         await db.transaction(async (tx) => {
+            await tx.execute(sql`
+                SELECT id FROM public.import_jobs
+                WHERE id = ${jobId}
+                FOR UPDATE
+            `);
+            const [lockedJob] = await tx.select({
+                status: importJobs.status,
+                manifestAssetId: importJobs.manifestAssetId,
+            }).from(importJobs).where(eq(importJobs.id, jobId)).limit(1);
+            if (!lockedJob || lockedJob.status === 'completed' || lockedJob.status === 'failed') {
+                throw new Error('Import job became terminal before abort committed');
+            }
+            const intentAssets = intentIds.length > 0
+                ? await tx.select({ assetId: uploadIntents.assetId })
+                    .from(uploadIntents)
+                    .where(inArray(uploadIntents.id, intentIds))
+                : [];
+            const assetIds = Array.from(new Set([
+                ...(lockedJob.manifestAssetId ? [lockedJob.manifestAssetId] : []),
+                ...intentAssets.flatMap((row) => row.assetId ? [row.assetId] : []),
+            ]));
+
             // Mark job as failed
             await tx
                 .update(importJobs)
                 .set({
                     status: 'failed',
                     errorMessage: 'Import aborted by user',
+                    manifestAssetId: null,
+                    manifestUploadIntentId: null,
+                    manifestS3Key: null,
                     updatedAt: new Date(),
                 })
                 .where(eq(importJobs.id, jobId));
@@ -128,10 +139,33 @@ export async function POST(request: NextRequest) {
                     })
                     .where(inArray(uploadIntents.id, intentIds));
             }
+
+            if (assetIds.length > 0) {
+                await tx.update(storageAssets)
+                    .set({
+                        state: 'delete_pending',
+                        deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+                        backupState: 'not_required',
+                        lastErrorCode: 'IMPORT_ABORTED',
+                        updatedAt: new Date(),
+                    })
+                    .where(and(
+                        inArray(storageAssets.id, assetIds),
+                        inArray(storageAssets.state, ['pending', 'verified']),
+                        sql`NOT EXISTS (
+                            SELECT 1 FROM ${projectNodes}
+                            WHERE ${projectNodes.assetId} = ${storageAssets.id}
+                        )`,
+                        sql`NOT EXISTS (
+                            SELECT 1 FROM ${fileVersions}
+                            WHERE ${fileVersions.assetId} = ${storageAssets.id}
+                        )`,
+                    ));
+            }
         });
 
         return jsonSuccess({
-            message: 'Import job aborted successfully and resources cleaned up',
+            message: 'Import job aborted and unpublished resources scheduled for cleanup',
             jobId,
         });
     } catch (error) {

@@ -1,21 +1,18 @@
 /**
- * One-off backfill: populate `file_versions.content_hash` for rows seeded by
- * migration 0069. Those rows were created without computing SHA-256 (the
- * migration only copies metadata from `project_nodes`), so re-upload detection
- * for legacy files would miss the "same bytes" case until this script runs.
+ * One-off backfill: verify legacy file bytes, populate full content hashes,
+ * register canonical storage assets, and attach each retained version.
  *
  * Strategy
  *   1. Keyset-page file_versions rows where content_hash IS NULL and s3_key != ''.
- *   2. For each, stream the blob from Supabase Storage (bucket `project-files`)
- *      via the admin client, compute SHA-256 with the runtime's crypto module.
- *   3. Write the lowercase hex digest back via a parameterized UPDATE.
+ *   2. For each, stream the entire blob through SHA-256 with an idle deadline.
+ *   3. Compare-and-swap the digest only while key and revision remain unchanged.
  *
  * Safety
  *   • Runs in batches of 25, with a short inter-batch pause, to avoid storage
  *     throttling on large projects.
  *   • Idempotent: re-running skips already-hashed rows.
- *   • On per-file error, advances the run cursor so one bad object cannot
- *     starve later rows; the next run retries it.
+ *   • Successful rows are durable checkpoints. Any partial failure exits 1,
+ *     while failed rows remain NULL and are retried on the next run.
  *
  * Usage
  *   pnpm tsx scripts/backfill-file-hashes.ts
@@ -30,20 +27,39 @@ if (process.env.DATABASE_URL) {
 }
 
 import { createHash } from "node:crypto";
-import { and, asc, eq, gt, isNull, ne, sql } from "drizzle-orm";
-import { db } from "../src/lib/db";
-import { fileVersions } from "../src/lib/db/schema";
+import { and, asc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
+import {
+  fileVersions,
+  projectNodes,
+  storageAssets,
+  storageRepairFailures,
+} from "../src/lib/db/schema";
 import { createAdminClient } from "../src/lib/supabase/server";
 
 const BUCKET = "project-files";
 const BATCH_SIZE = 25;
+const requestedConcurrency = Number(process.env.STORAGE_REPAIR_CONCURRENCY ?? 8);
+const VERIFY_CONCURRENCY = Number.isFinite(requestedConcurrency)
+  ? Math.max(1, Math.min(16, Math.floor(requestedConcurrency)))
+  : 8;
 const BATCH_PAUSE_MS = 200;
+const IDLE_TIMEOUT_MS = 30_000;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 type Row = {
   id: string;
   nodeId: string;
   s3Key: string;
+  version: number;
+  size: number;
+  mimeType: string;
+  projectId: string;
+  contentHash: string | null;
+  currentVersion: number;
+  currentS3Key: string | null;
 };
+
+let db: (typeof import("../src/lib/db"))["db"];
 
 async function fetchBatch(afterId: string | null): Promise<Row[]> {
   const rows = await db
@@ -51,11 +67,36 @@ async function fetchBatch(afterId: string | null): Promise<Row[]> {
       id: fileVersions.id,
       nodeId: fileVersions.nodeId,
       s3Key: fileVersions.s3Key,
+      version: fileVersions.version,
+      size: fileVersions.size,
+      mimeType: fileVersions.mimeType,
+      projectId: projectNodes.projectId,
+      contentHash: fileVersions.contentHash,
+      currentVersion: projectNodes.currentVersion,
+      currentS3Key: projectNodes.s3Key,
     })
     .from(fileVersions)
+    .innerJoin(projectNodes, eq(projectNodes.id, fileVersions.nodeId))
     .where(
       and(
-        isNull(fileVersions.contentHash),
+        or(
+          isNull(fileVersions.assetId),
+          and(
+            isNull(fileVersions.contentHash),
+            sql`NOT EXISTS (
+              SELECT 1 FROM public.storage_assets missing_asset
+              WHERE missing_asset.id = ${fileVersions.assetId}
+                AND missing_asset.state = 'missing'
+            )`,
+          ),
+        ),
+        sql`NOT EXISTS (
+          SELECT 1 FROM public.storage_repair_failures quarantined_failure
+          WHERE quarantined_failure.repair_kind = 'file_hash_backfill'
+            AND quarantined_failure.subject_id = ${fileVersions.id}::text
+            AND quarantined_failure.error_code = 'HISTORICAL_BYTES_UNAVAILABLE'
+            AND quarantined_failure.resolved_at IS NULL
+        )`,
         ne(fileVersions.s3Key, ""),
         afterId ? gt(fileVersions.id, afterId) : undefined,
       ),
@@ -65,21 +106,155 @@ async function fetchBatch(afterId: string | null): Promise<Row[]> {
   return rows;
 }
 
-async function hashBlob(admin: Awaited<ReturnType<typeof createAdminClient>>, s3Key: string) {
-  const { data, error } = await admin.storage.from(BUCKET).download(s3Key);
-  if (error || !data) {
-    throw new Error(`download failed: ${error?.message ?? "no data"}`);
+function isConfirmedMissingObject(error: unknown) {
+  const detail = error instanceof Error ? error.message : String(error);
+  return detail === "signing failed: Object not found" || detail === "read failed with HTTP 404";
+}
+
+function isHistoricalBytesUnavailable(error: unknown) {
+  const detail = error instanceof Error ? error.message : String(error);
+  return detail.startsWith("HISTORICAL_VERSION_BYTES_UNAVAILABLE:");
+}
+
+async function quarantineHistoricalVersion(row: Row, detail: string) {
+  await db.insert(storageRepairFailures).values({
+    repairKind: "file_hash_backfill",
+    subjectId: row.id,
+    errorCode: "HISTORICAL_BYTES_UNAVAILABLE",
+    detail: detail.slice(0, 2_000),
+    nextRetryAt: null,
+  }).onConflictDoUpdate({
+    target: [storageRepairFailures.repairKind, storageRepairFailures.subjectId],
+    set: {
+      errorCode: "HISTORICAL_BYTES_UNAVAILABLE",
+      detail: detail.slice(0, 2_000),
+      nextRetryAt: null,
+      resolvedAt: null,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+async function quarantineMissingObject(row: Row, detail: string) {
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config('app.maintenance_operation', 'hash_backfill', true)`);
+    const [insertedAsset] = await tx.insert(storageAssets).values({
+      projectId: row.projectId,
+      bucket: BUCKET,
+      storageKey: row.s3Key,
+      purpose: "project_file:file",
+      state: "missing",
+      declaredMimeType: row.mimeType || "application/octet-stream",
+      declaredSize: Math.max(0, row.size),
+      metadata: {
+        source: "file_hash_backfill",
+        versionId: row.id,
+        provenance: "legacy_object_confirmed_missing",
+      },
+      expiresAt: new Date(),
+      backupState: "not_required",
+      lastErrorCode: "OBJECT_MISSING_QUARANTINED",
+    }).onConflictDoNothing({
+      target: [storageAssets.bucket, storageAssets.storageKey],
+    }).returning({ id: storageAssets.id, projectId: storageAssets.projectId, state: storageAssets.state });
+    const [asset] = insertedAsset
+      ? [insertedAsset]
+      : await tx.select({
+          id: storageAssets.id,
+          projectId: storageAssets.projectId,
+          state: storageAssets.state,
+        }).from(storageAssets).where(and(
+          eq(storageAssets.bucket, BUCKET),
+          eq(storageAssets.storageKey, row.s3Key),
+        )).limit(1);
+    if (!asset || asset.projectId !== row.projectId || asset.state !== "missing") {
+      throw new Error("missing storage asset identity conflicts with the legacy file reference");
+    }
+    const attached = await tx.update(fileVersions)
+      .set({ assetId: asset.id })
+      .where(and(
+        eq(fileVersions.id, row.id),
+        eq(fileVersions.version, row.version),
+        eq(fileVersions.s3Key, row.s3Key),
+        isNull(fileVersions.assetId),
+      ))
+      .returning({ id: fileVersions.id });
+    if (attached.length !== 1) throw new Error("file version changed while missing content was quarantined");
+    if (row.version === row.currentVersion && row.s3Key === row.currentS3Key) {
+      await tx.update(projectNodes)
+        .set({ assetId: asset.id, updatedAt: new Date() })
+        .where(and(
+          eq(projectNodes.id, row.nodeId),
+          eq(projectNodes.projectId, row.projectId),
+          eq(projectNodes.currentVersion, row.version),
+          eq(projectNodes.s3Key, row.s3Key),
+          isNull(projectNodes.assetId),
+        ));
+    }
+    await tx.insert(storageRepairFailures).values({
+      repairKind: "file_hash_backfill",
+      subjectId: row.id,
+      errorCode: "OBJECT_MISSING_QUARANTINED",
+      detail: detail.slice(0, 2_000),
+      nextRetryAt: null,
+    }).onConflictDoUpdate({
+      target: [storageRepairFailures.repairKind, storageRepairFailures.subjectId],
+      set: {
+        errorCode: "OBJECT_MISSING_QUARANTINED",
+        detail: detail.slice(0, 2_000),
+        nextRetryAt: null,
+        resolvedAt: null,
+        updatedAt: new Date(),
+      },
+    });
+  });
+}
+
+async function hashBlob(admin: Awaited<ReturnType<typeof createAdminClient>>, row: Row) {
+  if (row.size < 0 || row.size > MAX_FILE_BYTES) {
+    throw new Error(`declared size ${row.size} exceeds the maintained file contract`);
   }
-  const buffer = Buffer.from(await data.arrayBuffer());
-  return createHash("sha256").update(buffer).digest("hex");
+  const { data, error } = await admin.storage.from(BUCKET).createSignedUrl(row.s3Key, 60);
+  if (error || !data?.signedUrl) throw new Error(`signing failed: ${error?.message ?? "no URL"}`);
+
+  const controller = new AbortController();
+  let timer = setTimeout(() => controller.abort(), IDLE_TIMEOUT_MS);
+  try {
+    const response = await fetch(data.signedUrl, { signal: controller.signal, cache: "no-store" });
+    if (!response.ok || !response.body) throw new Error(`read failed with HTTP ${response.status}`);
+    const digest = createHash("sha256");
+    const reader = response.body.getReader();
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      clearTimeout(timer);
+      timer = setTimeout(() => controller.abort(), IDLE_TIMEOUT_MS);
+      received += value.byteLength;
+      if (received > MAX_FILE_BYTES) {
+        await reader.cancel("size limit exceeded");
+        throw new Error("stored object exceeds the maintained file limit");
+      }
+      digest.update(value);
+    }
+    return {
+      digest: digest.digest("hex"),
+      size: received,
+      mimeType: response.headers.get("content-type")?.split(";", 1)[0]?.trim() || row.mimeType,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function main() {
+  ({ db } = await import("../src/lib/db"));
   console.log("[backfill-file-hashes] starting…");
   const admin = await createAdminClient();
 
   let processed = 0;
   let succeeded = 0;
+  let quarantined = 0;
   let failed = 0;
   let cursor: string | null = null;
 
@@ -88,43 +263,202 @@ async function main() {
     if (batch.length === 0) break;
     cursor = batch.at(-1)!.id;
 
-    for (const row of batch) {
-      processed++;
-      try {
-        const digest = await hashBlob(admin, row.s3Key);
-        await db
-          .update(fileVersions)
-          .set({ contentHash: digest })
-          .where(and(eq(fileVersions.id, row.id), isNull(fileVersions.contentHash)));
-        succeeded++;
-      } catch (err) {
-        failed++;
-        console.warn(
-          `[backfill-file-hashes] failed id=${row.id} node=${row.nodeId}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
+    let nextIndex = 0;
+    await Promise.all(Array.from({ length: Math.min(VERIFY_CONCURRENCY, batch.length) }, async () => {
+      while (nextIndex < batch.length) {
+        const row = batch[nextIndex++]!;
+        processed++;
+        try {
+          const verified = await hashBlob(admin, row);
+          const isCurrentRevision = row.version === row.currentVersion && row.s3Key === row.currentS3Key;
+          const metadataChanged = row.size !== verified.size
+            || (row.contentHash != null && row.contentHash !== verified.digest);
+          if (!isCurrentRevision && metadataChanged) {
+            throw new Error(
+              `HISTORICAL_VERSION_BYTES_UNAVAILABLE:stored=${verified.size}:recorded=${row.size}`,
+            );
+          }
+          const updated = await db.transaction(async (tx) => {
+          await tx.execute(sql`SELECT set_config('app.maintenance_operation', 'hash_backfill', true)`);
+          const [insertedAsset] = await tx.insert(storageAssets).values({
+            projectId: row.projectId,
+            bucket: BUCKET,
+            storageKey: row.s3Key,
+            purpose: "project_file:file",
+            state: "verified",
+            declaredMimeType: verified.mimeType,
+            declaredSize: verified.size,
+            verifiedMimeType: verified.mimeType,
+            verifiedSize: verified.size,
+            contentHash: verified.digest,
+            metadata: {
+              source: "file_hash_backfill",
+              versionId: row.id,
+              provenance: metadataChanged ? "legacy_mutable_key_current_bytes" : "verified_legacy_bytes",
+            },
+            expiresAt: new Date(),
+            verifiedAt: new Date(),
+            backupState: "pending",
+          }).onConflictDoNothing({
+            target: [storageAssets.bucket, storageAssets.storageKey],
+          }).returning({
+            id: storageAssets.id,
+            projectId: storageAssets.projectId,
+            state: storageAssets.state,
+            contentHash: storageAssets.contentHash,
+            verifiedSize: storageAssets.verifiedSize,
+          });
+          const [asset] = insertedAsset
+            ? [insertedAsset]
+            : await tx.select({
+                id: storageAssets.id,
+                projectId: storageAssets.projectId,
+                state: storageAssets.state,
+                contentHash: storageAssets.contentHash,
+                verifiedSize: storageAssets.verifiedSize,
+              }).from(storageAssets).where(and(
+                eq(storageAssets.bucket, BUCKET),
+                eq(storageAssets.storageKey, row.s3Key),
+              )).limit(1);
+          if (
+            !asset
+            || asset.projectId !== row.projectId
+            || asset.state !== "verified"
+            || asset.contentHash !== verified.digest
+            || asset.verifiedSize !== verified.size
+          ) {
+            throw new Error("existing storage asset does not match the verified legacy bytes");
+          }
+          const rows = await tx
+            .update(fileVersions)
+            .set({
+              contentHash: verified.digest,
+              assetId: asset.id,
+              size: verified.size,
+              mimeType: verified.mimeType,
+              attribution: sql`coalesce(${fileVersions.attribution}, '{}'::jsonb) || ${JSON.stringify({
+                source: "file_hash_backfill",
+                provenance: metadataChanged ? "legacy_mutable_key_current_bytes" : "verified_legacy_bytes",
+                repairedAt: new Date().toISOString(),
+              })}::jsonb`,
+            })
+            .where(and(
+              eq(fileVersions.id, row.id),
+              eq(fileVersions.version, row.version),
+              eq(fileVersions.s3Key, row.s3Key),
+              or(isNull(fileVersions.contentHash), isNull(fileVersions.assetId)),
+            ))
+            .returning({ id: fileVersions.id });
+          if (rows.length === 1) {
+            if (isCurrentRevision) {
+              await tx.update(projectNodes)
+                .set({
+                  assetId: asset.id,
+                  size: verified.size,
+                  mimeType: verified.mimeType,
+                  updatedAt: new Date(),
+                })
+                .where(and(
+                  eq(projectNodes.id, row.nodeId),
+                  eq(projectNodes.projectId, row.projectId),
+                  eq(projectNodes.currentVersion, row.version),
+                  eq(projectNodes.s3Key, row.s3Key),
+                ));
+            }
+            await tx.update(storageRepairFailures)
+              .set({ resolvedAt: new Date(), updatedAt: new Date() })
+              .where(and(
+                eq(storageRepairFailures.repairKind, "file_hash_backfill"),
+                eq(storageRepairFailures.subjectId, row.id),
+              ));
+          }
+          return rows;
+          });
+          if (updated.length !== 1) throw new Error("row changed while the hash was streaming");
+          succeeded++;
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          if (isConfirmedMissingObject(err)) {
+            try {
+              await quarantineMissingObject(row, detail);
+              quarantined++;
+              console.warn(`[backfill-file-hashes] quarantined missing object id=${row.id} node=${row.nodeId}`);
+              continue;
+            } catch (quarantineError) {
+              err = quarantineError;
+            }
+          }
+          if (isHistoricalBytesUnavailable(err)) {
+            await quarantineHistoricalVersion(row, detail);
+            quarantined++;
+            console.warn(`[backfill-file-hashes] quarantined unavailable historical bytes id=${row.id} node=${row.nodeId}`);
+            continue;
+          }
+          failed++;
+          const finalDetail = err instanceof Error ? err.message : String(err);
+          await db.insert(storageRepairFailures).values({
+          repairKind: "file_hash_backfill",
+          subjectId: row.id,
+          errorCode: "HASH_BACKFILL_FAILED",
+          detail: finalDetail.slice(0, 2_000),
+          nextRetryAt: new Date(Date.now() + 60 * 60 * 1000),
+          }).onConflictDoUpdate({
+          target: [storageRepairFailures.repairKind, storageRepairFailures.subjectId],
+          set: {
+            errorCode: "HASH_BACKFILL_FAILED",
+            detail: finalDetail.slice(0, 2_000),
+            attempts: sql`${storageRepairFailures.attempts} + 1`,
+            nextRetryAt: new Date(Date.now() + 60 * 60 * 1000),
+            resolvedAt: null,
+            updatedAt: new Date(),
+          },
+          });
+          console.warn(
+            `[backfill-file-hashes] failed id=${row.id} node=${row.nodeId}: ${finalDetail}`,
+          );
+        }
       }
-    }
+    }));
 
     await new Promise((r) => setTimeout(r, BATCH_PAUSE_MS));
+    console.log(`[backfill-file-hashes] checkpoint=${cursor} processed=${processed} failed=${failed}`);
     if (batch.length < BATCH_SIZE) break;
   }
 
   console.log(
-    `[backfill-file-hashes] done. processed=${processed} succeeded=${succeeded} failed=${failed}`,
+    `[backfill-file-hashes] done. processed=${processed} succeeded=${succeeded} quarantined=${quarantined} failed=${failed}`,
   );
   // Sanity probe — any stragglers left?
   const result = await db.execute<{ remaining: number }>(
-    sql`SELECT COUNT(*)::int AS remaining FROM file_versions WHERE content_hash IS NULL AND s3_key <> ''`,
+    sql`SELECT COUNT(*)::int AS remaining FROM file_versions version
+        WHERE version.s3_key <> ''
+          AND NOT EXISTS (
+            SELECT 1 FROM storage_repair_failures failure
+            WHERE failure.repair_kind = 'file_hash_backfill'
+              AND failure.subject_id = version.id::text
+              AND failure.error_code = 'HISTORICAL_BYTES_UNAVAILABLE'
+              AND failure.resolved_at IS NULL
+          )
+          AND (
+            version.asset_id IS NULL
+            OR (
+              version.content_hash IS NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM storage_assets asset
+                WHERE asset.id = version.asset_id AND asset.state = 'missing'
+              )
+            )
+          )`,
   );
   const remaining = result[0]?.remaining ?? 0;
-  console.log(`[backfill-file-hashes] remaining NULL hashes: ${remaining}`);
+  console.log(`[backfill-file-hashes] remaining unregistered or unhashed versions: ${remaining}`);
 
-  process.exit(failed > 0 && succeeded === 0 ? 1 : 0);
+  process.exitCode = failed > 0 || remaining > 0 ? 1 : 0;
 }
 
-main().catch((err) => {
-  console.error("[backfill-file-hashes] fatal:", err);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(process.exitCode ?? 0))
+  .catch((err) => {
+    console.error("[backfill-file-hashes] fatal:", err);
+    process.exit(1);
+  });

@@ -22,8 +22,6 @@ const sql = postgres(DATABASE_URL, {
 
 const FIXTURE_TAG = `e2e-smoke-fixture:${E2E_RUN_ID}`;
 const PEER_USER_ID = '25adfef8-81fd-4f53-b6a2-2132ca1b0a1b';
-const DM_CONVERSATION_ID = '13143f75-2d03-4538-88f4-0c6b55c2e256';
-const DM_MESSAGE_ID = '367c246f-a261-4ee0-ab7c-c9cf6949d4b0';
 const APP_PROJECT_ID = '4adbd756-cf5f-4cea-b13c-2bff6512d98f';
 const APP_ROLE_ID = '20075878-a4f2-4af8-8ef8-f1dce85eac5d';
 const APP_ID = 'bb49eb63-4afe-4f72-b670-c5e3a71149ab';
@@ -163,62 +161,15 @@ async function seedFixtures() {
                 updated_at = now()
         `;
 
+        // A DM from the peer, so the chat list has a conversation with an unread message.
         await tx`
-            insert into conversations (id, type, created_at, updated_at)
-            values (${DM_CONVERSATION_ID}, 'dm', now(), now())
-            on conflict (id) do update
-            set type = excluded.type,
-                updated_at = now()
-        `;
-
-        await tx`
-            insert into conversation_participants (
-                conversation_id,
-                user_id,
-                joined_at,
-                archived_at,
-                muted,
-                unread_count,
-                last_message_at
-            )
-            values
-                (${DM_CONVERSATION_ID}, ${targetUserId}, now(), null, false, 0, now()),
-                (${DM_CONVERSATION_ID}, ${PEER_USER_ID}, now(), null, false, 0, now())
-            on conflict (conversation_id, user_id) do update
-            set archived_at = null,
-                muted = false,
-                last_message_at = now()
-        `;
-
-        await tx`
-            insert into messages (
-                id,
-                conversation_id,
-                sender_id,
-                content,
-                type,
-                metadata,
-                created_at
-            )
-            values (
-                ${DM_MESSAGE_ID},
-                ${DM_CONVERSATION_ID},
-                ${PEER_USER_ID},
+            select app_private.chat_send_message(
+                app_private.chat_get_or_create_dm(${PEER_USER_ID}::uuid, ${targetUserId}::uuid, 'invite'),
+                ${PEER_USER_ID}::uuid,
                 ${`Seeded conversation for E2E messaging checks [${E2E_RUN_ID}]`},
-                'text',
-                ${JSON.stringify({ fixture: FIXTURE_TAG, deliveryState: 'delivered' })}::jsonb,
-                now()
+                ${`e2e-seed:${E2E_RUN_ID}`},
+                null, '{}'::uuid[], null, '[]'::jsonb, null
             )
-            on conflict (id) do update
-            set content = excluded.content,
-                metadata = excluded.metadata,
-                created_at = excluded.created_at
-        `;
-
-        await tx`
-            update conversations
-            set updated_at = now()
-            where id = ${DM_CONVERSATION_ID}
         `;
 
         await tx`
@@ -295,7 +246,6 @@ async function seedFixtures() {
                 applicant_id,
                 creator_id,
                 message,
-                conversation_id,
                 status,
                 created_at,
                 updated_at
@@ -307,7 +257,6 @@ async function seedFixtures() {
                 ${targetUserId},
                 ${PEER_USER_ID},
                 ${`Seeded outgoing application for E2E smoke validation [${E2E_RUN_ID}]`},
-                ${DM_CONVERSATION_ID},
                 'pending',
                 now(),
                 now()
@@ -317,11 +266,13 @@ async function seedFixtures() {
                 role_id = excluded.role_id,
                 applicant_id = excluded.applicant_id,
                 creator_id = excluded.creator_id,
-                conversation_id = excluded.conversation_id,
                 message = excluded.message,
                 status = 'pending',
                 updated_at = now()
         `;
+        // The project's #general and the application's private thread with its card.
+        await tx`select app_private.chat_sync_project_members(${APP_PROJECT_ID}::uuid, null, 'ensure_default')`;
+        await tx`select app_private.chat_ensure_application_channel(${APP_ID}::uuid)`;
 
         for (let index = 0; index < HUB_PROJECT_FIXTURES.length; index += 1) {
             const fixture = HUB_PROJECT_FIXTURES[index];

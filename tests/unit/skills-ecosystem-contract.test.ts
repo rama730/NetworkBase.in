@@ -43,7 +43,7 @@ describe('skills ecosystem contract', () => {
         const service = source('src/lib/skills/service.ts')
         const profile = source('src/app/actions/profile.ts')
         const onboarding = source('src/app/actions/onboarding.ts')
-        const project = source('src/app/actions/project/_all.ts')
+        const project = source('src/app/actions/project/index.ts')
         const collaboration = source('src/lib/profile/collaboration.ts')
 
         for (const functionName of ['syncProfileSkills', 'syncProjectSkills', 'syncRoleSkills', 'syncContributionSkills']) {
@@ -99,12 +99,13 @@ describe('skills ecosystem contract', () => {
         assert.match(source('scripts/skill-icons/curated/antigravity-google.svg'), /linearGradient/)
     })
 
-    it('keeps the profile skill catalog visible before search focus', () => {
+    it('opens the profile skill catalog from a category or a search query', () => {
         const picker = source('src/components/skills/SkillPicker.tsx')
         assert.match(picker, /aria-label="Available skills"/)
-        assert.match(picker, /aria-expanded="true"/)
+        assert.match(picker, /const isVisible = category !== null \|\| Boolean\(query\.trim\(\)\)/)
+        assert.match(picker, /aria-expanded=\{isVisible\}/)
         assert.match(picker, /min-h-40 max-h-72/)
-        assert.doesNotMatch(picker, /setOpen|\{open \?/)
+        assert.doesNotMatch(picker, /setOpen/)
     })
 
     it('uses one canonical repository detector and keeps project detection above six results', () => {

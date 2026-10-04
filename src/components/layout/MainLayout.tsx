@@ -1,21 +1,29 @@
 'use client'
 
-import { type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
-import { useAuth } from '@/hooks/useAuth'
 import { WorkspaceDrawerHost } from '@/components/workspace/WorkspaceDrawerHost'
+import { CREATE_PROJECT_PATH, rememberCreateProjectReturnPath } from '@/components/projects/create-wizard/create-project-return'
 
 interface MainLayoutProps {
     children: ReactNode
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
-    const { user } = useAuth();
+    const pathname = usePathname()
+    // Messages tracks the on-screen keyboard height (report 7.12 B11).
+    const messagesShell = pathname === '/messages' || pathname?.startsWith('/messages/')
+
+    // Closing the create-project page returns to wherever the user was before it.
+    useEffect(() => {
+        if (pathname !== CREATE_PROJECT_PATH) rememberCreateProjectReturnPath(`${window.location.pathname}${window.location.search}`)
+    }, [pathname])
 
     return (
         <div
-            className="h-dvh min-h-0 overflow-hidden bg-background flex flex-col"
+            className={`h-dvh min-h-0 overflow-hidden bg-background flex flex-col${messagesShell ? ' nb-shell--messages' : ''}`}
             data-hardening-shell="v1"
         >
             <a href="#main-content" className="nb-skip-link">Skip to content</a>

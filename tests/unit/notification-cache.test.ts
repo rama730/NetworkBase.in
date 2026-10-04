@@ -20,7 +20,7 @@ function item(overrides: Partial<NotificationItem> & Pick<NotificationItem, "id"
     title: "New message",
     body: null,
     href: "/messages",
-    entityRefs: { conversationId: "conversation-1" },
+    entityRefs: { channelId: "channel-1" },
     preview: null,
     reason: "message",
     dedupeKey: `message-burst:${id}`,

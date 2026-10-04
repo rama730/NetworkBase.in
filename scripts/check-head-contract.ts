@@ -22,27 +22,27 @@ function readFileIfExists(filePath: string) {
 
 export function validateHeadContract(repoRoot: string = process.cwd()): CheckResult {
   const errors: string[] = [];
-  const rootLayoutPath = path.join(repoRoot, "src", "app", "layout.tsx");
+  const rootLayoutPath = path.join(repoRoot, "src", "app", "root-document.tsx");
   const themeProviderPath = path.join(repoRoot, "src", "components", "providers", "theme-provider.tsx");
   const appearanceRuntimePath = path.join(repoRoot, "src", "lib", "theme", "appearance.ts");
 
   const rootLayout = readFileIfExists(rootLayoutPath);
   if (!rootLayout) {
-    errors.push("Missing root layout: src/app/layout.tsx");
+    errors.push("Missing root layout: src/app/root-document.tsx");
     return { errors };
   }
 
   for (const key of ROOT_LAYOUT_DISALLOWED_METADATA_KEYS) {
     const pattern = new RegExp(`\\b${key}\\s*:`);
     if (pattern.test(rootLayout)) {
-      errors.push(`src/app/layout.tsx must not own page metadata key "${key}".`);
+      errors.push(`src/app/root-document.tsx must not own page metadata key "${key}".`);
     }
   }
 
   const themeColorOwnerCount = (rootLayout.match(/data-app-theme-color="true"/g) || []).length;
   if (themeColorOwnerCount !== 1) {
     errors.push(
-      `src/app/layout.tsx must expose exactly one theme-color owner meta tag; found ${themeColorOwnerCount}.`,
+      `src/app/root-document.tsx must expose exactly one theme-color owner meta tag; found ${themeColorOwnerCount}.`,
     );
   }
 

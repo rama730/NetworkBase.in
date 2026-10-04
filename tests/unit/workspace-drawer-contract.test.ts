@@ -12,7 +12,7 @@ describe("workspace drawer contracts", () => {
     assert.match(requests, /IncomingProjectApplicationRow/);
     assert.match(requests, /RequestProfileRow/);
     assert.match(requests, /usePendingRequests\(20, isWorkspaceOpen && isActive, \{ includeSent: false \}\)/);
-    assert.match(requests, /app\.isWorkflowItem/);
+    assert.match(requests, /app\.isInvitation/);
     assert.match(requests, /queryKeys\.workspace\.joinRequests\(20\)/);
     assert.match(requests, /getIncomingApplicationsAction\(\{ limit: 20 \}\)/);
     assert.match(requests, /View all invitations/);
@@ -134,7 +134,7 @@ it("uses the shared drawer motion contract and concise workspace naming", () => 
   const indicator = read("src/components/layout/header/WorkspaceIndicator.tsx");
 
   assert.match(drawer, /presentation="right-drawer"/);
-  assert.match(drawer, /<DialogTitle[^>]*>\s*Workspace/);
+  assert.match(drawer, /<DialogTitle[^>]*>[\s\S]*?<span className="md:hidden">My work<\/span>\s*<span className="hidden md:inline">Workspace<\/span>/);
   assert.match(host, /const \[hasMounted, setHasMounted\]/);
   assert.match(host, /return hasMounted \? <WorkspaceDrawer \/> : null/);
   assert.match(indicator, />\s*My work\s*</);
@@ -163,5 +163,5 @@ it("keeps actionable workspace state visible without task-tab scaffolding", () =
   assert.match(tasks, /API's urgency-aware task order/);
   assert.match(tasks, /grid-cols-1 gap-2/);
   assert.match(tasks, /Load more tasks/);
-  assert.match(drawer, /px-6 pb-6 pt-2/);
+  assert.match(drawer, /px-4 pb-6 pt-2 pb-\[max\(1\.5rem,env\(safe-area-inset-bottom\)\)\] md:px-6/);
 });

@@ -5,13 +5,20 @@ import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import {
     LayoutDashboard, ListTodo, FolderOpen, BookOpenText,
-    Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, Camera
+    Settings, Share2, UserPlus, UserCheck, IterationCcw, Loader2, Newspaper, Camera, MoreHorizontal
 } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/types/discover";
 import ProjectStatsBar from "@/components/projects/ProjectStatsBar";
 import ProjectAvatar, { getProjectAvatarUrl } from "@/components/projects/ProjectAvatar";
 import { ProjectPresenceDot } from "@/components/projects/ProjectAvatar";
+import { ProjectStatusControl } from "@/components/presence/ProjectStatusControl";
 import { ProjectLinkCluster } from "@/components/projects/dashboard/ProjectSocialLinksCard";
 import ProjectTeamAvatars, { type ProjectHeaderMember } from "@/components/projects/dashboard/ProjectTeamAvatars";
 import {
@@ -46,6 +53,12 @@ interface ProjectLayoutProps {
     onTabHover?: (tabId: string) => void;
     members?: ProjectHeaderMember[];
     loadingMembers?: boolean;
+    /** Current lifecycle stage for the mobile header chip (spec §19: title and stage). */
+    stageLabel?: string | null;
+    stageIndex?: number;
+    stageCount?: number;
+    /** Roles with open spots; visitors get a mobile shortcut to the Open roles card. */
+    openRolesCount?: number;
 }
 
 const TABS = [
@@ -87,8 +100,13 @@ export default function ProjectLayout({
     onTabHover,
     members,
     loadingMembers,
+    stageLabel,
+    stageIndex = 0,
+    stageCount = 0,
+    openRolesCount = 0,
 }: ProjectLayoutProps) {
     const [isScrolled, setIsScrolled] = useState(false);
+    const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [projectTabsHeight, setProjectTabsHeight] = useState(0);
     const [projectIdentityHeight, setProjectIdentityHeight] = useState(320);
     const tabsRef = useRef<HTMLDivElement>(null);
@@ -99,6 +117,8 @@ export default function ProjectLayout({
     const isSettingsTab = activeTab === "settings";
     const isUpdatesTab = activeTab === "updates";
     const isTasksTab = activeTab === "tasks";
+    // Tool tabs compact the project context below md so the work surface gets the height (spec §08/§19).
+    const isToolTab = isFilesTab || isTasksTab || activeTab === "sprints";
 
     // Normal project tabs, including Files, use the route scroll root so the
     // identity header moves naturally and the project tabs remain sticky.
@@ -242,7 +262,7 @@ export default function ProjectLayout({
             {/* Top Row: Context & Actions (NOT sticky; scrolls away) */}
             <div className="shrink-0 bg-card">
                 <div className="w-full">
-                    <div ref={projectIdentityRef} className="nb-project-identity flex flex-wrap items-start justify-between gap-4 px-4 pb-4 pt-5 sm:px-6">
+                    <div ref={projectIdentityRef} className={cn("nb-project-identity flex flex-wrap items-start justify-between gap-4 px-4 pb-4 pt-5 sm:px-6 max-md:gap-3 max-md:pt-4", isToolTab && "max-md:hidden")}>
                         {/* Left: Project Identity */}
                         {(() => {
                             const hasProjectAvatar = Boolean(getProjectAvatarUrl(project));
@@ -280,30 +300,54 @@ export default function ProjectLayout({
                                 </div>
                             );
 
+                            const stageChip = stageLabel ? (
+                                // Wrapper carries md:hidden: .nb-status is unlayered CSS and its display would beat the utility.
+                                <span className="md:hidden">
+                                    <span className="nb-status" data-status="active">
+                                        {stageLabel}{stageCount > 1 ? ` · ${stageIndex + 1} of ${stageCount}` : ""}
+                                    </span>
+                                </span>
+                            ) : null;
+                            // ponytail: length heuristic decides whether the 3-line clamp needs a toggle; measure overflow if it misfires.
+                            const summaryToggle = project.shortDescription && project.shortDescription.length > 120 ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setSummaryExpanded((value) => !value)}
+                                    aria-expanded={summaryExpanded}
+                                    className="nb-touch-target nb-ui-label -mt-1 inline-flex items-center text-primary md:hidden"
+                                >
+                                    {summaryExpanded ? "Less" : "More"}
+                                </button>
+                            ) : null;
+
                             return getProjectAvatarUrl(project) ? (
-                                <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
-                                    <div className="flex items-start gap-4 sm:gap-5">
+                                <div className="flex min-w-0 flex-1 flex-col items-start gap-2 max-md:basis-full">
+                                    <div className="flex min-w-0 items-start gap-4 sm:gap-5 max-md:gap-3">
                                         <ProjectAvatar
                                             project={project}
                                             size="detail"
                                             isOwner={canManageSettings ?? isOwner}
                                             slugOrId={project.slug || project.id}
+                                            className="max-md:size-12 max-md:rounded-[8px]"
                                         />
-                                        <div className="min-w-0 pt-0.5 sm:pt-1">
+                                        <div className="min-w-0 pt-0.5 sm:pt-1 max-md:space-y-1.5">
                                             <h1 className="nb-page-title min-w-0 break-words text-foreground">
                                                 {project?.title}
                                             </h1>
+                                            {stageChip}
+                                            {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
                                             {project.shortDescription && (
-                                                <p className="nb-body mt-1 max-w-[64ch] text-muted-foreground">
+                                                <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>
                                                     {project.shortDescription}
                                                 </p>
                                             )}
+                                            {summaryToggle}
                                         </div>
                                     </div>
                                     {projectIdentityMetadata}
                                 </div>
                             ) : (
-                                <div className="flex min-w-0 flex-1 flex-col items-start gap-3">
+                                <div className="flex min-w-0 flex-1 flex-col items-start gap-3 max-md:basis-full">
                                     <div className="flex min-w-0 flex-wrap items-center gap-3">
                                         <h1 className="nb-page-title min-w-0 break-words text-foreground">
                                             {project?.title}
@@ -316,7 +360,7 @@ export default function ProjectLayout({
                                         {(canManageSettings ?? isOwner) && (project?.slug || project?.id) && (
                                             <Link
                                                 href={`/projects/${project.slug || project.id}?tab=settings#project-settings-general`}
-                                                className="group/add-avatar inline-flex items-center gap-1.5 rounded-full border border-dashed border-border/80 px-2.5 py-0.5 text-xs text-muted-foreground transition-[color,border-color,background-color] duration-150 hover:border-foreground/40 hover:bg-muted/40 hover:text-foreground"
+                                                className="nb-touch-target group/add-avatar inline-flex items-center justify-center gap-1.5 rounded-full border border-dashed border-border/80 px-2.5 py-0.5 text-xs text-muted-foreground transition-[color,border-color,background-color] duration-150 hover:border-foreground/40 hover:bg-muted/40 hover:text-foreground"
                                                 title="Add project avatar"
                                                 aria-label="Add project avatar"
                                             >
@@ -325,17 +369,21 @@ export default function ProjectLayout({
                                             </Link>
                                         )}
                                     </div>
-                                    {project.shortDescription && <p className="nb-body max-w-[64ch] text-muted-foreground">{project.shortDescription}</p>}
+                                    {stageChip}
+                                            {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
+                                    {project.shortDescription && <p className={cn("nb-body max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>{project.shortDescription}</p>}
+                                    {summaryToggle}
                                     {projectIdentityMetadata}
                                 </div>
                             );
                         })()}
 
                         {/* Right: Actions */}
-                        <div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1">
+                        <div className="flex flex-wrap items-center justify-end gap-2 sm:pt-1 max-md:basis-full max-md:justify-start">
                             <ProjectStatsBar
                                 viewCount={viewCount ?? (project as any)?.viewCount ?? 0}
                                 followersCount={followersCount ?? (project as any)?.followersCount ?? 0}
+                                className="max-md:basis-full"
                             />
 
                             {canInvite && onInvite ? (
@@ -372,10 +420,10 @@ export default function ProjectLayout({
                                 ) : (
                                     isFollowing ? <UserCheck className="size-4" aria-hidden="true" /> : <UserPlus className="size-4" aria-hidden="true" />
                                 )}
-                                <span className="hidden sm:inline-block">{isFollowing ? "Following" : "Follow"}</span>
+                                <span className="inline-block">{isFollowing ? "Following" : "Follow"}</span>
                             </button>
 
-                            <div className="mx-1 h-4 w-px bg-border" />
+                            <div className="mx-1 h-4 w-px bg-border max-md:hidden" />
 
                             {/* Share */}
                             <button
@@ -387,8 +435,51 @@ export default function ProjectLayout({
                             >
                                 <Share2 className="size-4" aria-hidden="true" />
                             </button>
+
+                            {!(isOwnerOrMember ?? isOwner) && openRolesCount > 0 && activeTab === "dashboard" ? (
+                                <a href="#open-roles" className="nb-touch-target nb-ui-label inline-flex items-center px-1 text-primary md:hidden">
+                                    {openRolesCount} open {openRolesCount === 1 ? "role" : "roles"} ›
+                                </a>
+                            ) : null}
                         </div>
                     </div>
+
+                    {isToolTab ? (
+                        <div className="flex h-12 items-center gap-2 px-4 md:hidden">
+                            <ProjectAvatar project={project} className="size-6 rounded-[5px]" />
+                            <h1 className="nb-ui-label min-w-0 flex-1 truncate text-[15px] font-semibold text-foreground" title={project?.title}>
+                                {project?.title}
+                            </h1>
+                            {stageLabel ? <span className="nb-status shrink-0" data-status="active">{stageLabel}</span> : null}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button type="button" aria-label="Project actions" className="nb-icon-button nb-touch-target shrink-0">
+                                        <MoreHorizontal className="size-4" aria-hidden="true" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                    <DropdownMenuItem onSelect={() => onFollow?.()} disabled={followLoading}>
+                                        {isFollowing ? <UserCheck className="size-4" aria-hidden="true" /> : <UserPlus className="size-4" aria-hidden="true" />}
+                                        {isFollowing ? "Unfollow project" : "Follow project"}
+                                    </DropdownMenuItem>
+                                    {canInvite && onInvite ? (
+                                        <DropdownMenuItem onSelect={onInvite}>
+                                            <UserPlus className="size-4" aria-hidden="true" />
+                                            Invite a member
+                                        </DropdownMenuItem>
+                                    ) : null}
+                                    <DropdownMenuItem onSelect={() => onShare?.()}>
+                                        <Share2 className="size-4" aria-hidden="true" />
+                                        Share project
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => onTabChange("dashboard")}>
+                                        <LayoutDashboard className="size-4" aria-hidden="true" />
+                                        Project overview
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    ) : null}
                 </div>
             </div>
 
@@ -402,7 +493,7 @@ export default function ProjectLayout({
                 style={{ top: 0 }}
             >
                 <div className="w-full">
-                    <div ref={tabListRef} role="tablist" aria-label="Project sections" className="app-scroll app-scroll-x -mb-px flex items-center overflow-x-auto px-4 sm:px-6">
+                    <div ref={tabListRef} role="tablist" aria-label="Project sections" className="app-scroll app-scroll-x -mb-px flex items-center overflow-x-auto px-4 sm:px-6 max-md:[mask-image:linear-gradient(to_right,#000_88%,transparent)]">
                         {visibleTabs.map((tab, index) => {
                             const isActive = activeTab === tab.id;
                             return (
@@ -421,20 +512,20 @@ export default function ProjectLayout({
                                     onMouseEnter={() => onTabHover?.(tab.id)}
                                     onFocus={() => onTabHover?.(tab.id)}
                                     className={cn(
-                                        "nb-tab nb-ui-label relative flex h-[var(--ui-control-height)] items-center gap-2 whitespace-nowrap px-3 transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
+                                        "nb-tab nb-ui-label relative flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 whitespace-nowrap px-3 transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
                                         isActive
                                             ? "text-primary"
                                             : "text-muted-foreground hover:text-foreground"
                                     )}
                                 >
-                                    <tab.icon aria-hidden="true" className={cn("size-4", isActive ? "text-primary" : "text-muted-foreground/70")} />
+                                    <tab.icon aria-hidden="true" className={cn("size-4 max-sm:hidden", isActive ? "text-primary" : "text-muted-foreground/70")} />
                                     {tab.label}
                                     {tab.id === "files" && filesSyncBadge && filesSyncBadge.status !== "idle" && filesSyncBadge.status !== "completed" && (
                                         <span
                                             data-testid="files-tab-sync-badge"
                                             title={filesSyncBadge.tooltip || `GitHub sync: ${filesSyncBadge.status}`}
                                             className={cn(
-                                                "ml-1 inline-flex items-center justify-center text-[10px] font-mono font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]",
+                                                "ml-1 inline-flex items-center justify-center text-[10px] max-md:text-[11px] font-mono font-semibold transition-[color,background-color,border-color,box-shadow,opacity,transform]",
                                                 filesSyncBadge.status === "syncing" && "size-2 rounded-full bg-[var(--status-info)] animate-none",
                                                 filesSyncBadge.status === "incoming" && "min-w-4 h-4 px-1 rounded-[3px] bg-amber-500 text-white leading-none",
                                                 filesSyncBadge.status === "failed" && "size-2 rounded-full bg-red-500",
@@ -459,7 +550,7 @@ export default function ProjectLayout({
                 aria-label="Project detail content"
                 className={cn(
                     isFilesTab
-                            ? "flex h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height))] min-h-[28rem] w-full flex-col overflow-hidden"
+                            ? "flex h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height))] min-h-[28rem] w-full flex-col overflow-hidden max-md:h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height)-3rem)] max-md:min-h-0"
                             : isSettingsTab
                                 ? "w-full"
                                 : isUpdatesTab

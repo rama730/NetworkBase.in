@@ -8,9 +8,9 @@ export const openRoleSchema = z.object({
     count: z.number().min(1, 'Add at least one position').max(10, 'A role can have up to 10 positions').default(1),
     description: z.string().optional(),
     skills: z.array(z.string()).default([]),
-    experience_level: z.enum(['any', 'junior', 'mid', 'senior']).default('any'),
-    compensation_type: z.enum(['unpaid', 'equity', 'paid', 'rev_share']).default('unpaid'),
-    compensation_details: z.string().optional(),
+    experienceLevel: z.enum(['any', 'junior', 'mid', 'senior']).default('any'),
+    compensationType: z.enum(['unpaid', 'equity', 'paid', 'rev_share']).default('unpaid'),
+    compensationDetails: z.string().optional(),
 });
 
 export type OpenRoleInput = z.infer<typeof openRoleSchema>;
@@ -61,12 +61,21 @@ export const externalLinksSchema = z.union([
     if (!validation.success) ctx.addIssue({ code: z.ZodIssueCode.custom, message: validation.error });
 });
 
-// Project creation notification defaults (not the global user inbox preferences).
-export const projectNotificationSettingsSchema = z.object({
-    on_application: z.boolean().default(true),
-    on_task_complete: z.boolean().default(true),
-    on_chat_message: z.boolean().default(true),
-    daily_digest: z.boolean().default(false),
+// Create step 4 launch settings; each maps to a project setting that stays editable in Project settings.
+export const projectPublicTabsSchema = z.object({
+    dashboard: z.boolean(),
+    readme: z.boolean(),
+    updates: z.boolean(),
+    files: z.boolean(),
+    sprints: z.boolean(),
+    tasks: z.boolean(),
+});
+
+// Three create-time switches over the project notification policy groups (see CREATE_PROJECT_NOTIFICATION_ROWS).
+export const createProjectNotificationRowsSchema = z.object({
+    roles_applications: z.boolean().default(true),
+    work: z.boolean().default(true),
+    updates_docs: z.boolean().default(true),
 });
 
 export const projectDocCreationIntentSchema = z.object({
@@ -102,7 +111,11 @@ export const createProjectSchema = z.object({
     roles: z.array(openRoleSchema).optional(),
     team_settings: z.any().nullable().optional(),
     external_links: externalLinksSchema.optional(),
-    notification_preferences: projectNotificationSettingsSchema.optional(),
+    public_tab_visibility: projectPublicTabsSchema.optional(),
+    member_updates_enabled: z.boolean().default(true),
+    member_file_upload_default: z.boolean().default(true),
+    doc_edit_policy: z.enum(['leaders', 'members']).default('leaders'),
+    notification_rows: createProjectNotificationRowsSchema.optional(),
     readme: projectDocCreationIntentSchema.default({
         mode: 'starter',
         sourcePath: null,

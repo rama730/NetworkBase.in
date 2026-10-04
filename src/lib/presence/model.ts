@@ -1,0 +1,189 @@
+/**
+ * Presence rules, shared by server and client. Two layers:
+ * availability (automatic, from activity: the Node badge's four states) and
+ * status (any emoji + text, set by a person or a project's owners, Slack
+ * style). Pure functions only, so they are unit-tested directly.
+ */
+
+export const STATUS_VISIBILITIES = ["everyone", "network", "team"] as const;
+export type StatusVisibility = (typeof STATUS_VISIBILITIES)[number];
+
+export type Availability = "now" | "today" | "week" | "offline";
+
+export const STATUS_TEXT_MAX = 80;
+/** A status can be set at most this far ahead. */
+export const STATUS_MAX_DAYS = 90;
+/** "Active now" lasts this long after the last live signal (the live key's TTL). */
+export const LIVE_TTL_SECONDS = 150;
+/** Without the live key (no Redis), recent activity within this window counts as now. */
+export const NOW_FALLBACK_MS = 5 * 60_000;
+
+export const STATUS_EMOJI_MAX = 16;
+
+export type PersonStatus = {
+  emoji: string | null;
+  text: string | null;
+  expiresAt: string | null;
+  pausesNotifications: boolean;
+};
+
+export type PersonPresence = {
+  userId: string;
+  live: boolean;
+  lastActiveAt: string | null;
+  status: PersonStatus | null;
+};
+
+export type ProjectStatus = {
+  emoji: string | null;
+  text: string | null;
+  expiresAt: string | null;
+};
+
+export type ClearAfter = "never" | "30m" | "1h" | "4h" | "today" | "week" | "custom";
+
+export type StatusSuggestion = { emoji: string; text: string; clearAfter: ClearAfter; pauses: boolean };
+
+/** One-tap suggestions in the picker (any emoji + text can be typed instead). */
+export const STATUS_SUGGESTIONS: StatusSuggestion[] = [
+  { emoji: "📅", text: "In a meeting", clearAfter: "1h", pauses: false },
+  { emoji: "🚌", text: "Commuting", clearAfter: "30m", pauses: false },
+  { emoji: "🤒", text: "Out sick", clearAfter: "today", pauses: true },
+  { emoji: "🌴", text: "Vacationing", clearAfter: "custom", pauses: true },
+  { emoji: "🏡", text: "Working remotely", clearAfter: "today", pauses: false },
+];
+
+export const PROJECT_STATUS_SUGGESTIONS: StatusSuggestion[] = [
+  { emoji: "🏃", text: "Sprinting", clearAfter: "week", pauses: false },
+  { emoji: "🚀", text: "Launching", clearAfter: "custom", pauses: false },
+  { emoji: "🙋", text: "Hiring", clearAfter: "never", pauses: false },
+  { emoji: "⏸️", text: "On hold", clearAfter: "never", pauses: false },
+  { emoji: "🏖️", text: "Team on break", clearAfter: "custom", pauses: false },
+];
+
+const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+
+/** A short string that contains an emoji (flags, skin tones and ZWJ sequences included). */
+export function isStatusEmoji(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= STATUS_EMOJI_MAX && EMOJI.test(value) && !/\s|[<>]/.test(value);
+}
+
+function sameLocalDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/** Availability in the viewer's own time zone ("today" means the viewer's today). */
+export function availabilityOf(input: { live: boolean; lastActiveAt: string | Date | null }, now: Date = new Date()): Availability {
+  if (input.live) return "now";
+  if (!input.lastActiveAt) return "offline";
+  const at = new Date(input.lastActiveAt);
+  const time = at.getTime();
+  if (Number.isNaN(time)) return "offline";
+  if (sameLocalDay(at, now)) return "today";
+  if (now.getTime() - time <= 7 * 24 * 60 * 60_000) return "week";
+  return "offline";
+}
+
+export function availabilityLabel(availability: Availability, lastActiveAt?: string | Date | null, now: Date = new Date()) {
+  if (availability === "now") return "Active now";
+  if (availability === "today") return "Active today";
+  if (availability === "offline") return "Offline";
+  if (lastActiveAt) {
+    const days = Math.floor((now.getTime() - new Date(lastActiveAt).getTime()) / (24 * 60 * 60_000));
+    if (days >= 1) return `Active ${days}d ago`;
+  }
+  return "Active this week";
+}
+
+/** A status whose end time has passed is treated as cleared. */
+export function activeStatus<T extends { expiresAt: string | null }>(status: T | null, now: Date = new Date()): T | null {
+  if (!status) return null;
+  if (status.expiresAt && new Date(status.expiresAt).getTime() <= now.getTime()) return null;
+  return status;
+}
+
+function endOfDay(now: Date) {
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
+/** "Clear after" choice → end time (local), or null for "never". */
+export function clearAfterToDate(choice: ClearAfter, now: Date = new Date(), custom?: Date | null): Date | null {
+  switch (choice) {
+    case "never": return null;
+    case "30m": return new Date(now.getTime() + 30 * 60_000);
+    case "1h": return new Date(now.getTime() + 60 * 60_000);
+    case "4h": return new Date(now.getTime() + 4 * 60 * 60_000);
+    case "today": return endOfDay(now);
+    case "week": {
+      const end = endOfDay(now);
+      end.setDate(end.getDate() + ((7 - end.getDay()) % 7));
+      return end;
+    }
+    case "custom": return custom ?? null;
+  }
+}
+
+/** Server-side check of a requested end time: future, within STATUS_MAX_DAYS. */
+export function validStatusExpiry(expiresAt: string | null, now: Date = new Date()): Date | null | "invalid" {
+  if (expiresAt === null) return null;
+  const at = new Date(expiresAt);
+  if (Number.isNaN(at.getTime())) return "invalid";
+  if (at.getTime() <= now.getTime()) return "invalid";
+  if (at.getTime() - now.getTime() > STATUS_MAX_DAYS * 24 * 60 * 60_000) return "invalid";
+  return at;
+}
+
+function untilText(expiresAt: string, now: Date) {
+  const at = new Date(expiresAt);
+  if (sameLocalDay(at, now)) return `until ${at.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+  return `until ${at.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+}
+
+/** "In a meeting · until 3:00 PM" (text only; the emoji is drawn beside it). */
+export function statusLabel(status: { text: string | null; expiresAt: string | null }, now: Date = new Date()) {
+  const base = status.text?.trim() || "";
+  if (!status.expiresAt) return base;
+  return base ? `${base} · ${untilText(status.expiresAt, now)}` : untilText(status.expiresAt, now);
+}
+
+/** Someone who paused notifications won't answer soon: mentions show a heads-up. */
+export function isAway(status: PersonStatus | null) {
+  return Boolean(status?.pausesNotifications);
+}
+
+/** Project activity: the same four steps, from the project's last change. */
+export function projectAvailabilityOf(updatedAt: string | Date | null, now: Date = new Date()): Availability {
+  if (!updatedAt) return "offline";
+  const time = new Date(updatedAt).getTime();
+  if (Number.isNaN(time)) return "offline";
+  if (now.getTime() - time < NOW_FALLBACK_MS) return "now";
+  return availabilityOf({ live: false, lastActiveAt: updatedAt }, now);
+}
+
+export type PresencePrivacyInput = {
+  self: boolean;
+  blocked: boolean;
+  viewerShowsActivity: boolean;
+  targetShowsActivity: boolean;
+  connected: boolean;
+  teammate: boolean;
+  visibility: StatusVisibility;
+};
+
+/**
+ * Who sees what (server-side): blocked pairs see nothing; activity needs both
+ * sides to share it (hiding is mutual); a status needs its audience — everyone,
+ * your network (connections and project teammates), or teammates only. You
+ * always see your own.
+ */
+export function presencePrivacy(input: PresencePrivacyInput): { activity: boolean; status: boolean } {
+  if (input.self) return { activity: true, status: true };
+  if (input.blocked) return { activity: false, status: false };
+  const activity = input.viewerShowsActivity && input.targetShowsActivity;
+  const status = input.visibility === "everyone"
+    || (input.visibility === "network" && (input.connected || input.teammate))
+    || (input.visibility === "team" && input.teammate);
+  return { activity, status };
+}

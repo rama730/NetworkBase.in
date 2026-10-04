@@ -1,33 +1,28 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { extensionRecoveryDrafts, extensionRecoverySessions } from "@/lib/db/schema";
 
 export async function resolveRecoverySessionsWithoutDrafts(userId: string, sessionIds: string[]) {
   const uniqueSessionIds = Array.from(new Set(sessionIds.filter(Boolean))).slice(0, 200);
-  let resolved = 0;
-  for (const sessionId of uniqueSessionIds) {
-    const remaining = await db.query.extensionRecoveryDrafts.findFirst({
-      where: and(
-        eq(extensionRecoveryDrafts.userId, userId),
-        eq(extensionRecoveryDrafts.sessionId, sessionId),
-        eq(extensionRecoveryDrafts.status, "finalized"),
-      ),
-      columns: { id: true },
-    });
-    if (remaining) continue;
-    const updated = await db.update(extensionRecoverySessions).set({
-      status: "resolved",
-      resolvedAt: new Date(),
-      updatedAt: new Date(),
-    }).where(and(
-      eq(extensionRecoverySessions.userId, userId),
-      eq(extensionRecoverySessions.sessionId, sessionId),
-      eq(extensionRecoverySessions.status, "interrupted"),
-    )).returning({ sessionId: extensionRecoverySessions.sessionId });
-    resolved += updated.length;
-  }
-  return resolved;
+  if (uniqueSessionIds.length === 0) return 0;
+  const now = new Date();
+  const updated = await db.update(extensionRecoverySessions).set({
+    status: "resolved",
+    resolvedAt: now,
+    updatedAt: now,
+  }).where(and(
+    eq(extensionRecoverySessions.userId, userId),
+    inArray(extensionRecoverySessions.sessionId, uniqueSessionIds),
+    eq(extensionRecoverySessions.status, "interrupted"),
+    sql`NOT EXISTS (
+      SELECT 1 FROM ${extensionRecoveryDrafts}
+      WHERE ${extensionRecoveryDrafts.userId} = ${userId}
+        AND ${extensionRecoveryDrafts.sessionId} = ${extensionRecoverySessions.sessionId}
+        AND ${extensionRecoveryDrafts.status} = 'finalized'
+    )`,
+  )).returning({ sessionId: extensionRecoverySessions.sessionId });
+  return updated.length;
 }
 
 export async function purgeOrphanedExtensionRecoverySessions(limit = 500): Promise<number> {

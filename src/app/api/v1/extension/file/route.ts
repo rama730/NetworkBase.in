@@ -3,17 +3,20 @@ import mime from "mime-types";
 
 import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
-import { projectNodes, fileVersions } from "@/lib/db/schema";
+import { projectNodes, fileVersions, storageAssets } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { getProjectFileContent } from "@/app/actions/files/content";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
 import { isFileRevisionMode, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
 import { createAdminClient } from "@/lib/supabase/server";
+import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { parseProjectFileKey } from "@/lib/storage/project-file-key";
-import { getProjectAccessById } from "@/lib/data/project-access";
 import { logger } from "@/lib/logger";
+import { streamPrivateObject } from "@/lib/storage/private-object-response";
+import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
 import { checkIdempotencyKey, saveIdempotencyResult } from "@/lib/security/idempotency";
 import { recordExtensionMetric } from "@/lib/extension/observability";
+import { assertProjectFileReadAccess, assertTaskFileNodeVisible } from "@/lib/files/internal-helpers";
 import { validateCsrf } from "@/lib/security/csrf";
 import {
   assertNoExtensionWriteConflict,
@@ -25,6 +28,7 @@ import {
 } from "@/app/api/v1/extension/_file-revision";
 
 const EXTENSION_INLINE_DOWNLOAD_MAX_BYTES = 512 * 1024;
+const EXTENSION_INLINE_UPLOAD_MAX_BYTES = 512 * 1024;
 
 function shouldUseSignedDownload(mimeType: string | null, size: number | null) {
   const normalizedMime = mimeType?.trim().toLowerCase() || "";
@@ -56,13 +60,7 @@ export async function GET(request: Request) {
       return jsonError("Missing projectId or path", 400, "BAD_REQUEST");
     }
 
-    const access = await getProjectAccessById(projectId, user.id);
-    if (!access.project) {
-      return jsonError("Project not found", 404, "NOT_FOUND");
-    }
-    if (!access.canRead) {
-      return jsonError("Forbidden", 403, "FORBIDDEN");
-    }
+    const access = await assertProjectFileReadAccess(projectId, user.id);
 
     // Find the node
     const node = await db.query.projectNodes.findFirst({
@@ -88,6 +86,7 @@ export async function GET(request: Request) {
     if (!node) {
       return jsonError("File not found", 404, "NOT_FOUND");
     }
+    assertTaskFileNodeVisible(access, node);
 
     const [version] = await Promise.all([
       db.query.fileVersions.findFirst({
@@ -101,24 +100,36 @@ export async function GET(request: Request) {
 
     const useSignedTransfer = transfer === "signed"
       || (transfer !== "inline" && shouldUseSignedDownload(node.mimeType, node.size ?? 0));
-    if (useSignedTransfer && node.s3Key) {
+    if (transfer === "inline" && (node.size ?? 0) > EXTENSION_INLINE_DOWNLOAD_MAX_BYTES) {
+      return jsonError("Extension inline responses are limited to 512 KiB", 400, "NOT_SUPPORTED");
+    }
+    if (transfer === "raw" && node.s3Key) {
       const parsedKey = parseProjectFileKey(node.s3Key);
       if (!parsedKey || parsedKey.projectId !== projectId) {
         return jsonError("File key does not belong to this project", 409, "CONFLICT");
       }
       const adminClient = await createAdminClient();
-      const expiresInSeconds = 5 * 60;
-      const { data, error } = await adminClient.storage
-        .from("project-files")
-        .createSignedUrl(node.s3Key, expiresInSeconds);
-      if (error || !data?.signedUrl) {
-        logger.error("[api/v1/extension/file] Signed download url failed", {
-          error: error?.message || "missing signed url",
-          projectId,
-          nodeId: node.id,
-        });
-        return jsonError("Failed to create signed download URL", 500, "INTERNAL_ERROR");
+      const { data, error } = await adminClient.storage.from("project-files").createSignedUrl(node.s3Key, 60);
+      if (error || !data?.signedUrl) return jsonError("File content unavailable", 404, "NOT_FOUND");
+      const etag = `"${version?.contentHash || crypto.createHash("sha256").update(node.s3Key).digest("hex")}"`;
+      return streamPrivateObject({
+        request,
+        signedUrl: data.signedUrl,
+        totalSize: node.size ?? null,
+        mimeType: node.mimeType,
+        filename: node.name,
+        disposition: "attachment",
+        etag,
+      });
+    }
+    if (useSignedTransfer && node.s3Key) {
+      const parsedKey = parseProjectFileKey(node.s3Key);
+      if (!parsedKey || parsedKey.projectId !== projectId) {
+        return jsonError("File key does not belong to this project", 409, "CONFLICT");
       }
+      const expiresInSeconds = 4 * 60;
+      const authorizedUrl = new URL(request.url);
+      authorizedUrl.searchParams.set("transfer", "raw");
 
       recordExtensionMetric("extension.file.download_intent", {
         action: "download_intent",
@@ -131,7 +142,9 @@ export async function GET(request: Request) {
       });
 
       return jsonSuccess({
-        signedUrl: data.signedUrl,
+        // Compatibility field now carries an authenticated application route;
+        // the upstream provider capability is never exposed to the extension.
+        signedUrl: authorizedUrl.toString(),
         expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
         nodeId: node.id,
         size: node.size,
@@ -153,43 +166,31 @@ export async function GET(request: Request) {
       });
     }
 
-    let contentBuffer: Buffer;
-    let rangeAlreadyApplied = false;
+    let contentBuffer: Uint8Array;
     if (node.s3Key) {
       const parsedKey = parseProjectFileKey(node.s3Key);
       if (!parsedKey || parsedKey.projectId !== projectId) {
         return jsonError("File key does not belong to this project", 409, "CONFLICT");
       }
-      const adminClient = await createAdminClient();
-      if (requestedRange) {
-        const { data: signedData, error: signedError } = await adminClient.storage
-          .from("project-files")
-          .createSignedUrl(node.s3Key, 5 * 60);
-        if (signedError || !signedData?.signedUrl) throw signedError ?? new Error("Failed to sign file range");
-        const upstream = await fetch(signedData.signedUrl, {
-          headers: { Range: `bytes=${requestedRange.start}-${requestedRange.end}` },
-        });
-        if (!upstream.ok) throw new Error(`Storage range failed (${upstream.status})`);
-        contentBuffer = Buffer.from(await upstream.arrayBuffer());
-        rangeAlreadyApplied = true;
-      } else {
-        const { data, error } = await adminClient.storage.from("project-files").download(node.s3Key);
-        if (error) throw error;
-        contentBuffer = Buffer.from(await data.arrayBuffer());
-      }
+      contentBuffer = await readBoundedStorageBytes({
+        bucket: "project-files",
+        storageKey: node.s3Key,
+        maxBytes: EXTENSION_INLINE_DOWNLOAD_MAX_BYTES,
+        timeoutMs: 30_000,
+      });
     } else {
       const content = await getProjectFileContent(projectId, node.id);
       contentBuffer = Buffer.from(content, "utf8");
     }
 
     const range = requestedRange;
-    const sliced = range && !rangeAlreadyApplied
+    const sliced = range
       ? contentBuffer.subarray(range.start, range.end + 1)
       : contentBuffer;
     const body = JSON.stringify({
       success: true,
       data: {
-        content: sliced.toString("base64"),
+        content: Buffer.from(sliced).toString("base64"),
         encoding: "base64",
         range: range ? { ...range, total: totalSize || contentBuffer.byteLength } : null,
         complete: !range,
@@ -258,12 +259,14 @@ export async function PUT(request: Request) {
     }
 
     const directStorageKey = request.headers.get("x-nb-storage-key")?.trim();
-    const directChecksum = request.headers.get("x-nb-checksum")?.trim();
-    const directSize = request.headers.get("x-nb-size") ? Number(request.headers.get("x-nb-size")) : null;
-
-    const savePayload = (directStorageKey && directChecksum)
-      ? { buffer: Buffer.alloc(0), mimeType: request.headers.get("x-nb-mime-type")?.trim() || null }
-      : await readExtensionSavePayload(request);
+    if (directStorageKey) {
+      return jsonError(
+        "Caller-supplied storage keys are unsupported. Use the verified file-upload intent route.",
+        400,
+        "NOT_SUPPORTED",
+      );
+    }
+    const savePayload = await readExtensionSavePayload(request);
     const revisionModeHeader = request.headers.get("x-nb-revision-mode")?.trim();
     if (revisionModeHeader && !isFileRevisionMode(revisionModeHeader)) {
       return jsonError("Invalid revision mode", 400, "BAD_REQUEST");
@@ -293,36 +296,124 @@ export async function PUT(request: Request) {
     // Prepare upload metadata. Lease ownership is checked in the same
     // transaction as the revision write below.
     const adminClient = await createAdminClient();
-    let contentHash: string;
-    let size: number;
-    let s3Key: string;
-    let mimeType: string;
+    const contentHash = crypto.createHash("sha256").update(savePayload.buffer).digest("hex");
+    const size = savePayload.buffer.byteLength;
+    const mimeType = savePayload.mimeType || inferMimeType(path);
+    const operationId = request.headers.get("idempotency-key")?.trim() || crypto.randomUUID();
+    const s3Key = buildExtensionRevisionStorageKey(
+      projectId,
+      node.id,
+      path,
+      contentHash,
+      operationId,
+    );
+    const intent = await createUploadIntent({
+      userId: user.id,
+      projectId,
+      bucket: "project-files",
+      storageKey: s3Key,
+      scope: "project_file",
+      kind: "file",
+      expectedMimeType: mimeType,
+      expectedSize: size,
+      idempotencyKey: `extension-inline:${operationId}`,
+      metadata: {
+        source: "extension_inline_file",
+        nodeId: node.id,
+        path,
+        baseVersion: validBaseVersion ?? node.currentVersion,
+        baseHash: baseHashHeader || null,
+        contentHash,
+        revisionMode,
+        comment: revisionComment,
+        operationId,
+        leaseId: parsedLease.lease!.leaseId,
+        clientSessionId: parsedLease.lease!.sessionId,
+        fencingToken: parsedLease.lease!.fencingToken,
+      },
+    });
+    if (intent.status === "finalized") {
+      const existingVersion = await db.query.fileVersions.findFirst({
+        where: and(
+          eq(fileVersions.nodeId, node.id),
+          eq(fileVersions.s3Key, intent.storageKey),
+        ),
+      });
+      if (existingVersion) {
+        const recoveredData = {
+          success: true,
+          nodeId: node.id,
+          version: existingVersion.version,
+          size: existingVersion.size,
+          mimeType: existingVersion.mimeType,
+          contentHash: existingVersion.contentHash,
+          syncStatus: node.syncStatus,
+          sequenceNumber: null,
+          revisionMode,
+          versionIncremented: revisionMode === "new_revision",
+          updatedAt: node.updatedAt?.toISOString?.() ?? node.updatedAt,
+        };
+        const recoveredBody = JSON.stringify({ success: true, data: recoveredData });
+        await saveIdempotencyResult(
+          request,
+          "extension.file.put",
+          recoveredBody,
+          idempotencyCheck.lockToken,
+          idempotencyScope,
+        );
+        return jsonSuccess(recoveredData);
+      }
+    }
 
-    if (directStorageKey && directChecksum) {
-      // Direct presigned upload: zero Node heap allocation and zero server re-upload bandwidth
-      s3Key = directStorageKey;
-      contentHash = directChecksum;
-      size = directSize ?? 0;
-      mimeType = request.headers.get("x-nb-mime-type")?.trim() || inferMimeType(path);
-    } else {
-      contentHash = crypto.createHash("sha256").update(savePayload.buffer).digest("hex");
-      size = savePayload.buffer.byteLength;
-      s3Key = buildExtensionRevisionStorageKey(projectId, node.id, path, contentHash);
-      mimeType = savePayload.mimeType || inferMimeType(path);
+    const { error: uploadError } = await adminClient.storage
+      .from("project-files")
+      .upload(intent.storageKey, savePayload.buffer, {
+        contentType: mimeType,
+        cacheControl: "31536000",
+        upsert: false
+      });
 
-      // Upload to S3 storage via admin Supabase client
-      const { error: uploadError } = await adminClient.storage
+    if (uploadError) {
+      // A lost response may leave the immutable object present. Verification
+      // below is authoritative, so only stop when the object is truly absent.
+      const { data: existingObject } = await adminClient.storage
         .from("project-files")
-        .upload(s3Key, savePayload.buffer, {
-          contentType: mimeType,
-          cacheControl: "31536000",
-          upsert: false
-        });
-
-      if (uploadError) {
+        .info(intent.storageKey);
+      if (!existingObject) {
         logger.error("[api/v1/extension/file] Storage upload failed", { error: uploadError.message });
         return jsonError(`Storage upload failed: ${uploadError.message}`, 500, "INTERNAL_ERROR");
       }
+    }
+
+    const verifiedIntent = await finalizeUploadIntent({
+      intentId: intent.id,
+      bucket: intent.bucket,
+      storageKey: intent.storageKey,
+      userId: user.id,
+      projectId,
+      expectedScope: "project_file",
+      expectedKind: "file",
+    });
+    if (!verifiedIntent.assetId) {
+      return jsonError("Verified file asset is unavailable", 409, "CONFLICT");
+    }
+    const [verifiedAsset] = await db
+      .select({ contentHash: storageAssets.contentHash })
+      .from(storageAssets)
+      .where(and(
+        eq(storageAssets.id, verifiedIntent.assetId),
+        eq(storageAssets.state, "verified"),
+      ))
+      .limit(1);
+    if (!verifiedAsset || verifiedAsset.contentHash !== contentHash) {
+      await db.update(storageAssets)
+        .set({
+          state: "delete_pending",
+          lastErrorCode: "CONTENT_MISMATCH",
+          updatedAt: new Date(),
+        })
+        .where(eq(storageAssets.id, verifiedIntent.assetId));
+      return jsonError("File checksum mismatch", 400, "BAD_REQUEST");
     }
 
     let result;
@@ -331,7 +422,8 @@ export async function PUT(request: Request) {
         projectId,
         nodeId: node.id,
         actorUserId: user.id,
-        storageKey: s3Key,
+        storageKey: intent.storageKey,
+        assetId: verifiedIntent.assetId,
         size,
         mimeType,
         contentHash,
@@ -343,12 +435,15 @@ export async function PUT(request: Request) {
         eventType: "extension_file_saved",
         eventMetadata: {
           transfer: "inline",
-          operationId: request.headers.get("idempotency-key"),
+          uploadIntentId: intent.id,
+          operationId,
         },
         syncStatus: "merged",
       });
     } catch (error) {
-      await adminClient.storage.from("project-files").remove([s3Key]).catch(() => null);
+      // The commit response can be uncertain. Keep the immutable object and
+      // reconcile the idempotent operation instead of deleting bytes that may
+      // already be referenced by a committed revision.
       const conflictResponse = extensionRevisionConflictResponse(error);
       if (conflictResponse) return conflictResponse;
       throw error;
@@ -400,14 +495,47 @@ async function readExtensionSavePayload(request: Request): Promise<{ buffer: Buf
   const declaredEncoding = request.headers.get("x-nb-content-encoding")?.trim().toLowerCase() || "";
   const declaredMimeType = request.headers.get("x-nb-mime-type")?.trim() || null;
 
+  const base64EncodedLimit = Math.ceil(EXTENSION_INLINE_UPLOAD_MAX_BYTES * 4 / 3) + 16;
+  const requestBodyLimit = declaredEncoding === "base64"
+    ? base64EncodedLimit
+    : EXTENSION_INLINE_UPLOAD_MAX_BYTES;
+  const contentLength = Number(request.headers.get("content-length") || 0);
+  if (Number.isFinite(contentLength) && contentLength > requestBodyLimit) {
+    throw new Error("Extension inline payload exceeds 512 KiB");
+  }
+  const encoded = await readRequestBodyWithLimit(request, requestBodyLimit);
+  let buffer: Buffer;
   if (declaredEncoding === "base64") {
-    return { buffer: Buffer.from(await request.text(), "base64"), mimeType: declaredMimeType || contentType || null };
+    buffer = Buffer.from(encoded.toString("ascii"), "base64");
+  } else {
+    buffer = encoded;
   }
-  if (declaredEncoding === "binary" || contentType === "application/octet-stream") {
-    return { buffer: Buffer.from(await request.arrayBuffer()), mimeType: declaredMimeType || contentType || null };
+  if (buffer.byteLength > EXTENSION_INLINE_UPLOAD_MAX_BYTES) {
+    throw new Error("Extension inline payload exceeds 512 KiB");
   }
-  const text = await request.text();
-  return { buffer: Buffer.from(text, "utf8"), mimeType: declaredMimeType || contentType || null };
+  return { buffer, mimeType: declaredMimeType || contentType || null };
+}
+
+async function readRequestBodyWithLimit(request: Request, maxBytes: number): Promise<Buffer> {
+  if (!request.body) return Buffer.alloc(0);
+  const reader = request.body.getReader();
+  const chunks: Buffer[] = [];
+  let received = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > maxBytes) {
+        await reader.cancel("payload too large");
+        throw new Error("Extension inline payload exceeds 512 KiB");
+      }
+      chunks.push(Buffer.from(value.buffer, value.byteOffset, value.byteLength));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, received);
 }
 
 function inferMimeType(path: string) {

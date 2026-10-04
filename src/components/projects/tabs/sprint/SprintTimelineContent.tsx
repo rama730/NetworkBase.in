@@ -152,7 +152,7 @@ export function SprintTimelineContent({
             sprint ? { status: sprint.status, endDate: sprint.endDate, completedAt: sprint.completedAt } : null
           );
 
-          // ponytail: native linking, no complex "UI inside UI" accordion state
+          // Native linking, no complex "UI inside UI" accordion state
           const taskHref = `/projects/${encodeURIComponent(projectSlug)}?${new URLSearchParams({
             tab: "tasks",
             drawerType: "task",

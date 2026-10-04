@@ -31,7 +31,9 @@ describe('logger', () => {
         originalConsoleError = console.error
         originalConsoleDebug = console.debug
         console.info = (...args: unknown[]) => {
-            capturedInfo.push(args.map(String).join(' '))
+            capturedInfo.push(args.map((value) =>
+                typeof value === 'string' ? value : JSON.stringify(value)
+            ).join(' '))
         }
         console.warn = (...args: unknown[]) => {
             capturedWarn.push(args.map(String).join(' '))
@@ -111,5 +113,28 @@ describe('logger', () => {
 
         assert.equal(capturedInfo.length, 1)
         assert.equal(capturedDebug.length, 1)
+    })
+
+    it('emits metrics in production without enabling verbose logs', async () => {
+        ;(process.env as Record<string, string | undefined>).NODE_ENV = 'production'
+        delete (process.env as Record<string, string | undefined>).VERBOSE_APP_LOGS
+
+        const { logger } = await importFreshLogger('production-metric')
+        logger.info('ordinary info')
+        logger.metric('storage.lifecycle', { claimed: 2, deleted: 1, retryable: 1 })
+
+        assert.equal(capturedInfo.length, 1)
+        assert.match(capturedInfo[0] || '', /storage\.lifecycle/)
+        assert.match(capturedInfo[0] || '', /claimed/)
+    })
+
+    it('does not emit private object keys', async () => {
+        ;(process.env as Record<string, string | undefined>).NODE_ENV = 'production'
+        const { logger } = await importFreshLogger('private-storage-key')
+        logger.metric('storage.lifecycle', { storageKey: 'users/private/file.pdf', count: 1 })
+
+        assert.equal(capturedInfo.length, 1)
+        assert.doesNotMatch(capturedInfo[0] || '', /users\/private\/file\.pdf/)
+        assert.match(capturedInfo[0] || '', /"count":1/)
     })
 })

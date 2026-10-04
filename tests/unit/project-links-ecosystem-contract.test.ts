@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { componentSource } from "./_helpers/component-source";
 
 function source(path: string) {
     return readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -24,7 +25,7 @@ test('authenticated metadata previews are private and never log full requested U
 });
 
 test('Project Links has one canonical settings surface and participates in project search', () => {
-    const settings = source('src/components/projects/tabs/ProjectSettingsTab.tsx');
+    const settings = componentSource("src/components/projects/tabs/ProjectSettingsTab.tsx");
     const search = source('src/hooks/useGlobalSearchPreviews.ts');
     assert.doesNotMatch(settings, /isProjectOwner\) return visible\.filter\(\(section\) => section\.id !== "links"/);
     assert.equal((settings.match(/<ProjectLinksManager/g) ?? []).length, 1);
@@ -47,7 +48,7 @@ test('the responsive project header exposes a labeled mobile links menu', () => 
 });
 
 test('project-link saves use semantic concurrency checks and a viewport-contained editor', () => {
-    const action = source('src/app/actions/project/_all.ts');
+    const action = source('src/app/actions/project/index.ts');
     const surface = source('src/components/projects/dashboard/ProjectSocialLinksCard.tsx');
     assert.match(action, /areProjectSocialLinksEqual\(current, expected\.links\)/);
     assert.doesNotMatch(action, /JSON\.stringify\(current\)\s*!==\s*JSON\.stringify\(expected\.links\)/);

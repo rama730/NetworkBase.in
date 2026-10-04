@@ -27,13 +27,11 @@ echo "Checking for risky console format-string patterns (template first arg + ex
 if rg -n 'console\.(log|info|warn|error|debug)\s*\(\s*`[^`]*\$\{[^`]+\}[^`]*`\s*,' \
   scripts/backfill.ts \
   scripts/check-project.ts \
-  scripts/migrate-task-files-to-project-files.ts \
   src/components/profile/edit/EditProfileTabs.tsx \
   src/components/projects/TabErrorBoundary.tsx \
   src/components/projects/v2/explorer/utils/download.worker.ts \
   src/inngest/functions/flush-views.ts \
   src/inngest/functions/git-sync.ts \
-  src/inngest/functions/project-files-key-migration.ts \
   src/inngest/functions/project-import.ts \
   src/lib/data/project.ts \
   src/lib/import/utils.ts \

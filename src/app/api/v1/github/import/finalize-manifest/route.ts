@@ -1,25 +1,33 @@
 import { NextRequest } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/server';
 import { db } from '@/lib/db';
-import { importJobs, } from '@/lib/db/schema';
+import { importJobs, storageAssets } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope';
 import { validateCsrf } from '@/lib/security/csrf';
 import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
-import { createHash } from 'crypto';
+import { finalizeUploadIntent } from '@/lib/upload/upload-intents';
+import { readBoundedStorageText } from '@/lib/storage/bounded-object-read';
+import {
+    normalizeAndValidateFileSize,
+    normalizeAndValidateUploadRelativePath,
+    PROJECT_UPLOAD_MAX_FILE_BYTES,
+} from '@/lib/upload/security';
 
 const finalizeSchema = z.object({
     jobId: z.string().uuid(),
     manifestHash: z.string().length(64),
 });
 
-interface ManifestFile {
-    path: string;
-    size: number;
-    checksum: string;
-}
+const manifestFileSchema = z.object({
+    path: z.string().min(1).max(1024),
+    size: z.number().int().nonnegative().max(PROJECT_UPLOAD_MAX_FILE_BYTES),
+    checksum: z.string().regex(/^[a-f0-9]{64}$/i),
+}).strict();
+const manifestSchema = z.object({
+    files: z.array(manifestFileSchema).max(20_000),
+}).strict();
 
 /**
  * POST /api/v1/github/import/finalize-manifest
@@ -53,60 +61,134 @@ export async function POST(request: NextRequest) {
 
         // 1. Fetch import job
         const job = await db.query.importJobs.findFirst({
-            where: and(eq(importJobs.id, jobId), eq(importJobs.status, 'pending')),
+            where: eq(importJobs.id, jobId),
         });
 
         if (!job) {
-            return jsonError('Import job not found or already verified', 404, 'NOT_FOUND');
+            return jsonError('Import job not found', 404, 'NOT_FOUND');
         }
 
         await assertProjectWriteAccess(job.projectId, user.id);
 
-        if (job.manifestHash !== manifestHash || !job.manifestS3Key) {
+        if (job.status === 'importing' || job.status === 'completed') {
+            return jsonSuccess({
+                jobId,
+                status: job.status,
+                filesCount: job.totalFiles,
+            });
+        }
+        if (job.status !== 'pending') {
+            return jsonError(`Import job is already ${job.status}`, 409, 'CONFLICT');
+        }
+
+        if (
+            job.manifestHash?.toLowerCase() !== manifestHash.toLowerCase()
+            || !job.manifestS3Key
+            || !job.manifestAssetId
+            || !job.manifestUploadIntentId
+        ) {
             return jsonError('Manifest hash mismatch or key is missing', 400, 'BAD_REQUEST');
         }
+        const manifestAssetId = job.manifestAssetId;
+        const manifestUploadIntentId = job.manifestUploadIntentId;
 
-        // 2. Download manifest from S3
-        const adminClient = await createAdminClient();
-        const { data: manifestBlob, error: downloadError } = await adminClient.storage
-            .from('project-files')
-            .download(job.manifestS3Key);
-
-        if (downloadError || !manifestBlob) {
-            console.error('[finalize-manifest] Download manifest error:', downloadError);
-            return jsonError('Failed to download manifest from storage', 404, 'NOT_FOUND');
+        const finalizedIntent = await finalizeUploadIntent({
+            intentId: manifestUploadIntentId,
+            bucket: 'project-files',
+            storageKey: job.manifestS3Key,
+            userId: user.id,
+            projectId: job.projectId,
+            expectedScope: 'import_manifest',
+            expectedKind: 'manifest',
+        });
+        if (finalizedIntent.assetId !== manifestAssetId) {
+            return jsonError('Manifest asset binding is invalid', 409, 'CONFLICT');
+        }
+        const [asset] = await db.select({
+            state: storageAssets.state,
+            contentHash: storageAssets.contentHash,
+            size: storageAssets.verifiedSize,
+        }).from(storageAssets)
+            .where(eq(storageAssets.id, manifestAssetId))
+            .limit(1);
+        if (
+            asset?.state !== 'verified'
+            || asset.contentHash?.toLowerCase() !== manifestHash.toLowerCase()
+            || asset.size == null
+            || asset.size > 10 * 1024 * 1024
+        ) {
+            return jsonError('Manifest failed full-content verification', 400, 'BAD_REQUEST');
         }
 
-        const manifestText = await manifestBlob.text();
-
-        // 3. Verify manifest checksum
-        const computedHash = createHash('sha256').update(manifestText).digest('hex');
-        if (computedHash.toLowerCase() !== manifestHash.toLowerCase()) {
-            return jsonError('Downloaded manifest checksum mismatch', 400, 'BAD_REQUEST');
-        }
-
-        let manifestData;
+        // 2. Read through a deadline-bound stream. The byte ceiling remains
+        // authoritative even if the provider ignores metadata or Range.
+        let manifestText: string;
         try {
-            manifestData = JSON.parse(manifestText);
+            manifestText = await readBoundedStorageText({
+                bucket: 'project-files',
+                storageKey: job.manifestS3Key,
+                maxBytes: 10 * 1024 * 1024,
+                timeoutMs: 30_000,
+            });
+        } catch {
+            return jsonError('Failed to read manifest from storage', 404, 'NOT_FOUND');
+        }
+
+        let rawManifest: unknown;
+        try {
+            rawManifest = JSON.parse(manifestText);
         } catch {
             return jsonError('Manifest contains invalid JSON', 400, 'BAD_REQUEST');
         }
-
-        const manifestFiles = manifestData.files as ManifestFile[];
-        if (!Array.isArray(manifestFiles)) {
-            return jsonError('Manifest structure is invalid (missing files array)', 400, 'BAD_REQUEST');
+        const validatedManifest = manifestSchema.safeParse(rawManifest);
+        if (!validatedManifest.success) {
+            return jsonError('Manifest structure is invalid', 400, 'BAD_REQUEST');
+        }
+        const manifestFiles = validatedManifest.data.files.map((file) => ({
+            path: normalizeAndValidateUploadRelativePath(file.path),
+            size: normalizeAndValidateFileSize(file.size, PROJECT_UPLOAD_MAX_FILE_BYTES),
+            checksum: file.checksum.toLowerCase(),
+        }));
+        if (manifestFiles.length !== job.totalFiles) {
+            return jsonError('Manifest file count does not match the import reservation', 400, 'BAD_REQUEST');
+        }
+        const uniquePaths = new Set(manifestFiles.map((file) => file.path));
+        if (uniquePaths.size !== manifestFiles.length) {
+            return jsonError('Manifest contains duplicate paths', 400, 'BAD_REQUEST');
+        }
+        const totalBytes = manifestFiles.reduce((sum, file) => sum + file.size, 0);
+        if (!Number.isSafeInteger(totalBytes) || totalBytes > 1024 * 1024 * 1024) {
+            return jsonError('Manifest exceeds the 1 GiB import limit', 400, 'BAD_REQUEST');
         }
 
         // 4. Batch insert files into import_job_files in a single transaction
         await db.transaction(async (tx) => {
+            await tx.execute(sql`
+                SELECT id FROM public.import_jobs
+                WHERE id = ${jobId}
+                FOR UPDATE
+            `);
             // Update job status to 'importing'
-            await tx
+            const updated = await tx
                 .update(importJobs)
                 .set({
                     status: 'importing',
                     updatedAt: new Date(),
                 })
-                .where(eq(importJobs.id, jobId));
+                .where(and(
+                    eq(importJobs.id, jobId),
+                    eq(importJobs.status, 'pending'),
+                    eq(importJobs.manifestAssetId, manifestAssetId),
+                ))
+                .returning({ id: importJobs.id });
+            if (updated.length === 0) return;
+
+            await tx.update(storageAssets)
+                .set({ backupState: 'pending', updatedAt: new Date() })
+                .where(and(
+                    eq(storageAssets.id, manifestAssetId),
+                    eq(storageAssets.state, 'verified'),
+                ));
 
             if (manifestFiles.length > 0) {
                 // High-performance single multi-row ingestion via jsonb_to_recordset

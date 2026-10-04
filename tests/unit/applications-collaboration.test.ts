@@ -48,85 +48,24 @@ test('declineProposedRoleAction reverts application back to pending', () => {
     assert.match(declineProposed, /decisionAt:\s*null/);
 });
 
-test('addProjectMemberInternal executes cascading sweeps to reject other applications when role is full', () => {
-    const source = readProjectFile('src/lib/projects/collaborator-lifecycle.ts');
-    const addMember = extractExportedFunction(source, 'addProjectMemberInternal');
+{
+  const internal = readProjectFile("src/app/actions/applications/internal.ts");
 
-    // Asserts sweep queries are executed when role is full
-    assert.match(addMember, /role\.filled \+ 1 >= role\.count/);
-    assert.match(addMember, /eq\(roleApplications\.status,\s*'pending'\)/);
-    assert.match(addMember, /executor\s*\.\s*update\(roleApplications\)/);
-    assert.match(addMember, /status:\s*'rejected'/);
-    assert.match(addMember, /executor\s*\.\s*update\(messageWorkflowItems\)/);
-    assert.match(addMember, /status:\s*'expired'/);
-});
+  test("invitation lists read the canonical project_invitations table", () => {
+    assert.match(internal, /async function listInvitationsInternal/);
+    assert.match(internal, /listInvitationsInternal\(\{ userId: user\.id, as: 'inviter'/);
+    assert.match(internal, /listInvitationsInternal\(\{ userId: user\.id, as: 'candidate', pendingOnly: true/);
+    assert.match(internal, /FROM \$\{projectInvitations\} invite/);
+    assert.doesNotMatch(internal, /messageWorkflowItems|conversationParticipants|dmPairs/);
+  });
 
-test('getProjectInviteOptionsAction queries and returns pendingApplicationRoleTitle and pendingInvitations', () => {
-    const source = readProjectFile('src/app/actions/applications/internal.ts');
-    const getInviteOptions = extractExportedFunction(source, 'getProjectInviteOptionsAction');
+  test("application unread counts and links come from the application's chat thread", () => {
+    assert.match(internal, /WHERE c\.application_id = application\.id/);
+    assert.match(internal, /threadByApplicationId\.get\(app\.id\)\?\.channelId/);
+    assert.match(internal, /ensureApplicationChannel\(tx, newApp!\.id\)/);
+  });
 
-    assert.match(getInviteOptions, /roleTitle:\s*projectOpenRoles\.title/);
-    assert.match(getInviteOptions, /messageWorkflowItems/);
-    assert.match(getInviteOptions, /pendingApplicationRoleTitle:\s*pendingApp\?\.roleTitle\s*\|\|\s*null/);
-    assert.match(getInviteOptions, /pendingInvitations:\s*connectionPendingInvites/);
-});
-
-test('sendStructuredMessageActionV2 validation guards for project invitations', () => {
-    const source = readProjectFile('src/app/actions/messaging/collaboration.ts');
-    const sendStructured = extractExportedFunction(source, 'sendStructuredMessageActionV2');
-
-    // Asserts member check
-    assert.match(sendStructured, /User is already a member of this project/);
-    assert.match(sendStructured, /projectMembers/);
-
-    // Asserts duplicate pending application check
-    assert.match(sendStructured, /User has already applied for this role/);
-    assert.match(sendStructured, /roleApplications/);
-
-    // Asserts duplicate pending invitation check
-    assert.match(sendStructured, /An invitation for this role is already active/);
-    assert.match(sendStructured, /messageWorkflowItems/);
-});
-
-test('sendStructuredMessageActionV2 writes workflow invitations complete for realtime clients', () => {
-    const source = readProjectFile('src/app/actions/messaging/collaboration.ts');
-    const sendStructured = extractExportedFunction(source, 'sendStructuredMessageActionV2');
-
-    const workflowIdIndex = sendStructured.indexOf('const workflowItemId = workflowKind ? crypto.randomUUID() : null;');
-    const transactionIndex = sendStructured.indexOf('const result = await db.transaction');
-    assert.ok(workflowIdIndex >= 0 && workflowIdIndex < transactionIndex);
-    assert.match(sendStructured, /}, persistedStructured\), 'sent'\)/);
-    assert.match(sendStructured, /\.values\(\{\s*id: workflowItemId,/s);
-    assert.doesNotMatch(sendStructured, /\.update\(messages\)/);
-    assert.doesNotMatch(sendStructured, /refreshConversationParticipantPreviews\(conversationId\)/);
-    assert.match(sendStructured, /native message trigger owns participant previews\/unread state/);
-});
-
-test('getIncomingApplicationsAction queries and merges roleApplications and messageWorkflowItems project invites', () => {
-    const source = readProjectFile('src/app/actions/applications/internal.ts');
-    const getIncoming = extractExportedFunction(source, 'getIncomingApplicationsAction');
-
-    assert.match(getIncoming, /db\.query\.roleApplications\.findMany/);
-    assert.match(getIncoming, /db\.query\.messageWorkflowItems\.findMany/);
-    assert.match(getIncoming, /isWorkflowItem:\s*true/);
-    assert.match(getIncoming, /isWorkflowItem:\s*false/);
-});
-
-test('getInboxApplicationsAction queries and merges roleApplications and messageWorkflowItems project invites', () => {
-    const source = readProjectFile('src/app/actions/applications/internal.ts');
-    const getInbox = extractExportedFunction(source, 'getInboxApplicationsAction');
-
-    assert.match(getInbox, /db\.query\.roleApplications\.findMany/);
-    assert.match(getInbox, /db\.query\.messageWorkflowItems\.findMany/);
-    assert.match(getInbox, /isWorkflowItem:\s*true/);
-    assert.match(getInbox, /invite\.kind\s*=\s*'project_invite'/);
-});
-
-test('resolveStructuredWorkflowTransition handles cancel actions for creators', () => {
-    const source = readProjectFile('src/lib/messages/structured.ts');
-    const resolveTransition = extractExportedFunction(source, 'resolveStructuredWorkflowTransition');
-
-    assert.match(resolveTransition, /action\s*===\s*'cancel'/);
-    assert.match(resolveTransition, /actorRole\s*!==\s*'creator'/);
-    assert.match(resolveTransition, /actorRole\s*!==\s*'assignee'/);
-});
+  test("invite options list pending invitations from project_invitations", () => {
+    assert.match(internal, /assigneeUserId: projectInvitations\.candidateId/);
+  });
+}

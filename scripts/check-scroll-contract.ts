@@ -23,7 +23,7 @@ const LEGACY_CLASS_ALLOWLIST = new Set<string>([
 // scroll root. Keep this list intentionally narrow rather than weakening the
 // contract for real pages.
 const REDIRECT_ONLY_PAGE_ALLOWLIST = new Set<string>([
-  "src/app/(main)/workspace/page.tsx",
+  "src/app/(site)/(main)/workspace/page.tsx",
 ]);
 
 function toPosix(filePath: string): string {
@@ -74,16 +74,16 @@ function collectExtraContractFiles(pageFile: string, repoRoot: string): string[]
     if (fs.existsSync(target)) {
       extras.push(target);
       const targetRel = toPosix(path.relative(repoRoot, target));
-      if (targetRel === "src/app/(main)/discover/page.tsx") {
+      if (targetRel === "src/app/(site)/(main)/discover/page.tsx") {
         extras.push(path.join(repoRoot, "src/components/discover/DiscoverClient.tsx"));
       }
     }
   }
 
-  if (rel === "src/app/(main)/discover/page.tsx" || rel === "src/app/(main)/discover/page.tsx") {
+  if (rel === "src/app/(site)/(main)/discover/page.tsx" || rel === "src/app/(site)/(main)/discover/page.tsx") {
     extras.push(path.join(repoRoot, "src/components/discover/DiscoverClient.tsx"));
   }
-  if (rel.startsWith("src/app/(main)/settings/")) {
+  if (rel.startsWith("src/app/(site)/(main)/settings/")) {
     extras.push(path.join(repoRoot, "src/components/settings/SettingsLayout.tsx"));
   }
 
@@ -122,11 +122,11 @@ function checkSmoothScrollHtmlContract(repoRoot: string, globalsPath: string): s
     return errors;
   }
 
-  const rootLayoutPath = path.join(repoRoot, "src", "app", "layout.tsx");
+  const rootLayoutPath = path.join(repoRoot, "src", "app", "root-document.tsx");
   const rootLayout = readFileIfExists(rootLayoutPath);
   if (!rootLayout.includes('data-scroll-behavior="smooth"')) {
     errors.push(
-      "src/app/layout.tsx must set data-scroll-behavior=\"smooth\" when global smooth scroll is enabled.",
+      "src/app/root-document.tsx must set data-scroll-behavior=\"smooth\" when global smooth scroll is enabled.",
     );
   }
 
@@ -158,7 +158,7 @@ function checkLegacyScrollClasses(srcDir: string, repoRoot: string): string[] {
 
 export function validateScrollContract(repoRoot: string = process.cwd()): CheckResult {
   const errors: string[] = [];
-  const mainDir = path.join(repoRoot, "src", "app", "(main)");
+  const mainDir = path.join(repoRoot, "src", "app", "(site)", "(main)");
   const globalsPath = path.join(repoRoot, "src", "app", "globals.css");
   const srcDir = path.join(repoRoot, "src");
 

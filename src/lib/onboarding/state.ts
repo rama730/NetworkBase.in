@@ -37,3 +37,23 @@ export function isCompletedOnboardingStatus(value: unknown, legacyUsername?: str
     if (value === 'not_started' || value === 'in_progress') return false
     return Boolean(legacyUsername?.trim())
 }
+
+type OnboardingClaimsUser = {
+    app_metadata?: Record<string, unknown> | null
+    user_metadata?: Record<string, unknown> | null
+}
+
+export function hasOnboardingClaims(user: OnboardingClaimsUser) {
+    const username = user.user_metadata?.username
+    return (
+        user.app_metadata?.onboarding_completed === true ||
+        user.app_metadata?.onboarding_complete === true ||
+        user.user_metadata?.onboarding_completed === true ||
+        user.user_metadata?.onboarding_status === 'completed' ||
+        (typeof username === 'string' && username.trim().length > 0)
+    )
+}
+
+export function onboardingCompleteCookieName(userId: string) {
+    return `onboarding_complete_${userId}`
+}

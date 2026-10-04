@@ -1,0 +1,95 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { usePublishOnlinePresence } from '@/hooks/usePublishOnlinePresence';
+
+interface PresenceProviderProps {
+    children?: React.ReactNode;
+    presenceEnabled?: boolean;
+}
+
+const IDLE_MS = 5 * 60_000;
+// One heartbeat a minute while engaged keeps "Active now" fresh everywhere (the
+// server's live key lives 150 s); the database write stays at once per 5 minutes.
+const HEARTBEAT_INTERVAL_MS = 60_000;
+const INITIAL_HEARTBEAT_COOLDOWN_MS = 60_000;
+let lastSuccessfulHeartbeatAt = 0;
+let heartbeatInFlight = false;
+
+function OnlinePresencePublisher() {
+    usePublishOnlinePresence();
+    return null;
+}
+
+/** App-wide presence: a coarse heartbeat for last-active plus the user's own presence room while engaged. */
+export function PresenceProvider({ children = null, presenceEnabled = true }: PresenceProviderProps) {
+    const { user, isLoading } = useAuth();
+    const active = Boolean(user) && !isLoading;
+    const presenceActive = active && presenceEnabled;
+    const [engaged, setEngaged] = useState(() => typeof document === 'undefined' || !document.hidden);
+
+    useEffect(() => {
+        if (!presenceActive) {
+            setEngaged(false);
+            return;
+        }
+
+        let idleTimer: number | null = null;
+        const pause = () => {
+            if (idleTimer !== null) window.clearTimeout(idleTimer);
+            idleTimer = null;
+            setEngaged(false);
+        };
+        const resume = () => {
+            if (document.hidden) return;
+            setEngaged(true);
+            if (idleTimer !== null) window.clearTimeout(idleTimer);
+            idleTimer = window.setTimeout(pause, IDLE_MS);
+        };
+        const onVisibilityChange = () => document.hidden ? pause() : resume();
+        const activityEvents = ['pointerdown', 'keydown', 'touchstart', 'focus'] as const;
+
+        activityEvents.forEach((name) => window.addEventListener(name, resume, { passive: true }));
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        onVisibilityChange();
+        return () => {
+            if (idleTimer !== null) window.clearTimeout(idleTimer);
+            activityEvents.forEach((name) => window.removeEventListener(name, resume));
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        };
+    }, [presenceActive]);
+
+    useEffect(() => {
+        if (!presenceActive || !engaged) return;
+
+        const heartbeat = async (initial = false) => {
+            if (heartbeatInFlight) return;
+            if (initial && Date.now() - lastSuccessfulHeartbeatAt < INITIAL_HEARTBEAT_COOLDOWN_MS) return;
+            heartbeatInFlight = true;
+            try {
+                const response = await fetch('/api/v1/presence/heartbeat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // The time zone powers "local time" on someone's details (chat).
+                    body: JSON.stringify({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+                    keepalive: true,
+                });
+                if (response.ok) lastSuccessfulHeartbeatAt = Date.now();
+            } finally {
+                heartbeatInFlight = false;
+            }
+        };
+
+        void heartbeat(true);
+        const interval = window.setInterval(() => void heartbeat(), HEARTBEAT_INTERVAL_MS);
+        return () => window.clearInterval(interval);
+    }, [engaged, presenceActive, user?.id]);
+
+    return (
+        <>
+            {children}
+            {presenceActive && engaged ? <OnlinePresencePublisher /> : null}
+        </>
+    );
+}

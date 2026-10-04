@@ -172,12 +172,12 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                                 : -1;
                             const duplicateRoleMessage = duplicateRoleIndex >= 0 ? `This matches open role ${duplicateRoleIndex + 1}. Use one role per title.` : undefined;
                             const roleComplete = Boolean(normalizedRoleTitle) && role.count >= 1 && role.count <= 10 && !duplicateRoleMessage;
-                            const experienceLabel = EXPERIENCE_OPTIONS.find((option) => option.value === (role.experience_level || 'any'))?.label;
-                            const compensationLabel = COMPENSATION_OPTIONS.find((option) => option.value === (role.compensation_type || 'unpaid'))?.label;
+                            const experienceLabel = EXPERIENCE_OPTIONS.find((option) => option.value === (role.experienceLevel || 'any'))?.label;
+                            const compensationLabel = COMPENSATION_OPTIONS.find((option) => option.value === (role.compensationType || 'unpaid'))?.label;
                             const optionalDetailSummary = [
                                 role.skills?.length ? `${role.skills.length} ${role.skills.length === 1 ? 'skill' : 'skills'}` : null,
-                                role.experience_level && role.experience_level !== 'any' ? experienceLabel : null,
-                                role.compensation_type && role.compensation_type !== 'unpaid' ? compensationLabel : null,
+                                role.experienceLevel && role.experienceLevel !== 'any' ? experienceLabel : null,
+                                role.compensationType && role.compensationType !== 'unpaid' ? compensationLabel : null,
                             ].filter((item): item is string => Boolean(item)).join(' · ') || 'Optional details';
 
                             return (
@@ -293,26 +293,26 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                                             <div className="grid gap-5 md:grid-cols-2">
                                                 <div>
                                                     <FieldLabel htmlFor={`${roleId}-experience`}>Experience level</FieldLabel>
-                                                    <Select value={role.experience_level || 'any'} onValueChange={(experience_level) => updateRole(index, { experience_level: experience_level as OpenRoleInput['experience_level'] })}>
+                                                    <Select value={role.experienceLevel || 'any'} onValueChange={(experienceLevel) => updateRole(index, { experienceLevel: experienceLevel as OpenRoleInput['experienceLevel'] })}>
                                                         <SelectTrigger id={`${roleId}-experience`} className={fieldClass}><SelectValue /></SelectTrigger>
                                                         <SelectContent>{EXPERIENCE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
                                                     </Select>
                                                 </div>
                                                 <div>
                                                     <FieldLabel htmlFor={`${roleId}-compensation`}>Compensation</FieldLabel>
-                                                    <Select value={role.compensation_type || 'unpaid'} onValueChange={(compensation_type) => updateRole(index, { compensation_type: compensation_type as OpenRoleInput['compensation_type'] })}>
+                                                    <Select value={role.compensationType || 'unpaid'} onValueChange={(compensationType) => updateRole(index, { compensationType: compensationType as OpenRoleInput['compensationType'] })}>
                                                         <SelectTrigger id={`${roleId}-compensation`} className={fieldClass}><SelectValue /></SelectTrigger>
                                                         <SelectContent>{COMPENSATION_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
                                                     </Select>
                                                 </div>
                                             </div>
-                                            {role.compensation_type && role.compensation_type !== 'unpaid' ? (
+                                            {role.compensationType && role.compensationType !== 'unpaid' ? (
                                                 <div>
                                                     <FieldLabel htmlFor={`${roleId}-compensation-details`}>Compensation details</FieldLabel>
                                                     <Input
                                                         id={`${roleId}-compensation-details`}
-                                                        value={role.compensation_details || ''}
-                                                        onChange={(event) => updateRole(index, { compensation_details: event.target.value })}
+                                                        value={role.compensationDetails || ''}
+                                                        onChange={(event) => updateRole(index, { compensationDetails: event.target.value })}
                                                         placeholder="For example, hourly range, equity range, or revenue-share terms"
                                                         className={fieldClass}
                                                     />

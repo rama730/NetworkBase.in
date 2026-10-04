@@ -14,9 +14,10 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
     const wizard = source('src/components/projects/create-wizard/useCreateProjectWizard.ts');
 
     assert.match(phase, /Phase 4 · settings/);
-    assert.match(phase, /Set the project’s launch settings/);
+    assert.match(phase, /Set up how the project launches/);
     assert.match(phase, /Choose project visibility/);
-    assert.match(phase, /Confirm the initial availability/);
+    // Roles are reviewed in step 5; step 4 is launch settings only.
+    assert.doesNotMatch(phase, /Confirm the initial availability|Edit roles|Ready to review:/);
     assert.match(phase, /Project links/);
     assert.match(phase, /min-w-0 w-full space-y-8 pb-6/);
     assert.match(phase, /border-t border-border pt-6/);
@@ -24,8 +25,6 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
     assert.match(phase, /rounded-\[3px\]/);
     assert.match(phase, /commitContext="project-create"/);
     assert.match(phase, /Visible at launch:/);
-    assert.match(phase, /Edit roles/);
-    assert.match(phase, /Ready to review:/);
     assert.doesNotMatch(phase, /Terms & IP/);
     assert.doesNotMatch(schema, /termsSchema/);
     assert.doesNotMatch(schema, /applicationSettingsSchema/);
@@ -36,8 +35,8 @@ test('Phase 4 uses the flat launch-settings hierarchy and removes creation-time 
     assert.match(linkEditor, /commitContext\?: 'settings' \| 'project-create'/);
     assert.match(linkEditor, /saved when you create the project/);
     assert.match(linkEditor, /commitContext === 'settings' && saved/);
-    assert.match(linkEditor, /rounded-\[8px\] border border-border bg-muted\/20 p-4 sm:p-5/);
-    assert.match(linkEditor, /overflow-hidden rounded-\[8px\] border border-border bg-card/);
+    assert.match(linkEditor, /rounded-lg border border-border bg-muted\/20 p-4 sm:p-5/);
+    assert.match(linkEditor, /overflow-hidden rounded-lg border border-border bg-card/);
 });
 
 test('Phase 4 blocks unfinished link work and carries launch settings into review', () => {
@@ -51,14 +50,14 @@ test('Phase 4 blocks unfinished link work and carries launch settings into revie
     assert.match(wizard, /phase4LinkComposerPending/);
     assert.match(wizard, /trigger\(\['visibility', 'external_links'\], \{ shouldFocus: true \}\)/);
     assert.match(modal, /showValidationSummary=\{phase4ValidationAttempted\}/);
-    assert.match(modal, /onEditRoles=\{\(\) => goToPhase\(3\)\}/);
+    assert.match(modal, /projectImage=\{projectImage\} onProjectImageChange=\{setProjectImage\}/);
     assert.match(review, /Launch settings/);
     assert.match(review, /goToPhase\(4\)/);
     assert.match(review, /projectLinks/);
 });
 
 test('creation derives recruiting and open-role counts from valid submitted roles', () => {
-    const action = source('src/app/actions/project/_all.ts');
+    const action = source('src/app/actions/project/index.ts');
 
     assert.match(action, /const openRoles = \(input\.roles \|\| \[\]\)\.filter/);
     assert.match(action, /const lookingForCollaborators = openRoles\.length > 0/);

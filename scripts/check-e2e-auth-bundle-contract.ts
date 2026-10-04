@@ -1,25 +1,21 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 async function main() {
   const root = process.cwd();
-  const nextConfig = await readFile(path.join(root, "next.config.ts"), "utf8");
   const routeSource = await readFile(path.join(root, "src/app/api/e2e/auth/route.ts"), "utf8");
-  const disabledSource = await readFile(path.join(root, "src/app/api/e2e/auth/route.disabled.ts"), "utf8");
-  const devSource = await readFile(path.join(root, "src/app/api/e2e/auth/route.dev.ts"), "utf8");
+  const handlers = [...routeSource.matchAll(/export async function (POST|DELETE)\(request: Request\) \{\n\s*if \(process\.env\.NODE_ENV === "production"\) return productionNotFound\(\);/g)];
+  const builtRoute = path.join(root, process.env.NEXT_DIST_DIR || ".next", "server/app/api/e2e/auth/route.js");
 
   const checks: Array<[string, boolean]> = [
-    ["route.ts must re-export the aliased implementation", routeSource.includes('export { DELETE, POST } from "@/app/api/e2e/auth/route-impl";')],
-    [
-      "next.config.ts must alias the E2E auth implementation",
-      nextConfig.includes('"@/app/api/e2e/auth/route-impl": e2eAuthRouteImplRelativePath')
-        && nextConfig.includes('"@/app/api/e2e/auth/route-impl": e2eAuthRouteImplAbsolutePath'),
-    ],
-    ["production must resolve E2E auth to the disabled stub", nextConfig.includes('route.disabled.ts')],
-    ["development must resolve E2E auth to the dev implementation", nextConfig.includes('route.dev.ts')],
-    ["disabled route must always return 404", disabledSource.includes('status: 404')],
-    ["dev route must contain the privileged implementation", devSource.includes('createE2EAuthClient') && devSource.includes('signInWithPassword')],
+    ["POST and DELETE must return 404 in production before any other work", handlers.length === 2],
+    ["production 404 must use status 404", routeSource.includes("status: 404")],
   ];
+  if (existsSync(builtRoute)) {
+    const built = await readFile(builtRoute, "utf8");
+    checks.push(["the production bundle must not contain the password sign-in path", !built.includes("signInWithPassword")]);
+  }
 
   const failures = checks.filter(([, ok]) => !ok).map(([label]) => label);
   if (failures.length > 0) {
@@ -30,6 +26,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("[e2e-auth-bundle-contract] failed:", error);
+  console.error(error instanceof Error ? error.message : error);
   process.exit(1);
 });

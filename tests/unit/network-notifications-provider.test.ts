@@ -15,5 +15,5 @@ test("people notification counts use one authenticated action and query key", ()
   assert.match(provider, /queryKeys\.connections\.pending\(\)/);
   assert.doesNotMatch(provider, /createSupabaseBrowserClient|\.from\("connections"\)/);
   assert.match(actions, /export async function readNetworkPendingCountsAction/);
-  assert.match(actions, /messageWorkflowItems\.kind, 'project_invite'/);
+  assert.match(actions, /countPendingInvitationsForCandidate\(user\.id\)/);
 });

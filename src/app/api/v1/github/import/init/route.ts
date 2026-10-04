@@ -8,11 +8,13 @@ import { assertProjectWriteAccess } from '@/lib/files/internal-helpers';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
+import { createUploadIntent } from '@/lib/upload/upload-intents';
 
 const initSchema = z.object({
     projectId: z.string().uuid(),
-    manifestHash: z.string().length(64), // SHA-256 hex
-    totalFiles: z.number().int().nonnegative(),
+    manifestHash: z.string().regex(/^[a-f0-9]{64}$/i),
+    manifestSize: z.number().int().positive().max(10 * 1024 * 1024),
+    totalFiles: z.number().int().nonnegative().max(20_000),
 });
 
 /**
@@ -43,18 +45,33 @@ export async function POST(request: NextRequest) {
             return jsonError('Invalid request body', 400, 'BAD_REQUEST');
         }
 
-        const { projectId, manifestHash, totalFiles } = parsed.data;
+        const { projectId, manifestHash, manifestSize, totalFiles } = parsed.data;
         await assertProjectWriteAccess(projectId, user.id);
 
         const jobId = randomUUID();
         const manifestS3Key = `imports/${jobId}/manifest.json`;
         const bucket = 'project-files';
 
-        // Generate signed URL for manifest upload
+        const intent = await createUploadIntent({
+            userId: user.id,
+            projectId,
+            bucket,
+            storageKey: manifestS3Key,
+            scope: 'import_manifest',
+            kind: 'manifest',
+            expectedMimeType: 'application/json',
+            expectedSize: manifestSize,
+            idempotencyKey: `import-manifest:${jobId}`,
+            metadata: { jobId, totalFiles },
+        });
+        if (!intent.assetId) {
+            return jsonError('Failed to reserve manifest asset', 503, 'UNAVAILABLE');
+        }
+
         const adminClient = await createAdminClient();
         const { data: uploadSession, error: storageError } = await adminClient.storage
             .from(bucket)
-            .createSignedUploadUrl(manifestS3Key);
+            .createSignedUploadUrl(manifestS3Key, { upsert: false });
 
         if (storageError || !uploadSession) {
             console.error('[github-import-init] Storage signed url error:', storageError);
@@ -71,6 +88,8 @@ export async function POST(request: NextRequest) {
                 totalFiles,
                 processedFiles: 0,
                 manifestS3Key,
+                manifestAssetId: intent.assetId,
+                manifestUploadIntentId: intent.id,
                 manifestHash,
                 createdAt: new Date(),
                 updatedAt: new Date(),
@@ -84,6 +103,8 @@ export async function POST(request: NextRequest) {
         return jsonSuccess({
             jobId: job.id,
             signedUrl: uploadSession.signedUrl,
+            uploadToken: uploadSession.token,
+            uploadIntentId: intent.id,
             manifestS3Key,
         });
     } catch (error) {

@@ -504,7 +504,7 @@ export async function updateTaskStatusAction(
 
       let newReviewStatus = locked.reviewStatus;
 
-      // ponytail: Sub-State Lifecycle Interceptor
+      // Sub-State Lifecycle Interceptor
       if (status === "done" && locked.currentStatus !== "done") {
         newReviewStatus = "pending";
       } else if (locked.reviewStatus === "pending" && status !== "done") {
@@ -1042,11 +1042,15 @@ export async function approveTaskReviewAction(
 
       // Approval belongs to a specific file version in this task, not every
       // future upload or every other task that references the same file.
-      for (const file of linkedFiles) {
-        if (file.type !== "file" || inferTaskFileRole(file) !== "deliverable") continue;
+      const approvedLinks = linkedFiles
+        .filter((file) => file.type === "file" && inferTaskFileRole(file) === "deliverable")
+        .map((file) => ({ id: file.linkId, tags: markTaskFileVersionApproved(file.tags, file.currentVersion, file.revisedAt) }));
+      if (approvedLinks.length > 0) {
         await tx.update(taskNodeLinks)
-          .set({ tags: markTaskFileVersionApproved(file.tags, file.currentVersion, file.revisedAt) })
-          .where(eq(taskNodeLinks.id, file.linkId));
+          .set({
+            tags: sql`CASE ${taskNodeLinks.id} ${sql.join(approvedLinks.map((link) => sql`WHEN ${link.id}::uuid THEN ${JSON.stringify(link.tags)}::jsonb`), sql` `)} ELSE ${taskNodeLinks.tags} END`,
+          })
+          .where(inArray(taskNodeLinks.id, approvedLinks.map((link) => link.id)));
       }
       await tx
         .update(tasks)

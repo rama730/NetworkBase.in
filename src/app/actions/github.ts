@@ -81,7 +81,7 @@ function getCachedValue<T>(cacheKey: string): T | null {
 }
 
 function setCachedValue(cacheKey: string, value: unknown, ttlMs: number) {
-  // ponytail: bounded cache prevents unbounded memory accumulation in server actions
+  // ponytail: bounded cache prevents unbounded memory accumulation in server actions. ceiling: MAX_ACTION_CACHE_ENTRIES per server process. upgrade: shared cache if more than one web instance runs.
   if (actionCache.size >= MAX_ACTION_CACHE_ENTRIES) {
     const oldestKey = actionCache.keys().next().value;
     if (oldestKey) actionCache.delete(oldestKey);

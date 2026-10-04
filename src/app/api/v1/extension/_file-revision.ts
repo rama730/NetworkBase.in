@@ -9,6 +9,7 @@ import { fileVersions, projectNodes } from "@/lib/db/schema";
 import { getProjectAccessById } from "@/lib/data/project-access";
 import type { ApplyFileRevisionResult } from "@/lib/files/apply-file-revision";
 import { buildProjectFileKey } from "@/lib/storage/project-file-key";
+import { assertProjectUploadAccess } from "@/lib/files/internal-helpers";
 
 export const checksumSchema = z.string().regex(/^[a-f0-9]{64}$/i);
 
@@ -28,6 +29,11 @@ export async function resolveWritableExtensionFile(projectId: string, path: stri
   ]);
   if (!access.project) return { response: jsonError("Project not found", 404, "NOT_FOUND"), node: null };
   if (!access.canWrite) return { response: jsonError("Forbidden", 403, "FORBIDDEN"), node: null };
+  try {
+    await assertProjectUploadAccess(projectId, userId);
+  } catch {
+    return { response: jsonError("File uploads are disabled for this member", 403, "FORBIDDEN"), node: null };
+  }
   if (!node) return { response: jsonError("File node not found", 404, "NOT_FOUND"), node: null };
   return { response: null, node };
 }
@@ -79,12 +85,16 @@ export function buildExtensionRevisionStorageKey(
   nodeId: string,
   path: string,
   contentHash: string,
+  operationId?: string | null,
 ) {
   const extension = path.split(".").pop()?.toLowerCase();
   const suffix = extension && /^[a-z0-9]{1,16}$/.test(extension) ? `.${extension}` : "";
+  const immutableIdentity = operationId
+    ? crypto.createHash("sha256").update(operationId).digest("hex").slice(0, 32)
+    : crypto.randomUUID();
   return buildProjectFileKey(
     projectId,
-    `nodes/${nodeId}/versions/${contentHash}-${crypto.randomUUID()}${suffix}`,
+    `nodes/${nodeId}/versions/${contentHash}-${immutableIdentity}${suffix}`,
   );
 }
 

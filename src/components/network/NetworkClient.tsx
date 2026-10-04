@@ -180,7 +180,7 @@ export default function NetworkClient({
                                 onFocus={() => preloadTab(tab.key)}
                                 onKeyDown={(event) => handleTabKeyDown(event, index)}
                                 className={cn(
-                                    "nb-ui-label relative inline-flex shrink-0 items-center gap-2 px-2 pb-3 transition-colors",
+                                    "nb-ui-label relative inline-flex shrink-0 items-center gap-2 px-2 pb-3 transition-colors max-md:min-h-11 max-md:pb-0",
                                     selected ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                                 )}
                             >

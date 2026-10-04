@@ -76,14 +76,14 @@ test("legacy profile JSON is no longer a contribution write authority", () => {
   const profileAction = read("src/app/actions/profile.ts");
   const profileData = read("src/lib/data/profile.ts");
   const browserProfile = read("src/lib/profile/browser-profile.ts");
-  const accountAction = read("src/app/actions/account.ts");
+  const accountExport = read("src/lib/account/export-stream.ts");
   assert.doesNotMatch(profileAction, /syncProfileProjectContributionOverrides/);
   assert.doesNotMatch(profileAction, /patch\.experience\b/);
   assert.doesNotMatch(profileData, /PROFILE_DETAIL_COLUMNS[\s\S]*?experience:\s*true/);
   assert.doesNotMatch(browserProfile, /profile\.experience \?\? profile\.experience_data/);
-  assert.doesNotMatch(accountAction, /experience:\s*profiles\.experience/);
-  assert.match(accountAction, /projectContributions:\s*contributionExport/);
-  assert.match(accountAction, /profileContributionSkills/);
+  assert.doesNotMatch(accountExport, /experience:\s*profiles\.experience/);
+  assert.match(accountExport, /"projectContributions":/);
+  assert.match(accountExport, /profileContributionSkills/);
 });
 
 test("strict contribution commands reject unsafe, stale-shaped, duplicate, and invalid-date input", () => {

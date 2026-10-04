@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProjectSchema, type CreateProjectInput, type OpenRoleInput } from '@/lib/validations/project';
+import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY } from '@/lib/projects/settings-policies';
 import { generateSlug, generateProjectId } from '@/lib/utils/project-ids';
 import { toast } from 'sonner';
 import { TOTAL_PHASES, WizardPhaseId } from '@/constants/project-wizard';
@@ -39,6 +40,8 @@ interface UseCreateProjectWizardProps {
 export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
     const [phase, setPhase] = useState<WizardPhaseId>(initialPhase);
     const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
+    // Step 4 project picture: held in memory, uploaded right after the project exists.
+    const [projectImage, setProjectImage] = useState<File | null>(null);
     const [uploadProgress, setUploadProgress] = useState<{
         percent: number;
         currentFile: string;
@@ -88,8 +91,14 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             roles: [],
             import_source: { type: 'scratch' },
             external_links: [],
+            // Step 4 launch settings; defaults match Project settings so Continue works untouched.
+            public_tab_visibility: { ...DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY },
+            member_updates_enabled: true,
+            member_file_upload_default: true,
+            doc_edit_policy: 'leaders',
+            notification_rows: { roles_applications: true, work: true, updates_docs: true },
             readme: {
-                mode: 'skip',
+                mode: 'starter',
                 sourcePath: null,
                 publishOnCreate: false,
                 includeRoles: true,
@@ -182,9 +191,11 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
     const [githubFolderEntries, setGithubFolderEntries] = useState<Record<string, GithubPreviewEntry[]>>({});
     const latestGithubPreviewRequestRef = useRef('');
 
-    const importSourceType = watch('import_source.type');
-    const watchedRepoUrl = watch('import_source.repoUrl');
-    const watchedBranch = watch('import_source.branch');
+    // useWatch, not watch(): whole-object import_source writes must still reset the GitHub preview.
+    const [importSourceType, watchedRepoUrl, watchedBranch] = useWatch({
+        control: methods.control,
+        name: ['import_source.type', 'import_source.repoUrl', 'import_source.branch'],
+    });
 
     const resetGithubPreview = useCallback(() => {
         latestGithubPreviewRequestRef.current = '';
@@ -422,9 +433,9 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             count: 1,
             description: '',
             skills: [],
-            experience_level: 'any',
-            compensation_type: 'unpaid',
-            compensation_details: '',
+            experienceLevel: 'any',
+            compensationType: 'unpaid',
+            compensationDetails: '',
         }, { shouldFocus: true });
     }, [appendOpenRole]);
 
@@ -452,7 +463,24 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
     // project dirty, so closing after restoring all values must not prompt.
     // Keep the two non-form inputs that would otherwise be lost in the check.
     const hasUnsavedWizardChanges = isDirty
-        || Boolean(uploadFiles?.length);
+        || Boolean(uploadFiles?.length)
+        || Boolean(projectImage);
+
+    // Leaving without the confirm dialog (browser Back) keeps the work: unsaved changes become a
+    // draft on unmount. "Leave setup" and a successful create opt out via markLeaving().
+    const skipDraftOnUnmountRef = useRef(false);
+    const hasUnsavedRef = useRef(hasUnsavedWizardChanges);
+    const saveDraftRef = useRef(saveDraft);
+    useEffect(() => {
+        hasUnsavedRef.current = hasUnsavedWizardChanges;
+        saveDraftRef.current = saveDraft;
+    }, [hasUnsavedWizardChanges, saveDraft]);
+    useEffect(() => () => {
+        if (hasUnsavedRef.current && !skipDraftOnUnmountRef.current) void saveDraftRef.current(true);
+    }, []);
+    const markLeaving = useCallback(() => {
+        skipDraftOnUnmountRef.current = true;
+    }, []);
 
     useEffect(() => {
         if (phase !== TOTAL_PHASES) setIsReviewReady(false);
@@ -624,6 +652,25 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             }
         };
 
+        // Step 4 settings that need the project to exist first. Failures never undo creation;
+        // both stay editable in Project settings.
+        const applyLaunchSettingsAfterCreate = async (projectId: string) => {
+            if (projectImage) {
+                try {
+                    const { uploadProjectImage } = await import('@/lib/upload/project-image-upload-client');
+                    await uploadProjectImage(projectId, projectImage);
+                } catch (error) {
+                    console.warn('[create-project] Project picture upload failed', error);
+                    toast.warning('Project created, but the picture didn’t upload. Add it from Project settings.');
+                }
+            }
+            if (readmeIntent.mode !== 'skip' && data.doc_edit_policy === 'members') {
+                const { updateProjectDocSettingsAction } = await import('@/app/actions/project/doc');
+                const result = await updateProjectDocSettingsAction(projectId, { editPolicy: 'members' });
+                if (!result.success) toast.warning('Project created, but doc editing is still leaders only. Change it from Project settings.');
+            }
+        };
+
         try {
             if (importType === 'upload') {
                 if (!uploadFiles || uploadFiles.length === 0) {
@@ -658,7 +705,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     import('@/app/actions/upload-import'),
                 ]);
 
-                const { getBatchUploadUrls, getUploadPresignedUrl } = uploadActions;
+                const { getUploadPresignedUrl } = uploadActions;
                 const { registerUploadedFolderAction, updateUploadSessionAction } = importActions;
                 const uploadProjectId = createdProjectId;
                 if (!uploadProjectId) {
@@ -702,21 +749,15 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     importEventId,
                 });
 
-                // Keep the server's per-request signing boundary while supporting large folders.
-                const urlMap: Record<string, string> = {};
-                const uploadUrlRequests = meta.map((m) => ({ key: m.key, contentType: m.mimeType, sizeBytes: m.size }));
-                for (let offset = 0; offset < uploadUrlRequests.length; offset += 200) {
-                    const batchRes = await getBatchUploadUrls(uploadUrlRequests.slice(offset, offset + 200), { sessionId });
-                    if ('error' in batchRes) throw new Error(batchRes.error);
-                    Object.assign(urlMap, batchRes.urls || {});
-                }
-
                 const getPresignedUrl = async (key: string, contentType: string, sizeBytes: number) => {
-                    const cached = urlMap[key];
-                    if (cached) return cached;
                     const single = await getUploadPresignedUrl(key, contentType, sizeBytes, { sessionId });
                     if ('error' in single) throw new Error(single.error);
-                    return single.url;
+                    return {
+                        url: single.url,
+                        uploadToken: single.token,
+                        storageKey: single.storageKey,
+                        uploadIntentId: single.uploadIntentId,
+                    };
                 };
 
                 const uploadRes = await uploadFolder(
@@ -733,19 +774,26 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     {
                         sessionId,
                         manifestHash,
-                        retryBudget: Math.max(8, Math.ceil(meta.length * 0.25)),
                     }
                 );
 
                 // Register ONLY successfully uploaded files so Files tab never references missing keys
-                const uploadedSet = new Set(uploadRes.uploadedKeys);
+                const uploadedByRequestKey = new Map(
+                    uploadRes.uploadedAssets.map((asset) => [asset.requestKey, asset]),
+                );
                 const manifest = meta
-                    .filter((m) => uploadedSet.has(m.key))
-                    .map((m) => ({
-                        relativePath: m.relativePath,
-                        size: m.size,
-                        mimeType: m.mimeType,
-                    }));
+                    .map((m) => {
+                        const uploaded = uploadedByRequestKey.get(m.key);
+                        if (!uploaded) return null;
+                        return {
+                            relativePath: m.relativePath,
+                            size: m.size,
+                            mimeType: m.mimeType,
+                            storageKey: uploaded.storageKey,
+                            uploadIntentId: uploaded.uploadIntentId,
+                        };
+                    })
+                    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
                 await updateUploadSessionAction(uploadProjectId, {
                     sessionId,
@@ -790,13 +838,14 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             if (createdProjectId && !readmeApplied) {
                 await applyReadmeSetup(createdProjectId);
             }
+            if (createdProjectId) await applyLaunchSettingsAfterCreate(createdProjectId);
 
             const { draftStore } = await import('@/lib/storage/draft-store');
             await draftStore.clear();
-            if (createdProjectId) {
-                onSuccess?.(createdProjectId);
-            }
-            onClose();
+            skipDraftOnUnmountRef.current = true;
+            // Success navigates to the new project; closing as well would navigate away from it.
+            if (createdProjectId && onSuccess) onSuccess(createdProjectId);
+            else onClose();
         } catch (error: any) {
             // If upload import failed after project creation, mark syncStatus=failed so Files tab can show retry UI.
             try {
@@ -814,15 +863,15 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             submissionRef.current = false;
             setIsSubmitting(false);
         }
-    }, [onSuccess, onClose, phase, isReviewReady, uploadFiles]);
+    }, [onSuccess, onClose, phase, isReviewReady, uploadFiles, projectImage]);
 
     return {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending,
         isPhaseTransitioning, isReviewReady, setIsReviewReady,
-        uploadFiles, setUploadFiles, uploadProgress, setUploadProgress,
+        uploadFiles, setUploadFiles, uploadProgress, setUploadProgress, projectImage, setProjectImage,
         saveStatus, lastSaved, showExitConfirm, setShowExitConfirm,
-        handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt,
+        handleNext, handleBack, goToPhase, saveDraft, handleCloseAttempt, markLeaving, hasUnsavedWizardChanges,
         githubPreview,
         githubFolderEntries,
         loadGithubFolder,

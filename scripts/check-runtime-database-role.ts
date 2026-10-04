@@ -3,17 +3,18 @@ import postgres from "postgres";
 
 config({ path: ".env.local" });
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL is required");
+async function main() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("DATABASE_URL is required");
 
-const hostname = new URL(databaseUrl).hostname;
-const sql = postgres(databaseUrl, {
-  max: 1,
-  prepare: false,
-  ssl: ["localhost", "127.0.0.1", "::1"].includes(hostname) ? false : "require",
-});
+  const hostname = new URL(databaseUrl).hostname;
+  const sql = postgres(databaseUrl, {
+    max: 1,
+    prepare: false,
+    ssl: ["localhost", "127.0.0.1", "::1"].includes(hostname) ? false : "require",
+  });
 
-try {
+  try {
   const [role] = await sql<{
     roleName: string;
     bypassRls: boolean;
@@ -30,6 +31,9 @@ try {
     );
   }
   console.log(`[runtime-database-role] ok (${role.roleName})`);
-} finally {
-  await sql.end();
+  } finally {
+    await sql.end();
+  }
 }
+
+void main();

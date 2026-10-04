@@ -1,233 +1,171 @@
-import { inngest } from "../client";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
+
 import { db } from "@/lib/db";
-import { projects, messages, messageAttachments, accountDeletions } from "@/lib/db/schema";
-import { createAdminClient } from "@/lib/supabase/server";
-import { eq, and, asc, gt, inArray, isNotNull } from "drizzle-orm";
-import { purgeUserCache } from "@/lib/utils/cdn";
+import { accountDeletions, projects, storageAssets } from "@/lib/db/schema";
 import { verifySignedJobRequestToken } from "@/lib/security/job-request";
 
-type AdminStorageClient = Awaited<ReturnType<typeof createAdminClient>>;
-
-async function deleteStoragePrefix(
-    admin: AdminStorageClient,
-    bucket: string,
-    rootPrefix: string,
-): Promise<string[]> {
-    const pendingPrefixes = [rootPrefix.replace(/\/$/, "")];
-    const deleted: string[] = [];
-
-    while (pendingPrefixes.length > 0) {
-        const prefix = pendingPrefixes.pop()!;
-        const files: string[] = [];
-        for (let offset = 0; ; offset += 100) {
-            const { data, error } = await admin.storage.from(bucket).list(prefix, {
-                limit: 100,
-                offset,
-                sortBy: { column: "name", order: "asc" },
-            });
-            if (error) throw new Error(`${bucket}/${prefix} listing failed: ${error.message}`);
-            if (!data?.length) break;
-            for (const entry of data) {
-                const path = `${prefix}/${entry.name}`;
-                if (entry.id) files.push(path);
-                else pendingPrefixes.push(path);
-            }
-            if (data.length < 100) break;
-        }
-
-        for (let index = 0; index < files.length; index += 100) {
-            const batch = files.slice(index, index + 100);
-            const { error } = await admin.storage.from(bucket).remove(batch);
-            if (error) throw new Error(`${bucket}/${prefix} cleanup failed: ${error.message}`);
-            deleted.push(...batch);
-        }
-    }
-
-    return deleted;
-}
+import { inngest } from "../client";
 
 /**
- * Async S3 cleanup for account deletion.
- * Runs as a background job with automatic retries via Inngest step mechanism.
- * Triggered by `account/cleanup` event from scheduleAccountDeletion().
+ * Account cleanup preserves lifecycle evidence before project/profile cascades.
+ * Physical object deletion is owned by the fenced asset worker after domain
+ * references disappear and backup requirements are satisfied.
  */
 export const accountCleanup = inngest.createFunction(
-    {
-        id: "account-cleanup",
-        name: "Account Deletion S3 Cleanup",
-        retries: 3,
-    },
-    { event: "account/cleanup" },
-    async ({ event, step }) => {
-        const { userId, deletionId, jobSignature } = event.data;
+  {
+    id: "account-cleanup",
+    name: "Schedule account storage cleanup",
+    retries: 3,
+  },
+  { event: "account/cleanup" },
+  async ({ event, step }) => {
+    const { userId, deletionId, jobSignature } = event.data;
+    const verification = verifySignedJobRequestToken(jobSignature, {
+      kind: "account/cleanup",
+      actorId: userId,
+      subjectId: deletionId,
+    });
+    if (!verification.ok) throw new Error("Invalid account cleanup job request");
 
-        const requestVerification = verifySignedJobRequestToken(jobSignature, {
-            kind: "account/cleanup",
-            actorId: userId,
-            subjectId: deletionId,
-        });
-        if (!requestVerification.ok) {
-            throw new Error("Invalid account cleanup job request");
-        }
+    await step.run("mark-in-progress", async () => {
+      await db.update(accountDeletions)
+        .set({ cleanupStatus: "in_progress" })
+        .where(and(
+          eq(accountDeletions.id, deletionId),
+          eq(accountDeletions.userId, userId),
+        ));
+    });
 
-        // Mark cleanup as in progress
-        await step.run("mark-in-progress", async () => {
-            await db
-                .update(accountDeletions)
-                .set({ cleanupStatus: 'in_progress' })
-                .where(eq(accountDeletions.id, deletionId));
-        });
+    const legacy = await step.run("check-unregistered-references", async () => {
+      const result = await db.execute<{ legacy_count: number }>(sql`
+        SELECT (
+          (SELECT count(*) FROM public.profiles profile
+            WHERE profile.id = ${userId}
+              AND (((profile.avatar_url LIKE '%/storage/v1/object/%') AND profile.avatar_asset_id IS NULL)
+                OR ((profile.banner_url LIKE '%/storage/v1/object/%') AND profile.banner_asset_id IS NULL)))
+          + (SELECT count(*) FROM public.projects project
+            WHERE project.owner_id = ${userId}
+              AND (project.cover_image_key IS NOT NULL OR project.cover_image LIKE '%/storage/v1/object/%')
+              AND project.cover_image_asset_id IS NULL)
+          + (SELECT count(*) FROM public.project_nodes node
+              JOIN public.projects project ON project.id = node.project_id
+            WHERE project.owner_id = ${userId}
+              AND node.s3_key IS NOT NULL
+              AND node.asset_id IS NULL)
+          + (SELECT count(*) FROM public.file_versions version
+              JOIN public.project_nodes node ON node.id = version.node_id
+              JOIN public.projects project ON project.id = node.project_id
+            WHERE project.owner_id = ${userId}
+              AND version.s3_key <> ''
+              AND version.asset_id IS NULL)
+          + (SELECT count(*) FROM public.project_updates update_row
+              JOIN public.projects project ON project.id = update_row.project_id
+            WHERE project.owner_id = ${userId}
+              AND jsonb_array_length(update_row.media) > (
+                SELECT count(*) FROM public.project_update_media_assets media_ref
+                WHERE media_ref.update_id = update_row.id
+              ))
+          + (SELECT count(*) FROM public.project_update_drafts draft
+              JOIN public.projects project ON project.id = draft.project_id
+            WHERE project.owner_id = ${userId}
+              AND jsonb_array_length(draft.media) > (
+                SELECT count(*) FROM public.project_update_draft_media_assets media_ref
+                WHERE media_ref.project_id = draft.project_id
+                  AND media_ref.user_id = draft.user_id
+              ))
+          + (SELECT count(*) FROM public.import_jobs import_job
+              JOIN public.projects project ON project.id = import_job.project_id
+            WHERE project.owner_id = ${userId}
+              AND import_job.manifest_s3_key IS NOT NULL
+              AND import_job.manifest_asset_id IS NULL)
+          + (SELECT count(*) FROM public.github_sync_runs sync_run
+              JOIN public.projects project ON project.id = sync_run.project_id
+              CROSS JOIN LATERAL jsonb_array_elements(
+                COALESCE(sync_run.manifest->'files', '[]'::jsonb)
+              ) AS sync_file
+            WHERE project.owner_id = ${userId}
+              AND sync_file->>'snapshotKey' LIKE (project.id::text || '/sync-snapshots/' || sync_run.id::text || '/%')
+              AND NOT EXISTS (
+                SELECT 1 FROM public.github_sync_snapshot_assets snapshot_ref
+                WHERE snapshot_ref.run_id = sync_run.id
+                  AND snapshot_ref.path = sync_file->>'path'
+              ))
+          + (SELECT count(*) FROM public.message_attachments attachment
+              JOIN public.messages message ON message.id = attachment.message_id
+            WHERE message.sender_id = ${userId}
+              AND attachment.storage_path IS NOT NULL
+              AND attachment.asset_id IS NULL)
+          + (SELECT count(*) FROM public.extension_recovery_drafts draft
+            WHERE draft.user_id = ${userId}
+              AND draft.asset_id IS NULL)
+        )::int AS legacy_count
+      `);
+      return result[0]?.legacy_count ?? 0;
+    });
 
-        const supabase = await createAdminClient();
-
-        // Step 1: Delete every Storage domain owned by projects that will be
-        // removed during phase two, including legacy/version/orphaned paths.
-        const projectFileResults = await step.run("cleanup-project-files", async () => {
-            let totalDeleted = 0;
-            const totalErrors = 0;
-            const deletedPaths: string[] = [];
-            let cursor: string | null = null;
-            const DB_PAGE_SIZE = 100;
-
-            while (true) {
-                const ownedProjects = await db
-                    .select({ id: projects.id })
-                    .from(projects)
-                    .where(and(
-                        eq(projects.ownerId, userId),
-                        ...(cursor ? [gt(projects.id, cursor)] : []),
-                    ))
-                    .orderBy(asc(projects.id))
-                    .limit(DB_PAGE_SIZE);
-                if (ownedProjects.length === 0) break;
-                cursor = ownedProjects[ownedProjects.length - 1]!.id;
-
-                for (const project of ownedProjects) {
-                    const domains = [
-                        ["project-files", project.id],
-                        ["project-files", `projects/${project.id}`],
-                        ["project-files", `${userId}/project-images/${project.id}`],
-                        ["project-files", `${userId}/project-covers/${project.id}`],
-                        ["task-files", project.id],
-                        ["project-updates-media", `projects/${project.id}`],
-                    ] as const;
-                    for (const [bucket, prefix] of domains) {
-                        const removed = await deleteStoragePrefix(supabase, bucket, prefix);
-                        totalDeleted += removed.length;
-                        if (deletedPaths.length < 1_000) {
-                            deletedPaths.push(...removed.slice(0, 1_000 - deletedPaths.length).map((path) => `${bucket}/${path}`));
-                        }
-                    }
-                }
-            }
-            return { deleted: totalDeleted, errors: totalErrors, paths: deletedPaths };
-        });
-
-        // Step 2: Delete avatar files
-        const avatarResults = await step.run("cleanup-avatars", async () => {
-            const removed = await deleteStoragePrefix(supabase, "avatars", userId);
-            return {
-                deleted: removed.length,
-                errors: 0,
-                paths: removed.slice(0, 1_000).map((path) => `avatars/${path}`),
-            };
-        });
-
-        // Step 3: Delete message attachment files
-        const attachmentResults = await step.run("cleanup-message-attachments", async () => {
-            let totalDeleted = 0;
-            const totalErrors = 0;
-            const deletedPaths: string[] = [];
-            let cursor: string | null = null;
-
-            while (true) {
-                const attachments = await db
-                    .select({ id: messageAttachments.id, storagePath: messageAttachments.storagePath })
-                    .from(messageAttachments)
-                    .innerJoin(messages, eq(messageAttachments.messageId, messages.id))
-                    .where(and(
-                        eq(messages.senderId, userId),
-                        isNotNull(messageAttachments.storagePath),
-                        ...(cursor ? [gt(messageAttachments.id, cursor)] : []),
-                    ))
-                    .orderBy(asc(messageAttachments.id))
-                    .limit(500);
-                if (attachments.length === 0) break;
-                cursor = attachments[attachments.length - 1]!.id;
-                const attachmentBatch = attachments.filter(
-                    (attachment): attachment is { id: string; storagePath: string } => Boolean(attachment.storagePath?.trim()),
-                );
-                const batch = attachmentBatch.map((attachment) => attachment.storagePath);
-                if (batch.length === 0) continue;
-                try {
-                    const { error } = await supabase.storage.from('chat-attachments').remove(batch);
-                    if (error) {
-                        throw new Error(`Message attachment cleanup failed: ${error.message}`);
-                    } else {
-                        totalDeleted += batch.length;
-                        if (deletedPaths.length < 1_000) {
-                            deletedPaths.push(...batch.slice(0, 1_000 - deletedPaths.length).map(p => `chat-attachments/${p}`));
-                        }
-                        await db
-                            .delete(messageAttachments)
-                            .where(inArray(messageAttachments.id, attachmentBatch.map((attachment) => attachment.id)));
-                    }
-                } catch (e) {
-                    throw e instanceof Error ? e : new Error('Message attachment cleanup failed');
-                }
-            }
-
-            // Metadata can be absent or already purged. The sender-owned prefix
-            // is the final authority for otherwise unreachable attachment bodies.
-            const orphanedSenderObjects = await deleteStoragePrefix(supabase, "chat-attachments", userId);
-            totalDeleted += orphanedSenderObjects.length;
-            if (deletedPaths.length < 1_000) {
-                deletedPaths.push(...orphanedSenderObjects
-                    .slice(0, 1_000 - deletedPaths.length)
-                    .map((path) => `chat-attachments/${path}`));
-            }
-
-            return { deleted: totalDeleted, errors: totalErrors, paths: deletedPaths };
-        });
-
-        // Step 4: CDN Purge (Architectural Hook)
-        const allPaths = [
-            ...projectFileResults.paths,
-            ...avatarResults.paths,
-            ...attachmentResults.paths
-        ];
-
-        if (allPaths.length > 0) {
-            await step.run("cdn-purge", async () => {
-                await purgeUserCache(userId, allPaths);
-            });
-        }
-
-        // Step 5: Mark cleanup as completed
-        const totalErrors = projectFileResults.errors + avatarResults.errors + attachmentResults.errors;
-
-        await step.run("mark-completed", async () => {
-            await db
-                .update(accountDeletions)
-                .set({
-                    cleanupStatus: totalErrors > 0 ? 'failed' : 'completed',
-                    cleanupDetails: {
-                        projectFiles: { deleted: projectFileResults.deleted, errors: projectFileResults.errors },
-                        avatars: { deleted: avatarResults.deleted, errors: avatarResults.errors },
-                        messageAttachments: { deleted: attachmentResults.deleted, errors: attachmentResults.errors },
-                        completedAt: new Date().toISOString(),
-                    },
-                })
-                .where(eq(accountDeletions.id, deletionId));
-        });
-
-        return {
-            deletionId,
-            userId,
-            projectFiles: projectFileResults,
-            avatars: avatarResults,
-            messageAttachments: attachmentResults,
-            status: totalErrors > 0 ? 'completed_with_errors' : 'completed',
-        };
+    if (legacy > 0) {
+      await step.run("record-registration-blocker", async () => {
+        await db.update(accountDeletions)
+          .set({
+            cleanupStatus: "failed",
+            cleanupDetails: {
+              unregisteredStorageReferences: legacy,
+              blockedAt: new Date().toISOString(),
+              reason: "Storage references must be registered before account deletion",
+            },
+          })
+          .where(eq(accountDeletions.id, deletionId));
+      });
+      throw new Error(`Account cleanup blocked by ${legacy} unregistered storage references`);
     }
+
+    const scheduled = await step.run("schedule-registered-assets", async () => {
+      return db.transaction(async (tx) => {
+        const ownedProjects = tx
+          .select({ id: projects.id })
+          .from(projects)
+          .where(eq(projects.ownerId, userId));
+        const rows = await tx.update(storageAssets)
+          .set({
+            state: "delete_pending",
+            deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+            metadata: sql`${storageAssets.metadata} || jsonb_build_object(
+              'accountDeletionId', ${deletionId},
+              'accountCleanupScheduledAt', now()
+            )`,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            or(
+              eq(storageAssets.ownerUserId, userId),
+              inArray(storageAssets.projectId, ownedProjects),
+            ),
+            inArray(storageAssets.state, ["pending", "verified"]),
+          ))
+          .returning({ id: storageAssets.id });
+        return rows.map((row) => row.id);
+      });
+    });
+
+    await step.run("mark-scheduled", async () => {
+      await db.update(accountDeletions)
+        .set({
+          cleanupStatus: "completed",
+          cleanupDetails: {
+            scheduledAssetCount: scheduled.length,
+            sampleAssetIds: scheduled.slice(0, 100),
+            physicalDeletionOwner: "storage-asset-deletion",
+            scheduledAt: new Date().toISOString(),
+          },
+        })
+        .where(eq(accountDeletions.id, deletionId));
+    });
+
+    return {
+      deletionId,
+      userId,
+      scheduledAssets: scheduled.length,
+      physicalDeletionDeferred: true,
+    };
+  },
 );

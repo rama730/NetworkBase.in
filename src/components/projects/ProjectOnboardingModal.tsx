@@ -32,7 +32,7 @@ export function ProjectOnboardingModal({
         if (confettiFiredRef.current) return;
         confettiFiredRef.current = true;
         const timeoutId = window.setTimeout(async () => {
-            // ponytail: lazy import confetti keeps canvas-confetti out of initial client bundle
+            // Lazy import confetti keeps canvas-confetti out of initial client bundle
             const { default: confetti } = await import("canvas-confetti");
             confetti({
                 particleCount: 100,

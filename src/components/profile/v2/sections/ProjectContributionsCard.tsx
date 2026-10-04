@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Briefcase, EyeOff, FolderGit2, Github, Globe, Pencil, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { Card } from './Card'
@@ -57,6 +57,8 @@ export function ProjectContributionsCard({
     projects = [],
     onProjectIntent,
 }: ProjectContributionsCardProps) {
+    // Phones show the first two contributions until "Show all" (spec §17, no 750px card).
+    const [showAllMobile, setShowAllMobile] = useState(false)
     const visibleContributions = useMemo(
         () => (contributions || []).filter((contribution) => contribution && (isOwner || contribution.visibility === 'public')),
         [contributions, isOwner],
@@ -65,6 +67,7 @@ export function ProjectContributionsCard({
     return (
         <Card
             title="Project Contributions"
+            mobileTitle="Project contributions"
             icon={<Briefcase className="h-5 w-5" />}
             onAdd={onAdd}
             addLabel="Add project contribution"
@@ -73,16 +76,16 @@ export function ProjectContributionsCard({
                     type="button"
                     onClick={onAdd}
                     aria-label="Edit project contributions"
-                    className="rounded-[3px] p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="nb-touch-target inline-flex items-center justify-center rounded-[3px] p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground max-md:rounded-[5px]"
                 >
                     <Pencil className="h-4 w-4" />
                 </button>
             ) : null}
         >
-            <div className="px-5 py-2">
+            <div className="px-5 py-2 max-md:px-4">
                 {visibleContributions.length > 0 ? (
                     <div className="divide-y divide-border">
-                        {visibleContributions.map((contribution) => {
+                        {visibleContributions.map((contribution, contributionIndex) => {
                             const linkedProject = contribution.projectId
                                 ? projects.find((project) => project.id === contribution.projectId)
                                 : null
@@ -98,7 +101,7 @@ export function ProjectContributionsCard({
                             const isPrivate = contribution.visibility === 'private'
 
                             return (
-                                <article key={contribution.id} className="py-5">
+                                <article key={contribution.id} className={`py-5 ${!showAllMobile && contributionIndex >= 2 ? 'max-md:hidden' : ''}`}>
                                     {!!contribution.fileContributionCount && <p className="nb-meta mb-2">Contributed to {contribution.fileContributionCount} project files</p>}
                                     <div className="min-w-0">
                                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -112,7 +115,7 @@ export function ProjectContributionsCard({
                                                                 rel="noreferrer"
                                                                 onMouseEnter={() => onProjectIntent?.(projectUrl)}
                                                                 onFocus={() => onProjectIntent?.(projectUrl)}
-                                                                className="hover:text-primary hover:underline"
+                                                                className="hover:text-primary hover:underline max-md:py-3"
                                                             >
                                                                 {projectTitle}
                                                             </Link>
@@ -163,7 +166,7 @@ export function ProjectContributionsCard({
                                         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                                             {tags.length > 0 ? <SkillList skills={tags} maxVisible={8} size="sm" /> : <span />}
                                             {contribution.repoUrl ? (
-                                                <a href={contribution.repoUrl} target="_blank" rel="noreferrer" className="p-1 text-muted-foreground transition-colors hover:text-foreground" aria-label="View repository">
+                                                <a href={contribution.repoUrl} target="_blank" rel="noreferrer" className="nb-touch-target inline-flex items-center justify-center p-1 text-muted-foreground transition-colors hover:text-foreground" aria-label="View repository">
                                                     {contribution.repoUrl.includes('github.com') ? <Github className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
                                                 </a>
                                             ) : null}
@@ -172,6 +175,15 @@ export function ProjectContributionsCard({
                                 </article>
                             )
                         })}
+                        {!showAllMobile && visibleContributions.length > 2 ? (
+                            <button
+                                type="button"
+                                onClick={() => setShowAllMobile(true)}
+                                className="nb-ui-label flex min-h-11 w-full items-center justify-center text-primary md:hidden"
+                            >
+                                Show all {visibleContributions.length}
+                            </button>
+                        ) : null}
                     </div>
                 ) : (
                     <div className="nb-empty-state nb-grid-ground my-1 py-8 text-center">
@@ -186,7 +198,7 @@ export function ProjectContributionsCard({
                             <button
                                 type="button"
                                 onClick={onAdd}
-                                className="mt-3.5 inline-flex items-center gap-1.5 rounded-[5px] border border-primary bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
+                                className="nb-touch-target mt-3.5 inline-flex items-center gap-1.5 rounded-[5px] border border-primary bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
                             >
                                 <Plus className="size-3.5" />
                                 Add contribution

@@ -21,55 +21,43 @@ export const queryKeys = {
     projectPrefetch: (projectId: string) =>
       ["discover", "project-prefetch", projectId] as const,
   },
+  /** Presence and status (people and projects). */
+  presence: {
+    root: () => ["presence"] as const,
+    person: (userId: string) => ["presence", "person", userId] as const,
+    project: (projectId: string) => ["presence", "project", projectId] as const,
+    mine: () => ["presence", "mine"] as const,
+  },
   connections: {
     root: () => ["connections"] as const,
     pending: () => ["connections", "pending"] as const,
   },
-  messages: {
-    conversations: () => ["chat", "conversations"] as const,
-    targetUser: (userId: string) => ["chat", "targetUser", userId] as const,
-    v2: {
-      root: () => ["chat-v2"] as const,
-      inbox: (limit: number, scope: "active" | "archived" = "active") =>
-        ["chat-v2", "inbox", limit, scope] as const,
-      thread: (conversationId: string | null) =>
-        ["chat-v2", "thread", asNullable(conversationId)] as const,
-      capabilities: (conversationId: string | null, userId?: string | null) =>
-        [
-          "chat-v2",
-          "capabilities",
-          asNullable(conversationId),
-          asNullable(userId),
-        ] as const,
-      unread: () => ["chat-v2", "unread"] as const,
-      readCommitState: (conversationId: string | null | undefined) =>
-        ["chat-v2", "read-commit-state", asNullable(conversationId)] as const,
-      search: (query: string) => ["chat-v2", "search", query] as const,
-      structuredCatalog: (
-        conversationId: string | null | undefined,
-        userId?: string | null,
-      ) =>
-        [
-          "chat-v2",
-          "structured-catalog",
-          asNullable(conversationId),
-          asNullable(userId),
-        ] as const,
-      linkedWork: (
-        conversationId: string | null | undefined,
-        messageIds: readonly string[],
-      ) =>
-        [
-          "chat-v2",
-          "linked-work",
-          asNullable(conversationId),
-          messageIds.slice().sort().join(","),
-        ] as const,
-      applications: (limit: number, status = "all", sort = "newest") =>
-        ["chat-v2", "applications", limit, status, sort] as const,
-      projectGroups: (limit: number, offset: number) =>
-        ["chat-v2", "project-groups", limit, offset] as const,
-    },
+  /** Slack-style chat. */
+  chat: {
+    root: () => ["chat-v3"] as const,
+    bootstrap: (userId: string | null | undefined) => ["chat-v3", "bootstrap", asNullable(userId)] as const,
+    channel: (channelId: string) => ["chat-v3", "channel", channelId] as const,
+    messages: (channelId: string) => ["chat-v3", "messages", channelId] as const,
+    thread: (channelId: string, rootSeq: number) => ["chat-v3", "thread", channelId, rootSeq] as const,
+    members: (channelId: string) => ["chat-v3", "members", channelId] as const,
+    pins: (channelId: string) => ["chat-v3", "pins", channelId] as const,
+    canvas: (channelId: string) => ["chat-v3", "canvas", channelId] as const,
+    projectCanvases: (projectId: string) => ["chat-v3", "project-canvases", projectId] as const,
+    browse: (projectId: string) => ["chat-v3", "browse", projectId] as const,
+    card: (kind: string, refId: string) => ["chat-v3", "card", kind, refId] as const,
+    activity: () => ["chat-v3", "activity"] as const,
+    inbox: (filter: string) => ["chat-v3", "inbox", filter] as const,
+    saved: () => ["chat-v3", "saved"] as const,
+    savedSeqs: (channelId: string) => ["chat-v3", "saved-seqs", channelId] as const,
+    scheduled: () => ["chat-v3", "scheduled"] as const,
+    search: (params: string) => ["chat-v3", "search", params] as const,
+    tabs: (channelId: string) => ["chat-v3", "tabs", channelId] as const,
+    files: (channelId: string) => ["chat-v3", "files", channelId] as const,
+    reactors: (channelId: string, seq: number) => ["chat-v3", "reactors", channelId, seq] as const,
+    threads: () => ["chat-v3", "threads"] as const,
+    dms: () => ["chat-v3", "dms"] as const,
+    people: (query: string) => ["chat-v3", "people", query] as const,
+    taskSource: (taskId: string) => ["chat-v3", "task-source", taskId] as const,
   },
   profile: {
     root: () => ["profile"] as const,
@@ -192,15 +180,6 @@ export const queryKeys = {
           "readme",
           "references",
           kind,
-          query,
-        ] as const,
-      readmeImportCandidates: (projectId: string, query: string) =>
-        [
-          "project",
-          projectId,
-          "detail",
-          "readme",
-          "import-candidates",
           query,
         ] as const,
       readmeSmartBlockPreviews: (projectId: string, blockSignature: string) =>

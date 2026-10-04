@@ -17,19 +17,17 @@ describe("consumeRateLimit policy overrides", () => {
     resolveScopeFailMode = mod.resolveScopeFailMode;
   });
 
-  it("allows requests when fallback=allow even in distributed-only mode", async () => {
+  it("allows requests when fallback=allow", async () => {
     const key = `policy-allow-${Date.now()}`;
     const result = await consumeRateLimit(key, 10, 60, {
-      mode: "distributed-only",
       fallback: "allow",
     });
     assert.equal(result.allowed, true);
   });
 
-  it("denies requests when fallback=deny in distributed-only mode", async () => {
+  it("denies requests when fallback=deny", async () => {
     const key = `policy-deny-${Date.now()}`;
     const result = await consumeRateLimit(key, 10, 60, {
-      mode: "distributed-only",
       fallback: "deny",
     });
     assert.equal(result.allowed, false);

@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { db } from "@/lib/db";
 import {
   projects,
+  projectEventCounters,
   projectMembers,
   tasks,
   projectNodes,
@@ -38,11 +39,12 @@ export async function GET(request: Request) {
         name: projects.title,
         slug: projects.slug,
         description: projects.description,
-        currentSequenceNumber: projects.currentSequenceNumber,
+        currentSequenceNumber: sql<number>`coalesce(${projectEventCounters.nextSequence}, ${projects.currentSequenceNumber})`,
         updatedAt: projects.updatedAt,
       })
       .from(projects)
       .innerJoin(projectMembers, eq(projects.id, projectMembers.projectId))
+      .leftJoin(projectEventCounters, eq(projectEventCounters.projectId, projects.id))
       .where(
         and(eq(projectMembers.userId, user.id), isNull(projects.deletedAt)),
       );
@@ -76,7 +78,7 @@ export async function GET(request: Request) {
       });
     }
 
-    // ponytail: fast bootstrap summary mode skips expensive window-partition task/file queries
+    // ponytail: summary mode skips per-project task and file queries. ceiling: counts only until the IDE asks for full mode. upgrade: none; full mode already serves details.
     if (isSummaryMode) {
       const projectTaskCountMap = await getProjectTaskCountMap(projectIds);
       const summaryProjects = userProjects.map((project) => ({

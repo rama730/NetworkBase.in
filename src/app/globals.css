@@ -5,6 +5,7 @@
 
 @theme inline {
   --color-background: var(--background);
+  --color-chat-accent: var(--chat-accent);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-instrument-sans);
   --font-serif: var(--font-instrument-serif);
@@ -74,9 +75,6 @@
   --shadow-xl: 0 18px 44px -16px rgb(13 17 20 / 26%);
   --shadow-2xl: 0 18px 44px -16px rgb(13 17 20 / 26%);
 
-  --color-msg-own-fg: var(--msg-own-fg);
-  --color-msg-peer-bg: var(--msg-peer-bg);
-  --color-msg-peer-fg: var(--msg-peer-fg);
 }
 
 @theme {
@@ -140,6 +138,8 @@
   --nb-brand-hover: var(--primary-hover);
   --nb-sidebar-width: 224px;
   --nb-sidebar-collapsed-width: 64px;
+  /* Chat counts and the Send button (report 7.11). */
+  --chat-accent: #D14E24;
   --nb-page-inset: 24px;
   --nb-workspace-inset: 20px;
   --nb-grid-line: rgb(33 42 48 / 7%);
@@ -222,19 +222,6 @@
   --ui-list-row-py: 12px;
   --ui-section-gap: 16px;
   --ui-topnav-height: 56px;
-  --msg-rail-width: 320px;
-  --msg-bubble-radius: 8px;
-  --msg-tail-radius: 5px;
-  --msg-bubble-pad-x: 12px;
-  --msg-bubble-pad-y: 8px;
-  --msg-action-rail-width: 0px;
-  --msg-own-bg: var(--accent);
-  --msg-own-fg: var(--foreground);
-  --msg-peer-bg: var(--card);
-  --msg-peer-fg: var(--foreground);
-  --msg-date-pill-bg: var(--background);
-  --msg-shadow: none;
-  --msg-shadow-lg: 0 18px 44px -16px rgb(13 17 20 / 26%);
   /* Content loading is intentionally neutral: it never inherits an accent. */
   --skeleton-base: color-mix(in srgb, var(--muted) 88%, var(--background));
   --skeleton-highlight: color-mix(in srgb, var(--card) 72%, var(--muted));
@@ -616,74 +603,6 @@ html[data-reduce-motion="true"] .nb-skeleton {
   }
 }
 
-@keyframes message-appear {
-  0% {
-    transform: translateY(8px);
-    opacity: 0;
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.msg-message-enter {
-  animation: message-appear 260ms cubic-bezier(.2,.8,.3,1);
-}
-
-.msg-message-row,
-.msg-bubble-lane {
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: clip;
-}
-
-@supports not (overflow: clip) {
-  .msg-message-row,
-  .msg-bubble-lane {
-    overflow-x: hidden;
-  }
-}
-
-.msg-action-rail {
-  flex: 0 0 var(--msg-action-rail-width);
-  width: var(--msg-action-rail-width);
-  max-width: var(--msg-action-rail-width);
-}
-
-.msg-bubble-stack {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: min(36rem, 78%);
-}
-
-.msg-bubble-stack[data-surface="popup"] {
-  max-width: min(20rem, 100%);
-}
-
-.msg-bubble-shell {
-  position: relative;
-  border-radius: var(--msg-bubble-radius);
-  padding: var(--msg-bubble-pad-y) var(--msg-bubble-pad-x);
-  box-shadow: var(--msg-shadow);
-  width: fit-content;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: break-word;
-  word-break: normal;
-}
-
-.msg-bubble-shell[data-rich="true"] {
-  width: 100%;
-  max-width: 380px;
-}
-
-.msg-message-text {
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  word-break: normal;
-}
-
 .msg-rich-content {
   min-width: 0;
   max-width: 100%;
@@ -694,109 +613,6 @@ html[data-reduce-motion="true"] .nb-skeleton {
   width: max-content;
   max-width: min(18rem, calc(100vw - 2rem));
   overflow-x: visible;
-}
-
-.msg-bubble-own {
-  /* ponytail: legacy styling overrides removed to allow new Shadcn primitives to style bubbles */
-}
-
-.msg-bubble-peer {
-  /* ponytail: legacy styling overrides removed to allow new Shadcn primitives to style bubbles */
-}
-
-.msg-bubble-shell[data-pending="true"] {
-  opacity: 0.72;
-}
-
-/* ponytail: dead styles for msg-action-rail and bubble corner overrides removed */
-
-.msg-date-pill {
-  background: var(--msg-date-pill-bg);
-  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
-  color: var(--muted-foreground);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.03em;
-  border-radius: 3px;
-  padding: 2px 8px;
-  font-weight: 500;
-}
-
-.msg-date-group-header {
-  pointer-events: none;
-  transform: translateZ(0);
-  will-change: transform;
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-    .typing-dot,
-    .animate-none,
-    .animate-spin {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-    }
-    * {
-        transition-duration: 0.01ms !important;
-    }
-}
-
-/* Blur-only edge treatment for the header and composer overlap. */
-.msg-thread-mask {
-  --_blur-top: 3.25rem;
-  --_blur-bottom: var(--msg-thread-composer-blur, 4.75rem);
-  --_blur-strength: 5px;
-  position: relative;
-  contain: content;
-  will-change: transform;
-  transform: translate3d(0, 0, 0);
-}
-
-/* Smooth fade edges via mask-image — no GPU white-line artifacts unlike backdrop-filter */
-.msg-thread-mask {
-  position: relative;
-  contain: content;
-  will-change: transform;
-  transform: translate3d(0, 0, 0);
-  --_blur-top: var(--msg-thread-header-blur, 3rem);
-  --_blur-bottom: var(--msg-thread-composer-blur, 4.25rem);
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    black var(--_blur-top),
-    black calc(100% - var(--_blur-bottom)),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    black var(--_blur-top),
-    black calc(100% - var(--_blur-bottom)),
-    transparent 100%
-  );
-}
-
-/* Row-level layout isolation for ultra-fast scrolling */
-.msg-message-row {
-  /* ponytail: removed content-visibility: auto as it fatally breaks React Virtuoso's ability to measure off-screen elements during overscan, causing severe scroll jitter */
-}
-
-/* Script element visibility override for debugging script payloads in chat */
-script.debug-script-view {
-  display: block;
-  white-space: pre;
-  font-family: var(--font-mono, monospace);
-  background: #f4f4f4;
-  padding: 0.5rem;
-  border-radius: 0.25rem;
-}
-
-/* Popup header and composer are shorter than the page surface. */
-[data-surface="popup"] .msg-thread-mask,
-.msg-thread-mask[data-surface="popup"] {
-  --_blur-top: 2.875rem;
-  --_blur-bottom: var(--msg-thread-composer-blur, 4.25rem);
-  --_blur-strength: 4px;
 }
 
 /* ── Tiptap Collaborative Cursors & Selections Styling ── */
@@ -880,8 +696,8 @@ script.debug-script-view {
   aspect-ratio: auto !important;
 }
 
-/* Authentication uses the same visible focus treatment as the application. */
-.auth-root input:focus-visible { border-color: var(--ring); }
+/* Authentication fields follow the same neutral, line-free focus policy. */
+.auth-root input:focus-visible { border-color: var(--input); box-shadow:none; }
 
 /* NetworkBase brand primitives. The product mark is semantic: only exported
    files use a fixed Clay/Ink/Paper colour. */
@@ -902,38 +718,6 @@ script.debug-script-view {
 .nb-brand-mark--accent { padding:calc(var(--nb-brand-dot-size) * .6) var(--nb-brand-dot-size); border-radius:var(--radius-md); background:var(--primary); color:var(--primary-foreground); }
 .nb-brand-mark--accent .nb-brand-dot { background:var(--primary-foreground); }
 .nb-brand-mark[data-brand-ground="image"] { box-shadow:0 0 0 1px color-mix(in srgb,#FAF8F4 18%,transparent); }
-.nb-wordmark-load { position:relative; display:inline-grid; place-items:center; min-width:calc(var(--nb-brand-wordmark-width, 1ch)); }
-.nb-wordmark-load__placeholder { visibility:hidden; pointer-events:none; }
-.nb-wordmark-load > .nb-dot-loader { position:absolute; inset:0; margin:auto; }
-.nb-dot-loader { --nb-dot-loader-size:20px; position:relative; display:inline-grid; width:calc(var(--nb-dot-loader-size) * 3); height:calc(var(--nb-dot-loader-size) * 2); place-items:center; color:var(--primary); }
-.nb-dot-loader__dot { display:block; width:var(--nb-dot-loader-size); height:var(--nb-dot-loader-size); border-radius:max(1.5px,calc(var(--nb-dot-loader-size) * .28)); background:currentColor; animation:nb-dot-breathe 1.4s ease-in-out infinite; }
-.nb-dot-loader--shuttle .nb-dot-loader__dot { animation-name:nb-dot-shuttle; }
-.nb-dot-loader--turn .nb-dot-loader__dot { animation-name:nb-dot-turn; }
-.nb-dot-loader--trace .nb-dot-loader__dot { animation-name:nb-dot-trace; }
-.nb-dot-loader--split .nb-dot-loader__dot { animation-name:nb-dot-split; }
-.nb-dot-loader--wipe .nb-dot-loader__dot { animation-name:nb-dot-wipe; transform-origin:left center; }
-.nb-dot-loader--squash .nb-dot-loader__dot { animation-name:nb-dot-squash; }
-.nb-dot-loader--queue .nb-dot-loader__dot { animation-name:nb-dot-queue; }
-.nb-dot-loader--orbit .nb-dot-loader__dot { animation-name:nb-dot-orbit; }
-.nb-dot-loader--tally .nb-dot-loader__dot { animation-name:nb-dot-tally; }
-.nb-dot-loader--relay .nb-dot-loader__dot { animation-name:nb-dot-relay; }
-.nb-dot-loader--cast .nb-dot-loader__dot { animation-name:nb-dot-cast; }
-.nb-dot-loader--shatter .nb-dot-loader__dot { animation-name:nb-dot-shatter; }
-.nb-dot-loader--stalled .nb-dot-loader__dot { animation:none; color:var(--destructive); }
-@keyframes nb-dot-breathe { 0%,100% { opacity:.56; transform:scale(.82); } 50% { opacity:1; transform:scale(1); } }
-@keyframes nb-dot-shuttle { 0% { transform:translateX(calc(var(--nb-dot-loader-size) * -.75)); opacity:0; } 35%,65% { opacity:1; } 100% { transform:translateX(calc(var(--nb-dot-loader-size) * .75)); opacity:0; } }
-@keyframes nb-dot-turn { 0%,100% { transform:rotate(0) scale(.88); border-radius:50%; } 50% { transform:rotate(45deg) scale(1); border-radius:1px; } }
-@keyframes nb-dot-trace { 0%,100% { box-shadow:calc(var(--nb-dot-loader-size) * -.75) 0 0 -2px currentColor,calc(var(--nb-dot-loader-size) * .75) 0 0 -2px currentColor; } 50% { box-shadow:0 0 0 -2px currentColor,0 0 0 -2px currentColor; } }
-@keyframes nb-dot-split { 0%,100% { transform:scaleX(1.8); opacity:.55; } 50% { transform:scaleX(1); opacity:1; } }
-@keyframes nb-dot-wipe { 0%,100% { transform:scaleX(.38); opacity:.55; } 50% { transform:scaleX(1); opacity:1; } }
-@keyframes nb-dot-squash { 0%,100% { transform:scale(1); } 35% { transform:scale(1.25,.7); } 65% { transform:scale(.86,1.12); } }
-@keyframes nb-dot-queue { 0%,100% { transform:translateX(calc(var(--nb-dot-loader-size) * -.5)); box-shadow:calc(var(--nb-dot-loader-size) * 1.1) 0 0 -2px currentColor; } 50% { transform:translateX(0); box-shadow:0 0 0 -2px currentColor; } }
-@keyframes nb-dot-orbit { 0%,100% { transform:rotate(0) translateX(calc(var(--nb-dot-loader-size) * .5)) rotate(0); } 50% { transform:rotate(180deg) translateX(calc(var(--nb-dot-loader-size) * .5)) rotate(-180deg); } }
-@keyframes nb-dot-tally { 0%,100% { box-shadow:calc(var(--nb-dot-loader-size) * -.7) 0 0 -2px currentColor,calc(var(--nb-dot-loader-size) * .7) 0 0 -2px currentColor; } 50% { transform:scale(1.15); box-shadow:none; } }
-@keyframes nb-dot-relay { 0%,100% { transform:translateX(calc(var(--nb-dot-loader-size) * -.7)); } 50% { transform:translateX(calc(var(--nb-dot-loader-size) * .7)); } }
-@keyframes nb-dot-cast { 0%,100% { transform:translate(-35%, -25%) scale(.7); opacity:.45; } 50% { transform:translate(0) scale(1); opacity:1; } }
-@keyframes nb-dot-shatter { 0%,100% { clip-path:polygon(0 0,45% 0,30% 100%,0 100%); transform:scale(1.4); } 50% { clip-path:polygon(0 0,100% 0,100% 100%,0 100%); transform:scale(1); } }
-@media (prefers-reduced-motion:reduce) { .nb-dot-loader__dot { animation:none !important; } }
 .nb-wordmark-square { width:var(--nb-brand-dot-size,7px); height:var(--nb-brand-dot-size,7px); border-radius:max(1.5px,calc(var(--nb-brand-dot-size,7px) * .28)); background:var(--primary); flex:none; }
 .nb-micro { font:500 11px/1.2 var(--font-jetbrains-mono),monospace; letter-spacing:.09em; text-transform:uppercase; color:var(--muted-foreground); }
 .nb-meta { font:400 12px/1.35 var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; color:var(--muted-foreground); }
@@ -954,10 +738,7 @@ script.debug-script-view {
 .nb-sidebar-brand { display:flex; align-items:center; justify-content:flex-start; height:56px; flex:none; padding:0 20px; }
 .nb-sidebar-brand .nb-brand-mark--lockup { gap:calc(var(--nb-brand-dot-size) * .55); }
 .nb-sidebar-wordmark { min-width:0; }
-.nb-sidebar-brand .nb-wordmark-load { min-width:max-content; }
 .nb-sidebar[data-collapsed="true"] .nb-sidebar-wordmark { display:inline-grid; width:24px; height:24px; place-items:center; }
-.nb-sidebar[data-collapsed="true"] .nb-sidebar-brand .nb-wordmark-load { min-width:24px; }
-.nb-sidebar[data-collapsed="true"] .nb-sidebar-brand .nb-dot-loader { width:24px; height:24px; }
 .nb-sidebar-toggle { width:32px; min-width:32px; min-height:32px; flex:none; justify-content:center; padding:0; border:0; background:transparent; }
 .nb-sidebar-footer { display:flex; flex:none; flex-flow:row nowrap; align-items:center; gap:4px; padding-top:1px; }
 .nb-sidebar-footer > .nb-nav-link:first-child { width:calc(100% - 36px); min-width:0; flex:0 1 auto; }
@@ -1041,6 +822,7 @@ svg.lucide { stroke-width:1.75; }
 [data-slot="user-avatar"] { color:var(--foreground); }
 [data-slot="user-avatar"] > div { color:var(--foreground); background:var(--secondary); }
 [data-slot="dialog-content"][data-presentation="center"] { max-height:calc(100dvh - 32px); overflow-y:auto; }
+[data-slot="dialog-content"][data-confirm-dialog] { overflow:hidden; }
 [data-slot="dialog-content"]:focus, [data-slot="dialog-content"]:focus-visible { outline: none !important; }
 [data-slot="input"]:focus, [data-slot="input"]:focus-visible, [data-slot="button"]:focus, [data-slot="button"]:focus-visible, .nb-tab:focus, .nb-tab:focus-visible, .nb-nav-link:focus, .nb-nav-link:focus-visible { outline: none !important; }
 [data-slot="dialog-overlay"] { backdrop-filter:none; }
@@ -1055,8 +837,15 @@ svg.lucide { stroke-width:1.75; }
   .nb-page-title { font-size:24px; }
   [data-slot="dialog-content"][data-presentation="center"] { max-width:calc(100vw - 16px); }
 }
+/* Preflight gives <code>/<pre> a ui-monospace stack; phones use the spec mono (JetBrains Mono). */
+@media (max-width:767px) {
+  code, kbd, samp, pre { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; }
+  /* Toasts sit above a mounted composer or wizard footer instead of covering it (spec §09 R12). */
+  body:has(.nb-message-composer, .nb-wizard-footer) [data-sonner-toaster][data-y-position="bottom"] { bottom: calc(96px + env(safe-area-inset-bottom)) !important; }
+}
 @media (pointer:coarse) {
-  :root { --ui-control-height-sm:44px; --ui-control-height:44px; --ui-control-height-lg:48px; --ui-nav-item-height:44px; }
+  /* :root[data-density] out-specifies the density presets, which are always set. */
+  :root, :root[data-density] { --ui-control-height-sm:44px; --ui-control-height:44px; --ui-control-height-lg:48px; --ui-nav-item-height:44px; }
   .nb-icon-button, .nb-tab, .nb-touch-target, .nb-avatar-trigger, [data-slot="tabs-trigger"] { min-width:44px; min-height:44px; }
   input:not([type="checkbox"]):not([type="radio"]), textarea, select { font-size:16px; }
 }
@@ -1067,8 +856,25 @@ svg.lucide { stroke-width:1.75; }
 .nb-discover-person-avatar { position:relative; display:inline-flex; width:56px; height:56px; align-self:start; border-radius:var(--radius-md); }
 .nb-discover-person-content { min-width:0; align-self:start; padding-top:1px; }
 .nb-discover-person-action { align-self:center; }
-.nb-person-presence-dot { position:absolute; z-index:1; right:-4px; bottom:-4px; display:block; width:14px; height:14px; border:2px solid var(--card); border-radius:999px; box-sizing:content-box; }
-.nb-person-presence-dot--compact { width:12px; height:12px; }
+/* Presence "Node" badge (components/presence): availability only. Statuses are emoji + text. */
+:root {
+  --presence-active: #2E9E5B; --presence-week: #D9971E; --presence-off: #8A969C;
+  --presence-cut: var(--card);
+}
+.dark {
+  --presence-active: #5BD08A; --presence-week: #F0B85A; --presence-off: #6B7880;
+}
+.nb-presence { display:inline-block; flex:none; border-radius:32%; box-shadow:0 0 0 2px var(--presence-cut); }
+/* Unlayered rules beat Tailwind's .absolute, so only claim `relative` when not placed absolutely. */
+.nb-presence:not(.absolute):not(.nb-person-presence-dot) { position:relative; }
+.nb-presence[data-availability="now"], .nb-presence[data-availability="today"] { background:var(--presence-active); }
+.nb-presence[data-availability="week"] { background:var(--presence-week); }
+.nb-presence[data-availability="offline"] { background:var(--presence-cut); box-shadow:0 0 0 2px var(--presence-cut), inset 0 0 0 1.5px var(--presence-off); }
+.nb-presence[data-availability="today"]::after, .nb-presence[data-availability="week"]::after { content:""; position:absolute; border-radius:32%; background:var(--presence-cut); }
+.nb-presence[data-availability="today"]::after { inset:33%; }
+.nb-presence[data-availability="week"]::after { inset:27%; }
+/* Corner placement on an avatar (people cards, search, discover). */
+.nb-person-presence-dot { position:absolute; z-index:1; right:-3px; bottom:-3px; }
 .nb-person-connect { display:inline-flex; min-height:var(--ui-control-height); align-items:center; justify-content:center; gap:8px; border:1px solid var(--primary); border-radius:var(--radius-md); background:var(--primary); padding:8px 12px; color:var(--primary-foreground); font-size:14px; font-weight:500; line-height:1.25; transition:background-color 150ms ease-in-out,border-color 150ms ease-in-out,color 150ms ease-in-out; }
 .nb-person-connect--compact { min-height:32px; padding:6px 12px; }
 .nb-person-connect:hover { border-color:var(--primary-hover); background:var(--primary-hover); }
@@ -1116,7 +922,7 @@ svg.lucide { stroke-width:1.75; }
 }
 .nb-portfolio-grid { display:flex; flex-direction:column; gap:16px; }
 
-/* Complete elimination of outer focus outline lines across all elements, components, buttons, dialogs, inputs, and links */
+/* Final focus-chrome guard: no component may paint an outer keyline or ring. */
 *:focus,
 *:focus-visible,
 :where(a, button, input, select, textarea, summary, [tabindex], [data-slot]):focus,
@@ -1144,8 +950,11 @@ svg.lucide { stroke-width:1.75; }
   outline: none !important;
   outline-width: 0 !important;
   outline-color: transparent !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
   box-shadow: none !important;
 }
+
 .nb-avatar-fallback, .nb-avatar-fallback > div, .nb-avatar-fallback > span {
   color: var(--foreground);
   background: var(--secondary);
@@ -1179,4 +988,67 @@ svg.lucide { stroke-width:1.75; }
   .nb-sidebar:not([data-collapsed]) .nb-sidebar-footer > .nb-nav-link { width:100%; min-width:0; min-height:44px; flex:none; padding:10px; }
 }
 
-.nb-message-composer, .nb-wizard-footer { padding-bottom:max(16px,env(safe-area-inset-bottom)); }
+.nb-message-composer { padding-bottom:max(8px,env(safe-area-inset-bottom)); }
+.nb-wizard-footer { padding-bottom:max(16px,env(safe-area-inset-bottom)); }
+
+/* ── Messages (report 7.10–7.13) ─────────────────────────────────────────────
+   Chat sidebar rows follow the theme. Rows are 32px, 44px on touch. */
+.nb-chat-row { display:flex; align-items:center; gap:8px; min-height:32px; width:100%; padding:0 10px; border-radius:5px; color:var(--muted-foreground); font-size:14px; text-align:left; }
+.nb-chat-row:hover, .nb-chat-row:focus-visible { background:var(--muted); color:var(--foreground); }
+.nb-chat-row[aria-current="page"] { background:var(--sidebar-accent); color:var(--foreground); font-weight:500; }
+.nb-chat-row[data-unread="true"] { color:var(--foreground); font-weight:600; }
+.nb-chat-row[data-muted="true"] { opacity:.55; }
+.nb-chat-row-preview { min-height:64px; padding:10px 12px; align-items:flex-start; }
+.nb-chat-count { margin-left:auto; padding:1px 5px; border-radius:3px; background:var(--chat-accent); color:#fff; font:11px var(--font-jetbrains-mono),monospace; line-height:16px; }
+.nb-chat-section-title { display:flex; align-items:center; gap:4px; min-height:28px; padding:0 6px; font:11px var(--font-jetbrains-mono),monospace; text-transform:uppercase; letter-spacing:.04em; color:var(--muted-foreground); }
+.nb-chat-list .nb-chat-row { min-height:44px; font-size:15px; }
+.nb-chat-list .nb-chat-row-preview { min-height:64px; }
+@media (pointer:coarse) { .nb-chat-row { min-height:44px; } }
+.nb-shell--messages { height:var(--chat-vvh, 100dvh); }
+.nb-chat-swipe { position:relative; overflow:hidden; border-radius:5px; }
+.nb-chat-swipe-actions { position:absolute; inset:0 0 0 auto; display:flex; }
+.nb-chat-swipe-actions > button { width:72px; font-size:13px; font-weight:500; }
+.nb-chat-swipe-row { position:relative; background:var(--card); transition:transform 180ms cubic-bezier(.2,.8,.3,1); touch-action:pan-y; }
+@media (prefers-reduced-motion: reduce) { .nb-chat-swipe-row { transition:none; } }
+
+/* ── Channel canvas + chat composer editors (Tiptap) ── */
+.nb-canvas { font-size: 15px; line-height: 1.65; color: var(--foreground); min-height: 50vh; padding-bottom: 30vh; }
+.nb-canvas > * + * { margin-top: 0.6em; }
+.nb-canvas h1 { font-size: 26px; font-weight: 700; line-height: 1.25; margin-top: 1.1em; letter-spacing: -0.01em; }
+.nb-canvas h2 { font-size: 21px; font-weight: 700; line-height: 1.3; margin-top: 1em; }
+.nb-canvas h3 { font-size: 17px; font-weight: 650; line-height: 1.35; margin-top: 0.9em; }
+.nb-canvas > :first-child { margin-top: 0; }
+.nb-canvas ul:not([data-type="taskList"]), .nb-compose ul { list-style-type: disc; padding-left: 1.4em; }
+.nb-canvas ol, .nb-compose ol { list-style-type: decimal; padding-left: 1.4em; }
+.nb-canvas li > p, .nb-compose li > p { margin: 0; }
+.nb-canvas ul[data-type="taskList"] { list-style: none; padding-left: 2px; }
+.nb-canvas ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 8px; }
+.nb-canvas ul[data-type="taskList"] li > label { flex: none; margin-top: 0.3em; }
+.nb-canvas ul[data-type="taskList"] li > label input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+.nb-canvas ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+.nb-canvas ul[data-type="taskList"] li[data-checked="true"] > div { color: var(--muted-foreground); text-decoration: line-through; }
+.nb-canvas blockquote, .nb-compose blockquote { border-left: 3px solid var(--border); padding-left: 12px; color: var(--muted-foreground); }
+.nb-canvas pre, .nb-compose pre { background: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; white-space: pre-wrap; }
+.nb-canvas :not(pre) > code, .nb-compose :not(pre) > code { background: var(--muted); border-radius: 3px; padding: 1px 4px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }
+.nb-canvas a, .nb-compose a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.nb-canvas hr { border: 0; border-top: 1px solid var(--border); margin: 1.2em 0; }
+.nb-canvas .nb-canvas-img { display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); cursor: grab; }
+.nb-canvas .nb-canvas-img[data-size="s"] { width: 33%; }
+.nb-canvas .nb-canvas-img[data-size="m"] { width: 60%; }
+.nb-canvas .nb-canvas-img[data-uploading="true"] { opacity: 0.55; }
+.nb-canvas .ProseMirror-selectednode { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 6px; }
+.nb-canvas-dropcursor { background: var(--primary); }
+.nb-canvas p.is-empty::before { content: attr(data-placeholder); color: var(--muted-foreground); opacity: 0.6; float: left; height: 0; pointer-events: none; }
+.nb-compose { font-size: 15px; line-height: 1.5; color: var(--foreground); }
+.nb-compose strong { font-weight: 700; }
+@media (pointer: coarse) { .nb-compose { font-size: 17px; } }
+.nb-canvas[contenteditable="false"] { min-height: 0; padding-bottom: 0; }
+
+/* Typing indicator dots (chat composer) */
+.nb-typing-dots { display: inline-flex; align-items: center; gap: 2px; }
+.nb-typing-dots > span { width: 4px; height: 4px; border-radius: 9999px; background: currentColor; animation: nb-typing-dot 1.2s ease-in-out infinite; }
+.nb-typing-dots > span:nth-child(2) { animation-delay: 0.15s; }
+.nb-typing-dots > span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes nb-typing-dot { 0%, 60%, 100% { opacity: 0.35; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .nb-typing-dots > span { animation: none; opacity: 0.7; } }
+html[data-reduce-motion="true"] .nb-typing-dots > span { animation: none; opacity: 0.7; }

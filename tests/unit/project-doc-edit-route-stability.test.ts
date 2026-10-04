@@ -67,7 +67,7 @@ test("project docs isolate published document identity across URLs and cache", (
 
 test("project detail reads retry transient Supabase pooler DNS failures", () => {
     const projectActions = fs.readFileSync(
-        path.join(repoRoot, "src/app/actions/project/_all.ts"),
+        path.join(repoRoot, "src/app/actions/project/index.ts"),
         "utf8",
     );
 
