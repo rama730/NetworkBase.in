@@ -42,6 +42,8 @@ type Props = {
   /** Launcher: open in the window instead of navigating. */
   onSelect?: (channelId: string) => void;
   onNewMessage?: () => void;
+  /** Launcher: open the Inbox in the window. */
+  onInbox?: () => void;
 };
 
 function ChannelIcon({ channel, meId, online }: { channel: ChatChannelSummary; meId: string | null; online?: boolean }) {
@@ -427,7 +429,7 @@ const noSubscribe = () => () => undefined;
 const modKeyHint = () => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K");
 
 /** The sectioned list shared by the desktop sidebar, the mobile List screen and the launcher window. */
-export function ChatSections({ variant, onSelect, onNewMessage }: Props) {
+export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props) {
   const { data, loadError, refresh } = useChatShell();
   const { user, profile } = useAuth();
   const router = useRouter();
@@ -495,6 +497,7 @@ export function ChatSections({ variant, onSelect, onNewMessage }: Props) {
   );
   const online = useOnlineUsers(presenceIds);
   const inboxUnread = data?.inbox_unread ?? 0;
+  const savedDue = data?.saved_due ?? 0;
 
   // The self-DM ("You (notes to self)") is created on first open.
   const openSelf = async () => {
@@ -598,15 +601,23 @@ export function ChatSections({ variant, onSelect, onNewMessage }: Props) {
           <Link href="/messages/inbox" className="nb-chat-row" aria-current={here("/messages/inbox")} data-unread={inboxUnread ? "true" : undefined} aria-label={`Inbox${inboxUnread ? `, ${inboxUnread} unread` : ""}`}>
             <Inbox size={16} aria-hidden="true" /><span className="flex-1">Inbox</span><Count value={inboxUnread} />
           </Link>
-          <Link href="/messages/saved" className="nb-chat-row" aria-current={here("/messages/saved")}><Bookmark size={16} aria-hidden="true" /><span className="flex-1">Saved</span></Link>
+          <Link href="/messages/saved" className="nb-chat-row" aria-current={here("/messages/saved")} aria-label={`Saved${savedDue ? `, ${savedDue} reminder${savedDue === 1 ? "" : "s"} due` : ""}`}>
+            <Bookmark size={16} aria-hidden="true" /><span className="flex-1">Saved</span><Count value={savedDue} />
+          </Link>
           <Link href="/messages/drafts" className="nb-chat-row" aria-current={here("/messages/drafts")} aria-label={`Drafts and scheduled${draftCount ? `, ${draftCount}` : ""}`}>
             <Pencil size={16} aria-hidden="true" /><span className="flex-1">Drafts &amp; scheduled</span><Count value={draftCount} />
           </Link>
         </div>
       ) : (
-        <Link href="/messages/inbox" className="nb-chat-row" data-unread={inboxUnread ? "true" : undefined}>
-          <Inbox size={16} aria-hidden="true" /><span className="flex-1">Inbox</span><Count value={inboxUnread} />
-        </Link>
+        onInbox ? (
+          <button type="button" onClick={onInbox} className="nb-chat-row" data-unread={inboxUnread ? "true" : undefined} aria-label={`Inbox${inboxUnread ? `, ${inboxUnread} unread` : ""}`}>
+            <Inbox size={16} aria-hidden="true" /><span className="flex-1">Inbox</span><Count value={inboxUnread} />
+          </button>
+        ) : (
+          <Link href="/messages/inbox" className="nb-chat-row" data-unread={inboxUnread ? "true" : undefined} aria-label={`Inbox${inboxUnread ? `, ${inboxUnread} unread` : ""}`}>
+            <Inbox size={16} aria-hidden="true" /><span className="flex-1">Inbox</span><Count value={inboxUnread} />
+          </Link>
+        )
       )}
 
       {unreadsOnly && !starred.length && !others.length && !myApplications.length && (open ? ![...sections.channels, ...sections.applications].some(keep) : !anyProjectRows) ? (

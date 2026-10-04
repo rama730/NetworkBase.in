@@ -1,6 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -319,6 +320,7 @@ export function useTyping(channelId: string, options: { rootSeq: number | null; 
 /** The open conversation's saved-for-later messages, with an optimistic toggle. */
 export function useSavedSeqs(channelId: string, enabled: boolean) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const key = useMemo(() => queryKeys.chat.savedSeqs(channelId), [channelId]);
   const query = useQuery({
     queryKey: key,
@@ -341,8 +343,8 @@ export function useSavedSeqs(channelId: string, enabled: boolean) {
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.saved() });
     if (!on) toast("Removed from Saved");
     else if (remindAt) toast.success(`Reminder set for ${new Date(remindAt).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
-    else toast.success("Saved for later", { action: { label: "View saved", onClick: () => window.location.assign("/messages/saved") } });
-  }, [channelId, key, queryClient]);
+    else toast.success("Saved", { action: { label: "View saved", onClick: () => router.push("/messages/saved") } });
+  }, [channelId, key, queryClient, router]);
   // Stable identity: the conversation context depends on it, and every row reads that (REND-01).
   return useMemo(() => ({ seqs, setSaved }), [seqs, setSaved]);
 }

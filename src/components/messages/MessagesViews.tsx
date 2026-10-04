@@ -5,20 +5,21 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlarmClock, AtSign, Check, CheckCheck, ChevronDown, Clock, Hash, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2 } from "lucide-react";
+import { AlarmClock, AtSign, CalendarClock, Check, CheckCheck, ChevronDown, Clock, Hash, MoreHorizontal, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { listInbox, listThreads, markInboxRead, markInboxUnread, type InboxFilter, type InboxItem, type ThreadItem } from "@/app/actions/chat/activity";
 import { setThreadFollow } from "@/app/actions/chat/messages";
 import { markThreadRead } from "@/app/actions/chat/read";
 import { browseChannels, joinChannel } from "@/app/actions/chat/channels";
-import { cancelScheduled, listSaved, listScheduled, saveMessage, type SavedItem } from "@/app/actions/chat/later";
+import { cancelScheduled, listSaved, listScheduled, rescheduleScheduled, saveMessage, sendScheduledNow, type SavedItem } from "@/app/actions/chat/later";
 import { searchMessages, type SearchHit } from "@/app/actions/chat/search";
 import { useChatUi, useDrafts, writeDraft, readDraft } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ListOrHome } from "@/components/messages/HomePane";
 import { ViewScreen } from "@/components/messages/ViewScreen";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle, formatChatTime, isDirectLike, personName } from "@/lib/messaging/channel-view";
@@ -32,6 +33,7 @@ import type { ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { useChannelMembers } from "@/components/messages/useConversation";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
+import { useWindowNav } from "@/components/messages/window-nav";
 import { MARK_ALL_LABEL } from "@/lib/messaging/channel-view";
 
 const Composer = dynamic(() => import("@/components/messages/Composer").then((m) => m.Composer), { ssr: false });
@@ -66,14 +68,26 @@ function where(item: { channel_name: string | null; channel_title?: string | nul
 }
 
 /** One row for Inbox, Threads, Saved and Search: avatar, who · where · when, then the message. */
-function SnippetRow({ href, onOpen, author, head, time, body, dim, unread, extra, aside }: {
-  href: string; onOpen?: () => void; author: ChatPerson | null; head: React.ReactNode; time: string | null; body: React.ReactNode;
+function SnippetRow({ href, target, onOpen, author, head, time, body, dim, unread, extra, aside }: {
+  href: string; target?: { channelId: string; rootSeq: number | null }; onOpen?: () => void; author: ChatPerson | null; head: React.ReactNode; time: string | null; body: React.ReactNode;
   dim?: boolean; unread?: boolean; extra?: React.ReactNode; aside?: React.ReactNode;
 }) {
+  const win = useWindowNav();
   return (
     <div className="flex gap-3 px-4 py-3 hover:bg-muted/60" data-unread={unread ? "true" : undefined}>
       <UserAvatar identity={author} size={34} roundedClassName="rounded-[5px]" />
-      <Link href={href} onClick={onOpen} className="min-w-0 flex-1">
+      <Link
+        href={href}
+        onClick={(event) => {
+          onOpen?.();
+          // In the window, open it there (ponytail: at the conversation's latest, not the exact message).
+          if (win && target && !event.metaKey && !event.ctrlKey) {
+            event.preventDefault();
+            win.open(target.channelId, target.rootSeq);
+          }
+        }}
+        className="min-w-0 flex-1"
+      >
         <span className="flex items-center gap-1.5 text-[13px]">
           {head}
           <span className="ml-auto flex-none font-mono text-[12px] text-muted-foreground">{when(time)}</span>
@@ -208,6 +222,7 @@ function InboxRow({ item, onOpen, onToggleRead }: { item: InboxItem; onOpen: (it
   return (
     <SnippetRow
       href={href}
+      target={{ channelId: item.channel_id, rootSeq: item.thread_root_seq }}
       onOpen={() => onOpen(item)}
       author={item.author}
       unread={!item.read}
@@ -290,6 +305,7 @@ function ThreadRow({ thread }: { thread: ThreadItem }) {
     <li className="border-b border-border">
       <SnippetRow
         href={threadHref(thread.channel_id, thread.root_seq)}
+        target={{ channelId: thread.channel_id, rootSeq: thread.root_seq }}
         author={thread.author}
         unread={thread.unread}
         time={thread.last_reply_at}
@@ -342,7 +358,10 @@ export function InboxView() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const shell = useChatShell();
-  const raw = params?.get("filter");
+  const win = useWindowNav();
+  // The window keeps its tab in memory; the page keeps it in the URL.
+  const [windowFilter, setWindowFilter] = useState<string>("all");
+  const raw = win ? windowFilter : params?.get("filter");
   const filter = FILTERS.some((f) => f.id === raw) ? (raw as InboxFilter | "threads") : "all";
   const feed = useInfiniteQuery({
     queryKey: queryKeys.chat.inbox(filter),
@@ -385,6 +404,10 @@ export function InboxView() {
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     refreshInbox();
   };
+  const selectFilter = (id: string) => {
+    if (win) setWindowFilter(id);
+    else router.replace(id === "all" ? "/messages/inbox" : `/messages/inbox?filter=${id}`);
+  };
   // Tabs: ←/→/Home/End move between them (roving tabindex), like any tablist.
   const tabKeys = (event: React.KeyboardEvent, index: number) => {
     const last = FILTERS.length - 1;
@@ -393,7 +416,7 @@ export function InboxView() {
     if (next === null) return;
     event.preventDefault();
     const target = FILTERS[next]!;
-    router.replace(target.id === "all" ? "/messages/inbox" : `/messages/inbox?filter=${target.id}`);
+    selectFilter(target.id);
     document.getElementById(`inbox-tab-${target.id}`)?.focus();
   };
   const scope = filter === "mentions" ? "mentions" : filter === "threads" ? "threads" : "all";
@@ -427,7 +450,7 @@ export function InboxView() {
             aria-controls="inbox-panel"
             tabIndex={filter === f.id ? 0 : -1}
             onKeyDown={(event) => tabKeys(event, index)}
-            onClick={() => router.replace(f.id === "all" ? "/messages/inbox" : `/messages/inbox?filter=${f.id}`)}
+            onClick={() => selectFilter(f.id)}
             className={`h-8 flex-none rounded-full px-3 text-[13px] font-medium pointer-coarse:h-11 ${filter === f.id ? "bg-foreground text-background" : "border border-border text-muted-foreground hover:text-foreground"}`}
           >
             {f.label}{f.id === "all" && unread ? ` · ${unread}` : ""}
@@ -456,7 +479,7 @@ export function InboxView() {
   );
 }
 
-/** Saved for later, with reminders; due ones first. */
+/** Saved messages, with reminders; due ones first. */
 export function SavedView() {
   const queryClient = useQueryClient();
   // "Due now" must turn on while the page is open, not only at mount.
@@ -475,13 +498,15 @@ export function SavedView() {
     getNextPageParam: (page, pages) => (page.length === CHAT_LIST_PAGE ? pages.length * CHAT_LIST_PAGE : undefined),
   });
   const saved = { ...savedPages, data: savedPages.data?.pages.flat() };
-  const act = async (item: SavedItem, on: boolean, remindAt: Date | null = null) => {
-    const result = await saveMessage({ channelId: item.channel_id, seq: item.seq, on, remindAt: remindAt?.toISOString() ?? null });
+  const [customFor, setCustomFor] = useState<{ item: SavedItem; at: Date } | null>(null);
+  const act = async (item: SavedItem, on: boolean, remindAt: Date | null = null, clearReminder = false) => {
+    const result = await saveMessage({ channelId: item.channel_id, seq: item.seq, on, remindAt: remindAt?.toISOString() ?? null, clearReminder });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.saved() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.savedSeqs(item.channel_id) });
     const label = remindAt?.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
-    toast(on ? (label ? `Reminder set for ${label}` : "Saved again") : "Marked done", on ? undefined : {
+    if (clearReminder) return void toast("Reminder cleared");
+    toast(on ? (label ? `Reminder set for ${label}` : "Saved") : "Removed from Saved", on ? undefined : {
       // Undo puts it back as it was, reminder included.
       action: { label: "Undo", onClick: () => void act(item, true, item.remind_at && !item.reminded_at ? new Date(item.remind_at) : null) },
     });
@@ -489,7 +514,7 @@ export function SavedView() {
   return (
     <ViewScreen title="Saved">
       {saved.isLoading ? <Empty>Loading…</Empty> : null}
-      {saved.data && !saved.data.length ? <Empty>Save messages to come back to them: hover a message and choose Save for later (or press S).</Empty> : null}
+      {saved.data && !saved.data.length ? <Empty>Save messages to come back to them: hover a message and choose Save (or press S).</Empty> : null}
       <ul aria-label="Saved messages">
         {(saved.data ?? []).map((item) => {
           const due = item.remind_at && !item.reminded_at && Date.parse(item.remind_at) <= now + 60_000;
@@ -519,9 +544,11 @@ export function SavedView() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
                         {REMINDER_TIMES.map((option) => <DropdownMenuItem key={option.label} onSelect={() => void act(item, true, new Date(option.at()))}>{option.label}</DropdownMenuItem>)}
+                        <DropdownMenuItem onSelect={() => setCustomFor({ item, at: new Date(Date.now() + 2 * 60 * 60_000) })}>Custom time…</DropdownMenuItem>
+                        {item.remind_at ? <><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => void act(item, true, null, true)}>Clear reminder</DropdownMenuItem></> : null}
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <button type="button" onClick={() => void act(item, false)} className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-11" aria-label="Mark done" title="Done (remove from Saved)">
+                    <button type="button" onClick={() => void act(item, false)} className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-11" aria-label="Done (remove from Saved)" title="Done">
                       <Check size={15} />
                     </button>
                   </div>
@@ -532,6 +559,14 @@ export function SavedView() {
         })}
       </ul>
       <LoadMore hasMore={Boolean(savedPages.hasNextPage)} loading={savedPages.isFetchingNextPage} onLoad={() => void savedPages.fetchNextPage()} />
+      <TimePickerDialog
+        initial={customFor?.at ?? null}
+        title="Remind me"
+        label="Remind me at"
+        confirmLabel="Set reminder"
+        onPick={(at) => customFor && void act(customFor.item, true, at)}
+        onClose={() => setCustomFor(null)}
+      />
     </ViewScreen>
   );
 }
@@ -551,6 +586,11 @@ export function DraftsView() {
       return result.success ? result.items : [];
     },
   });
+  const [rescheduling, setRescheduling] = useState<{ id: string; at: Date } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  // Loaded conversations that no longer list this one: you left it (or it was removed).
+  // ponytail: bootstrap lists the newest 100 DMs, so a draft in an older DM also reads "Left". Upgrade: look it up by id.
+  const left = (channelId: string) => channelId !== "new" && Boolean(data) && !data?.channels.some((c) => c.id === channelId);
   const titleOf = (channelId: string) => {
     if (channelId === "new") return "New message";
     const channel = data?.channels.find((c) => c.id === channelId);
@@ -571,10 +611,26 @@ export function DraftsView() {
       router.push(keepAsDraft.threadRootSeq ? threadHref(keepAsDraft.channelId, keepAsDraft.threadRootSeq) : conversationHref(keepAsDraft.channelId));
     } else toast("Scheduled message cancelled");
   };
+  const refreshScheduled = () => void queryClient.invalidateQueries({ queryKey: queryKeys.chat.scheduled() });
+  const sendNow = async (id: string) => {
+    setBusy(id);
+    const result = await sendScheduledNow({ id });
+    setBusy(null);
+    refreshScheduled();
+    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    toast.success("Sent");
+  };
+  const reschedule = async (id: string, at: Date) => {
+    const result = await rescheduleScheduled({ id, sendAt: at.toISOString() });
+    refreshScheduled();
+    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    toast.success(`Rescheduled for ${at.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
+  };
   return (
     <ViewScreen title="Drafts & scheduled">
       <section aria-labelledby="scheduled-heading">
         <h2 id="scheduled-heading" className="flex items-center gap-2 border-b border-border px-4 py-2 text-[12px] font-semibold text-muted-foreground"><Clock size={13} aria-hidden="true" /> Scheduled</h2>
+        {scheduled.isLoading ? <p className="border-b border-border px-4 py-4 text-[13px] text-muted-foreground">Loading…</p> : null}
         {scheduled.data && !scheduled.data.length ? <p className="border-b border-border px-4 py-4 text-[13px] text-muted-foreground">Nothing scheduled. Use the arrow next to Send to send a message later.</p> : null}
         <ul>
           {(scheduled.data ?? []).map((item) => (
@@ -589,8 +645,20 @@ export function DraftsView() {
                 <p className="mt-0.5 line-clamp-2 text-[15px]">{tokensToPlainText(item.body)}</p>
               </div>
               <div className="flex flex-none items-start gap-1">
-                <button type="button" onClick={() => void cancel(item.id, { channelId: item.channel_id, threadRootSeq: item.thread_root_seq, body: item.body })} className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Edit (move back to drafts)" title="Edit"><Pencil size={15} /></button>
-                <button type="button" onClick={() => void cancel(item.id)} className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-destructive" aria-label="Cancel scheduled message" title="Cancel"><Trash2 size={15} /></button>
+                <button type="button" disabled={busy === item.id} onClick={() => void sendNow(item.id)} className="h-8 rounded-[5px] border border-border px-2.5 text-[13px] font-medium hover:bg-muted disabled:opacity-60 pointer-coarse:h-11">
+                  {busy === item.id ? "Sending…" : item.failed_reason ? "Retry" : "Send now"}
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-11" aria-label="More for this scheduled message">
+                    <MoreHorizontal size={15} />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuItem onSelect={() => setRescheduling({ id: item.id, at: new Date(Math.max(Date.parse(item.send_at), Date.now() + 60 * 60_000)) })}><CalendarClock size={14} /> Reschedule…</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => void cancel(item.id, { channelId: item.channel_id, threadRootSeq: item.thread_root_seq, body: item.body })}><Pencil size={14} /> Edit (move back to drafts)</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onSelect={() => void cancel(item.id)}><Trash2 size={14} /> Cancel scheduled message</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </li>
           ))}
@@ -602,15 +670,30 @@ export function DraftsView() {
         <ul>
           {drafts.map((draft) => (
             <li key={draft.key} className="flex gap-3 border-b border-border px-4 py-3">
-              <Link href={draft.threadRootSeq ? threadHref(draft.channelId, draft.threadRootSeq) : conversationHref(draft.channelId)} className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium">{draft.threadRootSeq ? "Thread in " : ""}{titleOf(draft.channelId)}</p>
-                <p className="mt-0.5 line-clamp-2 text-[15px] text-muted-foreground">{tokensToPlainText(draft.body)}</p>
-              </Link>
+              {left(draft.channelId) ? (
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-muted-foreground">Left conversation</p>
+                  <p className="mt-0.5 line-clamp-2 text-[15px] text-muted-foreground">{tokensToPlainText(draft.body)}</p>
+                </div>
+              ) : (
+                <Link href={draft.threadRootSeq ? threadHref(draft.channelId, draft.threadRootSeq) : conversationHref(draft.channelId)} className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium">{draft.threadRootSeq ? "Thread in " : ""}{titleOf(draft.channelId)}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[15px] text-muted-foreground">{tokensToPlainText(draft.body)}</p>
+                </Link>
+              )}
               <button type="button" onClick={() => writeDraft(draft.key, "")} className="grid size-8 flex-none place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-destructive" aria-label="Discard draft" title="Discard"><Trash2 size={15} /></button>
             </li>
           ))}
         </ul>
       </section>
+      <TimePickerDialog
+        initial={rescheduling?.at ?? null}
+        title="Reschedule message"
+        label="Send at"
+        confirmLabel="Reschedule"
+        onPick={(at) => rescheduling && void reschedule(rescheduling.id, at)}
+        onClose={() => setRescheduling(null)}
+      />
     </ViewScreen>
   );
 }
@@ -728,6 +811,7 @@ export function SearchView() {
               head={<>
                 <span className="font-medium">{personName(hit.author)}</span>
                 <span className="truncate text-muted-foreground">in {where({ ...hit, channel_title: conversations.find((c) => c.id === hit.channel_id)?.title })}{hit.thread_root_seq ? " · thread" : ""}</span>
+                {hit.project_title ? <span className="hidden flex-none rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground sm:inline">{hit.project_title}</span> : null}
                 {hit.has_file ? <Paperclip size={12} aria-label="Has a file" className="text-muted-foreground" /> : null}
               </>}
             />

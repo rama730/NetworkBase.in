@@ -67,7 +67,7 @@ export async function fireDueReminders(limit = 500) {
       title: `Reminder: ${row.author ?? "a message"}${row.channel_name ? ` in #${row.channel_name}` : ""}`,
       body: preview || null,
       href: messageHref(row.channel_id, row.seq, row.thread_root_seq),
-      preview: { contextLabel: row.channel_name ? `#${row.channel_name}` : "Messages", contextKind: "workflow", secondaryText: "Saved for later" },
+      preview: { contextLabel: row.channel_name ? `#${row.channel_name}` : "Messages", contextKind: "workflow", secondaryText: "Saved" },
       dedupeKey: `chat-reminder:${row.user_id}:${row.channel_id}:${row.seq}:${Date.now()}`,
     }).catch((error) => logger.error("chat.reminder.failed", { module: "chat", error: String(error) }));
   }

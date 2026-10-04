@@ -105,7 +105,8 @@ export default function TopNav() {
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
                 e.preventDefault();
-                if ((e.target as HTMLElement | null)?.closest("[data-messages-surface]")) {
+                // In Messages, or whenever the chat window is open: the chat switcher, not global search.
+                if ((e.target as HTMLElement | null)?.closest("[data-messages-surface]") || document.getElementById("chat-window")) {
                     closeGlobalSearch();
                     useChatUi.getState().setSwitcherOpen(true);
                     return;

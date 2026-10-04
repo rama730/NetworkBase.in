@@ -19,6 +19,7 @@ export default function ChatLauncher() {
   const { badge } = useChatShell();
   const open = useChatWindow((state) => state.open);
   const setOpen = useChatWindow((state) => state.setOpen);
+  const close = useChatWindow((state) => state.close);
   const button = useRef<HTMLButtonElement>(null);
   const [wide, setWide] = useState(false);
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function ChatLauncher() {
         <MessageCircle size={22} aria-hidden="true" />
         {badge ? <span className="nb-chat-count absolute -right-1 -top-1 m-0" aria-hidden="true">{badge > 99 ? "99+" : badge}</span> : null}
       </button>
-      {open ? <ChatWindow onMinimize={() => { setOpen(false); button.current?.focus(); }} /> : null}
+      {open ? <ChatWindow onMinimize={() => { setOpen(false); button.current?.focus(); }} onClose={() => { close(); button.current?.focus(); }} /> : null}
     </>
   );
 }

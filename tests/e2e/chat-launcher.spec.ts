@@ -47,13 +47,14 @@ test.describe("Chat launcher (report 7.13)", () => {
     const row = window.locator("[data-testid^='chat-row-']").first();
     test.skip(!(await row.count()), "No conversations in the test account.");
     await row.click();
-    await window.locator("textarea").fill("draft from the launcher");
+    await window.locator("[contenteditable='true']").fill("draft from the launcher");
     await window.getByRole("button", { name: "Close" }).click();
     await page.getByTestId("chat-launcher").click();
     await window.locator("[data-testid^='chat-row-']").first().click();
-    await expect(window.locator("textarea")).toHaveValue("draft from the launcher");
-    await window.locator("textarea").fill("");
-    await window.getByRole("link", { name: "Open full page" }).click();
+    await expect(window.locator("[contenteditable='true']")).toHaveText("draft from the launcher");
+    await window.locator("[contenteditable='true']").fill("");
+    await window.getByRole("button", { name: "More options" }).click();
+    await page.getByRole("menuitem", { name: "Open in Messages" }).click();
     await expect(page).toHaveURL(/\/messages\//);
   });
 });
