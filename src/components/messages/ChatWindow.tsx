@@ -11,6 +11,7 @@ import { NewMessage } from "@/components/messages/NewMessage";
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 import { ThreadPane } from "@/components/messages/ThreadPane";
 import { editingWithText, escapeTaken } from "@/components/messages/keys";
+import { conversationHref, threadHref } from "@/lib/messaging/routes";
 
 // ponytail: fixed size and position, no shortcut, no auto-open (L-26).
 // upgrade: a movable window or shortcut when power users ask.
@@ -35,7 +36,7 @@ export default function ChatWindow({ onMinimize }: { onMinimize: () => void }) {
   }, [onMinimize]);
 
   const openChannel = (channelId: string) => push({ type: "channel", channelId });
-  const fullHref = screen.type === "channel" || screen.type === "thread" ? `/messages/${screen.channelId}` : "/messages";
+  const fullHref = screen.type === "thread" ? threadHref(screen.channelId, screen.rootSeq) : screen.type === "channel" ? conversationHref(screen.channelId) : "/messages";
   const title = screen.type === "thread" ? "Thread" : screen.type === "new" ? "New message" : "Messages";
   const actions = (
     <>

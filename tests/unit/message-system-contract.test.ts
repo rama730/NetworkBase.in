@@ -1038,7 +1038,7 @@ test("Section 12 (Messages reorganization, 96-item plan) contracts", () => {
     assert.match(read("next.config.ts"), /source: '\/messages\/activity', destination: '\/messages\/inbox'/, "Activity redirects to the Inbox");
     assert.match(read("next.config.ts"), /source: '\/messages\/:channelId\/thread\/:seq', destination: '\/messages\/:channelId\?thread=:seq'/, "Old thread links open the thread drawer");
     assert.match(views, /\{ id: "threads", label: "Threads" \}[\s\S]*\{ id: "reactions", label: "Reactions" \}/, "Inbox filters include Threads and Reactions");
-    assert.match(views, /markInboxRead\(\{ all: true \}\)/, "Inbox has Mark all read");
+    assert.match(views, /markInboxRead\(\{ all: true, scope \}\)/, "Inbox has Mark all read, scoped to the open tab");
     assert.match(sections, /data\?\.inbox_unread/, "The Inbox badge counts unread Inbox items (same rule as the list)");
 
     // B. Sidebar: switcher header, unreads filter, row menus, drafts markers.

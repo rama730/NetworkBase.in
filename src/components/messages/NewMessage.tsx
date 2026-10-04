@@ -32,6 +32,8 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [groupName, setGroupName] = useState("");
+  // The group made by a send that then failed: a retry reuses it instead of creating a second one.
+  const [opened, setOpened] = useState<{ key: string; channelId: string } | null>(null);
   const people = usePeopleSearch(query);
 
   // Suggestions when no query is typed: recent DM contacts & teammates from local bootstrap (0ms!)
@@ -46,7 +48,8 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
       }
       if (c.members_preview) {
         for (const m of c.members_preview) {
-          if (m.id !== meId && !map.has(m.id)) map.set(m.id, { ...m, can_dm: true });
+          // Sharing a group doesn't mean they accept DMs: leave can_dm unknown (the server decides).
+          if (m.id !== meId && !map.has(m.id)) map.set(m.id, m);
         }
       }
     }
@@ -63,17 +66,23 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
     const text = body.trim();
     if (!to.length || !text || sending) return;
     setSending(true);
-    const opened = to.length === 1 ? await getOrCreateDm({ userId: to[0]!.id }) : await createGroup({ userIds: to.map((p) => p.id) });
-    if (!opened.success) {
-      setSending(false);
-      return void toast.error(chatErrorMessage(opened.error));
+    const key = to.map((p) => p.id).sort().join(",");
+    let channelId = opened?.key === key ? opened.channelId : null;
+    if (!channelId) {
+      const result = to.length === 1 ? await getOrCreateDm({ userId: to[0]!.id }) : await createGroup({ userIds: to.map((p) => p.id) });
+      if (!result.success) {
+        setSending(false);
+        return void toast.error(chatErrorMessage(result.error));
+      }
+      channelId = result.channelId;
+      setOpened({ key, channelId });
+      if (to.length > 1 && groupName.trim()) await renameGroup({ channelId, title: groupName.trim().slice(0, 80) });
     }
-    if (to.length > 1 && groupName.trim()) await renameGroup({ channelId: opened.channelId, title: groupName.trim().slice(0, 80) });
-    const sent = await sendMessage({ channelId: opened.channelId, body: text, clientId: crypto.randomUUID() });
+    const sent = await sendMessage({ channelId, body: text, clientId: crypto.randomUUID() });
     setSending(false);
     if (!sent.success) return void toast.error(chatErrorMessage(sent.error));
-    if (onOpen) onOpen(opened.channelId);
-    else router.push(`/messages/${opened.channelId}`);
+    if (onOpen) onOpen(channelId);
+    else router.push(`/messages/${channelId}`);
     void refresh();
   };
 

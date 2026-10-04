@@ -78,6 +78,8 @@ export async function listInbox(input: { filter?: InboxFilter; before?: string |
       LEFT JOIN profiles pr ON pr.id = msg.author_id
       WHERE mn.user_id = ${user.id}::uuid
         AND (${filter} = 'all' OR mn.kind <> 'thread_reply')
+        -- Same rule as the Inbox badge (chat_inbox_unread): muted conversations stay out.
+        AND mem.notify <> 'mute'
         AND (${before}::timestamptz IS NULL OR mn.created_at < ${before}::timestamptz)
         AND msg.deleted_at IS NULL
       ORDER BY mn.created_at DESC
@@ -89,15 +91,34 @@ export async function listInbox(input: { filter?: InboxFilter; before?: string |
   }
 }
 
-/** Mark Inbox items read: some (opened from the Inbox) or all of them. */
-export async function markInboxRead(input: { items?: { channelId: string; seq: number }[]; all?: boolean }) {
+export type InboxScope = "all" | "mentions" | "threads";
+
+/**
+ * Mark Inbox items read: some (opened from the Inbox) or everything in one tab.
+ * All = mentions and thread replies; Mentions = mentions only; Threads = followed
+ * threads (their read cursor moves to the latest reply) and their reply items.
+ */
+export async function markInboxRead(input: { items?: { channelId: string; seq: number }[]; all?: boolean; scope?: InboxScope }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
   const items = (input?.items ?? []).filter((item) => isUuid(item?.channelId) && Number.isInteger(item.seq)).slice(0, 200);
   if (!input?.all && !items.length) return invalidInput;
   try {
     if (input.all) {
-      await chatRows(sql`UPDATE chat_mentions SET read_at = now() WHERE user_id = ${user.id}::uuid AND read_at IS NULL`);
+      const scope: InboxScope = input.scope === "mentions" || input.scope === "threads" ? input.scope : "all";
+      await chatRows(sql`
+        UPDATE chat_mentions SET read_at = now()
+        WHERE user_id = ${user.id}::uuid AND read_at IS NULL
+          AND (${scope} = 'all' OR (${scope} = 'mentions') = (kind <> 'thread_reply'))
+      `);
+      if (scope !== "mentions") {
+        await chatRows(sql`
+          UPDATE chat_thread_follows f SET last_read_seq = msg.last_reply_seq
+          FROM chat_messages msg
+          WHERE f.user_id = ${user.id}::uuid AND msg.channel_id = f.channel_id AND msg.channel_seq = f.root_seq
+            AND coalesce(msg.last_reply_seq, 0) > f.last_read_seq
+        `);
+      }
     } else {
       await chatRows(sql`
         UPDATE chat_mentions mn SET read_at = now()

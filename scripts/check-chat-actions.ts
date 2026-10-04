@@ -410,6 +410,53 @@ async function main() {
       const result = await channels.listMembers({ channelId: general });
       return result.success && result.members.some((m) => m.id === owner && m.role === "owner");
     });
+    await check("Inbox mark all by tab: Mentions leaves thread replies, All clears them", async () => {
+      as(member, "Mason");
+      const root = await messages.sendMessage({ channelId: general, body: "p3 root", clientId: randomUUID() });
+      if (!root.success) return false;
+      await messages.setThreadFollow({ channelId: general, rootSeq: root.message.seq, on: true });
+      as(owner, "Olivia");
+      await messages.sendMessage({ channelId: general, body: "p3 reply", clientId: randomUUID(), threadRootSeq: root.message.seq });
+      await flush();
+      as(member, "Mason");
+      const unread = async () => {
+        const result = await activity.listThreads();
+        return result.success && result.threads.some((t) => t.root_seq === root.message.seq && t.unread);
+      };
+      const before = await unread();
+      await activity.markInboxRead({ all: true, scope: "mentions" });
+      const still = await unread();
+      await activity.markInboxRead({ all: true, scope: "all" });
+      return before && still && !(await unread());
+    });
+    await check("muted conversations stay out of the Inbox list", async () => {
+      as(member, "Mason");
+      await members.setMemberState({ channelId: general, notify: "mute" });
+      as(owner, "Olivia");
+      const sent = await messages.sendMessage({ channelId: general, body: `<@${member}> muted ping`, clientId: randomUUID() });
+      await flush();
+      as(member, "Mason");
+      const inbox = await activity.listInbox();
+      await members.setMemberState({ channelId: general, notify: "all" });
+      return sent.success && inbox.success && !inbox.items.some((i) => i.channel_id === general && i.seq === sent.message.seq);
+    });
+    await check("Saved names the DM partner", async () => {
+      as(member, "Mason");
+      const sent = await messages.sendMessage({ channelId: dmId, body: "save me", clientId: randomUUID() });
+      if (!sent.success) return false;
+      await later.saveMessage({ channelId: dmId, seq: sent.message.seq, on: true });
+      const list = await later.listSaved();
+      await later.saveMessage({ channelId: dmId, seq: sent.message.seq, on: false });
+      return list.success && list.items.some((i) => i.channel_id === dmId && i.channel_title === "Olivia Owner");
+    });
+    await check("search by conversation alone (no text) works", async () => {
+      const result = await search.searchMessages({ query: "", channelId: general });
+      return result.success && result.hits.length > 0;
+    });
+    await check("listFiles carries thread_root_seq for thread links", async () => {
+      const result = await messages.listFiles({ channelId: general });
+      return result.success && result.files.every((f) => "thread_root_seq" in f);
+    });
     await check("leaveChannel works for non-default channels only", async () => {
       const left = await channels.leaveChannel({ channelId: launch });
       const refused = await channels.leaveChannel({ channelId: general });
