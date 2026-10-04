@@ -10,21 +10,13 @@ import { useChannelDetails } from "@/components/messages/useConversation";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle } from "@/lib/messaging/channel-view";
 import { conversationHref } from "@/lib/messaging/routes";
+import { editingWithText, escapeTaken } from "@/components/messages/keys";
 
 // Each pane's code loads when first opened.
 const ThreadPane = dynamic(() => import("@/components/messages/ThreadPane").then((m) => m.ThreadPane), { ssr: false });
 const DetailsPane = dynamic(() => import("@/components/messages/DetailsPane").then((m) => m.DetailsPane), { ssr: false });
 
 type View = "thread" | "details";
-
-/** Has the focused editor got unsent text? Then Escape must not throw it away. */
-function editingWithText(target: EventTarget | null) {
-  const el = target as HTMLElement | null;
-  if (!el) return false;
-  if (el.isContentEditable) return Boolean(el.textContent?.trim());
-  if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") return Boolean((el as HTMLInputElement).value.trim());
-  return false;
-}
 
 /**
  * Thread and Details in one drawer: a 380–420px column beside the timeline at
@@ -49,7 +41,7 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
   useEffect(() => { closeRef.current = close; });
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || document.querySelector("[role=dialog]") || editingWithText(event.target)) return;
+      if (event.key !== "Escape" || event.shiftKey || escapeTaken(event) || editingWithText(event.target)) return;
       closeRef.current();
     };
     window.addEventListener("keydown", onKey);

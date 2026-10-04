@@ -214,7 +214,7 @@ export async function shareMessage(input: { channelId: string; seq: number; toCh
   }
 }
 
-export type ChannelFile = { channel_id: string; seq: number; asset_id: string; name: string; mime: string; size: number; created_at: string; author: string | null };
+export type ChannelFile = { channel_id: string; seq: number; thread_root_seq: number | null; asset_id: string; name: string; mime: string; size: number; created_at: string; author: string | null };
 
 /** Every attachment in a conversation, newest first. */
 export async function listFiles(input: { channelId: string }) {
@@ -223,7 +223,7 @@ export async function listFiles(input: { channelId: string }) {
   if (!isUuid(input?.channelId)) return invalidInput;
   try {
     const files = await chatRows<ChannelFile>(sql`
-      SELECT a.channel_id, a.message_seq::int AS seq, a.asset_id, a.name, a.mime, a.size::bigint AS size, a.created_at,
+      SELECT a.channel_id, a.message_seq::int AS seq, m.thread_root_seq::int AS thread_root_seq, a.asset_id, a.name, a.mime, a.size::bigint AS size, a.created_at,
              coalesce(pr.full_name, pr.username) AS author
       FROM chat_attachments a
       JOIN chat_messages m ON m.channel_id = a.channel_id AND m.channel_seq = a.message_seq

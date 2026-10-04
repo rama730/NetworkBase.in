@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { EditorContent, type Editor } from "@tiptap/react";
 import { ALargeSmall, BarChart3, ChevronDown, Clock, Code2, FileText, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "lucide-react";
 import { toast } from "sonner";
@@ -9,7 +10,7 @@ import { scheduleMessage } from "@/app/actions/chat/later";
 import { createTaskFromMessage, sendMessage } from "@/app/actions/chat/messages";
 import { applyLink, chatDraftToHtmlish, chatMarkdown, FormatToolbar, isBlank, useChatEditor } from "@/components/messages/ChatEditor";
 import { readChatUi, readDraft, writeChatUi, writeDraft } from "@/components/messages/chat-ui-store";
-import { MentionDropdown } from "@/components/messages/parts/MentionDropdown";
+import { matchMentions, MentionDropdown } from "@/components/messages/parts/MentionDropdown";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
 import { uploadChatFile } from "@/components/messages/upload";
 import { useUpdatePages } from "@/components/messages/useConversation";
@@ -19,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { CHAT_MAX_ATTACHMENTS, CHAT_MAX_BODY } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { upsertMessage } from "@/lib/messaging/timeline";
+import { queryKeys } from "@/lib/query-keys";
 import { typingLabel } from "@/lib/messaging/typing";
 import { PresenceGlyph } from "@/components/presence/PresenceGlyph";
 import { usePersonPresence } from "@/components/presence/usePresence";
@@ -143,6 +145,7 @@ function personLabel(person: ChatPerson) {
 export function Composer({ channelId, placeholder, people, threadRootSeq = null, allowBroadcast, canCreateTask, onOpenCanvas, onTyping, typingNames = [], onEditLast, onSent, alsoSendTo = null }: Props) {
   const { user, profile } = useAuth();
   const update = useUpdatePages(channelId);
+  const queryClient = useQueryClient();
   const draftKey = threadRootSeq ? `${channelId}:${threadRootSeq}` : channelId;
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -445,20 +448,34 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       edited_at: null, deleted_at: null, created_at: new Date().toISOString(), client_message_id: clientId,
       attachments: [], reactions: [], card: null, pinned: false,
     };
+    // The box clears at once; any failure puts the text and attachments back.
+    const sentUploads = uploads;
+    const threadKey = threadRootSeq ? queryKeys.chat.thread(channelId, threadRootSeq) : null;
+    const putInThread = (map: (replies: ChatMessageView[]) => ChatMessageView[]) => {
+      if (threadKey) queryClient.setQueryData<{ replies: ChatMessageView[] }>(threadKey, (t) => (t ? { ...t, replies: map(t.replies) } : t));
+    };
     clear();
     setUploads([]);
-    if (!threadRootSeq) update((pages) => upsertMessage(pages, optimistic));
+    if (threadKey) putInThread((replies) => [...replies, optimistic]);
+    else update((pages) => upsertMessage(pages, optimistic));
     setSending(true);
-    const result = await sendMessage({ channelId, body, clientId, threadRootSeq, assetIds: ready, alsoToChannel: Boolean(threadRootSeq && alsoToChannel) });
-    setSending(false);
+    const result = await sendMessage({ channelId, body, clientId, threadRootSeq, assetIds: ready, alsoToChannel: Boolean(threadRootSeq && alsoToChannel) })
+      .catch(() => ({ success: false as const, error: "chat_network" }))
+      .finally(() => setSending(false));
     if (!result.success) {
-      if (!threadRootSeq) update((pages) => pages.map((page) => page.filter((m) => m.client_message_id !== clientId)));
+      if (threadKey) putInThread((replies) => replies.filter((m) => m.client_message_id !== clientId));
+      else update((pages) => pages.map((page) => page.filter((m) => m.client_message_id !== clientId)));
       load(draft);
       writeDraft(draftKey, draft);
+      setUploads(sentUploads);
       toast.error(chatErrorMessage(result.error));
       return;
     }
-    update((pages) => upsertMessage(pages, result.message));
+    sentUploads.forEach((u) => {
+      if (u.previewUrl) URL.revokeObjectURL(u.previewUrl);
+    });
+    if (threadKey) putInThread((replies) => replies.map((m) => (m.client_message_id === clientId ? result.message : m)));
+    else update((pages) => upsertMessage(pages, result.message));
     onSent?.();
   };
   useEffect(() => {
@@ -466,7 +483,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       if (matchingSlash.length) pickSlash(matchingSlash[activeSlash]!.command);
       else void submit();
     };
-    menuOpen.current = Boolean(mention);
+    menuOpen.current = Boolean(mention && matchMentions(mentionable, mention.query).length);
     slashOpenRef.current = matchingSlash.length > 0;
     menuKey.current = (key) => {
       if (!matchingSlash.length) return false;

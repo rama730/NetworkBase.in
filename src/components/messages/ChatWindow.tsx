@@ -10,6 +10,7 @@ import { ListScreen } from "@/components/messages/ListScreen";
 import { NewMessage } from "@/components/messages/NewMessage";
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 import { ThreadPane } from "@/components/messages/ThreadPane";
+import { editingWithText, escapeTaken } from "@/components/messages/keys";
 
 // ponytail: fixed size and position, no shortcut, no auto-open (L-26).
 // upgrade: a movable window or shortcut when power users ask.
@@ -26,7 +27,8 @@ export default function ChatWindow({ onMinimize }: { onMinimize: () => void }) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !document.querySelector("[role=dialog]")) onMinimize();
+      // Not while typing unsent text or closing a menu/dialog (the keystroke belongs to them).
+      if (event.key === "Escape" && !escapeTaken(event) && !editingWithText(event.target)) onMinimize();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

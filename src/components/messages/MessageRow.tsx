@@ -26,6 +26,7 @@ import { PersonHoverCard } from "@/components/presence/PersonHoverCard";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useLinkPreview } from "@/hooks/useLinkPreview";
 import { formatChatTime, personName } from "@/lib/messaging/channel-view";
+import { messageHref } from "@/lib/messaging/routes";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { applyReaction, patchPages, upsertMessage } from "@/lib/messaging/timeline";
 import { encodeMentions, parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
@@ -177,7 +178,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.reactors(ctx.channelId, message.seq) });
   };
   const copyLink = () => {
-    void navigator.clipboard?.writeText(`${window.location.origin}/messages/${ctx.channelId}?m=${message.seq}`);
+    void navigator.clipboard?.writeText(`${window.location.origin}${messageHref(ctx.channelId, message.seq, message.thread_root_seq)}`);
     toast.success("Link copied");
   };
   const copyText = () => {

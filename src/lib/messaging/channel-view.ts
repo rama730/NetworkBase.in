@@ -88,6 +88,19 @@ export function sectionsFor(data: ChatBootstrap | undefined, projectId: string |
   return sections;
 }
 
+/**
+ * Every visible conversation in the sidebar's order (Starred, Channels or the project groups,
+ * DMs, My applications). A starred row counts once, where it first appears.
+ */
+export function sidebarOrder(data: ChatBootstrap | undefined, projectId: string | null) {
+  const sections = sectionsFor(data, projectId);
+  const projectRows = projectId
+    ? [...sections.channels, ...sections.applications]
+    : projectsByActivity(data).flatMap((project) => channelsByProject(data).get(project.id) ?? []);
+  const seen = new Set<string>();
+  return [...sections.starred, ...projectRows, ...sections.dms, ...sections.myApplications].filter((channel) => !seen.has(channel.id) && Boolean(seen.add(channel.id)));
+}
+
 /** Unread, or carrying a mention (the Unreads filter). Muted rows never count. */
 export function needsAttention(channel: ChatChannelSummary) {
   return channel.notify !== "mute" && (isUnread(channel) || channel.mention_count > 0);
