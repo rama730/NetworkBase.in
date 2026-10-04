@@ -79,7 +79,11 @@ export function sectionsFor(data: ChatBootstrap | undefined, projectId: string |
   const memberOf = new Set((data.projects ?? []).map((project) => project.id));
   for (const channel of data.channels) {
     if (!visible(channel)) continue;
-    if (channel.starred) sections.starred.push(channel);
+    // Starred follows the open project (DMs and groups always); a starred row isn't repeated below.
+    if (channel.starred && (!projectId || isDirectLike(channel) || channel.project_id === projectId)) {
+      sections.starred.push(channel);
+      continue;
+    }
     if (isDirectLike(channel)) sections.dms.push(channel);
     else if (channel.application_id && !memberOf.has(channel.project_id ?? "")) sections.myApplications.push(channel);
     else if (channel.project_id !== projectId) continue;
@@ -174,3 +178,16 @@ export function formatChatTime(value: string, mode: "clock" | "ago" | "auto" = "
   }
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+
+/** The swipe buttons for a list row: Read only when there's something unread; DMs Close, channels Star. */
+export function swipeButtons(options: { unread: boolean; muted: boolean; direct: boolean; starred: boolean }) {
+  return [
+    ...(options.unread ? ["Read"] : []),
+    options.muted ? "Unmute" : "Mute",
+    options.direct ? "Close" : options.starred ? "Unstar" : "Star",
+  ];
+}
+
+/** One "mark all as read" everywhere: same label, and it asks first above 5 items. */
+export const MARK_ALL_LABEL = "Mark all as read";
+export const needsMarkAllConfirm = (count: number) => count > 5;

@@ -415,12 +415,12 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 {channel.kind !== "dm" ? <ConversationIcon channel={channel} size={18} strokeWidth={2.25} aria-hidden="true" className="shrink-0" /> : null}
                 <h1 className="truncate text-[17px] font-bold leading-tight text-foreground group-hover/title:underline">{title}</h1>
               </button>
-              {isMember && isChannel ? (
+              {isMember ? (
                 <button
                   type="button"
                   onClick={() => void setState({ starred: !channel.starred })}
                   className={`grid size-6 shrink-0 place-items-center rounded-[4px] hover:bg-muted pointer-coarse:size-11 ${channel.starred ? "" : "opacity-0 focus-visible:opacity-100 group-hover/header:opacity-100 pointer-coarse:opacity-100"}`}
-                  aria-label={channel.starred ? "Unstar channel" : "Star channel"}
+                  aria-label={channel.starred ? `Unstar ${isChannel ? "channel" : "conversation"}` : `Star ${isChannel ? "channel" : "conversation"}`}
                   aria-pressed={channel.starred}
                 >
                   <Star size={14} className={channel.starred ? "text-[var(--status-warning)]" : "text-muted-foreground"} fill={channel.starred ? "currentColor" : "none"} />

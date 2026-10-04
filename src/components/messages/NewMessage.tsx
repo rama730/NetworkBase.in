@@ -178,5 +178,5 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
     </div>
   );
   if (onOpen) return content;
-  return <ViewScreen title="New message">{content}</ViewScreen>;
+  return <ViewScreen title="New message" closable>{content}</ViewScreen>;
 }

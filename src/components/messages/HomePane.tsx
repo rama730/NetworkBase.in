@@ -4,7 +4,6 @@ import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { CheckCheck, Hash, Inbox, SquarePen } from "lucide-react";
 
-import { markReadMany } from "@/app/actions/chat/read";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ListScreen } from "@/components/messages/ListScreen";
 import { useSelectedProject } from "@/components/messages/useSelectedProject";
@@ -14,6 +13,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { channelTitle, formatChatTime, isDirectLike, needsAttention, rowCount } from "@/lib/messaging/channel-view";
 import type { ChatChannelSummary } from "@/lib/messaging/types";
 import { conversationHref } from "@/lib/messaging/routes";
+import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
+import { MARK_ALL_LABEL } from "@/lib/messaging/channel-view";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 
 function ConversationLink({ channel, meId }: { channel: ChatChannelSummary; meId: string | null }) {
@@ -48,7 +49,8 @@ function Card({ title, icon, action, children }: { title: string; icon: React.Re
 /** The main pane when no conversation is open (desktop): what needs you, what's recent, your threads. */
 export function HomePane() {
   const projectId = useSelectedProject();
-  const { data, refresh, applyRead } = useChatShell();
+  const { data } = useChatShell();
+  const markAllRead = useMarkAllRead();
   const { user } = useAuth();
   const meId = user?.id ?? null;
   const project = data?.projects?.find((p) => p.id === projectId) ?? null;
@@ -61,11 +63,7 @@ export function HomePane() {
   const recent = visible.filter((c) => !needsAttention(c) && c.last_message_at).sort((a, b) => (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "")).slice(0, 6);
   const inboxUnread = data?.inbox_unread ?? 0;
   // Every conversation that needs you (not just the 8 shown), in one roundtrip (ACT-04).
-  const markAll = () => {
-    const all = visible.filter(needsAttention);
-    for (const channel of all) applyRead(channel.id, channel.last_seq);
-    void markReadMany({ items: all.map((c) => ({ channelId: c.id, seq: c.last_seq })) }).then(refresh);
-  };
+  const markAll = () => markAllRead.conversations(visible.filter(needsAttention));
 
   return (
     <div className="app-scroll app-scroll-y h-full bg-background">
@@ -95,7 +93,7 @@ export function HomePane() {
         <Card
           title="Unread"
           icon={<CheckCheck size={15} />}
-          action={unread.length ? <button type="button" onClick={markAll} className="text-[12px] font-medium text-primary hover:underline">Mark all read</button> : null}
+          action={unread.length ? <button type="button" onClick={markAll} className="text-[12px] font-medium text-primary hover:underline">{MARK_ALL_LABEL}</button> : null}
         >
           {unread.length ? unread.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">{loading ? "Loading…" : "Nothing unread."}</p>}
         </Card>
@@ -109,6 +107,7 @@ export function HomePane() {
           {recent.length ? recent.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">{loading ? "Loading…" : "No other recent conversations."}</p>}
         </Card>
       </div>
+      {markAllRead.dialog}
     </div>
   );
 }

@@ -86,8 +86,8 @@ test("Messages system adheres to design specification contracts", () => {
     );
     assert.match(
         chatSectionsSource,
-        /Mark all read/,
-        "Individual project settings must include Mark all read",
+        /MARK_ALL_LABEL/,
+        "Project headers offer Mark all as read (one shared label)",
     );
     assert.match(
         chatSectionsSource,
@@ -885,8 +885,8 @@ test("Section 9 (Project Selection First & Professional Empty Placeholder) contr
     );
     assert.doesNotMatch(
         messagesIndexSource,
-        /router\.replace/,
-        "MessagesIndex must not auto-redirect to any channel",
+        /router\.replace\((?!"\/messages"\))/,
+        "MessagesIndex must not auto-redirect to any channel (it only drops a failed ?userId=)",
     );
     assert.doesNotMatch(
         messagesIndexSource,
@@ -1058,10 +1058,11 @@ test("Section 12 (Messages reorganization, 96-item plan) contracts", () => {
 
     // B. Sidebar: switcher header, unreads filter, row menus, drafts markers.
     assert.match(sections, /function ProjectSwitcher[\s\S]*All projects/, "Project switcher header with an All projects mode");
-    assert.match(sections, /role="menuitemcheckbox" aria-checked=\{unreadsOnly\}[\s\S]*Show unreads only/, "Unreads filter lives in the project ⋯ menu");
+    assert.match(sections, /onClick=\{onToggleUnreads\}\s*aria-pressed=\{unreadsOnly\}/, "Unreads filter is a visible toggle in the sidebar header (plan #66)");
+    assert.doesNotMatch(sections, /role="menuitemcheckbox"/, "Unreads filter is no longer buried in ⋯");
     assert.doesNotMatch(sections, /aria-label="Search messages and conversations"/, "No local search box: the app header search covers it");
     assert.match(sections, /function HoverMenu[\s\S]*Options for/, "Desktop rows have a hover ⋯ menu");
-    assert.match(sections, /saveCollapsed\(next\)/, "Collapsed sections follow the account");
+    assert.match(sections, /saveAccountUi\(\{ collapsed: next \}\)[\s\S]*saveAccountUi\(\{ unreadsOnly: !current \}\)/, "Collapsed sections and the Unreads filter follow the account");
 
     // C/D. Search, shared tabs, Files.
     assert.match(conversation, /\/messages\/search\?in=\$\{channelId\}/, "Search in this conversation from the header");

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlarmClock, AtSign, CheckCheck, ChevronDown, Clock, Hash, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2 } from "lucide-react";
+import { AlarmClock, AtSign, Check, CheckCheck, ChevronDown, Clock, Hash, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { listInbox, listThreads, markInboxRead, type InboxFilter, type InboxItem, type ThreadItem } from "@/app/actions/chat/activity";
@@ -27,6 +27,8 @@ import { tokensToPlainText } from "@/lib/messaging/tokens";
 import type { ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { useChannelMembers } from "@/components/messages/useConversation";
+import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
+import { MARK_ALL_LABEL } from "@/lib/messaging/channel-view";
 
 const Composer = dynamic(() => import("@/components/messages/Composer").then((m) => m.Composer), { ssr: false });
 
@@ -99,6 +101,7 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState<BrowseSort>("name");
   const [show, setShow] = useState<BrowseShow>("all");
+  const [joining, setJoining] = useState<string | null>(null);
   const channels = useQuery({
     queryKey: queryKeys.chat.browse(projectId),
     queryFn: async () => {
@@ -114,14 +117,16 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
     .filter((c) => show === "all" || (show === "joined" ? c.joined : !c.joined))
     .sort((a, b) => (sort === "members" ? b.member_count - a.member_count : 0) || Number(b.is_default) - Number(a.is_default) || a.name.localeCompare(b.name));
   const join = async (channelId: string) => {
-    const result = await joinChannel({ channelId });
+    if (joining) return;
+    setJoining(channelId);
+    const result = await joinChannel({ channelId }).finally(() => setJoining(null));
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     refresh();
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.browse(projectId) });
     router.push(conversationHref(channelId));
   };
   return (
-    <ViewScreen
+    <ViewScreen closable
       title={title ? `Browse channels in ${title}` : "Browse channels"}
       action={<button type="button" onClick={() => setCreateFor(projectId)} className="inline-flex min-h-11 items-center gap-1 rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground sm:min-h-[var(--ui-control-height)]"><Plus size={14} /> Create channel</button>}
     >
@@ -155,8 +160,8 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
               <Link href={conversationHref(channel.id)} className="font-mono text-[12px] text-muted-foreground hover:text-foreground">Joined · Open</Link>
             ) : (
               <>
-                <Link href={conversationHref(channel.id)} className="hidden min-h-11 items-center rounded-[5px] px-3 text-[13px] text-muted-foreground hover:text-foreground sm:inline-flex sm:min-h-[var(--ui-control-height)]">Preview</Link>
-                <button type="button" onClick={() => void join(channel.id)} className="min-h-11 rounded-[5px] border border-border px-3 text-[13px] font-medium sm:min-h-[var(--ui-control-height)]">Join</button>
+                <Link href={conversationHref(channel.id)} className="inline-flex min-h-11 items-center rounded-[5px] px-3 text-[13px] text-muted-foreground hover:text-foreground sm:min-h-[var(--ui-control-height)]">Preview</Link>
+                <button type="button" onClick={() => void join(channel.id)} disabled={joining !== null} aria-busy={joining === channel.id} className="min-h-11 rounded-[5px] border border-border px-3 text-[13px] font-medium disabled:opacity-60 sm:min-h-[var(--ui-control-height)]">{joining === channel.id ? "Joining…" : "Join"}</button>
               </>
             )}
           </li>
@@ -331,20 +336,22 @@ export function InboxView() {
     void markInboxRead({ items: [{ channelId: item.channel_id, seq: item.seq }] }).then(refreshInbox);
   };
   const scope = filter === "mentions" ? "mentions" : filter === "threads" ? "threads" : "all";
+  const markAllRead = useMarkAllRead();
   const markAll = async () => {
     const result = await markInboxRead({ all: true, scope });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     refreshInbox();
     toast.success(scope === "threads" ? "Threads marked as read" : scope === "mentions" ? "Mentions marked as read" : "Inbox marked as read");
   };
-  const canMarkAll = filter === "threads" ? Boolean(threads.data?.some((t) => t.unread)) : filter !== "reactions" && unread > 0;
+  const markable = filter === "threads" ? (threads.data ?? []).filter((t) => t.unread).length : filter !== "reactions" ? unread : 0;
+  const canMarkAll = markable > 0;
 
   return (
     <ViewScreen
       title="Inbox"
       action={canMarkAll ? (
-        <button type="button" onClick={() => void markAll()} className="inline-flex min-h-11 items-center gap-1.5 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted sm:min-h-[var(--ui-control-height)]">
-          <CheckCheck size={14} /> Mark all read
+        <button type="button" onClick={() => markAllRead.request(markable, markAll, filter === "threads" ? "thread" : "item")} className="inline-flex min-h-11 items-center gap-1.5 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted sm:min-h-[var(--ui-control-height)]">
+          <CheckCheck size={14} /> {MARK_ALL_LABEL}
         </button>
       ) : null}
     >
@@ -378,6 +385,7 @@ export function InboxView() {
           <LoadMore hasMore={Boolean(feed.hasNextPage)} loading={feed.isFetchingNextPage} onLoad={() => void feed.fetchNextPage()} />
         </>
       )}
+      {markAllRead.dialog}
     </ViewScreen>
   );
 }
@@ -445,7 +453,7 @@ export function SavedView() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                     <button type="button" onClick={() => void act(item, false)} className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-11" aria-label="Mark done" title="Done (remove from Saved)">
-                      <CheckCheck size={15} />
+                      <Check size={15} />
                     </button>
                   </div>
                 }
@@ -599,7 +607,7 @@ export function SearchView() {
   });
   const select = "h-8 rounded-[5px] border border-input bg-card px-2 text-[13px]";
   return (
-    <ViewScreen title="Search">
+    <ViewScreen title="Search" closable>
       <form
         className="space-y-2 border-b border-border p-3 sm:px-4"
         onSubmit={(e) => {
