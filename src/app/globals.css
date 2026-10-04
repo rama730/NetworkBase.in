@@ -138,8 +138,9 @@
   --nb-brand-hover: var(--primary-hover);
   --nb-sidebar-width: 224px;
   --nb-sidebar-collapsed-width: 64px;
-  /* Chat counts and the Send button (report 7.11). */
-  --chat-accent: #D14E24;
+  /* Chat counts and unread marks (report 7.11): 5:1 on white, 4.6:1 on the page; pill text on top. */
+  --chat-accent: #C2461D;
+  --chat-accent-foreground: #FFFFFF;
   --nb-page-inset: 24px;
   --nb-workspace-inset: 20px;
   --nb-grid-line: rgb(33 42 48 / 7%);
@@ -284,6 +285,8 @@
   --background: #0D1114; --foreground: #FAF8F4;
   --card: #141A1E; --card-foreground: #FAF8F4;
   --popover: #212A30; --popover-foreground: #FAF8F4;
+  /* Lighter in dark mode: 7:1 on the card, with dark pill text. */
+  --chat-accent: #F08A5D; --chat-accent-foreground: #141A1E;
   --primary: var(--theme-action-solid-dark); --primary-foreground: #141A1E;
   --primary-hover: var(--theme-action-hover-dark); --primary-active: var(--theme-action-active-dark);
   --secondary: #212A30; --secondary-foreground: #D7DDDF;
@@ -1002,7 +1005,7 @@ svg.lucide { stroke-width:1.75; }
 /* Sidebar rows: on hover or keyboard focus the row makes room for its ⋯, so the count slides left instead of hiding. */
 @media (pointer:fine) { .nb-chat-hover:hover > .nb-chat-row, .nb-chat-hover:focus-within > .nb-chat-row, .nb-chat-hover:has([data-state="open"]) > .nb-chat-row { padding-right:34px; } }
 .nb-chat-row-preview { min-height:64px; padding:10px 12px; align-items:flex-start; }
-.nb-chat-count { margin-left:auto; padding:1px 5px; border-radius:3px; background:var(--chat-accent); color:#fff; font:11px var(--font-jetbrains-mono),monospace; line-height:16px; }
+.nb-chat-count { margin-left:auto; padding:1px 5px; border-radius:3px; background:var(--chat-accent); color:var(--chat-accent-foreground); font:11px var(--font-jetbrains-mono),monospace; line-height:16px; }
 .nb-chat-section-title { display:flex; align-items:center; gap:4px; min-height:28px; padding:0 6px; font:11px var(--font-jetbrains-mono),monospace; text-transform:uppercase; letter-spacing:.04em; color:var(--muted-foreground); }
 .nb-chat-list .nb-chat-row { min-height:44px; font-size:15px; }
 .nb-chat-list .nb-chat-row-preview { min-height:64px; }

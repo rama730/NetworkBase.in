@@ -9,7 +9,7 @@ import { ChatSections } from "@/components/messages/ChatSections";
  * The List screen (report 7.12 B10): phones and tablets at /messages, and the
  * launcher window's first screen. Same sections as the desktop sidebar.
  */
-export function ListScreen({ onSelect, onNewMessage }: { onSelect?: (channelId: string) => void; onNewMessage?: () => void }) {
+export function ListScreen({ onSelect, onNewMessage, onInbox, actions }: { onSelect?: (channelId: string) => void; onNewMessage?: () => void; onInbox?: () => void; actions?: React.ReactNode }) {
   return (
     <div className="nb-chat-list flex h-full min-h-0 flex-col bg-card">
       <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2">
@@ -19,9 +19,10 @@ export function ListScreen({ onSelect, onNewMessage }: { onSelect?: (channelId: 
         ) : (
           <Link href="/messages/new" prefetch={true} className="nb-icon-button nb-touch-target" aria-label="New message"><SquarePen size={18} aria-hidden="true" /></Link>
         )}
+        {actions}
       </header>
       <div className="app-scroll app-scroll-y min-h-0 flex-1 px-2 py-3">
-        <ChatSections variant="list" onSelect={onSelect} onNewMessage={onNewMessage} />
+        <ChatSections variant="list" onSelect={onSelect} onNewMessage={onNewMessage} onInbox={onInbox} />
       </div>
     </div>
   );

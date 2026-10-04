@@ -85,10 +85,11 @@ export function SidebarNav() {
                 {MAIN_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
                     const active = isMainNavRouteActive(pathname, href);
                     const count = href === ROUTES.MESSAGES ? chatBadge : href === ROUTES.NETWORK ? people.totalPending : 0;
-                    return <Link key={href} href={href} className="nb-nav-link" aria-label={label} title={label} aria-current={active ? "page" : undefined}>
+                    const countLabel = count > 0 ? `, ${count} ${href === ROUTES.MESSAGES ? "unread" : "pending"}` : "";
+                    return <Link key={href} href={href} className="nb-nav-link" aria-label={`${label}${countLabel}`} title={label} aria-current={active ? "page" : undefined}>
                         <Icon size={16} aria-hidden="true" /><span className="nb-sidebar-label">{label}</span>
                         {href === ROUTES.NETWORK && connectionHealth !== "healthy" && <span className="sr-only">Connection {connectionHealth}</span>}
-                        {count > 0 && <span className="nb-nav-count" aria-label={`${count} unread items`}>{count > 99 ? "99+" : count}</span>}
+                        {count > 0 && <span className="nb-nav-count" aria-hidden="true">{count > 99 ? "99+" : count}</span>}
                     </Link>;
                 })}
                 <Link href={ROUTES.MY_PROFILE} className="nb-nav-link" aria-label="My profile" title="My profile" aria-current={pathname === ROUTES.MY_PROFILE ? "page" : undefined}><UserRound size={16} aria-hidden="true" /><span className="nb-sidebar-label">My profile</span></Link>

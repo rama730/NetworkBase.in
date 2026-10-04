@@ -17,7 +17,7 @@ export async function bootstrap(input: { since?: string | null } = {}) {
   const since = typeof input.since === "string" && !Number.isNaN(Date.parse(input.since)) ? input.since : null;
   try {
     // Invites and applications don't change on chat sends: count them on full loads only (LOAD-03).
-    const [data, [counts]] = await Promise.all([
+    const [data, [counts], savedDue] = await Promise.all([
       chatValue<ChatBootstrap>(sql`SELECT app_private.chat_bootstrap(${user.id}::uuid, ${since}::timestamptz) AS value`),
       since ? Promise.resolve([undefined]) : chatRows<{ invites: number; applications: number }>(sql`
         SELECT
@@ -26,8 +26,12 @@ export async function bootstrap(input: { since?: string | null } = {}) {
           (SELECT count(*)::int FROM role_applications
             WHERE creator_id = ${user.id}::uuid AND status = 'pending') AS applications
       `),
+      // The Saved row's badge: reminders whose time has come (cleared or Done removes them).
+      chatValue<number>(sql`
+        SELECT count(*)::int AS value FROM chat_saved WHERE user_id = ${user.id}::uuid AND remind_at <= now()
+      `),
     ]);
-    return { success: true as const, data, pending: since ? null : counts ?? { invites: 0, applications: 0 } };
+    return { success: true as const, data: { ...data, saved_due: savedDue }, pending: since ? null : counts ?? { invites: 0, applications: 0 } };
   } catch (error) {
     return chatFailure(error, "bootstrap");
   }

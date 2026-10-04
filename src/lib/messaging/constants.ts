@@ -15,6 +15,8 @@ export const CHAT_TYPING_THROTTLE_MS = 3_500;
 /** A typer disappears this long after their last signal. */
 export const CHAT_TYPING_TTL_MS = 5_000;
 export const CHAT_PAGE_SIZE = 50;
+/** One page size for the lists: Inbox, Threads, Saved and Search (each has "Load more"). */
+export const CHAT_LIST_PAGE = 50;
 export const CHAT_READ_DEBOUNCE_MS = 3_000;
 // ponytail: background unread by poll (L-2), not per-channel live topics.
 // ceiling: up to ~2 min staleness. upgrade: tick topics for the top-N channels.

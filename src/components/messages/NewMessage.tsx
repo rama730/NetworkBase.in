@@ -63,6 +63,34 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
     return list.filter((p) => !to.some((t) => t.id === p.id));
   }, [isSearching, people.data, suggestedPeople, to]);
 
+  // Recipients picker keys: ↑/↓ move, Enter picks, Backspace in an empty field removes the last chip.
+  const [active, setActive] = useState(0);
+  const activeIndex = Math.min(active, candidates.length - 1);
+  const pick = (person: ChatPerson) => {
+    if (person.can_dm === false) return;
+    setTo((list) => [...list, person]);
+    setQuery("");
+    setActive(0);
+  };
+  const onRecipientKey = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (!candidates.length) return;
+      event.preventDefault();
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      const next = (activeIndex + step + candidates.length) % candidates.length;
+      setActive(next);
+      requestAnimationFrame(() => document.getElementById(`new-message-person-${candidates[next]!.id}`)?.scrollIntoView({ block: "nearest" }));
+    } else if (event.key === "Enter" && candidates[activeIndex]) {
+      event.preventDefault();
+      pick(candidates[activeIndex]);
+    } else if (event.key === "Backspace" && !query && to.length) {
+      event.preventDefault();
+      setTo((list) => list.slice(0, -1));
+    }
+  };
+  const full = to.length >= CHAT_MAX_GROUP_OTHERS;
+
   const send = async (body: string) => {
     const key = to.map((p) => p.id).sort().join(",");
     let channelId = opened?.key === key ? opened.channelId : null;
@@ -101,30 +129,39 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
               <button type="button" onClick={() => setTo((list) => list.filter((p) => p.id !== person.id))} className="grid size-7 place-items-center pointer-coarse:size-11" aria-label={`Remove ${personName(person)}`}><X size={12} /></button>
             </span>
           ))}
-          {to.length <= CHAT_MAX_GROUP_OTHERS - 1 ? (
+          {!full ? (
             <input
               autoFocus
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { setQuery(e.target.value); setActive(0); }}
+              onKeyDown={onRecipientKey}
               placeholder={to.length ? "Add another person" : "Type a name"}
               aria-label="Recipients"
+              role="combobox"
+              aria-expanded={candidates.length > 0}
+              aria-controls="new-message-people"
+              aria-autocomplete="list"
+              aria-activedescendant={candidates[activeIndex] ? `new-message-person-${candidates[activeIndex].id}` : undefined}
               className="h-9 min-w-[160px] flex-1 bg-transparent text-[15px] outline-none pointer-coarse:h-11 pointer-coarse:text-[17px]"
             />
           ) : null}
         </div>
-        {candidates.length ? (
+        {full ? <p className="mt-1 text-[12px] text-muted-foreground">A group chat holds up to {CHAT_MAX_GROUP_OTHERS + 1} people, you included. Remove someone to add another.</p> : null}
+        {candidates.length && !full ? (
           <div className="mt-2">
             <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               {isSearching ? "Search results" : "Recent & Suggested"}
             </p>
-            <ul className="max-h-64 overflow-y-auto" aria-label="People">
-              {candidates.map((person) => (
-                <li key={person.id}>
+            <ul id="new-message-people" role="listbox" className="max-h-64 overflow-y-auto" aria-label="People">
+              {candidates.map((person, index) => (
+                <li key={person.id} id={`new-message-person-${person.id}`} role="option" aria-selected={index === activeIndex} aria-disabled={person.can_dm === false}>
                   <button
                     type="button"
+                    tabIndex={-1}
                     disabled={person.can_dm === false}
-                    onClick={() => { setTo((list) => [...list, person]); setQuery(""); }}
-                    className="flex min-h-11 w-full items-center gap-2 rounded-[5px] px-2 text-left text-[15px] hover:bg-muted disabled:opacity-50"
+                    onClick={() => pick(person)}
+                    onMouseEnter={() => setActive(index)}
+                    className={`flex min-h-11 w-full items-center gap-2 rounded-[5px] px-2 text-left text-[15px] hover:bg-muted disabled:opacity-50 ${index === activeIndex ? "bg-muted" : ""}`}
                   >
                     <UserAvatar identity={person} size={24} roundedClassName="rounded-[5px]" />
                     <span className="min-w-0 flex-1 truncate">{personName(person)}</span>

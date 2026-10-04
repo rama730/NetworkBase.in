@@ -3,6 +3,7 @@
 import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { CHAT_LIST_PAGE } from "@/lib/messaging/constants";
 import { chatFailure, invalidInput, isUuid, requireChatUser, unauthorized } from "@/lib/messaging/server";
 import type { ChatPerson } from "@/lib/messaging/types";
 
@@ -10,6 +11,7 @@ export type SearchHit = {
   channel_id: string;
   channel_name: string | null;
   channel_kind: string;
+  project_title: string | null;
   seq: number;
   thread_root_seq: number | null;
   body: string;
@@ -27,12 +29,16 @@ export type SearchInput = {
   hasFile?: boolean;
   after?: string | null;
   before?: string | null;
+  /** "Load more": hits older than this created_at (separate from the user's Before filter). */
+  cursor?: string | null;
+  /** Page size, at most CHAT_LIST_PAGE (tests use a small one). */
+  limit?: number;
 };
 
 const date = (value: unknown) => (typeof value === "string" && !Number.isNaN(Date.parse(value)) ? new Date(value).toISOString() : null);
 
 // ponytail: Postgres full-text ('simple' config, every language alike) over the
-// viewer's conversations, newest first, 50 hits, capped at 3 s so a very common
+// viewer's conversations, newest first, 50 hits a page ("Load more"), capped at 3 s so a very common
 // word can't hold a pool connection (LOAD-06). ceiling: no ranking or stemming.
 // upgrade: a search service when result quality or volume needs it.
 const SEARCH_TIMEOUT = "3s";
@@ -46,9 +52,11 @@ export async function searchMessages(input: SearchInput) {
   if ((input.channelId && !isUuid(input.channelId)) || (input.authorId && !isUuid(input.authorId))) return invalidInput;
   const after = date(input.after);
   const before = date(input.before);
+  const cursor = date(input.cursor);
+  const limit = Number.isInteger(input.limit) ? Math.min(Math.max(input.limit!, 1), CHAT_LIST_PAGE) : CHAT_LIST_PAGE;
   try {
     const query_ = sql`
-      SELECT m.channel_id, c.name AS channel_name, c.kind AS channel_kind, m.channel_seq::int AS seq,
+      SELECT m.channel_id, c.name AS channel_name, c.kind AS channel_kind, p.title AS project_title, m.channel_seq::int AS seq,
              m.thread_root_seq::int AS thread_root_seq, m.body, m.created_at,
              EXISTS (SELECT 1 FROM chat_attachments a WHERE a.channel_id = m.channel_id AND a.message_seq = m.channel_seq) AS has_file,
              CASE WHEN pr.id IS NULL THEN NULL ELSE jsonb_build_object(
@@ -56,6 +64,7 @@ export async function searchMessages(input: SearchInput) {
              ) END AS author
       FROM chat_channel_members mem
       JOIN chat_channels c ON c.id = mem.channel_id
+      LEFT JOIN projects p ON p.id = c.project_id
       JOIN chat_messages m ON m.channel_id = mem.channel_id
       LEFT JOIN profiles pr ON pr.id = m.author_id
       WHERE mem.user_id = ${user.id}::uuid
@@ -68,8 +77,9 @@ export async function searchMessages(input: SearchInput) {
         ))
         AND (${after}::timestamptz IS NULL OR m.created_at >= ${after}::timestamptz)
         AND (${before}::timestamptz IS NULL OR m.created_at < ${before}::timestamptz)
+        AND (${cursor}::timestamptz IS NULL OR m.created_at < ${cursor}::timestamptz)
       ORDER BY m.created_at DESC
-      LIMIT 50
+      LIMIT ${limit}
     `;
     const hits = await db.transaction(async (tx) => {
       await tx.execute(sql.raw(`SET LOCAL statement_timeout = '${SEARCH_TIMEOUT}'`));

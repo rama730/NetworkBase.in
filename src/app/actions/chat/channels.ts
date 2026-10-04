@@ -43,6 +43,20 @@ export async function updateChannel(input: { channelId: string; name?: string | 
   }
 }
 
+/** Admins switch a named project channel between public and private (never #general). */
+export async function setChannelPrivacy(input: { channelId: string; private: boolean }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || typeof input.private !== "boolean") return invalidInput;
+  try {
+    await chatRows(sql`SELECT app_private.chat_set_channel_privacy(${input.channelId}::uuid, ${user.id}::uuid, ${input.private})`);
+    publishChannel(input.channelId, "channel.updated", { channel_id: input.channelId });
+    return { success: true as const };
+  } catch (error) {
+    return chatFailure(error, "channel_privacy");
+  }
+}
+
 export async function archiveChannel(input: { channelId: string }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;

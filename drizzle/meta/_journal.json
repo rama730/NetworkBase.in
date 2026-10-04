@@ -1317,6 +1317,13 @@
       "when": 1790908167000,
       "tag": "0190_chat_thread_self_reply",
       "breakpoints": true
+    },
+    {
+      "idx": 188,
+      "version": "7",
+      "when": 1790908168000,
+      "tag": "0191_chat_channel_privacy",
+      "breakpoints": true
     }
   ]
 }

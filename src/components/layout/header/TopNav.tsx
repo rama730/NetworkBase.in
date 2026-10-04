@@ -45,6 +45,7 @@ import {
 } from "./global-search";
 import { useUIStore } from "@/stores/ui-store";
 import { useChatUi } from "@/components/messages/chat-ui-store";
+import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
 
 export default function TopNav() {
@@ -53,6 +54,7 @@ export default function TopNav() {
 
     const notifications = useNotifications();
     const { connectionHealth } = useRealtime();
+    const { badge: chatUnread } = useChatShell();
 
     // Hydration fix: ensures we only render auth-dependent UI after mount
     const [mounted, setMounted] = useState(false);
@@ -105,7 +107,8 @@ export default function TopNav() {
         const handleKeyDown = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
                 e.preventDefault();
-                if ((e.target as HTMLElement | null)?.closest("[data-messages-surface]")) {
+                // In Messages, or whenever the chat window is open: the chat switcher, not global search.
+                if ((e.target as HTMLElement | null)?.closest("[data-messages-surface]") || document.getElementById("chat-window")) {
                     closeGlobalSearch();
                     useChatUi.getState().setSwitcherOpen(true);
                     return;
@@ -150,6 +153,8 @@ export default function TopNav() {
                             {connectionHealth !== "healthy" ? (
                                 <span aria-hidden="true" className="absolute right-2 top-2 size-2 rounded-full bg-[var(--status-warning)]" />
                             ) : null}
+                            {/* Unread chat: a dot here, the count on Messages inside the menu. */}
+                            {chatUnread ? <span aria-hidden="true" data-testid="mobile-menu-chat-dot" className="absolute left-2 top-2 size-2 rounded-full bg-[var(--chat-accent)]" /> : null}
                         </button>
                     )}
                     <div className="md:hidden">
