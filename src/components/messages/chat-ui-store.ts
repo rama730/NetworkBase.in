@@ -12,12 +12,10 @@ type ChatUiState = {
   /** Project ids whose Create channel / Invite people dialogs are open. */
   createChannelFor: string | null;
   inviteFor: string | null;
-  activeThreadRootSeq: number | null;
   setProject: (projectId: string | null) => void;
   setSwitcherOpen: (open: boolean) => void;
   setCreateChannelFor: (projectId: string | null) => void;
   setInviteFor: (projectId: string | null) => void;
-  setActiveThreadRootSeq: (seq: number | null) => void;
 };
 
 export const useChatUi = create<ChatUiState>()((set) => ({
@@ -25,17 +23,15 @@ export const useChatUi = create<ChatUiState>()((set) => ({
   switcherOpen: false,
   createChannelFor: null,
   inviteFor: null,
-  activeThreadRootSeq: null,
   setProject: (projectId) => set({ projectId }),
   setSwitcherOpen: (switcherOpen) => set({ switcherOpen }),
   setCreateChannelFor: (createChannelFor) => set({ createChannelFor }),
   setInviteFor: (inviteFor) => set({ inviteFor }),
-  setActiveThreadRootSeq: (activeThreadRootSeq) => set({ activeThreadRootSeq }),
 }));
 
-// Per-device preferences: collapsed sections, the Aa toolbar, the last open
-// conversation (localStorage `chat-ui-v1`). Every access tolerates blocked storage.
-type StoredUi = { collapsed?: Record<string, boolean>; formatting?: boolean; last?: string | null; unreadsOnly?: boolean; hiddenCanvas?: string[] };
+// Per-device preferences: collapsed sections, the Aa toolbar, Unreads only and
+// hidden canvases (localStorage `chat-ui-v1`). Every access tolerates blocked storage.
+type StoredUi = { collapsed?: Record<string, boolean>; formatting?: boolean; unreadsOnly?: boolean; hiddenCanvas?: string[] };
 const UI_KEY = "chat-ui-v1";
 
 export function readChatUi(): StoredUi {
@@ -116,16 +112,21 @@ export function useDrafts() {
   return drafts;
 }
 
-// Collapsed sidebar sections follow the account (auth user_metadata, like the
-// appearance setting), so they're the same on every device. localStorage is the
-// instant copy; the account copy is written a moment after the last toggle.
-let collapsedTimer: ReturnType<typeof setTimeout> | null = null;
-export function saveCollapsed(collapsed: Record<string, boolean>) {
-  writeChatUi({ collapsed });
-  if (collapsedTimer) clearTimeout(collapsedTimer);
-  collapsedTimer = setTimeout(() => {
+// Collapsed sections and the Unreads filter follow the account (auth user_metadata, like
+// the appearance setting), so they're the same on every device. localStorage is the
+// instant copy; the account copy is written a moment after the last change.
+let accountTimer: ReturnType<typeof setTimeout> | null = null;
+let accountPatch: { chat_sections?: Record<string, boolean>; chat_unreads_only?: boolean } = {};
+export function saveAccountUi(patch: { collapsed?: Record<string, boolean>; unreadsOnly?: boolean }) {
+  writeChatUi(patch);
+  if (patch.collapsed) accountPatch.chat_sections = patch.collapsed;
+  if (patch.unreadsOnly !== undefined) accountPatch.chat_unreads_only = patch.unreadsOnly;
+  if (accountTimer) clearTimeout(accountTimer);
+  accountTimer = setTimeout(() => {
+    const data = accountPatch;
+    accountPatch = {};
     void import("@/lib/supabase/client")
-      .then(({ createClient }) => createClient().auth.updateUser({ data: { chat_sections: collapsed } }))
+      .then(({ createClient }) => createClient().auth.updateUser({ data }))
       .catch(() => undefined);
   }, 1_500);
 }

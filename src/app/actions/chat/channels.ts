@@ -143,6 +143,34 @@ export async function browseChannels(input: { projectId: string }) {
   }
 }
 
+export type ChannelMatch = { id: string; name: string; project_id: string; project_title: string };
+
+/** ⌘K: public channels you haven't joined, by name, across every project you're in. */
+// ponytail: unindexed ILIKE over public channels in your projects. ceiling: ~100k channels.
+// upgrade: a pg_trgm index on chat_channels.name.
+export async function searchChannels(input: { query: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  const query = typeof input?.query === "string" ? input.query.trim().toLowerCase().slice(0, 80) : "";
+  if (!query) return invalidInput;
+  const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
+  try {
+    const channels = await chatRows<ChannelMatch>(sql`
+      SELECT c.id, c.name, c.project_id, p.title AS project_title
+      FROM chat_channels c
+      JOIN projects p ON p.id = c.project_id
+      WHERE c.kind = 'public' AND c.archived_at IS NULL AND c.name ILIKE ${pattern} ESCAPE '\\'
+        AND app_private.chat_is_project_member(c.project_id, ${user.id}::uuid)
+        AND NOT app_private.chat_is_member(c.id, ${user.id}::uuid)
+      ORDER BY c.name
+      LIMIT 5
+    `);
+    return { success: true as const, channels };
+  } catch (error) {
+    return chatFailure(error, "search_channels");
+  }
+}
+
 export type ChannelDetails = ChatChannelSummary & {
   description: string | null;
   created_by: string | null;

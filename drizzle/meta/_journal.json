@@ -1310,6 +1310,13 @@
       "when": 1790908166000,
       "tag": "0189_chat_audit_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 187,
+      "version": "7",
+      "when": 1790908167000,
+      "tag": "0190_chat_thread_self_reply",
+      "breakpoints": true
     }
   ]
 }

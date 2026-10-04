@@ -13,8 +13,9 @@ export function usePanes(channelId: string) {
   const details = asDetailsTab(params?.get("details"));
   // The jumped-to message (?m=) stays, so opening a pane never re-positions the timeline.
   const m = Number(params?.get("m")) || null;
+  // replace, not push: Back leaves the conversation instead of reopening a drawer you closed.
   const go = useCallback((next: Panes) => {
-    router.push(conversationHref(channelId, { m, ...next }), { scroll: false });
+    router.replace(conversationHref(channelId, { m, ...next }), { scroll: false });
   }, [channelId, m, router]);
   return useMemo(() => ({
     thread,

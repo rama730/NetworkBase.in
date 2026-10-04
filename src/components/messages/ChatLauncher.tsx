@@ -5,11 +5,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle } from "lucide-react";
 
-import { useChatWindow } from "@/components/messages/chat-window-store";
+import { CHAT_WINDOW_QUERY, chatWindowHiddenOn, useChatWindow } from "@/components/messages/chat-window-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 
 const ChatWindow = dynamic(() => import("@/components/messages/ChatWindow"), { ssr: false });
-const HIDDEN_PREFIXES = ["/messages", "/projects/new"];
 
 /**
  * The floating button (report 7.13): 56px, bottom-right, badge = mentions +
@@ -23,7 +22,7 @@ export default function ChatLauncher() {
   const button = useRef<HTMLButtonElement>(null);
   const [wide, setWide] = useState(false);
   useEffect(() => {
-    const query = window.matchMedia("(min-width: 768px)");
+    const query = window.matchMedia(CHAT_WINDOW_QUERY);
     const sync = () => setWide(query.matches);
     sync();
     query.addEventListener("change", sync);
@@ -35,7 +34,7 @@ export default function ChatLauncher() {
     };
   }, []);
 
-  if (!wide || HIDDEN_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) return null;
+  if (!wide || chatWindowHiddenOn(pathname)) return null;
   const label = badge ? `Messages, ${badge} unread` : "Messages";
   return (
     <>

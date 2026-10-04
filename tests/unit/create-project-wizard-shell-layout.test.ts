@@ -31,7 +31,7 @@ test("create-project is a normal page inside the app shell: no modal, one 1000px
     readFile("src/components/layout/MainLayout.tsx", "utf8"),
     readFile("src/app/(site)/(main)/projects/new/loading.tsx", "utf8"),
     readFile("src/components/projects/create-wizard/useCreateProjectWizard.ts", "utf8"),
-    readFile("src/components/messages/ChatLauncher.tsx", "utf8"),
+    readFile("src/components/messages/chat-window-store.ts", "utf8"),
   ]);
 
   assert.doesNotMatch(wizard, /@\/components\/ui\/dialog|presentation/);
@@ -42,7 +42,7 @@ test("create-project is a normal page inside the app shell: no modal, one 1000px
   assert.doesNotMatch(layout, /if \(focus\)/);
   assert.match(layout, /<AppSidebar \/>[\s\S]*<TopNav \/>[\s\S]*\{children\}/);
   assert.match(loading, /<CreateProjectShellSkeleton \/>/);
-  assert.match(chat, /HIDDEN_PREFIXES = \["\/messages", "\/projects\/new"\]/);
+  assert.match(chat, /NO_WINDOW_PREFIXES = \["\/messages", "\/projects\/new"\]/);
   // Browser Back keeps work: unsaved changes are saved as a draft on unmount unless the user chose to leave.
   assert.match(hook, /if \(hasUnsavedRef\.current && !skipDraftOnUnmountRef\.current\) void saveDraftRef\.current\(true\)/);
   assert.match(hook, /if \(createdProjectId && onSuccess\) onSuccess\(createdProjectId\);\s*else onClose\(\);/);

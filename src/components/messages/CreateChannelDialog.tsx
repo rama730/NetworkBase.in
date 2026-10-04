@@ -6,16 +6,25 @@ import { toast } from "sonner";
 
 import { createChannel } from "@/app/actions/chat/channels";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
+import { useSelectedProject } from "@/components/messages/useSelectedProject";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { CHAT_CHANNEL_NAME_PATTERN, CHAT_MAX_DESCRIPTION } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
+import { conversationHref } from "@/lib/messaging/routes";
 
-/** Name, optional description, a private switch (report 7.10 D6). The 200-per-project cap is enforced in SQL. */
-export function CreateChannelDialog({ projectId, open, onOpenChange }: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
+/**
+ * Name, optional description, a private switch (report 7.10 D6). The 200-per-project cap is enforced in SQL.
+ * Says which project it goes in; from the All projects view you can pick another.
+ */
+export function CreateChannelDialog({ projectId: initialProjectId, open, onOpenChange }: { projectId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const router = useRouter();
-  const { refresh } = useChatShell();
+  const { data, refresh } = useChatShell();
+  const allView = useSelectedProject() === null;
+  const [projectId, setProjectId] = useState(initialProjectId);
+  const projects = data?.projects ?? [];
+  const projectTitle = projects.find((p) => p.id === projectId)?.title;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setPrivate] = useState(false);
@@ -38,15 +47,23 @@ export function CreateChannelDialog({ projectId, open, onOpenChange }: { project
     setName("");
     setDescription("");
     setPrivate(false);
-    router.push(`/messages/${result.channelId}`);
+    router.push(conversationHref(result.channelId));
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-xl sm:max-w-md">
-        <DialogTitle>Create a channel</DialogTitle>
-        <DialogDescription>Channels are where your project talks about a topic.</DialogDescription>
+        <DialogTitle>Create channel</DialogTitle>
+        <DialogDescription>{projectTitle ? <>In <span className="font-medium text-foreground">{projectTitle}</span>. </> : null}Channels are where your project talks about a topic.</DialogDescription>
         <form className="space-y-4" onSubmit={submit}>
+          {allView && projects.length > 1 ? (
+            <label className="block space-y-1.5">
+              <span className="text-[13px] font-medium">Project</span>
+              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="h-[var(--ui-control-height)] w-full rounded-[5px] border border-input bg-card px-2 text-[15px] pointer-coarse:h-11">
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+            </label>
+          ) : null}
           <label className="block space-y-1.5">
             <span className="text-[13px] font-medium">Name</span>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. design" maxLength={80} autoFocus aria-invalid={name.length > 0 && !valid} aria-describedby="chat-channel-name-hint" />

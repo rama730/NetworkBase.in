@@ -1,7 +1,8 @@
 "use client";
 
-import { REALTIME_SUBSCRIBE_STATES, type RealtimeChannel } from "@supabase/supabase-js";
+import { REALTIME_SUBSCRIBE_STATES, type AuthChangeEvent, type RealtimeChannel, type Session } from "@supabase/supabase-js";
 
+import { bootstrapBrowserSessionFromServer } from "@/lib/auth/browser-auth-actions";
 import { createClient } from "@/lib/supabase/client";
 import { isPrivateRealtimeAuthorizationEnabled } from "./authorization";
 
@@ -25,6 +26,52 @@ function setStatus(entry: Entry, status: BroadcastStatus) {
   entry.statusHandlers.forEach((handler) => handler(status));
 }
 
+type Client = ReturnType<typeof createClient>;
+let restoring: Promise<string | null> | null = null;
+
+function waitForSession(supabase: Client, ms: number) {
+  return new Promise<string | null>((resolve) => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const { data } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      if (!session?.access_token) return;
+      if (timer) clearTimeout(timer);
+      data.subscription.unsubscribe();
+      resolve(session.access_token);
+    });
+    timer = setTimeout(() => {
+      data.subscription.unsubscribe();
+      resolve(null);
+    }, ms);
+  });
+}
+
+/**
+ * A user JWT for private topics. Never the anon key: every private topic
+ * rejects it, and supabase-js falls back to it when the browser has no session.
+ * AuthProvider copies the server's (httpOnly) session into the browser; if that
+ * has not landed, wait briefly, then restore it here once.
+ */
+export async function realtimeUserToken(): Promise<string | null> {
+  const supabase = createClient();
+  const { data } = await supabase.auth.getSession();
+  if (data.session?.access_token) return data.session.access_token;
+  restoring ??= (async () => {
+    const token = await waitForSession(supabase, 3_000);
+    if (token) return token;
+    const session = await bootstrapBrowserSessionFromServer().catch(() => null);
+    if (!session) return null;
+    const { data: restored } = await supabase.auth.setSession(session);
+    return restored.session?.access_token ?? null;
+  })().finally(() => {
+    restoring = null;
+  });
+  const token = await restoring;
+  if (!token && process.env.NODE_ENV === "development") {
+    console.warn("[realtime] no browser session, so chat live updates are off. Look for auth.session.bootstrap_failed above.");
+  }
+  return token;
+}
+
 function open(topic: string): Entry {
   const supabase = createClient();
   const channel = supabase.channel(topic, { config: { private: true, broadcast: { self: false } } });
@@ -33,8 +80,10 @@ function open(topic: string): Entry {
     entry.handlers.forEach((handler) => handler(message.event, message.payload ?? {}));
   });
   void (async () => {
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.access_token) await supabase.realtime.setAuth(data.session.access_token);
+    const token = await realtimeUserToken();
+    if (entries.get(topic) !== entry) return;
+    if (!token) return setStatus(entry, "disconnected");
+    await supabase.realtime.setAuth(token);
     channel.subscribe((status: `${REALTIME_SUBSCRIBE_STATES}`) => {
       if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) setStatus(entry, "connected");
       else setStatus(entry, "disconnected");
@@ -54,7 +103,7 @@ function open(topic: string): Entry {
 export function subscribeBroadcast(topic: string, onEvent: EventHandler, onStatus?: StatusHandler) {
   if (!isPrivateRealtimeAuthorizationEnabled()) {
     onStatus?.("disabled");
-    return { send: () => undefined, unsubscribe: () => undefined };
+    return { send: () => false, unsubscribe: () => undefined };
   }
   const entry = entries.get(topic) ?? open(topic);
   entries.set(topic, entry);
@@ -68,8 +117,11 @@ export function subscribeBroadcast(topic: string, onEvent: EventHandler, onStatu
     onStatus(entry.status);
   }
   return {
+    /** False when not connected yet (the event is dropped, not queued). */
     send(event: string, payload: Record<string, unknown>) {
-      if (entry.status === "connected") void entry.channel.send({ type: "broadcast", event, payload });
+      if (entry.status !== "connected") return false;
+      void entry.channel.send({ type: "broadcast", event, payload });
+      return true;
     },
     unsubscribe() {
       entry.handlers.delete(onEvent);

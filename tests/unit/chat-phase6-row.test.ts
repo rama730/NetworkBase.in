@@ -1,0 +1,50 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+
+import { restoreTabOrder } from "@/lib/messaging/channel-tabs";
+import { DEFAULT_REACTIONS, pushRecent, quickReactions } from "@/lib/messaging/reactions";
+
+const read = (path: string) => fs.readFileSync(path, "utf8");
+
+test("one quick-reaction set: recently used first, then the defaults, six in all", () => {
+  assert.deepEqual(quickReactions([]), [...DEFAULT_REACTIONS]);
+  assert.deepEqual(quickReactions(["🔥", "👍"]), ["🔥", "👍", "❤️", "😂", "🎉", "👀"]);
+  assert.deepEqual(pushRecent(["👍", "🔥"], "🔥"), ["🔥", "👍"]);
+  for (const file of ["src/components/messages/MessageRow.tsx", "src/components/messages/parts/ReactionQuickBar.tsx"]) {
+    assert.match(read(file), /useQuickReactions\(\)/, `${file} uses the shared set`);
+  }
+  assert.doesNotMatch(read("src/components/messages/MessageRow.tsx"), /const QUICK = |HOVER_QUICK_REACTIONS = /);
+});
+
+test("Undo of a removed tab puts it back where it was", () => {
+  const before = [{ id: "a", title: "A" }, { id: "b", title: "B" }, { id: "c", title: "C" }];
+  assert.deepEqual(restoreTabOrder(before, "b", { id: "b2", title: "B" }).map((t) => t.id), ["a", "b2", "c"]);
+});
+
+test("header and tabs: archive icon, no delete key, ?tab= in the URL, canvas confirms", () => {
+  const view = read("src/components/messages/ConversationView.tsx");
+  assert.match(view, /<Archive size=\{14\} className="mr-2" \/> Archive channel/);
+  assert.match(view, /params\.set\("tab", id\)/);
+  assert.match(view, /title=\{confirm === "replace" \? "Replace the canvas\?"/);
+  assert.match(view, /key=\{`\$\{channelId\}:\$\{timeline\.epoch\}`\}/);
+  const tabs = read("src/components/messages/ChannelTabBar.tsx");
+  assert.doesNotMatch(tabs, /"Backspace"|onContextMenu/);
+  assert.match(tabs, /hasCanvas \? "Open canvas" : "New canvas"/);
+  assert.match(read("src/components/messages/ChannelCanvas.tsx"), /Clear the canvas for everyone\?/);
+  assert.match(read("src/components/messages/DetailsPane.tsx"), /<option value="mute">Mute<\/option>/);
+});
+
+test("message row: keyboard, time button, grouped icons, delete with replies, failed sends, pins", () => {
+  const row = read("src/components/messages/MessageRow.tsx");
+  assert.match(row, /tabIndex=\{tabStop \? 0 : -1\}/);
+  assert.match(read("src/components/messages/Timeline.tsx"), /onKeyDown=\{onListKeyDown\}/);
+  assert.match(row, /group-hover\/msg:hidden[\s\S]*aria-label="Pinned"/);
+  assert.match(row, /own && !message\.reply_count \? removeWithUndo\(\) : setConfirmDelete\(true\)/);
+  assert.match(row, /Not sent[\s\S]*Retry[\s\S]*Delete/);
+  assert.match(row, /if \(ctx\.share && hasContent\)/);
+  assert.match(read("src/components/messages/Composer.tsx"), /failSend\(queryClient, clientId,/);
+  const view = read("src/components/messages/ConversationView.tsx");
+  assert.match(view, /function PinRow[\s\S]*Jump to message[\s\S]*Unpin/);
+  assert.doesNotMatch(view, /<MessageRow /, "Pins no longer render the full row with every action");
+});

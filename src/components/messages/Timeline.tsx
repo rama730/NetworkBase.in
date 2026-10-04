@@ -5,7 +5,7 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { ChevronDown, X } from "lucide-react";
 
 import { MessageRow } from "@/components/messages/MessageRow";
-import { buildTimeline, type TimelineItem } from "@/lib/messaging/timeline";
+import { buildTimeline, newFromOthers, type TimelineItem } from "@/lib/messaging/timeline";
 import type { ChatMessageView } from "@/lib/messaging/types";
 
 const START_INDEX = 1_000_000;
@@ -25,6 +25,10 @@ type Props = {
   onSeen: (seq: number) => void;
   /** Mark the whole conversation read now (the unread bar, Jump to latest). */
   onMarkRead?: () => void;
+  /** Someone is typing: the footer opens to make room for the floating indicator. */
+  typing?: boolean;
+  /** A message to bring into view (↑ to edit your last message). */
+  revealSeq?: number | null;
 };
 
 function startOfDay(value: string) {
@@ -32,7 +36,7 @@ function startOfDay(value: string) {
   return new Date(y!, (m ?? 1) - 1, d ?? 1).getTime();
 }
 
-type TimelineContext = { hasOlder: boolean; loadingOlder: boolean; intro: React.ReactNode };
+type TimelineContext = { hasOlder: boolean; loadingOlder: boolean; intro: React.ReactNode; typing: boolean };
 
 // Stable component identities (VIRT-01): inline ones would remount on every render.
 function TimelineHeader({ context }: { context?: TimelineContext }) {
@@ -41,8 +45,10 @@ function TimelineHeader({ context }: { context?: TimelineContext }) {
     ? <div className="py-3 text-center text-[12px] text-muted-foreground">{context.loadingOlder ? "Loading earlier messages…" : ""}</div>
     : <>{context.intro}</>;
 }
-function TimelineFooter() {
-  return <div className="h-6" />;
+// Room for the floating typing indicator only while someone types; otherwise the gap closes.
+// Growing is instant (a smooth scroll follows); shrinking glides, so nothing jumps.
+function TimelineFooter({ context }: { context?: TimelineContext }) {
+  return <div className={context?.typing ? "h-6" : "h-2 transition-[height] duration-200 ease-out motion-reduce:transition-none"} />;
 }
 const COMPONENTS = { Header: TimelineHeader, Footer: TimelineFooter };
 
@@ -70,7 +76,7 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
  * Virtualized timeline (Virtuoso prepend pattern): older pages prepend without
  * moving the reader, new messages follow only when already at the bottom.
  */
-export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead }: Props) {
+export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead, typing = false, revealSeq = null }: Props) {
   const virtuoso = useRef<VirtuosoHandle>(null);
   // The divider stays where it was when the channel opened, not where the cursor moves to.
   const [dividerSeq] = useState(lastReadSeq);
@@ -80,6 +86,8 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   const [topDay, setTopDay] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<number | null>(highlightSeq ?? null);
   const [jump, setJump] = useState<{ at: number; pages: number } | null>(null);
+  // Roving tabindex: Tab lands on one row (the newest until you move), ↑/↓ walk the rows.
+  const [focusSeq, setFocusSeq] = useState<number | null>(null);
 
   // "12 new messages since 3:42 PM": what was unread when the conversation opened.
   const [unreadAtOpen] = useState(() => {
@@ -102,20 +110,54 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     for (let i = messages.length - 1; i >= 0; i -= 1) if (messages[i]!.seq > 0) return messages[i]!.seq;
     return 0;
   }, [messages]);
-  const lastCount = useRef(messages.length);
+  // "N new" counts only messages newer than what was there (older pages load at the top) and not your own.
+  const lastNewest = useRef(newestSeq);
   useEffect(() => {
-    const added = messages.length - lastCount.current;
-    lastCount.current = messages.length;
-    if (added > 0 && !atBottom) setUnseen((n) => n + added);
-  }, [atBottom, messages.length]);
+    const before = lastNewest.current;
+    lastNewest.current = newestSeq;
+    if (atBottom || newestSeq <= before) return;
+    const added = newFromOthers(messages, before, meId);
+    if (added) setUnseen((n) => n + added);
+  }, [atBottom, meId, messages, newestSeq]);
   useEffect(() => {
     if (atBottom && newestSeq > 0) onSeen(newestSeq);
   }, [atBottom, newestSeq, onSeen]);
+  // The typing gap opened: at the bottom, keep the last message fully in view. Next frame,
+  // once the taller footer is in the DOM; scrolling past the end stops at the real bottom.
+  useEffect(() => {
+    if (!typing || !atBottom) return;
+    const frame = requestAnimationFrame(() => virtuoso.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER, behavior: "smooth" }));
+    return () => cancelAnimationFrame(frame);
+  }, [atBottom, typing]);
   useEffect(() => {
     if (!highlight) return;
     const timer = setTimeout(() => setHighlight(null), HIGHLIGHT_MS);
     return () => clearTimeout(timer);
   }, [highlight]);
+  // A later jump to a message that's already loaded: scroll there in place (the first one positions the list).
+  const lastJump = useRef(highlightSeq ?? null);
+  useEffect(() => {
+    if (!highlightSeq || highlightSeq === lastJump.current) return;
+    lastJump.current = highlightSeq;
+    const index = items.findIndex((item) => item.type === "message" && item.message.seq === highlightSeq);
+    if (index < 0) return;
+    virtuoso.current?.scrollToIndex({ index, align: "center", behavior: "smooth" });
+    setHighlight(highlightSeq);
+  }, [highlightSeq, items]);
+
+  // Editing an older message (↑ in the composer) scrolls it into view, once per edit.
+  const revealed = useRef<number | null>(null);
+  useEffect(() => {
+    if (!revealSeq) {
+      revealed.current = null;
+      return;
+    }
+    if (revealed.current === revealSeq) return;
+    const index = items.findIndex((item) => item.type === "message" && item.message.seq === revealSeq);
+    if (index < 0) return;
+    revealed.current = revealSeq;
+    virtuoso.current?.scrollIntoView({ index });
+  }, [items, revealSeq]);
 
   // Jump to a date: the first message on or after it, loading older pages as needed.
   useEffect(() => {
@@ -164,6 +206,31 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     if (index >= 0) virtuoso.current?.scrollToIndex({ index, align: "start", behavior: "smooth" });
   }, [items]);
 
+  const tabSeq = focusSeq ?? (newestSeq || null);
+  const onListKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    const row = e.target as HTMLElement;
+    if (!row.hasAttribute("data-message-row")) return;
+    const at = items.findIndex((item) => item.type === "message" && item.message.seq === Number(row.dataset.seq));
+    if (at < 0) return;
+    const step = e.key === "ArrowDown" ? 1 : -1;
+    let next = at + step;
+    while (next >= 0 && next < items.length) {
+      const item = items[next]!;
+      if (item.type === "message" && item.message.kind !== "system") break;
+      next += step;
+    }
+    const target = items[next];
+    if (target?.type !== "message") return;
+    e.preventDefault();
+    setFocusSeq(target.message.seq);
+    virtuoso.current?.scrollIntoView({ index: next });
+    // Next frame the row is rendered; focus it without another scroll.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      row.closest("[role=log]")?.querySelector<HTMLElement>(`[data-message-row][data-seq="${target.message.seq}"]`)?.focus({ preventScroll: true });
+    }));
+  }, [items]);
+
   const renderItem = useCallback((_index: number, item: TimelineItem) => {
     if (item.type === "day") return <DayLabel label={item.label} onPick={pickDate} />;
     if (item.type === "new") {
@@ -174,11 +241,22 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         </div>
       );
     }
-    return <MessageRow message={item.message} grouped={item.grouped} others={item.others} highlighted={highlight === item.message.seq} />;
-  }, [highlight, pickDate]);
+    return <MessageRow message={item.message} grouped={item.grouped} others={item.others} highlighted={highlight === item.message.seq} tabStop={tabSeq === item.message.seq} />;
+  }, [highlight, pickDate, tabSeq]);
 
   return (
-    <div className="relative min-h-0 flex-1" role="log" aria-live="polite" aria-relevant="additions" aria-label="Messages">
+    <div
+      className="relative min-h-0 flex-1"
+      role="log"
+      aria-live="polite"
+      aria-relevant="additions"
+      aria-label="Messages"
+      onKeyDown={onListKeyDown}
+      onFocus={(e) => {
+        const seq = Number((e.target as HTMLElement).dataset?.seq);
+        if ((e.target as HTMLElement).hasAttribute?.("data-message-row") && seq) setFocusSeq(seq);
+      }}
+    >
       {bannerOpen && unreadAtOpen && onMarkRead ? (
         <div className="absolute inset-x-3 top-2 z-20 flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-[13px] text-primary-foreground shadow-md">
           <button type="button" onClick={toFirstUnread} className="min-w-0 flex-1 truncate text-left font-medium hover:underline">
@@ -194,7 +272,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
       ) : null}
       <Virtuoso<TimelineItem, TimelineContext>
         ref={virtuoso}
-        context={{ hasOlder, loadingOlder, intro }}
+        context={{ hasOlder, loadingOlder, intro, typing }}
         className="app-scroll app-scroll-y h-full"
         data={items}
         firstItemIndex={firstItemIndex}

@@ -15,6 +15,11 @@ export function isDirectLike(channel: ChatChannelSummary) {
   return !channel.application_id && (channel.kind === "dm" || (channel.kind === "private" && channel.name === null));
 }
 
+/** Same rule as app_private.chat_add_members: any member of a live, non-DM conversation. */
+export function canAddPeople(channel: { kind: string; is_member: boolean; channel_archived_at: string | null }) {
+  return channel.is_member && channel.kind !== "dm" && !channel.channel_archived_at;
+}
+
 export function isSelfDm(channel: ChatChannelSummary, meId: string | null) {
   return channel.kind === "dm" && channel.dm_user?.id === meId;
 }
@@ -34,7 +39,8 @@ export function isUnread(channel: ChatChannelSummary) {
 /** DM and application rows show a count; channels show bold plus mentions (L-25). */
 export function rowCount(channel: ChatChannelSummary) {
   if (channel.notify === "mute") return 0;
-  if (isDirectLike(channel) || channel.application_id) return isUnread(channel) ? Math.max(1, channel.last_seq - channel.last_read_seq) : 0;
+  // Top-level messages only, like bold (isUnread): thread replies don't inflate the count.
+  if (isDirectLike(channel) || channel.application_id) return isUnread(channel) ? Math.max(1, channel.last_top_seq - channel.last_read_seq) : 0;
   return channel.mention_count;
 }
 
@@ -73,7 +79,11 @@ export function sectionsFor(data: ChatBootstrap | undefined, projectId: string |
   const memberOf = new Set((data.projects ?? []).map((project) => project.id));
   for (const channel of data.channels) {
     if (!visible(channel)) continue;
-    if (channel.starred) sections.starred.push(channel);
+    // Starred follows the open project (DMs and groups always); a starred row isn't repeated below.
+    if (channel.starred && (!projectId || isDirectLike(channel) || channel.project_id === projectId)) {
+      sections.starred.push(channel);
+      continue;
+    }
     if (isDirectLike(channel)) sections.dms.push(channel);
     else if (channel.application_id && !memberOf.has(channel.project_id ?? "")) sections.myApplications.push(channel);
     else if (channel.project_id !== projectId) continue;
@@ -86,6 +96,19 @@ export function sectionsFor(data: ChatBootstrap | undefined, projectId: string |
   sections.myApplications.sort(byRecent);
   sections.dms.sort(byRecent);
   return sections;
+}
+
+/**
+ * Every visible conversation in the sidebar's order (Starred, Channels or the project groups,
+ * DMs, My applications). A starred row counts once, where it first appears.
+ */
+export function sidebarOrder(data: ChatBootstrap | undefined, projectId: string | null) {
+  const sections = sectionsFor(data, projectId);
+  const projectRows = projectId
+    ? [...sections.channels, ...sections.applications]
+    : projectsByActivity(data).flatMap((project) => channelsByProject(data).get(project.id) ?? []);
+  const seen = new Set<string>();
+  return [...sections.starred, ...projectRows, ...sections.dms, ...sections.myApplications].filter((channel) => !seen.has(channel.id) && Boolean(seen.add(channel.id)));
 }
 
 /** Unread, or carrying a mention (the Unreads filter). Muted rows never count. */
@@ -155,3 +178,16 @@ export function formatChatTime(value: string, mode: "clock" | "ago" | "auto" = "
   }
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+
+/** The swipe buttons for a list row: Read only when there's something unread; DMs Close, channels Star. */
+export function swipeButtons(options: { unread: boolean; muted: boolean; direct: boolean; starred: boolean }) {
+  return [
+    ...(options.unread ? ["Read"] : []),
+    options.muted ? "Unmute" : "Mute",
+    options.direct ? "Close" : options.starred ? "Unstar" : "Star",
+  ];
+}
+
+/** One "mark all as read" everywhere: same label, and it asks first above 5 items. */
+export const MARK_ALL_LABEL = "Mark all as read";
+export const needsMarkAllConfirm = (count: number) => count > 5;

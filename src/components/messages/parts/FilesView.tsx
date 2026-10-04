@@ -6,7 +6,7 @@ import { FileText, Image as ImageIcon, Video } from "lucide-react";
 
 import { listFiles } from "@/app/actions/chat/messages";
 import { formatChatTime } from "@/lib/messaging/channel-view";
-import { conversationHref } from "@/lib/messaging/routes";
+import { messageHref } from "@/lib/messaging/routes";
 import { queryKeys } from "@/lib/query-keys";
 
 function size(bytes: number) {
@@ -38,7 +38,7 @@ export function FilesView({ channelId }: { channelId: string }) {
               <a href={`/api/v1/chat/attachments/${file.asset_id}`} target="_blank" rel="noopener noreferrer" className="block truncate text-[14px] font-medium hover:underline">{file.name || "File"}</a>
               <span className="block truncate text-[12px] text-muted-foreground">{size(file.size)} · {file.author ?? "Someone"} · {formatChatTime(file.created_at)}</span>
             </span>
-            <Link href={conversationHref(channelId, { m: file.seq })} className="flex-none text-[12px] font-medium text-primary hover:underline">View message</Link>
+            <Link href={messageHref(channelId, file.seq, file.thread_root_seq)} className="flex-none text-[12px] font-medium text-primary hover:underline">View message</Link>
           </li>
         );
       })}

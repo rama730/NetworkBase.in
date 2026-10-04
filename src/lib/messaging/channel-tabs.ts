@@ -25,12 +25,15 @@ export function conversationTabs(options: {
   const tabs: ChannelTabItem[] = [{ id: "messages", kind: "messages", title: "Messages" }];
   if (options.canvasTitle !== null && (!options.canvasHidden || options.active === "canvas")) tabs.push({ id: "canvas", kind: "canvas", title: options.canvasTitle });
   if (options.pinCount > 0 || options.active === "pins") tabs.push({ id: "pins", kind: "pins", title: "Pins" });
-  // Files opened from the menu or Details before anyone added the tab shows while open.
-  if (options.active === "files" && !options.shared.some((tab) => tab.kind === "files")) tabs.push({ id: "files", kind: "files", title: "Files" });
   for (const tab of options.shared) {
     // Tasks need a project; a stale Tasks tab in a project-less channel stays hidden.
     if (tab.kind === "tasks" && !options.projectId) continue;
     tabs.push({ id: tab.id, kind: tab.kind, title: tab.title, url: tab.url, shared: true });
   }
   return tabs;
+}
+
+/** Undo a removed shared tab: the re-added copy (new id) goes back where the old one was. */
+export function restoreTabOrder(before: { id: string; title: string }[], removedId: string, added: { id: string; title: string }) {
+  return before.map((tab) => (tab.id === removedId ? { id: added.id, title: added.title } : { id: tab.id, title: tab.title }));
 }

@@ -3,23 +3,23 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, AtSign, Bell, BellOff, Bookmark, Check, Files, Hash, Link2, Lock, MoreHorizontal, Pin, Search, Star, Trash2, UserPlus, Users } from "lucide-react";
+import { Archive, ArrowLeft, AtSign, Bell, BellOff, Check, Hash, Link2, Lock, MoreHorizontal, Search, Star, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
-import { addChannelTab, archiveChannel, joinChannel, leaveChannel, removeChannelTab, saveChannelTabs, unarchiveChannel } from "@/app/actions/chat/channels";
+import { addChannelTab, joinChannel, removeChannelTab, saveChannelTabs } from "@/app/actions/chat/channels";
 import { setMemberState } from "@/app/actions/chat/members";
-import { listPins } from "@/app/actions/chat/messages";
+import { listPins, pinMessage } from "@/app/actions/chat/messages";
 import { markRead } from "@/app/actions/chat/read";
 import { readChatUi, useChatUi, writeChatUi } from "@/components/messages/chat-ui-store";
 import { useBack } from "@/components/messages/useBack";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import type { CanvasSeed } from "@/components/messages/ChannelCanvas";
 import { ChannelTabBar } from "@/components/messages/ChannelTabBar";
-import { ConversationContext, type ConversationContextValue } from "@/components/messages/conversation-context";
-import { MessageRow } from "@/components/messages/MessageRow";
+import { ConversationContext, useConversationContext, type ConversationContextValue } from "@/components/messages/conversation-context";
+import { MessageBody } from "@/components/messages/MessageBody";
 import { FilesView } from "@/components/messages/parts/FilesView";
 import { Timeline } from "@/components/messages/Timeline";
 import { usePanes } from "@/components/messages/usePanes";
@@ -29,19 +29,23 @@ import { PersonPresenceBadge } from "@/components/presence/PersonPresence";
 import { StatusInline } from "@/components/presence/StatusInline";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import type { ChannelDetails } from "@/app/actions/chat/channels";
 import type { CanvasTemplate } from "@/lib/messaging/canvas-store";
-import { conversationTabs, type ChannelTabItem } from "@/lib/messaging/channel-tabs";
-import { channelTitle, isSelfDm, personName } from "@/lib/messaging/channel-view";
+import { conversationTabs, restoreTabOrder, type ChannelTabItem } from "@/lib/messaging/channel-tabs";
+import { canAddPeople, channelTitle, isSelfDm, personName } from "@/lib/messaging/channel-view";
 import { CHAT_BROADCAST_MENTION_MAX_MEMBERS } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, type DetailsTab } from "@/lib/messaging/routes";
-import type { ChatNotify } from "@/lib/messaging/types";
+import type { ChatMessageView, ChatNotify } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
+import { copyWithToast } from "@/lib/clipboard";
+import { useConversationExit } from "@/components/messages/useConversationExit";
+import { DropOverlay, draftKeyOf, dropFilesTo, useFileDrop } from "@/components/messages/useFileDrop";
+import { ConversationIcon } from "@/components/messages/ConversationIcon";
 
 type Props = {
   channelId: string;
@@ -116,6 +120,37 @@ function Intro({ channel, meId, isMember, onDetails, onAddPeople, onCanvas }: {
   );
 }
 
+/** One pinned message: who, when (with the date), what; Jump to it or Unpin. No other actions here. */
+function PinRow({ message, channelId }: { message: ChatMessageView; channelId: string }) {
+  const router = useRouter();
+  const ctx = useConversationContext();
+  const queryClient = useQueryClient();
+  const unpin = async () => {
+    const result = await pinMessage({ channelId, seq: message.seq, on: false });
+    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    void queryClient.invalidateQueries({ queryKey: queryKeys.chat.pins(channelId) });
+    toast("Unpinned");
+  };
+  const when = new Date(message.created_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  return (
+    <li className="flex gap-3 border-b border-border px-4 py-3">
+      <UserAvatar identity={message.author} size={34} roundedClassName="rounded-[5px]" />
+      <div className="min-w-0 flex-1">
+        <p className="flex items-baseline gap-2 text-[13px]">
+          <span className="font-medium">{personName(message.author)}</span>
+          <time dateTime={message.created_at} className="font-mono text-[12px] text-muted-foreground" title={new Date(message.created_at).toLocaleString()}>{when}</time>
+        </p>
+        {message.body ? <MessageBody body={message.body} nameOf={ctx.nameOf} channelNameOf={ctx.channelNameOf} meId={ctx.meId} /> : null}
+        {message.attachments.length ? <p className="text-[13px] text-muted-foreground">{message.attachments.map((a) => a.name || "Attachment").join(", ")}</p> : null}
+        <div className="mt-1 flex gap-3 text-[13px]">
+          <button type="button" onClick={() => router.replace(conversationHref(channelId, { m: message.seq }), { scroll: false })} className="font-medium text-primary hover:underline">Jump to message</button>
+          <button type="button" onClick={() => void unpin()} className="text-muted-foreground hover:text-foreground">Unpin</button>
+        </div>
+      </div>
+    </li>
+  );
+}
+
 export function Pins({ channelId }: { channelId: string }) {
   const pins = useQuery({
     queryKey: queryKeys.chat.pins(channelId),
@@ -126,7 +161,7 @@ export function Pins({ channelId }: { channelId: string }) {
   });
   if (pins.isLoading) return <p role="status" className="p-6 text-center text-[13px] text-muted-foreground">Loading pins…</p>;
   if (!pins.data?.length) return <p className="p-6 text-center text-[13px] text-muted-foreground">Nothing pinned yet. Pin important messages from their actions menu.</p>;
-  return <div className="app-scroll app-scroll-y min-h-0 flex-1 py-2">{pins.data.map((m) => <MessageRow key={m.seq} message={m} grouped={false} />)}</div>;
+  return <ul aria-label="Pins" className="app-scroll app-scroll-y min-h-0 flex-1">{pins.data.map((m) => <PinRow key={m.seq} message={m} channelId={channelId} />)}</ul>;
 }
 
 function TimelineSkeleton() {
@@ -154,7 +189,6 @@ const ChannelCanvas = dynamic(() => import("@/components/messages/ChannelCanvas"
 const CanvasTemplateModal = dynamic(() => import("@/components/messages/CanvasTemplateModal").then((m) => m.CanvasTemplateModal), { ssr: false });
 const AddTabLinkDialog = dynamic(() => import("@/components/messages/AddTabLinkDialog").then((m) => m.AddTabLinkDialog), { ssr: false });
 const EditTabsDialog = dynamic(() => import("@/components/messages/EditTabsDialog").then((m) => m.EditTabsDialog), { ssr: false });
-const ChannelLinkView = dynamic(() => import("@/components/messages/ChannelLinkView").then((m) => m.ChannelLinkView), { ssr: false, loading: () => <div className="flex-1" /> });
 const ExistingCanvasModal = dynamic(() => import("@/components/messages/ExistingCanvasModal").then((m) => m.ExistingCanvasModal), { ssr: false });
 const AddPeopleDialog = dynamic(() => import("@/components/messages/parts/AddPeople").then((m) => m.AddPeopleDialog), { ssr: false });
 const ShareDialog = dynamic(() => import("@/components/messages/parts/ShareDialog").then((m) => m.ShareDialog), { ssr: false });
@@ -181,27 +215,46 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const people = useMemo(() => members.data ?? [], [members.data]);
   const searchParams = useSearchParams();
   const linkedTab = searchParams?.get("tab") ?? null;
-  const [tab, setTab] = useState<string>(linkedTab ?? "messages");
-  // ?tab=pins|files|canvas (from Details, a canvas link) switches the open view.
-  useEffect(() => { if (linkedTab) setTab(linkedTab); }, [linkedTab]);
+  const pathname = usePathname();
+  const [tab, setTabState] = useState<string>(linkedTab ?? "messages");
+  // ?tab= is the open view, both ways: links open a tab, and picking one writes it (a refresh keeps it).
+  useEffect(() => setTabState(linkedTab ?? "messages"), [linkedTab]);
+  const setTab = useCallback((id: string) => {
+    setTabState(id);
+    if (surface !== "page" || !pathname) return;
+    const params = new URLSearchParams(window.location.search);
+    if (id === "messages") params.delete("tab");
+    else params.set("tab", id);
+    const query = params.toString();
+    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+  }, [pathname, router, surface]);
   const [canvasHidden, setCanvasHidden] = useState(false);
   const [dialog, setDialog] = useState<"bookmark" | "tabs" | "template" | "existing" | "people" | null>(null);
   const [shareSeq, setShareSeq] = useState<number | null>(null);
   const [editingSeq, setEditingSeq] = useState<number | null>(null);
-  const [confirm, setConfirm] = useState<"leave" | "archive" | "canvas" | null>(null);
+  const [confirm, setConfirm] = useState<"leave" | "archive" | "canvas" | "replace" | null>(null);
+  const [pendingSeed, setPendingSeed] = useState<{ title: string; body: string } | null>(null);
   const [canvasSeed, setCanvasSeed] = useState<CanvasSeed | null>(null);
   const canvasQuery = useChannelCanvas(channelId, isMember && isChannel);
   const sharedTabs = useChannelTabs(channelId, isMember);
   const saved = useSavedSeqs(channelId, isMember);
   const conversation = useChannelMessages(channelId, { around, memberCount: channel?.member_count ?? 0, isMember, canPreview });
+  // A jump to a message that's already loaded scrolls there; only one outside the loaded pages rebuilds the timeline.
+  const [timeline, setTimeline] = useState({ around, epoch: 0 });
+  if (timeline.around !== around) {
+    const loaded = around !== null && conversation.messages.some((m) => m.seq === around);
+    setTimeline({ around, epoch: loaded || around === null ? timeline.epoch : timeline.epoch + 1 });
+  }
   const typing = useTyping(channelId, { rootSeq: null, people, memberCount: channel?.member_count ?? 0, enabled: isMember });
   const online = useOnlineUsers(channel?.kind === "dm" && channel.dm_user && channel.dm_user.id !== meId ? [channel.dm_user.id] : []);
   const memberIds = useMemo(() => people.slice(0, 3).map((p) => p.id), [people]);
   const memberOnline = useOnlineUsers(memberIds);
+  // Files dropped on the timeline go to this conversation's composer.
+  const drop = useFileDrop((files) => dropFilesTo(draftKeyOf(channelId, null), files));
 
   useEffect(() => setCanvasHidden((readChatUi().hiddenCanvas ?? []).includes(channelId)), [channelId]);
   // A jump to a message (?m=) always lands on the timeline.
-  useEffect(() => { if (around) setTab("messages"); }, [around]);
+  useEffect(() => { if (around) setTab("messages"); }, [around, setTab]);
 
   const pinsQuery = useQuery({
     queryKey: queryKeys.chat.pins(channelId),
@@ -238,7 +291,14 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     hideCanvas(false);
     if (seed) setCanvasSeed({ ...seed, nonce: Date.now() });
     setTab("canvas");
-  }, [hideCanvas]);
+  }, [hideCanvas, setTab]);
+  // A template or another channel's canvas replaces this one: ask first when there's something to lose.
+  const seedCanvas = (seed: { title: string; body: string }) => {
+    if (canvasQuery.data?.body?.trim()) {
+      setPendingSeed(seed);
+      setConfirm("replace");
+    } else openCanvas(seed);
+  };
 
   const removeCanvas = useCallback(async () => {
     // Null first: the closing editor sees it and skips its leave-save, so it can't recreate the canvas.
@@ -249,15 +309,19 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       toast.error(chatErrorMessage(result.error));
       void canvasQuery.refetch();
     }
-  }, [canvasQuery, channelId, queryClient]);
+  }, [canvasQuery, channelId, queryClient, setTab]);
 
   const refreshTabs = () => void queryClient.invalidateQueries({ queryKey: queryKeys.chat.tabs(channelId) });
-  const addTab = async (kind: "tasks" | "link" | "files", title: string, url?: string) => {
+  const addTab = async (kind: "tasks" | "link" | "files", title: string, url?: string, quiet = false) => {
     const result = await addChannelTab({ channelId, kind, title, url });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    if (!result.success) {
+      toast.error(chatErrorMessage(result.error));
+      return null;
+    }
     refreshTabs();
-    setTab(result.tab.id);
-    if (kind === "link") toast.success(`"${title}" bookmark added for everyone`);
+    if (kind !== "link" && !quiet) setTab(result.tab.id);
+    if (kind === "link" && !quiet) toast.success(`"${title}" bookmark added for everyone`);
+    return result.tab;
   };
   const closeTab = async (item: ChannelTabItem) => {
     if (item.kind === "canvas") {
@@ -267,10 +331,19 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       return;
     }
     if (tab === item.id) setTab("messages");
+    const before = (sharedTabs.data ?? []).map((t) => ({ id: t.id, title: t.title }));
     const result = await removeChannelTab({ channelId, tabId: item.id });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     refreshTabs();
-    toast(`"${item.title}" removed for everyone`, { action: { label: "Undo", onClick: () => void addTab(item.kind as "tasks" | "link" | "files", item.title, item.url ?? undefined) } });
+    // Undo re-adds it and puts it back where it was.
+    const undo = async () => {
+      const added = await addTab(item.kind as "tasks" | "link" | "files", item.title, item.url ?? undefined, true);
+      if (!added) return;
+      const saved = await saveChannelTabs({ channelId, tabs: restoreTabOrder(before, item.id, added) });
+      if (!saved.success) toast.error(chatErrorMessage(saved.error));
+      refreshTabs();
+    };
+    toast(`"${item.title}" removed for everyone`, { action: { label: "Undo", onClick: () => void undo() } });
   };
   const saveTabs = async (next: ChannelTabItem[]) => {
     const result = await saveChannelTabs({ channelId, tabs: next.map((t) => ({ id: t.id, title: t.title })) });
@@ -279,9 +352,6 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     if (!next.some((t) => t.id === tab) && tabs.find((t) => t.id === tab)?.shared) setTab("messages");
   };
 
-  useEffect(() => {
-    if (surface === "page") writeChatUi({ last: channelId });
-  }, [channelId, surface]);
   useEffect(() => {
     const projectId = channel?.project_id;
     if (surface === "page" && projectId && shell.data?.projects?.some((p) => p.id === projectId)) setProject(projectId);
@@ -313,7 +383,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     if (onOpenThread) onOpenThread(rootSeq);
     else panes.openThread(rootSeq);
   }, [onOpenThread, panes]);
-  const openPinsTab = useCallback(() => setTab("pins"), []);
+  const openPinsTab = useCallback(() => setTab("pins"), [setTab]);
   const ctx = useMemo<ConversationContextValue>(() => ({
     channelId, meId, canAdmin: Boolean(channel?.can_admin), isDm: Boolean(isDirect),
     people, nameOf, channelNameOf, editingSeq, setEditingSeq, openThread, inThread: false,
@@ -336,40 +406,28 @@ export function ConversationView({ channelId, around = null, surface = "page", o
 
   const setState = async (patch: { notify?: ChatNotify; starred?: boolean; archived?: boolean }) => {
     const result = await setMemberState({ channelId, ...patch });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    if (!result.success) {
+      toast.error(chatErrorMessage(result.error));
+      return false;
+    }
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
     shell.refresh();
+    return true;
   };
-  const closeConversation = async () => {
-    await setState({ archived: true });
-    router.push("/messages");
-    toast("Conversation closed", {
-      action: { label: "Undo", onClick: () => void setState({ archived: false }).then(() => router.push(conversationHref(channelId))) },
-    });
-  };
+  const exit = useConversationExit({ id: channelId, project_id: channel?.project_id ?? null, kind: channel?.kind ?? "public", name: channel?.name ?? null });
+  const closeConversation = () => exit.close();
   const join = async () => {
     const result = await joinChannel({ channelId });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
     shell.refresh();
   };
-  const unarchive = async () => {
-    const result = await unarchiveChannel({ channelId });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
-    shell.refresh();
-    toast.success("Channel unarchived");
-  };
+  const unarchive = () => void exit.unarchive();
   const leaveOrArchive = async () => {
     const action = confirm;
     setConfirm(null);
-    const result = action === "archive" ? await archiveChannel({ channelId }) : await leaveChannel({ channelId });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    shell.refresh();
-    if (action === "archive") {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
-      toast("Channel archived", { action: { label: "Undo", onClick: () => void unarchive() } });
-    } else router.push(channel?.project_id ? `/messages/p/${channel.project_id}` : "/messages");
+    if (action === "archive") await exit.archive();
+    else await exit.leave();
   };
 
   if (details.isError) {
@@ -387,7 +445,6 @@ export function ConversationView({ channelId, around = null, surface = "page", o
 
   const title = channelTitle(channel, meId);
   const dmOnline = channel.kind === "dm" && channel.dm_user ? online[channel.dm_user.id] : undefined;
-  const ChannelIcon = channel.kind === "private" ? Lock : Hash;
   const placeholder = isDirect ? `Message ${title}` : `Message #${title}`;
   const displayName = isChannel ? `#${title}` : title;
   const notify = (channel.notify ?? "all") as ChatNotify;
@@ -426,15 +483,15 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 className="group/title inline-flex min-w-0 items-center gap-1 rounded-xs text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 title="Details (⌘I)"
               >
-                {isChannel ? <ChannelIcon size={18} strokeWidth={2.25} aria-hidden="true" className="shrink-0" /> : channel.kind !== "dm" ? <Users size={18} aria-hidden="true" className="shrink-0 text-muted-foreground" /> : null}
+                {channel.kind !== "dm" ? <ConversationIcon channel={channel} size={18} strokeWidth={2.25} aria-hidden="true" className="shrink-0" /> : null}
                 <h1 className="truncate text-[17px] font-bold leading-tight text-foreground group-hover/title:underline">{title}</h1>
               </button>
-              {isMember && isChannel ? (
+              {isMember ? (
                 <button
                   type="button"
                   onClick={() => void setState({ starred: !channel.starred })}
                   className={`grid size-6 shrink-0 place-items-center rounded-[4px] hover:bg-muted pointer-coarse:size-11 ${channel.starred ? "" : "opacity-0 focus-visible:opacity-100 group-hover/header:opacity-100 pointer-coarse:opacity-100"}`}
-                  aria-label={channel.starred ? "Unstar channel" : "Star channel"}
+                  aria-label={channel.starred ? `Unstar ${isChannel ? "channel" : "conversation"}` : `Star ${isChannel ? "channel" : "conversation"}`}
                   aria-pressed={channel.starred}
                 >
                   <Star size={14} className={channel.starred ? "text-[var(--status-warning)]" : "text-muted-foreground"} fill={channel.starred ? "currentColor" : "none"} />
@@ -454,7 +511,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           </div>
           {surface === "window" ? windowActions : (
             <>
-              {isMember && notify !== "all" ? (
+              {isMember ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger className={headerButton} aria-label={`Notifications: ${NOTIFY_LABEL[notify]}`} title={`Notifications: ${NOTIFY_LABEL[notify]}`}>
                     <NotifyIcon size={16} />
@@ -499,20 +556,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     <MoreHorizontal size={16} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-60">
-                    <DropdownMenuItem onSelect={() => setTab("pins")}>
-                      <Pin size={14} className="mr-2" /> Pinned messages
-                      {pinCount ? <span className="ml-auto font-mono text-[11px] text-muted-foreground">{pinCount}</span> : null}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setTab("files")}><Files size={14} className="mr-2" /> Files</DropdownMenuItem>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger><NotifyIcon size={14} className="mr-2" /> Notifications: {NOTIFY_LABEL[notify]}</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>{notifyMenu}</DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                    <DropdownMenuSeparator />
-                    {channel.kind !== "dm" ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus size={14} className="mr-2" /> Add people</DropdownMenuItem> : null}
-                    <DropdownMenuItem onSelect={() => setDialog("bookmark")}><Bookmark size={14} className="mr-2" /> Add a bookmark</DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(`${window.location.origin}${conversationHref(channelId)}`); toast.success("Link copied"); }}>
+                    {canAddPeople(channel) ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus size={14} className="mr-2" /> Add people</DropdownMenuItem> : null}
+                    {canAddPeople(channel) ? <DropdownMenuSeparator /> : null}
+                    <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${conversationHref(channelId)}`, "Link copied"); }}>
                       <Link2 size={14} className="mr-2" /> Copy link
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={markAllRead}><Check size={14} className="mr-2" /> Mark as read</DropdownMenuItem>
@@ -524,7 +570,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     ) : null}
                     {channel.can_admin && isChannel && !channel.is_default && !archived ? (
                       <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setConfirm("archive")}>
-                        <Trash2 size={14} className="mr-2" /> Archive channel
+                        <Archive size={14} className="mr-2" /> Archive channel
                       </DropdownMenuItem>
                     ) : null}
                   </DropdownMenuContent>
@@ -546,6 +592,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             onAddFiles={!(sharedTabs.data ?? []).some((t) => t.kind === "files") ? () => void addTab("files", "Files") : undefined}
             onAddBookmark={() => setDialog("bookmark")}
             onEditTabs={(sharedTabs.data ?? []).length ? () => setDialog("tabs") : undefined}
+            hasCanvas={Boolean(canvasQuery.data)}
           />
         ) : null}
 
@@ -575,13 +622,12 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               canManageWorkflow={Boolean(channel.can_admin)}
             />
           </div>
-        ) : activeTab.kind === "link" ? (
-          <ChannelLinkView tab={activeTab} />
         ) : (
-          <>
+          <div className="relative flex min-h-0 flex-1 flex-col" {...(isMember && !archived ? drop.handlers : {})}>
+            <DropOverlay show={drop.dragging} />
             {conversation.query.isLoading && !conversation.messages.length ? <TimelineSkeleton /> : (
               <Timeline
-                key={`${channelId}:${around ?? ""}`}
+                key={`${channelId}:${timeline.epoch}`}
                 messages={conversation.messages}
                 lastReadSeq={isMember ? channel.last_read_seq : channel.last_seq}
                 meId={meId}
@@ -592,6 +638,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 highlightSeq={around}
                 onSeen={isMember ? conversation.markSeen : () => undefined}
                 onMarkRead={isMember ? markAllRead : undefined}
+                typing={typing.names.length > 0}
+                revealSeq={editingSeq}
               />
             )}
             {conversation.query.isError ? (
@@ -622,7 +670,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 onEditLast={editLast}
               />
             )}
-          </>
+          </div>
         )}
       </section>
       {dialog === "bookmark" ? <AddTabLinkDialog open onOpenChange={(open) => !open && setDialog(null)} onAddTab={(name, url) => void addTab("link", name, url)} /> : null}
@@ -633,8 +681,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           onOpenChange={(open) => !open && setDialog(null)}
           onSelectTemplate={(template: CanvasTemplate) => {
             const generated = template.generate(channel.name || "general", channel.project_title ?? null);
-            openCanvas({ title: generated.title, body: generated.content });
-            toast.success(`"${template.name}" template applied`);
+            seedCanvas({ title: generated.title, body: generated.content });
           }}
           channelName={channel.name || "general"}
           projectName={channel.project_title ?? null}
@@ -645,8 +692,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           open
           onOpenChange={(open) => !open && setDialog(null)}
           onSelectExisting={(name: string, body: string) => {
-            openCanvas({ title: name, body });
-            toast.success(`"${name || "Canvas"}" added`);
+            seedCanvas({ title: name, body });
           }}
           projectId={channel.project_id}
           currentChannelId={channelId}
@@ -657,16 +703,22 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       <ConfirmDialog
         open={confirm !== null}
         onOpenChange={(open) => !open && setConfirm(null)}
-        title={confirm === "canvas" ? "Delete this canvas?" : confirm === "archive" ? `Archive ${displayName}?` : `Leave ${isChannel ? displayName : "this conversation"}?`}
-        description={confirm === "canvas"
+        title={confirm === "replace" ? "Replace the canvas?" : confirm === "canvas" ? "Delete this canvas?" : confirm === "archive" ? `Archive ${displayName}?` : `Leave ${isChannel ? displayName : "this conversation"}?`}
+        description={confirm === "replace"
+          ? "The current canvas is replaced for everyone in the channel. Copy it first if you want to keep it."
+          : confirm === "canvas"
           ? "It's removed for everyone in the channel. Copy it first if you want to keep it."
           : confirm === "archive"
             ? "Nobody can post in an archived channel. History stays readable, and admins can unarchive it."
             : channel.kind === "public" ? "You can rejoin a public channel at any time." : "You'll need to be added again to come back."}
-        confirmLabel={confirm === "canvas" ? "Delete canvas" : confirm === "archive" ? "Archive" : "Leave"}
+        confirmLabel={confirm === "replace" ? "Replace" : confirm === "canvas" ? "Delete canvas" : confirm === "archive" ? "Archive" : "Leave"}
         variant="destructive"
         onConfirm={() => {
-          if (confirm === "canvas") {
+          if (confirm === "replace") {
+            setConfirm(null);
+            if (pendingSeed) openCanvas(pendingSeed);
+            setPendingSeed(null);
+          } else if (confirm === "canvas") {
             setConfirm(null);
             void removeCanvas();
           } else void leaveOrArchive();

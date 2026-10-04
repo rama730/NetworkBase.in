@@ -867,7 +867,8 @@ svg.lucide { stroke-width:1.75; }
 .nb-presence { display:inline-block; flex:none; border-radius:32%; box-shadow:0 0 0 2px var(--presence-cut); }
 /* Unlayered rules beat Tailwind's .absolute, so only claim `relative` when not placed absolutely. */
 .nb-presence:not(.absolute):not(.nb-person-presence-dot) { position:relative; }
-.nb-presence[data-availability="now"], .nb-presence[data-availability="today"] { background:var(--presence-active); }
+.nb-presence[data-availability="now"] { background:var(--presence-active); }
+.nb-presence[data-availability="today"] { background:var(--presence-off); }
 .nb-presence[data-availability="week"] { background:var(--presence-week); }
 .nb-presence[data-availability="offline"] { background:var(--presence-cut); box-shadow:0 0 0 2px var(--presence-cut), inset 0 0 0 1.5px var(--presence-off); }
 .nb-presence[data-availability="today"]::after, .nb-presence[data-availability="week"]::after { content:""; position:absolute; border-radius:32%; background:var(--presence-cut); }
@@ -998,6 +999,8 @@ svg.lucide { stroke-width:1.75; }
 .nb-chat-row[aria-current="page"] { background:var(--sidebar-accent); color:var(--foreground); font-weight:500; }
 .nb-chat-row[data-unread="true"] { color:var(--foreground); font-weight:600; }
 .nb-chat-row[data-muted="true"] { opacity:.55; }
+/* Sidebar rows: on hover or keyboard focus the row makes room for its ⋯, so the count slides left instead of hiding. */
+@media (pointer:fine) { .nb-chat-hover:hover > .nb-chat-row, .nb-chat-hover:focus-within > .nb-chat-row, .nb-chat-hover:has([data-state="open"]) > .nb-chat-row { padding-right:34px; } }
 .nb-chat-row-preview { min-height:64px; padding:10px 12px; align-items:flex-start; }
 .nb-chat-count { margin-left:auto; padding:1px 5px; border-radius:3px; background:var(--chat-accent); color:#fff; font:11px var(--font-jetbrains-mono),monospace; line-height:16px; }
 .nb-chat-section-title { display:flex; align-items:center; gap:4px; min-height:28px; padding:0 6px; font:11px var(--font-jetbrains-mono),monospace; text-transform:uppercase; letter-spacing:.04em; color:var(--muted-foreground); }

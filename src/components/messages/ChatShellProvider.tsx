@@ -150,6 +150,9 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
         const current = queryClient.getQueryData<Snapshot>(key);
         if (!current) return;
         if (event === "hint") {
+          // The open Inbox list (and followed threads) pick up the new item too.
+          void queryClient.invalidateQueries({ queryKey: ["chat-v3", "inbox"] });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
           const next = applyHint(current.data, payload as unknown as ChatHint);
           if (!next) return void pollDelta();
           if (next !== current.data) queryClient.setQueryData<Snapshot>(key, { ...current, data: next });

@@ -6,6 +6,7 @@ import { AppSidebar } from './AppSidebar'
 import TopNav from '@/components/layout/header/TopNav'
 import { WorkspaceDrawerHost } from '@/components/workspace/WorkspaceDrawerHost'
 import { CREATE_PROJECT_PATH, rememberCreateProjectReturnPath } from '@/components/projects/create-wizard/create-project-return'
+import { noteNavigation } from '@/lib/navigation/in-app-history'
 
 interface MainLayoutProps {
     children: ReactNode
@@ -19,6 +20,11 @@ export function MainLayout({ children }: MainLayoutProps) {
     // Closing the create-project page returns to wherever the user was before it.
     useEffect(() => {
         if (pathname !== CREATE_PROJECT_PATH) rememberCreateProjectReturnPath(`${window.location.pathname}${window.location.search}`)
+    }, [pathname])
+
+    // In-app Back (Messages) only goes back when there's one of our pages behind this one.
+    useEffect(() => {
+        if (pathname) noteNavigation(pathname)
     }, [pathname])
 
     return (

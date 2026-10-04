@@ -30,3 +30,8 @@ export function conversationHref(channelId: string, panes: Panes = {}) {
 export function threadHref(channelId: string, rootSeq: number) {
   return conversationHref(channelId, { thread: rootSeq });
 }
+
+/** A message's own link: thread replies open their thread (replies aren't in the main timeline). */
+export function messageHref(channelId: string, seq: number, threadRootSeq?: number | null) {
+  return conversationHref(channelId, threadRootSeq ? { thread: threadRootSeq, m: seq } : { m: seq });
+}

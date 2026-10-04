@@ -4,13 +4,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Copy, Files, MessageSquare, MoreHorizontal, Pin, Search, UserPlus } from "lucide-react";
+import { Bell, Copy, MessageSquare, MoreHorizontal, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
-import { archiveChannel, leaveChannel, renameGroup, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
+import { renameGroup, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
 import { getOrCreateDm, getPersonContext, removeMember, setMemberRole, setMemberState } from "@/app/actions/chat/members";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
-import { AddPeople } from "@/components/messages/parts/AddPeople";
+import { AddPeopleDialog } from "@/components/messages/parts/AddPeople";
 import { useChannelDetails, useChannelMembers } from "@/components/messages/useConversation";
 import { PresenceAvatar } from "@/components/presence/PersonPresence";
 import { PresenceBadge } from "@/components/presence/PresenceBadge";
@@ -21,13 +21,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import type { ChannelMember } from "@/app/actions/chat/channels";
-import { personName } from "@/lib/messaging/channel-view";
+import { canAddPeople, personName } from "@/lib/messaging/channel-view";
 import { CHAT_CHANNEL_NAME_PATTERN, CHAT_MAX_DESCRIPTION } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, type DetailsTab } from "@/lib/messaging/routes";
 import type { ChatNotify } from "@/lib/messaging/types";
 import { profileHref } from "@/lib/routing/identifiers";
 import { queryKeys } from "@/lib/query-keys";
+import { copyWithToast } from "@/lib/clipboard";
+import { useConversationExit } from "@/components/messages/useConversationExit";
 
 type Field = "name" | "topic" | "description" | "title";
 
@@ -45,7 +47,9 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
   const save = async () => {
     if (draft === null || saving.current || cancelled.current) return;
     const next = draft.trim();
-    if (next === (value ?? "") || !valid(next)) return setDraft(null);
+    if (next === (value ?? "")) return setDraft(null);
+    // Invalid: keep the field open with its error showing, never silently drop the edit.
+    if (!valid(next)) return;
     saving.current = true;
     const ok = await onSave(next);
     saving.current = false;
@@ -100,20 +104,9 @@ function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (
       <select value={channel.notify} onChange={(e) => onChange(e.target.value as ChatNotify)} className="h-8 rounded-[5px] border border-input bg-card px-2 text-[13px]">
         <option value="all">All messages</option>
         <option value="mentions">Mentions only</option>
-        <option value="mute">Muted</option>
+        <option value="mute">Mute</option>
       </select>
     </label>
-  );
-}
-
-function ConversationShortcuts({ channelId }: { channelId: string }) {
-  const item = "flex min-h-10 items-center gap-2.5 rounded-[5px] px-3 text-[13px] font-medium hover:bg-muted";
-  return (
-    <div className="grid grid-cols-3 gap-1 p-2">
-      <Link href={`${conversationHref(channelId)}?tab=pins`} className={item}><Pin size={14} aria-hidden="true" /> Pins</Link>
-      <Link href={`${conversationHref(channelId)}?tab=files`} className={item}><Files size={14} aria-hidden="true" /> Files</Link>
-      <Link href={`/messages/search?in=${channelId}`} className={item}><Search size={14} aria-hidden="true" /> Search</Link>
-    </div>
   );
 }
 
@@ -159,7 +152,8 @@ function MemberRow({ member, channel, meId, online, onRemove }: { member: Channe
                 {member.role === "admin"
                   ? <DropdownMenuItem onSelect={() => void role("member")}>Remove as admin</DropdownMenuItem>
                   : <DropdownMenuItem onSelect={() => void role("admin")}>Make admin</DropdownMenuItem>}
-                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(member)}>Remove from channel</DropdownMenuItem>
+                {/* Everyone in the project is in #general; the server refuses removals there. */}
+                {channel.is_default ? null : <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(member)}>Remove from channel</DropdownMenuItem>}
               </>
             ) : null}
           </DropdownMenuContent>
@@ -169,7 +163,7 @@ function MemberRow({ member, channel, meId, online, onRemove }: { member: Channe
   );
 }
 
-function Members({ channel, meId }: { channel: ChannelDetails; meId: string | null }) {
+function Members({ channel, meId, onAdd }: { channel: ChannelDetails; meId: string | null; onAdd: () => void }) {
   const queryClient = useQueryClient();
   const members = useChannelMembers(channel.id, channel.is_member);
   const [filter, setFilter] = useState("");
@@ -191,10 +185,9 @@ function Members({ channel, meId }: { channel: ChannelDetails; meId: string | nu
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channel.id) });
     toast.success(`${personName(member)} was removed`);
   };
-  const canAdd = channel.kind === "private" || channel.can_admin || channel.kind === "public";
   return (
     <div className="space-y-2 p-3">
-      {canAdd ? <AddPeople channelId={channel.id} /> : null}
+      {canAddPeople(channel) ? <button type="button" onClick={onAdd} className="flex h-9 w-full items-center gap-2 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted"><UserPlus size={14} /> Add people</button> : null}
       <label className="block">
         <span className="sr-only">Find members</span>
         <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={`Find among ${channel.member_count} members`} className="h-9 w-full rounded-[5px] border border-input bg-background px-3 text-[14px]" />
@@ -254,7 +247,6 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
           <Link href={profileHref({ id: person.id, username: person.username })} className="inline-flex h-[var(--ui-control-height)] items-center rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted">View profile</Link>
         ) : null}
       </div>
-      <ConversationShortcuts channelId={channel.id} />
       {context.data && (context.data.sharedProjects.length || context.data.sharedChannels.length) ? (
         <div className="space-y-3 border-t border-border p-4">
           {context.data.sharedProjects.length ? (
@@ -285,7 +277,6 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
 
 /** About and Members (Slack's details). Pins, files and settings live in the conversation itself. */
 export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab: DetailsTab; onTab: (tab: DetailsTab) => void }) {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const meId = user?.id ?? null;
@@ -294,6 +285,8 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
   const channel = details.data as ChannelDetails | undefined;
   const members = useChannelMembers(channelId, Boolean(channel?.is_member));
   const [confirm, setConfirm] = useState<"leave" | "archive" | null>(null);
+  const [adding, setAdding] = useState(false);
+  const exit = useConversationExit({ id: channelId, project_id: channel?.project_id ?? null, kind: channel?.kind ?? "public", name: channel?.name ?? null });
 
   if (!channel) return <div role="status" aria-label="Loading details" className="flex-1" />;
   const isDm = channel.kind === "dm";
@@ -304,13 +297,10 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
     shell.refresh();
   };
   const setState = async (patch: { notify?: ChatNotify; archived?: boolean }) => {
+    if (patch.archived) return void exit.close();
     const result = await setMemberState({ channelId, ...patch });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     refreshChannel();
-    if (patch.archived) {
-      router.push("/messages");
-      toast("Conversation closed", { action: { label: "Undo", onClick: () => void setMemberState({ channelId, archived: false }).then(() => shell.refresh()) } });
-    }
   };
   const saveField = (field: Field) => async (value: string) => {
     const result = field === "title"
@@ -326,11 +316,8 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
   };
   const leaveOrArchive = async (action: "leave" | "archive") => {
     setConfirm(null);
-    const result = action === "archive" ? await archiveChannel({ channelId }) : await leaveChannel({ channelId });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    shell.refresh();
-    if (action === "archive") refreshChannel();
-    else router.push(channel.project_id ? `/messages/p/${channel.project_id}` : "/messages");
+    if (action === "archive") await exit.archive();
+    else await exit.leave();
   };
 
   if (isDm) return <PersonDetails channel={channel} meId={meId} setState={(patch) => void setState(patch)} onClose={() => void setState({ archived: true })} />;
@@ -350,7 +337,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
         ))}
       </div>
       <div className="app-scroll app-scroll-y min-h-0 flex-1">
-        {tab === "members" ? <Members channel={channel} meId={meId} /> : (
+        {tab === "members" ? <Members channel={channel} meId={meId} onAdd={() => setAdding(true)} /> : (
           <div className="space-y-3 p-4">
             <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card/40">
               {isGroup ? (
@@ -392,9 +379,8 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
                 <p className="mt-1 text-[13px] text-muted-foreground">{creator ? `By ${personName(creator)} on ` : "On "}{createdDate}</p>
               </div>
             </div>
-            {channel.is_member ? <div className="rounded-xl border border-border"><ConversationShortcuts channelId={channelId} /></div> : null}
-            {channel.is_member && (isGroup || channel.kind === "private") ? (
-              <button type="button" onClick={() => onTab("members")} className="flex h-9 items-center gap-2 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted"><UserPlus size={14} /> Add people</button>
+            {canAddPeople(channel) ? (
+              <button type="button" onClick={() => setAdding(true)} className="flex h-9 items-center gap-2 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted"><UserPlus size={14} /> Add people</button>
             ) : null}
             {canLeave || canArchive ? (
               <div className="flex flex-wrap gap-2 pt-1">
@@ -404,7 +390,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
             ) : null}
             <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
               <span className="truncate font-mono">ID: {channel.id}</span>
-              <button type="button" onClick={() => { void navigator.clipboard?.writeText(channel.id); toast.success("ID copied"); }} className="ml-2 inline-flex items-center gap-1 font-medium hover:text-foreground" title="Copy ID">
+              <button type="button" onClick={() => { void copyWithToast(channel.id, "ID copied"); }} className="ml-2 inline-flex items-center gap-1 font-medium hover:text-foreground" title="Copy ID">
                 <Copy size={12} /> Copy
               </button>
             </div>
@@ -420,6 +406,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
         variant="destructive"
         onConfirm={() => void leaveOrArchive(confirm ?? "leave")}
       />
+      {adding ? <AddPeopleDialog channelId={channelId} title={isGroup ? "this conversation" : `#${channel.name}`} onClose={() => setAdding(false)} /> : null}
     </div>
   );
 }
