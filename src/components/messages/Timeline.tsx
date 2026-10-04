@@ -25,6 +25,8 @@ type Props = {
   onSeen: (seq: number) => void;
   /** Mark the whole conversation read now (the unread bar, Jump to latest). */
   onMarkRead?: () => void;
+  /** Someone is typing: the footer opens to make room for the floating indicator. */
+  typing?: boolean;
 };
 
 function startOfDay(value: string) {
@@ -32,7 +34,7 @@ function startOfDay(value: string) {
   return new Date(y!, (m ?? 1) - 1, d ?? 1).getTime();
 }
 
-type TimelineContext = { hasOlder: boolean; loadingOlder: boolean; intro: React.ReactNode };
+type TimelineContext = { hasOlder: boolean; loadingOlder: boolean; intro: React.ReactNode; typing: boolean };
 
 // Stable component identities (VIRT-01): inline ones would remount on every render.
 function TimelineHeader({ context }: { context?: TimelineContext }) {
@@ -41,8 +43,9 @@ function TimelineHeader({ context }: { context?: TimelineContext }) {
     ? <div className="py-3 text-center text-[12px] text-muted-foreground">{context.loadingOlder ? "Loading earlier messages…" : ""}</div>
     : <>{context.intro}</>;
 }
-function TimelineFooter() {
-  return <div className="h-6" />;
+// Room for the floating typing indicator only while someone types; otherwise the gap closes.
+function TimelineFooter({ context }: { context?: TimelineContext }) {
+  return <div className={context?.typing ? "h-6" : "h-2"} />;
 }
 const COMPONENTS = { Header: TimelineHeader, Footer: TimelineFooter };
 
@@ -70,7 +73,7 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
  * Virtualized timeline (Virtuoso prepend pattern): older pages prepend without
  * moving the reader, new messages follow only when already at the bottom.
  */
-export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead }: Props) {
+export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead, typing = false }: Props) {
   const virtuoso = useRef<VirtuosoHandle>(null);
   // The divider stays where it was when the channel opened, not where the cursor moves to.
   const [dividerSeq] = useState(lastReadSeq);
@@ -111,6 +114,10 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   useEffect(() => {
     if (atBottom && newestSeq > 0) onSeen(newestSeq);
   }, [atBottom, newestSeq, onSeen]);
+  // The typing gap opened: at the bottom, keep the last message fully in view.
+  useEffect(() => {
+    if (typing && atBottom) virtuoso.current?.autoscrollToBottom();
+  }, [atBottom, typing]);
   useEffect(() => {
     if (!highlight) return;
     const timer = setTimeout(() => setHighlight(null), HIGHLIGHT_MS);
@@ -194,7 +201,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
       ) : null}
       <Virtuoso<TimelineItem, TimelineContext>
         ref={virtuoso}
-        context={{ hasOlder, loadingOlder, intro }}
+        context={{ hasOlder, loadingOlder, intro, typing }}
         className="app-scroll app-scroll-y h-full"
         data={items}
         firstItemIndex={firstItemIndex}

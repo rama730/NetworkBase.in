@@ -106,6 +106,16 @@ test("Messages system adheres to design specification contracts", () => {
         /function TypingIndicator[\s\S]*if \(!label\) return null;[\s\S]*absolute inset-x-3 bottom-\[calc\(100%\+1px\)\] flex h-5[\s\S]*<TypingIndicator names=\{typingNames\} \/>/,
         "Typing floats just above the composer box, so neither the box nor the timeline moves",
     );
+    {
+        const timeline = fs.readFileSync(path.join(process.cwd(), "src/components/messages/Timeline.tsx"), "utf8");
+        const thread = fs.readFileSync(path.join(process.cwd(), "src/components/messages/ThreadPane.tsx"), "utf8");
+        // The gap under the last message opens only while someone types (room for the indicator).
+        assert.match(timeline, /function TimelineFooter\(\{ context \}[\s\S]*context\?\.typing \? "h-6" : "h-2"/);
+        assert.match(timeline, /if \(typing && atBottom\) virtuoso\.current\?\.autoscrollToBottom\(\)/);
+        assert.match(conversationViewSource, /typing=\{typing\.names\.length > 0\}/);
+        assert.match(thread, /THREAD_COMPONENTS = \{ Footer: [\s\S]*context\?\.typing \? "h-6" : "h-2"/);
+        assert.match(thread, /if \(typingNow && atBottom\.current\) list\.current\?\.autoscrollToBottom\(\)/);
+    }
     assert.match(
         cssSource,
         /\.nb-message-composer\s*\{\s*padding-bottom:max\(8px,env\(safe-area-inset-bottom\)\);\s*\}/,
