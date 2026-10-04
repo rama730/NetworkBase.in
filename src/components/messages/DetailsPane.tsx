@@ -28,6 +28,7 @@ import { conversationHref, type DetailsTab } from "@/lib/messaging/routes";
 import type { ChatNotify } from "@/lib/messaging/types";
 import { profileHref } from "@/lib/routing/identifiers";
 import { queryKeys } from "@/lib/query-keys";
+import { copyWithToast } from "@/lib/clipboard";
 
 type Field = "name" | "topic" | "description" | "title";
 
@@ -45,7 +46,9 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
   const save = async () => {
     if (draft === null || saving.current || cancelled.current) return;
     const next = draft.trim();
-    if (next === (value ?? "") || !valid(next)) return setDraft(null);
+    if (next === (value ?? "")) return setDraft(null);
+    // Invalid: keep the field open with its error showing, never silently drop the edit.
+    if (!valid(next)) return;
     saving.current = true;
     const ok = await onSave(next);
     saving.current = false;
@@ -159,7 +162,8 @@ function MemberRow({ member, channel, meId, online, onRemove }: { member: Channe
                 {member.role === "admin"
                   ? <DropdownMenuItem onSelect={() => void role("member")}>Remove as admin</DropdownMenuItem>
                   : <DropdownMenuItem onSelect={() => void role("admin")}>Make admin</DropdownMenuItem>}
-                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(member)}>Remove from channel</DropdownMenuItem>
+                {/* Everyone in the project is in #general; the server refuses removals there. */}
+                {channel.is_default ? null : <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(member)}>Remove from channel</DropdownMenuItem>}
               </>
             ) : null}
           </DropdownMenuContent>
@@ -191,7 +195,7 @@ function Members({ channel, meId }: { channel: ChannelDetails; meId: string | nu
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channel.id) });
     toast.success(`${personName(member)} was removed`);
   };
-  const canAdd = channel.kind === "private" || channel.can_admin || channel.kind === "public";
+  const canAdd = channel.is_member && (channel.kind === "private" || channel.can_admin || channel.kind === "public");
   return (
     <div className="space-y-2 p-3">
       {canAdd ? <AddPeople channelId={channel.id} /> : null}
@@ -404,7 +408,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
             ) : null}
             <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
               <span className="truncate font-mono">ID: {channel.id}</span>
-              <button type="button" onClick={() => { void navigator.clipboard?.writeText(channel.id); toast.success("ID copied"); }} className="ml-2 inline-flex items-center gap-1 font-medium hover:text-foreground" title="Copy ID">
+              <button type="button" onClick={() => { void copyWithToast(channel.id, "ID copied"); }} className="ml-2 inline-flex items-center gap-1 font-medium hover:text-foreground" title="Copy ID">
                 <Copy size={12} /> Copy
               </button>
             </div>

@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { CANVAS_MAX_TITLE, CANVAS_TEMPLATES, type CanvasTemplate } from "@/lib/messaging/canvas-store";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { queryKeys } from "@/lib/query-keys";
+import { copyWithToast } from "@/lib/clipboard";
 
 export type CanvasSeed = { title: string; body: string; nonce: number };
 
@@ -154,16 +155,16 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
   };
 
   const copyLink = () => {
-    void navigator.clipboard?.writeText(`${window.location.origin}/messages/${channelId}?tab=canvas`);
-    setCopied(true);
-    toast.success("Canvas link copied");
-    setTimeout(() => setCopied(false), 2000);
+    void copyWithToast(`${window.location.origin}/messages/${channelId}?tab=canvas`, "Canvas link copied").then((ok) => {
+      if (!ok) return;
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   const copyMarkdown = () => {
     const body = bodyRef.current.replace(/\]\(\/api\//g, `](${window.location.origin}/api/`);
-    void navigator.clipboard?.writeText(`${titleRef.current.trim() ? `# ${titleRef.current.trim()}\n\n` : ""}${body}`);
-    toast.success("Canvas copied as Markdown");
+    void copyWithToast(`${titleRef.current.trim() ? `# ${titleRef.current.trim()}\n\n` : ""}${body}`, "Canvas copied as Markdown");
   };
 
   const canvas = query.data;

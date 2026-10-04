@@ -25,6 +25,7 @@ import { applyReaction } from "@/lib/messaging/timeline";
 import type { ChatMessageView, ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast } from "@/lib/realtime/private-broadcast";
+import { copyWithToast } from "@/lib/clipboard";
 
 const Composer = dynamic(() => import("@/components/messages/Composer").then((m) => m.Composer), {
   ssr: false,
@@ -210,7 +211,7 @@ export function ThreadPane({ channelId, rootSeq }: { channelId: string; rootSeq:
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuItem onSelect={() => { markRead(); setDividerSeq(Number.MAX_SAFE_INTEGER); }}><Check size={14} className="mr-2" /> Mark as read</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(`${window.location.origin}${threadHref(channelId, rootSeq)}`); toast.success("Thread link copied"); }}>
+              <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${threadHref(channelId, rootSeq)}`, "Thread link copied"); }}>
                 <Link2 size={14} className="mr-2" /> Copy link to thread
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
@@ -229,7 +230,8 @@ export function ThreadPane({ channelId, rootSeq }: { channelId: string; rootSeq:
               atBottomStateChange={(bottom) => { atBottom.current = bottom; }}
               className="app-scroll app-scroll-y h-full"
               data={rows}
-              initialTopMostItemIndex={Math.max(0, rows.findIndex((row) => row.type === "new"))}
+              // First unread reply if any, else the latest one (never the top of a long thread).
+              initialTopMostItemIndex={rows.some((row) => row.type === "new") ? rows.findIndex((row) => row.type === "new") : { index: rows.length - 1, align: "end" }}
               followOutput={(bottom) => (bottom ? "smooth" : false)}
               computeItemKey={(index, row) => (row.type === "reply" || row.type === "root" ? `${row.type}:${row.message.client_message_id ?? row.message.seq}` : `${row.type}:${index}`)}
               itemContent={(_index, row) => {

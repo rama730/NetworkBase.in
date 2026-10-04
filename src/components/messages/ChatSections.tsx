@@ -26,6 +26,7 @@ import {
 } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
+import { copyWithToast } from "@/lib/clipboard";
 
 export type ChatSectionsVariant = "sidebar" | "list";
 
@@ -126,21 +127,28 @@ function useRowActions(channel: ChatChannelSummary) {
   const muted = channel.notify === "mute";
   const state = async (patch: { notify?: ChatNotify; starred?: boolean; archived?: boolean }) => {
     const result = await setMemberState({ channelId: channel.id, ...patch });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    if (!result.success) {
+      toast.error(chatErrorMessage(result.error));
+      return false;
+    }
     refresh();
+    return true;
   };
   const mute = () => void state({ notify: muted ? "all" : "mute" });
   const star = () => void state({ starred: !channel.starred });
   const read = () => {
     applyRead(channel.id, channel.last_seq);
-    void markRead({ channelId: channel.id, seq: channel.last_seq });
+    void markRead({ channelId: channel.id, seq: channel.last_seq }).then((result) => {
+      if (result.success) return;
+      refresh();
+      toast.error(chatErrorMessage(result.error));
+    });
   };
   const copy = () => {
-    void navigator.clipboard?.writeText(`${window.location.origin}${channelHref(channel.id)}`);
-    toast.success("Link copied");
+    void copyWithToast(`${window.location.origin}${channelHref(channel.id)}`, "Link copied");
   };
   const close = async () => {
-    await state({ archived: true });
+    if (!(await state({ archived: true }))) return;
     if (pathname?.startsWith(channelHref(channel.id))) router.push("/messages");
     toast("Conversation closed", { action: { label: "Undo", onClick: () => void state({ archived: false }) } });
   };
@@ -391,7 +399,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
 
 /** The sectioned list shared by the desktop sidebar, the mobile List screen and the launcher window. */
 export function ChatSections({ variant, onSelect, onNewMessage }: Props) {
-  const { data, pending, loadError, refresh } = useChatShell();
+  const { data, pending, loadError, refresh, applyRead } = useChatShell();
   const { user, profile } = useAuth();
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -498,7 +506,11 @@ export function ChatSections({ variant, onSelect, onNewMessage }: Props) {
   ) : null;
   const markProjectRead = (id: string) => () => {
     const unread = data.channels.filter((c) => c.project_id === id && isUnread(c));
-    void markReadMany({ items: unread.map((c) => ({ channelId: c.id, seq: c.last_seq })) }).then(refresh);
+    for (const c of unread) applyRead(c.id, c.last_seq);
+    void markReadMany({ items: unread.map((c) => ({ channelId: c.id, seq: c.last_seq })) }).then((result) => {
+      refresh();
+      if (!result.success) toast.error(chatErrorMessage(result.error));
+    });
   };
 
   return (

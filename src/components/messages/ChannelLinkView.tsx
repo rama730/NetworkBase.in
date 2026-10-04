@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ExternalLink, Globe, Link2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { copyWithToast } from "@/lib/clipboard";
 type Props = {
   tab: { title: string; url?: string | null };
 };
@@ -12,10 +13,11 @@ export function ChannelLinkView({ tab }: Props) {
 
   const handleCopy = () => {
     if (!tab.url) return;
-    void navigator.clipboard?.writeText(tab.url);
-    setCopied(true);
-    toast.success("Link copied to clipboard");
-    setTimeout(() => setCopied(false), 2000);
+    void copyWithToast(tab.url, "Link copied to clipboard").then((ok) => {
+      if (!ok) return;
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   return (

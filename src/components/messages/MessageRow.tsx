@@ -32,6 +32,7 @@ import { applyReaction, patchPages, upsertMessage } from "@/lib/messaging/timeli
 import { encodeMentions, parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
 import type { ChatAttachmentView, ChatMessageView } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
+import { copyWithToast } from "@/lib/clipboard";
 
 const QUICK = ["👍", "❤️", "😂", "🎉", "👀", "🙏"];
 const HOVER_QUICK_REACTIONS = ["👍", "❤️"];
@@ -178,23 +179,26 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.reactors(ctx.channelId, message.seq) });
   };
   const copyLink = () => {
-    void navigator.clipboard?.writeText(`${window.location.origin}${messageHref(ctx.channelId, message.seq, message.thread_root_seq)}`);
-    toast.success("Link copied");
+    void copyWithToast(`${window.location.origin}${messageHref(ctx.channelId, message.seq, message.thread_root_seq)}`, "Link copied");
   };
   const copyText = () => {
-    void navigator.clipboard?.writeText(plain());
-    toast.success("Text copied");
+    void copyWithToast(plain(), "Text copied");
   };
   const startEdit = () => ctx.setEditingSeq(message.seq);
   const saveEdit = async (markdown: string) => {
     const body = encodeMentions(markdown.trim(), ctx.people.map((p) => ({ id: p.id, name: p.full_name || p.username || "" })));
     ctx.setEditingSeq(null);
+    // Emptied a text-only message: that's a delete, so ask (with the usual Undo) instead of silently ignoring it.
+    if (!body && !message.attachments.length) {
+      toast("Delete this message?", { action: { label: "Delete", onClick: removeWithUndo } });
+      return;
+    }
     if (!body || body === message.body) return;
-    const previous = message.body;
+    const previous = { body: message.body, edited_at: message.edited_at };
     update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, body, edited_at: new Date().toISOString() })));
     const result = await editMessage({ channelId: ctx.channelId, seq: message.seq, body });
     if (!result.success) {
-      update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, body: previous })));
+      update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, ...previous })));
       toast.error(chatErrorMessage(result.error));
     }
   };

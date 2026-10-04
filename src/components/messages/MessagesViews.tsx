@@ -359,7 +359,12 @@ const REMIND_OPTIONS = [
 /** Saved for later, with reminders; due ones first. */
 export function SavedView() {
   const queryClient = useQueryClient();
-  const [now] = useState(() => Date.now());
+  // "Due now" must turn on while the page is open, not only at mount.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
   const saved = useQuery({
     queryKey: queryKeys.chat.saved(),
     queryFn: async () => {
@@ -372,8 +377,10 @@ export function SavedView() {
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.saved() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.savedSeqs(item.channel_id) });
-    toast(on ? `Reminder set for ${remindAt?.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}` : "Marked done", on ? undefined : {
-      action: { label: "Undo", onClick: () => void act(item, true) },
+    const label = remindAt?.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+    toast(on ? (label ? `Reminder set for ${label}` : "Saved again") : "Marked done", on ? undefined : {
+      // Undo puts it back as it was, reminder included.
+      action: { label: "Undo", onClick: () => void act(item, true, item.remind_at && !item.reminded_at ? new Date(item.remind_at) : null) },
     });
   };
   return (

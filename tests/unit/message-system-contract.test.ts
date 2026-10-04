@@ -1011,7 +1011,7 @@ test("Section 11 (Slack-Exact About Section Layout & Channel Name Editing) contr
     );
     assert.match(
         detailsPaneSource,
-        /ID: \{channel\.id\}[\s\S]*navigator\.clipboard\?\.writeText\(channel\.id\)/,
+        /ID: \{channel\.id\}[\s\S]*copyWithToast\(channel\.id, "ID copied"\)/,
         "DetailsPane must render ID footer with copy button",
     );
     assert.doesNotMatch(
