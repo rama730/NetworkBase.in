@@ -3,8 +3,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Virtuoso } from "react-virtuoso";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { Bell, BellOff, Check, Link2, MoreHorizontal, SquareArrowOutUpRight } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,8 +32,9 @@ const Composer = dynamic(() => import("@/components/messages/Composer").then((m)
 });
 const ShareDialog = dynamic(() => import("@/components/messages/parts/ShareDialog").then((m) => m.ShareDialog), { ssr: false });
 
-// Stable identity so Virtuoso never remounts the footer (VIRT-01).
-const THREAD_COMPONENTS = { Footer: () => <div className="h-6" /> };
+// Stable identity so Virtuoso never remounts the footer (VIRT-01). Room for the
+// floating typing indicator only while someone types; otherwise the gap closes.
+const THREAD_COMPONENTS = { Footer: ({ context }: { context?: { typing: boolean } }) => <div className={context?.typing ? "h-6" : "h-2"} /> };
 
 type Thread = { root: ChatMessageView | null; replies: ChatMessageView[]; following: boolean; lastReadSeq: number | null };
 type Row = { type: "root"; message: ChatMessageView } | { type: "summary" } | { type: "new" } | { type: "reply"; message: ChatMessageView; grouped: boolean };
@@ -61,6 +62,13 @@ export function ThreadPane({ channelId, rootSeq }: { channelId: string; rootSeq:
   const members = useChannelMembers(channelId, isMember);
   const people = useMemo(() => members.data ?? [], [members.data]);
   const typing = useTyping(channelId, { rootSeq, people, memberCount: details.data?.member_count ?? 0, enabled: isMember });
+  const typingNow = typing.names.length > 0;
+  const list = useRef<VirtuosoHandle>(null);
+  const atBottom = useRef(true);
+  // The typing gap opened: at the bottom, keep the last reply fully in view.
+  useEffect(() => {
+    if (typingNow && atBottom.current) list.current?.autoscrollToBottom();
+  }, [typingNow]);
   const saved = useSavedSeqs(channelId, isMember);
   const key = useMemo(() => queryKeys.chat.thread(channelId, rootSeq), [channelId, rootSeq]);
   const [editingSeq, setEditingSeq] = useState<number | null>(null);
@@ -213,6 +221,9 @@ export function ThreadPane({ channelId, rootSeq }: { channelId: string; rootSeq:
           {thread.isError ? <p role="alert" className="p-6 text-center text-[13px] text-muted-foreground">This thread isn&apos;t available.</p> : null}
           {rows.length ? (
             <Virtuoso
+              ref={list}
+              context={{ typing: typingNow }}
+              atBottomStateChange={(bottom) => { atBottom.current = bottom; }}
               className="app-scroll app-scroll-y h-full"
               data={rows}
               initialTopMostItemIndex={Math.max(0, rows.findIndex((row) => row.type === "new"))}

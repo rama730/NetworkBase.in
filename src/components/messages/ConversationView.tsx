@@ -592,6 +592,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 highlightSeq={around}
                 onSeen={isMember ? conversation.markSeen : () => undefined}
                 onMarkRead={isMember ? markAllRead : undefined}
+                typing={typing.names.length > 0}
               />
             )}
             {conversation.query.isError ? (
