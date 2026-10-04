@@ -112,16 +112,21 @@ export function useDrafts() {
   return drafts;
 }
 
-// Collapsed sidebar sections follow the account (auth user_metadata, like the
-// appearance setting), so they're the same on every device. localStorage is the
-// instant copy; the account copy is written a moment after the last toggle.
-let collapsedTimer: ReturnType<typeof setTimeout> | null = null;
-export function saveCollapsed(collapsed: Record<string, boolean>) {
-  writeChatUi({ collapsed });
-  if (collapsedTimer) clearTimeout(collapsedTimer);
-  collapsedTimer = setTimeout(() => {
+// Collapsed sections and the Unreads filter follow the account (auth user_metadata, like
+// the appearance setting), so they're the same on every device. localStorage is the
+// instant copy; the account copy is written a moment after the last change.
+let accountTimer: ReturnType<typeof setTimeout> | null = null;
+let accountPatch: { chat_sections?: Record<string, boolean>; chat_unreads_only?: boolean } = {};
+export function saveAccountUi(patch: { collapsed?: Record<string, boolean>; unreadsOnly?: boolean }) {
+  writeChatUi(patch);
+  if (patch.collapsed) accountPatch.chat_sections = patch.collapsed;
+  if (patch.unreadsOnly !== undefined) accountPatch.chat_unreads_only = patch.unreadsOnly;
+  if (accountTimer) clearTimeout(accountTimer);
+  accountTimer = setTimeout(() => {
+    const data = accountPatch;
+    accountPatch = {};
     void import("@/lib/supabase/client")
-      .then(({ createClient }) => createClient().auth.updateUser({ data: { chat_sections: collapsed } }))
+      .then(({ createClient }) => createClient().auth.updateUser({ data }))
       .catch(() => undefined);
   }, 1_500);
 }

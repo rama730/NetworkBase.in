@@ -1,16 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import { useChatUi } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { markRead, markReadMany } from "@/app/actions/chat/read";
+import { markRead } from "@/app/actions/chat/read";
 import { escapeTaken, isTypingTarget } from "@/components/messages/keys";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
 import { isUnread, needsAttention, sidebarOrder } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref } from "@/lib/messaging/routes";
@@ -27,7 +27,7 @@ function drawerOpen() {
 
 /**
  * ⌘K switcher, Alt+↑/↓ next conversation needing attention (sidebar order), Shift+Esc mark the
- * visible list read (confirmed), Esc mark the open conversation read. None fire while typing.
+ * visible list read (asks first above 5), Esc mark the open conversation read. None fire while typing.
  */
 function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[]) => void) {
   const router = useRouter();
@@ -104,33 +104,18 @@ function useKeyboardSafeHeight() {
 /** Every /messages screen: the keys above, the ⌘K switcher, and the shared dialogs (opened through the chat UI store). */
 export function MessagesChrome() {
   useKeyboardSafeHeight();
-  const [markAll, setMarkAll] = useState<ChatChannelSummary[] | null>(null);
-  useMessagesKeyboardShortcuts(useCallback((rows: ChatChannelSummary[]) => setMarkAll(rows), []));
+  const markAll = useMarkAllRead();
+  useMessagesKeyboardShortcuts(markAll.conversations);
   const createFor = useChatUi((state) => state.createChannelFor);
   const setCreateFor = useChatUi((state) => state.setCreateChannelFor);
   const inviteFor = useChatUi((state) => state.inviteFor);
   const setInviteFor = useChatUi((state) => state.setInviteFor);
-  const { data, refresh, applyRead } = useChatShell();
-  const confirmMarkAll = async () => {
-    const rows = markAll ?? [];
-    rows.forEach((c) => applyRead(c.id, c.last_seq));
-    const result = await markReadMany({ items: rows.map((c) => ({ channelId: c.id, seq: c.last_seq })) });
-    refresh();
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    toast.success(`${rows.length} conversation${rows.length === 1 ? "" : "s"} marked as read`);
-  };
+  const { data, refresh } = useChatShell();
   const inviteProject = data?.projects?.find((p) => p.id === inviteFor) ?? null;
   return (
     <>
       <QuickSwitcher />
-      <ConfirmDialog
-        open={Boolean(markAll)}
-        onOpenChange={(open) => !open && setMarkAll(null)}
-        title="Mark everything here as read?"
-        description={markAll ? `${markAll.length} conversation${markAll.length === 1 ? "" : "s"} in this list will be marked as read.` : undefined}
-        confirmLabel="Mark as read"
-        onConfirm={confirmMarkAll}
-      />
+      {markAll.dialog}
       {createFor ? <CreateChannelDialog projectId={createFor} open onOpenChange={(open) => !open && setCreateFor(null)} /> : null}
       {inviteProject ? (
         <InviteCollaboratorModal

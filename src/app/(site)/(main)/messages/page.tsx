@@ -16,13 +16,15 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
     const params = await searchParams;
     // "Message" buttons link to /messages?userId=.
     const targetUserId = typeof params.userId === 'string' ? params.userId : typeof params.user === 'string' ? params.user : null;
+    let dmError: string | null = null;
     if (targetUserId) {
         const dm = await getOrCreateDm({ userId: targetUserId });
         if (dm.success) redirect(conversationHref(dm.channelId));
+        dmError = dm.error ?? 'chat_dm_not_allowed';
     }
     return (
         <div data-scroll-root="route" className="h-full min-h-0 overflow-hidden">
-            <MessagesIndex />
+            <MessagesIndex dmError={dmError} />
         </div>
     );
 }

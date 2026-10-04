@@ -62,6 +62,7 @@ async function main() {
 
   const [owner, member, outsider] = [randomUUID(), randomUUID(), randomUUID()] as const;
   const projectId = randomUUID();
+  const otherProjectId = randomUUID();
   const taskId = randomUUID();
   const as = (id: string, name: string) => { currentUser = { id, user_metadata: { full_name: name, username: name.toLowerCase() } }; };
   const flush = async () => { await Promise.all(pending.splice(0)); };
@@ -76,6 +77,9 @@ async function main() {
     await sql`INSERT INTO projects (id, owner_id, title) VALUES (${projectId}, ${owner}, 'Actions test')`;
     await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${projectId}, ${owner}, 'owner'), (${projectId}, ${member}, 'member')`;
     await sql`INSERT INTO tasks (id, project_id, title) VALUES (${taskId}, ${projectId}, 'Linked task')`;
+    await sql`INSERT INTO projects (id, owner_id, title) VALUES (${otherProjectId}, ${owner}, 'Second project')`;
+    await sql`INSERT INTO project_members (project_id, user_id, role) VALUES (${otherProjectId}, ${owner}, 'owner'), (${otherProjectId}, ${member}, 'member')`;
+    await sql`SELECT app_private.chat_sync_project_members(${otherProjectId}::uuid, NULL::uuid, 'ensure_default')`;
     const [syncRow] = await sql`SELECT app_private.chat_sync_project_members(${projectId}::uuid, NULL::uuid, 'ensure_default') AS general`;
     const general = String(syncRow?.general);
 
@@ -356,6 +360,22 @@ async function main() {
       return !past.success && list.success && list.items.some((i) => i.id === queued.id) && first.sent === 1 && second.due === 0
         && row?.n === 1 && cancelled.success && remaining.success && remaining.items.length === 0;
     });
+    await check("searchChannels finds unjoined public channels across all your projects", async () => {
+      as(owner, "Olivia");
+      const open = await channels.createChannel({ projectId: otherProjectId, name: "zeta-plan" });
+      await channels.createChannel({ projectId: otherProjectId, name: "zeta-secret", isPrivate: true });
+      const old = await channels.createChannel({ projectId: otherProjectId, name: "zeta-old" });
+      if (old.success) await channels.archiveChannel({ channelId: old.channelId });
+      as(member, "Mason");
+      const found = await channels.searchChannels({ query: "zeta" });
+      const joinedOnly = await channels.searchChannels({ query: "launch" });
+      const wildcard = await channels.searchChannels({ query: "%" });
+      const empty = await channels.searchChannels({ query: "  " });
+      return open.success && found.success && found.channels.length === 1 && found.channels[0]?.id === open.channelId
+        && found.channels[0]?.project_title === "Second project"
+        && joinedOnly.success && joinedOnly.channels.length === 0
+        && wildcard.success && wildcard.channels.length === 0 && !empty.success;
+    });
     await check("public channels can be previewed by project members before joining", async () => {
       as(owner, "Olivia");
       const made = await channels.createChannel({ projectId, name: "preview" });
@@ -466,12 +486,12 @@ async function main() {
       return left.success && !refused.success;
     });
   } finally {
-    await sql`DELETE FROM chat_channels WHERE project_id = ${projectId} OR id IN (
+    await sql`DELETE FROM chat_channels WHERE project_id IN (${projectId}, ${otherProjectId}) OR id IN (
       SELECT channel_id FROM chat_channel_members WHERE user_id IN (${owner}, ${member}, ${outsider}))`.catch(() => undefined);
     await sql`DELETE FROM chat_canvases WHERE channel_id IN (SELECT id FROM chat_channels WHERE project_id = ${projectId})`.catch(() => undefined);
     await sql`DELETE FROM user_notifications WHERE user_id IN (${owner}, ${member}, ${outsider})`.catch(() => undefined);
     await sql`DELETE FROM tasks WHERE id = ${taskId}`.catch(() => undefined);
-    await sql`DELETE FROM projects WHERE id = ${projectId}`.catch(() => undefined);
+    await sql`DELETE FROM projects WHERE id IN (${projectId}, ${otherProjectId})`.catch(() => undefined);
     await sql`DELETE FROM profiles WHERE id IN (${owner}, ${member}, ${outsider})`.catch(() => undefined);
     await sql.end();
   }

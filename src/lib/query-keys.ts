@@ -44,6 +44,7 @@ export const queryKeys = {
     canvas: (channelId: string) => ["chat-v3", "canvas", channelId] as const,
     projectCanvases: (projectId: string) => ["chat-v3", "project-canvases", projectId] as const,
     browse: (projectId: string) => ["chat-v3", "browse", projectId] as const,
+    channelSearch: (query: string) => ["chat-v3", "channel-search", query] as const,
     card: (kind: string, refId: string) => ["chat-v3", "card", kind, refId] as const,
     activity: () => ["chat-v3", "activity"] as const,
     inbox: (filter: string) => ["chat-v3", "inbox", filter] as const,
