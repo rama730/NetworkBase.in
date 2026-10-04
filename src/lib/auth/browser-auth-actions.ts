@@ -62,6 +62,41 @@ export async function syncBrowserSessionToServer(session: Session | null) {
     lastSyncedSessionToken = token;
 }
 
+type BrowserSessionBridgeResponse = {
+    data?: {
+        session?: {
+            accessToken?: string | null;
+            refreshToken?: string | null;
+            expiresAt?: number | null;
+        } | null;
+    } | null;
+    error?: string;
+};
+
+/** The server's session (httpOnly cookies) as tokens the browser client can adopt. */
+export async function bootstrapBrowserSessionFromServer() {
+    const response = await fetch('/api/v1/auth/session', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ mode: 'bootstrap' }),
+    });
+
+    if (!response.ok) {
+        throw new Error(`Browser session bootstrap failed (${response.status})`);
+    }
+
+    const body = await response.json().catch(() => null) as BrowserSessionBridgeResponse | null;
+    const accessToken = body?.data?.session?.accessToken?.trim() || '';
+    const refreshToken = body?.data?.session?.refreshToken?.trim() || '';
+    if (!accessToken || !refreshToken) return null;
+
+    return {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+    };
+}
+
 export function forgetSyncedBrowserSession() {
     lastSyncedSessionToken = null;
 }

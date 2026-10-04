@@ -110,7 +110,7 @@ export function useChannelMessages(channelId: string, options: { around?: number
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const meId = user?.id ?? null;
-  const { applyRead } = useChatShell();
+  const { applyRead, data: shell } = useChatShell();
   const key = useMemo(() => queryKeys.chat.messages(channelId), [channelId]);
   const update = useUpdatePages(channelId);
   const [status, setStatus] = useState<BroadcastStatus>("connecting");
@@ -203,6 +203,15 @@ export function useChannelMessages(channelId: string, options: { around?: number
     );
     return () => subscription.unsubscribe();
   }, [channelId, key, meId, options.isMember, queryClient, update]);
+
+  // Live updates down (no session, flag off, socket lost): the shell poll still learns the
+  // channel's newest seq, so catch the open timeline up instead of waiting for a reload.
+  const shellTopSeq = shell?.channels.find((c) => c.id === channelId)?.last_top_seq ?? 0;
+  const loadedTopSeq = query.data?.pages[0]?.at(-1)?.seq ?? 0;
+  useEffect(() => {
+    if (status === "connected" || !query.isSuccess || shellTopSeq <= loadedTopSeq) return;
+    void queryClient.invalidateQueries({ queryKey: key, refetchType: "active" });
+  }, [key, loadedTopSeq, query.isSuccess, queryClient, shellTopSeq, status]);
 
   const readTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readSent = useRef(0);
