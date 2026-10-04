@@ -7,6 +7,7 @@ import {
   availabilityLabel,
   availabilityOf,
   projectAvailabilityOf,
+  resolveLive,
   statusLabel,
   type Availability,
   type PersonPresence,
@@ -80,7 +81,7 @@ export type PersonPresenceView = {
  * draws the badge before the batch returns; `live` lets chat's realtime
  * presence mark someone Active now immediately.
  */
-export function usePersonPresence(userId: string | null | undefined, options: { fallbackLastActiveAt?: string | null; live?: boolean } = {}): PersonPresenceView {
+export function usePersonPresence(userId: string | null | undefined, options: { fallbackLastActiveAt?: string | null; /** Realtime: true/false when known, undefined when not observed. */ live?: boolean } = {}): PersonPresenceView {
   const query = useQuery({
     queryKey: queryKeys.presence.person(userId ?? "none"),
     enabled: Boolean(userId),
@@ -92,7 +93,7 @@ export function usePersonPresence(userId: string | null | undefined, options: { 
   return useMemo(() => {
     const data = query.data ?? null;
     const lastActiveAt = data ? data.lastActiveAt : options.fallbackLastActiveAt ?? null;
-    const availability = availabilityOf({ live: Boolean(options.live || data?.live), lastActiveAt });
+    const availability = availabilityOf({ live: resolveLive(options.live, data?.live), lastActiveAt });
     const availabilityText = availabilityLabel(availability, lastActiveAt);
     const status = data?.status ?? null;
     const statusText = status ? statusLabel(status) : null;

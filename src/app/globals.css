@@ -867,7 +867,8 @@ svg.lucide { stroke-width:1.75; }
 .nb-presence { display:inline-block; flex:none; border-radius:32%; box-shadow:0 0 0 2px var(--presence-cut); }
 /* Unlayered rules beat Tailwind's .absolute, so only claim `relative` when not placed absolutely. */
 .nb-presence:not(.absolute):not(.nb-person-presence-dot) { position:relative; }
-.nb-presence[data-availability="now"], .nb-presence[data-availability="today"] { background:var(--presence-active); }
+.nb-presence[data-availability="now"] { background:var(--presence-active); }
+.nb-presence[data-availability="today"] { background:var(--presence-off); }
 .nb-presence[data-availability="week"] { background:var(--presence-week); }
 .nb-presence[data-availability="offline"] { background:var(--presence-cut); box-shadow:0 0 0 2px var(--presence-cut), inset 0 0 0 1.5px var(--presence-off); }
 .nb-presence[data-availability="today"]::after, .nb-presence[data-availability="week"]::after { content:""; position:absolute; border-radius:32%; background:var(--presence-cut); }

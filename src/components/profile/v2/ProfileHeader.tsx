@@ -32,7 +32,7 @@ function Chip({ children, className }: { children: React.ReactNode; className?: 
 
 /** Status and availability chips under the name (status first, like the hover card). */
 function PresenceChips({ userId, lastActiveAt, isOwner }: { userId: string | null; lastActiveAt?: string | null; isOwner: boolean }) {
-    const presence = usePersonPresence(userId, { fallbackLastActiveAt: lastActiveAt ?? null, live: isOwner })
+    const presence = usePersonPresence(userId, { fallbackLastActiveAt: lastActiveAt ?? null, live: isOwner || undefined })
     const openPicker = usePresenceUi((state) => state.setPickerOpen)
     return (
         <div className="mt-2.5 flex flex-wrap items-center gap-2 max-md:col-span-2">
@@ -209,7 +209,7 @@ export function ProfileHeader({
                                 priority
                             />
                             {/* Phones: the badge sits just outside the photo's corner (inside the 16px column gap). */}
-                            <PersonPresenceBadge userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} live={isOwner} size={22} className="absolute -bottom-1.5 -right-1.5 max-md:-right-3.5 max-md:bottom-0" />
+                            <PersonPresenceBadge userId={profile?.id ?? null} lastActiveAt={vm.lastActiveAt} live={isOwner || undefined} size={22} className="absolute -bottom-1.5 -right-1.5 max-md:-right-3.5 max-md:bottom-0" />
                         </div>
                         <div className="min-w-0 flex-1 pb-1 max-md:contents">
                             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 max-md:self-center">

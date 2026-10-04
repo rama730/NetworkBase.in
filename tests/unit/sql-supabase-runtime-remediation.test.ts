@@ -79,14 +79,15 @@ test("presence is app-wide and debounce markers follow persistence", () => {
   assert.match(chat, /const presenceActive = active && presenceEnabled/);
   assert.match(chat, /document\.hidden \? pause\(\) : resume\(\)/);
   assert.match(chat, /IDLE_MS/);
-  assert.match(chat, /presenceActive && engaged \? <OnlinePresencePublisher/);
+  assert.match(chat, /presenceActive && engaged && !hidden \? <OnlinePresencePublisher/);
+  assert.match(chat, /addEventListener\('pagehide'/);
   assert.match(heartbeat, /withDbRetry\("presence\.heartbeat\.last_active"/);
   assert.match(heartbeat, /lt\(profiles\.lastActiveAt/);
   // No debounce marker may gate the DB write. Redis holds only the short-lived
   // "Active now" key (presence:live:<id>) and the time zone (presence:tz:<id>);
-  // neither ever skips a write.
+  // neither ever skips a write. Closing a tab may delete the live key.
   assert.doesNotMatch(heartbeat, /localHeartbeatDebounce|heartbeat:debounce/);
-  for (const redisUse of heartbeat.match(/getRedisClient\(\)\?\.\w+\([^)]*/g) ?? []) assert.match(redisUse, /\.set\(`presence:(live|tz):/);
+  for (const redisUse of heartbeat.match(/getRedisClient\(\)\?\.\w+\([^)]*/g) ?? []) assert.match(redisUse, /\.set\(`presence:(live|tz):|\.del\(`presence:live:/);
 });
 
 test("extension workspace bounds root files per project", () => {

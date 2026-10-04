@@ -11,6 +11,9 @@
  * Authorization relies on the Supabase Realtime presence channel policy. Keep
  * callers scoped to known peers from already-authorized conversation data.
  *
+ * A user has a key only once realtime knows (snapshot received); no key =
+ * unknown, so callers fall back to server presence.
+ *
  * Returns a stable `Record<string, boolean>` that only changes when the
  * online set actually changes, so consumers can compare by reference /
  * memoize safely.
@@ -146,11 +149,14 @@ export function useOnlineUsers(userIds: string[]): OnlineMap {
                 // fresh presence.state snapshot arrives on reconnect. This
                 // prevents the online dot from sticking "on" forever if the
                 // transport dies.
+                // Unknown (missing key), not offline: presence then falls back to the server.
                 if (status === 'disconnected' || status === 'error') {
-                    if (tracker.connectionIds.size > 0) {
-                        tracker.connectionIds.clear();
-                        recomputeOnline();
-                    }
+                    tracker.connectionIds.clear();
+                    setOnlineMap((prev) => {
+                        if (!(userId in prev)) return prev;
+                        const { [userId]: _removed, ...rest } = prev;
+                        return rest;
+                    });
                 }
             };
 
