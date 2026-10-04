@@ -34,7 +34,8 @@ export function isUnread(channel: ChatChannelSummary) {
 /** DM and application rows show a count; channels show bold plus mentions (L-25). */
 export function rowCount(channel: ChatChannelSummary) {
   if (channel.notify === "mute") return 0;
-  if (isDirectLike(channel) || channel.application_id) return isUnread(channel) ? Math.max(1, channel.last_seq - channel.last_read_seq) : 0;
+  // Top-level messages only, like bold (isUnread): thread replies don't inflate the count.
+  if (isDirectLike(channel) || channel.application_id) return isUnread(channel) ? Math.max(1, channel.last_top_seq - channel.last_read_seq) : 0;
   return channel.mention_count;
 }
 

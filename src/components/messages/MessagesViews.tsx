@@ -12,7 +12,7 @@ import { listDirectMessages, listInbox, listThreads, markInboxRead, type InboxFi
 import { browseChannels, joinChannel } from "@/app/actions/chat/channels";
 import { cancelScheduled, listSaved, listScheduled, saveMessage, type SavedItem } from "@/app/actions/chat/later";
 import { searchMessages, type SearchHit } from "@/app/actions/chat/search";
-import { useChatUi, useDrafts, writeDraft } from "@/components/messages/chat-ui-store";
+import { useChatUi, useDrafts, writeDraft, readDraft } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ListOrHome } from "@/components/messages/HomePane";
 import { ViewScreen } from "@/components/messages/ViewScreen";
@@ -25,6 +25,7 @@ import { conversationHref, threadHref } from "@/lib/messaging/routes";
 import { tokensToPlainText } from "@/lib/messaging/tokens";
 import type { ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
+import { useChannelMembers } from "@/components/messages/useConversation";
 
 const Composer = dynamic(() => import("@/components/messages/Composer").then((m) => m.Composer), { ssr: false });
 
@@ -217,6 +218,8 @@ function InboxGroup({ items, onOpen }: { items: InboxItem[]; onOpen: (item: Inbo
 function ThreadRow({ thread }: { thread: ThreadItem }) {
   const queryClient = useQueryClient();
   const [replying, setReplying] = useState(false);
+  // @mentions in the inline reply need the conversation's people (loaded only once Reply is open).
+  const members = useChannelMembers(thread.channel_id, replying);
   const label = thread.channel_name ? `#${thread.channel_name}` : thread.channel_title ?? "Direct message";
   return (
     <li className="border-b border-border">
@@ -248,7 +251,7 @@ function ThreadRow({ thread }: { thread: ThreadItem }) {
           channelId={thread.channel_id}
           threadRootSeq={thread.root_seq}
           placeholder={`Reply in ${label}…`}
-          people={[]}
+          people={members.data ?? []}
           allowBroadcast={false}
           canCreateTask={false}
           onSent={() => {
@@ -292,25 +295,28 @@ export function InboxView() {
   const groups = groupByConversation(items);
   const unread = shell.data?.inbox_unread ?? 0;
 
+  // The server publishes membership.changed, which refreshes the shell (badge) once; only the lists reload here.
   const refreshInbox = () => {
     void queryClient.invalidateQueries({ queryKey: ["chat-v3", "inbox"] });
-    shell.refresh();
+    void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
   };
   const open = (item: InboxItem) => {
     if (item.read || item.kind === "reaction") return;
     void markInboxRead({ items: [{ channelId: item.channel_id, seq: item.seq }] }).then(refreshInbox);
   };
+  const scope = filter === "mentions" ? "mentions" : filter === "threads" ? "threads" : "all";
   const markAll = async () => {
-    const result = await markInboxRead({ all: true });
+    const result = await markInboxRead({ all: true, scope });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     refreshInbox();
-    toast.success("Inbox marked as read");
+    toast.success(scope === "threads" ? "Threads marked as read" : scope === "mentions" ? "Mentions marked as read" : "Inbox marked as read");
   };
+  const canMarkAll = filter === "threads" ? Boolean(threads.data?.some((t) => t.unread)) : filter !== "reactions" && unread > 0;
 
   return (
     <ViewScreen
       title="Inbox"
-      action={unread && filter !== "threads" && filter !== "reactions" ? (
+      action={canMarkAll ? (
         <button type="button" onClick={() => void markAll()} className="inline-flex min-h-11 items-center gap-1.5 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted sm:min-h-[var(--ui-control-height)]">
           <CheckCheck size={14} /> Mark all read
         </button>
@@ -455,7 +461,11 @@ export function DraftsView() {
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.scheduled() });
     if (keepAsDraft) {
-      writeDraft(keepAsDraft.threadRootSeq ? `${keepAsDraft.channelId}:${keepAsDraft.threadRootSeq}` : keepAsDraft.channelId, keepAsDraft.body);
+      const key = keepAsDraft.threadRootSeq ? `${keepAsDraft.channelId}:${keepAsDraft.threadRootSeq}` : keepAsDraft.channelId;
+      // Never overwrite a draft already there: add the scheduled text below it.
+      const existing = readDraft(key).trim();
+      writeDraft(key, existing ? `${existing}\n\n${keepAsDraft.body}` : keepAsDraft.body);
+      if (existing) toast("Added below your existing draft");
       router.push(keepAsDraft.threadRootSeq ? threadHref(keepAsDraft.channelId, keepAsDraft.threadRootSeq) : conversationHref(keepAsDraft.channelId));
     } else toast("Scheduled message cancelled");
   };
@@ -545,7 +555,7 @@ export function SearchView() {
     return [...map.values()].sort((a, b) => personName(a).localeCompare(personName(b)));
   }, [data?.channels]);
 
-  const active = q.trim().length >= 2 || Boolean(from) || hasFile;
+  const active = q.trim().length >= 2 || Boolean(from || inChannel || after || before) || hasFile;
   const results = useQuery({
     queryKey: queryKeys.chat.search(params?.toString() ?? ""),
     enabled: active,
