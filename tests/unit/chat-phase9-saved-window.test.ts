@@ -48,7 +48,9 @@ test("toast links navigate in-app; left drafts; search project label (#142-144)"
   }
   const views = read("src/components/messages/MessagesViews.tsx");
   assert.match(views, /left\(draft\.channelId\) \?[\s\S]*?Left conversation/);
-  assert.match(views, /hit\.project_title \?/);
+  // The project travels with the place on every screen size (round 2 #78, #87).
+  assert.match(views, /item\.project_title \? <span className="text-muted-foreground\/80"> · \{item\.project_title\}/);
+  assert.match(read("src/app/actions/chat/later.ts"), /p\.title AS project_title/);
   assert.match(read("src/app/actions/chat/search.ts"), /p\.title AS project_title/);
 });
 

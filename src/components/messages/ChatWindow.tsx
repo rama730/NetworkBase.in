@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { useChatShell } from "@/components/messages/ChatShellProvider";
+import { useAuth } from "@/hooks/useAuth";
+import { channelTitle } from "@/lib/messaging/channel-view";
 import { ArrowLeft, ExternalLink, Minus, X } from "lucide-react";
 
 import { useChatWindow } from "@/components/messages/chat-window-store";
@@ -44,9 +47,15 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
   }, [onMinimize]);
 
   const openChannel = (channelId: string) => push({ type: "channel", channelId });
-  const openItem = (channelId: string, rootSeq: number | null) => push(rootSeq ? { type: "thread", channelId, rootSeq } : { type: "channel", channelId });
-  const fullHref = screen.type === "thread" ? threadHref(screen.channelId, screen.rootSeq) : screen.type === "inbox" ? "/messages/inbox" : "/messages";
-  const title = screen.type === "thread" ? "Thread" : "New message";
+  const openItem = (channelId: string, rootSeq: number | null, m?: number | null) => push(rootSeq ? { type: "thread", channelId, rootSeq } : { type: "channel", channelId, m: m ?? null });
+  // "Open in Messages" keeps where you are (a thread, or the people picked for a new message).
+  const fullHref = screen.type === "thread" ? threadHref(screen.channelId, screen.rootSeq) : screen.type === "inbox" ? "/messages/inbox" : screen.type === "new" ? "/messages/new" : "/messages";
+  const shell = useChatShell();
+  const { user } = useAuth();
+  const threadChannel = screen.type === "thread" ? shell.data?.channels.find((c) => c.id === screen.channelId) : undefined;
+  const title = screen.type === "thread"
+    ? threadChannel ? `Thread in ${threadChannel.name ? `#${threadChannel.name}` : channelTitle(threadChannel, user?.id ?? null)}` : "Thread"
+    : "New message";
   // Minimize and Close everywhere; "Open in Messages" here, or in the conversation's ⋯.
   const controls = (
     <>
@@ -91,6 +100,7 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
           <ConversationView
             key={screen.channelId}
             channelId={screen.channelId}
+            around={screen.m ?? null}
             surface="window"
             onBack={back}
             onOpenThread={(rootSeq) => push({ type: "thread", channelId: screen.channelId, rootSeq })}

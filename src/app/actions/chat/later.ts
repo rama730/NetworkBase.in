@@ -63,6 +63,7 @@ export type SavedItem = {
   remind_at: string | null;
   reminded_at: string | null;
   author: ChatPerson | null;
+  project_title: string | null;
 };
 
 /** Saved messages, due reminders first, then newest saves; one page at a time (`offset`). */
@@ -80,12 +81,14 @@ export async function listSaved(input: { offset?: number; limit?: number } = {})
                SELECT coalesce(op.full_name, op.username) FROM chat_channel_members o JOIN profiles op ON op.id = o.user_id
                WHERE o.channel_id = c.id ORDER BY (o.user_id = ${user.id}::uuid) LIMIT 1
              ) ELSE c.title END AS channel_title,
+             p.title AS project_title,
              m.thread_root_seq::int AS thread_root_seq, m.body, m.created_at, s.created_at AS saved_at, s.remind_at, s.reminded_at,
              CASE WHEN pr.id IS NULL THEN NULL ELSE jsonb_build_object(
                'id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url
              ) END AS author
       FROM chat_saved s
       JOIN chat_channels c ON c.id = s.channel_id
+      LEFT JOIN projects p ON p.id = c.project_id
       JOIN chat_messages m ON m.channel_id = s.channel_id AND m.channel_seq = s.message_seq
       LEFT JOIN profiles pr ON pr.id = m.author_id
       WHERE s.user_id = ${user.id}::uuid AND m.deleted_at IS NULL

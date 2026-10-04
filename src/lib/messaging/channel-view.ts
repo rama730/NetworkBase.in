@@ -80,9 +80,11 @@ export function rowCount(channel: ChatChannelSummary) {
   return channel.mention_count;
 }
 
-function visible(channel: ChatChannelSummary) {
+/** One rule for every list of conversations to open: not closed by you, not archived. */
+export function isVisible(channel: ChatChannelSummary) {
   return !channel.archived_at && !channel.channel_archived_at;
 }
+const visible = isVisible;
 
 function byRecent(a: ChatChannelSummary, b: ChatChannelSummary) {
   return (b.last_message_at ?? "").localeCompare(a.last_message_at ?? "");
@@ -92,7 +94,8 @@ function byName(a: ChatChannelSummary, b: ChatChannelSummary) {
   return (a.name ?? "").localeCompare(b.name ?? "");
 }
 
-function attention(channel: ChatChannelSummary) {
+/** What a row adds to a section or project count: mentions for channels, 1 for an unread DM or application. */
+export function attention(channel: ChatChannelSummary) {
   if (channel.notify === "mute") return channel.mention_count;
   if (isDirectLike(channel) || channel.application_id) return isUnread(channel) || channel.mention_count > 0 ? 1 : 0;
   return channel.mention_count;

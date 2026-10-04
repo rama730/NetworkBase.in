@@ -7,7 +7,8 @@ import { createContext, useContext } from "react";
  * instead of navigating the page. Absent (null) on full pages.
  */
 export type WindowNav = {
-  open: (channelId: string, rootSeq: number | null) => void;
+  /** `m`: the message to land on (an Inbox mention), not just the latest. */
+  open: (channelId: string, rootSeq: number | null, m?: number | null) => void;
   back: () => void;
   actions: React.ReactNode;
 };

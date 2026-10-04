@@ -31,7 +31,7 @@ function drawerOpen() {
  * ⌘K switcher, ⌘/ shortcuts, Alt+↑/↓ next conversation needing attention (sidebar order), Shift+Esc mark the
  * visible list read (asks first above 5), Esc mark the open conversation read. None fire while typing.
  */
-function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[]) => void) {
+function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[], label?: string) => void) {
   const router = useRouter();
   const pathname = usePathname();
   const { data, refresh, applyRead } = useChatShell();
@@ -66,10 +66,12 @@ function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[
       }
 
       if (e.shiftKey && e.key === "Escape") {
-        const rows = sidebarOrder(data, projectId).filter(isUnread);
+        // The same rows the sidebar shows as needing you (muted ones stay as they are).
+        const rows = sidebarOrder(data, projectId).filter(needsAttention);
         if (!rows.length) return;
         e.preventDefault();
-        confirmMarkAll(rows);
+        const project = data?.projects?.find((p) => p.id === projectId);
+        confirmMarkAll(rows, project ? `Mark ${project.title} and your DMs read` : "Mark everything read");
         return;
       }
 

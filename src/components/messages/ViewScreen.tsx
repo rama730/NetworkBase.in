@@ -9,8 +9,9 @@ import { useWindowNav } from "@/components/messages/window-nav";
  * Full-page views (Inbox, Saved, Drafts, Search, Browse, New message): 56px header with Back below 1024px.
  * `closable` screens (New message, Browse, Search) also get a × at 1024px+ that goes back.
  */
-export function ViewScreen({ title, action, closable, children }: { title: string; action?: React.ReactNode; closable?: boolean; children: React.ReactNode }) {
-  const goBack = useBack();
+export function ViewScreen({ title, action, closable, children, back }: { title: string; action?: React.ReactNode; closable?: boolean; children: React.ReactNode; back?: string }) {
+  // `back`: where Back goes when there's no in-app history (Browse goes to its project).
+  const goBack = useBack(back);
   const win = useWindowNav();
   if (win) {
     // In the floating window: always a Back (to the window's list), then the window's own controls.
