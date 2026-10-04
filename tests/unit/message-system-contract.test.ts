@@ -111,10 +111,10 @@ test("Messages system adheres to design specification contracts", () => {
         const thread = fs.readFileSync(path.join(process.cwd(), "src/components/messages/ThreadPane.tsx"), "utf8");
         // The gap under the last message opens only while someone types (room for the indicator).
         assert.match(timeline, /function TimelineFooter\(\{ context \}[\s\S]*context\?\.typing \? "h-6" : "h-2"/);
-        assert.match(timeline, /if \(typing && atBottom\) virtuoso\.current\?\.autoscrollToBottom\(\)/);
+        assert.match(timeline, /if \(!typing \|\| !atBottom\) return;[\s\S]*requestAnimationFrame\(\(\) => virtuoso\.current\?\.scrollTo\(\{ top: Number\.MAX_SAFE_INTEGER \}\)\)/);
         assert.match(conversationViewSource, /typing=\{typing\.names\.length > 0\}/);
         assert.match(thread, /THREAD_COMPONENTS = \{ Footer: [\s\S]*context\?\.typing \? "h-6" : "h-2"/);
-        assert.match(thread, /if \(typingNow && atBottom\.current\) list\.current\?\.autoscrollToBottom\(\)/);
+        assert.match(thread, /if \(!typingNow \|\| !atBottom\.current\) return;[\s\S]*requestAnimationFrame\(\(\) => list\.current\?\.scrollTo\(\{ top: Number\.MAX_SAFE_INTEGER \}\)\)/);
     }
     assert.match(
         cssSource,
