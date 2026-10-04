@@ -2,7 +2,7 @@
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
-const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+import { isMac } from "@/components/messages/keys";
 
 /** The shortcuts Messages already has, in one place (⌘/ or Ctrl+/). Keep in step with MessagesChrome, MessageRow and the composer. */
 function groups(mod: string) {

@@ -36,6 +36,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { useChannelMembers } from "@/components/messages/useConversation";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
 import { useWindowNav } from "@/components/messages/window-nav";
+import { rovingTabKey } from "@/components/messages/keys";
 
 const Composer = dynamic(() => import("@/components/messages/Composer").then((m) => m.Composer), { ssr: false });
 
@@ -512,11 +513,8 @@ export function InboxView() {
   };
   // Tabs: ←/→/Home/End move between them (roving tabindex), like any tablist.
   const tabKeys = (event: React.KeyboardEvent, index: number) => {
-    const last = FILTERS.length - 1;
-    const next = event.key === "ArrowRight" ? (index + 1) % FILTERS.length : event.key === "ArrowLeft" ? (index + last) % FILTERS.length
-      : event.key === "Home" ? 0 : event.key === "End" ? last : null;
+    const next = rovingTabKey(event, index, FILTERS.length);
     if (next === null) return;
-    event.preventDefault();
     const target = FILTERS[next]!;
     selectFilter(target.id);
     document.getElementById(`inbox-tab-${target.id}`)?.focus();

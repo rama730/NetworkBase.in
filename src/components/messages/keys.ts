@@ -1,3 +1,13 @@
+export const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+
+/** A tablist's ←/→/Home/End: the index to move to, or null for any other key (which then does nothing). */
+export function rovingTabKey(event: React.KeyboardEvent, index: number, count: number) {
+  const next = event.key === "ArrowRight" ? (index + 1) % count : event.key === "ArrowLeft" ? (index + count - 1) % count
+    : event.key === "Home" ? 0 : event.key === "End" ? count - 1 : null;
+  if (next !== null) event.preventDefault();
+  return next;
+}
+
 /** Is focus in a text field? Global chat shortcuts then leave the key to the editor. */
 export function isTypingTarget(target: EventTarget | null) {
   const el = target as HTMLElement | null;
