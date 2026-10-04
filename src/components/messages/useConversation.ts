@@ -250,7 +250,7 @@ export function useTyping(channelId: string, options: { rootSeq: number | null; 
   const enabled = options.enabled && options.memberCount <= CHAT_TYPING_MAX_MEMBERS;
   const [typers, setTypers] = useState<Typers>({});
   const people = useRef(options.people);
-  const sendRef = useRef<(event: string, payload: Record<string, unknown>) => void>(() => undefined);
+  const sendRef = useRef<(event: string, payload: Record<string, unknown>) => boolean>(() => false);
   const lastSent = useRef(0);
   const allowed = Boolean(meId) && options.memberCount <= CHAT_TYPING_MAX_MEMBERS;
   useEffect(() => {
@@ -275,7 +275,7 @@ export function useTyping(channelId: string, options: { rootSeq: number | null; 
     return () => {
       if (lastSent.current && meId) typing.send("typing", { user_id: meId, root: rootSeq, on: false });
       lastSent.current = 0;
-      sendRef.current = () => undefined;
+      sendRef.current = () => false;
       typing.unsubscribe();
       messages.unsubscribe();
       setTypers({});
@@ -299,8 +299,8 @@ export function useTyping(channelId: string, options: { rootSeq: number | null; 
       return;
     }
     if (!shouldSendTyping(lastSent.current, now)) return;
-    lastSent.current = now;
-    sendRef.current("typing", { user_id: meId, root: rootSeq, on: true });
+    // Throttle only what actually went out; a drop before connect retries on the next key.
+    if (sendRef.current("typing", { user_id: meId, root: rootSeq, on: true })) lastSent.current = now;
   }, [allowed, meId, rootSeq]);
 
   const names = useMemo(() => Object.values(typers).map((t) => t.name), [typers]);

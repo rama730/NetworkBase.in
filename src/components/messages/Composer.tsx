@@ -104,19 +104,17 @@ function AwayMentionNotice({ userId, name }: { userId: string; name: string }) {
 /** Floats just above the composer (over the timeline's bottom spacer), so nothing moves when someone starts typing. */
 function TypingIndicator({ names }: { names: string[] }) {
   const label = typingLabel(names);
+  // Idle: render nothing, so no fade band covers the composer's top border.
+  if (!label) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-full flex h-5 items-center gap-1.5 truncate bg-gradient-to-t from-card px-1 text-[12px] text-muted-foreground sm:inset-x-4" aria-live="polite">
-      {label ? (
-        <>
-          <span className="nb-typing-dots" aria-hidden="true"><span /><span /><span /></span>
-          <span className="truncate">
-            {label.names.map((name, index) => (
-              <span key={index}>{index ? " and " : ""}<strong className="font-semibold text-foreground">{name}</strong></span>
-            ))}
-            {label.names.length ? ` ${label.text}` : label.text}
-          </span>
-        </>
-      ) : null}
+    <div className="pointer-events-none absolute inset-x-3 bottom-[calc(100%+1px)] flex h-5 items-center gap-1.5 truncate bg-gradient-to-t from-card px-1 text-[12px] text-muted-foreground sm:inset-x-4" aria-live="polite">
+      <span className="nb-typing-dots" aria-hidden="true"><span /><span /><span /></span>
+      <span className="truncate">
+        {label.names.map((name, index) => (
+          <span key={index}>{index ? " and " : ""}<strong className="font-semibold text-foreground">{name}</strong></span>
+        ))}
+        {label.names.length ? ` ${label.text}` : label.text}
+      </span>
     </div>
   );
 }
@@ -557,7 +555,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         <div
           className="app-scroll app-scroll-y relative max-h-[160px] px-3 py-2"
           onKeyDownCapture={(e) => {
-            if (!e.metaKey && !e.ctrlKey && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete")) typedAt.current = Date.now();
+            if (!e.metaKey && !e.ctrlKey && (e.key.length === 1 || e.key === "Backspace" || e.key === "Delete" || e.key === "Process" || e.key === "Unidentified")) typedAt.current = Date.now();
           }}
           onClick={() => editor?.commands.focus()}
           onPasteCapture={(e) => {
