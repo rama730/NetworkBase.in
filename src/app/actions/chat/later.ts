@@ -2,8 +2,10 @@
 
 import { sql } from "drizzle-orm";
 
-import { CHAT_MAX_BODY } from "@/lib/messaging/constants";
+import { CHAT_LIST_PAGE, CHAT_MAX_BODY } from "@/lib/messaging/constants";
 import { chatFailure, chatRows, invalidInput, isUuid, requireChatUser, unauthorized } from "@/lib/messaging/server";
+import { takeSendToken } from "@/lib/messaging/send-bucket";
+import { sendAs } from "@/lib/messaging/send";
 import type { ChatPerson } from "@/lib/messaging/types";
 
 const MAX_AHEAD_MS = 120 * 24 * 60 * 60 * 1000;
@@ -16,8 +18,8 @@ function futureDate(value: unknown): string | null | "invalid" {
   return new Date(at).toISOString();
 }
 
-/** Save for later (on/off), optionally with a reminder time. */
-export async function saveMessage(input: { channelId: string; seq: number; on: boolean; remindAt?: string | null }) {
+/** Save (on/off), optionally with a reminder time; `clearReminder` drops the reminder but keeps the item saved. */
+export async function saveMessage(input: { channelId: string; seq: number; on: boolean; remindAt?: string | null; clearReminder?: boolean }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
   if (!isUuid(input?.channelId) || !Number.isInteger(input.seq)) return invalidInput;
@@ -36,7 +38,8 @@ export async function saveMessage(input: { channelId: string; seq: number; on: b
       WHERE app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
         AND EXISTS (SELECT 1 FROM chat_messages WHERE channel_id = ${input.channelId}::uuid AND channel_seq = ${input.seq} AND deleted_at IS NULL)
       ON CONFLICT (user_id, channel_id, message_seq) DO UPDATE
-        SET remind_at = coalesce(EXCLUDED.remind_at, chat_saved.remind_at), reminded_at = CASE WHEN EXCLUDED.remind_at IS NULL THEN chat_saved.reminded_at END
+        SET remind_at = CASE WHEN ${Boolean(input.clearReminder)} THEN NULL ELSE coalesce(EXCLUDED.remind_at, chat_saved.remind_at) END,
+            reminded_at = CASE WHEN ${Boolean(input.clearReminder)} THEN NULL WHEN EXCLUDED.remind_at IS NULL THEN chat_saved.reminded_at END
       RETURNING 1 AS ok
     `);
     if (!saved.length) return { success: false as const, error: "chat_message_not_found" };
@@ -62,10 +65,14 @@ export type SavedItem = {
   author: ChatPerson | null;
 };
 
-/** Saved messages, due reminders first, then newest saves. */
-export async function listSaved() {
+/** Saved messages, due reminders first, then newest saves; one page at a time (`offset`). */
+// ponytail: offset paging keeps the due-first order simple. ceiling: deep pages of a very
+// large Saved list re-sort what they skip. upgrade: a (due, remind_at, saved_at) keyset cursor.
+export async function listSaved(input: { offset?: number; limit?: number } = {}) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
+  const offset = Number.isInteger(input?.offset) && input.offset! > 0 ? input.offset! : 0;
+  const limit = Number.isInteger(input?.limit) ? Math.min(Math.max(input.limit!, 1), CHAT_LIST_PAGE) : CHAT_LIST_PAGE;
   try {
     const items = await chatRows<SavedItem>(sql`
       SELECT s.channel_id, c.name AS channel_name, c.kind AS channel_kind, s.message_seq::int AS seq,
@@ -83,8 +90,8 @@ export async function listSaved() {
       LEFT JOIN profiles pr ON pr.id = m.author_id
       WHERE s.user_id = ${user.id}::uuid AND m.deleted_at IS NULL
         AND app_private.chat_is_member(s.channel_id, ${user.id}::uuid)
-      ORDER BY (s.remind_at IS NOT NULL AND s.reminded_at IS NULL) DESC, s.remind_at ASC NULLS LAST, s.created_at DESC
-      LIMIT 200
+      ORDER BY (s.remind_at IS NOT NULL AND s.reminded_at IS NULL) DESC, s.remind_at ASC NULLS LAST, s.created_at DESC, s.channel_id, s.message_seq
+      LIMIT ${limit} OFFSET ${offset}
     `);
     return { success: true as const, items };
   } catch (error) {
@@ -168,5 +175,50 @@ export async function cancelScheduled(input: { id: string }) {
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "cancel_scheduled");
+  }
+}
+
+/** Send a scheduled message right away (also Retry for one that failed). Same client id as the job, so never twice. */
+export async function sendScheduledNow(input: { id: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.id)) return invalidInput;
+  if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
+  try {
+    const [row] = await chatRows<{ channel_id: string; body: string; thread_root_seq: number | null }>(sql`
+      UPDATE chat_scheduled_messages SET sent_at = now(), failed_reason = NULL
+      WHERE id = ${input.id}::uuid AND user_id = ${user.id}::uuid AND sent_at IS NULL
+      RETURNING channel_id, body, thread_root_seq::int AS thread_root_seq
+    `);
+    if (!row) return { success: false as const, error: "chat_message_not_found" };
+    const result = await sendAs(user, { channelId: row.channel_id, body: row.body, threadRootSeq: row.thread_root_seq, clientId: `scheduled:${input.id}` }, null);
+    if (!result.success) {
+      await chatRows(sql`UPDATE chat_scheduled_messages SET sent_at = NULL, failed_reason = ${result.error} WHERE id = ${input.id}::uuid`);
+      return { success: false as const, error: result.error };
+    }
+    return { success: true as const };
+  } catch (error) {
+    await chatRows(sql`UPDATE chat_scheduled_messages SET sent_at = NULL WHERE id = ${input.id}::uuid AND failed_reason IS NULL AND user_id = ${user.id}::uuid`).catch(() => undefined);
+    return chatFailure(error, "send_scheduled");
+  }
+}
+
+/** Move a scheduled message (a failed one too: it's queued again). */
+export async function rescheduleScheduled(input: { id: string; sendAt: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.id)) return invalidInput;
+  const sendAt = futureDate(input.sendAt);
+  if (sendAt === "invalid" || sendAt === null) return { success: false as const, error: "chat_schedule_in_past" };
+  try {
+    const rows = await chatRows<{ id: string }>(sql`
+      UPDATE chat_scheduled_messages SET send_at = ${sendAt}::timestamptz, failed_reason = NULL
+      WHERE id = ${input.id}::uuid AND user_id = ${user.id}::uuid AND sent_at IS NULL
+      RETURNING id
+    `);
+    if (!rows.length) return { success: false as const, error: "chat_message_not_found" };
+    return { success: true as const, sendAt };
+  } catch (error) {
+    return chatFailure(error, "reschedule");
   }
 }

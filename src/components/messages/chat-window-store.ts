@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 // The launcher window's in-memory state (C9): survives navigation, not reloads.
-type Screen = { type: "list" } | { type: "channel"; channelId: string } | { type: "thread"; channelId: string; rootSeq: number } | { type: "new" };
+type Screen = { type: "list" } | { type: "inbox" } | { type: "channel"; channelId: string } | { type: "thread"; channelId: string; rootSeq: number } | { type: "new" };
 
 type ChatWindowState = {
   open: boolean;

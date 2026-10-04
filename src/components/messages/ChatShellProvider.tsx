@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 
 import { bootstrap } from "@/app/actions/chat/read";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +12,7 @@ import type { ChatBootstrap } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast, type BroadcastStatus } from "@/lib/realtime/private-broadcast";
 import { readShellPart } from "@/lib/shell-batch";
+import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 
 type Pending = { invites: number; applications: number };
 type Snapshot = { data: ChatBootstrap; pending: Pending };
@@ -176,6 +178,22 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
   const data = userId ? query.data?.data : undefined;
   const pending = (userId && query.data?.pending) || NO_PENDING;
   const badge = useMemo(() => chatBadge(data), [data]);
+  const router = useRouter();
+  // A notification click asks this tab to route in-app instead of reloading (public/sw.js).
+  useEffect(() => {
+    const worker = typeof navigator === "undefined" ? undefined : navigator.serviceWorker;
+    if (!worker) return;
+    const onMessage = (event: MessageEvent) => {
+      const message = event.data as { type?: string; href?: unknown } | null;
+      if (message?.type !== "nb:navigate" || typeof message.href !== "string" || !message.href.startsWith("/") || message.href.startsWith("//")) return;
+      router.push(message.href);
+      event.ports[0]?.postMessage("ok");
+    };
+    worker.addEventListener("message", onMessage);
+    return () => worker.removeEventListener("message", onMessage);
+  }, [router]);
+  // The tab title carries the same count as the Messages badge: "(3) Discover".
+  useDocumentTitlePrefix(badge ? `(${badge > 99 ? "99+" : badge})` : null, " ");
   const loadError = userId && query.isError && !data ? query.error.message : null;
   const shell = useMemo<ChatShell>(
     () => ({ data, pending, badge, status, loadError, refresh, applyRead }),

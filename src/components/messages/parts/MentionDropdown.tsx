@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { buildIdentityPresentation } from '@/lib/ui/identity';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 
@@ -16,6 +16,8 @@ interface MentionDropdownProps {
     participants: MentionParticipant[];
     onSelect: (participant: MentionParticipant) => void;
     onClose: () => void;
+    /** The editor the keys come from: it gets the combobox attributes (aria-activedescendant) while the list is open. */
+    getInput?: () => HTMLElement | null;
 }
 
 /** The people an @query shows (the composer only lets Enter pick when there are some). */
@@ -24,11 +26,26 @@ export function matchMentions<T extends MentionParticipant>(participants: T[], q
     return participants.filter((p) => (p.username && p.username.toLowerCase().includes(q)) || (p.fullName && p.fullName.toLowerCase().includes(q))).slice(0, 5);
 }
 
-export function MentionDropdown({ query, participants, onSelect, onClose }: MentionDropdownProps) {
+export function MentionDropdown({ query, participants, onSelect, onClose, getInput }: MentionDropdownProps) {
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const listRef = useRef<HTMLDivElement>(null);
+    const listId = useId();
 
     const filtered = matchMentions(participants, query);
+    const activeId = filtered[selectedIndex] ? `${listId}-${filtered[selectedIndex].id}` : null;
+
+    // Screen readers follow the highlighted person while focus stays in the editor.
+    useEffect(() => {
+        const input = getInput?.();
+        if (!input || !activeId) return;
+        input.setAttribute('aria-controls', listId);
+        input.setAttribute('aria-expanded', 'true');
+        input.setAttribute('aria-activedescendant', activeId);
+        return () => {
+            input.removeAttribute('aria-controls');
+            input.removeAttribute('aria-expanded');
+            input.removeAttribute('aria-activedescendant');
+        };
+    }, [activeId, getInput, listId]);
 
     useEffect(() => {
         setSelectedIndex(0);
@@ -59,18 +76,20 @@ export function MentionDropdown({ query, participants, onSelect, onClose }: Ment
     if (filtered.length === 0) return null;
 
     return (
-        <div ref={listRef} className="absolute bottom-full left-0 z-30 mb-1 w-64 rounded-lg border border-border bg-popover py-1 shadow-lg">
+        <div id={listId} role="listbox" aria-label="People to mention" className="absolute bottom-full left-0 z-30 mb-1 w-64 rounded-lg border border-border bg-popover py-1 shadow-lg">
             {filtered.map((participant, index) => {
                 const identity = buildIdentityPresentation(participant);
                 return (
-                    <button
+                    <div
                         key={participant.id}
-                        type="button"
+                        id={`${listId}-${participant.id}`}
+                        role="option"
+                        aria-selected={index === selectedIndex}
                         onMouseDown={(e) => {
                             e.preventDefault();
                             onSelect(participant);
                         }}
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
+                        className={`flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-sm ${
                             index === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
                         }`}
                     >
@@ -79,7 +98,7 @@ export function MentionDropdown({ query, participants, onSelect, onClose }: Ment
                             <div className="truncate font-medium text-foreground">{identity.displayName}</div>
                             {identity.usernameLabel && <div className="truncate text-xs text-muted-foreground">{identity.usernameLabel}</div>}
                         </div>
-                    </button>
+                    </div>
                 );
             })}
         </div>

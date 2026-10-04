@@ -17,6 +17,7 @@ const MESSAGES: Record<string, string> = {
   chat_not_channel_admin: "Only channel admins can do that.",
   chat_channel_not_leavable: "You can't leave the project's default channel.",
   chat_channel_not_archivable: "The default channel can't be archived.",
+  chat_channel_privacy_fixed: "This conversation can't switch between public and private.",
   chat_channel_not_joinable: "This channel can't be joined.",
   chat_broadcast_mention_too_large: "@channel and @here work in channels of 100 or fewer.",
   chat_body_too_long: "Messages can be up to 4,000 characters.",

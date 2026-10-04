@@ -29,6 +29,8 @@ type Props = {
   typing?: boolean;
   /** A message to bring into view (↑ to edit your last message). */
   revealSeq?: number | null;
+  /** Loading an earlier page failed: the top says so, with Retry. */
+  olderError?: boolean;
 };
 
 function startOfDay(value: string) {
@@ -36,14 +38,27 @@ function startOfDay(value: string) {
   return new Date(y!, (m ?? 1) - 1, d ?? 1).getTime();
 }
 
-type TimelineContext = { hasOlder: boolean; loadingOlder: boolean; intro: React.ReactNode; typing: boolean };
+/** Today as yyyy-mm-dd in the reader's zone (a UTC date is tomorrow or yesterday near midnight). */
+function todayLocal() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+type TimelineContext = { hasOlder: boolean; loadingOlder: boolean; olderError: boolean; loadOlder: () => void; intro: React.ReactNode; typing: boolean };
 
 // Stable component identities (VIRT-01): inline ones would remount on every render.
 function TimelineHeader({ context }: { context?: TimelineContext }) {
   if (!context) return null;
-  return context.hasOlder
-    ? <div className="py-3 text-center text-[12px] text-muted-foreground">{context.loadingOlder ? "Loading earlier messages…" : ""}</div>
-    : <>{context.intro}</>;
+  if (!context.hasOlder) return <>{context.intro}</>;
+  if (context.olderError && !context.loadingOlder) {
+    return (
+      <div role="alert" className="py-3 text-center text-[12px] text-muted-foreground">
+        Earlier messages didn&apos;t load. <button type="button" onClick={context.loadOlder} className="font-medium text-primary underline">Retry</button>
+      </div>
+    );
+  }
+  return <div className="py-3 text-center text-[12px] text-muted-foreground">{context.loadingOlder ? "Loading earlier messages…" : ""}</div>;
 }
 // Room for the floating typing indicator only while someone types; otherwise the gap closes.
 // Growing is instant (a smooth scroll follows); shrinking glides, so nothing jumps.
@@ -52,22 +67,55 @@ function TimelineFooter({ context }: { context?: TimelineContext }) {
 }
 const COMPONENTS = { Header: TimelineHeader, Footer: TimelineFooter };
 
-/** A day separator; clicking it opens a date picker to jump to another day. */
+/**
+ * A day separator; its button opens the date picker to jump to another day (keyboard too).
+ * Without showPicker (older browsers), the date field itself shows up to type into.
+ */
 function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
+  const [typing, setTyping] = useState(false);
+  const open = () => {
+    const field = input.current;
+    if (!field) return;
+    try {
+      if (typeof field.showPicker === "function") return void field.showPicker();
+    } catch {
+      // Not allowed here (e.g. inside a cross-origin frame): type the date instead.
+    }
+    setTyping(true);
+    requestAnimationFrame(() => input.current?.focus());
+  };
   return (
-    <div className="flex items-center gap-3 px-4 py-2" role="separator" aria-label={label}>
-      <span className="h-px flex-1 bg-border" />
-      <button
-        type="button"
-        onClick={() => input.current?.showPicker?.()}
-        className="relative rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
-        title="Jump to a date"
-      >
-        {label}
-        <input ref={input} type="date" tabIndex={-1} aria-label="Jump to date" max={new Date().toISOString().slice(0, 10)} onChange={(e) => e.target.value && onPick(e.target.value)} className="pointer-events-none absolute inset-0 opacity-0" />
-      </button>
-      <span className="h-px flex-1 bg-border" />
+    <div className="flex items-center gap-3 px-4 py-2">
+      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+      <span className="relative">
+        <button
+          type="button"
+          onClick={open}
+          aria-label={`${label}. Jump to a date`}
+          className="rounded-full border border-border bg-card px-2.5 py-0.5 font-mono text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          title="Jump to a date"
+        >
+          {label}
+        </button>
+        <input
+          ref={input}
+          type="date"
+          tabIndex={typing ? 0 : -1}
+          aria-label="Jump to date"
+          max={todayLocal()}
+          onChange={(e) => {
+            if (!e.target.value) return;
+            setTyping(false);
+            onPick(e.target.value);
+          }}
+          onBlur={() => setTyping(false)}
+          className={typing
+            ? "absolute left-1/2 top-full z-20 mt-1 h-9 -translate-x-1/2 rounded-[5px] border border-input bg-card px-2 text-[13px] shadow-md"
+            : "pointer-events-none absolute inset-0 opacity-0"}
+        />
+      </span>
+      <span aria-hidden="true" className="h-px flex-1 bg-border" />
     </div>
   );
 }
@@ -76,13 +124,15 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
  * Virtualized timeline (Virtuoso prepend pattern): older pages prepend without
  * moving the reader, new messages follow only when already at the bottom.
  */
-export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead, typing = false, revealSeq = null }: Props) {
+export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead, typing = false, revealSeq = null, olderError = false }: Props) {
   const virtuoso = useRef<VirtuosoHandle>(null);
   // The divider stays where it was when the channel opened, not where the cursor moves to.
   const [dividerSeq] = useState(lastReadSeq);
   const items = useMemo(() => buildTimeline(messages, { lastReadSeq: dividerSeq, meId }), [dividerSeq, meId, messages]);
   const [atBottom, setAtBottom] = useState(true);
   const [unseen, setUnseen] = useState(0);
+  // The only thing read aloud as messages arrive: "2 new messages" (the list itself stays quiet).
+  const [announcement, setAnnouncement] = useState("");
   const [topDay, setTopDay] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<number | null>(highlightSeq ?? null);
   const [jump, setJump] = useState<{ at: number; pages: number } | null>(null);
@@ -115,9 +165,13 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   useEffect(() => {
     const before = lastNewest.current;
     lastNewest.current = newestSeq;
-    if (atBottom || newestSeq <= before) return;
+    if (newestSeq <= before) return;
     const added = newFromOthers(messages, before, meId);
-    if (added) setUnseen((n) => n + added);
+    if (!added) return;
+    const text = `${added} new message${added === 1 ? "" : "s"}`;
+    // Same words twice in a row: vary them invisibly so the screen reader speaks again.
+    setAnnouncement((previous) => (previous === text ? `${text}\u00a0` : text));
+    if (!atBottom) setUnseen((n) => n + added);
   }, [atBottom, meId, messages, newestSeq]);
   useEffect(() => {
     if (atBottom && newestSeq > 0) onSeen(newestSeq);
@@ -248,8 +302,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     <div
       className="relative min-h-0 flex-1"
       role="log"
-      aria-live="polite"
-      aria-relevant="additions"
+      aria-live="off"
       aria-label="Messages"
       onKeyDown={onListKeyDown}
       onFocus={(e) => {
@@ -272,7 +325,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
       ) : null}
       <Virtuoso<TimelineItem, TimelineContext>
         ref={virtuoso}
-        context={{ hasOlder, loadingOlder, intro, typing }}
+        context={{ hasOlder, loadingOlder, olderError, loadOlder, intro, typing }}
         className="app-scroll app-scroll-y h-full"
         data={items}
         firstItemIndex={firstItemIndex}
@@ -301,6 +354,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         }}
         components={COMPONENTS}
       />
+      <p className="sr-only" aria-live="polite">{announcement}</p>
       {!atBottom ? (
         <button type="button" onClick={toLatest} aria-label={unseen ? `Jump to latest, ${unseen} new` : "Jump to latest"} className="absolute bottom-3 right-4 z-10 inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] shadow-md">
           <ChevronDown size={16} />

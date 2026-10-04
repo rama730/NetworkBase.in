@@ -42,15 +42,16 @@ const ICONS: Record<ChannelTabItem["kind"], typeof Pin> = {
 export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseTab, onAddCanvas, onAddTasks, onAddFiles, onAddBookmark, onEditTabs, hasCanvas = false }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Arrows move between tabs. No delete key: removing a shared tab affects everyone, so it's the × (with Undo).
+  // Arrows, Home and End move between tabs. No delete key: removing a shared tab affects everyone, so it's the × (with Undo).
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const elements = Array.from(containerRef.current?.querySelectorAll<HTMLElement>('[role="tab"], [data-add-tab-trigger]') ?? []);
     const index = elements.indexOf(e.currentTarget as HTMLElement);
-    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
-      e.preventDefault();
-      const step = e.key === "ArrowRight" ? 1 : -1;
-      elements[(index + step + elements.length) % elements.length]?.focus();
-    }
+    const next = e.key === "ArrowRight" ? (index + 1) % elements.length
+      : e.key === "ArrowLeft" ? (index - 1 + elements.length) % elements.length
+      : e.key === "Home" ? 0 : e.key === "End" ? elements.length - 1 : null;
+    if (next === null) return;
+    e.preventDefault();
+    elements[next]?.focus();
   }, []);
 
   const tabClass = "nb-tab inline-flex items-center border-b-2 px-2 pb-2 text-[13px] font-medium transition-colors";
@@ -81,6 +82,8 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
               <button
                 type="button"
                 role="tab"
+                id={`conversation-tab-${tab.id}`}
+                aria-controls="conversation-tabpanel"
                 aria-selected={selected}
                 tabIndex={selected ? 0 : -1}
                 onClick={() => onSelectTab(tab.id)}
@@ -89,7 +92,7 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
               >
                 <Icon size={13} className="mr-1.5 shrink-0 opacity-70" aria-hidden="true" />
                 <span className="max-w-[130px] truncate">{tab.title}</span>
-                {tab.kind === "pins" && pinCount > 0 ? <span className="nb-tab-count ml-1.5" aria-label={`${pinCount} pinned messages`}>{pinCount}</span> : null}
+                {tab.kind === "pins" && pinCount > 0 ? <span className="nb-tab-count ml-1.5">{pinCount}<span className="sr-only"> pinned</span></span> : null}
               </button>
             )}
             {closable ? (

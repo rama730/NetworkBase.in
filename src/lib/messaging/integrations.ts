@@ -77,7 +77,7 @@ export async function postInviteCard(input: {
       card,
       pinned: false,
     };
-    publishSentMessage({ message, notify: result.notify ?? [], mentioned: [], channelName: null });
+    publishSentMessage({ message, notify: result.notify ?? [], mentioned: [], channelLabel: null });
   }
   return channelId;
 }

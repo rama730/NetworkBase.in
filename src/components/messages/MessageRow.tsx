@@ -254,7 +254,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   const list: Action[] = [];
   if (actions) {
     if (!ctx.inThread) list.push({ id: "reply", label: "Reply in thread", icon: MessageSquareText, run: () => ctx.openThread(message.seq), shortcut: "T", group: 1 });
-    if (ctx.setSaved) list.push({ id: "save", label: saved ? "Remove from saved" : "Save for later", icon: saved ? BookmarkCheck : Bookmark, run: () => ctx.setSaved?.(message.seq, !saved), shortcut: "S", group: 1 });
+    if (ctx.setSaved) list.push({ id: "save", label: saved ? "Remove from Saved" : "Save", icon: saved ? BookmarkCheck : Bookmark, run: () => ctx.setSaved?.(message.seq, !saved), shortcut: "S", group: 1 });
     if (ctx.share && hasContent) list.push({ id: "share", label: "Share message", icon: Forward, run: () => ctx.share?.(message.seq), group: 1 });
     if (hasContent) list.push({ id: "copy-text", label: "Copy text", icon: Copy, run: copyText, group: 2 });
     list.push({ id: "copy-link", label: "Copy link", icon: Link2, run: copyLink, group: 2 });
@@ -321,7 +321,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
               {message.pinned || saved ? (
                 <span className="flex gap-0.5 pt-1.5 group-hover/msg:hidden">
                   {message.pinned ? <Pin size={11} aria-label="Pinned" className="text-muted-foreground" /> : null}
-                  {saved ? <Bookmark size={11} aria-label="Saved for later" className="text-[var(--chat-accent)]" fill="currentColor" /> : null}
+                  {saved ? <Bookmark size={11} aria-label="Saved" className="text-[var(--chat-accent)]" fill="currentColor" /> : null}
                 </span>
               ) : null}
             </>
@@ -339,7 +339,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
               </PersonHoverCard>
               <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="font-mono text-[12px] text-muted-foreground hover:underline">{formatChatTime(message.created_at, "clock")}</button>
               {message.pinned ? <Pin size={12} aria-label="Pinned" className="text-muted-foreground" /> : null}
-              {saved ? <Bookmark size={12} aria-label="Saved for later" className="text-[var(--chat-accent)]" fill="currentColor" /> : null}
+              {saved ? <Bookmark size={12} aria-label="Saved" className="text-[var(--chat-accent)]" fill="currentColor" /> : null}
             </div>
           )}
           {deleted ? (

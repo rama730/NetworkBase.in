@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArrowLeft, AtSign, Bell, BellOff, Check, Hash, Link2, Lock, MoreHorizontal, Search, Star, UserPlus, Users } from "lucide-react";
+import { Archive, ArrowLeft, AtSign, Bell, BellOff, Check, ExternalLink, Hash, Link2, Lock, MoreHorizontal, Search, Star, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
@@ -36,7 +36,7 @@ import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import type { ChannelDetails } from "@/app/actions/chat/channels";
 import type { CanvasTemplate } from "@/lib/messaging/canvas-store";
 import { conversationTabs, restoreTabOrder, type ChannelTabItem } from "@/lib/messaging/channel-tabs";
-import { canAddPeople, channelTitle, isSelfDm, personName } from "@/lib/messaging/channel-view";
+import { canAddPeople, channelTitle, isSelfDm, notifyChoice, notifyChoices, notifyLabel, personName } from "@/lib/messaging/channel-view";
 import { CHAT_BROADCAST_MENTION_MAX_MEMBERS } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, type DetailsTab } from "@/lib/messaging/routes";
@@ -44,6 +44,8 @@ import type { ChatMessageView, ChatNotify } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
 import { useConversationExit } from "@/components/messages/useConversationExit";
+import { useChatWindow } from "@/components/messages/chat-window-store";
+import { ConnectionBanner } from "@/components/messages/ConnectionBanner";
 import { DropOverlay, draftKeyOf, dropFilesTo, useFileDrop } from "@/components/messages/useFileDrop";
 import { ConversationIcon } from "@/components/messages/ConversationIcon";
 
@@ -54,11 +56,10 @@ type Props = {
   surface?: "page" | "window";
   onBack?: () => void;
   onOpenThread?: (rootSeq: number) => void;
-  /** Launcher header controls (open full page, minimize, close). */
+  /** Launcher header controls (minimize, close); the window ⋯ adds Open in Messages. */
   windowActions?: React.ReactNode;
 };
 
-const NOTIFY_LABEL: Record<ChatNotify, string> = { all: "All messages", mentions: "Mentions only", mute: "Muted" };
 
 function IntroButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return <button type="button" onClick={onClick} className="inline-flex h-8 items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium hover:bg-muted">{children}</button>;
@@ -415,7 +416,10 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     return true;
   };
   const exit = useConversationExit({ id: channelId, project_id: channel?.project_id ?? null, kind: channel?.kind ?? "public", name: channel?.name ?? null });
-  const closeConversation = () => exit.close();
+  // In the window, a conversation you close or leave drops back to the list.
+  const closeConversation = async () => {
+    if (await exit.close() && surface === "window") onBack?.();
+  };
   const join = async () => {
     const result = await joinChannel({ channelId });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
@@ -427,7 +431,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     const action = confirm;
     setConfirm(null);
     if (action === "archive") await exit.archive();
-    else await exit.leave();
+    else if (await exit.leave() && surface === "window") onBack?.();
   };
 
   if (details.isError) {
@@ -447,13 +451,12 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const dmOnline = channel.kind === "dm" && channel.dm_user ? online[channel.dm_user.id] : undefined;
   const placeholder = isDirect ? `Message ${title}` : `Message #${title}`;
   const displayName = isChannel ? `#${title}` : title;
-  const notify = (channel.notify ?? "all") as ChatNotify;
+  const notify = notifyChoice(channel, (channel.notify ?? "all") as ChatNotify);
   const NotifyIcon = notify === "mute" ? BellOff : notify === "mentions" ? AtSign : Bell;
+  const notifyText = notifyLabel(channel, notify);
   const notifyMenu = (
     <DropdownMenuRadioGroup value={notify} onValueChange={(value) => void setState({ notify: value as ChatNotify })}>
-      <DropdownMenuRadioItem value="all">All messages</DropdownMenuRadioItem>
-      <DropdownMenuRadioItem value="mentions">Mentions only</DropdownMenuRadioItem>
-      <DropdownMenuRadioItem value="mute">Mute</DropdownMenuRadioItem>
+      {notifyChoices(channel).map((choice) => <DropdownMenuRadioItem key={choice.value} value={choice.value}>{choice.label}</DropdownMenuRadioItem>)}
     </DropdownMenuRadioGroup>
   );
   const headerButton = "grid size-8 pointer-coarse:size-11 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground";
@@ -509,11 +512,37 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               <button type="button" onClick={() => openDetails("about")} className="block text-left text-[12px] text-muted-foreground/80 hover:text-foreground">Add a topic</button>
             ) : null}
           </div>
-          {surface === "window" ? windowActions : (
+          {surface === "window" ? (
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="nb-icon-button nb-touch-target" aria-label="More options">
+                  <MoreHorizontal size={16} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {isMember ? (
+                    <>
+                      <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                      {notifyMenu}
+                      <DropdownMenuSeparator />
+                      {channel.kind === "dm" ? (
+                        <DropdownMenuItem onSelect={() => void closeConversation()}>Close conversation</DropdownMenuItem>
+                      ) : !channel.is_default && !channel.application_id ? (
+                        <DropdownMenuItem onSelect={() => setConfirm("leave")}>Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
+                      ) : null}
+                    </>
+                  ) : null}
+                  <DropdownMenuItem onSelect={() => { useChatWindow.getState().close(); router.push(conversationHref(channelId)); }}>
+                    <ExternalLink size={14} className="mr-2" /> Open in Messages
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {windowActions}
+            </>
+          ) : (
             <>
               {isMember ? (
                 <DropdownMenu>
-                  <DropdownMenuTrigger className={headerButton} aria-label={`Notifications: ${NOTIFY_LABEL[notify]}`} title={`Notifications: ${NOTIFY_LABEL[notify]}`}>
+                  <DropdownMenuTrigger className={headerButton} aria-label={`Notifications: ${notifyText}`} title={`Notifications: ${notifyText}`}>
                     <NotifyIcon size={16} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
@@ -561,7 +590,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${conversationHref(channelId)}`, "Link copied"); }}>
                       <Link2 size={14} className="mr-2" /> Copy link
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={markAllRead}><Check size={14} className="mr-2" /> Mark as read</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => { markAllRead(); toast.success("Conversation marked as read"); }}><Check size={14} className="mr-2" /> Mark as read</DropdownMenuItem>
                     {channel.kind === "dm" || (!channel.is_default && !channel.application_id) || (channel.can_admin && isChannel && !channel.is_default) ? <DropdownMenuSeparator /> : null}
                     {channel.kind === "dm" ? (
                       <DropdownMenuItem onSelect={() => void closeConversation()}>Close conversation</DropdownMenuItem>
@@ -596,6 +625,11 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           />
         ) : null}
 
+        {/* The tab bar's panel (labelled by the selected tab); without a tab bar it's a plain column. */}
+        <div
+          className="flex min-h-0 flex-1 flex-col"
+          {...(isMember && surface === "page" ? { id: "conversation-tabpanel", role: "tabpanel", "aria-labelledby": `conversation-tab-${activeTab.id}` } : {})}
+        >
         {!isMember && !canPreview ? (
           <div className="grid flex-1 place-items-center p-6 text-center">
             <div className="max-w-sm space-y-3">
@@ -625,6 +659,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
         ) : (
           <div className="relative flex min-h-0 flex-1 flex-col" {...(isMember && !archived ? drop.handlers : {})}>
             <DropOverlay show={drop.dragging} />
+            <ConnectionBanner status={conversation.status} />
             {conversation.query.isLoading && !conversation.messages.length ? <TimelineSkeleton /> : (
               <Timeline
                 key={`${channelId}:${timeline.epoch}`}
@@ -633,6 +668,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 meId={meId}
                 hasOlder={Boolean(conversation.query.hasNextPage)}
                 loadingOlder={conversation.query.isFetchingNextPage}
+                olderError={conversation.query.isFetchNextPageError}
                 loadOlder={() => void conversation.query.fetchNextPage()}
                 intro={<Intro channel={channel} meId={meId} isMember={isMember} onDetails={() => openDetails("about")} onAddPeople={() => setDialog("people")} onCanvas={isChannel ? () => openCanvas() : undefined} />}
                 highlightSeq={around}
@@ -672,6 +708,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             )}
           </div>
         )}
+        </div>
       </section>
       {dialog === "bookmark" ? <AddTabLinkDialog open onOpenChange={(open) => !open && setDialog(null)} onAddTab={(name, url) => void addTab("link", name, url)} /> : null}
       {dialog === "tabs" ? <EditTabsDialog open onOpenChange={(open) => !open && setDialog(null)} tabs={tabs.filter((t) => t.shared)} onSaveTabs={(next) => void saveTabs(next)} /> : null}
