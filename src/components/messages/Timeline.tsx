@@ -44,8 +44,9 @@ function TimelineHeader({ context }: { context?: TimelineContext }) {
     : <>{context.intro}</>;
 }
 // Room for the floating typing indicator only while someone types; otherwise the gap closes.
+// Growing is instant (a smooth scroll follows); shrinking glides, so nothing jumps.
 function TimelineFooter({ context }: { context?: TimelineContext }) {
-  return <div className={context?.typing ? "h-6" : "h-2"} />;
+  return <div className={context?.typing ? "h-6" : "h-2 transition-[height] duration-200 ease-out motion-reduce:transition-none"} />;
 }
 const COMPONENTS = { Header: TimelineHeader, Footer: TimelineFooter };
 
@@ -118,7 +119,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   // once the taller footer is in the DOM; scrolling past the end stops at the real bottom.
   useEffect(() => {
     if (!typing || !atBottom) return;
-    const frame = requestAnimationFrame(() => virtuoso.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER }));
+    const frame = requestAnimationFrame(() => virtuoso.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER, behavior: "smooth" }));
     return () => cancelAnimationFrame(frame);
   }, [atBottom, typing]);
   useEffect(() => {

@@ -103,11 +103,20 @@ function AwayMentionNotice({ userId, name }: { userId: string; name: string }) {
 
 /** Floats just above the composer (over the timeline's bottom spacer), so nothing moves when someone starts typing. */
 function TypingIndicator({ names }: { names: string[] }) {
-  const label = typingLabel(names);
-  // Idle: render nothing, so no fade band covers the composer's top border.
+  // Keep the last typers while fading out, so the exit animates instead of vanishing.
+  const [lastNames, setLastNames] = useState(names);
+  if (names.length && names.join("\n") !== lastNames.join("\n")) setLastNames(names);
+  const visible = names.length > 0;
+  const label = typingLabel(visible ? names : lastNames);
+  // Never typed yet: render nothing, so no fade band covers the composer's top border.
   if (!label) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-3 bottom-[calc(100%+1px)] flex h-5 items-center gap-1.5 truncate bg-gradient-to-t from-card px-1 text-[12px] text-muted-foreground sm:inset-x-4" aria-live="polite">
+    <div
+      data-visible={visible}
+      aria-hidden={!visible}
+      className="pointer-events-none absolute inset-x-3 bottom-[calc(100%+1px)] flex h-5 items-center gap-1.5 truncate bg-gradient-to-t from-card px-1 text-[12px] text-muted-foreground transition-[opacity,transform] duration-200 ease-out data-[visible=false]:translate-y-1 data-[visible=false]:opacity-0 motion-reduce:transition-none sm:inset-x-4"
+      aria-live="polite"
+    >
       <span className="nb-typing-dots" aria-hidden="true"><span /><span /><span /></span>
       <span className="truncate">
         {label.names.map((name, index) => (
