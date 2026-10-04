@@ -3,10 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AtSign, Bookmark, Check, CheckCheck, ChevronDown, FileText, Hash, House, Inbox, Lock, MoreHorizontal, Pencil, Plus, Settings, SquarePen, UserPlus, Users } from "lucide-react";
+import { AtSign, Bookmark, Check, CheckCheck, ChevronDown, FileText, Hash, House, Inbox, MoreHorizontal, Pencil, Plus, Settings, SquarePen, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
-import { leaveChannel } from "@/app/actions/chat/channels";
 import { getOrCreateDm, setMemberState } from "@/app/actions/chat/members";
 import { markRead, markReadMany } from "@/app/actions/chat/read";
 import { readChatUi, saveCollapsed, useChatUi, useDrafts, writeChatUi } from "@/components/messages/chat-ui-store";
@@ -27,6 +26,9 @@ import {
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import type { ChatChannelSummary, ChatNotify } from "@/lib/messaging/types";
 import { copyWithToast } from "@/lib/clipboard";
+import { conversationHref } from "@/lib/messaging/routes";
+import { ConversationIcon } from "@/components/messages/ConversationIcon";
+import { useConversationExit } from "@/components/messages/useConversationExit";
 
 export type ChatSectionsVariant = "sidebar" | "list";
 
@@ -36,10 +38,6 @@ type Props = {
   onSelect?: (channelId: string) => void;
   onNewMessage?: () => void;
 };
-
-export function channelHref(channelId: string) {
-  return `/messages/${channelId}`;
-}
 
 function ChannelIcon({ channel, meId, online }: { channel: ChatChannelSummary; meId: string | null; online?: boolean }) {
   if (channel.kind === "dm") {
@@ -53,8 +51,7 @@ function ChannelIcon({ channel, meId, online }: { channel: ChatChannelSummary; m
       </span>
     );
   }
-  const Icon = channel.application_id ? FileText : channel.name === null ? Users : channel.kind === "private" ? Lock : Hash;
-  return <Icon size={16} aria-hidden="true" className="flex-none" />;
+  return <ConversationIcon channel={channel} size={16} aria-hidden="true" className="flex-none" />;
 }
 
 /** Like Slack: the status emoji after a DM's name (text in the tooltip); text only if there's no emoji. */
@@ -71,7 +68,7 @@ function Count({ value }: { value: number }) {
 
 function Row({ channel, meId, variant, onSelect, online, draft }: { channel: ChatChannelSummary; meId: string | null; variant: ChatSectionsVariant; onSelect?: Props["onSelect"]; online?: boolean; draft: boolean }) {
   const pathname = usePathname();
-  const href = channelHref(channel.id);
+  const href = conversationHref(channel.id);
   const current = pathname === href || pathname?.startsWith(`${href}/`);
   const count = rowCount(channel);
   const title = channelTitle(channel, meId);
@@ -120,8 +117,6 @@ function Row({ channel, meId, variant, onSelect, online, draft }: { channel: Cha
 /** Mute, star, mark read, close/leave and copy link: one list for the hover menu, the touch menu and swipe. */
 function useRowActions(channel: ChatChannelSummary) {
   const { refresh, applyRead } = useChatShell();
-  const router = useRouter();
-  const pathname = usePathname();
   const [confirmLeave, setConfirmLeave] = useState(false);
   const direct = isDirectLike(channel);
   const muted = channel.notify === "mute";
@@ -145,19 +140,13 @@ function useRowActions(channel: ChatChannelSummary) {
     });
   };
   const copy = () => {
-    void copyWithToast(`${window.location.origin}${channelHref(channel.id)}`, "Link copied");
+    void copyWithToast(`${window.location.origin}${conversationHref(channel.id)}`, "Link copied");
   };
-  const close = async () => {
-    if (!(await state({ archived: true }))) return;
-    if (pathname?.startsWith(channelHref(channel.id))) router.push("/messages");
-    toast("Conversation closed", { action: { label: "Undo", onClick: () => void state({ archived: false }) } });
-  };
+  const exit = useConversationExit(channel);
+  const close = () => void exit.close();
   const leave = async () => {
     setConfirmLeave(false);
-    const result = await leaveChannel({ channelId: channel.id });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    refresh();
-    if (pathname?.startsWith(channelHref(channel.id))) router.push("/messages");
+    await exit.leave();
   };
   const leaveDialog = (
     <ConfirmDialog
@@ -330,6 +319,9 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
   const projectId = useSelectedProject();
   const setProject = useChatUi((state) => state.setProject);
   const setInviteFor = useChatUi((state) => state.setInviteFor);
+  const router = useRouter();
+  // On the Messages page the project lives in the URL (reload keeps it); the floating window has no URL.
+  const pick = (id: string | null) => (inPage ? router.push(id ? `/messages/p/${id}` : "/messages") : setProject(id));
   const projects = projectsByActivity(data);
   const badges = projectBadges(data);
   const open = projects.find((project) => project.id === projectId) ?? null;
@@ -351,12 +343,12 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
           <DropdownMenuLabel>Switch project</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={() => setProject(null)}>
+          <DropdownMenuItem onSelect={() => pick(null)}>
             <Hash size={14} className="mr-1" /> <span className="flex-1">All projects</span>
             {!open ? <Check size={14} aria-label="Open" className="text-primary" /> : null}
           </DropdownMenuItem>
           {projects.map((project) => (
-            <DropdownMenuItem key={project.id} onSelect={() => setProject(project.id)} data-testid={`chat-project-${project.id}`}>
+            <DropdownMenuItem key={project.id} onSelect={() => pick(project.id)} data-testid={`chat-project-${project.id}`}>
               <span className="relative inline-flex flex-none"><ProjectBadge project={project} size="sm" /><ProjectPresenceBadge projectId={project.id} size={10} className="absolute" style={{ right: -3, bottom: -3 }} /></span>
               <span className="min-w-0 flex-1 truncate">{project.title}</span>
               <Count value={badges.get(project.id) ?? 0} />
@@ -440,7 +432,10 @@ export function ChatSections({ variant, onSelect, onNewMessage }: Props) {
 
   const self = sections.dms.find((c) => isSelfDm(c, meId));
   const others = sections.dms.filter((c) => c !== self).filter(keep);
-  const dmRows = variant === "sidebar" ? others.slice(0, DM_SIDEBAR_LIMIT) : others;
+  // ponytail: "N more" expands the bootstrap's DMs (the 100 most recent) in place; older ones via ⌘K
+  // or search. upgrade: page older DMs from the server when someone has more than 100.
+  const [allDms, setAllDms] = useState(false);
+  const dmRows = variant === "sidebar" && !allDms ? others.slice(0, DM_SIDEBAR_LIMIT) : others;
   const hiddenDms = others.length - dmRows.length;
   const presenceIds = useMemo(
     () => dmRows.filter((c) => c.kind === "dm" && c.dm_user && c.dm_user.id !== meId).slice(0, 3).map((c) => c.dm_user!.id),
@@ -455,7 +450,7 @@ export function ChatSections({ variant, onSelect, onNewMessage }: Props) {
     const result = self ? { success: true as const, channelId: self.id } : await getOrCreateDm({ userId: meId });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     if (onSelect) onSelect(result.channelId);
-    else router.push(channelHref(result.channelId));
+    else router.push(conversationHref(result.channelId));
     if (!self) void refresh();
   };
   const row = (channel: ChatChannelSummary) => {
@@ -624,8 +619,10 @@ export function ChatSections({ variant, onSelect, onNewMessage }: Props) {
           )
         ) : null}
         {dmRows.map(row)}
-        {hiddenDms > 0 ? (
-          <Link href="/messages/dms" className="nb-chat-row" aria-current={here("/messages/dms")}><span className="pl-6 text-muted-foreground">{hiddenDms} more</span></Link>
+        {hiddenDms > 0 || allDms && others.length > DM_SIDEBAR_LIMIT ? (
+          <button type="button" className="nb-chat-row" aria-expanded={allDms} onClick={() => setAllDms(!allDms)}>
+            <span className="pl-6 text-muted-foreground">{allDms ? "Show less" : `${hiddenDms} more`}</span>
+          </button>
         ) : null}
       </Section>
 

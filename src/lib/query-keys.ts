@@ -55,7 +55,6 @@ export const queryKeys = {
     files: (channelId: string) => ["chat-v3", "files", channelId] as const,
     reactors: (channelId: string, seq: number) => ["chat-v3", "reactors", channelId, seq] as const,
     threads: () => ["chat-v3", "threads"] as const,
-    dms: () => ["chat-v3", "dms"] as const,
     people: (query: string) => ["chat-v3", "people", query] as const,
     taskSource: (taskId: string) => ["chat-v3", "task-source", taskId] as const,
   },

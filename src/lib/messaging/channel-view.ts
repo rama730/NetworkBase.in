@@ -15,6 +15,11 @@ export function isDirectLike(channel: ChatChannelSummary) {
   return !channel.application_id && (channel.kind === "dm" || (channel.kind === "private" && channel.name === null));
 }
 
+/** Same rule as app_private.chat_add_members: any member of a live, non-DM conversation. */
+export function canAddPeople(channel: { kind: string; is_member: boolean; channel_archived_at: string | null }) {
+  return channel.is_member && channel.kind !== "dm" && !channel.channel_archived_at;
+}
+
 export function isSelfDm(channel: ChatChannelSummary, meId: string | null) {
   return channel.kind === "dm" && channel.dm_user?.id === meId;
 }

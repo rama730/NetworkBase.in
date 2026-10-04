@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { useBack } from "@/components/messages/useBack";
 
-/** Full-page views (Activity, Threads, DMs, Browse, New message): 56px header with Back below 1024px. */
+/** Full-page views (Inbox, Saved, Drafts, Search, Browse, New message): 56px header with Back below 1024px. */
 export function ViewScreen({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   const goBack = useBack();
   return (

@@ -29,6 +29,7 @@ import { formatChatTime, personName } from "@/lib/messaging/channel-view";
 import { messageHref } from "@/lib/messaging/routes";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { applyReaction, patchPages, upsertMessage } from "@/lib/messaging/timeline";
+import { REMINDER_TIMES } from "@/lib/messaging/reminders";
 import { encodeMentions, parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
 import type { ChatAttachmentView, ChatMessageView } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
@@ -56,23 +57,6 @@ function LinkPreview({ body }: { body: string }) {
   if (!url || !preview.data) return null;
   return <LinkPreviewCard preview={preview.data} isOwn={false} />;
 }
-
-function nineAm(daysAhead: (now: Date) => number) {
-  const at = new Date();
-  at.setDate(at.getDate() + daysAhead(at));
-  at.setHours(9, 0, 0, 0);
-  return at.toISOString();
-}
-const inMinutes = (minutes: number) => () => new Date(Date.now() + minutes * 60_000).toISOString();
-
-/** "Remind me about this": the times offered in both menus, computed when picked. */
-const REMINDER_TIMES = [
-  { label: "In 20 minutes", at: inMinutes(20) },
-  { label: "In 1 hour", at: inMinutes(60) },
-  { label: "In 3 hours", at: inMinutes(180) },
-  { label: "Tomorrow at 9:00", at: () => nineAm(() => 1) },
-  { label: "Next Monday at 9:00", at: () => nineAm((now) => (8 - now.getDay()) % 7 || 7) },
-];
 
 type Action = { id: string; label: string; icon: LucideIcon; run: () => void; shortcut?: string; destructive?: boolean; group: 1 | 2 | 3 };
 
@@ -311,7 +295,6 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (!open) closeTimerRef.current = setTimeout(() => setClosing(false), 250);
   };
   const groups = [1, 2, 3].map((group) => list.filter((a) => a.group === group)).filter((g) => g.length);
-  const remindMenu = REMINDER_TIMES;
   const remind = (at: () => string) => ctx.setSaved?.(message.seq, true, at());
 
   return (
@@ -439,7 +422,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger className="gap-2"><AlarmClock size={14} className="text-muted-foreground" /> Remind me about this</DropdownMenuSubTrigger>
                       <DropdownMenuSubContent className="w-48">
-                        {remindMenu.map((option) => <DropdownMenuItem key={option.label} onSelect={() => remind(option.at)}>{option.label}</DropdownMenuItem>)}
+                        {REMINDER_TIMES.map((option) => <DropdownMenuItem key={option.label} onSelect={() => remind(option.at)}>{option.label}</DropdownMenuItem>)}
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                   ) : null}
@@ -471,7 +454,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border" aria-hidden="true" />
           {sheet === "remind" ? (
             <div className="px-2 py-3 [&>button]:flex [&>button]:min-h-11 [&>button]:w-full [&>button]:items-center [&>button]:rounded-[5px] [&>button]:px-3 [&>button]:text-[15px]">
-              {remindMenu.map((option) => <button key={option.label} type="button" onClick={() => { setSheet(null); remind(option.at); }}>{option.label}</button>)}
+              {REMINDER_TIMES.map((option) => <button key={option.label} type="button" onClick={() => { setSheet(null); remind(option.at); }}>{option.label}</button>)}
             </div>
           ) : (
             <>

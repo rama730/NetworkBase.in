@@ -9,7 +9,7 @@ test.describe("Chat shell", () => {
 
   test("projects list opens in place, shows channels, switches from the name dropdown, without a request", async ({ page }) => {
     await login(page);
-    await page.goto("/messages/home");
+    await page.goto("/messages");
     await expect(page.locator("#application-sidebar")).toBeVisible();
     const aside = page.getByRole("complementary", { name: "Conversations" });
     const projects = aside.locator("[data-testid^='chat-project-']");

@@ -11,6 +11,7 @@ import { takeReactToken, takeSendToken } from "@/lib/messaging/send-bucket";
 import { sendAs, type SendInput } from "@/lib/messaging/send";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, requireChatUser, unauthorized, uuidArray } from "@/lib/messaging/server";
 import { parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
+import { messageHref } from "@/lib/messaging/routes";
 import type { ChatCardRef } from "@/lib/messaging/types";
 import { rateLimit } from "@/lib/redis";
 
@@ -190,8 +191,8 @@ export async function shareMessage(input: { channelId: string; seq: number; toCh
   if (input.note !== undefined && (typeof input.note !== "string" || input.note.length > 1000)) return invalidInput;
   if (!takeSendToken(user.id)) return { success: false as const, error: "chat_rate_limited" };
   try {
-    const [source] = await chatRows<{ body: string; author: string | null; channel_name: string | null }>(sql`
-      SELECT m.body, coalesce(pr.full_name, pr.username) AS author, c.name AS channel_name
+    const [source] = await chatRows<{ body: string; author: string | null; channel_name: string | null; thread_root_seq: number | null }>(sql`
+      SELECT m.body, m.thread_root_seq, coalesce(pr.full_name, pr.username) AS author, c.name AS channel_name
       FROM chat_messages m
       JOIN chat_channels c ON c.id = m.channel_id
       LEFT JOIN profiles pr ON pr.id = m.author_id
@@ -206,7 +207,7 @@ export async function shareMessage(input: { channelId: string; seq: number; toCh
     const text = tokensToPlainText(source.body, (id) => names.find((n) => n.id === id)?.name).trim();
     const origin = source.channel_name ? `#${source.channel_name}` : "a conversation";
     const quote = text.split("\n").map((line) => `> ${line}`).join("\n");
-    const link = `/messages/${input.channelId}?m=${input.seq}`;
+    const link = messageHref(input.channelId, input.seq, source.thread_root_seq);
     const body = [input.note?.trim(), `${quote}\n— ${source.author ?? "Someone"} in ${origin} · [View message](${link})`].filter(Boolean).join("\n\n").slice(0, CHAT_MAX_BODY);
     return await sendAs(user, { channelId: input.toChannelId, body }, null);
   } catch (error) {

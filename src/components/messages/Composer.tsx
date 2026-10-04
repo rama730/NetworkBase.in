@@ -66,6 +66,8 @@ type Props = {
   onSent?: () => void;
   /** Thread replies: offer "Also send to #channel" with this label. */
   alsoSendTo?: string | null;
+  /** New message: no conversation exists yet, so the caller sends the text (no files or scheduling until it does). */
+  send?: (body: string) => Promise<{ success: true } | { success: false; error: string }>;
 };
 
 /** "Send later" times, computed when picked (a menu left open stays right). */
@@ -144,7 +146,7 @@ function personLabel(person: ChatPerson) {
 }
 
 /** Slack-style composer (WYSIWYG, markdown out): @mentions, /task, uploads, per-conversation drafts. */
-export function Composer({ channelId, placeholder, people, threadRootSeq = null, allowBroadcast, canCreateTask, onOpenCanvas, onTyping, typingNames = [], onEditLast, onSent, alsoSendTo = null }: Props) {
+export function Composer({ channelId, placeholder, people, threadRootSeq = null, allowBroadcast, canCreateTask, onOpenCanvas, onTyping, typingNames = [], onEditLast, onSent, alsoSendTo = null, send }: Props) {
   const { user, profile } = useAuth();
   const update = useUpdatePages(channelId);
   const queryClient = useQueryClient();
@@ -365,6 +367,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
 
   const addFiles = (files: FileList | null) => {
     if (!files?.length) return;
+    if (send) return void toast.message("Add files once the conversation has started.");
     const room = CHAT_MAX_ATTACHMENTS - uploads.length;
     const picked = Array.from(files);
     if (picked.length > room) toast.error(`Up to ${CHAT_MAX_ATTACHMENTS} files per message; ${picked.length - Math.max(room, 0)} skipped.`);
@@ -458,6 +461,19 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     }
     const body = encodeMentions(text, people.map((p) => ({ id: p.id, name: personLabel(p) })));
     if (body.length > CHAT_MAX_BODY) return void toast.error(chatErrorMessage("chat_body_too_long"));
+    if (send) {
+      clear();
+      setSending(true);
+      const result = await send(body).catch(() => ({ success: false as const, error: "chat_network" })).finally(() => setSending(false));
+      if (!result.success) {
+        load(draft);
+        writeDraft(draftKey, draft);
+        toast.error(chatErrorMessage(result.error));
+        return;
+      }
+      onSent?.();
+      return;
+    }
     const clientId = crypto.randomUUID();
     const optimistic: ChatMessageView = {
       channel_id: channelId, seq: -clock(), author_id: user?.id ?? null,
@@ -626,14 +642,18 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
               <Plus size={18} />
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="start" className="w-56 p-1">
-              <DropdownMenuItem onSelect={openAttach} className="gap-2.5 cursor-pointer">
-                <Paperclip size={14} className="text-muted-foreground" />
-                <span>Upload file</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => mediaInput.current?.click()} className="gap-2.5 cursor-pointer">
-                <ImageIcon size={14} className="text-muted-foreground" />
-                <span>Photos and videos</span>
-              </DropdownMenuItem>
+              {send ? null : (
+                <>
+                  <DropdownMenuItem onSelect={openAttach} className="gap-2.5 cursor-pointer">
+                    <Paperclip size={14} className="text-muted-foreground" />
+                    <span>Upload file</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => mediaInput.current?.click()} className="gap-2.5 cursor-pointer">
+                    <ImageIcon size={14} className="text-muted-foreground" />
+                    <span>Photos and videos</span>
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuItem
                 onSelect={() => {
                   editor?.chain().focus().insertContent("```\n\n```").run();
@@ -709,7 +729,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
             disabled={!canSend || sending}
             aria-label="Send"
             title={canSend ? "Send (Enter) · Shift+Enter for new line" : uploads.some((u) => u.error) ? "Retry or remove the failed file" : "Type a message to send"}
-            className={`ml-auto inline-flex h-8 items-center gap-1.5 rounded-l-[5px] px-3.5 text-[13px] font-medium transition-colors shadow-2xs pointer-coarse:h-11 ${
+            className={`ml-auto inline-flex h-8 items-center gap-1.5 ${send ? "rounded-[5px]" : "rounded-l-[5px]"} px-3.5 text-[13px] font-medium transition-colors shadow-2xs pointer-coarse:h-11 ${
               canSend && !sending
                 ? "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
                 : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
@@ -717,7 +737,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           >
             <SendHorizontal size={15} /> <span className="hidden sm:inline">Send</span>
           </button>
-          <DropdownMenu>
+          {send ? null : <DropdownMenu>
             <DropdownMenuTrigger
               disabled={!plain.trim() || sending}
               aria-label="Schedule message"
@@ -736,7 +756,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => setCustomSchedule(localInput(new Date(clock() + 2 * 60 * 60_000)))}>Custom time…</DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu>}
         </div>
       </div>
       {threadRootSeq && alsoSendTo ? (

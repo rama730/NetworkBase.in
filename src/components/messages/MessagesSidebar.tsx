@@ -6,8 +6,8 @@ import { ChatSections } from "@/components/messages/ChatSections";
 // upgrade: show this sidebar from ~900px if tablet data shows wasted space.
 /**
  * The chat sidebar inside /messages at 1024px+, to the right of the app's own
- * navigation: Threads, Activity, Projects (open one to see its channels),
- * your applications and Direct messages. Below 1024px the List screen takes its place.
+ * navigation: Home, Inbox, Saved and Drafts, then Starred, the open project's
+ * channels, Direct messages and your applications. Below 1024px the List screen takes its place.
  */
 export function MessagesSidebar() {
   return (

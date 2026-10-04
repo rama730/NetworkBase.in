@@ -310,6 +310,13 @@ async function main() {
       return result.success && result.message.body.startsWith("look") && result.message.body.includes("> edited root")
         && result.message.body.includes(`?m=${rootSeq}`);
     });
+    await check("shareMessage of a thread reply links into its thread", async () => {
+      const thread = await messages.listThread({ channelId: general, rootSeq });
+      const replySeq = thread.success ? thread.replies[0]?.seq : undefined;
+      if (!replySeq) return false;
+      const result = await messages.shareMessage({ channelId: general, seq: replySeq, toChannelId: dmId });
+      return result.success && result.message.body.includes(`/messages/${general}?m=${replySeq}&thread=${rootSeq}`);
+    });
     await check("channel tabs are shared: add, rename, remove", async () => {
       const added = await channels.addChannelTab({ channelId: general, kind: "link", title: "Spec", url: "https://example.test/spec" });
       const bad = await channels.addChannelTab({ channelId: general, kind: "link", title: "Bad", url: "javascript:alert(1)" });
@@ -392,10 +399,6 @@ async function main() {
     await check("threads lists the followed thread", async () => {
       const result = await activity.listThreads();
       return result.success && result.threads.some((t) => t.channel_id === general && t.root_seq === rootSeq);
-    });
-    await check("direct message list includes the DM with its preview", async () => {
-      const result = await activity.listDirectMessages();
-      return result.success && result.channels.some((c) => c.id === dmId && Boolean(c.last_preview));
     });
     await check("setMemberState stars and mutes", async () => {
       const result = await members.setMemberState({ channelId: dmId, starred: true, notify: "mute" });

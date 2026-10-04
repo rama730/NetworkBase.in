@@ -20,7 +20,7 @@ const ids = (tabs: { id: string }[]) => tabs.map((t) => t.id);
 test("tabs: Messages always; Pins once pinned (or open); canvas unless hidden; Files and Tasks only when added", () => {
   const base = { pinCount: 0, canvasTitle: null, canvasHidden: false, active: "messages", shared: [], projectId: "p1" };
   assert.deepEqual(ids(conversationTabs(base)), ["messages"], "Files isn't open by default");
-  assert.deepEqual(ids(conversationTabs({ ...base, active: "files" })), ["messages", "files"], "Files opened from the menu shows while open");
+  assert.deepEqual(ids(conversationTabs({ ...base, active: "files" })), ["messages"], "Files is one shared tab, added from +");
   assert.deepEqual(ids(conversationTabs({ ...base, pinCount: 2 })), ["messages", "pins"]);
   assert.deepEqual(ids(conversationTabs({ ...base, active: "pins" })), ["messages", "pins"], "an open Pins tab stays while empty");
   assert.deepEqual(ids(conversationTabs({ ...base, canvasTitle: "Plan" })), ["messages", "canvas"]);

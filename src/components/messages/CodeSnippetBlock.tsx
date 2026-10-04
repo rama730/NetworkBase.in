@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, ExternalLink, Terminal } from "lucide-react";
-import { toast } from "sonner";
-import { buildIdeLaunchUri, dispatchIdeProtocol } from "@/lib/extension/ide-protocol";
+import { Check, Copy, Terminal } from "lucide-react";
+import { copyWithToast } from "@/lib/clipboard";
 
 type Props = {
   language?: string;
@@ -16,30 +15,9 @@ export function CodeSnippetBlock({ language = "text", code }: Props) {
   const lines = cleanCode.split("\n");
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(cleanCode);
-      setCopied(true);
-      toast.success("Code copied to clipboard");
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Failed to copy code");
-    }
-  };
-
-  const openInIde = () => {
-    try {
-      // Launch via desktop IDE protocol
-      const uri = buildIdeLaunchUri({
-        ide: "cursor",
-        projectId: "chat-snippet",
-      });
-      dispatchIdeProtocol(uri, () => {
-        void copy();
-      });
-      toast.success("Opening in IDE...");
-    } catch {
-      void copy();
-    }
+    if (!(await copyWithToast(cleanCode, "Code copied"))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const displayLang = language.replace(/^language-/, "").toLowerCase() || "code";
@@ -58,15 +36,6 @@ export function CodeSnippetBlock({ language = "text", code }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={openInIde}
-            className="inline-flex h-6 items-center gap-1 rounded-[4px] px-2 text-[11px] font-medium hover:bg-card hover:text-foreground transition-colors"
-            title="Open in your desktop editor"
-          >
-            <ExternalLink size={12} />
-            <span className="hidden sm:inline">Open in IDE</span>
-          </button>
           <button
             type="button"
             onClick={() => void copy()}

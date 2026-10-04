@@ -49,6 +49,7 @@ import {
 } from "@/lib/projects/task-workflow";
 import type { TaskPanelTab } from "@/hooks/useTaskPanelResource";
 import { buildProjectPersonReference } from "@/lib/projects/settings-policies";
+import { conversationHref } from "@/lib/messaging/routes";
 import { cn } from "@/lib/utils";
 
 interface DetailsTabProps {
@@ -431,7 +432,7 @@ export default function DetailsTab({
             </div>
             {sourceLink.channel_id ? (
               <a
-                href={`/messages/${sourceLink.channel_id}?m=${sourceLink.seq}`}
+                href={conversationHref(sourceLink.channel_id, { m: sourceLink.seq })}
                 className="inline-flex items-center gap-1 rounded-[5px] border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
               >
                 Open source

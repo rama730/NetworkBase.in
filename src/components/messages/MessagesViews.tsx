@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AlarmClock, AtSign, CheckCheck, ChevronDown, Clock, Hash, MessageSquareText, Paperclip, Pencil, Plus, Search, SmilePlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { listDirectMessages, listInbox, listThreads, markInboxRead, type InboxFilter, type InboxItem, type ThreadItem } from "@/app/actions/chat/activity";
+import { listInbox, listThreads, markInboxRead, type InboxFilter, type InboxItem, type ThreadItem } from "@/app/actions/chat/activity";
 import { browseChannels, joinChannel } from "@/app/actions/chat/channels";
 import { cancelScheduled, listSaved, listScheduled, saveMessage, type SavedItem } from "@/app/actions/chat/later";
 import { searchMessages, type SearchHit } from "@/app/actions/chat/search";
@@ -19,9 +19,10 @@ import { ViewScreen } from "@/components/messages/ViewScreen";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, formatChatTime, isDirectLike, isUnread, needsAttention, personName, rowCount } from "@/lib/messaging/channel-view";
+import { channelTitle, formatChatTime, isDirectLike, personName } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, threadHref } from "@/lib/messaging/routes";
+import { REMINDER_TIMES } from "@/lib/messaging/reminders";
 import { tokensToPlainText } from "@/lib/messaging/tokens";
 import type { ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
@@ -56,6 +57,27 @@ function LoadMore({ hasMore, loading, onLoad }: { hasMore: boolean; loading: boo
 function where(item: { channel_name: string | null; channel_title?: string | null; channel_kind: string }) {
   if (item.channel_name) return `#${item.channel_name}`;
   return item.channel_title || (item.channel_kind === "dm" ? "a direct message" : "a group conversation");
+}
+
+/** One row for Inbox, Threads, Saved and Search: avatar, who · where · when, then the message. */
+function SnippetRow({ href, onOpen, author, head, time, body, dim, unread, extra, aside }: {
+  href: string; onOpen?: () => void; author: ChatPerson | null; head: React.ReactNode; time: string | null; body: React.ReactNode;
+  dim?: boolean; unread?: boolean; extra?: React.ReactNode; aside?: React.ReactNode;
+}) {
+  return (
+    <div className="flex gap-3 px-4 py-3 hover:bg-muted/60" data-unread={unread ? "true" : undefined}>
+      <UserAvatar identity={author} size={34} roundedClassName="rounded-[5px]" />
+      <Link href={href} onClick={onOpen} className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5 text-[13px]">
+          {head}
+          <span className="ml-auto flex-none font-mono text-[12px] text-muted-foreground">{when(time)}</span>
+        </span>
+        <span className={`mt-0.5 line-clamp-2 block text-[15px] ${dim ? "text-muted-foreground" : ""}`}>{body}</span>
+        {extra}
+      </Link>
+      {aside}
+    </div>
+  );
 }
 
 /** /messages/p/[projectId]: select the project; displays channels in sidebar while main pane shows placeholder. */
@@ -168,20 +190,22 @@ function describe(item: InboxItem) {
 function InboxRow({ item, onOpen }: { item: InboxItem; onOpen: (item: InboxItem) => void }) {
   const href = item.thread_root_seq ? threadHref(item.channel_id, item.thread_root_seq) : conversationHref(item.channel_id, { m: item.seq });
   return (
-    <Link href={href} onClick={() => onOpen(item)} className="flex min-h-16 gap-3 px-4 py-3 hover:bg-muted" data-unread={item.read ? undefined : "true"}>
-      <UserAvatar identity={item.author} size={34} roundedClassName="rounded-[5px]" />
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-[13px]">
-          <InboxIcon kind={item.kind} />
-          <span className={item.read ? "font-medium" : "font-semibold"}>{personName(item.author)}</span>
-          <span className="min-w-0 truncate text-muted-foreground">{describe(item)} in {where(item)}</span>
-          {item.project_title ? <span className="hidden flex-none rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground sm:inline">{item.project_title}</span> : null}
-          <span className="ml-auto flex-none font-mono text-[12px] text-muted-foreground">{when(item.created_at)}</span>
-        </span>
-        <span className={`mt-0.5 line-clamp-2 block text-[15px] ${item.read ? "text-muted-foreground" : ""}`}>{tokensToPlainText(item.body) || "Attachment"}</span>
-      </span>
-      {!item.read ? <span className="mt-2 size-2 flex-none rounded-full bg-[var(--chat-accent)]" aria-label="Unread" /> : null}
-    </Link>
+    <SnippetRow
+      href={href}
+      onOpen={() => onOpen(item)}
+      author={item.author}
+      unread={!item.read}
+      dim={item.read}
+      time={item.created_at}
+      body={tokensToPlainText(item.body) || "Attachment"}
+      head={<>
+        <InboxIcon kind={item.kind} />
+        <span className={item.read ? "font-medium" : "font-semibold"}>{personName(item.author)}</span>
+        <span className="min-w-0 truncate text-muted-foreground">{describe(item)} in {where(item)}</span>
+        {item.project_title ? <span className="hidden flex-none rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground sm:inline">{item.project_title}</span> : null}
+      </>}
+      aside={!item.read ? <span className="mt-2 size-2 flex-none rounded-full bg-[var(--chat-accent)]" aria-label="Unread" /> : null}
+    />
   );
 }
 
@@ -220,32 +244,34 @@ function ThreadRow({ thread }: { thread: ThreadItem }) {
   const [replying, setReplying] = useState(false);
   // @mentions in the inline reply need the conversation's people (loaded only once Reply is open).
   const members = useChannelMembers(thread.channel_id, replying);
-  const label = thread.channel_name ? `#${thread.channel_name}` : thread.channel_title ?? "Direct message";
+  const label = where(thread);
   return (
     <li className="border-b border-border">
-      <div className="flex gap-3 px-4 py-3 hover:bg-muted/60" data-unread={thread.unread ? "true" : undefined}>
-        <UserAvatar identity={thread.author} size={34} roundedClassName="rounded-[5px]" />
-        <Link href={threadHref(thread.channel_id, thread.root_seq)} className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5 text-[13px]">
-            <MessageSquareText size={12} aria-hidden="true" />
-            <span className={thread.unread ? "font-semibold" : "font-medium"}>{label}</span>
-            {thread.project_title ? <span className="hidden rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground sm:inline">{thread.project_title}</span> : null}
-            <span className="text-muted-foreground">{thread.reply_count} {thread.reply_count === 1 ? "reply" : "replies"}</span>
-            <span className="ml-auto font-mono text-[12px] text-muted-foreground">{when(thread.last_reply_at)}</span>
+      <SnippetRow
+        href={threadHref(thread.channel_id, thread.root_seq)}
+        author={thread.author}
+        unread={thread.unread}
+        time={thread.last_reply_at}
+        body={tokensToPlainText(thread.body) || "Attachment"}
+        head={<>
+          <MessageSquareText size={12} aria-hidden="true" />
+          <span className={thread.unread ? "font-semibold" : "font-medium"}>{label}</span>
+          {thread.project_title ? <span className="hidden rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground sm:inline">{thread.project_title}</span> : null}
+          <span className="text-muted-foreground">{thread.reply_count} {thread.reply_count === 1 ? "reply" : "replies"}</span>
+        </>}
+        extra={thread.participants?.length ? (
+          <span className="mt-1 flex items-center gap-1.5 text-[12px] text-muted-foreground">
+            <span className="inline-flex -space-x-1">{thread.participants.slice(0, 4).map((p: ChatPerson) => <span key={p.id} className="inline-block rounded-[3px] ring-2 ring-card"><UserAvatar identity={p} size={16} roundedClassName="rounded-[3px]" /></span>)}</span>
+            {thread.participants.map((p) => personName(p).split(" ")[0]).slice(0, 3).join(", ")}
           </span>
-          <span className="mt-0.5 line-clamp-2 block text-[15px]">{tokensToPlainText(thread.body) || "Attachment"}</span>
-          {thread.participants?.length ? (
-            <span className="mt-1 flex items-center gap-1.5 text-[12px] text-muted-foreground">
-              <span className="inline-flex -space-x-1">{thread.participants.slice(0, 4).map((p: ChatPerson) => <span key={p.id} className="inline-block rounded-[3px] ring-2 ring-card"><UserAvatar identity={p} size={16} roundedClassName="rounded-[3px]" /></span>)}</span>
-              {thread.participants.map((p) => personName(p).split(" ")[0]).slice(0, 3).join(", ")}
-            </span>
-          ) : null}
-        </Link>
-        <div className="flex flex-none flex-col items-end gap-2">
-          {thread.unread ? <span className="mt-1 size-2 rounded-full bg-[var(--chat-accent)]" aria-label="Unread" /> : <span className="mt-1 size-2" />}
-          <button type="button" onClick={() => setReplying(!replying)} aria-expanded={replying} className="rounded-[5px] border border-border px-2 py-0.5 text-[12px] font-medium hover:bg-card pointer-coarse:min-h-11 pointer-coarse:px-3">Reply</button>
-        </div>
-      </div>
+        ) : null}
+        aside={
+          <div className="flex flex-none flex-col items-end gap-2">
+            {thread.unread ? <span className="mt-1 size-2 rounded-full bg-[var(--chat-accent)]" aria-label="Unread" /> : <span className="mt-1 size-2" />}
+            <button type="button" onClick={() => setReplying(!replying)} aria-expanded={replying} className="rounded-[5px] border border-border px-2 py-0.5 text-[12px] font-medium hover:bg-card pointer-coarse:min-h-11 pointer-coarse:px-3">Reply</button>
+          </div>
+        }
+      />
       {replying ? (
         <Composer
           channelId={thread.channel_id}
@@ -356,12 +382,6 @@ export function InboxView() {
   );
 }
 
-const REMIND_OPTIONS = [
-  { label: "In 1 hour", at: () => new Date(Date.now() + 60 * 60_000) },
-  { label: "In 3 hours", at: () => new Date(Date.now() + 3 * 60 * 60_000) },
-  { label: "Tomorrow at 9:00", at: () => { const at = new Date(); at.setDate(at.getDate() + 1); at.setHours(9, 0, 0, 0); return at; } },
-];
-
 /** Saved for later, with reminders; due ones first. */
 export function SavedView() {
   const queryClient = useQueryClient();
@@ -398,35 +418,38 @@ export function SavedView() {
           const due = item.remind_at && !item.reminded_at && Date.parse(item.remind_at) <= now + 60_000;
           const href = item.thread_root_seq ? threadHref(item.channel_id, item.thread_root_seq) : conversationHref(item.channel_id, { m: item.seq });
           return (
-            <li key={`${item.channel_id}:${item.seq}`} className="flex gap-3 border-b border-border px-4 py-3">
-              <UserAvatar identity={item.author} size={34} roundedClassName="rounded-[5px]" />
-              <Link href={href} className="min-w-0 flex-1">
-                <span className="flex items-baseline gap-2 text-[13px]">
+            <li key={`${item.channel_id}:${item.seq}`} className="border-b border-border">
+              <SnippetRow
+                href={href}
+                author={item.author}
+                time={item.created_at}
+                body={tokensToPlainText(item.body) || "Attachment"}
+                head={<>
                   <span className="font-medium">{personName(item.author)}</span>
                   <span className="truncate text-muted-foreground">in {where(item)}</span>
-                  <span className="ml-auto flex-none font-mono text-[12px] text-muted-foreground">{when(item.created_at)}</span>
-                </span>
-                <span className="mt-0.5 line-clamp-3 block text-[15px]">{tokensToPlainText(item.body) || "Attachment"}</span>
-                {item.remind_at ? (
+                </>}
+                extra={item.remind_at ? (
                   <span className={`mt-1 inline-flex items-center gap-1 text-[12px] ${due || item.reminded_at ? "font-medium text-[var(--status-warning)]" : "text-muted-foreground"}`}>
                     <AlarmClock size={12} aria-hidden="true" />
                     {item.reminded_at ? "Reminded" : due ? "Due now" : "Reminder"} · {new Date(item.remind_at).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}
                   </span>
                 ) : null}
-              </Link>
-              <div className="flex flex-none items-start gap-1">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-11" aria-label="Remind me" title="Remind me">
-                    <AlarmClock size={15} />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    {REMIND_OPTIONS.map((option) => <DropdownMenuItem key={option.label} onSelect={() => void act(item, true, option.at())}>{option.label}</DropdownMenuItem>)}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <button type="button" onClick={() => void act(item, false)} className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-11" aria-label="Mark done" title="Done (remove from Saved)">
-                  <CheckCheck size={15} />
-                </button>
-              </div>
+                aside={
+                  <div className="flex flex-none items-start gap-1">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-11" aria-label="Remind me" title="Remind me">
+                        <AlarmClock size={15} />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        {REMINDER_TIMES.map((option) => <DropdownMenuItem key={option.label} onSelect={() => void act(item, true, new Date(option.at()))}>{option.label}</DropdownMenuItem>)}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <button type="button" onClick={() => void act(item, false)} className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-11" aria-label="Mark done" title="Done (remove from Saved)">
+                      <CheckCheck size={15} />
+                    </button>
+                  </div>
+                }
+              />
             </li>
           );
         })}
@@ -451,6 +474,7 @@ export function DraftsView() {
     },
   });
   const titleOf = (channelId: string) => {
+    if (channelId === "new") return "New message";
     const channel = data?.channels.find((c) => c.id === channelId);
     if (!channel) return "a conversation";
     const title = channelTitle(channel, meId);
@@ -613,19 +637,18 @@ export function SearchView() {
       {results.data?.length ? <p className="px-4 pt-3 text-[12px] text-muted-foreground">{results.data.length === 50 ? "Newest 50 results" : `${results.data.length} result${results.data.length === 1 ? "" : "s"}`}</p> : null}
       <ul aria-label="Search results">
         {(results.data ?? []).map((hit: SearchHit) => (
-          <li key={`${hit.channel_id}:${hit.seq}`}>
-            <Link href={hit.thread_root_seq ? `${threadHref(hit.channel_id, hit.thread_root_seq)}` : conversationHref(hit.channel_id, { m: hit.seq })} className="flex gap-3 border-b border-border px-4 py-3 hover:bg-muted">
-              <UserAvatar identity={hit.author} size={30} roundedClassName="rounded-[5px]" />
-              <span className="min-w-0 flex-1">
-                <span className="flex items-baseline gap-2 text-[13px]">
-                  <span className="font-medium">{personName(hit.author)}</span>
-                  <span className="truncate text-muted-foreground">in {hit.channel_name ? `#${hit.channel_name}` : conversations.find((c) => c.id === hit.channel_id)?.title ?? "a conversation"}{hit.thread_root_seq ? " · thread" : ""}</span>
-                  {hit.has_file ? <Paperclip size={12} aria-label="Has a file" className="text-muted-foreground" /> : null}
-                  <span className="ml-auto flex-none font-mono text-[12px] text-muted-foreground">{when(hit.created_at)}</span>
-                </span>
-                <span className="mt-0.5 line-clamp-3 block text-[15px]"><Highlighted text={tokensToPlainText(hit.body)} query={q} /></span>
-              </span>
-            </Link>
+          <li key={`${hit.channel_id}:${hit.seq}`} className="border-b border-border">
+            <SnippetRow
+              href={hit.thread_root_seq ? threadHref(hit.channel_id, hit.thread_root_seq) : conversationHref(hit.channel_id, { m: hit.seq })}
+              author={hit.author}
+              time={hit.created_at}
+              body={<Highlighted text={tokensToPlainText(hit.body)} query={q} />}
+              head={<>
+                <span className="font-medium">{personName(hit.author)}</span>
+                <span className="truncate text-muted-foreground">in {where({ ...hit, channel_title: conversations.find((c) => c.id === hit.channel_id)?.title })}{hit.thread_root_seq ? " · thread" : ""}</span>
+                {hit.has_file ? <Paperclip size={12} aria-label="Has a file" className="text-muted-foreground" /> : null}
+              </>}
+            />
           </li>
         ))}
       </ul>
@@ -633,59 +656,3 @@ export function SearchView() {
   );
 }
 
-/** Every DM and group chat with previews, a filter and Unread only (L-30: the sidebar shows the 8 most recent). */
-export function DmList() {
-  const { user } = useAuth();
-  const meId = user?.id ?? null;
-  const [filter, setFilter] = useState("");
-  const [unreadOnly, setUnreadOnly] = useState(false);
-  const dms = useInfiniteQuery({
-    queryKey: queryKeys.chat.dms(),
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam }) => {
-      const result = await listDirectMessages({ before: pageParam });
-      return result.success ? result.channels : [];
-    },
-    getNextPageParam: (page) => (page.length === 50 ? page.at(-1)?.last_message_at ?? undefined : undefined),
-  });
-  const channels = useMemo(() => (dms.data?.pages.flat() ?? [])
-    .filter((c) => !c.archived_at)
-    .filter((c) => !unreadOnly || needsAttention(c))
-    .filter((c) => !filter || channelTitle(c, meId).toLowerCase().includes(filter.toLowerCase())), [dms.data, filter, meId, unreadOnly]);
-  return (
-    <ViewScreen title="Direct messages" action={<Link href="/messages/new" prefetch={true} className="inline-flex min-h-11 items-center rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground sm:min-h-[var(--ui-control-height)]">New message</Link>}>
-      <div className="flex items-center gap-2 border-b border-border p-3 sm:px-4">
-        <label className="min-w-0 flex-1">
-          <span className="sr-only">Find a conversation</span>
-          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Find a conversation" className="h-[var(--ui-control-height)] w-full rounded-[5px] border border-input bg-card px-3 text-[15px] pointer-coarse:h-11" />
-        </label>
-        <button type="button" aria-pressed={unreadOnly} onClick={() => setUnreadOnly(!unreadOnly)} className={`inline-flex h-[var(--ui-control-height)] flex-none items-center gap-1.5 rounded-[5px] border px-3 text-[13px] pointer-coarse:h-11 ${unreadOnly ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground"}`}>
-          <CheckCheck size={14} /> Unread
-        </button>
-      </div>
-      {dms.isLoading ? <Empty>Loading…</Empty> : null}
-      {dms.data && !channels.length ? <Empty>{filter || unreadOnly ? "No conversations match." : "No direct messages yet."}</Empty> : null}
-      <ul aria-label="Direct messages">
-        {channels.map((c) => {
-          const count = rowCount(c);
-          return (
-            <li key={c.id}>
-              <Link href={conversationHref(c.id)} className="flex min-h-16 items-center gap-3 border-b border-border px-4 py-3 hover:bg-muted" data-testid={`chat-row-${c.id}`}>
-                <UserAvatar identity={c.dm_user ?? c.members_preview?.[0]} size={34} roundedClassName="rounded-[5px]" />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline gap-2">
-                    <span className={`truncate text-[15px] ${isUnread(c) ? "font-semibold" : "font-medium"}`}>{channelTitle(c, meId)}</span>
-                    <span className="ml-auto flex-none font-mono text-[12px] text-muted-foreground">{when(c.last_message_at)}</span>
-                  </span>
-                  <span className="block truncate text-[13px] text-muted-foreground">{c.last_preview ? `${c.last_author_id === meId ? "You: " : ""}${c.last_preview}` : "No messages yet"}</span>
-                </span>
-                {count ? <span className="nb-chat-count">{count > 99 ? "99+" : count}</span> : null}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-      <LoadMore hasMore={Boolean(dms.hasNextPage)} loading={dms.isFetchingNextPage} onLoad={() => void dms.fetchNextPage()} />
-    </ViewScreen>
-  );
-}
