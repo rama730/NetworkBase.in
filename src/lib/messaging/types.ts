@@ -58,6 +58,10 @@ export type ChatBootstrap = {
   activity_latest_at: string | null;
   /** Unread Inbox items (mentions and thread replies), the Inbox badge. */
   inbox_unread?: number;
+  /** Unread mentions alone (the Mentions tab). */
+  inbox_mentions?: number;
+  /** Followed threads with new replies (the Threads tab). */
+  threads_unread?: number;
   /** Saved items whose reminder time has come: the Saved row's badge. */
   saved_due?: number;
   channels: ChatChannelSummary[];
@@ -72,6 +76,8 @@ export type ChatAttachmentView = {
   size: number;
   width: number | null;
   height: number | null;
+  /** Client only: the on-device preview while a send is in flight (or failed). */
+  local_url?: string;
 };
 
 export type ChatReactionView = { emoji: string; count: number; me: boolean };
@@ -132,6 +138,8 @@ export type TaskCardView = {
   project_title: string;
   assignee: ChatPerson | null;
   deleted: boolean;
+  /** May change the status (owner, or a member who isn't a viewer). */
+  can_edit?: boolean;
 };
 
 export type InviteCardView = {

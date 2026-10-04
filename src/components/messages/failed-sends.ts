@@ -58,6 +58,17 @@ export async function retrySend(queryClient: QueryClient, clientId: string) {
   patchSent(queryClient, payload.channelId, payload.threadRootSeq, (messages) => messages.map((m) => (m.client_message_id === clientId ? result.message : m)));
 }
 
+// "Edit" on a failed send: its text goes back into the matching composer (same draft key).
+export const LOAD_DRAFT_EVENT = "chat-load-draft";
+export type LoadDraftDetail = { draftKey: string; body: string };
+
+/** Put a failed send's text back in its composer and drop it from the timeline. */
+export function editFailedSend(queryClient: QueryClient, clientId: string, channelId: string, threadRootSeq: number | null, body: string) {
+  const draftKey = threadRootSeq ? `${channelId}:${threadRootSeq}` : channelId;
+  window.dispatchEvent(new CustomEvent<LoadDraftDetail>(LOAD_DRAFT_EVENT, { detail: { draftKey, body } }));
+  discardSend(queryClient, clientId, channelId, threadRootSeq);
+}
+
 /** Drop a failed send from the timeline. */
 export function discardSend(queryClient: QueryClient, clientId: string, channelId: string, threadRootSeq: number | null) {
   failed.delete(clientId);

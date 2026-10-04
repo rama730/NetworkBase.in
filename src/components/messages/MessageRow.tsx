@@ -19,7 +19,8 @@ import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
 import { ReportMessageDialog } from "@/components/messages/parts/ReportMessageDialog";
 import { useUpdatePages } from "@/components/messages/useConversation";
 import { noteReaction, useQuickReactions } from "@/components/messages/useQuickReactions";
-import { discardSend, failedSend, retrySend } from "@/components/messages/failed-sends";
+import { discardSend, editFailedSend, failedSend, retrySend } from "@/components/messages/failed-sends";
+import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -31,7 +32,7 @@ import { formatChatTime, personName } from "@/lib/messaging/channel-view";
 import { messageHref } from "@/lib/messaging/routes";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { applyReaction, patchPages, upsertMessage } from "@/lib/messaging/timeline";
-import { REMINDER_TIMES } from "@/lib/messaging/reminders";
+import { laterTimes } from "@/lib/messaging/reminders";
 import { encodeMentions, parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
 import type { ChatAttachmentView, ChatMessageView } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
@@ -48,7 +49,7 @@ const UNDO_DELETE_MS = 5_000;
 function toViewerAttachment(attachment: ChatAttachmentView): ChatAttachmentV2 {
   const url = `/api/v1/chat/attachments/${attachment.asset_id}`;
   const type = attachment.mime.startsWith("image/") ? "image" : attachment.mime.startsWith("video/") ? "video" : "file";
-  return { id: attachment.asset_id, type, url, filename: attachment.name || "file", sizeBytes: attachment.size, mimeType: attachment.mime, thumbnailUrl: null, width: attachment.width, height: attachment.height };
+  return { id: attachment.asset_id, type, url, localUrl: attachment.local_url, filename: attachment.name || "file", sizeBytes: attachment.size, mimeType: attachment.mime, thumbnailUrl: null, width: attachment.width, height: attachment.height };
 }
 
 const EditBox = dynamic(() => import("@/components/messages/MessageEditBox").then((m) => m.EditBox), { ssr: false });
@@ -63,7 +64,28 @@ function LinkPreview({ body }: { body: string }) {
 type Action = { id: string; label: string; icon: LucideIcon; run: () => void; shortcut?: string; destructive?: boolean; group: 1 | 2 | 3 };
 
 // Deletes of your own messages wait out an Undo window; pending ones live here.
-const pendingDeletes = new Map<string, ReturnType<typeof setTimeout>>();
+const pendingDeletes = new Map<string, { timer: ReturnType<typeof setTimeout>; run: () => void }>();
+let flushOnLeave = false;
+/**
+ * Leaving the page (or hiding it, which on phones is often the last event before it's killed)
+ * sends the pending deletes now, so a closed tab doesn't bring the message back.
+ * ponytail: best effort; a request started while the page unloads can still be cut off.
+ */
+function bindFlushOnLeave() {
+  if (flushOnLeave) return;
+  flushOnLeave = true;
+  const flush = () => {
+    for (const [key, pending] of pendingDeletes) {
+      clearTimeout(pending.timer);
+      pendingDeletes.delete(key);
+      pending.run();
+    }
+  };
+  window.addEventListener("pagehide", flush);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flush();
+  });
+}
 
 /** Who reacted, loaded when the tooltip opens. */
 function ReactionChip({ emoji, count, me, seq, onToggle }: { emoji: string; count: number; me: boolean; seq: number; onToggle: () => void }) {
@@ -79,14 +101,16 @@ function ReactionChip({ emoji, count, me, seq, onToggle }: { emoji: string; coun
     staleTime: 15_000,
   });
   const names = reactors.data?.[emoji] ?? [];
-  const who = names.length > 3 ? `${names.slice(0, 3).join(", ")} and ${names.length - 3} others` : names.join(" and ").replace(/ and (?=.* and )/g, ", ");
+  const rest = names.length - 3;
+  const who = rest > 0 ? `${names.slice(0, 3).join(", ")} and ${rest} other${rest === 1 ? "" : "s"}` : names.join(" and ").replace(/ and (?=.* and )/g, ", ");
   return (
     <Tooltip open={open} onOpenChange={setOpen}>
       <TooltipTrigger asChild>
         <button
           type="button"
-          onClick={onToggle}
-          disabled={ctx.isMember === false}
+          // aria-disabled, not disabled: previewers still get the "who reacted" tooltip.
+          onClick={ctx.isMember === false ? undefined : onToggle}
+          aria-disabled={ctx.isMember === false || undefined}
           aria-pressed={me}
           aria-label={`${emoji} ${count}${me ? ", you reacted" : ""}`}
           className={`inline-flex h-6 items-center gap-1 rounded-[5px] border px-1.5 text-[13px] pointer-coarse:h-9 ${me ? "border-primary bg-accent" : "border-border bg-card"}`}
@@ -113,8 +137,9 @@ function SystemRow({ message, others }: { message: ChatMessageView; others?: Cha
   const who = people.length === 1 ? people[0] : people.length === 2 ? `${people[0]} and ${people[1]}` : `${people[0]} and ${people.length - 1} others`;
   const body = message.body.startsWith("removed <@") ? `removed ${ctx.nameOf(message.body.slice(10, -1)) ?? "someone"}` : message.body;
   return (
-    <div className="my-1 flex items-center gap-2 px-4 py-1 pl-[52px] text-[13px] text-muted-foreground" data-seq={message.seq} title={people.length > 2 ? people.join(", ") : undefined}>
-      <span className="inline-flex size-5 flex-none items-center justify-center rounded-full bg-muted text-muted-foreground" aria-hidden="true"><Icon size={11} /></span>
+    <div className="my-1 flex items-center gap-2.5 px-4 py-1 text-[13px] text-muted-foreground" data-seq={message.seq} title={people.length > 2 ? people.join(", ") : undefined}>
+      {/* The icon sits in the avatar column, so the text lines up with message text. */}
+      <span className="flex w-[34px] flex-none justify-center" aria-hidden="true"><span className="inline-flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground"><Icon size={11} /></span></span>
       <span className="min-w-0 flex-1 truncate"><span className="font-medium text-foreground">{who}</span> {body}</span>
       <span className="font-mono text-[12px]">{formatChatTime((others?.at(-1) ?? message).created_at, "clock")}</span>
     </div>
@@ -131,6 +156,10 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   const update = useUpdatePages(ctx.channelId);
   const [pickerAnchor, setPickerAnchor] = useState<HTMLElement | null>(null);
   const [sheet, setSheet] = useState<"actions" | "remind" | null>(null);
+  const [customRemind, setCustomRemind] = useState<Date | null>(null);
+  // The hover bar sits above the row; on the top row it would hide under the tab bar, so it drops inside.
+  const [barInside, setBarInside] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -206,20 +235,24 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     const key = `${ctx.channelId}:${message.seq}`;
     const before = message;
     update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, deleted_at: new Date().toISOString() })));
-    pendingDeletes.set(key, setTimeout(() => {
+    const run = () => void deleteMessage({ channelId: ctx.channelId, seq: before.seq }).then((result) => {
+      if (result.success) return;
+      update((pages) => patchPages(pages, before.seq, () => before));
+      toast.error(chatErrorMessage(result.error));
+    });
+    bindFlushOnLeave();
+    pendingDeletes.set(key, { run, timer: setTimeout(() => {
       pendingDeletes.delete(key);
-      void deleteMessage({ channelId: ctx.channelId, seq: before.seq }).then((result) => {
-        if (result.success) return;
-        update((pages) => patchPages(pages, before.seq, () => before));
-        toast.error(chatErrorMessage(result.error));
-      });
-    }, UNDO_DELETE_MS));
+      run();
+    }, UNDO_DELETE_MS) });
     toast("Message deleted", {
       duration: UNDO_DELETE_MS,
       action: {
         label: "Undo",
         onClick: () => {
-          clearTimeout(pendingDeletes.get(key));
+          const pending = pendingDeletes.get(key);
+          if (!pending) return;
+          clearTimeout(pending.timer);
           pendingDeletes.delete(key);
           update((pages) => patchPages(pages, before.seq, () => before));
         },
@@ -263,7 +296,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     list.push({ id: "pin", label: message.pinned ? "Unpin" : "Pin to conversation", icon: Pin, run: () => void togglePin(), group: 2 });
     if (own && !message.card) list.push({ id: "edit", label: "Edit message", icon: Pencil, run: startEdit, shortcut: "E", group: 3 });
     if (canDelete) list.push({ id: "delete", label: "Delete message", icon: Trash2, run: () => (own && !message.reply_count ? removeWithUndo() : setConfirmDelete(true)), shortcut: "⌫", destructive: true, group: 3 });
-    if (!own) list.push({ id: "report", label: "Report message", icon: Flag, run: () => setReportOpen(true), group: 3 });
+    // Task, application and invite cards are the app's own messages: nothing to report.
+    if (!own && !message.card) list.push({ id: "report", label: "Report message", icon: Flag, run: () => setReportOpen(true), group: 3 });
   }
   useEffect(() => () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -293,53 +327,68 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (!open) closeTimerRef.current = setTimeout(() => setClosing(false), 250);
   };
   const groups = [1, 2, 3].map((group) => list.filter((a) => a.group === group)).filter((g) => g.length);
-  const remind = (at: () => string) => ctx.setSaved?.(message.seq, true, at());
+  const remind = (at: () => Date) => ctx.setSaved?.(message.seq, true, at().toISOString());
   const fullTime = new Date(message.created_at).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  const rowId = `msg-${ctx.channelId}-${ctx.inThread ? "t" : "c"}-${message.seq}`;
+  const placeBar = () => {
+    const row = rowRef.current;
+    const scroller = row?.closest("[data-virtuoso-scroller]");
+    if (row && scroller) setBarInside(row.getBoundingClientRect().top - scroller.getBoundingClientRect().top < 24);
+  };
 
   return (
     <div
+      ref={rowRef}
       data-seq={message.seq}
       data-testid={`chat-message-${message.seq}`}
       data-mentioned={mentioned ? "true" : undefined}
       data-message-row=""
       tabIndex={tabStop ? 0 : -1}
-      aria-label={`${authorName}, ${new Date(message.created_at).toLocaleString()}`}
+      // Read as "who, when" plus the message itself (an aria-label would replace the message).
+      role="article"
+      aria-labelledby={`${rowId}-who ${rowId}-body`}
       onKeyDown={onRowKeyDown}
-      className={`group/msg relative px-4 ${grouped ? "pt-0.5" : "pt-3"} pb-0.5 outline-none hover:bg-muted/50 focus-within:bg-muted/50 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring ${highlighted ? "bg-[var(--status-warning-soft)]" : ""} ${mentioned ? "border-l-2 border-[var(--status-warning)] bg-[var(--status-warning-soft)]/40" : ""} ${pending && !message.failed ? "opacity-60" : ""}`}
-      onTouchStart={() => {
+      onMouseEnter={placeBar}
+      onFocus={placeBar}
+      // Mention: an inset bar (no 2px shift); a jump target: the accent tint, so the two never look alike.
+      className={`group/msg relative px-4 ${grouped ? "pt-0.5" : "pt-3"} pb-0.5 outline-none hover:bg-muted/50 focus-within:bg-muted/50 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring [-webkit-touch-callout:none] ${highlighted ? "bg-accent" : mentioned ? "bg-[var(--status-warning-soft)]/40 shadow-[inset_2px_0_0_var(--status-warning)]" : ""} ${pending && !message.failed ? "opacity-60" : ""}`}
+      onContextMenu={(e) => {
+        // Touch: long-press opens our sheet, not the browser's callout.
+        if (actions && window.matchMedia("(pointer: coarse)").matches) e.preventDefault();
+      }}
+      onTouchStart={(e) => {
         if (!actions) return;
+        // A press on a link, image, video or chip does its own thing.
+        if ((e.target as HTMLElement).closest("a,button,img,video,input,textarea,[contenteditable=true]")) return;
         pressTimer.current = setTimeout(() => setSheet("actions"), LONG_PRESS_MS);
       }}
       onTouchEnd={() => pressTimer.current && clearTimeout(pressTimer.current)}
       onTouchMove={() => pressTimer.current && clearTimeout(pressTimer.current)}
     >
+      <span id={`${rowId}-who`} className="sr-only">{authorName}, {fullTime}</span>
+      {message.pinned || saved ? (
+        <p className="flex items-center gap-3 pb-0.5 pl-11 text-[12px] text-muted-foreground">
+          {message.pinned ? <span className="inline-flex items-center gap-1"><Pin size={11} aria-hidden="true" /> Pinned</span> : null}
+          {saved ? <span className="inline-flex items-center gap-1 text-[var(--chat-accent)]"><Bookmark size={11} aria-hidden="true" fill="currentColor" /> Saved</span> : null}
+        </p>
+      ) : null}
       <div className="flex gap-2.5">
         <div className="w-[34px] flex-none">
           {grouped ? (
-            <>
-              <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="hidden pt-1 font-mono text-[11px] text-muted-foreground hover:underline group-hover/msg:block">{formatChatTime(message.created_at, "clock")}</button>
-              {message.pinned || saved ? (
-                <span className="flex gap-0.5 pt-1.5 group-hover/msg:hidden">
-                  {message.pinned ? <Pin size={11} aria-label="Pinned" className="text-muted-foreground" /> : null}
-                  {saved ? <Bookmark size={11} aria-label="Saved" className="text-[var(--chat-accent)]" fill="currentColor" /> : null}
-                </span>
-              ) : null}
-            </>
+            <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="hidden pt-1 font-mono text-[11px] text-muted-foreground hover:underline group-hover/msg:block">{formatChatTime(message.created_at, "clock")}</button>
           ) : (
             <PersonHoverCard person={message.author}>
               <UserAvatar identity={message.author} size={34} roundedClassName="rounded-[5px]" />
             </PersonHoverCard>
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1" id={`${rowId}-body`}>
           {grouped ? null : (
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-baseline gap-2" aria-hidden="true">
               <PersonHoverCard person={message.author}>
                 <span className="text-[13px] font-medium hover:underline">{authorName}</span>
               </PersonHoverCard>
               <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="font-mono text-[12px] text-muted-foreground hover:underline">{formatChatTime(message.created_at, "clock")}</button>
-              {message.pinned ? <Pin size={12} aria-label="Pinned" className="text-muted-foreground" /> : null}
-              {saved ? <Bookmark size={12} aria-label="Saved" className="text-[var(--chat-accent)]" fill="currentColor" /> : null}
             </div>
           )}
           {deleted ? (
@@ -369,7 +418,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
               {message.body ? <LinkPreview body={message.body} /> : null}
             </>
           )}
-          {message.reactions.length ? (
+          {/* A deleted message keeps no reactions (like Slack). */}
+          {message.reactions.length && !deleted ? (
             <TooltipProvider delayDuration={250}>
               <div className="mt-1 flex flex-wrap gap-1">
                 {message.reactions.map((r) => (
@@ -387,6 +437,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
             <p role="alert" className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[var(--status-danger)]">
               <span>Not sent{failed?.assetIds.length ? ` · ${failed.assetIds.length} file${failed.assetIds.length === 1 ? "" : "s"}` : ""}</span>
               {failed ? <button type="button" onClick={() => message.client_message_id && void retrySend(queryClient, message.client_message_id)} className="font-medium underline">Retry</button> : null}
+              {failed && message.body ? <button type="button" onClick={() => message.client_message_id && editFailedSend(queryClient, message.client_message_id, ctx.channelId, message.thread_root_seq, failed.body)} className="font-medium underline">Edit</button> : null}
               <button type="button" onClick={() => message.client_message_id && discardSend(queryClient, message.client_message_id, ctx.channelId, message.thread_root_seq)} className="font-medium underline">Delete</button>
             </p>
           ) : null}
@@ -401,7 +452,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
 
       {actions ? (
         <div
-          className={`absolute -top-3 right-4 z-20 ${isToolbarOpen ? "flex" : "hidden group-hover/msg:flex group-focus-within/msg:flex"} items-center rounded-[5px] border border-border bg-card/95 shadow-sm backdrop-blur-sm pointer-coarse:!hidden`}
+          className={`absolute ${barInside ? "top-1" : "-top-3"} right-4 z-20 ${isToolbarOpen ? "flex" : "hidden group-hover/msg:flex group-focus-within/msg:flex"} items-center rounded-[5px] border border-border bg-card/95 shadow-sm backdrop-blur-sm pointer-coarse:!hidden`}
           role="toolbar"
           aria-label="Message actions"
         >
@@ -414,7 +465,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
             if (!action) return null;
             const Icon = action.icon;
             return (
-              <button key={id} type="button" className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={action.label} title={action.shortcut ? `${action.label} (${action.shortcut})` : action.label} onClick={action.run}>
+              // No key hint here: the keys act on a selected row (Tab, ↑/↓), not the hovered one.
+              <button key={id} type="button" className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={action.label} title={action.label} onClick={action.run}>
                 <Icon size={16} />
               </button>
             );
@@ -443,7 +495,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger className="gap-2"><AlarmClock size={14} className="text-muted-foreground" /> Remind me about this</DropdownMenuSubTrigger>
                       <DropdownMenuSubContent className="w-48">
-                        {REMINDER_TIMES.map((option) => <DropdownMenuItem key={option.label} onSelect={() => remind(option.at)}>{option.label}</DropdownMenuItem>)}
+                        {laterTimes("remind").map((option) => <DropdownMenuItem key={option.label} onSelect={() => remind(option.at)}>{option.label}</DropdownMenuItem>)}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => setCustomRemind(new Date(Date.now() + 2 * 60 * 60_000))}>Custom time…</DropdownMenuItem>
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                   ) : null}
@@ -452,11 +506,6 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      ) : null}
-      {actions ? (
-        <button type="button" className="absolute right-2 top-2 hidden size-11 place-items-center rounded-[5px] text-muted-foreground pointer-coarse:grid" aria-label="Message actions" onClick={() => setSheet("actions")}>
-          <MoreHorizontal size={18} />
-        </button>
       ) : null}
 
       {pickerAnchor ? (
@@ -471,18 +520,27 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
 
       <Dialog open={sheet !== null} onOpenChange={(open) => !open && setSheet(null)}>
         <DialogContent presentation="bottom-sheet" showCloseButton={false}>
-          <DialogTitle className="sr-only">{sheet === "remind" ? "Remind me" : "Message actions"}</DialogTitle>
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border" aria-hidden="true" />
           {sheet === "remind" ? (
-            <div className="px-2 py-3 [&>button]:flex [&>button]:min-h-11 [&>button]:w-full [&>button]:items-center [&>button]:rounded-[5px] [&>button]:px-3 [&>button]:text-[15px]">
-              {REMINDER_TIMES.map((option) => <button key={option.label} type="button" onClick={() => { setSheet(null); remind(option.at); }}>{option.label}</button>)}
-            </div>
+            <>
+              <div className="flex items-center gap-1 px-2 pt-2">
+                <button type="button" onClick={() => setSheet("actions")} className="inline-flex min-h-11 items-center rounded-[5px] px-3 text-[15px] text-primary">‹ Back</button>
+                <DialogTitle className="text-[15px] font-semibold">Remind me</DialogTitle>
+              </div>
+              <div className="px-2 pb-3 [&>button]:flex [&>button]:min-h-11 [&>button]:w-full [&>button]:items-center [&>button]:rounded-[5px] [&>button]:px-3 [&>button]:text-[15px]">
+                {laterTimes("remind").map((option) => <button key={option.label} type="button" onClick={() => { setSheet(null); remind(option.at); }}>{option.label}</button>)}
+                <button type="button" onClick={() => { setSheet(null); setCustomRemind(new Date(Date.now() + 2 * 60 * 60_000)); }}>Custom time…</button>
+              </div>
+            </>
           ) : (
             <>
+              <DialogTitle className="sr-only">Message actions</DialogTitle>
               <div className="flex justify-around px-2 py-3">
                 {quick.map((emoji) => (
                   <button key={emoji} type="button" className="grid size-11 place-items-center rounded-full text-xl hover:bg-muted" aria-label={`React ${emoji}`} onClick={() => { setSheet(null); void toggleReaction(emoji); }}>{emoji}</button>
                 ))}
+                {/* Any other emoji: the full picker. */}
+                <button type="button" className="grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-muted" aria-label="More reactions" onClick={() => { setSheet(null); setPickerAnchor(rowRef.current); }}><SmilePlus size={20} /></button>
               </div>
               <div className="px-2 pb-3 [&>button]:flex [&>button]:min-h-11 [&>button]:w-full [&>button]:items-center [&>button]:gap-3 [&>button]:rounded-[5px] [&>button]:px-3 [&>button]:text-[15px]">
                 {list.map((action) => {
@@ -513,6 +571,14 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
             removeWithUndo();
           } else void remove();
         }}
+      />
+      <TimePickerDialog
+        initial={customRemind}
+        title="Remind me"
+        label="Remind me at"
+        confirmLabel="Set reminder"
+        onPick={(at) => ctx.setSaved?.(message.seq, true, at.toISOString())}
+        onClose={() => setCustomRemind(null)}
       />
       <ReportMessageDialog
         isOpen={reportOpen}

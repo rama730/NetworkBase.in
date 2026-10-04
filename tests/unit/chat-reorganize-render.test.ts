@@ -18,15 +18,18 @@ test("tab bar renders the tabs with even spacing, close only on canvas/shared ta
   for (const label of ["Messages", "Plan", "Pins", "Files", "Spec"]) assert.match(html, new RegExp(`>${label}<`));
   assert.match(html, />3<span class="sr-only"> pinned<\/span>/);
   assert.match(html, /aria-label="Hide canvas tab"/);
-  assert.match(html, /aria-label="Remove Spec tab"/);
+  // Round 2 #109: a bookmark is a link to a website, not a tab.
+  assert.match(html, /aria-label="Remove Spec bookmark"/);
+  assert.match(html, /<a href="https:\/\/x\.test\/"[^>]*target="_blank"/);
   assert.match(html, /aria-label="Remove Files tab"/);
   assert.doesNotMatch(html, /Shared with the channel|rounded-full bg-/, "no dot after the canvas name");
   assert.doesNotMatch(html, /pr-7/, "closable tabs don't reserve extra room");
-  const paddings = [...html.matchAll(/role="tab"[^>]*class="([^"]*)"|class="([^"]*)"[^>]*role="tab"/g)].map((m) => (m[1] ?? m[2])!.match(/\bp[xlr]-\d+(\.\d+)?/g)?.join(" "));
+  // Unprefixed padding only: on touch, closable tabs reserve room for their always-visible ×.
+  const paddings = [...html.matchAll(/role="tab"[^>]*class="([^"]*)"|class="([^"]*)"[^>]*role="tab"/g)].map((m) => (m[1] ?? m[2])!.match(/(?<![:\w-])p[xlr]-\d+(\.\d+)?/g)?.join(" "));
   assert.equal(new Set(paddings).size, 1, "every tab has the same horizontal padding");
   assert.doesNotMatch(html, /Close Pins|Remove Pins|Remove Messages/, "built-in tabs can't be closed");
   assert.match(html, /aria-label="Add a tab"/);
-  assert.equal((html.match(/role="tab"/g) ?? []).length, 5);
+  assert.equal((html.match(/role="tab"/g) ?? []).length, 4);
   assert.equal((html.match(/aria-selected="true"/g) ?? []).length, 1);
 });
 

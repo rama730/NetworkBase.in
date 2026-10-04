@@ -23,7 +23,8 @@ test("#152 project channels offer Mentions & threads or Mute; DMs and groups kee
   assert.equal(notifyLabel(projectChannel, "all"), "Mentions & threads");
   const dm = channel({ kind: "dm", name: null, project_id: null });
   const group = channel({ kind: "private", name: null, project_id: null });
-  assert.deepEqual(notifyChoices(dm).map((c) => c.value), ["all", "mentions", "mute"]);
+  // Round 2 #194: a 1:1 DM has no @mentions to wait for, so it's All or Mute.
+  assert.deepEqual(notifyChoices(dm).map((c) => c.value), ["all", "mute"]);
   assert.deepEqual(notifyChoices(group).map((c) => c.value), ["all", "mentions", "mute"]);
   assert.equal(notifyChoice(dm, "all"), "all");
   assert.match(read("src/components/messages/ConversationView.tsx"), /notifyChoices\(channel\)\.map/);

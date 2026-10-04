@@ -27,7 +27,7 @@ import { CHAT_LIST_PAGE } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { groupNoun } from "@/lib/messaging/inbox";
 import { conversationHref, threadHref } from "@/lib/messaging/routes";
-import { REMINDER_TIMES } from "@/lib/messaging/reminders";
+import { laterTimes } from "@/lib/messaging/reminders";
 import { tokensToPlainText } from "@/lib/messaging/tokens";
 import type { ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
@@ -114,7 +114,14 @@ function SnippetRow({ href, target, onOpen, author, head, time, body, dim, unrea
 /** /messages/p/[projectId]: select the project; displays channels in sidebar while main pane shows placeholder. */
 export function ProjectLanding({ projectId }: { projectId: string }) {
   const setProject = useChatUi((state) => state.setProject);
-  useEffect(() => setProject(projectId), [projectId, setProject]);
+  const { data } = useChatShell();
+  const router = useRouter();
+  // A project you left (old link, Back): go to All instead of keeping a stale pick.
+  const known = !data?.projects || data.projects.some((p) => p.id === projectId);
+  useEffect(() => {
+    if (known) setProject(projectId);
+    else router.replace("/messages");
+  }, [known, projectId, router, setProject]);
   return <ListOrHome />;
 }
 
@@ -140,7 +147,8 @@ export function BrowseChannels({ projectId }: { projectId: string }) {
     },
   });
   const title = data?.projects?.find((p) => p.id === projectId)?.title;
-  const needle = filter.toLowerCase();
+  // "#gen" finds #general: channel names have no "#".
+  const needle = filter.trim().toLowerCase().replace(/^#/, "");
   const visible = (channels.data ?? [])
     .filter((c) => !needle || c.name.includes(needle) || (c.description ?? "").toLowerCase().includes(needle))
     .filter((c) => show === "all" || (show === "joined" ? c.joined : !c.joined))
@@ -440,7 +448,10 @@ export function InboxView() {
     refreshInbox();
     toast.success(scope === "threads" ? "Threads marked as read" : scope === "mentions" ? "Mentions marked as read" : "Inbox marked as read");
   };
-  const markable = filter === "threads" ? (threads.data ?? []).filter((t) => t.unread).length : filter !== "reactions" ? unread : 0;
+  // Each tab counts what its button clears: Mentions excludes thread replies (inbox_unread counts both).
+  const markable = filter === "threads" ? (threads.data ?? []).filter((t) => t.unread).length
+    : filter === "mentions" ? items.filter((item) => !item.read && item.kind !== "thread_reply" && item.kind !== "reaction").length
+    : filter === "all" ? unread : 0;
   const canMarkAll = markable > 0;
 
   return (
@@ -560,7 +571,7 @@ export function SavedView() {
                         <AlarmClock size={15} />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        {REMINDER_TIMES.map((option) => <DropdownMenuItem key={option.label} onSelect={() => void act(item, true, new Date(option.at()))}>{option.label}</DropdownMenuItem>)}
+                        {laterTimes("remind").map((option) => <DropdownMenuItem key={option.label} onSelect={() => void act(item, true, option.at())}>{option.label}</DropdownMenuItem>)}
                         <DropdownMenuItem onSelect={() => setCustomFor({ item, at: new Date(Date.now() + 2 * 60 * 60_000) })}>Custom time…</DropdownMenuItem>
                         {item.remind_at ? <><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => void act(item, true, null, true)}>Clear reminder</DropdownMenuItem></> : null}
                       </DropdownMenuContent>
@@ -616,7 +627,7 @@ export function DraftsView() {
     const title = channelTitle(channel, meId);
     return isDirectLike(channel) ? title : `#${title}`;
   };
-  const cancel = async (id: string, keepAsDraft?: { channelId: string; threadRootSeq: number | null; body: string }) => {
+  const cancel = async (id: string, keepAsDraft?: { channelId: string; threadRootSeq: number | null; body: string }, undoable?: { channel_id: string; thread_root_seq: number | null; body: string }) => {
     const result = await cancelScheduled({ id });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.scheduled() });
@@ -627,7 +638,20 @@ export function DraftsView() {
       writeDraft(key, existing ? `${existing}\n\n${keepAsDraft.body}` : keepAsDraft.body);
       if (existing) toast("Added below your existing draft");
       router.push(keepAsDraft.threadRootSeq ? threadHref(keepAsDraft.channelId, keepAsDraft.threadRootSeq) : conversationHref(keepAsDraft.channelId));
-    } else toast("Scheduled message cancelled");
+    } else if (undoable) {
+      // Cancelling must not lose the text: Undo keeps it as a draft.
+      toast("Scheduled message cancelled", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            const key = undoable.thread_root_seq ? `${undoable.channel_id}:${undoable.thread_root_seq}` : undoable.channel_id;
+            const existing = readDraft(key).trim();
+            writeDraft(key, existing ? `${existing}\n\n${undoable.body}` : undoable.body);
+            toast("Kept as a draft");
+          },
+        },
+      });
+    }
   };
   const refreshScheduled = () => void queryClient.invalidateQueries({ queryKey: queryKeys.chat.scheduled() });
   const sendNow = async (id: string) => {
@@ -675,7 +699,7 @@ export function DraftsView() {
                     <DropdownMenuItem onSelect={() => setRescheduling({ id: item.id, at: new Date(Math.max(Date.parse(item.send_at), Date.now() + 60 * 60_000)) })}><CalendarClock size={14} /> Reschedule…</DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => void cancel(item.id, { channelId: item.channel_id, threadRootSeq: item.thread_root_seq, body: item.body })}><Pencil size={14} /> Edit (move back to drafts)</DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" onSelect={() => void cancel(item.id)}><Trash2 size={14} /> Cancel scheduled message</DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" onSelect={() => void cancel(item.id, undefined, item)}><Trash2 size={14} /> Cancel scheduled message</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

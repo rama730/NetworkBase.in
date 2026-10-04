@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, Bookmark, CheckSquare, SlidersHorizontal, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, SlidersHorizontal, Trash2 } from "lucide-react";
+import { TAB_ICONS } from "@/components/messages/ChannelTabBar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { ChannelTabItem } from "@/lib/messaging/channel-tabs";
 
@@ -12,8 +13,10 @@ type Props = {
   onSaveTabs: (nextTabs: ChannelTabItem[]) => void;
 };
 
+/** The same icon as in the tab bar. */
 function getTabIcon(kind: ChannelTabItem["kind"]) {
-  return kind === "tasks" ? <CheckSquare size={15} className="text-muted-foreground" /> : <Bookmark size={15} className="text-muted-foreground" />;
+  const Icon = TAB_ICONS[kind];
+  return <Icon size={15} className="text-muted-foreground" />;
 }
 
 export function EditTabsDialog({ open, onOpenChange, tabs, onSaveTabs }: Props) {
@@ -57,8 +60,11 @@ export function EditTabsDialog({ open, onOpenChange, tabs, onSaveTabs }: Props) 
     setDraftTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title: nextTitle } : t)));
   };
 
+  // A blank name would leave a blank tab for everyone.
+  const blankTitle = draftTabs.some((t) => t.shared && !t.title.trim());
   const handleSave = () => {
-    onSaveTabs(draftTabs);
+    if (blankTitle) return;
+    onSaveTabs(draftTabs.map((t) => ({ ...t, title: t.title.trim() })));
     onOpenChange(false);
   };
 
@@ -73,14 +79,14 @@ export function EditTabsDialog({ open, onOpenChange, tabs, onSaveTabs }: Props) 
             <DialogTitle>Edit tabs</DialogTitle>
           </div>
           <DialogDescription>
-            Rename, reorder or remove Tasks and bookmarks. Changes apply for everyone in the channel.
+            Rename, reorder or remove Files, Tasks and bookmarks. Changes apply for everyone in the channel.
           </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[360px] overflow-y-auto py-2 space-y-2">
           {draftTabs.length === 0 ? (
             <p className="py-6 text-center text-[13px] text-muted-foreground">
-              No shared tabs yet. Use + in the tab bar to add Tasks or a bookmark.
+              No shared tabs yet. Use + in the tab bar to add Files, Tasks or a bookmark.
             </p>
           ) : (
             draftTabs.map((item, index) => (
@@ -98,8 +104,10 @@ export function EditTabsDialog({ open, onOpenChange, tabs, onSaveTabs }: Props) 
                       type="text"
                       value={item.title}
                       onChange={(e) => updateTitle(item.id, e.target.value.slice(0, 60))}
-                      placeholder="Tab title"
-                      className="w-full rounded-[4px] border border-border bg-background px-2 py-0.5 text-[13px] outline-none focus:border-ring"
+                      placeholder="Tab name"
+                      aria-label={`Name of the ${item.kind === "link" ? "bookmark" : item.kind} tab`}
+                      aria-invalid={!item.title.trim() || undefined}
+                      className={`w-full rounded-[4px] border bg-background px-2 py-0.5 text-[13px] outline-none focus:border-ring ${item.title.trim() ? "border-border" : "border-destructive"}`}
                     />
                   ) : (
                     <span className="font-medium">{item.title}</span>
@@ -142,6 +150,7 @@ export function EditTabsDialog({ open, onOpenChange, tabs, onSaveTabs }: Props) 
           )}
         </div>
 
+        {blankTitle ? <p role="alert" className="text-[12px] text-destructive">Every tab needs a name.</p> : null}
         <DialogFooter className="pt-2">
           <button
             type="button"
@@ -153,7 +162,8 @@ export function EditTabsDialog({ open, onOpenChange, tabs, onSaveTabs }: Props) 
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-[5px] bg-primary px-3.5 py-1.5 text-[13px] font-medium text-primary-foreground hover:opacity-90"
+            disabled={blankTitle}
+            className="rounded-[5px] bg-primary px-3.5 py-1.5 text-[13px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             Save changes
           </button>

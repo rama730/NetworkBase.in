@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 
-// In-memory UI state for Messages (L-24): the selected project survives route
-// changes inside the tab; a reload starts from the open channel again.
+// UI state for Messages (L-24): the selected project survives route changes and,
+// through sessionStorage, a reload of a page without a project in its URL.
 type ChatUiState = {
   /** null = Home. undefined = not chosen yet (follow the open channel). */
   projectId: string | null | undefined;
@@ -27,12 +27,31 @@ export const useChatUi = create<ChatUiState>()((set) => ({
   shortcutsOpen: false,
   createChannelFor: null,
   inviteFor: null,
-  setProject: (projectId) => set({ projectId }),
+  setProject: (projectId) => {
+    set({ projectId });
+    try {
+      window.sessionStorage.setItem(PROJECT_KEY, projectId ?? "");
+    } catch {
+      // Storage blocked: the pick lasts until reload.
+    }
+  },
   setSwitcherOpen: (switcherOpen) => set({ switcherOpen }),
   setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
   setCreateChannelFor: (createChannelFor) => set({ createChannelFor }),
   setInviteFor: (inviteFor) => set({ inviteFor }),
 }));
+
+const PROJECT_KEY = "chat-project";
+
+/** The project picked earlier in this tab (null = All projects), or undefined if none. */
+export function restoredProject(): string | null | undefined {
+  try {
+    const stored = window.sessionStorage.getItem(PROJECT_KEY);
+    return stored === null ? undefined : stored || null;
+  } catch {
+    return undefined;
+  }
+}
 
 // Per-device preferences: collapsed sections, the Aa toolbar, Unreads only and
 // hidden canvases (localStorage `chat-ui-v1`). Every access tolerates blocked storage.

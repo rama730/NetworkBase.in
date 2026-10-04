@@ -41,7 +41,8 @@ test("message row: keyboard, time button, grouped icons, delete with replies, fa
   const row = read("src/components/messages/MessageRow.tsx");
   assert.match(row, /tabIndex=\{tabStop \? 0 : -1\}/);
   assert.match(read("src/components/messages/Timeline.tsx"), /onKeyDown=\{onListKeyDown\}/);
-  assert.match(row, /group-hover\/msg:hidden[\s\S]*aria-label="Pinned"/);
+  // Round 2 #145: pinned and saved read as a small label line above the message.
+  assert.match(row, /<Pin size=\{11\} aria-hidden="true" \/> Pinned/);
   assert.match(row, /own && !message\.reply_count \? removeWithUndo\(\) : setConfirmDelete\(true\)/);
   assert.match(row, /Not sent[\s\S]*Retry[\s\S]*Delete/);
   assert.match(row, /if \(ctx\.share && hasContent\)/);

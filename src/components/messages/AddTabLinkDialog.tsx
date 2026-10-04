@@ -17,16 +17,10 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    const trimmedTitle = title.trim();
     let trimmedUrl = url.trim();
 
-    if (!trimmedTitle) {
-      setError("Please provide a tab title");
-      return;
-    }
-
     if (!trimmedUrl) {
-      setError("Please provide a valid URL");
+      setError("Add the bookmark's link");
       return;
     }
 
@@ -34,12 +28,15 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
       trimmedUrl = `https://${trimmedUrl}`;
     }
 
+    let host = "";
     try {
-      new URL(trimmedUrl);
+      host = new URL(trimmedUrl).hostname.replace(/^www\./, "");
     } catch {
-      setError("Please enter a valid web address (e.g., https://example.com)");
+      setError("Enter a web address, like https://example.com");
       return;
     }
+    // No name typed: the site's name is a fine default.
+    const trimmedTitle = title.trim() || host;
 
     onAddTab(trimmedTitle, trimmedUrl);
     setTitle("");
@@ -59,43 +56,46 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
             <DialogTitle>Add a bookmark</DialogTitle>
           </div>
           <DialogDescription>
-            Pin a doc, dashboard, design or repo as a tab. Everyone in the channel sees it.
+            Keep a doc, dashboard, design or repo one click away. Everyone in the channel sees the bookmark.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <label htmlFor="tab-title-input" className="text-[13px] font-medium text-foreground">
-              Tab title
-            </label>
-            <input
-              id="tab-title-input"
-              type="text"
-              placeholder="e.g. Figma Designs, GitHub Repo"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                if (error) setError(null);
-              }}
-              autoFocus
-              className="w-full rounded-[5px] border border-input bg-card px-3 py-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-            />
-          </div>
-
-          <div className="space-y-1.5">
             <label htmlFor="tab-url-input" className="text-[13px] font-medium text-foreground">
-              URL
+              Link
             </label>
+            {/* inputMode url gives phones the URL keyboard; "example.com" is accepted (https:// is added). */}
             <input
               id="tab-url-input"
               type="text"
+              inputMode="url"
+              autoComplete="url"
               placeholder="https://..."
               value={url}
               onChange={(e) => {
                 setUrl(e.target.value);
                 if (error) setError(null);
               }}
+              autoFocus
               className="w-full rounded-[5px] border border-input bg-card px-3 py-2 text-[13px] font-mono outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="tab-title-input" className="text-[13px] font-medium text-foreground">
+              Bookmark name <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <input
+              id="tab-title-input"
+              type="text"
+              placeholder="e.g. Figma designs, GitHub repo"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                if (error) setError(null);
+              }}
+              className="w-full rounded-[5px] border border-input bg-card px-3 py-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -113,7 +113,7 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
               type="submit"
               className="rounded-[5px] bg-primary px-3.5 py-1.5 text-[13px] font-medium text-primary-foreground hover:opacity-90"
             >
-              Add tab
+              Add bookmark
             </button>
           </DialogFooter>
         </form>

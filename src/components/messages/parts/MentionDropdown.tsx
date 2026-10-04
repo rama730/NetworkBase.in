@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { buildIdentityPresentation } from '@/lib/ui/identity';
+import { Megaphone } from 'lucide-react';
 import { UserAvatar } from '@/components/ui/UserAvatar';
 
 interface MentionParticipant {
@@ -9,6 +10,8 @@ interface MentionParticipant {
     username: string | null;
     fullName: string | null;
     avatarUrl: string | null;
+    /** Shown under the name instead of the username (@here, @channel say who they notify). */
+    hint?: string;
 }
 
 interface MentionDropdownProps {
@@ -93,10 +96,14 @@ export function MentionDropdown({ query, participants, onSelect, onClose, getInp
                             index === selectedIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
                         }`}
                     >
-                        <UserAvatar identity={participant} size={24} unoptimized fallbackClassName="text-[11px] font-medium" />
+                        {participant.hint ? (
+                            <span className="grid size-6 flex-none place-items-center rounded-full bg-muted text-muted-foreground" aria-hidden="true"><Megaphone size={13} /></span>
+                        ) : (
+                            <UserAvatar identity={participant} size={24} unoptimized fallbackClassName="text-[11px] font-medium" />
+                        )}
                         <div className="min-w-0">
-                            <div className="truncate font-medium text-foreground">{identity.displayName}</div>
-                            {identity.usernameLabel && <div className="truncate text-xs text-muted-foreground">{identity.usernameLabel}</div>}
+                            <div className="truncate font-medium text-foreground">{participant.hint ? `@${participant.id}` : identity.displayName}</div>
+                            {participant.hint || identity.usernameLabel ? <div className="truncate text-xs text-muted-foreground">{participant.hint ?? identity.usernameLabel}</div> : null}
                         </div>
                     </div>
                 );

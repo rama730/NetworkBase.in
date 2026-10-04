@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArrowLeft, AtSign, Bell, BellOff, Check, ExternalLink, Hash, Link2, Lock, MoreHorizontal, Search, Star, UserPlus, Users } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Bell, BellDot, BellOff, Check, ExternalLink, Hash, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Search, Star, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
@@ -36,10 +36,10 @@ import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import type { ChannelDetails } from "@/app/actions/chat/channels";
 import type { CanvasTemplate } from "@/lib/messaging/canvas-store";
 import { conversationTabs, restoreTabOrder, type ChannelTabItem } from "@/lib/messaging/channel-tabs";
-import { canAddPeople, channelTitle, isSelfDm, notifyChoice, notifyChoices, notifyLabel, personName } from "@/lib/messaging/channel-view";
+import { canAddPeople, channelTitle, isSelfDm, notifiesEveryMessage, notifyChoice, notifyChoices, notifyLabel, personName } from "@/lib/messaging/channel-view";
 import { CHAT_BROADCAST_MENTION_MAX_MEMBERS } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
-import { conversationHref, type DetailsTab } from "@/lib/messaging/routes";
+import { conversationHref, messageHref, type DetailsTab } from "@/lib/messaging/routes";
 import type { ChatMessageView, ChatNotify } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
@@ -65,9 +65,10 @@ function IntroButton({ onClick, children }: { onClick: () => void; children: Rea
   return <button type="button" onClick={onClick} className="inline-flex h-8 items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium hover:bg-muted">{children}</button>;
 }
 
-function Intro({ channel, meId, isMember, onDetails, onAddPeople, onCanvas }: {
-  channel: ChannelDetails; meId: string | null; isMember: boolean; onDetails: () => void; onAddPeople: () => void; onCanvas?: () => void;
+function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onCanvas }: {
+  channel: ChannelDetails; meId: string | null; isMember: boolean; hasCanvas: boolean; onDetails: () => void; onAddPeople: () => void; onCanvas?: () => void;
 }) {
+  // Kept minimal on purpose (the DM design): the header already shows who it is and links to their details.
   if (channel.kind === "dm") {
     const self = isSelfDm(channel, meId);
     return (
@@ -92,13 +93,13 @@ function Intro({ channel, meId, isMember, onDetails, onAddPeople, onCanvas }: {
   return (
     <div className="space-y-4 px-4 pb-6 pt-6 sm:px-6 sm:pt-8">
       <div>
-        <h1 className="flex flex-wrap items-center gap-x-2 text-[24px] font-bold tracking-tight text-foreground sm:text-[28px]">
+        <h2 className="flex flex-wrap items-center gap-x-2 text-[24px] font-bold tracking-tight text-foreground sm:text-[28px]">
           <span>{isDefault ? "Welcome to" : "This is the start of"}</span>
           <span className="inline-flex items-center gap-1.5">
             {channel.kind === "private" ? <Lock size={22} className="text-muted-foreground" aria-hidden="true" /> : <Hash size={24} className="stroke-[2.5] text-muted-foreground" aria-hidden="true" />}
             <span>{channel.name}</span>
           </span>
-        </h1>
+        </h2>
         <p className="mt-2 max-w-2xl text-[15px] leading-normal text-muted-foreground">
           {channel.description || (isDefault
             ? `${channel.project_title ?? "The project"}'s home channel. Everyone on the team is here: share updates, decisions and wins.`
@@ -114,7 +115,8 @@ function Intro({ channel, meId, isMember, onDetails, onAddPeople, onCanvas }: {
         <div className="flex flex-wrap gap-2">
           {!channel.description ? <IntroButton onClick={onDetails}>Add a description</IntroButton> : null}
           <IntroButton onClick={onAddPeople}><UserPlus size={14} /> Add people</IntroButton>
-          {onCanvas ? <IntroButton onClick={onCanvas}>Create a canvas</IntroButton> : null}
+          {/* Once a canvas exists its tab is right above; the intro only offers to start one. */}
+          {onCanvas && !hasCanvas ? <IntroButton onClick={onCanvas}>Create a canvas</IntroButton> : null}
         </div>
       ) : null}
     </div>
@@ -126,11 +128,20 @@ function PinRow({ message, channelId }: { message: ChatMessageView; channelId: s
   const router = useRouter();
   const ctx = useConversationContext();
   const queryClient = useQueryClient();
+  const refreshPins = () => void queryClient.invalidateQueries({ queryKey: queryKeys.chat.pins(channelId) });
   const unpin = async () => {
     const result = await pinMessage({ channelId, seq: message.seq, on: false });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    void queryClient.invalidateQueries({ queryKey: queryKeys.chat.pins(channelId) });
-    toast("Unpinned");
+    refreshPins();
+    toast("Unpinned", {
+      action: {
+        label: "Undo",
+        onClick: () => void pinMessage({ channelId, seq: message.seq, on: true }).then((undo) => {
+          if (!undo.success) toast.error(chatErrorMessage(undo.error));
+          refreshPins();
+        }),
+      },
+    });
   };
   const when = new Date(message.created_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
   return (
@@ -144,7 +155,8 @@ function PinRow({ message, channelId }: { message: ChatMessageView; channelId: s
         {message.body ? <MessageBody body={message.body} nameOf={ctx.nameOf} channelNameOf={ctx.channelNameOf} meId={ctx.meId} /> : null}
         {message.attachments.length ? <p className="text-[13px] text-muted-foreground">{message.attachments.map((a) => a.name || "Attachment").join(", ")}</p> : null}
         <div className="mt-1 flex gap-3 text-[13px]">
-          <button type="button" onClick={() => router.replace(conversationHref(channelId, { m: message.seq }), { scroll: false })} className="font-medium text-primary hover:underline">Jump to message</button>
+          {/* A pinned thread reply opens its thread (replies aren't in the main timeline). */}
+          <button type="button" onClick={() => router.replace(messageHref(channelId, message.seq, message.thread_root_seq), { scroll: false })} className="font-medium text-primary hover:underline">Jump to message</button>
           <button type="button" onClick={() => void unpin()} className="text-muted-foreground hover:text-foreground">Unpin</button>
         </div>
       </div>
@@ -157,10 +169,20 @@ export function Pins({ channelId }: { channelId: string }) {
     queryKey: queryKeys.chat.pins(channelId),
     queryFn: async () => {
       const result = await listPins({ channelId });
-      return result.success ? result.messages : [];
+      if (!result.success) throw new Error(result.error);
+      return result.messages;
     },
   });
   if (pins.isLoading) return <p role="status" className="p-6 text-center text-[13px] text-muted-foreground">Loading pins…</p>;
+  // An error is not "nothing pinned".
+  if (pins.isError) {
+    return (
+      <div role="alert" className="p-6 text-center text-[13px]">
+        <p>Pins didn&apos;t load.</p>
+        <button type="button" onClick={() => void pins.refetch()} className="mt-2 rounded-[5px] border border-border px-3 py-1.5 font-medium hover:bg-muted">Retry</button>
+      </div>
+    );
+  }
   if (!pins.data?.length) return <p className="p-6 text-center text-[13px] text-muted-foreground">Nothing pinned yet. Pin important messages from their actions menu.</p>;
   return <ul aria-label="Pins" className="app-scroll app-scroll-y min-h-0 flex-1">{pins.data.map((m) => <PinRow key={m.seq} message={m} channelId={channelId} />)}</ul>;
 }
@@ -215,7 +237,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   const members = useChannelMembers(channelId, isMember);
   const people = useMemo(() => members.data ?? [], [members.data]);
   const searchParams = useSearchParams();
-  const linkedTab = searchParams?.get("tab") ?? null;
+  // The window has no URL of its own: the host page's ?tab= isn't for it.
+  const linkedTab = surface === "page" ? searchParams?.get("tab") ?? null : null;
   const pathname = usePathname();
   const [tab, setTabState] = useState<string>(linkedTab ?? "messages");
   // ?tab= is the open view, both ways: links open a tab, and picking one writes it (a refresh keeps it).
@@ -363,18 +386,19 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     else router.push(conversationHref(channelId, { details: which }));
   }, [channelId, panes, router, surface]);
 
+  // ⌘⇧I toggles Details (⌘I stays Italic in the composer), from anywhere on the page.
   useEffect(() => {
+    if (surface !== "page") return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && (e.key === "i" || e.key === "I")) {
-        const target = e.target as HTMLElement | null;
-        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "i" || e.key === "I")) {
         e.preventDefault();
-        openDetails("about");
+        if (panes.details) panes.closeDetails();
+        else openDetails("about");
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openDetails]);
+  }, [openDetails, panes, surface]);
 
   const names = useMemo(() => new Map(people.map((p) => [p.id, personName(p)])), [people]);
   const channelNames = useMemo(() => new Map((shell.data?.channels ?? []).filter((c) => c.name).map((c) => [c.id, c.name!])), [shell.data?.channels]);
@@ -399,10 +423,16 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     }
   }, [conversation.messages, meId]);
 
-  const markAllRead = () => {
-    if (!channel?.last_seq) return;
+  const hasUnread = Boolean(channel && channel.last_seq > channel.last_read_seq);
+  const markAllRead = async (announce = false) => {
+    if (!channel?.last_seq || !hasUnread) return;
     shell.applyRead(channelId, channel.last_seq);
-    void markRead({ channelId, seq: channel.last_seq });
+    const result = await markRead({ channelId, seq: channel.last_seq });
+    if (!result.success) {
+      shell.refresh();
+      return void toast.error(chatErrorMessage(result.error));
+    }
+    if (announce) toast.success("Conversation marked as read");
   };
 
   const setState = async (patch: { notify?: ChatNotify; starred?: boolean; archived?: boolean }) => {
@@ -447,12 +477,14 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   }
   if (!channel) return <div role="status" aria-label="Loading conversation" className="h-full animate-pulse bg-card" />;
 
-  const title = channelTitle(channel, meId);
+  const self = isSelfDm(channel, meId);
+  const title = self ? `${personName(channel.dm_user)} (you)` : channelTitle(channel, meId);
   const dmOnline = channel.kind === "dm" && channel.dm_user ? online[channel.dm_user.id] : undefined;
-  const placeholder = isDirect ? `Message ${title}` : `Message #${title}`;
+  const placeholder = self ? "Jot something down…" : isDirect ? `Message ${title}` : `Message #${title}`;
   const displayName = isChannel ? `#${title}` : title;
   const notify = notifyChoice(channel, (channel.notify ?? "all") as ChatNotify);
-  const NotifyIcon = notify === "mute" ? BellOff : notify === "mentions" ? AtSign : Bell;
+  // Bell = the default; a dot = DMs set to mentions only; crossed out = muted.
+  const NotifyIcon = notify === "mute" ? BellOff : notify === "mentions" && notifiesEveryMessage(channel) ? BellDot : Bell;
   const notifyText = notifyLabel(channel, notify);
   const notifyMenu = (
     <DropdownMenuRadioGroup value={notify} onValueChange={(value) => void setState({ notify: value as ChatNotify })}>
@@ -484,7 +516,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 type="button"
                 onClick={() => openDetails("about")}
                 className="group/title inline-flex min-w-0 items-center gap-1 rounded-xs text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                title="Details (⌘I)"
+                title="Conversation details (⌘⇧I)"
               >
                 {channel.kind !== "dm" ? <ConversationIcon channel={channel} size={18} strokeWidth={2.25} aria-hidden="true" className="shrink-0" /> : null}
                 <h1 className="truncate text-[17px] font-bold leading-tight text-foreground group-hover/title:underline">{title}</h1>
@@ -508,7 +540,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             </div>
             {channel.topic ? (
               <button type="button" onClick={() => openDetails("about")} className="block max-w-full truncate text-left text-[12px] text-muted-foreground hover:text-foreground">{channel.topic}</button>
-            ) : isMember && isChannel ? (
+            ) : isMember && isChannel && channel.can_admin && !archived ? (
               <button type="button" onClick={() => openDetails("about")} className="block text-left text-[12px] text-muted-foreground/80 hover:text-foreground">Add a topic</button>
             ) : null}
           </div>
@@ -525,9 +557,9 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                       {notifyMenu}
                       <DropdownMenuSeparator />
                       {channel.kind === "dm" ? (
-                        <DropdownMenuItem onSelect={() => void closeConversation()}>Close conversation</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => void closeConversation()}><X size={14} className="mr-2" /> Close conversation</DropdownMenuItem>
                       ) : !channel.is_default && !channel.application_id ? (
-                        <DropdownMenuItem onSelect={() => setConfirm("leave")}>Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setConfirm("leave")}><LogOut size={14} className="mr-2" /> Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
                       ) : null}
                     </>
                   ) : null}
@@ -572,35 +604,41 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                       </span>
                     ))}
                   </span>
-                  {!people.length ? <Users size={14} aria-hidden="true" /> : null}
+                  {/* Below sm the avatars are hidden: the icon says what the number counts. */}
+                  <Users size={14} aria-hidden="true" className={people.length ? "sm:hidden" : ""} />
                   <span className="font-mono text-[12px] font-medium text-foreground">{channel.member_count}</span>
                 </button>
               ) : null}
               {!isMember && channel.kind === "public" && !archived ? (
                 <button type="button" onClick={() => void join()} className="ml-1 inline-flex h-8 items-center rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground">Join</button>
               ) : null}
-              {isMember ? (
+              {isMember || canPreview ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger className="nb-icon-button nb-touch-target" aria-label="More options">
                     <MoreHorizontal size={16} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-60">
+                    {isMember ? <DropdownMenuItem onSelect={() => openDetails("about")}><PanelRight size={14} className="mr-2" /> Conversation details <kbd className="ml-auto font-mono text-[11px] text-muted-foreground">⌘⇧I</kbd></DropdownMenuItem> : null}
                     {canAddPeople(channel) ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus size={14} className="mr-2" /> Add people</DropdownMenuItem> : null}
-                    {canAddPeople(channel) ? <DropdownMenuSeparator /> : null}
+                    {isMember ? <DropdownMenuSeparator /> : null}
                     <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${conversationHref(channelId)}`, "Link copied"); }}>
                       <Link2 size={14} className="mr-2" /> Copy link
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => { markAllRead(); toast.success("Conversation marked as read"); }}><Check size={14} className="mr-2" /> Mark as read</DropdownMenuItem>
-                    {channel.kind === "dm" || (!channel.is_default && !channel.application_id) || (channel.can_admin && isChannel && !channel.is_default) ? <DropdownMenuSeparator /> : null}
-                    {channel.kind === "dm" ? (
-                      <DropdownMenuItem onSelect={() => void closeConversation()}>Close conversation</DropdownMenuItem>
-                    ) : !channel.is_default && !channel.application_id ? (
-                      <DropdownMenuItem onSelect={() => setConfirm("leave")}>Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
+                    {isMember && hasUnread ? <DropdownMenuItem onSelect={() => void markAllRead(true)}><Check size={14} className="mr-2" /> Mark as read</DropdownMenuItem> : null}
+                    {isMember && (channel.kind === "dm" || (!channel.is_default && !channel.application_id) || (channel.can_admin && isChannel && !channel.is_default)) ? <DropdownMenuSeparator /> : null}
+                    {!isMember ? null : channel.kind === "dm" ? (
+                      <DropdownMenuItem onSelect={() => void closeConversation()}><X size={14} className="mr-2" /> Close conversation</DropdownMenuItem>
+                    ) : !channel.is_default && !channel.application_id && !archived ? (
+                      <DropdownMenuItem onSelect={() => setConfirm("leave")}><LogOut size={14} className="mr-2" /> Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
                     ) : null}
-                    {channel.can_admin && isChannel && !channel.is_default && !archived ? (
-                      <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setConfirm("archive")}>
-                        <Archive size={14} className="mr-2" /> Archive channel
-                      </DropdownMenuItem>
+                    {isMember && channel.can_admin && isChannel && !channel.is_default ? (
+                      archived ? (
+                        <DropdownMenuItem onSelect={unarchive}><ArchiveRestore size={14} className="mr-2" /> Unarchive channel</DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setConfirm("archive")}>
+                          <Archive size={14} className="mr-2" /> Archive channel
+                        </DropdownMenuItem>
+                      )
                     ) : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -622,6 +660,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             onAddBookmark={() => setDialog("bookmark")}
             onEditTabs={(sharedTabs.data ?? []).length ? () => setDialog("tabs") : undefined}
             hasCanvas={Boolean(canvasQuery.data)}
+            canCopyCanvas={Boolean(channel.project_id)}
           />
         ) : null}
 
@@ -670,10 +709,10 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 loadingOlder={conversation.query.isFetchingNextPage}
                 olderError={conversation.query.isFetchNextPageError}
                 loadOlder={() => void conversation.query.fetchNextPage()}
-                intro={<Intro channel={channel} meId={meId} isMember={isMember} onDetails={() => openDetails("about")} onAddPeople={() => setDialog("people")} onCanvas={isChannel ? () => openCanvas() : undefined} />}
+                intro={<Intro channel={channel} meId={meId} isMember={isMember} hasCanvas={Boolean(canvasQuery.data)} onDetails={() => openDetails("about")} onAddPeople={() => setDialog("people")} onCanvas={isChannel ? () => openCanvas() : undefined} />}
                 highlightSeq={around}
                 onSeen={isMember ? conversation.markSeen : () => undefined}
-                onMarkRead={isMember ? markAllRead : undefined}
+                onMarkRead={isMember ? () => void markAllRead() : undefined}
                 typing={typing.names.length > 0}
                 revealSeq={editingSeq}
               />
@@ -766,7 +805,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
 }
 
 /** Next to a DM's name: their status (emoji + text), else when they were active. */
-function DmHeaderStatus({ userId, live }: { userId: string; live?: boolean }) {
+function DmHeaderStatus({ userId, live }: { userId: string; live?: boolean | undefined }) {
   const presence = usePersonPresence(userId, { live });
   return (
     <span className="inline-flex min-w-0 items-center gap-1 truncate text-[13px] text-muted-foreground">

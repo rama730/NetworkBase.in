@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Loader2, X } from "lucide-react";
 
 import { renameGroup } from "@/app/actions/chat/channels";
@@ -13,7 +14,7 @@ import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ViewScreen } from "@/components/messages/ViewScreen";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { personName } from "@/lib/messaging/channel-view";
+import { isDirectLike, personName } from "@/lib/messaging/channel-view";
 import { CHAT_MAX_GROUP_OTHERS } from "@/lib/messaging/constants";
 import { conversationHref } from "@/lib/messaging/routes";
 import type { ChatPerson } from "@/lib/messaging/types";
@@ -91,15 +92,29 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
   };
   const full = to.length >= CHAT_MAX_GROUP_OTHERS;
 
+  // One person you already talk to, or a group with exactly these people: offer it instead of a new one.
+  // ponytail: the bootstrap previews 3 members per group, so only groups of up to 4 (you included) match.
+  // upgrade: a server-side lookup by member set if people message the same big group again.
+  const recipientIds = useMemo(() => new Set(to.map((p) => p.id)), [to]);
+  const existing = to.length === 1
+    ? channels?.find((c) => c.kind === "dm" && c.dm_user?.id === to[0]!.id) ?? null
+    : to.length > 1 && to.length <= 3
+      ? channels?.find((c) => isDirectLike(c) && c.kind === "private" && !c.channel_archived_at && c.member_count === to.length + 1
+        && (c.members_preview ?? []).length === to.length && (c.members_preview ?? []).every((p) => recipientIds.has(p.id))) ?? null
+      : null;
+
   const send = async (body: string) => {
     const key = to.map((p) => p.id).sort().join(",");
-    let channelId = opened?.key === key ? opened.channelId : null;
+    let channelId = opened?.key === key ? opened.channelId : existing?.id ?? null;
     if (!channelId) {
       const result = to.length === 1 ? await getOrCreateDm({ userId: to[0]!.id }) : await createGroup({ userIds: to.map((p) => p.id) });
       if (!result.success) return { success: false as const, error: result.error };
       channelId = result.channelId;
       setOpened({ key, channelId });
-      if (to.length > 1 && groupName.trim()) await renameGroup({ channelId, title: groupName.trim().slice(0, 80) });
+      if (to.length > 1 && groupName.trim()) {
+        const renamed = await renameGroup({ channelId, title: groupName.trim().slice(0, 80) });
+        if (!renamed.success) toast.error("Group created; its name wasn't saved.");
+      }
     }
     const sent = await sendMessage({ channelId, body, clientId: crypto.randomUUID() });
     if (!sent.success) return { success: false as const, error: sent.error };
@@ -109,8 +124,6 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
     return { success: true as const };
   };
 
-  // One person you already talk to: say so and offer the existing conversation.
-  const existing = to.length === 1 ? channels?.find((c) => c.kind === "dm" && c.dm_user?.id === to[0]!.id) ?? null : null;
   const openExisting = () => {
     if (!existing) return;
     if (onOpen) onOpen(existing.id);
@@ -150,7 +163,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
         {candidates.length && !full ? (
           <div className="mt-2">
             <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {isSearching ? "Search results" : "Recent & Suggested"}
+              {isSearching ? "Search results" : "Recent and suggested"}
             </p>
             <ul id="new-message-people" role="listbox" className="max-h-64 overflow-y-auto" aria-label="People">
               {candidates.map((person, index) => (
@@ -186,11 +199,11 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
         ) : null}
         {existing ? (
           <p className="mt-2 flex flex-wrap items-center gap-2 rounded-[5px] bg-muted px-3 py-2 text-[13px]">
-            You already have a conversation with {personName(to[0])}.
+            {to.length === 1 ? `You already have a conversation with ${personName(to[0])}.` : "You already have a group with these people; your message goes there."}
             <button type="button" onClick={openExisting} className="font-medium text-primary hover:underline">Open it</button>
           </p>
         ) : null}
-        {to.length > 1 ? (
+        {to.length > 1 && !existing ? (
           <label className="mt-2 flex items-center gap-2 text-[13px] text-muted-foreground">
             Group name
             <input value={groupName} onChange={(e) => setGroupName(e.target.value.slice(0, 80))} placeholder="Optional, e.g. Launch crew" className="h-8 min-w-0 flex-1 rounded-[5px] border border-input bg-card px-2 text-[14px] text-foreground" />

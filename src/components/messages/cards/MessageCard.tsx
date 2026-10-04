@@ -33,12 +33,22 @@ export function MessageCard({ card }: { card: ChatCardRef }) {
     queryKey: key,
     queryFn: async () => {
       const result = await refreshCard({ kind: card.kind, refId: card.ref_id });
-      return result.success ? result.card ?? null : null;
+      // A failure is not "no access": throw, so it shows Retry.
+      if (!result.success) throw new Error(result.error);
+      return result.card ?? null;
     },
     staleTime: 5 * 60_000,
   });
   const view = query.data;
-  if (query.isLoading) return <div className="mt-2 h-20 max-w-[480px] animate-pulse rounded-lg border border-border bg-card" aria-label="Loading card" />;
+  if (query.isLoading) return <div role="status" className="mt-2 h-20 max-w-[480px] animate-pulse rounded-lg border border-border bg-card"><span className="sr-only">Loading {card.kind}…</span></div>;
+  if (query.isError) {
+    return (
+      <div role="alert" className="mt-2 flex max-w-[480px] items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-[13px] text-muted-foreground">
+        <span className="flex-1">This {card.kind} didn&apos;t load.</span>
+        <button type="button" onClick={() => void query.refetch()} className="rounded-[5px] border border-border px-2.5 py-1 font-medium text-foreground hover:bg-muted">Retry</button>
+      </div>
+    );
+  }
   if (!view || "restricted" in view) {
     return <div className="mt-2 max-w-[480px] rounded-lg border border-border bg-card px-4 py-3 text-[13px] text-muted-foreground">You don&apos;t have access to this {card.kind}.</div>;
   }
@@ -69,12 +79,12 @@ function useCardAction(kind: string, refId: string) {
   return { busy, run };
 }
 
-function Shell({ label, status, children }: { label: string; status: string; children: React.ReactNode }) {
+function Shell({ label, status, children }: { label: string; status: string | null; children: React.ReactNode }) {
   return (
     <div className="mt-2 max-w-[480px] rounded-lg border border-border bg-card p-4">
       <div className="mb-2 flex items-center gap-2">
         <span className="nb-micro text-muted-foreground">{label}</span>
-        <span className="ml-auto rounded-[3px] bg-secondary px-1.5 py-0.5 font-mono text-[11px] capitalize">{status.replace(/_/g, " ")}</span>
+        {status ? <span className="ml-auto rounded-[3px] bg-secondary px-1.5 py-0.5 font-mono text-[11px] capitalize">{status.replace(/_/g, " ")}</span> : null}
       </div>
       {children}
     </div>
@@ -142,7 +152,8 @@ function TaskCard({ view }: { view: TaskCardView }) {
   const currentStatusConfig = (TASK_STATUS_CONFIG as Record<string, { label: string; className: string }>)[view.status] ?? TASK_STATUS_CONFIG.todo;
 
   return (
-    <Shell label={view.project_key && view.task_number ? `${view.project_key}-${view.task_number}` : "Task"} status={view.status}>
+    // The status shows once, as the coloured pill below (a menu for people who may change it).
+    <Shell label={view.project_key && view.task_number ? `${view.project_key}-${view.task_number}` : "Task"} status={null}>
       <Link href={href} className="block text-[15px] font-medium text-foreground hover:underline">{view.title}</Link>
       <div className="mt-2.5 flex flex-wrap items-center gap-3 text-[13px] text-muted-foreground">
         <span className="font-medium text-foreground/80">{view.project_title}</span>
@@ -157,6 +168,9 @@ function TaskCard({ view }: { view: TaskCardView }) {
         {view.due_date ? <span className="font-mono text-[12px]">Due {new Date(view.due_date).toLocaleDateString()}</span> : null}
 
         <div className="ml-auto">
+          {view.can_edit === false ? (
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[12px] font-medium ${currentStatusConfig.className}`}>{currentStatusConfig.label}</span>
+          ) : (
           <DropdownMenu>
             <DropdownMenuTrigger
               disabled={busy}
@@ -182,6 +196,7 @@ function TaskCard({ view }: { view: TaskCardView }) {
               })}
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
       </div>
     </Shell>

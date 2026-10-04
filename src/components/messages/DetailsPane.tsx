@@ -22,7 +22,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import type { ChannelMember } from "@/app/actions/chat/channels";
-import { canAddPeople, notifyChoice, notifyChoices, personName } from "@/lib/messaging/channel-view";
+import { canAddPeople, notifyChoice, notifyChoices, notifyHelp, personName } from "@/lib/messaging/channel-view";
+import { PersonHoverCard } from "@/components/presence/PersonHoverCard";
 import { CHAT_CHANNEL_NAME_PATTERN, CHAT_MAX_DESCRIPTION } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, type DetailsTab } from "@/lib/messaging/routes";
@@ -36,10 +37,10 @@ type Field = "name" | "topic" | "description" | "title";
 
 const ROLE_LABEL: Record<string, string> = { owner: "Owner", admin: "Admin" };
 
-/** A row of About that edits in place: click it, type, Enter (or blur) saves, Esc cancels. */
-function EditableRow({ label, value, placeholder, editable, multiline, prefix, onSave, transform, valid = () => true, hint }: {
+/** A row of About that edits in place: click it, type, Enter (or blur) saves, Esc cancels. `max` shows a counter. */
+function EditableRow({ label, value, placeholder, editable, multiline, prefix, onSave, transform, valid = () => true, hint, max }: {
   label: string; value: string | null; placeholder: string; editable: boolean; multiline?: boolean; prefix?: string;
-  onSave: (next: string) => Promise<boolean>; transform?: (raw: string) => string; valid?: (next: string) => boolean; hint?: string;
+  onSave: (next: string) => Promise<boolean>; transform?: (raw: string) => string; valid?: (next: string) => boolean; hint?: string; max?: number;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const saving = useRef(false);
@@ -61,7 +62,8 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
     <div className="p-4">
       <div className="flex items-center justify-between">
         <span className="text-[13px] font-semibold text-foreground">{label}</span>
-        {editable && draft === null ? <button type="button" onClick={start} className="text-[12px] font-medium text-primary hover:underline">Edit</button> : null}
+        {/* Out of the tab order: the value below is the same button for keyboards and screen readers. */}
+        {editable && draft === null ? <button type="button" tabIndex={-1} aria-hidden="true" onClick={start} className="text-[12px] font-medium text-primary hover:underline">Edit</button> : null}
       </div>
       {draft !== null ? (
         <div className="mt-1.5 space-y-1">
@@ -81,12 +83,18 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
               className="w-full resize-none bg-transparent py-1.5 text-[14px] outline-none"
             />
           </div>
-          {hint || !valid(draft.trim()) ? <p className={`text-[12px] ${valid(draft.trim()) ? "text-muted-foreground" : "text-destructive"}`}>{hint}</p> : null}
+          <div className="flex items-start gap-3 text-[12px]">
+            {hint || !valid(draft.trim()) ? <p className={`flex-1 ${valid(draft.trim()) ? "text-muted-foreground" : "text-destructive"}`}>{hint}</p> : <span className="flex-1" />}
+            {/* A visible limit instead of a silent cut. */}
+            {max ? <span className={`font-mono ${draft.length >= max ? "text-destructive" : "text-muted-foreground"}`}>{draft.length}/{max}</span> : null}
+          </div>
+          <p className="text-[11px] text-muted-foreground">{multiline ? "⌘Enter to save · Esc to cancel" : "Enter to save · Esc to cancel"}</p>
         </div>
       ) : (
         <button
           type="button"
           disabled={!editable}
+          aria-label={editable ? `Edit ${label.toLowerCase()}${value ? `: ${value}` : ""}` : undefined}
           onClick={start}
           className={`mt-1 block w-full whitespace-pre-wrap text-left text-[13px] leading-relaxed ${value ? "text-foreground" : "text-muted-foreground"} ${editable ? "cursor-text rounded-[4px] hover:bg-muted/60" : "cursor-default"}`}
         >
@@ -117,10 +125,14 @@ function QuickActions({ channel, onStar }: { channel: ChannelDetails; onStar?: (
 
 function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (notify: ChatNotify) => void }) {
   return (
-    <label className="flex items-center gap-3 p-4">
-      <Bell size={15} aria-hidden="true" className="text-muted-foreground" />
-      <span className="flex-1 text-[13px] font-semibold">Notifications</span>
-      <select value={notifyChoice(channel, channel.notify)} onChange={(e) => onChange(e.target.value as ChatNotify)} className="h-8 rounded-[5px] border border-input bg-card px-2 text-[13px]">
+    <label className="flex items-start gap-3 p-4">
+      <Bell size={15} aria-hidden="true" className="mt-1 text-muted-foreground" />
+      <span className="flex-1">
+        <span className="block text-[13px] font-semibold">Notifications</span>
+        {/* What the choice actually does. */}
+        <span className="block text-[12px] text-muted-foreground">{notifyHelp(channel, channel.notify)}</span>
+      </span>
+      <select value={notifyChoice(channel, channel.notify)} onChange={(e) => onChange(e.target.value as ChatNotify)} className="h-8 rounded-[5px] border border-input bg-card px-2 text-[13px] pointer-coarse:h-11">
         {notifyChoices(channel).map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
       </select>
     </label>
@@ -132,27 +144,38 @@ function MemberRow({ member, channel, meId, online, onRemove }: { member: Channe
   const queryClient = useQueryClient();
   const presence = usePersonPresence(member.id, { live: online });
   const self = member.id === meId;
+  const [opening, setOpening] = useState(false);
   const message = async () => {
-    const result = await getOrCreateDm({ userId: member.id });
+    if (opening) return;
+    setOpening(true);
+    const opened = toast.loading(`Opening a message with ${personName(member)}…`);
+    const result = await getOrCreateDm({ userId: member.id }).finally(() => setOpening(false));
+    toast.dismiss(opened);
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     router.push(conversationHref(result.channelId));
   };
-  const role = async (next: "admin" | "member") => {
+  const role = async (next: "admin" | "member", undo = true) => {
     const result = await setMemberRole({ channelId: channel.id, userId: member.id, role: next });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.members(channel.id) });
-    toast.success(`${personName(member)} is now ${next === "admin" ? "an admin" : "a member"}`);
+    const previous = next === "admin" ? "member" : "admin";
+    toast.success(`${personName(member)} is now ${next === "admin" ? "an admin" : "a member"}`, undo ? { action: { label: "Undo", onClick: () => void role(previous, false) } } : undefined);
   };
   const canManage = channel.can_admin && !self && member.role !== "owner" && channel.kind !== "dm";
   return (
     <div role="listitem" className="group/member flex min-h-12 items-center gap-2.5 rounded-[5px] px-2 hover:bg-muted/50">
-      <PresenceAvatar userId={member.id} live={online} identity={member} size={30} roundedClassName="rounded-[5px]" />
+      <PersonHoverCard person={member}>
+        <span className="inline-flex flex-none"><PresenceAvatar userId={member.id} live={online} identity={member} size={30} roundedClassName="rounded-[5px]" /></span>
+      </PersonHoverCard>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
-          <span className="truncate text-[14px] font-medium">{personName(member)}{self ? " (you)" : ""}</span>
+          <PersonHoverCard person={member}>
+            <span className="truncate text-[14px] font-medium hover:underline">{personName(member)}{self ? " (you)" : ""}</span>
+          </PersonHoverCard>
           {presence.status?.emoji ? <span className="flex-none font-[system-ui] text-[13px]" title={presence.statusText ?? undefined}>{presence.status.emoji}</span> : null}
         </span>
-        <span className="block truncate text-[12px] text-muted-foreground">{presence.statusText || presence.availabilityText}</span>
+        {/* No "Offline" guess before presence has loaded. */}
+        <span className="block truncate text-[12px] text-muted-foreground">{presence.statusText || (presence.loaded ? presence.availabilityText : " ")}</span>
       </span>
       {ROLE_LABEL[member.role] ? <span className="flex-none rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">{ROLE_LABEL[member.role]}</span> : null}
       {!self ? (
@@ -161,7 +184,7 @@ function MemberRow({ member, channel, meId, online, onRemove }: { member: Channe
             <MoreHorizontal size={15} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onSelect={() => void message()}><MessageSquare size={14} className="mr-2" /> Message</DropdownMenuItem>
+            <DropdownMenuItem disabled={opening} onSelect={() => void message()}><MessageSquare size={14} className="mr-2" /> Message</DropdownMenuItem>
             {member.username ? <DropdownMenuItem asChild><Link href={profileHref({ id: member.id, username: member.username })}>View profile</Link></DropdownMenuItem> : null}
             {canManage ? (
               <>
@@ -197,7 +220,8 @@ function Members({ channel, meId, onAdd, scrollParent }: { channel: ChannelDetai
   const list = (members.data ?? [])
     .filter((m) => !filter || personName(m).toLowerCase().includes(filter.toLowerCase()) || (m.username ?? "").toLowerCase().includes(filter.toLowerCase()))
     .sort((a, b) => rank(a) - rank(b) || personName(a).localeCompare(personName(b)));
-  // Only the rows on screen render (Virtuoso) and get live presence.
+  // Only the rows on screen render (Virtuoso). Live presence covers the first few of them
+  // (useOnlineUsers caps realtime rooms at 3); the rest show the batched presence.
   const [range, setRange] = useState({ start: 0, end: 30 });
   const ids = useMemo(() => list.slice(range.start, range.end + 1).slice(0, 50).map((m) => m.id), [list, range]);
   const online = useOnlineUsers(ids);
@@ -211,6 +235,10 @@ function Members({ channel, meId, onAdd, scrollParent }: { channel: ChannelDetai
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channel.id) });
     toast.success(`${personName(member)} was removed`);
   };
+  // Previewing a public channel: the list is for members.
+  if (!channel.is_member) {
+    return <p className="p-6 text-center text-[13px] text-muted-foreground">Join #{channel.name} to see its {channel.member_count} members.</p>;
+  }
   return (
     <div className="space-y-2 p-3">
       {canAddPeople(channel) ? <button type="button" onClick={onAdd} className="flex h-9 w-full items-center gap-2 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted"><UserPlus size={14} /> Add people</button> : null}
@@ -268,7 +296,7 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
     <div className="app-scroll app-scroll-y min-h-0 flex-1">
       <div className="space-y-2 border-b border-border p-4">
         <PresenceAvatar userId={person?.id} identity={person} size={72} roundedClassName="rounded-lg" />
-        <p className="text-[18px] font-semibold">{self ? "You" : personName(person)}</p>
+        <p className="text-[18px] font-semibold">{self ? `${personName(person)} (you)` : personName(person)}</p>
         {person?.username ? <p className="font-mono text-[12px] text-muted-foreground">@{person.username}</p> : null}
         {presence.status ? <StatusInline emoji={presence.status.emoji} text={presence.statusText} className="text-[14px]" /> : null}
         <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
@@ -299,12 +327,17 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
           ) : null}
         </div>
       ) : null}
-      <div className="border-t border-border">
-        <NotifyRow channel={channel} onChange={(notify) => setState({ notify })} />
-      </div>
-      <div className="border-t border-border p-4">
-        <button type="button" onClick={onClose} className="h-9 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted">Close conversation</button>
-      </div>
+      {/* Notes to self: nothing to notify or close. */}
+      {self ? null : (
+        <>
+          <div className="border-t border-border">
+            <NotifyRow channel={channel} onChange={(notify) => setState({ notify })} />
+          </div>
+          <div className="border-t border-border p-4">
+            <button type="button" onClick={onClose} className="h-9 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted">Close conversation</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -324,7 +357,27 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const exit = useConversationExit({ id: channelId, project_id: channel?.project_id ?? null, kind: channel?.kind ?? "public", name: channel?.name ?? null });
 
-  if (!channel) return <div role="status" aria-label="Loading details" className="flex-1" />;
+  if (details.isError && !channel) {
+    return (
+      <div role="alert" className="space-y-2 p-6 text-center text-[13px]">
+        <p className="text-muted-foreground">Details didn&apos;t load.</p>
+        <button type="button" onClick={() => void details.refetch()} className="rounded-[5px] border border-border px-3 py-1.5 font-medium hover:bg-muted">Retry</button>
+      </div>
+    );
+  }
+  if (!channel) {
+    return (
+      <div role="status" className="flex-1 space-y-4 p-4">
+        <span className="sr-only">Loading details…</span>
+        {[40, 70, 55].map((width) => (
+          <div key={width} className="animate-pulse space-y-2">
+            <div className="h-3 w-20 rounded bg-muted" />
+            <div className="h-3 rounded bg-muted" style={{ width: `${width}%` }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
   const isDm = channel.kind === "dm";
   const isGroup = channel.kind === "private" && channel.name === null;
 
@@ -371,8 +424,20 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
   if (isDm) return <PersonDetails channel={channel} meId={meId} setState={(patch) => void setState(patch)} onClose={() => void setState({ archived: true })} />;
 
   const creator = (members.data ?? []).find((m) => m.id === channel.created_by);
+  const creatorName = creator ? personName(creator) : channel.created_by_name;
   const createdDate = new Date(channel.created_at).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
-  const canLeave = !channel.is_default && !channel.application_id;
+  const archived = Boolean(channel.channel_archived_at);
+  // Leaving an archived channel is pointless (nobody posts there); its banner says what's possible.
+  const canLeave = !channel.is_default && !channel.application_id && !archived;
+  // The server lets channel admins edit name, topic and description; nothing is edited while archived.
+  const canEdit = channel.can_admin && !archived;
+  const tabKeys = (event: React.KeyboardEvent, index: number) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft" && event.key !== "Home" && event.key !== "End") return;
+    event.preventDefault();
+    const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : (index + 1) % 2;
+    onTab((["about", "members"] as const)[next]!);
+    document.getElementById(`details-tab-${next ? "members" : "about"}`)?.focus();
+  };
   const canArchive = channel.can_admin && !isGroup && !channel.is_default && !channel.channel_archived_at;
   // Same rule as chat_set_channel_privacy: admins, named project channels, never #general or an application thread.
   const canSwitchPrivacy = channel.can_admin && !isGroup && Boolean(channel.project_id) && !channel.is_default && !channel.application_id && !channel.channel_archived_at;
@@ -380,13 +445,24 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-none gap-3 border-b border-border px-3" role="tablist" aria-label="Details">
-        {(["about", "members"] as const).map((value) => (
-          <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => onTab(value)} className={`nb-tab -mb-px min-h-10 border-b-2 text-[13px] font-medium capitalize ${tab === value ? "border-[var(--chat-accent)]" : "border-transparent text-muted-foreground"}`}>
+        {(["about", "members"] as const).map((value, index) => (
+          <button
+            key={value}
+            id={`details-tab-${value}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === value}
+            aria-controls="details-panel"
+            tabIndex={tab === value ? 0 : -1}
+            onClick={() => onTab(value)}
+            onKeyDown={(event) => tabKeys(event, index)}
+            className={`nb-tab -mb-px min-h-10 border-b-2 text-[13px] font-medium capitalize ${tab === value ? "border-[var(--chat-accent)]" : "border-transparent text-muted-foreground"}`}
+          >
             {value === "members" ? `Members · ${channel.member_count}` : "About"}
           </button>
         ))}
       </div>
-      <div ref={setScroller} className="app-scroll app-scroll-y min-h-0 flex-1">
+      <div ref={setScroller} id="details-panel" role="tabpanel" aria-labelledby={`details-tab-${tab}`} className="app-scroll app-scroll-y min-h-0 flex-1">
         {tab === "members" ? <Members channel={channel} meId={meId} onAdd={() => setAdding(true)} scrollParent={scroller} /> : (
           <div className="space-y-3 p-4">
             {channel.channel_archived_at ? (
@@ -403,14 +479,14 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
             <QuickActions channel={channel} onStar={channel.is_member ? () => void setState({ starred: !channel.starred }) : undefined} />
             <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card/40">
               {isGroup ? (
-                <EditableRow label="Group name" value={channel.title ?? null} placeholder="Name this group" editable={channel.is_member} onSave={saveField("title")} valid={(v) => v.length <= 80} />
+                <EditableRow label="Group name" value={channel.title ?? null} placeholder="Name this group" editable={channel.is_member && !archived} onSave={saveField("title")} valid={(v) => v.length <= 80} max={80} hint="Up to 80 characters." />
               ) : (
                 <EditableRow
                   label="Channel name"
                   value={channel.name}
                   placeholder=""
                   prefix="#"
-                  editable={channel.can_admin}
+                  editable={canEdit}
                   onSave={saveField("name")}
                   transform={(raw) => raw.toLowerCase().replace(/\s+/g, "-").slice(0, 80)}
                   valid={(v) => CHAT_CHANNEL_NAME_PATTERN.test(v)}
@@ -425,8 +501,8 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
               ) : null}
               {!isGroup ? (
                 <>
-                  <EditableRow label="Topic" value={channel.topic} placeholder="Add a topic" editable={channel.is_member} onSave={saveField("topic")} transform={(raw) => raw.slice(0, 250)} />
-                  <EditableRow label="Description" value={channel.description} placeholder="Add a description" editable={channel.is_member} multiline onSave={saveField("description")} transform={(raw) => raw.slice(0, CHAT_MAX_DESCRIPTION)} />
+                  <EditableRow label="Topic" value={channel.topic} placeholder="Add a topic" editable={canEdit} onSave={saveField("topic")} transform={(raw) => raw.slice(0, 250)} max={250} />
+                  <EditableRow label="Description" value={channel.description} placeholder="Add a description" editable={canEdit} multiline onSave={saveField("description")} transform={(raw) => raw.slice(0, CHAT_MAX_DESCRIPTION)} max={CHAT_MAX_DESCRIPTION} />
                 </>
               ) : null}
               {channel.is_member ? <NotifyRow channel={channel} onChange={(notify) => void setState({ notify })} /> : null}
@@ -448,24 +524,24 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
               ) : null}
               <div className="p-4">
                 <span className="text-[13px] font-semibold">Created</span>
-                <p className="mt-1 text-[13px] text-muted-foreground">{creator ? `By ${personName(creator)} on ` : "On "}{createdDate}</p>
+                <p className="mt-1 text-[13px] text-muted-foreground">{creatorName ? `By ${creatorName} on ` : "On "}{createdDate}</p>
               </div>
             </div>
-            {canAddPeople(channel) ? (
-              <button type="button" onClick={() => setAdding(true)} className="flex h-9 items-center gap-2 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted"><UserPlus size={14} /> Add people</button>
-            ) : null}
             {canLeave || canArchive ? (
               <div className="flex flex-wrap gap-2 pt-1">
                 {canLeave && channel.is_member ? <button type="button" onClick={() => setConfirm("leave")} className="h-9 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted">Leave {isGroup ? "conversation" : "channel"}</button> : null}
                 {canArchive ? <button type="button" onClick={() => setConfirm("archive")} className="h-9 rounded-[5px] border border-border px-3 text-[13px] font-medium text-destructive hover:bg-destructive/10">Archive channel</button> : null}
               </div>
             ) : null}
-            <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
-              <span className="truncate font-mono">ID: {channel.id}</span>
-              <button type="button" onClick={() => { void copyWithToast(channel.id, "ID copied"); }} className="ml-2 inline-flex items-center gap-1 font-medium hover:text-foreground" title="Copy ID">
-                <Copy size={12} /> Copy
-              </button>
-            </div>
+            {/* Like Slack, the ID sits at the bottom of About: admins need it for integrations and support. */}
+            {channel.can_admin ? (
+              <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+                <span className="truncate font-mono">ID: {channel.id}</span>
+                <button type="button" onClick={() => { void copyWithToast(channel.id, "ID copied"); }} className="ml-2 inline-flex items-center gap-1 font-medium hover:text-foreground" title="Copy ID">
+                  <Copy size={12} /> Copy
+                </button>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

@@ -72,8 +72,8 @@ function mentionItems(userId: string, mentionsOnly: boolean, before: string | nu
     LEFT JOIN profiles pr ON pr.id = msg.author_id
     WHERE mn.user_id = ${userId}::uuid
       AND (${!mentionsOnly} OR mn.kind <> 'thread_reply')
-      -- Same rule as the Inbox badge (chat_inbox_unread): muted conversations stay out.
-      AND mem.notify <> 'mute'
+      -- Same rule as the Inbox badge: in muted conversations mentions still show, thread replies don't.
+      AND (mn.kind <> 'thread_reply' OR mem.notify <> 'mute')
       AND (${before}::timestamptz IS NULL OR mn.created_at < ${before}::timestamptz)
       AND msg.deleted_at IS NULL
     ORDER BY mn.created_at DESC
@@ -167,12 +167,29 @@ export async function markInboxRead(input: { items?: { channelId: string; seq: n
         `);
       }
     } else {
+      const picked = jsonParam(items.map((item) => ({ channel_id: item.channelId, seq: item.seq })));
       await chatRows(sql`
         UPDATE chat_mentions mn SET read_at = now()
-        FROM jsonb_to_recordset(${jsonParam(items.map((item) => ({ channel_id: item.channelId, seq: item.seq })))}) AS x(channel_id uuid, seq bigint)
+        FROM jsonb_to_recordset(${picked}) AS x(channel_id uuid, seq bigint)
         WHERE mn.user_id = ${user.id}::uuid AND mn.channel_id = x.channel_id AND mn.message_seq = x.seq AND mn.read_at IS NULL
       `);
+      // A thread reply read here is read in the Threads tab too (its follow cursor moves up to it).
+      await chatRows(sql`
+        UPDATE chat_thread_follows f SET last_read_seq = greatest(f.last_read_seq, x.seq)
+        FROM jsonb_to_recordset(${picked}) AS x(channel_id uuid, seq bigint), chat_messages msg
+        WHERE f.user_id = ${user.id}::uuid AND msg.channel_id = x.channel_id AND msg.channel_seq = x.seq
+          AND msg.thread_root_seq IS NOT NULL AND f.channel_id = x.channel_id AND f.root_seq = msg.thread_root_seq
+      `);
     }
+    // The sidebar's @ counts follow: what's left unread after each channel's cursor (same as chat_mark_unread).
+    await chatRows(sql`
+      UPDATE chat_channel_members m SET mention_count = (
+        SELECT count(*)::int FROM chat_mentions mn
+        WHERE mn.user_id = m.user_id AND mn.channel_id = m.channel_id AND mn.read_at IS NULL
+          AND mn.kind <> 'thread_reply' AND mn.message_seq > m.last_read_seq
+      )
+      WHERE m.user_id = ${user.id}::uuid AND m.mention_count > 0
+    `);
     publishUser(user.id, "membership.changed", {});
     return { success: true as const };
   } catch (error) {
@@ -186,7 +203,9 @@ export type ThreadItem = {
   channel_kind: string;
   channel_title: string | null;
   project_title: string | null;
+  /** Up to 5 repliers, most recent first; participant_count is all of them. */
   participants: ChatPerson[] | null;
+  participant_count: number;
   root_seq: number;
   body: string;
   reply_count: number;
@@ -206,22 +225,27 @@ export async function listThreads(input: { before?: string | null; limit?: numbe
     const threads = await chatRows<ThreadItem>(sql`
       SELECT f.channel_id, c.name AS channel_name, c.kind AS channel_kind, c.title AS channel_title, p.title AS project_title,
              f.root_seq::int AS root_seq,
-             (SELECT jsonb_agg(jsonb_build_object('id', x.id, 'username', x.username, 'full_name', x.full_name, 'avatar_url', x.avatar_url))
-                FROM (SELECT DISTINCT ON (rp.author_id) pp.id, pp.username, pp.full_name, pp.avatar_url
-                      FROM chat_messages rp JOIN profiles pp ON pp.id = rp.author_id
+             (SELECT jsonb_agg(jsonb_build_object('id', pp.id, 'username', pp.username, 'full_name', pp.full_name, 'avatar_url', pp.avatar_url) ORDER BY x.last DESC)
+                FROM (SELECT rp.author_id, max(rp.channel_seq) AS last
+                      FROM chat_messages rp
                       WHERE rp.channel_id = f.channel_id AND rp.thread_root_seq = f.root_seq AND rp.deleted_at IS NULL
-                      LIMIT 5) x) AS participants,
+                      GROUP BY rp.author_id ORDER BY last DESC LIMIT 5) x
+                JOIN profiles pp ON pp.id = x.author_id) AS participants,
+             (SELECT count(DISTINCT rp.author_id)::int FROM chat_messages rp
+                WHERE rp.channel_id = f.channel_id AND rp.thread_root_seq = f.root_seq AND rp.deleted_at IS NULL) AS participant_count,
              msg.body, msg.reply_count, msg.last_reply_seq::int AS last_reply_seq, msg.last_reply_at,
-             coalesce(msg.last_reply_seq, 0) > f.last_read_seq AS unread,
+             -- Muted conversations' threads never read as new (same rule as the badge).
+             coalesce(msg.last_reply_seq, 0) > f.last_read_seq AND mem.notify <> 'mute' AS unread,
              CASE WHEN pr.id IS NULL THEN NULL ELSE jsonb_build_object(
                'id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url
              ) END AS author
       FROM chat_thread_follows f
+      JOIN chat_channel_members mem ON mem.channel_id = f.channel_id AND mem.user_id = f.user_id
       JOIN chat_channels c ON c.id = f.channel_id
       JOIN chat_messages msg ON msg.channel_id = f.channel_id AND msg.channel_seq = f.root_seq
       LEFT JOIN projects p ON p.id = c.project_id
       LEFT JOIN profiles pr ON pr.id = msg.author_id
-      WHERE f.user_id = ${user.id}::uuid AND app_private.chat_is_member(f.channel_id, ${user.id}::uuid)
+      WHERE f.user_id = ${user.id}::uuid
         AND (${before}::timestamptz IS NULL OR msg.last_reply_at < ${before}::timestamptz)
       ORDER BY msg.last_reply_at DESC NULLS LAST
       LIMIT ${limit}
