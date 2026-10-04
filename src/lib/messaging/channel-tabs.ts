@@ -32,3 +32,8 @@ export function conversationTabs(options: {
   }
   return tabs;
 }
+
+/** Undo a removed shared tab: the re-added copy (new id) goes back where the old one was. */
+export function restoreTabOrder(before: { id: string; title: string }[], removedId: string, added: { id: string; title: string }) {
+  return before.map((tab) => (tab.id === removedId ? { id: added.id, title: added.title } : { id: tab.id, title: tab.title }));
+}

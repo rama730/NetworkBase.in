@@ -314,6 +314,17 @@ async function main() {
       return result.success && result.message.body.startsWith("look") && result.message.body.includes("> edited root")
         && result.message.body.includes(`?m=${rootSeq}`);
     });
+    await check("shareMessage quotes an attachment-only message as (attachment)", async () => {
+      as(member, "Mason");
+      const [asset] = await sql`
+        INSERT INTO storage_assets (bucket, storage_key, purpose, declared_mime_type, declared_size, expires_at, owner_user_id, state, metadata)
+        VALUES ('chat-attachments', ${`${general}/${member}/share-${Date.now()}.png`}, 'chat_attachment:file', 'image/png', 10, now() + interval '1 day', ${member}, 'verified', '{"filename":"pic.png"}'::jsonb)
+        RETURNING id`;
+      const sent = await messages.sendMessage({ channelId: general, body: "", assetIds: [String(asset?.id)] });
+      if (!sent.success) return false;
+      const result = await messages.shareMessage({ channelId: general, seq: sent.message.seq, toChannelId: dmId });
+      return result.success && result.message.body.includes("> (attachment)");
+    });
     await check("shareMessage of a thread reply links into its thread", async () => {
       const thread = await messages.listThread({ channelId: general, rootSeq });
       const replySeq = thread.success ? thread.replies[0]?.seq : undefined;

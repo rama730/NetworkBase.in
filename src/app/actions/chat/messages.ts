@@ -204,7 +204,8 @@ export async function shareMessage(input: { channelId: string; seq: number; toCh
       SELECT p.id, coalesce(p.full_name, p.username, 'someone') AS name FROM profiles p
       WHERE p.id = ANY(${uuidArray(Array.from(source.body.matchAll(/<@([0-9a-f-]{36})>/g), (m) => m[1]!))})
     `);
-    const text = tokensToPlainText(source.body, (id) => names.find((n) => n.id === id)?.name).trim();
+    // Attachment-only messages still quote something readable.
+    const text = tokensToPlainText(source.body, (id) => names.find((n) => n.id === id)?.name).trim() || "(attachment)";
     const origin = source.channel_name ? `#${source.channel_name}` : "a conversation";
     const quote = text.split("\n").map((line) => `> ${line}`).join("\n");
     const link = messageHref(input.channelId, input.seq, source.thread_root_seq);

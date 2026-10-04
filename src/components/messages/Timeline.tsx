@@ -84,6 +84,8 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   const [topDay, setTopDay] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<number | null>(highlightSeq ?? null);
   const [jump, setJump] = useState<{ at: number; pages: number } | null>(null);
+  // Roving tabindex: Tab lands on one row (the newest until you move), ↑/↓ walk the rows.
+  const [focusSeq, setFocusSeq] = useState<number | null>(null);
 
   // "12 new messages since 3:42 PM": what was unread when the conversation opened.
   const [unreadAtOpen] = useState(() => {
@@ -130,6 +132,16 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     const timer = setTimeout(() => setHighlight(null), HIGHLIGHT_MS);
     return () => clearTimeout(timer);
   }, [highlight]);
+  // A later jump to a message that's already loaded: scroll there in place (the first one positions the list).
+  const lastJump = useRef(highlightSeq ?? null);
+  useEffect(() => {
+    if (!highlightSeq || highlightSeq === lastJump.current) return;
+    lastJump.current = highlightSeq;
+    const index = items.findIndex((item) => item.type === "message" && item.message.seq === highlightSeq);
+    if (index < 0) return;
+    virtuoso.current?.scrollToIndex({ index, align: "center", behavior: "smooth" });
+    setHighlight(highlightSeq);
+  }, [highlightSeq, items]);
 
   // Jump to a date: the first message on or after it, loading older pages as needed.
   useEffect(() => {
@@ -178,6 +190,31 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     if (index >= 0) virtuoso.current?.scrollToIndex({ index, align: "start", behavior: "smooth" });
   }, [items]);
 
+  const tabSeq = focusSeq ?? (newestSeq || null);
+  const onListKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    const row = e.target as HTMLElement;
+    if (!row.hasAttribute("data-message-row")) return;
+    const at = items.findIndex((item) => item.type === "message" && item.message.seq === Number(row.dataset.seq));
+    if (at < 0) return;
+    const step = e.key === "ArrowDown" ? 1 : -1;
+    let next = at + step;
+    while (next >= 0 && next < items.length) {
+      const item = items[next]!;
+      if (item.type === "message" && item.message.kind !== "system") break;
+      next += step;
+    }
+    const target = items[next];
+    if (target?.type !== "message") return;
+    e.preventDefault();
+    setFocusSeq(target.message.seq);
+    virtuoso.current?.scrollIntoView({ index: next });
+    // Next frame the row is rendered; focus it without another scroll.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      row.closest("[role=log]")?.querySelector<HTMLElement>(`[data-message-row][data-seq="${target.message.seq}"]`)?.focus({ preventScroll: true });
+    }));
+  }, [items]);
+
   const renderItem = useCallback((_index: number, item: TimelineItem) => {
     if (item.type === "day") return <DayLabel label={item.label} onPick={pickDate} />;
     if (item.type === "new") {
@@ -188,11 +225,22 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         </div>
       );
     }
-    return <MessageRow message={item.message} grouped={item.grouped} others={item.others} highlighted={highlight === item.message.seq} />;
-  }, [highlight, pickDate]);
+    return <MessageRow message={item.message} grouped={item.grouped} others={item.others} highlighted={highlight === item.message.seq} tabStop={tabSeq === item.message.seq} />;
+  }, [highlight, pickDate, tabSeq]);
 
   return (
-    <div className="relative min-h-0 flex-1" role="log" aria-live="polite" aria-relevant="additions" aria-label="Messages">
+    <div
+      className="relative min-h-0 flex-1"
+      role="log"
+      aria-live="polite"
+      aria-relevant="additions"
+      aria-label="Messages"
+      onKeyDown={onListKeyDown}
+      onFocus={(e) => {
+        const seq = Number((e.target as HTMLElement).dataset?.seq);
+        if ((e.target as HTMLElement).hasAttribute?.("data-message-row") && seq) setFocusSeq(seq);
+      }}
+    >
       {bannerOpen && unreadAtOpen && onMarkRead ? (
         <div className="absolute inset-x-3 top-2 z-20 flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-[13px] text-primary-foreground shadow-md">
           <button type="button" onClick={toFirstUnread} className="min-w-0 flex-1 truncate text-left font-medium hover:underline">

@@ -12,6 +12,7 @@ import { applyLink, chatDraftToHtmlish, chatMarkdown, FormatToolbar, isBlank, us
 import { readChatUi, readDraft, writeChatUi, writeDraft } from "@/components/messages/chat-ui-store";
 import { matchMentions, MentionDropdown } from "@/components/messages/parts/MentionDropdown";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
+import { failSend } from "@/components/messages/failed-sends";
 import { uploadChatFile } from "@/components/messages/upload";
 import { useUpdatePages } from "@/components/messages/useConversation";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
@@ -497,19 +498,15 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     const result = await sendMessage({ channelId, body, clientId, threadRootSeq, assetIds: ready, alsoToChannel: Boolean(threadRootSeq && alsoToChannel) })
       .catch(() => ({ success: false as const, error: "chat_network" }))
       .finally(() => setSending(false));
-    if (!result.success) {
-      if (threadKey) putInThread((replies) => replies.filter((m) => m.client_message_id !== clientId));
-      else update((pages) => pages.map((page) => page.filter((m) => m.client_message_id !== clientId)));
-      load(draft);
-      writeDraft(draftKey, draft);
-      setUploads(sentUploads);
-      setAlsoToChannel(sentAlso);
-      toast.error(chatErrorMessage(result.error));
-      return;
-    }
     sentUploads.forEach((u) => {
       if (u.previewUrl) URL.revokeObjectURL(u.previewUrl);
     });
+    if (!result.success) {
+      // It stays in place as "Not sent · Retry · Delete" (failed-sends.ts), files included.
+      failSend(queryClient, clientId, { channelId, threadRootSeq, body, assetIds: ready, alsoToChannel: Boolean(threadRootSeq && sentAlso) });
+      toast.error(chatErrorMessage(result.error));
+      return;
+    }
     if (threadKey) putInThread((replies) => replies.map((m) => (m.client_message_id === clientId ? result.message : m)));
     else update((pages) => upsertMessage(pages, result.message));
     onSent?.();
