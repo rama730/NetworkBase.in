@@ -19,7 +19,7 @@ import {
   channelTopic,
   typingTopic,
 } from "@/lib/messaging/constants";
-import { personName } from "@/lib/messaging/channel-view";
+import { formatChatTime, personName } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { pruneTypers, shouldSendTyping, withoutTyper, type Typers } from "@/lib/messaging/typing";
 import { applyReaction, patchPages, upsertMessage, type MessagePages } from "@/lib/messaging/timeline";
@@ -342,7 +342,7 @@ export function useSavedSeqs(channelId: string, enabled: boolean) {
     }
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.saved() });
     if (!on) toast("Removed from Saved");
-    else if (remindAt) toast.success(`Reminder set for ${new Date(remindAt).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
+    else if (remindAt) toast.success(`Reminder set for ${formatChatTime(remindAt, "at")}`);
     else toast.success("Saved", { action: { label: "View saved", onClick: () => router.push("/messages/saved") } });
   }, [channelId, key, queryClient, router]);
   // Stable identity: the conversation context depends on it, and every row reads that (REND-01).

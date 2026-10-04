@@ -69,8 +69,9 @@ function DmStatus({ userId }: { userId: string }) {
   return <span className="min-w-0 shrink-[999] truncate text-[13px] font-normal text-muted-foreground">· {statusText}</span>;
 }
 
-function Count({ value }: { value: number }) {
-  return value ? <span className="nb-chat-count">{value > 99 ? "99+" : value}</span> : null;
+/** The count pill; screen readers hear "3 unread" (or what `noun` says) as part of the row's own text. */
+function Count({ value, noun = "unread" }: { value: number; noun?: string }) {
+  return value ? <span className="nb-chat-count">{value > 99 ? "99+" : value}<span className="sr-only"> {noun}</span></span> : null;
 }
 
 function Row({ channel, meId, variant, onSelect, online, draft }: { channel: ChatChannelSummary; meId: string | null; variant: ChatSectionsVariant; onSelect?: Props["onSelect"]; online?: boolean; draft: boolean }) {
@@ -80,8 +81,9 @@ function Row({ channel, meId, variant, onSelect, online, draft }: { channel: Cha
   const count = rowCount(channel);
   const title = channelTitle(channel, meId);
   const preview = variant === "list" && isDirectLike(channel);
-  const label = `${title}${count ? `, ${count} unread` : ""}${draft ? ", draft" : ""}`;
+  // No aria-label: the row reads as what it shows (name, preview, time, count), plus these sr-only notes.
   const draftMark = draft && !current ? <Pencil size={12} aria-hidden="true" className="flex-none text-muted-foreground" /> : null;
+  const srNotes = <>{draft && !preview ? <span className="sr-only">, draft</span> : null}{channel.notify === "mute" ? <span className="sr-only">, muted</span> : null}</>;
   const body: ReactNode = preview ? (
     <>
       <span className="mt-0.5"><ChannelIcon channel={channel} meId={meId} online={online} /></span>
@@ -97,6 +99,7 @@ function Row({ channel, meId, variant, onSelect, online, draft }: { channel: Cha
           <span className="truncate">{draft && !current ? "Draft" : channel.last_preview ? `${channel.last_author_id === meId ? "You: " : ""}${channel.last_preview}` : "No messages yet"}</span>
         </span>
       </span>
+      {srNotes}
       <Count value={count} />
     </>
   ) : (
@@ -107,6 +110,7 @@ function Row({ channel, meId, variant, onSelect, online, draft }: { channel: Cha
         {channel.kind === "dm" && channel.dm_user ? <DmStatus userId={channel.dm_user.id} /> : null}
       </span>
       {draftMark}
+      {srNotes}
       <Count value={count} />
     </>
   );
@@ -115,7 +119,6 @@ function Row({ channel, meId, variant, onSelect, online, draft }: { channel: Cha
     "data-unread": isUnread(channel) && channel.notify !== "mute" ? "true" : undefined,
     "data-muted": channel.notify === "mute" ? "true" : undefined,
     "data-testid": `chat-row-${channel.id}`,
-    "aria-label": label,
   } as const;
   if (onSelect) return <button type="button" {...shared} onClick={() => onSelect(channel.id)}>{body}</button>;
   return <Link href={href} {...shared} aria-current={current ? "page" : undefined}>{body}</Link>;
@@ -141,7 +144,8 @@ function useRowActions(channel: ChatChannelSummary) {
   const read = () => {
     applyRead(channel.id, channel.last_seq);
     void markRead({ channelId: channel.id, seq: channel.last_seq }).then((result) => {
-      if (result.success) return;
+      // Same words for channels, DMs and groups (Esc in a conversation says it too).
+      if (result.success) return void toast.success("Conversation marked as read");
       refresh();
       toast.error(chatErrorMessage(result.error));
     });
@@ -321,11 +325,13 @@ function Section({ id, title, count, collapsed, onToggle, action, children }: {
   return (
     <section aria-labelledby={headingId} className="group/section">
       <div className="nb-chat-section-title">
-        <button type="button" id={headingId} className="flex min-h-7 min-w-0 flex-1 items-center gap-1 text-left" aria-expanded={!collapsed} onClick={() => onToggle(id)}>
-          <ChevronDown size={12} aria-hidden="true" className={`flex-none ${collapsed ? "-rotate-90" : ""}`} />
-          <span className="truncate">{title}</span>
-          {count ? <span className="sr-only">, {count} unread</span> : null}
-        </button>
+        <h2 className="flex min-w-0 flex-1">
+          <button type="button" id={headingId} className="flex min-h-7 min-w-0 flex-1 items-center gap-1 text-left" aria-expanded={!collapsed} onClick={() => onToggle(id)}>
+            <ChevronDown size={12} aria-hidden="true" className={`flex-none ${collapsed ? "-rotate-90" : ""}`} />
+            <span className="truncate">{title}</span>
+            {count ? <span className="sr-only">, {count} unread</span> : null}
+          </button>
+        </h2>
         {count ? <span className="nb-chat-count" aria-hidden="true">{count}</span> : null}
         {action}
       </div>
@@ -341,11 +347,15 @@ function HeaderButton({ label, onClick, children, href }: { label: string; onCli
   return <button type="button" onClick={onClick} className={className} aria-label={label} title={label}>{children}</button>;
 }
 
+const noSubscribe = () => () => undefined;
+const modKeyHint = () => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K");
+
 /**
  * The project switcher, always at the top (Slack's workspace header): the
  * open project, or All projects, with its options beside it.
  */
 function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boolean; unreadsOnly: boolean; onToggleUnreads: () => void }) {
+  const shortcutHint = useSyncExternalStore(noSubscribe, () => modKeyHint().replace("K", "/"), () => "⌘/");
   const { data } = useChatShell();
   const projectId = useSelectedProject();
   const setProject = useChatUi((state) => state.setProject);
@@ -391,6 +401,9 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild><Link href="/projects/new">Create new project</Link></DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => useChatUi.getState().setShortcutsOpen(true)}>
+                Keyboard shortcuts <kbd className="ml-auto font-mono text-[11px] text-muted-foreground">{shortcutHint}</kbd>
+              </DropdownMenuItem>
             </>
           ) : null}
         </DropdownMenuContent>
@@ -425,8 +438,6 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
   );
 }
 
-const noSubscribe = () => () => undefined;
-const modKeyHint = () => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K");
 
 /** The sectioned list shared by the desktop sidebar, the mobile List screen and the launcher window. */
 export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props) {
@@ -449,7 +460,8 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
     staleTime: 60_000,
     queryFn: async () => {
       const result = await listScheduled();
-      return result.success ? result.items : [];
+      if (!result.success) throw new Error(result.error);
+      return result.items;
     },
   });
   const draftCount = drafts.length + (scheduled.data?.length ?? 0);
@@ -598,23 +610,23 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
             <Search size={16} aria-hidden="true" /><span className="flex-1">Search</span>
             <kbd className="font-mono text-[11px] font-normal text-muted-foreground">{searchHint}</kbd>
           </button>
-          <Link href="/messages/inbox" className="nb-chat-row" aria-current={here("/messages/inbox")} data-unread={inboxUnread ? "true" : undefined} aria-label={`Inbox${inboxUnread ? `, ${inboxUnread} unread` : ""}`}>
+          <Link href="/messages/inbox" className="nb-chat-row" aria-current={here("/messages/inbox")} data-unread={inboxUnread ? "true" : undefined}>
             <Inbox size={16} aria-hidden="true" /><span className="flex-1">Inbox</span><Count value={inboxUnread} />
           </Link>
-          <Link href="/messages/saved" className="nb-chat-row" aria-current={here("/messages/saved")} aria-label={`Saved${savedDue ? `, ${savedDue} reminder${savedDue === 1 ? "" : "s"} due` : ""}`}>
-            <Bookmark size={16} aria-hidden="true" /><span className="flex-1">Saved</span><Count value={savedDue} />
+          <Link href="/messages/saved" className="nb-chat-row" aria-current={here("/messages/saved")}>
+            <Bookmark size={16} aria-hidden="true" /><span className="flex-1">Saved</span><Count value={savedDue} noun={savedDue === 1 ? "reminder due" : "reminders due"} />
           </Link>
-          <Link href="/messages/drafts" className="nb-chat-row" aria-current={here("/messages/drafts")} aria-label={`Drafts and scheduled${draftCount ? `, ${draftCount}` : ""}`}>
-            <Pencil size={16} aria-hidden="true" /><span className="flex-1">Drafts &amp; scheduled</span><Count value={draftCount} />
+          <Link href="/messages/drafts" className="nb-chat-row" aria-current={here("/messages/drafts")}>
+            <Pencil size={16} aria-hidden="true" /><span className="flex-1">Drafts &amp; scheduled</span><Count value={draftCount} noun="waiting" />
           </Link>
         </div>
       ) : (
         onInbox ? (
-          <button type="button" onClick={onInbox} className="nb-chat-row" data-unread={inboxUnread ? "true" : undefined} aria-label={`Inbox${inboxUnread ? `, ${inboxUnread} unread` : ""}`}>
+          <button type="button" onClick={onInbox} className="nb-chat-row" data-unread={inboxUnread ? "true" : undefined}>
             <Inbox size={16} aria-hidden="true" /><span className="flex-1">Inbox</span><Count value={inboxUnread} />
           </button>
         ) : (
-          <Link href="/messages/inbox" className="nb-chat-row" data-unread={inboxUnread ? "true" : undefined} aria-label={`Inbox${inboxUnread ? `, ${inboxUnread} unread` : ""}`}>
+          <Link href="/messages/inbox" className="nb-chat-row" data-unread={inboxUnread ? "true" : undefined}>
             <Inbox size={16} aria-hidden="true" /><span className="flex-1">Inbox</span><Count value={inboxUnread} />
           </Link>
         )

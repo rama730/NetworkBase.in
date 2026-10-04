@@ -44,6 +44,17 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="px-4 py-10 text-center text-[13px] text-muted-foreground">{children}</p>;
 }
 
+/** An error is not an empty list: say so, with Retry (a failed later page retries that page). */
+function ListError({ what, detail, query }: { what: string; detail?: string; query: { data?: unknown; refetch: () => unknown; fetchNextPage?: () => unknown } }) {
+  return (
+    <div role="alert" className="px-4 py-10 text-center text-[13px]">
+      <p>{what} didn&apos;t load.</p>
+      {detail ? <p className="mt-1 text-muted-foreground">{detail}</p> : null}
+      <button type="button" onClick={() => void (query.data && query.fetchNextPage ? query.fetchNextPage() : query.refetch())} className="mt-2 rounded-[5px] border border-border px-3 py-1.5 font-medium hover:bg-muted">Retry</button>
+    </div>
+  );
+}
+
 /** Loads the next page when it scrolls into view (infinite lists). */
 function LoadMore({ hasMore, loading, onLoad }: { hasMore: boolean; loading: boolean; onLoad: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -237,10 +248,10 @@ function InboxRow({ item, onOpen, onToggleRead }: { item: InboxItem; onOpen: (it
       </>}
       aside={
         <div className="flex flex-none flex-col items-end gap-1.5">
-          {!item.read ? <span className="mt-2 size-2 rounded-full bg-[var(--chat-accent)]" aria-label="Unread" /> : <span className="mt-2 size-2" />}
+          {!item.read ? <span className="mt-2 size-2 rounded-full bg-[var(--chat-accent)]" role="img" aria-label="Unread" /> : <span className="mt-2 size-2" />}
           {item.kind !== "reaction" ? (
             <button type="button" onClick={() => onToggleRead(item)} className="rounded-[5px] px-1.5 py-0.5 text-[12px] text-muted-foreground hover:bg-card hover:text-foreground pointer-coarse:min-h-11">
-              {item.read ? "Mark unread" : "Mark read"}
+              {item.read ? "Mark unread" : "Mark as read"}
             </button>
           ) : null}
         </div>
@@ -324,10 +335,10 @@ function ThreadRow({ thread }: { thread: ThreadItem }) {
         ) : null}
         aside={
           <div className="flex flex-none flex-col items-end gap-2">
-            {thread.unread ? <span className="mt-1 size-2 rounded-full bg-[var(--chat-accent)]" aria-label="Unread" /> : <span className="mt-1 size-2" />}
+            {thread.unread ? <span className="mt-1 size-2 rounded-full bg-[var(--chat-accent)]" role="img" aria-label="Unread" /> : <span className="mt-1 size-2" />}
             <button type="button" onClick={() => setReplying(!replying)} aria-expanded={replying} className="rounded-[5px] border border-border px-2 py-0.5 text-[12px] font-medium hover:bg-card pointer-coarse:min-h-11 pointer-coarse:px-3">Reply</button>
             <span className="flex gap-1 text-[12px]">
-              {thread.unread ? <button type="button" onClick={() => void markRead()} className="rounded-[5px] px-1.5 py-0.5 text-muted-foreground hover:bg-card hover:text-foreground pointer-coarse:min-h-11">Mark read</button> : null}
+              {thread.unread ? <button type="button" onClick={() => void markRead()} className="rounded-[5px] px-1.5 py-0.5 text-muted-foreground hover:bg-card hover:text-foreground pointer-coarse:min-h-11">Mark as read</button> : null}
               <button type="button" onClick={() => void unfollow()} className="rounded-[5px] px-1.5 py-0.5 text-muted-foreground hover:bg-card hover:text-foreground pointer-coarse:min-h-11">Unfollow</button>
             </span>
           </div>
@@ -369,7 +380,8 @@ export function InboxView() {
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
       const result = await listInbox({ filter: filter as InboxFilter, before: pageParam });
-      return result.success ? result.items : [];
+      if (!result.success) throw new Error(result.error);
+      return result.items;
     },
     getNextPageParam: (page) => (page.length === CHAT_LIST_PAGE ? page.at(-1)?.created_at : undefined),
   });
@@ -379,7 +391,8 @@ export function InboxView() {
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
       const result = await listThreads({ before: pageParam });
-      return result.success ? result.threads : [];
+      if (!result.success) throw new Error(result.error);
+      return result.threads;
     },
     getNextPageParam: (page) => (page.length === CHAT_LIST_PAGE ? page.at(-1)?.last_reply_at ?? undefined : undefined),
   });
@@ -461,6 +474,7 @@ export function InboxView() {
       {filter === "threads" ? (
         <>
           {threads.isLoading ? <Empty>Loading threads…</Empty> : null}
+          {threads.isError ? <ListError what="Threads" query={threadPages} /> : null}
           {threads.data && !threads.data.length ? <Empty>Threads you start, reply to or follow show up here.</Empty> : null}
           <ul aria-label="Threads">{(threads.data ?? []).map((t) => <ThreadRow key={`${t.channel_id}:${t.root_seq}`} thread={t} />)}</ul>
           <LoadMore hasMore={Boolean(threadPages.hasNextPage)} loading={threadPages.isFetchingNextPage} onLoad={() => void threadPages.fetchNextPage()} />
@@ -468,6 +482,7 @@ export function InboxView() {
       ) : (
         <>
           {feed.isLoading ? <Empty>Loading…</Empty> : null}
+          {feed.isError ? <ListError what="Your Inbox" query={feed} /> : null}
           {feed.data && !items.length ? <Empty>{EMPTY_TEXT[filter]}</Empty> : null}
           <ul aria-label="Inbox">{groups.map((group) => <InboxGroup key={`${group[0]!.channel_id}:${group[0]!.seq}:${group[0]!.kind}`} items={group} onOpen={open} onToggleRead={(item) => void toggleRead(item)} />)}</ul>
           <LoadMore hasMore={Boolean(feed.hasNextPage)} loading={feed.isFetchingNextPage} onLoad={() => void feed.fetchNextPage()} />
@@ -493,7 +508,8 @@ export function SavedView() {
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
       const result = await listSaved({ offset: pageParam });
-      return result.success ? result.items : [];
+      if (!result.success) throw new Error(result.error);
+      return result.items;
     },
     getNextPageParam: (page, pages) => (page.length === CHAT_LIST_PAGE ? pages.length * CHAT_LIST_PAGE : undefined),
   });
@@ -504,7 +520,7 @@ export function SavedView() {
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.saved() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.savedSeqs(item.channel_id) });
-    const label = remindAt?.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" });
+    const label = remindAt ? formatChatTime(remindAt, "at") : null;
     if (clearReminder) return void toast("Reminder cleared");
     toast(on ? (label ? `Reminder set for ${label}` : "Saved") : "Removed from Saved", on ? undefined : {
       // Undo puts it back as it was, reminder included.
@@ -514,6 +530,7 @@ export function SavedView() {
   return (
     <ViewScreen title="Saved">
       {saved.isLoading ? <Empty>Loading…</Empty> : null}
+      {saved.isError ? <ListError what="Saved messages" query={savedPages} /> : null}
       {saved.data && !saved.data.length ? <Empty>Save messages to come back to them: hover a message and choose Save (or press S).</Empty> : null}
       <ul aria-label="Saved messages">
         {(saved.data ?? []).map((item) => {
@@ -533,7 +550,7 @@ export function SavedView() {
                 extra={item.remind_at ? (
                   <span className={`mt-1 inline-flex items-center gap-1 text-[12px] ${due || item.reminded_at ? "font-medium text-[var(--status-warning)]" : "text-muted-foreground"}`}>
                     <AlarmClock size={12} aria-hidden="true" />
-                    {item.reminded_at ? "Reminded" : due ? "Due now" : "Reminder"} · {new Date(item.remind_at).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}
+                    {item.reminded_at ? "Reminded" : due ? "Due now" : "Reminder"} · {formatChatTime(item.remind_at, "at")}
                   </span>
                 ) : null}
                 aside={
@@ -583,7 +600,8 @@ export function DraftsView() {
     queryKey: queryKeys.chat.scheduled(),
     queryFn: async () => {
       const result = await listScheduled();
-      return result.success ? result.items : [];
+      if (!result.success) throw new Error(result.error);
+      return result.items;
     },
   });
   const [rescheduling, setRescheduling] = useState<{ id: string; at: Date } | null>(null);
@@ -624,13 +642,14 @@ export function DraftsView() {
     const result = await rescheduleScheduled({ id, sendAt: at.toISOString() });
     refreshScheduled();
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    toast.success(`Rescheduled for ${at.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
+    toast.success(`Rescheduled for ${formatChatTime(at, "at")}`);
   };
   return (
     <ViewScreen title="Drafts & scheduled">
       <section aria-labelledby="scheduled-heading">
         <h2 id="scheduled-heading" className="flex items-center gap-2 border-b border-border px-4 py-2 text-[12px] font-semibold text-muted-foreground"><Clock size={13} aria-hidden="true" /> Scheduled</h2>
         {scheduled.isLoading ? <p className="border-b border-border px-4 py-4 text-[13px] text-muted-foreground">Loading…</p> : null}
+        {scheduled.isError ? <ListError what="Scheduled messages" query={scheduled} /> : null}
         {scheduled.data && !scheduled.data.length ? <p className="border-b border-border px-4 py-4 text-[13px] text-muted-foreground">Nothing scheduled. Use the arrow next to Send to send a message later.</p> : null}
         <ul>
           {(scheduled.data ?? []).map((item) => (
@@ -639,7 +658,7 @@ export function DraftsView() {
                 <p className="flex items-baseline gap-2 text-[13px]">
                   <span className="font-medium">To {item.channel_name ? `#${item.channel_name}` : titleOf(item.channel_id)}</span>
                   <span className={item.failed_reason ? "text-destructive" : "text-muted-foreground"}>
-                    {item.failed_reason ? `Couldn't send: ${chatErrorMessage(item.failed_reason)}` : new Date(item.send_at).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    {item.failed_reason ? `Couldn't send: ${chatErrorMessage(item.failed_reason)}` : formatChatTime(item.send_at, "at")}
                   </span>
                 </p>
                 <p className="mt-0.5 line-clamp-2 text-[15px]">{tokensToPlainText(item.body)}</p>
@@ -797,7 +816,7 @@ export function SearchView() {
       </form>
       {!active ? <Empty>Search words in every conversation you&apos;re in. Narrow it down with In, From, Has file and dates.</Empty> : null}
       {results.isLoading ? <Empty>Searching…</Empty> : null}
-      {results.isError ? <Empty>{chatErrorMessage(results.error.message)}</Empty> : null}
+      {results.isError ? <ListError what="Search results" detail={chatErrorMessage(results.error.message)} query={resultPages} /> : null}
       {results.data && !results.data.length ? <Empty>No messages match.</Empty> : null}
       {results.data?.length ? <p className="px-4 pt-3 text-[12px] text-muted-foreground">{resultPages.hasNextPage ? `Newest ${results.data.length} results` : `${results.data.length} result${results.data.length === 1 ? "" : "s"}`}</p> : null}
       <ul aria-label="Search results">

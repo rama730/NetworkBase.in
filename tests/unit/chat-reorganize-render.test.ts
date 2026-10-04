@@ -16,7 +16,7 @@ test("tab bar renders the tabs with even spacing, close only on canvas/shared ta
   });
   const html = renderToStaticMarkup(createElement(ChannelTabBar, { activeTab: "messages", tabs, pinCount: 3, onSelectTab: noop, onCloseTab: noop, onAddBookmark: noop }));
   for (const label of ["Messages", "Plan", "Pins", "Files", "Spec"]) assert.match(html, new RegExp(`>${label}<`));
-  assert.match(html, /aria-label="3 pinned messages"/);
+  assert.match(html, />3<span class="sr-only"> pinned<\/span>/);
   assert.match(html, /aria-label="Hide canvas tab"/);
   assert.match(html, /aria-label="Remove Spec tab"/);
   assert.match(html, /aria-label="Remove Files tab"/);

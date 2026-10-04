@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import type { MediaItem } from '@/components/ui/media-viewer';
+import { formatFileSize } from '@/lib/messaging/channel-view';
 
 const MediaViewerModal = dynamic(
     () => import('@/components/ui/media-viewer').then((m) => m.MediaViewerModal),
@@ -419,13 +420,8 @@ export function PdfViewerV2({ attachment }: { attachment: { localUrl?: string; u
         />
     );
 }
+
 function getMediaOrientation(dimensions: MediaDimensions | null) {
     if (!dimensions || dimensions.width === dimensions.height) return 'square';
     return dimensions.width > dimensions.height ? 'landscape' : 'portrait';
-}
-
-function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

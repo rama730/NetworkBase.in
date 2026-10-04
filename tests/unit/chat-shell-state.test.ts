@@ -17,15 +17,18 @@ function boot(channels: ChatChannelSummary[]): ChatBootstrap {
   return { server_time: "2026-10-02T00:00:00Z", activity_latest_at: null, channels, projects: [] };
 }
 
-test("badge counts mentions plus unread DMs and group chats, never muted ones", () => {
-  const data = boot([
-    channel("general", { mention_count: 2, last_top_seq: 9 }),
-    channel("dm", { kind: "dm", name: null, last_top_seq: 3, last_read_seq: 1 }),
-    channel("group", { kind: "private", name: null, last_top_seq: 4, last_read_seq: 2, mention_count: 1 }),
-    channel("muted-dm", { kind: "dm", name: null, last_top_seq: 5, notify: "mute" }),
-    channel("read-dm", { kind: "dm", name: null, last_top_seq: 5, last_read_seq: 5 }),
-  ]);
-  assert.equal(chatBadge(data), 2 + 1 + 1, "general mentions, dm, group (its mention is the same unread)");
+test("badge = unread DMs and group chats + the Inbox count, never muted ones (#159)", () => {
+  const data = {
+    ...boot([
+      channel("general", { mention_count: 2, last_top_seq: 9 }),
+      channel("dm", { kind: "dm", name: null, last_top_seq: 3, last_read_seq: 1 }),
+      channel("group", { kind: "private", name: null, last_top_seq: 4, last_read_seq: 2, mention_count: 1 }),
+      channel("muted-dm", { kind: "dm", name: null, last_top_seq: 5, notify: "mute" }),
+      channel("read-dm", { kind: "dm", name: null, last_top_seq: 5, last_read_seq: 5 }),
+    ]),
+    inbox_unread: 3,
+  };
+  assert.equal(chatBadge(data), 3 + 1, "Inbox (general's 2 mentions + group's 1) + dm; the group's mention isn't counted twice");
 });
 
 test("a delta replaces changed channels and keeps projects from the full load", () => {

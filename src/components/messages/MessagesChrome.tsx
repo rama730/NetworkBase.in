@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useChatUi } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { QuickSwitcher } from "@/components/messages/QuickSwitcher";
+import { ShortcutsDialog } from "@/components/messages/ShortcutsDialog";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { markRead } from "@/app/actions/chat/read";
@@ -26,7 +27,7 @@ function drawerOpen() {
 }
 
 /**
- * ⌘K switcher, Alt+↑/↓ next conversation needing attention (sidebar order), Shift+Esc mark the
+ * ⌘K switcher, ⌘/ shortcuts, Alt+↑/↓ next conversation needing attention (sidebar order), Shift+Esc mark the
  * visible list read (asks first above 5), Esc mark the open conversation read. None fire while typing.
  */
 function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[]) => void) {
@@ -39,6 +40,11 @@ function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
         useChatUi.getState().setSwitcherOpen(true);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
+        e.preventDefault();
+        useChatUi.getState().setShortcutsOpen(true);
         return;
       }
       // Text fields keep their keys (Alt+↑/↓ moves the caret on macOS); dialogs and menus keep Escape.
@@ -112,9 +118,12 @@ export function MessagesChrome() {
   const setInviteFor = useChatUi((state) => state.setInviteFor);
   const { data, refresh } = useChatShell();
   const inviteProject = data?.projects?.find((p) => p.id === inviteFor) ?? null;
+  const shortcutsOpen = useChatUi((state) => state.shortcutsOpen);
+  const setShortcutsOpen = useChatUi((state) => state.setShortcutsOpen);
   return (
     <>
       <QuickSwitcher />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       {markAll.dialog}
       {createFor ? <CreateChannelDialog projectId={createFor} open onOpenChange={(open) => !open && setCreateFor(null)} /> : null}
       {inviteProject ? (

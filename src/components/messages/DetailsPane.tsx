@@ -22,7 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import type { ChannelMember } from "@/app/actions/chat/channels";
-import { canAddPeople, personName } from "@/lib/messaging/channel-view";
+import { canAddPeople, notifyChoice, notifyChoices, personName } from "@/lib/messaging/channel-view";
 import { CHAT_CHANNEL_NAME_PATTERN, CHAT_MAX_DESCRIPTION } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, type DetailsTab } from "@/lib/messaging/routes";
@@ -120,10 +120,8 @@ function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (
     <label className="flex items-center gap-3 p-4">
       <Bell size={15} aria-hidden="true" className="text-muted-foreground" />
       <span className="flex-1 text-[13px] font-semibold">Notifications</span>
-      <select value={channel.notify} onChange={(e) => onChange(e.target.value as ChatNotify)} className="h-8 rounded-[5px] border border-input bg-card px-2 text-[13px]">
-        <option value="all">All messages</option>
-        <option value="mentions">Mentions only</option>
-        <option value="mute">Mute</option>
+      <select value={notifyChoice(channel, channel.notify)} onChange={(e) => onChange(e.target.value as ChatNotify)} className="h-8 rounded-[5px] border border-input bg-card px-2 text-[13px]">
+        {notifyChoices(channel).map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
       </select>
     </label>
   );

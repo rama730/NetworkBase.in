@@ -4,18 +4,21 @@ import type { ChatBootstrap, ChatChannelSummary } from "@/lib/messaging/types";
 
 export type ChatHint = { channel_id: string; seq: number; mention: boolean; thread_root_seq: number | null };
 
-/** DMs and unnamed group chats count once when unread; channels count their mentions. */
+/** DMs and unnamed group chats: each counts once when unread. */
 export function isDirect(channel: Pick<ChatChannelSummary, "kind" | "name">) {
   return channel.kind === "dm" || (channel.kind === "private" && channel.name === null);
 }
 
+/**
+ * One badge rule (app nav, launcher, tab title): unread DMs and group chats + the Inbox count.
+ * A DM or group with a mention is already in the Inbox, so it isn't counted twice; muted ones never count.
+ */
 export function chatBadge(data: ChatBootstrap | undefined) {
   if (!data) return 0;
-  let count = 0;
+  let count = data.inbox_unread ?? 0;
   for (const channel of data.channels) {
-    if (channel.notify === "mute") continue;
-    if (isDirect(channel)) count += channel.last_top_seq > channel.last_read_seq || channel.mention_count > 0 ? 1 : 0;
-    else count += channel.mention_count;
+    if (channel.notify === "mute" || !isDirect(channel)) continue;
+    if (channel.last_top_seq > channel.last_read_seq && channel.mention_count === 0) count += 1;
   }
   return count;
 }

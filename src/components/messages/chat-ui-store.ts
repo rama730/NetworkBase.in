@@ -9,11 +9,14 @@ type ChatUiState = {
   /** null = Home. undefined = not chosen yet (follow the open channel). */
   projectId: string | null | undefined;
   switcherOpen: boolean;
+  /** The keyboard shortcuts dialog (⌘/). */
+  shortcutsOpen: boolean;
   /** Project ids whose Create channel / Invite people dialogs are open. */
   createChannelFor: string | null;
   inviteFor: string | null;
   setProject: (projectId: string | null) => void;
   setSwitcherOpen: (open: boolean) => void;
+  setShortcutsOpen: (open: boolean) => void;
   setCreateChannelFor: (projectId: string | null) => void;
   setInviteFor: (projectId: string | null) => void;
 };
@@ -21,10 +24,12 @@ type ChatUiState = {
 export const useChatUi = create<ChatUiState>()((set) => ({
   projectId: undefined,
   switcherOpen: false,
+  shortcutsOpen: false,
   createChannelFor: null,
   inviteFor: null,
   setProject: (projectId) => set({ projectId }),
   setSwitcherOpen: (switcherOpen) => set({ switcherOpen }),
+  setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
   setCreateChannelFor: (createChannelFor) => set({ createChannelFor }),
   setInviteFor: (inviteFor) => set({ inviteFor }),
 }));

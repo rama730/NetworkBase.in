@@ -27,16 +27,44 @@ self.addEventListener("push", (event) => {
   const href = typeof payload.href === "string" ? payload.href : null;
 
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon,
-      tag,
-      badge: "/icon-ink-64.png",
-      data: { href, id: payload.id || null },
-      requireInteraction: false,
-    }),
+    (async () => {
+      // A chat push for the conversation already open in a focused tab: the reader sees it there.
+      if (tag.startsWith("chat:")) {
+        const path = "/messages/" + tag.slice("chat:".length);
+        const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        const reading = windows.some((client) => {
+          try {
+            return client.focused && client.visibilityState === "visible" && new URL(client.url).pathname.startsWith(path);
+          } catch (error) {
+            return false;
+          }
+        });
+        if (reading) return;
+      }
+      await self.registration.showNotification(title, {
+        body,
+        icon,
+        tag,
+        badge: "/icon-ink-64.png",
+        data: { href, id: payload.id || null },
+        requireInteraction: false,
+      });
+    })(),
   );
 });
+
+// Ask an open tab to route in-app (no reload); it answers on the port. No answer in 1s: the caller navigates.
+function askToNavigate(client, href) {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => resolve(false), 1000);
+    channel.port1.onmessage = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    client.postMessage({ type: "nb:navigate", href }, [channel.port2]);
+  });
+}
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
@@ -48,11 +76,15 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     (async () => {
       const allClients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      // The focused tab first, then any other tab of this site.
+      allClients.sort((a, b) => Number(b.focused) - Number(a.focused));
       for (const client of allClients) {
         try {
           const url = new URL(client.url);
           if (url.origin === self.location.origin) {
             await client.focus();
+            const target = new URL(targetUrl);
+            if (await askToNavigate(client, target.pathname + target.search + target.hash)) return;
             if ("navigate" in client && typeof client.navigate === "function") {
               try {
                 await client.navigate(targetUrl);

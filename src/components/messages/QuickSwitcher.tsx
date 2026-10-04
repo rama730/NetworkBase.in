@@ -177,6 +177,16 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
     );
   };
 
+  // Each kind of result is a labelled group of options inside the one listbox.
+  const group = (id: string, label: string, items: Result[]) => (items.length ? (
+    <li role="presentation">
+      <ul role="group" aria-labelledby={`chat-switcher-group-${id}`}>
+        <li role="presentation" id={`chat-switcher-group-${id}`} className="nb-micro px-3 py-1.5 text-muted-foreground">{label}</li>
+        {items.map(renderOption)}
+      </ul>
+    </li>
+  ) : null);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent showCloseButton={false} className="top-[15%] translate-y-0 gap-0 rounded-xl p-0 sm:max-w-xl">
@@ -190,19 +200,16 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
             onKeyDown={onKeyDown}
             placeholder={onSelect ? "Find a channel or person" : "Jump to a conversation, or search messages"}
             role="combobox"
-            aria-expanded="true"
+            aria-expanded={results.length > 0}
             aria-controls="chat-switcher-results"
             aria-activedescendant={results.length ? optionId(active) : undefined}
             className="h-14 flex-1 bg-transparent text-[15px] outline-none pointer-coarse:text-[17px]"
           />
         </div>
         <ul id="chat-switcher-results" role="listbox" aria-label="Conversations and people" className="max-h-[50dvh] overflow-y-auto p-2">
-          {joined.length ? <li role="presentation" className="nb-micro px-3 py-1.5 text-muted-foreground">{query.trim() ? "Conversations" : "Recent"}</li> : null}
-          {joined.map(renderOption)}
-          {browse.length ? <li role="presentation" className="nb-micro px-3 py-1.5 text-muted-foreground">Channels you can join</li> : null}
-          {browse.map(renderOption)}
-          {personResults.length ? <li role="presentation" className="nb-micro px-3 py-1.5 text-muted-foreground">People</li> : null}
-          {personResults.map(renderOption)}
+          {group("joined", query.trim() ? "Conversations" : "Recent", joined)}
+          {group("browse", "Channels you can join", browse)}
+          {group("people", "People", personResults)}
           {searchRow.map(renderOption)}
           {!results.length ? <li role="presentation" className="px-3 py-6 text-center text-[13px] text-muted-foreground">{people.isFetching ? "Searching…" : "No matches"}</li> : null}
         </ul>

@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { CHAT_MAX_ATTACHMENTS, CHAT_MAX_BODY } from "@/lib/messaging/constants";
+import { formatChatTime } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { upsertMessage } from "@/lib/messaging/timeline";
 import { queryKeys } from "@/lib/query-keys";
@@ -450,7 +451,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     clear();
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.scheduled() });
-    toast.success(`Scheduled for ${at.toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`, {
+    toast.success(`Scheduled for ${formatChatTime(at, "at")}`, {
       action: { label: "View", onClick: () => router.push("/messages/drafts") },
     });
   };
@@ -655,7 +656,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         ) : null}
         {formatting && editor ? <FormatToolbar editor={editor} onLink={openLink} /> : null}
         {mention ? (
-          <MentionDropdown query={mention.query} participants={mentionable} onSelect={pickMention} onClose={() => setMention(null)} />
+          <MentionDropdown query={mention.query} participants={mentionable} onSelect={pickMention} onClose={() => setMention(null)} getInput={() => (editor && !editor.isDestroyed ? editor.view.dom : null)} />
         ) : null}
         <div
           className="app-scroll app-scroll-y relative max-h-[160px] px-3 py-2"

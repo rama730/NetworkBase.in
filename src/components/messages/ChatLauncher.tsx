@@ -11,8 +11,8 @@ import { useChatShell } from "@/components/messages/ChatShellProvider";
 const ChatWindow = dynamic(() => import("@/components/messages/ChatWindow"), { ssr: false });
 
 /**
- * The floating button (report 7.13): 56px, bottom-right, badge = mentions +
- * unread DMs. Not mounted below 768px or on /messages and /projects/new.
+ * The floating button (report 7.13): 56px, bottom-right, badge = chatBadge (unread DMs + Inbox).
+ * Not mounted below 768px or on /messages and /projects/new.
  */
 export default function ChatLauncher() {
   const pathname = usePathname() ?? "";
