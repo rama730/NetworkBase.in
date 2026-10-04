@@ -34,7 +34,7 @@ const ShareDialog = dynamic(() => import("@/components/messages/parts/ShareDialo
 
 // Stable identity so Virtuoso never remounts the footer (VIRT-01). Room for the
 // floating typing indicator only while someone types; otherwise the gap closes.
-const THREAD_COMPONENTS = { Footer: ({ context }: { context?: { typing: boolean } }) => <div className={context?.typing ? "h-6" : "h-2"} /> };
+const THREAD_COMPONENTS = { Footer: ({ context }: { context?: { typing: boolean } }) => <div className={context?.typing ? "h-6" : "h-2 transition-[height] duration-200 ease-out motion-reduce:transition-none"} /> };
 
 type Thread = { root: ChatMessageView | null; replies: ChatMessageView[]; following: boolean; lastReadSeq: number | null };
 type Row = { type: "root"; message: ChatMessageView } | { type: "summary" } | { type: "new" } | { type: "reply"; message: ChatMessageView; grouped: boolean };
@@ -69,7 +69,7 @@ export function ThreadPane({ channelId, rootSeq }: { channelId: string; rootSeq:
   // once the taller footer is in the DOM; scrolling past the end stops at the real bottom.
   useEffect(() => {
     if (!typingNow || !atBottom.current) return;
-    const frame = requestAnimationFrame(() => list.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER }));
+    const frame = requestAnimationFrame(() => list.current?.scrollTo({ top: Number.MAX_SAFE_INTEGER, behavior: "smooth" }));
     return () => cancelAnimationFrame(frame);
   }, [typingNow]);
   const saved = useSavedSeqs(channelId, isMember);

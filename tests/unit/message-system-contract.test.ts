@@ -103,18 +103,18 @@ test("Messages system adheres to design specification contracts", () => {
     );
     assert.match(
         fs.readFileSync(path.join(process.cwd(), "src/components/messages/Composer.tsx"), "utf8"),
-        /function TypingIndicator[\s\S]*if \(!label\) return null;[\s\S]*absolute inset-x-3 bottom-\[calc\(100%\+1px\)\] flex h-5[\s\S]*<TypingIndicator names=\{typingNames\} \/>/,
+        /function TypingIndicator[\s\S]*if \(!label\) return null;[\s\S]*absolute inset-x-3 bottom-\[calc\(100%\+1px\)\] flex h-5[\s\S]*transition-\[opacity,transform\][\s\S]*data-\[visible=false\]:opacity-0[\s\S]*<TypingIndicator names=\{typingNames\} \/>/,
         "Typing floats just above the composer box, so neither the box nor the timeline moves",
     );
     {
         const timeline = fs.readFileSync(path.join(process.cwd(), "src/components/messages/Timeline.tsx"), "utf8");
         const thread = fs.readFileSync(path.join(process.cwd(), "src/components/messages/ThreadPane.tsx"), "utf8");
         // The gap under the last message opens only while someone types (room for the indicator).
-        assert.match(timeline, /function TimelineFooter\(\{ context \}[\s\S]*context\?\.typing \? "h-6" : "h-2"/);
-        assert.match(timeline, /if \(!typing \|\| !atBottom\) return;[\s\S]*requestAnimationFrame\(\(\) => virtuoso\.current\?\.scrollTo\(\{ top: Number\.MAX_SAFE_INTEGER \}\)\)/);
+        assert.match(timeline, /function TimelineFooter\(\{ context \}[\s\S]*context\?\.typing \? "h-6" : "h-2 transition-\[height\]/);
+        assert.match(timeline, /if \(!typing \|\| !atBottom\) return;[\s\S]*requestAnimationFrame\(\(\) => virtuoso\.current\?\.scrollTo\(\{ top: Number\.MAX_SAFE_INTEGER, behavior: "smooth" \}\)\)/);
         assert.match(conversationViewSource, /typing=\{typing\.names\.length > 0\}/);
-        assert.match(thread, /THREAD_COMPONENTS = \{ Footer: [\s\S]*context\?\.typing \? "h-6" : "h-2"/);
-        assert.match(thread, /if \(!typingNow \|\| !atBottom\.current\) return;[\s\S]*requestAnimationFrame\(\(\) => list\.current\?\.scrollTo\(\{ top: Number\.MAX_SAFE_INTEGER \}\)\)/);
+        assert.match(thread, /THREAD_COMPONENTS = \{ Footer: [\s\S]*context\?\.typing \? "h-6" : "h-2 transition-\[height\]/);
+        assert.match(thread, /if \(!typingNow \|\| !atBottom\.current\) return;[\s\S]*requestAnimationFrame\(\(\) => list\.current\?\.scrollTo\(\{ top: Number\.MAX_SAFE_INTEGER, behavior: "smooth" \}\)\)/);
     }
     assert.match(
         cssSource,
