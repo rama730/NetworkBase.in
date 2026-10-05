@@ -192,7 +192,8 @@
     "drizzle/0188_chat_tab_files.sql",
     "drizzle/0189_chat_audit_fixes.sql",
     "drizzle/0190_chat_thread_self_reply.sql",
-    "drizzle/0191_chat_channel_privacy.sql"
+    "drizzle/0191_chat_channel_privacy.sql",
+    "drizzle/0192_chat_inbox_mute_rule.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
