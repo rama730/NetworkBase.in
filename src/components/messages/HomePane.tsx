@@ -11,7 +11,7 @@ import { useSelectedProject } from "@/components/messages/useSelectedProject";
 import { ProjectBadge } from "@/components/projects/ProjectBadge";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, formatChatTime, isDirectLike, needsAttention, projectsByActivity, rowCount } from "@/lib/messaging/channel-view";
+import { channelTitle, formatChatTime, isDirectLike, isVisible, needsAttention, projectsByActivity, rowCount } from "@/lib/messaging/channel-view";
 import type { ChatChannelSummary } from "@/lib/messaging/types";
 import { conversationHref } from "@/lib/messaging/routes";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
@@ -62,7 +62,7 @@ export function HomePane() {
   const [showAll, setShowAll] = useState(false);
   const project = data?.projects?.find((p) => p.id === projectId) ?? null;
 
-  const visible = (data?.channels ?? []).filter((c) => !c.archived_at && !c.channel_archived_at && (!project || c.project_id === project.id || isDirectLike(c)));
+  const visible = (data?.channels ?? []).filter((c) => isVisible(c) && (!project || c.project_id === project.id || isDirectLike(c)));
   const needing = visible.filter(needsAttention).sort((a, b) => (b.last_message_at ?? "").localeCompare(a.last_message_at ?? ""));
   const unread = showAll ? needing : needing.slice(0, UNREAD_SHOWN);
   const inboxUnread = data?.inbox_unread ?? 0;
