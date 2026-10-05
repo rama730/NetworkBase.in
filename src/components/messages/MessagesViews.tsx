@@ -24,7 +24,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, formatChatTime, isDirectLike, personName } from "@/lib/messaging/channel-view";
+import { channelTitle, formatChatTime, isDirectLike, isVisible, personName } from "@/lib/messaging/channel-view";
 import { CHAT_LIST_PAGE } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { groupNoun } from "@/lib/messaging/inbox";
@@ -919,7 +919,7 @@ export function SearchView() {
   };
   // In: recent conversations first (the ones you're likely to mean), then the rest A–Z.
   const conversations = useMemo(() => {
-    const list = (data?.channels ?? []).filter((c) => !c.archived_at).map((c) => ({ id: c.id, title: isDirectLike(c) ? channelTitle(c, meId) : `#${channelTitle(c, meId)}`, at: c.last_message_at ?? "" }));
+    const list = (data?.channels ?? []).filter(isVisible).map((c) => ({ id: c.id, title: isDirectLike(c) ? channelTitle(c, meId) : `#${channelTitle(c, meId)}`, at: c.last_message_at ?? "" }));
     const recent = [...list].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 8);
     const recentIds = new Set(recent.map((c) => c.id));
     return { recent, rest: list.filter((c) => !recentIds.has(c.id)).sort((a, b) => a.title.localeCompare(b.title)) };
