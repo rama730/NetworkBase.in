@@ -137,7 +137,7 @@ export default function InvitationsClient({
             loading: "Accepting invitation...",
             success: `You’re now connected with ${name}`,
             error: (error) => error instanceof Error ? error.message : "Failed to accept invitation",
-        });
+        }).unwrap().catch(() => undefined);
     }
 
     async function declineConnection(id: string) {
@@ -145,7 +145,7 @@ export default function InvitationsClient({
             loading: "Declining invitation...",
             success: "Invitation declined",
             error: (error) => error instanceof Error ? error.message : "Failed to decline invitation",
-        });
+        }).unwrap().catch(() => undefined);
     }
 
     async function handleCancelConnection(id: string, name?: string) {
@@ -153,7 +153,7 @@ export default function InvitationsClient({
             loading: "Cancelling connection request...",
             success: name ? `Cancelled request to ${name}` : "Connection request cancelled",
             error: (error) => error instanceof Error ? error.message : "Failed to cancel request",
-        });
+        }).unwrap().catch(() => undefined);
     }
 
     async function handleWithdrawAllSent() {
@@ -175,14 +175,17 @@ export default function InvitationsClient({
                     success: "Project invitation cancelled",
                     error: (error) => error instanceof Error ? error.message : "Failed to cancel project invitation",
                 }
-            );
+            ).unwrap();
 
+            // Only after it really cancelled: a failure keeps the row (the toast says why).
             queryClient.setQueryData<SentProjectInvitationItem[]>(
                 queryKeys.workspace.sentProjectInvitations(50),
                 (prev) => (prev ? prev.filter((p) => p.id !== item.id) : [])
             );
 
             await refreshInvitationSurfaces();
+        } catch {
+            // The toast already says what went wrong.
         } finally {
             setCancellingProjectId(null);
         }
@@ -199,8 +202,10 @@ export default function InvitationsClient({
                 loading: action === "accept" ? "Accepting project invitation..." : "Declining project invitation...",
                 success: action === "accept" ? "Project invitation accepted" : "Project invitation declined",
                 error: (error) => error instanceof Error ? error.message : "Failed to update project invitation",
-            });
+            }).unwrap();
             await refreshInvitationSurfaces();
+        } catch {
+            // The toast already says what went wrong.
         } finally {
             setProcessingProject(null);
         }

@@ -33,7 +33,7 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
             loading: "Disconnecting...",
             success: "Connection removed",
             error: (error) => error instanceof Error ? error.message : "Failed to remove connection",
-        });
+        }).unwrap().catch(() => undefined);
     }, [disconnect]);
 
     const handleBlock = useCallback(async (userId: string) => {
@@ -41,7 +41,7 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
             loading: "Blocking profile...",
             success: "Profile blocked",
             error: (error) => error instanceof Error ? error.message : "Failed to block profile",
-        });
+        }).unwrap().catch(() => undefined);
     }, [blockProfile]);
 
     if (isLoading && !data) {

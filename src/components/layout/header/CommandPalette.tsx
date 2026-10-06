@@ -252,7 +252,7 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
                 loading: "Sending request...",
                 success: (response) => getConnectionRequestSuccessMessage(response.status),
                 error: (error) => error instanceof Error ? error.message : "Failed to send request",
-            });
+            }).unwrap();
         } catch {
             // The shared mutation and toast already restore and report the failed state.
         }

@@ -32,7 +32,7 @@ export default function NetworkPeopleTab({ initialUser, searchQuery }: PeopleCli
             loading: "Sending request...",
             success: (result) => getConnectionRequestSuccessMessage(result.status),
             error: (error) => error instanceof Error ? error.message : "Failed to send request",
-        });
+        }).unwrap();
     }, [initialUser?.id, sendRequest]);
 
     if (isInitialLoading) {
