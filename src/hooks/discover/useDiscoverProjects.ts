@@ -3,7 +3,7 @@
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import { Project, DiscoverFilters } from '@/types/discover';
 import { fetchDiscoverProjectsAction } from '@/app/actions/discover';
-import { FILTER_VIEWS, SORT_OPTIONS, type FilterView } from '@/constants/discover';
+import type { FilterView } from '@/constants/discover';
 import { queryKeys } from '@/lib/query-keys';
 import { mapPublicProjectToDiscoverProject, type PublicProjectsFeedItem } from '@/lib/projects/public-feed';
 
@@ -32,16 +32,6 @@ type PublicProjectsApiResponse = {
     message?: string
 }
 
-/** The unfiltered newest feed comes from the shared, cached API; everything else from the server action. */
-function isDefaultFeed(filters: DiscoverFilters, view: FilterView) {
-    return view === FILTER_VIEWS.ALL
-        && (!filters.status || filters.status === 'all')
-        && (!filters.type || filters.type === 'all')
-        && (!filters.sort || filters.sort === SORT_OPTIONS.NEWEST)
-        && (!filters.tech || filters.tech.length === 0)
-        && !filters.search;
-}
-
 async function fetchPublicProjectsPage(cursor: string | undefined) {
     const searchParams = new URLSearchParams({ limit: String(PAGE_SIZE) });
     if (cursor) searchParams.set('cursor', cursor);
@@ -64,10 +54,15 @@ async function fetchPublicProjectsPage(cursor: string | undefined) {
     };
 }
 
+/**
+ * `isDefault` (the unfiltered newest feed, lib/discover/query) reads the shared, cached API and can
+ * start from the server-rendered page; everything else goes through the server action.
+ */
 export function useDiscoverProjects(
     viewerId: string | null,
     filters: DiscoverFilters,
     view: FilterView,
+    isDefault: boolean,
     initialProjectsPage?: {
         projects?: Project[];
         nextCursor?: string;
@@ -77,7 +72,7 @@ export function useDiscoverProjects(
     return useInfiniteQuery({
         queryKey: queryKeys.discover.projectsSimple(viewerId, view, filters),
         queryFn: async ({ pageParam = undefined as string | undefined }) => {
-            if (isDefaultFeed(filters, view)) return fetchPublicProjectsPage(pageParam);
+            if (isDefault) return fetchPublicProjectsPage(pageParam);
 
             const result = await fetchDiscoverProjectsAction(filters, pageParam, PAGE_SIZE, view);
             if (!result.success) throw new DiscoverFeedError(result.code);
@@ -96,7 +91,7 @@ export function useDiscoverProjects(
         // Only a network hiccup is worth retrying; a rate limit or a bad link would fail again.
         retry: (count, error) => count < 2 && !(error instanceof DiscoverFeedError && error.code !== 'TRANSIENT'),
         // The server renders the default feed; use it rather than fetching it again.
-        initialData: initialProjectsPage && isDefaultFeed(filters, view) ? {
+        initialData: initialProjectsPage && isDefault ? {
             pages: [{
                 projects: initialProjectsPage.projects || [],
                 nextCursor: initialProjectsPage.nextCursor,

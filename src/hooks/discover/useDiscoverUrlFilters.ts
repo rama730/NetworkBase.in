@@ -3,18 +3,11 @@
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 
-import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS } from '@/constants/discover';
+import { PROJECT_STATUS, PROJECT_TYPE } from '@/constants/discover';
 import { activeFilterCount, isDefaultDiscoverQuery, parseDiscoverQuery, type DiscoverQuery } from '@/lib/discover/query';
 
-const DEFAULTS: DiscoverQuery = {
-    q: '',
-    view: FILTER_VIEWS.ALL,
-    status: PROJECT_STATUS.ALL,
-    type: PROJECT_TYPE.ALL,
-    sort: SORT_OPTIONS.NEWEST,
-    tech: [],
-    hideOpened: false,
-};
+// What an empty URL means: a value equal to it is left out of the URL.
+const DEFAULTS = parseDiscoverQuery(() => null);
 
 /**
  * Discover's filters live in the URL (shareable, Back/Forward work). Changes use history.pushState:
