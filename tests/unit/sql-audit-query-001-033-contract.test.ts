@@ -34,7 +34,8 @@ test("QRY-013..023 retire unsafe batch replacement and full-tree/task-slug scans
   assert.match(nodes, /eq\(projectNodes\.path, `\/\$\{path\.join\("\/"\)\}`\)/);
   assert.match(nodes, /inArray\(projectNodes\.path, Array\.from\(ancestorPaths\)\)/);
   assert.doesNotMatch(nodes, /for \(let depth = 0; depth < 32/);
-  assert.match(nodes, /projectNodes\.taskId\} IS NULL AND \$\{projectNodes\.path\} NOT LIKE '\/\.system%'/);
+  assert.match(nodes, /projectContentNodeSql/);
+  assert.match(source("src/lib/files/internal-helpers.ts"), /projectNodes\.taskId\} IS NULL AND \$\{projectNodes\.path\} NOT LIKE '\/\.system%'/);
   assert.match(urlSync, /fileId:\s*taskFileId/);
 });
 
