@@ -119,7 +119,7 @@ export function useProjectDocList(projectId: string, enabled = true) {
             const { listProjectDocsAction } = await import("@/app/actions/project/doc");
             const result = await listProjectDocsAction(projectId);
             if (!result.success) throw new Error(result.error);
-            return result.markdowns;
+            return result.docs;
         },
         staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,

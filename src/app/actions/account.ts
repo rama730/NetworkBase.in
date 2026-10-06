@@ -6,7 +6,6 @@ import {
     projects,
     connections,
     projectMembers,
-    collections,
     accountDeletions,
     profileAuditEvents,
     projectFollows,

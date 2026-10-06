@@ -340,11 +340,8 @@ async function main() {
         WHERE conrelid = 'public.profiles'::regclass
           AND conname = 'profiles_id_auth_users_fk'
       ) AS profile_auth_fk,
-      COALESCE((
-        SELECT c.relrowsecurity
-        FROM pg_class c
-        WHERE c.oid = to_regclass('app_private.retired_domain_archive')
-      ), false) AS archive_rls,
+      -- 0204 dropped the retired-domain archive; it must not come back unprotected.
+      to_regclass('app_private.retired_domain_archive') IS NULL AS archive_rls,
       COALESCE((
         SELECT p.proconfig @> ARRAY['search_path=""']::text[]
         FROM pg_proc p
@@ -354,7 +351,7 @@ async function main() {
       has_function_privilege('authenticated', 'public.seed_project_workflow_columns()', 'EXECUTE') AS authenticated_can_execute_workflow_seed
   `;
   if (!nativeHardeningRow?.profile_auth_fk) errors.push("profiles is missing the auth.users identity FK invariant");
-  if (!nativeHardeningRow?.archive_rls) errors.push("app_private.retired_domain_archive must have fail-closed RLS");
+  if (!nativeHardeningRow?.archive_rls) errors.push("app_private.retired_domain_archive was dropped in 0204 and must not reappear");
   if (!nativeHardeningRow?.workflow_search_path) errors.push("seed_project_workflow_columns must set an empty search_path");
   if (nativeHardeningRow?.anon_can_execute_workflow_seed || nativeHardeningRow?.authenticated_can_execute_workflow_seed) {
     errors.push("client roles must not execute seed_project_workflow_columns directly");

@@ -140,7 +140,6 @@ describe("data export contract", () => {
             projects: [],
             connections: [],
             messages: { count: 0, items: [] },
-            collections: [],
         };
 
         assert.ok(exportData.exportedAt, "exportedAt should be present");
@@ -149,7 +148,6 @@ describe("data export contract", () => {
         assert.ok(Array.isArray(exportData.connections), "connections should be an array");
         assert.ok(typeof exportData.messages.count === "number", "messages.count should be a number");
         assert.ok(Array.isArray(exportData.messages.items), "messages.items should be an array");
-        assert.ok(Array.isArray(exportData.collections), "collections should be an array");
     });
 
     it("export data does not include sensitive fields", () => {

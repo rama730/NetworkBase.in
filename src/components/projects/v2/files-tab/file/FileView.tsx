@@ -214,10 +214,10 @@ export function FileView({
   const projectSlug = pathname?.split("/")[2] || "";
 
   // Query list of documents to see if this node is linked to any of them
-  const { data: markdowns = [] } = useProjectDocList(projectId);
+  const { data: docs = [] } = useProjectDocList(projectId);
   const linkedDoc = React.useMemo(() => {
-    return markdowns.find((doc: any) => doc.linkedNodeId === node.id);
-  }, [markdowns, node.id]);
+    return docs.find((doc: any) => doc.linkedNodeId === node.id);
+  }, [docs, node.id]);
 
   const handleNavigateToDoc = React.useCallback((slug: string) => {
     if (!confirmFileNavigation(projectId)) return;

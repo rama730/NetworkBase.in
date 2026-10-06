@@ -153,7 +153,7 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
             key: true,
         },
         with: {
-            markdowns: { with: { linkedNode: { columns: { deletedAt: true } } } },
+            docs: { with: { linkedNode: { columns: { deletedAt: true } } } },
             members: {
                 where: actorUserId ? eq(projectMembers.userId, actorUserId) : sql`false`,
                 columns: { role: true },
@@ -162,7 +162,7 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
         },
     });
     if (!row) throw new Error("Project not found");
-    const { markdowns: docs, members, ...project } = row;
+    const { docs, members, ...project } = row;
     return { project, membership: members[0] ?? null, docs };
 }
 
@@ -547,7 +547,7 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
                     versionRow = {
                         id: `linked-${node.id}`,
                         projectId,
-                        markdownId: context.readme!.id,
+                        docId: context.readme!.id,
                         versionNumber: 1,
                         content: metadata.content,
                         excerpt: metadata.excerpt,
@@ -960,7 +960,7 @@ export async function listProjectDocsAction(projectId: string) {
     try {
         const actorUserId = await getOptionalUserId();
         const base = await loadDocProjectBase(projectId, actorUserId);
-        return { success: true as const, markdowns: visibleDocs(base, actorUserId) };
+        return { success: true as const, docs: visibleDocs(base, actorUserId) };
     } catch (error) {
         logger.error("project_readme.list_markdowns_failed", { projectId, error: error instanceof Error ? error.message : String(error) });
         return { success: false as const, error: "Failed to list documents." };
@@ -992,7 +992,7 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
                     .insert(projectDocVersions)
                     .values({
                         projectId,
-                        markdownId: readme.id,
+                        docId: readme.id,
                         versionNumber: 1,
                         content: metadata.content,
                         excerpt: metadata.excerpt,

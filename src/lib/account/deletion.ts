@@ -5,7 +5,6 @@ import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   accountDeletions,
-  collections,
   connections,
   profileAuditEvents,
   profiles,
@@ -100,7 +99,6 @@ export async function scheduleAccountDeletionForUser(input: {
       WHERE id IN (SELECT project_id FROM project_follows WHERE user_id = ${input.userId}::uuid)
     `);
     await tx.delete(projectFollows).where(eq(projectFollows.userId, input.userId));
-    await tx.delete(collections).where(eq(collections.ownerId, input.userId));
     await tx.delete(profileAuditEvents).where(eq(profileAuditEvents.userId, input.userId));
 
     const affectedUserIds = peers

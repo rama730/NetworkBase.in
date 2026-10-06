@@ -164,12 +164,6 @@ export const statusFileEnum = pgEnum("status_file", [
   "expired",
   "failed",
 ]);
-export const statusReportEnum = pgEnum("status_report", [
-  "pending",
-  "reviewed",
-  "actioned",
-  "dismissed",
-]);
 
 // ============================================================================
 // PROFILES TABLE
@@ -1430,7 +1424,7 @@ export const projectDocVersions = pgTable(
     projectId: uuid("project_id")
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
-    markdownId: uuid("markdown_id")
+    docId: uuid("doc_id")
       .notNull()
       .references(() => projectDocs.id, { onDelete: "cascade" }),
     versionNumber: integer("version_number").notNull(),
@@ -1456,9 +1450,9 @@ export const projectDocVersions = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
-    markdownVersionUnique: uniqueIndex(
-      "project_doc_versions_markdown_version_unique",
-    ).on(t.markdownId, t.versionNumber),
+    docVersionUnique: uniqueIndex(
+      "project_doc_versions_doc_id_version_number_key",
+    ).on(t.docId, t.versionNumber),
     projectDeletedIdx: index(
       "project_doc_versions_project_deleted_idx",
     ).on(t.projectId, t.deletedAt),
@@ -3481,8 +3475,8 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   applications: many(roleApplications),
   profileContributions: many(profileProjectContributions),
   profileContributionStages: many(profileProjectContributionStages),
-  markdowns: many(projectDocs),
-  markdownVersions: many(projectDocVersions),
+  docs: many(projectDocs),
+  docVersions: many(projectDocVersions),
 }));
 
 export const projectOpenRolesRelations = relations(
@@ -3618,8 +3612,8 @@ export const projectDocVersionsRelations = relations(
       fields: [projectDocVersions.projectId],
       references: [projects.id],
     }),
-    markdown: one(projectDocs, {
-      fields: [projectDocVersions.markdownId],
+    doc: one(projectDocs, {
+      fields: [projectDocVersions.docId],
       references: [projectDocs.id],
     }),
     author: one(profiles, {
@@ -4090,29 +4084,7 @@ export type NewProjectUpdateComment = typeof projectUpdateComments.$inferInsert;
 // ============================================================================
 // COLLECTIONS TABLE
 // ============================================================================
-export const collections = pgTable(
-  "collections",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    name: text("name").notNull(),
-    ownerId: uuid("owner_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    ownerIdx: index("collections_owner_id_idx").on(t.ownerId),
-  }),
-);
 
-export const collectionsRelations = relations(collections, ({ one }) => ({
-  owner: one(profiles, {
-    fields: [collections.ownerId],
-    references: [profiles.id],
-  }),
-}));
 
 // ============================================================================
 // ACCOUNT DELETIONS TABLE (Immutable Audit Trail)
@@ -4198,8 +4170,6 @@ export type LegalAcceptance = typeof legalAcceptances.$inferSelect;
 export type NewLegalAcceptance = typeof legalAcceptances.$inferInsert;
 
 
-export type Collection = typeof collections.$inferSelect;
-export type NewCollection = typeof collections.$inferInsert;
 
 export type TaskSubtask = typeof taskSubtasks.$inferSelect;
 export type NewTaskSubtask = typeof taskSubtasks.$inferInsert;
@@ -4607,23 +4577,6 @@ export const profileContributionSkills = pgTable(
   }),
 );
 
-export const interests = pgTable(
-  "interests",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    name: text("name").notNull().unique(),
-    slug: text("slug").notNull().unique(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-  },
-  (t) => ({
-    nameSearchIdx: index("interests_name_search_idx").using(
-      "gin",
-      sql`${t.name} gin_trgm_ops`,
-    ),
-  }),
-);
 
 export const tags = pgTable(
   "tags",

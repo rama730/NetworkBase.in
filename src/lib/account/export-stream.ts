@@ -5,7 +5,6 @@ import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { toAccountExportMessage } from "@/lib/account/export-contract";
 import {
-  collections,
   connections,
   legalAcceptances,
   profileContributionSkills,
@@ -227,32 +226,7 @@ async function* streamAccountExport(input: {
   }
   yield `],"count":${written},"exportedCount":${written},"truncated":false`;
   yield `,"note":${json("Only messages you wrote are included; other people's messages are not exported.")}`;
-  yield "},\"collections\":";
-
-  yield "[";
-  written = 0;
-  let collectionCursor: string | null = null;
-  while (true) {
-    assertActive(signal);
-    const page = await db
-      .select({ id: collections.id, name: collections.name, createdAt: collections.createdAt })
-      .from(collections)
-      .where(and(
-        eq(collections.ownerId, userId),
-        lte(collections.createdAt, exportedAt),
-        collectionCursor ? gt(collections.id, collectionCursor) : undefined,
-      ))
-      .orderBy(asc(collections.id))
-      .limit(EXPORT_PAGE_SIZE);
-    if (page.length === 0) break;
-    for (const row of page) {
-      if (written++) yield ",";
-      yield json(row);
-    }
-    collectionCursor = page.at(-1)!.id;
-    if (page.length < EXPORT_PAGE_SIZE) break;
-  }
-  yield "],\"legalAcceptances\":";
+  yield "},\"legalAcceptances\":";
 
   yield "[";
   written = 0;
