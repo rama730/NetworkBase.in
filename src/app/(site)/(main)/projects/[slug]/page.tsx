@@ -9,15 +9,12 @@ import { buildRouteMetadata } from '@/lib/metadata/route-metadata';
 import { buildProjectDetailMetadataInput } from '@/lib/projects/project-detail-metadata';
 import { isProjectTabVisibleToViewer } from '@/lib/projects/settings-policies';
 
-const readProjectSprintDetailCached = cache((slugOrId: string, actorUserId: string | null, limit?: number, sprintId?: string, taskReference?: string) => readProjectSprintDetail({ slugOrId, actorUserId, limit, sprintId, taskReference }));
+const readProjectSprintDetailCached = cache((slugOrId: string, limit?: number, sprintId?: string, taskReference?: string) => readProjectSprintDetail({ slugOrId, limit, sprintId, taskReference }));
 
 // Metadata and the rendered route share one auth-qualified shell read.
 const readProjectRouteShell = cache(async (slugOrId: string) => {
     const viewerIdentity = await getViewerIdentityContext();
-    const result = await readProjectDetailShell({
-        slugOrId,
-        actorUserId: viewerIdentity.user?.id ?? null,
-    });
+    const result = await readProjectDetailShell({ slugOrId });
     return { viewerIdentity, result };
 });
 
@@ -73,7 +70,7 @@ async function ResolvedProjectDashboard({
     const viewerIdentity = await getViewerIdentityContext();
     const { user } = viewerIdentity;
     const sprintPromise = selectedTab === "sprints"
-        ? readProjectSprintDetailCached(slug, user?.id ?? null, 24, sprintId, _searchParams?.task ?? _searchParams?.taskId)
+        ? readProjectSprintDetailCached(slug, 24, sprintId, _searchParams?.task ?? _searchParams?.taskId)
         : null;
     sprintPromise?.catch(() => null);
     const { result } = await readProjectRouteShell(slug);

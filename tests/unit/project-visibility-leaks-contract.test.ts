@@ -36,3 +36,37 @@ test("COR-034/COR-035: doc reads honor draft status, hide task files and never d
   assert.doesNotMatch(readAction, /db\.delete\(projectDocs\)/);
   assert.match(readAction, /eq\(projectNodes\.projectId, projectId\)/);
 });
+
+test("COR-003: Files task search returns nothing without Tasks visibility", () => {
+  const search = fnBody(read("src/app/actions/files/links.ts"), "export async function searchProjectTasks(");
+  const guard = search.indexOf("if (!canReadProjectTaskFiles(access)) return [];");
+  assert.ok(guard > 0 && guard < search.indexOf("db\n") + 1e9 && guard < search.indexOf(".from(tasks)"), "guard before any task query");
+});
+
+test("COR-022: project statuses use the canonical readability rule (drafts hidden)", () => {
+  const statuses = fnBody(read("src/app/actions/presence.ts"), "export async function getProjectStatuses(");
+  assert.match(statuses, /getProjectAccessByIds\(ids, user\?\.id \?\? null\)/);
+  assert.match(statuses, /access\[id\]\?\.canRead/);
+  assert.doesNotMatch(statuses, /coalesce\(p\.visibility, 'public'\) <> 'private'/);
+});
+
+test("COR-043: task, sprint and member loaders gate on their tab, sprint task rows on Tasks", () => {
+  const project = read("src/app/actions/project/index.ts");
+  const tasks = fnBody(project, "async function fetchProjectTasksForActor(");
+  assert.match(tasks, /canReadProjectTab\(access, "tasks"\)/);
+  assert.match(fnBody(project, "export async function fetchProjectSprintsAction("), /assertProjectTabReadAccess\(projectId, actorId, "sprints"\)/);
+  assert.match(fnBody(project, "export async function getProjectTaskDetailAction("), /assertProjectTabReadAccess\(projectId, actorId, "tasks"\)/);
+  for (const name of ["async function buildSprintDetailPayload(", "async function buildSprintTimelinePagePayload("]) {
+    const body = fnBody(project, name);
+    assert.match(body, /canReadProjectTab\(access, "sprints"\)/, name);
+    assert.match(body, /showTasks \? readSprintTaskActivityPage/, name);
+  }
+  assert.equal((project.match(/resolveProjectDocPermission\(\{/g) ?? []).length, 2, "shell + public metadata README gated by doc permission");
+});
+
+test("COR-042: exported project readers derive the actor from the session", () => {
+  const project = read("src/app/actions/project/index.ts");
+  assert.match(fnBody(project, "export async function readProjectDetailShell("), /getViewerAuthContext\(\)/);
+  assert.match(fnBody(project, "export async function readProjectSprintDetail("), /getViewerAuthContext\(\)/);
+  assert.doesNotMatch(project, /export async function getProjectDetailShellAction/);
+});

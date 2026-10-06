@@ -48,7 +48,7 @@ import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
 import { redis, getCachedData, cacheData } from "@/lib/redis";
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { DISCOVER_ANON_CACHE_TAG } from "@/constants/discover";
-import { getViewerIdentityContext } from "@/lib/server/viewer-context";
+import { getViewerAuthContext, getViewerIdentityContext } from "@/lib/server/viewer-context";
 import {
   CreateProjectInput,
   validateAndSanitizeLifecycleStages,
@@ -57,11 +57,15 @@ import { z } from "zod";
 import { createHash, randomUUID } from "crypto";
 import { generateSlug } from "@/lib/utils/slug";
 import { generateProjectKey } from "@/lib/project-key";
+import { resolveProjectDocPermission } from "@/lib/projects/doc";
 import {
+  assertProjectTabReadAccess,
+  canReadProjectTab,
   computeProjectReadAccess,
   computeProjectWriteAccess,
   getProjectAccessById,
   getProjectAccessByIdentifier,
+  ProjectTabForbiddenError,
   type ProjectAccess,
 } from "@/lib/data/project-access";
 import {
@@ -1033,7 +1037,6 @@ const PROJECT_DETAIL_OPEN_ROLES_PAGE_SIZE = 50;
 
 const projectDetailInputSchema = z.object({
   slugOrId: z.string().trim().min(1).max(200),
-  actorUserId: z.string().uuid().nullable().optional(),
 });
 
 const projectDetailMemberRoleSchema = z.enum([
@@ -1537,6 +1540,7 @@ async function fetchProjectDetailShellData(
       db
         .select({
           publishedVersionId: projectDocs.publishedVersionId,
+          settings: projectDocs.settings,
           versionNumber: projectDocVersions.versionNumber,
           excerpt: projectDocVersions.excerpt,
           createdAt: projectDocVersions.createdAt,
@@ -1705,6 +1709,7 @@ async function fetchProjectDetailShellData(
     membersHasMore: hasMoreMembers,
     membersNextCursor,
     hasPublishedReadme: Boolean(readmeRows[0]?.publishedVersionId),
+    readmeSettings: readmeRows[0]?.settings ?? null,
     readmeExcerpt: readmeRows[0]?.excerpt ?? null,
     readmeUpdatedAt: readmeRows[0]?.createdAt?.toISOString?.() ?? null,
     readmeVersionNumber: readmeRows[0]?.versionNumber ?? null,
@@ -1740,15 +1745,11 @@ const getPublicProjectDetailMetadata = unstable_cache(
       false,
     );
     if (!canRead) return null;
-    const readmeVisible = normalizeProjectPublicTabVisibility(
-      project.publicTabVisibility,
-    ).readme;
-    const readme = readmeVisible
-      ? await retryProjectDetailRead(
+    const readme = await retryProjectDetailRead(
           "public_project_detail_metadata_readme",
           () =>
             db
-              .select({ excerpt: projectDocVersions.excerpt })
+              .select({ excerpt: projectDocVersions.excerpt, settings: projectDocs.settings })
               .from(projectDocs)
               .leftJoin(
                 projectDocVersions,
@@ -1764,8 +1765,7 @@ const getPublicProjectDetailMetadata = unstable_cache(
                 ),
               )
               .limit(1),
-        )
-      : [];
+        );
 
     return {
       projectId: project.id,
@@ -1774,7 +1774,17 @@ const getPublicProjectDetailMetadata = unstable_cache(
       title: project.title,
       shortDescription: project.shortDescription || null,
       description: project.description || null,
-      readmeExcerpt: readme[0]?.excerpt ?? null,
+      // Same doc permission an anonymous visitor gets: draft, Readme tab, override (COR-043).
+      readmeExcerpt: readme[0] && resolveProjectDocPermission({
+        actorUserId: null,
+        projectVisibility: project.visibility,
+        projectStatus: project.status,
+        publicTabVisibility: project.publicTabVisibility,
+        settings: readme[0].settings,
+        hasPublishedReadme: Boolean(readme[0].excerpt),
+      }).canReadPublished
+        ? readme[0].excerpt ?? null
+        : null,
       coverImage: project.coverImage || null,
     };
   },
@@ -1782,9 +1792,9 @@ const getPublicProjectDetailMetadata = unstable_cache(
   { revalidate: 60, tags: [PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG] },
 );
 
+/** Public (anonymous) metadata for OG images and link previews; never viewer-specific (COR-042). */
 export async function readProjectDetailMetadata(input: {
   slugOrId: string;
-  actorUserId?: string | null;
 }): Promise<
   | { success: true; data: ProjectDetailMetadataRead }
   | {
@@ -1802,108 +1812,21 @@ export async function readProjectDetailMetadata(input: {
     };
   }
 
-  const { slugOrId, actorUserId = null } = parsedInput.data;
-  const trimmed = slugOrId.trim();
-
-  try {
-    if (!actorUserId) {
-      const cached = await getPublicProjectDetailMetadata(trimmed);
-      if (cached) {
-        return {
-          success: true,
-          data: cached,
-        };
-      }
-    }
-
-    const project = await resolveProjectDetailTarget(trimmed, actorUserId);
-    if (!project) {
-      return {
-        success: false,
-        errorCode: "NOT_FOUND",
-        message: "Project not found.",
-      };
-    }
-
-    const viewerState = resolveProjectDetailViewerState({
-      projectId: project.id,
-      ownerId: project.ownerId,
-      visibility: project.visibility,
-      status: project.status,
-      actorUserId,
-      memberRoleRaw: project.memberRole,
-      isFollowed: false,
-    });
-
-    if (!viewerState.canRead) {
-      return {
-        success: false,
-        errorCode: "FORBIDDEN",
-        message: "Forbidden",
-      };
-    }
-    const readmeVisible =
-      viewerState.isOwner ||
-      viewerState.isMember ||
-      normalizeProjectPublicTabVisibility(project.publicTabVisibility).readme;
-    const readme = readmeVisible
-      ? await retryProjectDetailRead("project_detail_metadata_readme", () =>
-          db
-            .select({ excerpt: projectDocVersions.excerpt })
-            .from(projectDocs)
-            .leftJoin(
-              projectDocVersions,
-              eq(
-                projectDocs.publishedVersionId,
-                projectDocVersions.id,
-              ),
-            )
-            .where(
-              and(
-                eq(projectDocs.projectId, project.id),
-                eq(projectDocs.slug, "readme"),
-              ),
-            )
-            .limit(1),
-        )
-      : [];
-
-    return {
-      success: true,
-      data: {
-        projectId: project.id,
-        ownerId: project.ownerId,
-        slug: project.slug || null,
-        title: project.title,
-        shortDescription: project.shortDescription || null,
-        description: project.description || null,
-        readmeExcerpt: readme[0]?.excerpt ?? null,
-        coverImage: project.coverImage || null,
-      },
-    };
-  } catch (error) {
-    console.error("[readProjectDetailMetadata] failed", error);
-    const message = error instanceof Error ? error.message : String(error);
-    const normalizedMessage = message.trim().toLowerCase();
-    const isAuthorizationError =
-      normalizedMessage === "forbidden" ||
-      normalizedMessage.includes("not authorized") ||
-      normalizedMessage.includes("not authorised") ||
-      normalizedMessage.includes("unauthorized") ||
-      normalizedMessage.includes("unauthorised") ||
-      normalizedMessage.includes("permission");
-
-    return {
-      success: false,
-      errorCode: isAuthorizationError ? "FORBIDDEN" : "INTERNAL_ERROR",
-      message: isAuthorizationError ? "Forbidden" : "Internal error",
-    };
-  }
+  const data = await getPublicProjectDetailMetadata(parsedInput.data.slugOrId.trim());
+  return data
+    ? { success: true, data }
+    : { success: false, errorCode: "NOT_FOUND", message: "Project not found." };
 }
 
-export async function readProjectDetailShell(input: {
+/** Session-scoped project shell. The caller's identity always comes from the session (COR-042). */
+export async function readProjectDetailShell(input: { slugOrId: string }): Promise<ProjectDetailShellResult> {
+  const { userId } = await getViewerAuthContext();
+  return readProjectDetailShellForActor({ slugOrId: input.slugOrId, actorUserId: userId });
+}
+
+async function readProjectDetailShellForActor(input: {
   slugOrId: string;
-  actorUserId?: string | null;
+  actorUserId: string | null;
 }): Promise<ProjectDetailShellResult> {
   const slugOrId = input.slugOrId?.trim();
   if (!slugOrId || slugOrId.length > 200) {
@@ -2077,10 +2000,26 @@ export async function readProjectDetailShell(input: {
           owner: shell.owner || null,
           membersHasMore: shell.membersHasMore || false,
           membersNextCursor: shell.membersNextCursor || null,
-          hasPublishedReadme: Boolean(shell.hasPublishedReadme),
-          readmeExcerpt: shell.readmeExcerpt ?? null,
-          readmeUpdatedAt: shell.readmeUpdatedAt ?? null,
-          readmeVersionNumber: shell.readmeVersionNumber ?? null,
+          // README data follows the doc's own permission: draft projects, the
+          // Readme tab and the doc visibility override all apply (COR-043).
+          ...(resolveProjectDocPermission({
+            actorUserId,
+            projectVisibility: project.visibility,
+            projectStatus: project.status,
+            publicTabVisibility: project.publicTabVisibility,
+            settings: shell.readmeSettings,
+            membershipRole: isOwner ? "owner" : memberRole,
+            isOwner,
+            isActiveMember: isMember,
+            hasPublishedReadme: Boolean(shell.hasPublishedReadme),
+          }).canReadPublished
+            ? {
+                hasPublishedReadme: Boolean(shell.hasPublishedReadme),
+                readmeExcerpt: shell.readmeExcerpt ?? null,
+                readmeUpdatedAt: shell.readmeUpdatedAt ?? null,
+                readmeVersionNumber: shell.readmeVersionNumber ?? null,
+              }
+            : { hasPublishedReadme: false, readmeExcerpt: null, readmeUpdatedAt: null, readmeVersionNumber: null }),
           isOwner,
           isMember,
           memberRole: isOwner ? "owner" : memberRole,
@@ -2136,28 +2075,6 @@ export async function readProjectDetailShell(input: {
       message: "Failed to load project detail.",
     };
   }
-}
-
-export async function getProjectDetailShellAction(input: {
-  slugOrId: string;
-  actorUserId?: string | null;
-}): Promise<ProjectDetailShellResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const actorUserId = user?.id ?? null;
-
-  if (input.actorUserId && input.actorUserId !== actorUserId) {
-    console.warn(
-      "[getProjectDetailShellAction] Ignoring mismatched client actorUserId.",
-    );
-  }
-
-  return readProjectDetailShell({
-    slugOrId: input.slugOrId,
-    actorUserId,
-  });
 }
 
 // --- Create Action ---
@@ -6576,7 +6493,7 @@ async function fetchProjectTasksForActor(
           ? authorizedAccess
           : await getProjectAccessById(projectId, actorId);
       if (!access.project) throw new Error("Project not found");
-      if (!access.canRead) throw new Error("Forbidden");
+      if (!canReadProjectTab(access, "tasks")) throw new ProjectTabForbiddenError("tasks");
 
       const projectTasks = await db.query.tasks.findMany({
         where: (t, { eq, and, or, lt, isNull, isNotNull, ilike }) => {
@@ -6943,7 +6860,7 @@ export async function fetchProjectTaskPreviewsAction(input: {
         code: "NOT_FOUND" as const,
         error: "Project not found",
       };
-    if (!access.canRead)
+    if (!canReadProjectTab(access, "tasks"))
       return {
         success: false as const,
         code: "FORBIDDEN" as const,
@@ -7042,7 +6959,7 @@ export async function fetchProjectSprintsAction(
     return await runInFlightDeduped(
       `project:sprints:${projectId}:${actorId ?? "anon"}:${safeLimit}`,
       async () => {
-        await assertProjectReadAccess(projectId, actorId);
+        await assertProjectTabReadAccess(projectId, actorId, "sprints");
 
         const projectSprintsList = await readProjectSprintsList(
           projectId,
@@ -7814,6 +7731,8 @@ async function readSprintTaskActivityPage(input: {
   };
 }
 
+const NO_SPRINT_TASK_PAGE: Awaited<ReturnType<typeof readSprintTaskActivityPage>> = { tasks: [], nextCursor: null, hasMore: false };
+
 async function buildSprintDetailPayload(input: {
   projectId: string;
   access: ProjectAccess;
@@ -7827,7 +7746,9 @@ async function buildSprintDetailPayload(input: {
 
   const access = input.access;
   if (!access.project) throw new Error("Project not found");
-  if (!access.canRead) throw new Error("Forbidden");
+  if (!canReadProjectTab(access, "sprints")) throw new ProjectTabForbiddenError("sprints");
+  // Sprints visibility exposes sprint list and health; task rows also need Tasks visibility (COR-043).
+  const showTasks = canReadProjectTab(access, "tasks");
   // A read must not mutate Sprint lifecycle state. The scheduler
   // remains the sole owner of time-based transitions.
   const permissions = buildSprintPermissionSet({
@@ -7885,13 +7806,13 @@ async function buildSprintDetailPayload(input: {
 
   const [summary, taskPage] = await Promise.all([
     readSprintSummary(selectedSprint.id),
-    readSprintTaskActivityPage({
+    showTasks ? readSprintTaskActivityPage({
       projectId: input.projectId,
       sprintId: selectedSprint.id,
       limit: safeLimit,
       cursor: parsedCursor,
       taskReference: input.taskReference,
-    }),
+    }) : Promise.resolve(NO_SPRINT_TASK_PAGE),
   ]);
 
   const rows = buildSprintTimeline({
@@ -7930,7 +7851,9 @@ async function buildSprintTimelinePagePayload(input: {
   const parsedCursor = parseSprintDetailPaginationCursor(input.cursor);
   const access = input.access;
   if (!access.project) throw new Error("Project not found");
-  if (!access.canRead) throw new Error("Forbidden");
+  if (!canReadProjectTab(access, "sprints")) throw new ProjectTabForbiddenError("sprints");
+  // Sprints visibility exposes sprint list and health; task rows also need Tasks visibility (COR-043).
+  const showTasks = canReadProjectTab(access, "tasks");
 
   const selectedSprint = await readProjectSprintListItem(
     input.projectId,
@@ -7948,12 +7871,12 @@ async function buildSprintTimelinePagePayload(input: {
 
   const [summary, taskPage] = await Promise.all([
     readSprintSummary(selectedSprint.id),
-    readSprintTaskActivityPage({
+    showTasks ? readSprintTaskActivityPage({
       projectId: input.projectId,
       sprintId: selectedSprint.id,
       limit: safeLimit,
       cursor: parsedCursor,
-    }),
+    }) : Promise.resolve(NO_SPRINT_TASK_PAGE),
   ]);
 
   const rows = buildSprintTimeline({
@@ -8102,14 +8025,21 @@ export async function fetchProjectSprintTimelinePageAction(input: {
   }
 }
 
-export async function readProjectSprintDetail(input: {
+type ProjectSprintDetailInput = {
   slugOrId: string;
   sprintId?: string | null;
   taskReference?: string | null;
-  actorUserId?: string | null;
   cursor?: string;
   limit?: number;
-}) {
+};
+
+/** Session-scoped sprint detail (COR-042). */
+export async function readProjectSprintDetail(input: ProjectSprintDetailInput) {
+  const { userId } = await getViewerAuthContext();
+  return readProjectSprintDetailForActor({ ...input, actorUserId: userId });
+}
+
+async function readProjectSprintDetailForActor(input: ProjectSprintDetailInput & { actorUserId: string | null }) {
   try {
     const project = await resolveProjectDetailTarget(
       input.slugOrId,
@@ -8196,7 +8126,7 @@ export async function getProjectTaskDetailAction(
   try {
     const viewerIdentity = await getViewerIdentityContext();
     const actorId = viewerIdentity.user?.id ?? null;
-    await assertProjectReadAccess(projectId, actorId);
+    await assertProjectTabReadAccess(projectId, actorId, "tasks");
 
     const isUuid = isLooseUuid(taskId);
     let taskWhere;
@@ -8328,7 +8258,7 @@ export async function getProjectMembersAction(
     return await runInFlightDeduped(
       `project:members:${projectId}:${actorId ?? "anon"}:${safeLimit}:${cursorKey}`,
       async () => {
-        await assertProjectReadAccess(projectId, actorId);
+        await assertProjectTabReadAccess(projectId, actorId, "dashboard");
         const whereConditions: any[] = [
           eq(projectMembers.projectId, projectId),
         ];

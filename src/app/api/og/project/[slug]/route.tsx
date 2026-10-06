@@ -17,7 +17,7 @@ export async function GET(
   let isPublic = false;
 
   try {
-    const result = await readProjectDetailMetadata({ slugOrId: slug, actorUserId: null });
+    const result = await readProjectDetailMetadata({ slugOrId: slug });
     if (result.success) {
       isPublic = true;
       title = trimCopy(result.data.title, "Project");
