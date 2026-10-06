@@ -6,7 +6,7 @@ import test from "node:test";
 const source = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
 
 test("file reads never fabricate or persist empty recovery content", () => {
-  const content = source("src/app/actions/files/content.ts");
+  const content = source("src/lib/files/content-reader.ts");
   const viewer = source("src/components/projects/v2/files-tab/file/TextViewer.tsx");
 
   assert.match(content, /class FileContentUnavailableError/);

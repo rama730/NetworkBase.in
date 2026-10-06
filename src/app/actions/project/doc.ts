@@ -4,7 +4,8 @@ import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
-import { getProjectFileContent } from "@/app/actions/files/content";
+import { readProjectFileText } from "@/lib/files/content-reader";
+import { getProjectAccessById } from "@/lib/data/project-access";
 import { db } from "@/lib/db";
 import {
     profiles,
@@ -21,7 +22,7 @@ import { logger } from "@/lib/logger";
 import { toIsoString as toIso } from "@/lib/utils/date";
 import { isUuid } from "@/lib/validations/uuid";
 import { getViewerAuthContext } from "@/lib/server/viewer-context";
-import { recordNodeEvent } from "@/lib/files/internal-helpers";
+import { projectContentNodeSql, recordNodeEvent } from "@/lib/files/internal-helpers";
 import {
     getOrBuildProjectDocPublishMetadata,
     DEFAULT_PROJECT_DOC_SETTINGS,
@@ -143,6 +144,7 @@ async function loadDocProjectBase(projectId: string, actorUserId: string | null)
             title: true,
             ownerId: true,
             visibility: true,
+            status: true,
             publicTabVisibility: true,
             deletedAt: true,
             importSource: true,
@@ -174,6 +176,7 @@ function docContext(base: DocProjectBase, actorUserId: string | null, docSlug: s
     const permission = resolveProjectDocPermission({
         actorUserId,
         projectVisibility: project.visibility,
+        projectStatus: project.status,
         publicTabVisibility: project.publicTabVisibility,
         settings,
         membershipRole: membership?.role,
@@ -194,6 +197,7 @@ function visibleDocs(base: DocProjectBase, actorUserId: string | null) {
         const permission = resolveProjectDocPermission({
             actorUserId,
             projectVisibility: project.visibility,
+            projectStatus: project.status,
             publicTabVisibility: project.publicTabVisibility,
             settings: normalizeProjectDocSettings(doc.settings),
             membershipRole: isOwner ? "owner" : membership?.role,
@@ -517,9 +521,12 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
         let versionRow = null;
         let linkedNode = null;
         if (context.readme?.linkedNodeId) {
+            // Scoped to this project; a missing or trashed file makes the doc
+            // unavailable but never deletes it (COR-035).
             const node = await db.query.projectNodes.findFirst({
                 where: and(
                     eq(projectNodes.id, context.readme.linkedNodeId),
+                    eq(projectNodes.projectId, projectId),
                     isNull(projectNodes.deletedAt)
                 )
             });
@@ -531,7 +538,11 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
                     s3Key: node.s3Key ?? "",
                 };
                 try {
-                    const content = await getProjectFileContent(projectId, node.id, { skipFileTabCheck: true });
+                    // The doc permission above authorizes this exact linked file; the
+                    // reader still hides task-owned files from viewers without Tasks.
+                    const access = await getProjectAccessById(projectId, actorUserId);
+                    if (!access.project) throw new Error("Project not found");
+                    const content = await readProjectFileText({ ...access, project: access.project }, projectId, node.id);
                     const metadata = getOrBuildProjectDocPublishMetadata(content);
                     versionRow = {
                         id: `linked-${node.id}`,
@@ -553,9 +564,8 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
                 } catch (err) {
                     logger.error("project_readme.read_linked_node_failed", { projectId, nodeId: node.id, error: err instanceof Error ? err.message : String(err) });
                 }
-            } else {
-                // Linked file is gone: the doc goes with it.
-                await db.delete(projectDocs).where(eq(projectDocs.id, context.readme.id));
+            } else if (!context.readme.publishedVersionId && !context.permission.canEdit) {
+                return { success: false, error: "The linked file is unavailable." };
             }
         }
 
@@ -697,15 +707,17 @@ export async function readProjectDocSmartBlockPreviewsAction(projectId: string, 
         let recentFiles: ProjectDocReferenceOption[] = [];
         if (readableKinds.has("files")) {
             const fileIds = [...(idsByKind.get("files") ?? [])];
+            // Task-owned and /.system files need Tasks visibility (COR-034).
+            const fileScope = canReadReferenceKind("tasks", context) ? undefined : projectContentNodeSql;
             const [selectedRows, recentRows] = await Promise.all([
                 fileIds.length ? db.query.projectNodes.findMany({
-                    where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt), inArray(projectNodes.id, fileIds)),
+                    where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt), inArray(projectNodes.id, fileIds), fileScope),
                     columns: { id: true, name: true, path: true, currentVersion: true, mimeType: true },
                     orderBy: [desc(projectNodes.updatedAt)],
                     limit: fileIds.length,
                 }) : Promise.resolve([]),
                 needsRecent.has("files") ? db.query.projectNodes.findMany({
-                    where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt)),
+                    where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, "file"), isNull(projectNodes.deletedAt), fileScope),
                     columns: { id: true, name: true, path: true, currentVersion: true, mimeType: true },
                     orderBy: [desc(projectNodes.updatedAt)],
                     limit: 4,
