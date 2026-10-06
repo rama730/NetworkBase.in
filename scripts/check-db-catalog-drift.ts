@@ -53,7 +53,7 @@ const PROJECT_FILE_ALLOWED_MIME_TYPES = [
   "application/x-zip-compressed",
 ] as const;
 
-// Applications keep member-scoped SELECT-only policies (their chat lives in chat_*).
+// Applications are read by the server only; browser roles hold no grant on them (0199).
 const MESSAGING_AUTHORITY_TABLES = [
   "role_applications",
   "application_events",
@@ -429,21 +429,9 @@ async function main() {
       AND table_name = ANY(${MESSAGING_AUTHORITY_TABLES})
       AND grantee IN ('anon', 'authenticated')
   `;
+  // Browser roles read only the tables the UI uses (0199); applications are server-read.
   for (const grant of messagingGrantRows) {
-    if (grant.grantee === "anon" || grant.privilege_type !== "SELECT") {
-      errors.push(`unexpected ${grant.privilege_type} grant on public.${grant.table_name} to ${grant.grantee}`);
-    }
-  }
-  for (const tableName of MESSAGING_AUTHORITY_TABLES) {
-    const hasAuthenticatedSelect = messagingGrantRows.some(
-      (grant) =>
-        grant.table_name === tableName
-        && grant.grantee === "authenticated"
-        && grant.privilege_type === "SELECT",
-    );
-    if (!hasAuthenticatedSelect) {
-      errors.push(`public.${tableName} is missing authenticated SELECT grant`);
-    }
+    errors.push(`unexpected ${grant.privilege_type} grant on public.${grant.table_name} to ${grant.grantee}`);
   }
 
   // Report 10.3: nothing of the old conversation/message system may remain.

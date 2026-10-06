@@ -40,3 +40,6 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
       AND app_private.nb_project_public_doc_visible(v.project_id)
   );
 $$;
+--> statement-breakpoint
+-- Its only table is gone.
+DROP FUNCTION IF EXISTS app_private.nb_collection_can_manage(uuid);

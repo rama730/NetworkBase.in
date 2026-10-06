@@ -155,6 +155,14 @@ export default function UpdatesTab({
   useEffect(() => {
     const supabase = createClient();
     const handleProjectUpdateChange = async (payload: any) => {
+      // A soft-deleted comment is invisible to other viewers' Realtime (0200),
+      // but its parent's comment_count change still arrives: refresh the thread.
+      const changedId = realtimeStringField(payload.new, "id");
+      if (payload.eventType === "UPDATE" && changedId) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.project.detail.updateComments(projectId, changedId),
+        });
+      }
       const authorId =
         realtimeStringField(payload.new, "author_id") ??
         realtimeStringField(payload.old, "author_id");
