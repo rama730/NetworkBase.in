@@ -230,7 +230,7 @@ test("reads apply privacy first, prefer relational skills, bound history, and de
   assert.match(collaboration, /canonical_skills/);
   assert.match(collaboration, /stageLimit/);
   assert.match(collaboration, /runInFlightDeduped/);
-  assert.match(collaboration, /const SUMMARY_VERSION = 6/);
+  assert.match(collaboration, /const SUMMARY_VERSION = 7/);
   assert.match(collaboration, /fileContributionCount/);
   assert.match(collaboration, /newer_invalidation/);
   assert.match(route, /"Cache-Control": "private, no-store"/);

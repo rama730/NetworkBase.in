@@ -106,3 +106,10 @@ test("AUTH-002/AUTH-004/VALID-001: extension readers and heartbeat use the canon
   assert.match(heartbeat, /\.record\(z\.string\(\)\.uuid\(\), z\.string\(\)\.max\(64\)\)/);
   assert.match(heartbeat, /consumeRateLimit\(`extension-heartbeat:/);
 });
+
+test("AUTH-013: profile project projections carry public links only; cached summaries re-versioned", () => {
+  const collaboration = read("src/lib/profile/collaboration.ts");
+  assert.match(collaboration, /externalLinks: filterProjectLinksForAudience\(row\.external_links, false\)/);
+  assert.doesNotMatch(collaboration, /externalLinks: row\.external_links/);
+  assert.match(collaboration, /const SUMMARY_VERSION = 7;/);
+});
