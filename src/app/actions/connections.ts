@@ -960,6 +960,32 @@ async function getConnectionsFeedImpl(
             return acc;
         }, []);
 
+        // A pending request grants no profile access: project every person
+        // through the same viewer-scoped profile view as the network tab (COR-029).
+        const requestRelationships = await resolvePrivacyRelationships(user.id, dedupedItems.map((item) => item.user.id));
+        for (const item of dedupedItems) {
+            const relationship = requestRelationships.get(item.user.id) ?? null;
+            const scoped = buildViewerScopedProfileView({ profile: { ...item.user }, relationship, isOwner: false });
+            item.user = {
+                ...item.user,
+                username: scoped?.username ?? null,
+                fullName: scoped?.fullName ?? null,
+                avatarUrl: scoped?.avatarUrl ?? null,
+                headline: scoped?.headline ?? null,
+                location: scoped?.location ?? null,
+                skills: scoped?.skills ?? [],
+                interests: scoped?.interests ?? [],
+                openTo: scoped?.openTo ?? [],
+                messagePrivacy: (scoped?.messagePrivacy as SuggestedProfile['messagePrivacy']) ?? null,
+                canSendMessage: relationship?.canSendMessage ?? false,
+                lastActiveAt: typeof scoped?.lastActiveAt === 'string'
+                    ? scoped.lastActiveAt
+                    : scoped?.lastActiveAt instanceof Date
+                        ? scoped.lastActiveAt.toISOString()
+                        : null,
+            };
+        }
+
         if (isMutualRequestsSort) {
             const sortedItems = [...dedupedItems].sort(compareIncomingRequestsByMutual);
             const pagedItems = mutualCursor
@@ -2321,45 +2347,10 @@ export async function getAcceptedConnections(
         };
     }
 
-    if (targetUserId && targetUserId !== user?.id) {
-        const targetProfile = await db
-            .select({ visibility: profiles.visibility })
-            .from(profiles)
-            .where(eq(profiles.id, targetUserId))
-            .limit(1);
-
-        if (targetProfile.length === 0) {
-            return { connections: [], hasMore: false, nextCursor: null };
-        }
-
-        const visibility = targetProfile[0]!.visibility || 'public';
-        if (visibility === 'private') {
-            return { connections: [], hasMore: false, nextCursor: null };
-        }
-
-        if (visibility === 'connections') {
-            if (!user?.id) {
-                return { connections: [], hasMore: false, nextCursor: null };
-            }
-
-            const relation = await db
-                .select({ id: connections.id })
-                .from(connections)
-                .where(
-                    and(
-                        eq(connections.status, 'accepted'),
-                        or(
-                            and(eq(connections.requesterId, user.id), eq(connections.addresseeId, targetUserId)),
-                            and(eq(connections.requesterId, targetUserId), eq(connections.addresseeId, user.id))
-                        )
-                    )
-                )
-                .limit(1);
-
-            if (relation.length === 0) {
-                return { connections: [], hasMore: false, nextCursor: null };
-            }
-        }
+    // Another person's network: same rule as viewing their profile, blocks included (COR-029).
+    const targetRelationship = await resolvePrivacyRelationship(user?.id ?? null, targetUserId);
+    if (!targetRelationship?.canViewProfile) {
+        return { connections: [], hasMore: false, nextCursor: null };
     }
 
     const normalizedSearch = normalizeSearchQuery(search || '').toLowerCase();
@@ -2436,22 +2427,30 @@ export async function getAcceptedConnections(
         ? `${connectionList[connectionList.length - 1]!.updatedAt.toISOString()}|${connectionList[connectionList.length - 1]!.id}`
         : null;
 
-    // Map to expected structure
-    const enrichedConnections = connectionList.map(row => ({
-        id: row.id,
-        requesterId: row.requesterId,
-        addresseeId: row.addresseeId,
-        status: row.status as typeof connections.$inferSelect.status,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        otherUser: {
-            id: row.profileId,
-            username: row.username,
-            fullName: row.fullName,
-            avatarUrl: row.avatarUrl,
-            headline: row.headline
-        }
-    }));
+    // Each listed person is projected for this viewer (blocked people lose their identity).
+    const listedRelationships = await resolvePrivacyRelationships(user?.id ?? null, connectionList.map((row) => row.profileId));
+    const enrichedConnections = connectionList.map(row => {
+        const scoped = buildViewerScopedProfileView({
+            profile: { id: row.profileId, username: row.username, fullName: row.fullName, avatarUrl: row.avatarUrl, headline: row.headline },
+            relationship: listedRelationships.get(row.profileId) ?? null,
+            isOwner: false,
+        });
+        return {
+            id: row.id,
+            requesterId: row.requesterId,
+            addresseeId: row.addresseeId,
+            status: row.status as typeof connections.$inferSelect.status,
+            createdAt: row.createdAt,
+            updatedAt: row.updatedAt,
+            otherUser: {
+                id: row.profileId,
+                username: scoped?.username ?? null,
+                fullName: scoped?.fullName ?? null,
+                avatarUrl: scoped?.avatarUrl ?? null,
+                headline: scoped?.headline ?? null,
+            }
+        };
+    });
 
     return { connections: enrichedConnections, hasMore, nextCursor };
 }
