@@ -1,10 +1,10 @@
 import { db } from "@/lib/db";
 import { projectEventCounters, projectMembers, projectNodeEvents, projectNodeLocks, projectNodes, projects, tasks } from "@/lib/db/schema";
-import { getProjectAccessById, type ProjectAccess } from "@/lib/data/project-access";
+import { assertProjectTabReadAccess, canReadProjectTab, getProjectAccessById, type ProjectAccess } from "@/lib/data/project-access";
 import { eq, and, isNull, sql, ne, gt, type SQL } from "drizzle-orm";
 import { isWithParent } from "@/app/actions/files/_constants";
 import { requireProjectCapability } from "@/lib/projects/collaborator-lifecycle";
-import { canProjectMemberUploadFiles, isProjectTabVisibleToViewer, projectMemberCan } from "@/lib/projects/settings-policies";
+import { canProjectMemberUploadFiles, projectMemberCan } from "@/lib/projects/settings-policies";
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type ExistingProjectAccess = ProjectAccess & { project: NonNullable<ProjectAccess["project"]> };
@@ -22,25 +22,20 @@ export async function assertProjectReadAccess(projectId: string, userId: string 
 }
 
 export async function assertProjectFileReadAccess(projectId: string, userId: string | null) {
-    const access = await assertProjectReadAccess(projectId, userId);
-    const isOwnerOrMember = access.isOwner || access.isMember;
-    if (!isProjectTabVisibleToViewer({
-        tabId: "files",
-        isOwnerOrMember,
-        publicTabVisibility: access.project.publicTabVisibility,
-    })) {
-        throw new Error("Files are members-only for this project.");
-    }
-    return access;
+    return assertProjectTabReadAccess(projectId, userId, "files");
 }
 
 /** Files visibility does not implicitly publish task-only attachments. */
 export function canReadProjectTaskFiles(access: ExistingProjectAccess): boolean {
-    return isProjectTabVisibleToViewer({
-        tabId: "tasks",
-        isOwnerOrMember: access.isOwner || access.isMember,
-        publicTabVisibility: access.project.publicTabVisibility,
-    });
+    return canReadProjectTab(access, "tasks");
+}
+
+/** SQL: ordinary project content, i.e. not owned by a task and not under /.system. */
+export const projectContentNodeSql = sql`${projectNodes.taskId} IS NULL AND ${projectNodes.path} NOT LIKE '/.system%'`;
+
+/** Listing filter for file readers: task-file readers see all nodes, everyone else project content only. */
+export function visibleFileNodesSql(access: ExistingProjectAccess): SQL | undefined {
+    return canReadProjectTaskFiles(access) ? undefined : projectContentNodeSql;
 }
 
 export function assertTaskFileNodeVisible(access: ExistingProjectAccess, node: { taskId?: string | null; path?: string | null; deletedAt?: unknown }) {
