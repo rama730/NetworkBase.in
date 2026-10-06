@@ -203,7 +203,8 @@
     "drizzle/0199_browser_roles_read_only.sql",
     "drizzle/0200_project_tab_rls.sql",
     "drizzle/0201_tenant_composite_fks.sql",
-    "drizzle/0202_chat_integrity.sql"
+    "drizzle/0202_chat_integrity.sql",
+    "drizzle/0203_trigger_metadata_completeness.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
