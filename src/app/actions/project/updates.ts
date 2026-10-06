@@ -19,6 +19,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
 import { db } from "@/lib/db";
+import { projectContentNodeSql } from "@/lib/files/internal-helpers";
 import { toIsoString } from "@/lib/utils/date";
 import { parsePositiveInteger } from "@/lib/utils/number";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -748,7 +749,12 @@ export async function resolveProjectUpdateMentionTargetAction(projectId: string,
                 path: projectNodes.path,
             })
             .from(projectNodes)
-            .where(and(eq(projectNodes.projectId, projectId), eq(projectNodes.id, id), isNull(projectNodes.deletedAt)))
+            .where(and(
+                eq(projectNodes.projectId, projectId),
+                eq(projectNodes.id, id),
+                isNull(projectNodes.deletedAt),
+                canReadProjectUpdateTargetTab(access, "task") ? undefined : projectContentNodeSql,
+            ))
             .limit(1);
         if (!node) return { success: false as const, error: projectUpdateTargetUnavailableMessage(kind) };
         return { success: true as const, href: projectFileHref(access.project, node), kind };
@@ -1074,8 +1080,13 @@ async function contextSummariesForRows(rows: Array<Pick<UpdateRow, "id" | "entit
         }
     });
 
+    // Each reference is hydrated only when its tab is visible to this viewer;
+    // task-owned and /.system files need Tasks visibility (COR-038).
+    const canReadTasks = canReadProjectUpdateTargetTab(access, "task");
+    const canReadSprints = canReadProjectUpdateTargetTab(access, "sprint");
+    const canReadFiles = canReadProjectUpdateTargetTab(access, "file");
     const [taskRows, sprintRows, fileRows] = await Promise.all([
-        taskIds.size > 0
+        canReadTasks && taskIds.size > 0
             ? db
                 .select({
                     id: tasks.id,
@@ -1086,7 +1097,7 @@ async function contextSummariesForRows(rows: Array<Pick<UpdateRow, "id" | "entit
                 .from(tasks)
                 .where(and(eq(tasks.projectId, access.project.id), isNull(tasks.deletedAt), inArray(tasks.id, Array.from(taskIds))))
             : Promise.resolve([]),
-        sprintIds.size > 0
+        canReadSprints && sprintIds.size > 0
             ? db
                 .select({
                     id: projectSprints.id,
@@ -1097,7 +1108,7 @@ async function contextSummariesForRows(rows: Array<Pick<UpdateRow, "id" | "entit
                 .from(projectSprints)
                 .where(and(eq(projectSprints.projectId, access.project.id), inArray(projectSprints.id, Array.from(sprintIds))))
             : Promise.resolve([]),
-        fileIds.size > 0
+        canReadFiles && fileIds.size > 0
             ? db
                 .select({
                     id: projectNodes.id,
@@ -1111,6 +1122,7 @@ async function contextSummariesForRows(rows: Array<Pick<UpdateRow, "id" | "entit
                     eq(projectNodes.type, "file"),
                     isNull(projectNodes.deletedAt),
                     inArray(projectNodes.id, Array.from(fileIds)),
+                    canReadTasks ? undefined : projectContentNodeSql,
                 ))
             : Promise.resolve([]),
     ]);

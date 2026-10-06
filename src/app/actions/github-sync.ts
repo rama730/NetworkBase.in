@@ -44,6 +44,7 @@ import {
 import { redactSyncManifest } from "@/lib/github/sync-contract";
 import { buildGithubAccountConnectionState } from "@/lib/github/connection-state";
 import { assertProjectFileReadAccess } from "@/lib/files/internal-helpers";
+import { assertProjectTabReadAccess } from "@/lib/data/project-access";
 import { ensureDefaultGithubContributorIdentity } from "@/lib/github/contributor-identity";
 import { resolveGithubUserAccessToken } from "@/lib/github/user-access-token";
 import { GITHUB_SYNC_LIMITS } from "@/lib/github/sync-limits";
@@ -864,7 +865,8 @@ export async function getProjectSyncTasks(projectId: string) {
   return result(async () => {
     idSchema.parse(projectId);
     const { user } = await session();
-    await assertProjectFileReadAccess(projectId, user.id);
+    // Task titles are Tasks-tab data, not Files data (COR-038).
+    await assertProjectTabReadAccess(projectId, user.id, "tasks");
     const project = await db.query.projects.findFirst({
       where: and(eq(projects.id, projectId), isNull(projects.deletedAt)),
       columns: { key: true },
