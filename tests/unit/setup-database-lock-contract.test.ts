@@ -13,3 +13,7 @@ test("migration runner uses a single reserved session and fails fast on a held l
   const setup = source.slice(source.indexOf("async function setupDatabase"));
   assert.ok(setup.indexOf("acquireMigrationLock()") < setup.indexOf("ensureJournalTable()"), "lock before journal bootstrap");
 });
+
+test("new journal rows record their journal index on insert", () => {
+  assert.match(source, /VALUES \(\$\{entry\.tag\}, \$\{checksum\}, \$\{entry\.idx\}, 'applying'/);
+});

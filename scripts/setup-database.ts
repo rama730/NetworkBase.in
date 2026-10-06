@@ -358,14 +358,16 @@ async function applyMigration(entry: JournalEntry) {
     INSERT INTO public.app_migration_journal (
       tag,
       checksum,
+      journal_index,
       status,
       started_at,
       completed_at,
       error_message
     )
-    VALUES (${entry.tag}, ${checksum}, 'applying', now(), null, null)
+    VALUES (${entry.tag}, ${checksum}, ${entry.idx}, 'applying', now(), null, null)
     ON CONFLICT (tag) DO UPDATE
     SET checksum = EXCLUDED.checksum,
+        journal_index = EXCLUDED.journal_index,
         status = 'applying',
         started_at = now(),
         completed_at = null,
