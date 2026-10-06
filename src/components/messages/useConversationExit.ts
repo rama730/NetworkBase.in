@@ -27,9 +27,10 @@ export function useConversationExit(channel: ExitTarget) {
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channel.id) });
     shell.refresh();
   };
-  // Only move away when that conversation is the one on screen.
+  // Only move away when that conversation is the one on screen. Replace, not push: Back mustn't
+  // lead to the conversation you just left (or its Details on a phone).
   const leaveIfOpen = () => {
-    if (pathname?.startsWith(conversationHref(channel.id))) router.push(home);
+    if (pathname?.startsWith(conversationHref(channel.id))) router.replace(home);
   };
   const fail = (error: string | undefined) => {
     toast.error(chatErrorMessage(error));
@@ -41,7 +42,7 @@ export function useConversationExit(channel: ExitTarget) {
     if (!result.success) return fail(result.error);
     refresh();
     leaveIfOpen();
-    toast("Conversation closed", {
+    toast.success("Conversation closed", {
       action: {
         label: "Undo",
         onClick: () => void setMemberState({ channelId: channel.id, archived: false }).then((undo) => {
@@ -60,7 +61,7 @@ export function useConversationExit(channel: ExitTarget) {
     refresh();
     leaveIfOpen();
     // Public channels can be rejoined straight away; private ones need an invite.
-    toast(`You left ${channel.name ? `#${channel.name}` : "the conversation"}`, channel.kind === "public" ? {
+    toast.success(`You left ${channel.name ? `#${channel.name}` : "the conversation"}`, channel.kind === "public" ? {
       action: {
         label: "Undo",
         onClick: () => void joinChannel({ channelId: channel.id }).then((undo) => {
@@ -86,7 +87,7 @@ export function useConversationExit(channel: ExitTarget) {
     const result = await archiveChannel({ channelId: channel.id });
     if (!result.success) return fail(result.error);
     refresh();
-    toast("Channel archived", { action: { label: "Undo", onClick: () => void unarchive() } });
+    toast.success("Channel archived", { action: { label: "Undo", onClick: () => void unarchive() } });
     return true;
   };
 

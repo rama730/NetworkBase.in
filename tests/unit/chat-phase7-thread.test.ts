@@ -19,12 +19,15 @@ test("dropped files reach the composer with the same draft key", () => {
 test("composer: /code opens an empty code block, Discard has Undo, Aa and / in threads, no live typing", () => {
   const composer = read("src/components/messages/Composer.tsx");
   assert.doesNotMatch(composer, /Write your code here/);
-  assert.match(composer, /setCodeBlock\(language \? \{ language \} : undefined\)/);
+  // One code-block behaviour for /code, + and the toolbar (round 3 #225): toggle at the caret.
+  assert.match(composer, /toggleCodeBlock\(language \? \{ language \} : undefined\)/);
   assert.match(composer, /toast\("Draft discarded", \{\s*action: \{\s*label: "Undo"/);
   assert.doesNotMatch(composer, /threadRootSeq \? null : \(\s*<button type="button" aria-label=\{formatting/);
   assert.doesNotMatch(composer, /!threadRootSeq && Boolean\(readChatUi\(\)\.formatting\)/);
   assert.doesNotMatch(composer.slice(composer.indexOf("function TypingIndicator"), composer.indexOf("function barButton")), /aria-live/);
-  assert.match(composer, /disabled=\{!plain\.trim\(\) \|\| sending \|\| uploads\.length > 0\}/);
+  // Scheduling says why it's off (aria-disabled + reason, round 3 #210, #184, #185).
+  assert.match(composer, /disabled=\{Boolean\(scheduleBlocked\) \|\| sending\}/);
+  assert.match(composer, /Commands can't be scheduled/);
   assert.match(read("src/components/messages/Timeline.tsx"), /revealSeq/);
 });
 
@@ -33,7 +36,7 @@ test("thread: newest replies first with Load earlier, true count, Following togg
   assert.match(pane, /Load earlier replies/);
   assert.match(pane, /"No replies yet"/);
   assert.match(pane, /root\?\.reply_count/);
-  assert.match(pane, /<Check size=\{13\} aria-hidden="true" \/> Following/);
+  assert.match(pane, /<Check size=\{14\} aria-hidden="true" \/> Following/);
   assert.doesNotMatch(pane, /BellOff|Mark as read/);
   // The list stays quiet (aria-live off); only the sr-only line announces replies (round 2 #29).
   assert.match(pane, /role="log"\s+aria-live="off"\s+aria-label="Thread replies"/);
@@ -43,6 +46,8 @@ test("thread: newest replies first with Load earlier, true count, Following togg
   assert.match(pane, /Jump to latest reply/);
   // Show in conversation keeps the thread open beside the timeline at 1024px+, closes it below (round 2 #32).
   assert.match(pane, /router\.replace\(showInConversationHref\(channelId, rootSeq\)/);
+  // On a phone it goes back to the conversation and reveals the root there (round 3 #43).
+  assert.match(pane, /REVEAL_EVENT, \{ detail: \{ channelId, seq: rootSeq \} \}/);
   assert.match(read("src/lib/messaging/routes.ts"), /wide \? \{ m: rootSeq, thread: rootSeq \} : \{ m: rootSeq \}/);
   const drawer = read("src/components/messages/ChatDrawer.tsx");
   assert.match(drawer, /aria-modal=\{modal \|\| undefined\}/);

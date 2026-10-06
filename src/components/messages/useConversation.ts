@@ -24,6 +24,7 @@ import { chatErrorMessage } from "@/lib/messaging/errors";
 import { pruneTypers, shouldSendTyping, withoutTyper, type Typers } from "@/lib/messaging/typing";
 import { applyReaction, patchPages, upsertMessage, type MessagePages } from "@/lib/messaging/timeline";
 import { getCachedTimeline, setCachedTimeline } from "@/lib/messaging/storage-cache";
+import { storedFailedSends } from "@/components/messages/failed-sends";
 import type { ChatCardView, ChatMessageView, ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast, type BroadcastStatus } from "@/lib/realtime/private-broadcast";
@@ -70,7 +71,9 @@ export function useChannelMembers(channelId: string, enabled = true) {
     enabled,
     queryFn: async () => {
       const result = await listMembers({ channelId });
-      return result.success ? result.members : [];
+      // A failed list shows Retry, never "No members match".
+      if (!result.success) throw new Error(result.error);
+      return result.members;
     },
     staleTime: 5 * 60_000,
   });
@@ -116,21 +119,35 @@ export function useChannelMessages(channelId: string, options: { around?: number
   const update = useUpdatePages(channelId);
   const [status, setStatus] = useState<BroadcastStatus>("connecting");
   const wasDisconnected = useRef(false);
+  // The channel's newest top-level message, from the shell (0 until it loads).
+  const shellTopSeq = shell?.channels.find((c) => c.id === channelId)?.last_top_seq ?? 0;
 
-  // A jump (?m=) to a message outside the cached pages starts the timeline over around it.
+  // The cached pages can't be shown when they miss what we need: a jump (?m=) outside them,
+  // or (no jump) newer messages they don't have. Showing them would place the "New" divider
+  // and the start position wrong and then scroll past the unread ones once fresh data lands,
+  // so the timeline starts over from a skeleton instead.
   const around = options.around ?? null;
+  const unusable = useCallback((cached: Paged | undefined, target: number | null) => {
+    if (!cached) return false;
+    if (target) return !cached.pages.some((page) => page.some((m) => m.seq === target));
+    return (cached.pages[0]?.at(-1)?.seq ?? 0) < shellTopSeq;
+  }, [shellTopSeq]);
   useState(() => {
-    const cached = queryClient.getQueryData<Paged>(key);
-    if (around && cached && !cached.pages.some((page) => page.some((m) => m.seq === around))) queryClient.removeQueries({ queryKey: key });
+    if (unusable(queryClient.getQueryData<Paged>(key), around)) queryClient.removeQueries({ queryKey: key });
     return null;
   });
   const lastAround = useRef(around);
   useEffect(() => {
     if (around === lastAround.current) return;
     lastAround.current = around;
-    const cached = queryClient.getQueryData<Paged>(key);
-    if (around && cached && !cached.pages.some((page) => page.some((m) => m.seq === around))) void queryClient.resetQueries({ queryKey: key });
-  }, [around, key, queryClient]);
+    // Leaving a jump also starts over: the window around it isn't the newest page.
+    if (unusable(queryClient.getQueryData<Paged>(key), around)) void queryClient.resetQueries({ queryKey: key });
+  }, [around, key, queryClient, unusable]);
+
+  /** "Latest" from an old window: load the newest page instead of the end of this one. */
+  const reloadLatest = useCallback(() => {
+    void queryClient.resetQueries({ queryKey: key });
+  }, [key, queryClient]);
 
   const query = useInfiniteQuery({
     queryKey: key,
@@ -165,11 +182,17 @@ export function useChannelMessages(channelId: string, options: { around?: number
             if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, body: "", attachments: [], deleted_at: new Date().toISOString() })));
             break;
           case "reaction.add":
-          case "reaction.remove":
-            if (seq !== null && payload.user_id !== meId) {
-              update((pages) => patchPages(pages, seq, (m) => ({ ...m, reactions: applyReaction(m.reactions, String(payload.emoji), event === "reaction.add", false) })));
-            }
+          case "reaction.remove": {
+            if (seq === null) break;
+            const on = event === "reaction.add";
+            const mine = payload.user_id === meId;
+            update((pages) => patchPages(pages, seq, (m) => {
+              // This tab already shows its own reaction; one made on another device still needs applying.
+              if (mine && Boolean(m.reactions.find((r) => r.emoji === payload.emoji)?.me) === on) return m;
+              return { ...m, reactions: applyReaction(m.reactions, String(payload.emoji), on, mine) };
+            }));
             break;
+          }
           case "pin.changed":
             if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, pinned: Boolean(payload.pinned) })));
             void queryClient.invalidateQueries({ queryKey: queryKeys.chat.pins(channelId) });
@@ -207,7 +230,6 @@ export function useChannelMessages(channelId: string, options: { around?: number
 
   // Live updates down (no session, flag off, socket lost): the shell poll still learns the
   // channel's newest seq, so catch the open timeline up instead of waiting for a reload.
-  const shellTopSeq = shell?.channels.find((c) => c.id === channelId)?.last_top_seq ?? 0;
   const loadedTopSeq = query.data?.pages[0]?.at(-1)?.seq ?? 0;
   useEffect(() => {
     if (status === "connected" || !query.isSuccess || shellTopSeq <= loadedTopSeq) return;
@@ -230,20 +252,34 @@ export function useChannelMessages(channelId: string, options: { around?: number
     if (readTimer.current) clearTimeout(readTimer.current);
   }, []);
 
-  const cachedMessages = useMemo(() => getCachedTimeline(channelId), [channelId]);
+  // The stored copy (instant switching) follows the same rule as the query cache above.
+  const [cachedMessages] = useState(() => {
+    const stored = around ? null : getCachedTimeline(channelId);
+    return stored && (stored.at(-1)?.seq ?? 0) >= shellTopSeq ? stored : null;
+  });
   const messages = useMemo(() => {
     if (query.data) return [...query.data.pages].reverse().flat();
     return cachedMessages ?? [];
   }, [cachedMessages, query.data]);
 
+  // Sends that failed before a reload come back with their Retry (failed-sends.ts).
+  const restored = useRef(false);
+  useEffect(() => {
+    if (!query.isSuccess || restored.current) return;
+    restored.current = true;
+    const stored = storedFailedSends(channelId, null);
+    if (stored.length) update((pages) => stored.reduce((acc, message) => upsertMessage(acc, message), pages));
+  }, [channelId, query.isSuccess, update]);
+
   // Debounced: serializing the timeline on every message or reaction blocks the main thread.
+  // Only confirmed messages: an optimistic row's preview and retry data don't survive a reload.
   useEffect(() => {
     if (!query.isSuccess || !messages.length) return;
-    const timer = setTimeout(() => setCachedTimeline(channelId, messages), 1_000);
+    const timer = setTimeout(() => setCachedTimeline(channelId, messages.filter((m) => m.seq > 0)), 1_000);
     return () => clearTimeout(timer);
   }, [channelId, messages, query.isSuccess]);
 
-  return { query, messages, status, markSeen };
+  return { query, messages, status, markSeen, reloadLatest };
 }
 
 /**
@@ -332,7 +368,8 @@ export function useSavedSeqs(channelId: string, enabled: boolean) {
     staleTime: 60_000,
   });
   const seqs = useMemo(() => new Set(query.data ?? []), [query.data]);
-  const setSaved = useCallback(async (seq: number, on: boolean, remindAt: string | null = null) => {
+  // Named, so Undo can call it again.
+  const setSaved = useCallback(async function save(seq: number, on: boolean, remindAt: string | null = null): Promise<void> {
     const previous = queryClient.getQueryData<number[]>(key) ?? [];
     queryClient.setQueryData<number[]>(key, on ? [...new Set([...previous, seq])] : previous.filter((s) => s !== seq));
     const result = await saveMessage({ channelId, seq, on, remindAt });
@@ -341,9 +378,10 @@ export function useSavedSeqs(channelId: string, enabled: boolean) {
       return void toast.error(chatErrorMessage(result.error));
     }
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.saved() });
-    if (!on) toast("Removed from Saved");
-    else if (remindAt) toast.success(`Reminder set for ${formatChatTime(remindAt, "at")}`);
-    else toast.success("Saved", { action: { label: "View saved", onClick: () => router.push("/messages/saved") } });
+    const viewSaved = { label: "View saved", onClick: () => router.push("/messages/saved") };
+    if (!on) toast.success("Removed from Saved", { action: { label: "Undo", onClick: () => void save(seq, true) } });
+    else if (remindAt) toast.success(`Reminder set for ${formatChatTime(remindAt, "at")}`, { action: viewSaved });
+    else toast.success("Saved", { action: viewSaved });
   }, [channelId, key, queryClient, router]);
   // Stable identity: the conversation context depends on it, and every row reads that (REND-01).
   return useMemo(() => ({ seqs, setSaved }), [seqs, setSaved]);

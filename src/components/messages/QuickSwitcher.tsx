@@ -3,8 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Search, Users } from "lucide-react";
+import { Search, Users } from "lucide-react";
 import { ConversationIcon, type ConversationKind } from "@/components/messages/ConversationIcon";
+import { keyLabel } from "@/components/messages/keys";
 import { toast } from "sonner";
 
 import { searchChannels } from "@/app/actions/chat/channels";
@@ -162,20 +163,20 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
         id={optionId(index)}
         role="option"
         aria-selected={index === active}
-        className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-[5px] px-3 text-[15px] ${index === active ? "bg-accent text-accent-foreground" : ""}`}
+        className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-[15px] ${index === active ? "bg-accent text-accent-foreground" : ""}`}
         onMouseEnter={() => setActive(index)}
         onClick={() => void choose(result)}
       >
-        {result.type !== "search" && result.person ? <UserAvatar identity={result.person} size={24} roundedClassName="rounded-[5px]" /> : result.type === "search" ? <Search size={16} aria-hidden="true" /> : result.type === "channel" ? <ConversationIcon channel={result.conversation} size={16} aria-hidden="true" /> : <Users size={16} aria-hidden="true" />}
+        {result.type !== "search" && result.person ? <UserAvatar identity={result.person} size={26} /> : result.type === "search" ? <Search size={16} aria-hidden="true" /> : result.type === "channel" ? <ConversationIcon channel={result.conversation} size={16} aria-hidden="true" /> : <Users size={16} aria-hidden="true" />}
         <span className={`min-w-0 flex-1 truncate ${result.type === "channel" && result.unread ? "font-semibold" : ""}`}>
           {result.type === "search" ? (result.title ? <>Search messages for &ldquo;{result.title}&rdquo;</> : "Search messages…") : result.title}
         </span>
-        {result.type === "channel" && result.project ? <span className="max-w-[40%] flex-none truncate rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">{result.project}</span> : null}
-        {result.type === "channel" && !result.joined ? <span className="flex-none text-[12px] text-muted-foreground">Not joined</span> : null}
-        {result.type === "channel" && result.count ? <span className="nb-chat-count">{result.count > 99 ? "99+" : result.count}</span> : null}
-        {result.type === "person" && !result.canDm ? <span className="text-[12px] text-muted-foreground">Can&apos;t message</span> : null}
-        {result.type === "person" && opening === result.id ? <Loader2 size={14} className="animate-spin text-muted-foreground" aria-label="Opening" /> : null}
-        {result.type === "search" ? <kbd className="flex-none font-mono text-[11px] text-muted-foreground">⌘↵</kbd> : null}
+        {result.type === "channel" && result.project ? <span className="nb-tag max-w-[40%] flex-none truncate">{result.project}</span> : null}
+        {result.type === "channel" && !result.joined ? <span className="nb-meta flex-none">Not joined</span> : null}
+        {result.type === "channel" && result.count ? <span className="nb-chat-count">{result.count > 99 ? "99+" : result.count}<span className="sr-only"> unread</span></span> : result.type === "channel" && result.unread ? <span className="sr-only">, unread</span> : null}
+        {result.type === "person" && !result.canDm ? <span className="text-[13px] text-muted-foreground">Can&apos;t message</span> : null}
+        {result.type === "person" && opening === result.id ? <span role="status" className="nb-meta">Opening…</span> : null}
+        {result.type === "search" ? <kbd className="nb-meta flex-none">{keyLabel("mod+enter")}</kbd> : null}
       </li>
     );
   };
@@ -193,7 +194,8 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent showCloseButton={false} className="top-[15%] translate-y-0 gap-0 rounded-xl p-0 sm:max-w-xl">
-        <DialogTitle className="sr-only">Find a conversation</DialogTitle>
+        {/* The same words as the sidebar row that opens it. */}
+        <DialogTitle className="sr-only">Jump to a conversation</DialogTitle>
         <div className="flex items-center gap-2 border-b border-border px-4">
           <Search size={16} aria-hidden="true" className="text-muted-foreground" />
           <input
@@ -214,7 +216,7 @@ export function QuickSwitcher({ onSelect }: { onSelect?: (channelId: string) => 
           {group("browse", "Channels you can join", browse)}
           {group("people", "People", personResults)}
           {searchRow.map(renderOption)}
-          {!results.some((r) => r.type !== "search") && query.trim() ? <li role="presentation" className="px-3 py-6 text-center text-[13px] text-muted-foreground">{people.isFetching ? "Searching…" : "No conversations or people match"}</li> : null}
+          {!results.some((r) => r.type !== "search") && query.trim() ? <li role="presentation" className="px-3 py-6 text-center text-[13px] text-muted-foreground">{people.pending ? "Searching…" : "No conversations or people match"}</li> : null}
         </ul>
       </DialogContent>
     </Dialog>

@@ -35,7 +35,7 @@ test("Skeleton architectural contract: Canonical route loading shells exist", ()
         "src/app/(site)/(main)/u/[username]/loading.tsx",
         "src/app/(site)/(main)/my-profile/loading.tsx",
         "src/app/(site)/(main)/my-profile/loading.tsx",
-        "src/app/(site)/(main)/messages/loading.tsx",
+        "src/app/(site)/(main)/messages/(lists)/loading.tsx",
         "src/app/(site)/(main)/settings/loading.tsx",
     ];
 

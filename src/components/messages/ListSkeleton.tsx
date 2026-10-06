@@ -10,16 +10,16 @@ export function ListSkeleton({ label = "Loading", header = true, rows = 6 }: { l
       <span className="sr-only">{label}…</span>
       {header ? (
         <div className="flex h-14 flex-none items-center border-b border-border px-4">
-          <Skeleton className="h-5 w-32 rounded" />
+          <Skeleton className="h-5 w-32 rounded-sm" />
         </div>
       ) : null}
       <div className="divide-y divide-border">
         {Array.from({ length: rows }, (_, row) => (
           <div key={row} className="flex items-center gap-3 px-4 py-3">
-            <Skeleton className="size-8 flex-none rounded-[5px]" />
+            <Skeleton className="size-[34px] flex-none rounded-md" />
             <div className="flex-1 space-y-2">
-              <Skeleton className="h-3 w-1/3 rounded" />
-              <Skeleton className="h-3 w-2/3 rounded" />
+              <Skeleton className="h-3 w-1/3 rounded-sm" />
+              <Skeleton className="h-3 w-2/3 rounded-sm" />
             </div>
           </div>
         ))}

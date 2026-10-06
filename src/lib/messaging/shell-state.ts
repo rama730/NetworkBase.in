@@ -2,7 +2,8 @@ import type { ChatBootstrap, ChatChannelSummary } from "@/lib/messaging/types";
 
 // Pure updates to the cached bootstrap, shared by the shell provider and tests.
 
-export type ChatHint = { channel_id: string; seq: number; mention: boolean; thread_root_seq: number | null };
+/** `follows`: the reply is in a thread this user follows (only then does it count in the Inbox). */
+export type ChatHint = { channel_id: string; seq: number; mention: boolean; thread_root_seq: number | null; follows?: boolean };
 
 /** DMs and unnamed group chats: each counts once when unread. */
 export function isDirect(channel: Pick<ChatChannelSummary, "kind" | "name">) {
@@ -57,8 +58,8 @@ export function applyInboxCounts(data: ChatBootstrap, counts: InboxCounts) {
 
 /**
  * Returns null when the channel is not cached yet (caller refetches). A mention or a
- * thread reply also bumps the Inbox badge. Muted conversations: mentions still count,
- * thread replies don't (same rule as the server).
+ * reply in a followed thread also bumps the Inbox badge. Muted conversations: mentions
+ * still count, thread replies don't (same rule as the server).
  */
 export function applyHint(data: ChatBootstrap, hint: ChatHint) {
   const next = patchChannel(data, hint.channel_id, (channel) => {
@@ -72,9 +73,14 @@ export function applyHint(data: ChatBootstrap, hint: ChatHint) {
   });
   if (!next || next === data) return next;
   const muted = data.channels.find((channel) => channel.id === hint.channel_id)?.notify === "mute";
-  const inbox = hint.mention || (!muted && hint.thread_root_seq !== null);
+  const inbox = hint.mention || (!muted && hint.thread_root_seq !== null && hint.follows === true);
   if (!inbox) return next;
   return { ...next, inbox_unread: (next.inbox_unread ?? 0) + 1, inbox_mentions: (next.inbox_mentions ?? 0) + (hint.mention ? 1 : 0) };
+}
+
+/** A thread read recounts its conversation's @ count on the server; this applies it. */
+export function applyMentionCount(data: ChatBootstrap, channelId: string, count: number) {
+  return patchChannel(data, channelId, (channel) => (channel.mention_count === count ? null : { ...channel, mention_count: count })) ?? data;
 }
 
 export function applyReadMoved(data: ChatBootstrap, channelId: string, seq: number) {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { channelTitle } from "@/lib/messaging/channel-view";
@@ -39,15 +39,20 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      // Not while typing unsent text or closing a menu/dialog (the keystroke belongs to them).
-      if (event.key === "Escape" && !escapeTaken(event) && !editingWithText(event.target)) onMinimize();
+      // Only from inside the window (Esc elsewhere on the page isn't for it), and not while typing
+      // unsent text or closing a menu/dialog (the keystroke belongs to them).
+      if (event.key !== "Escape" || !ref.current?.contains(document.activeElement)) return;
+      if (!escapeTaken(event) && !editingWithText(event.target)) onMinimize();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onMinimize]);
 
   const openChannel = (channelId: string) => push({ type: "channel", channelId });
-  const openItem = (channelId: string, rootSeq: number | null, m?: number | null) => push(rootSeq ? { type: "thread", channelId, rootSeq } : { type: "channel", channelId, m: m ?? null });
+  // A thread reply from the Inbox opens its thread at that reply.
+  const openItem = (channelId: string, rootSeq: number | null, m?: number | null) => push(rootSeq ? { type: "thread", channelId, rootSeq, m: m ?? null } : { type: "channel", channelId, m: m ?? null });
+  // The thread's Follow and ⋯ go in this header (one header row, not two).
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   // "Open in Messages" keeps where you are (a thread, or the people picked for a new message).
   const fullHref = screen.type === "thread" ? threadHref(screen.channelId, screen.rootSeq) : screen.type === "inbox" ? "/messages/inbox" : screen.type === "new" ? "/messages/new" : "/messages";
   const shell = useChatShell();
@@ -83,8 +88,9 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
       {/* The list, Inbox and conversation screens carry their own header (one header, not two). */}
       {screen.type === "list" || screen.type === "inbox" || screen.type === "channel" ? null : (
         <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2">
-          {stack.length > 1 ? <button type="button" onClick={back} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={18} /></button> : null}
-          <h2 className="min-w-0 flex-1 truncate px-1 text-[15px] font-semibold">{title}</h2>
+          {stack.length > 1 ? <button type="button" onClick={back} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button> : null}
+          <h2 className="nb-card-title min-w-0 flex-1 truncate px-1">{title}</h2>
+          {screen.type === "thread" ? <div ref={setSlot} className="flex flex-none items-center gap-1" /> : null}
           {actions}
         </header>
       )}
@@ -107,7 +113,7 @@ export default function ChatWindow({ onMinimize, onClose }: { onMinimize: () => 
             windowActions={controls}
           />
         ) : null}
-        {screen.type === "thread" ? <ThreadPane key={`${screen.channelId}:${screen.rootSeq}`} channelId={screen.channelId} rootSeq={screen.rootSeq} /> : null}
+        {screen.type === "thread" ? <ThreadPane key={`${screen.channelId}:${screen.rootSeq}`} channelId={screen.channelId} rootSeq={screen.rootSeq} focusSeq={screen.m ?? null} headerSlot={slot} autoFocus /> : null}
       </div>
       <QuickSwitcher onSelect={openChannel} />
     </section>

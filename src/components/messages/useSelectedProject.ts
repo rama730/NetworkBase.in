@@ -8,8 +8,9 @@ import { useChatShell } from "@/components/messages/ChatShellProvider";
 const ROUTE_ID = /^\/messages\/(p\/)?([0-9a-f-]{36})/i;
 
 /**
- * The project shown in the sidebar: the URL's (/messages/p/{id}; /messages is All), else the
- * user's pick, else the open channel's project. A project you're not in shows All.
+ * The project shown in the sidebar: the URL's (/messages/p/{id}; /messages is All), else the open
+ * channel's project (opening another project's channel from ⌘K, the Inbox or Search shows that
+ * project), else the user's pick. A project you're not in shows All.
  */
 export function useSelectedProject(): string | null {
   const chosen = useChatUi((state) => state.projectId);
@@ -19,8 +20,9 @@ export function useSelectedProject(): string | null {
   const match = pathname.match(ROUTE_ID);
   if (match?.[1]) return known(match[2]) ? match[2]! : null;
   if (pathname === "/messages") return null;
-  if (chosen !== undefined) return known(chosen) ? chosen : null;
-  if (!match) return null;
-  const projectId = data?.channels.find((channel) => channel.id === match[2])?.project_id ?? null;
-  return projectId && data?.projects?.some((project) => project.id === projectId) ? projectId : null;
+  if (match) {
+    const projectId = data?.channels.find((channel) => channel.id === match[2])?.project_id ?? null;
+    if (projectId && data?.projects?.some((project) => project.id === projectId)) return projectId;
+  }
+  return chosen !== undefined && known(chosen) ? chosen : null;
 }

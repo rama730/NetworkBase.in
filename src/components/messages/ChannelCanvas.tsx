@@ -13,6 +13,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useChannelCanvas } from "@/components/messages/useConversation";
+import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { CANVAS_MAX_TITLE, CANVAS_TEMPLATES, type CanvasTemplate } from "@/lib/messaging/canvas-store";
@@ -37,6 +38,8 @@ type Props = {
 };
 
 export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
+  // Your version when someone else saved first (shown with a Copy you click).
+  const [conflict, setConflict] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
   const query = useChannelCanvas(channelId);
@@ -84,10 +87,9 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
       return;
     }
     if (result.error === "chat_canvas_conflict") {
-      // Someone saved first: keep your edits on the clipboard before showing their version.
-      const mine = `${nextTitle ? `# ${nextTitle}\n\n` : ""}${body}`;
-      const kept = await navigator.clipboard?.writeText(mine).then(() => true, () => false);
-      toast.message(kept ? "Someone else just edited this canvas. Your edits were copied: paste them to re-apply." : chatErrorMessage(result.error), { duration: 8_000 });
+      // Someone saved first: keep your version for a Copy you click (a copy started after a save
+      // isn't a user gesture, so Safari refuses it), then show theirs.
+      setConflict(`${nextTitle ? `# ${nextTitle}\n\n` : ""}${body}`);
       loaded.current = false;
       void query.refetch();
       setStatus("idle");
@@ -201,40 +203,45 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
   // Inside the conversation's tab panel already: no second tabpanel.
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-background">
-      <div className="flex h-11 flex-none items-center justify-between border-b border-border/70 px-4 sm:px-6">
+      <div className="flex h-11 flex-none items-center justify-between border-b border-border px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-2 text-[12px] font-medium text-muted-foreground">
-          <FileText size={14} className="flex-none text-primary" />
+          <FileText size={14} className="flex-none" />
           <span className="truncate">{channel.name ? `#${channel.name}` : "Channel"} canvas</span>
           {/* "Saving…" and "Not saved" show on phones too; the edit time only where there's room. */}
-          {edited ? <span className={`truncate text-[11px] ${status === "error" ? "text-destructive" : "text-muted-foreground/70"} ${status === "idle" ? "hidden sm:inline" : ""}`} aria-live="polite">· {edited}</span> : null}
+          {edited ? <span className={`truncate text-[12px] ${status === "error" ? "text-destructive" : "text-muted-foreground"} ${status === "idle" ? "hidden sm:inline" : ""}`}>· {edited}</span> : null}
+          {/* Only a failed save is announced (not every "Saving…" while you type). */}
+          <span className="sr-only" aria-live="polite">{status === "error" ? "Canvas not saved" : ""}</span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={copyLink}
-            className="inline-flex h-7 items-center gap-1.5 rounded-[5px] border border-border px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted pointer-coarse:h-11"
-          >
-            {copied ? <Check size={13} className="text-primary" /> : <Link2 size={13} />}
+          <Button type="button" variant="outline" size="sm" onClick={copyLink} className="pointer-coarse:h-11">
+            {copied ? <Check size={14} className="text-primary" /> : <Link2 size={14} />}
             <span>{copied ? "Copied" : "Copy link"}</span>
-          </button>
+          </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger className="grid size-7 place-items-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="More canvas options">
-              <MoreHorizontal size={15} />
+            <DropdownMenuTrigger className="nb-icon-button nb-touch-target size-7" aria-label="More canvas options">
+              <MoreHorizontal size={16} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onSelect={() => imageInput.current?.click()}><ImagePlus size={14} /> Upload image</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setTemplatesOpen(true)}><Sparkles size={14} className="text-primary" /> Templates…</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => imageInput.current?.click()}><ImagePlus /> Upload image</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setTemplatesOpen(true)}><Sparkles /> Templates…</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={copyMarkdown}><Copy size={14} /> Copy as Markdown</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => editor && printCanvas(titleRef.current.trim(), editor.getHTML())}><FileDown size={14} /> Download as PDF</DropdownMenuItem>
+              <DropdownMenuItem onSelect={copyMarkdown}><Copy /> Copy as Markdown</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => editor && printCanvas(titleRef.current.trim(), editor.getHTML())}><FileDown /> Download as PDF</DropdownMenuItem>
               <DropdownMenuSeparator />
               {/* Clearing wipes it for everyone: it reads as destructive, but isn't Delete. */}
-              <DropdownMenuItem onSelect={() => setPendingReplace({ kind: "clear" })} className="text-destructive focus:text-destructive"><Eraser size={14} /> Clear canvas</DropdownMenuItem>
-              {onDelete ? <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive"><Trash2 size={14} /> Delete canvas</DropdownMenuItem> : null}
+              <DropdownMenuItem variant="destructive" onSelect={() => setPendingReplace({ kind: "clear" })}><Eraser /> Clear canvas</DropdownMenuItem>
+              {onDelete ? <DropdownMenuItem variant="destructive" onSelect={onDelete}><Trash2 /> Delete canvas</DropdownMenuItem> : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+      {conflict ? (
+        <div role="alert" className="flex flex-none flex-wrap items-center gap-2 border-b border-border bg-[var(--status-warning-soft)] px-4 py-2 text-[13px] text-foreground sm:px-6">
+          <span className="min-w-0 flex-1">Someone else saved this canvas first. You&apos;re seeing their version; copy yours to paste back what you need.</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => { void copyWithToast(conflict, "Your version copied"); }} className="pointer-coarse:h-11">Copy your version</Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setConflict(null)} className="pointer-coarse:h-11">Dismiss</Button>
+        </div>
+      ) : null}
 
       <div className="app-scroll app-scroll-y flex-1 overflow-x-hidden">
         <div className="mx-auto max-w-3xl space-y-4 py-8 pr-4 sm:pr-8">
@@ -256,10 +263,10 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
                 editor?.commands.focus("start");
               }
             }}
-            className="w-full border-none bg-transparent pl-12 text-[28px] font-bold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/40 sm:text-[34px]"
+            className="nb-page-title w-full border-none bg-transparent pl-12 text-foreground outline-none placeholder:text-muted-foreground"
           />
           {query.error ? (
-            <p role="alert" className="ml-12 rounded-[5px] bg-[var(--status-danger-soft)] px-3 py-2 text-[13px] text-[var(--status-danger)]">
+            <p role="alert" className="ml-12 rounded-md bg-[var(--status-danger-soft)] px-3 py-2 text-[13px] text-[var(--status-danger)]">
               {chatErrorMessage(query.error.message)}
             </p>
           ) : null}
@@ -269,32 +276,27 @@ export function ChannelCanvas({ channel, channelId, seed, onDelete }: Props) {
 
       {empty && !trayHidden ? (
         <div className="flex-none px-4 pb-4 sm:px-8">
-          <div className="mx-auto w-full max-w-3xl rounded-xl border border-border bg-card p-4 shadow-2xs">
+          <div className="mx-auto w-full max-w-3xl rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between pb-3">
-              <span className="text-[13px] font-semibold text-foreground">Start from a template</span>
+              <span className="nb-ui-label text-foreground">Start from a template</span>
               <button
                 type="button"
                 onClick={() => setTrayHidden(true)}
                 aria-label="Dismiss template suggestions"
-                className="grid size-6 place-items-center rounded-[4px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="nb-icon-button nb-touch-target size-7"
               >
-                <X size={15} />
+                <X size={16} />
               </button>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {QUICK_TEMPLATES.map((id) => CANVAS_TEMPLATES.find((t) => t.id === id)).filter(Boolean).map((template) => (
-                <button
-                  key={template!.id}
-                  type="button"
-                  onClick={() => applyTemplate(template!)}
-                  className="inline-flex h-8 items-center rounded-lg border border-border bg-background px-3 text-[13px] font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-muted"
-                >
+                <Button key={template!.id} type="button" variant="outline" size="sm" onClick={() => applyTemplate(template!)} className="pointer-coarse:h-11">
                   {template!.name}
-                </button>
+                </Button>
               ))}
-              <button type="button" onClick={() => setTemplatesOpen(true)} className="inline-flex h-8 items-center px-1.5 text-[13px] font-medium text-primary hover:underline">
+              <Button type="button" variant="link" size="sm" onClick={() => setTemplatesOpen(true)} className="pointer-coarse:h-11">
                 More templates…
-              </button>
+              </Button>
             </div>
           </div>
         </div>

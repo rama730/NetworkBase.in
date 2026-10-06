@@ -13096,8 +13096,9 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             conversation" (quick switcher, also Cmd/Ctrl+K), Threads, Activity,
             Starred, Channels (+ Browse channels), Applications (reviewers),
             Direct messages (8 most recent, Show more, Invite people). Rows are
-            32px on desktop and 44px on touch; unread rows are weight 600;
-            counts use the clay count pill.
+            the navigation row height on desktop and 44px on touch; unread rows are weight 600;
+            counts use the neutral <code>.nb-nav-count</code>, the same badge as the
+            app navigation (Report &sect;7.11).
           </p>
           <p>
             One conversation view for channels, DMs and group chats: 56px
@@ -13106,9 +13107,10 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
             the start of history, author-led rows grouped within 5 minutes,
             12px mono day labels (sticky), one-line muted system lines, a clay
             "New" divider, an "N replies" line that opens the thread drawer,
-            and a hover/focus action rail. The composer is a plain textarea;
-            <b>Aa</b> toggles a formatting toolbar that inserts markdown. Send
-            is the one clay primary action. Browse channels, Create channel
+            and a hover/focus action rail. The composer is a rich-text box
+            (formatting shows as you type, markdown is stored) that starts two
+            lines tall and grows to 160px; <b>Aa</b> toggles its formatting
+            toolbar. Send is the one clay primary action. Browse channels, Create channel
             (12px dialog), the details drawer (About, Members, Pins, Settings),
             Activity and Threads views, and the floating launcher (400px
             window above a 56px button) follow the same tokens. No raw zinc,

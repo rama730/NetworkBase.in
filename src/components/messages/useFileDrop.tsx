@@ -57,7 +57,7 @@ export function useFileDrop(onFiles: (files: FileList) => void) {
 export function DropOverlay({ show }: { show: boolean }) {
   if (!show) return null;
   return (
-    <div className="pointer-events-none absolute inset-2 z-30 grid place-items-center rounded-lg border-2 border-dashed border-primary bg-card/85 text-[14px] font-medium text-primary">
+    <div className="pointer-events-none absolute inset-2 z-30 grid place-items-center rounded-lg border-2 border-dashed border-primary bg-card/85 text-[13px] font-medium text-primary">
       Drop to attach
     </div>
   );

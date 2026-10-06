@@ -34,7 +34,8 @@ test("Scheduled: Send now / Retry, Reschedule, loading, refresh after scheduling
   const views = read("src/components/messages/MessagesViews.tsx");
   assert.match(views, /item\.failed_reason \? "Retry" : "Send now"/);
   assert.match(views, /Reschedule…/);
-  assert.match(views, /scheduled\.isLoading/);
+  // Shown from loaded data only, so it never flashes a skeleton and vanishes (round 3 #48).
+  assert.match(views, /const showScheduled = scheduled\.isError \|\| Boolean\(scheduled\.data/);
   const later = read("src/app/actions/chat/later.ts");
   assert.match(later, /export async function sendScheduledNow/);
   assert.match(later, /export async function rescheduleScheduled/);
@@ -49,7 +50,7 @@ test("toast links navigate in-app; left drafts; search project label (#142-144)"
   const views = read("src/components/messages/MessagesViews.tsx");
   assert.match(views, /left\(draft\.channelId\) \?[\s\S]*?Left conversation/);
   // The project travels with the place on every screen size (round 2 #78, #87).
-  assert.match(views, /item\.project_title \? <span className="text-muted-foreground\/80"> · \{item\.project_title\}/);
+  assert.match(views, /item\.project_title \? <span className="text-muted-foreground"> · \{item\.project_title\}/);
   assert.match(read("src/app/actions/chat/later.ts"), /p\.title AS project_title/);
   assert.match(read("src/app/actions/chat/search.ts"), /p\.title AS project_title/);
 });

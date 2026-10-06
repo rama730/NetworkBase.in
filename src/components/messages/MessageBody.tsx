@@ -41,6 +41,24 @@ function urlTransform(url: string) {
   return defaultUrlTransform(url);
 }
 
+/**
+ * A link into Messages ("View message", or a pasted "Copy link" with the full address): its path,
+ * to open in place. Other links (relative or not) aren't treated as in-app.
+ */
+function inAppPath(href: string) {
+  let path: string | null = null;
+  if (href.startsWith("/") && !href.startsWith("//")) path = href;
+  else if (typeof window !== "undefined") {
+    try {
+      const url = new URL(href);
+      if (url.origin === window.location.origin) path = `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return null;
+    }
+  }
+  return path && /^\/messages(\/|\?|$)/.test(path) ? path : null;
+}
+
 export const MessageBody = memo(function MessageBody({ body, nameOf, channelNameOf, meId, suffix, wrapMention }: Props) {
   const markdown = useMemo(() => tokensToMarkdown(body, nameOf, channelNameOf), [body, nameOf, channelNameOf]);
   const components = useMemo<Components>(() => ({
@@ -48,27 +66,28 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
       if (href?.startsWith("mention:")) {
         const id = href.slice(8);
         const self = id === meId;
-        // Mention chip: the Node person glyph + name; mentions of you take the warning tint.
+        // Mention chip: the Node person glyph + name (accent, never a status colour); you are in bold.
         const chip = (
-          <span className={`inline-flex items-baseline gap-0.5 rounded-[3px] px-0.5 font-medium ${wrapMention ? "cursor-pointer" : ""} ${self ? "bg-[var(--status-warning-soft)] text-[var(--status-warning)]" : "bg-accent text-primary"}`}>
-            <PresenceGlyph kind="person" className="size-[0.85em] translate-y-[0.1em] self-center" strokeWidth={2.2} />
+          <span className={`inline-flex items-baseline gap-0.5 rounded-sm bg-accent px-0.5 text-primary ${self ? "font-semibold" : "font-medium"} ${wrapMention ? "cursor-pointer" : ""}`}>
+            <PresenceGlyph kind="person" className="size-[0.85em] translate-y-[0.1em] self-center" />
             {typeof children === "string" ? children.replace(/^@/, "") : Array.isArray(children) && typeof children[0] === "string" ? [children[0].replace(/^@/, ""), ...children.slice(1)] : children}
           </span>
         );
         return wrapMention ? wrapMention(id, chip) : chip;
       }
-      if (href?.startsWith("broadcast:")) return <span className="rounded-[3px] bg-[var(--status-warning-soft)] px-0.5 font-medium text-[var(--status-warning)]">{children}</span>;
+      if (href?.startsWith("broadcast:")) return <span className="rounded-sm bg-accent px-0.5 font-semibold text-primary">{children}</span>;
       if (href?.startsWith("channel:")) return <Link href={conversationHref(href.slice(8))} className="font-medium text-primary hover:underline">{children}</Link>;
-      // In-app message links (shared messages, "View message").
-      if (href && /^\/messages\/[0-9a-f-]{36}(\?[a-z0-9=&]*)?$/i.test(href)) return <Link href={href} className="font-medium text-primary hover:underline">{children}</Link>;
+      // Links into this app (shared messages, a pasted "Copy link") open in place, not in a new tab.
+      const path = href ? inAppPath(href) : null;
+      if (path) return <Link href={path} className="font-medium text-primary hover:underline">{children}</Link>;
       const safe = href ? normalizeSafeExternalUrl(href) : null;
       if (!safe) return <span>{children}</span>;
       return <a href={safe} target="_blank" rel="noopener noreferrer nofollow ugc" className="text-primary underline underline-offset-2">{children}</a>;
     },
     code({ className, children }) {
       const block = /language-/.test(className ?? "") || String(children).includes("\n");
-      if (block) return <code className="font-mono text-[13px] pointer-coarse:text-[14px]">{children}</code>;
-      return <code className="rounded-[3px] bg-muted px-1 py-0.5 font-mono text-[13px]">{children}</code>;
+      if (block) return <code className="font-mono text-[13px]">{children}</code>;
+      return <code className="rounded-sm bg-muted px-1 py-0.5 font-mono text-[13px]">{children}</code>;
     },
     pre({ children }) {
       if (children && typeof children === "object" && "props" in children) {
@@ -79,7 +98,7 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
           return <CodeSnippetBlock language={lang} code={codeString} />;
         }
       }
-      return <pre className="my-1 max-w-full overflow-x-auto rounded-[5px] border border-border bg-muted p-3">{children}</pre>;
+      return <pre className="my-1 max-w-full overflow-x-auto rounded-md border border-border bg-muted p-3">{children}</pre>;
     },
     blockquote({ children }) {
       return <blockquote className="my-1 border-l-2 border-border pl-3 text-muted-foreground">{children}</blockquote>;
@@ -108,8 +127,11 @@ export const MessageBody = memo(function MessageBody({ body, nameOf, channelName
   );
 });
 
-/** The first safe external link, for the link preview. */
+/** The first safe external link, for the link preview (never a link to this app: no preview of ourselves). */
 export function firstLink(body: string) {
-  const match = body.match(/https?:\/\/[^\s<>()]+/);
-  return match ? normalizeSafeExternalUrl(match[0]) : null;
+  for (const match of body.matchAll(/https?:\/\/[^\s<>()]+/g)) {
+    const safe = normalizeSafeExternalUrl(match[0]);
+    if (safe && !inAppPath(safe)) return safe;
+  }
+  return null;
 }

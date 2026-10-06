@@ -36,27 +36,65 @@ export function splitTokens(body: string): BodySegment[] {
   return segments;
 }
 
-export function tokensToPlainText(body: string, nameOf: (userId: string) => string | undefined = () => undefined) {
+export function tokensToPlainText(
+  body: string,
+  nameOf: (userId: string) => string | undefined = () => undefined,
+  channelNameOf: (channelId: string) => string | undefined = () => undefined,
+) {
   return splitTokens(body)
     .map((segment) => {
       if (segment.type === "text") return segment.value;
       if (segment.type === "user") return `@${nameOf(segment.id) ?? "someone"}`;
-      if (segment.type === "channel") return "#channel";
+      if (segment.type === "channel") return `#${channelNameOf(segment.id) ?? "channel"}`;
       return `@${segment.value}`;
     })
     .join("");
 }
 
+/** One-line previews (lists, pushes): tokens as names, markdown marks dropped. "**Hi** <https://x.co>" → "Hi https://x.co". */
+export function previewText(
+  body: string,
+  nameOf?: (userId: string) => string | undefined,
+  channelNameOf?: (channelId: string) => string | undefined,
+) {
+  return tokensToPlainText(body, nameOf, channelNameOf)
+    .replace(/```[^\n]*\n?/g, "")
+    .replace(/!?\[([^\]]*)\]\([^)\s]+\)/g, "$1")
+    .replace(/<((?:https?|mailto):[^>\s]+)>/g, "$1")
+    .replace(/\*\*|__|~~|`/g, "")
+    .replace(/^\s{0,3}(?:>|#{1,6})\s?/gm, "")
+    .trim();
+}
+
+// Fenced blocks (closed or still open) and inline code: mentions are never encoded inside them.
+const CODE = /```[\s\S]*?(?:```|$)|`[^`\n]*`/g;
+
+function outsideCode(text: string, encode: (part: string) => string) {
+  let out = "";
+  let last = 0;
+  for (const match of text.matchAll(CODE)) {
+    const index = match.index ?? 0;
+    out += encode(text.slice(last, index)) + match[0];
+    last = index + match[0].length;
+  }
+  return out + encode(text.slice(last));
+}
+
 /**
  * Draft → body: "@Full Name" for a known person becomes <@id> (longest names
- * first, so "Ann Lee" wins over "Ann"); @channel and @here become broadcasts.
+ * first, so "Ann Lee" wins over "Ann"); @channel and @here become broadcasts
+ * unless `broadcast` is false (threads, big channels). Code is left as typed.
  */
-export function encodeMentions(text: string, people: Array<{ id: string; name: string }>) {
-  let out = text.replace(/(^|\s)@(channel|here)(?=$|[\s.,!?;:)])/g, (_match, pre: string, kind: string) => `${pre}<!${kind}>`);
+export function encodeMentions(text: string, people: Array<{ id: string; name: string }>, options: { broadcast?: boolean } = {}) {
   const named = people.filter((person) => person.name).sort((a, b) => b.name.length - a.name.length);
-  for (const person of named) {
-    const escaped = person.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    out = out.replace(new RegExp(`(^|\\s)@${escaped}(?=$|[\\s.,!?;:)])`, "g"), `$1<@${person.id}>`);
-  }
-  return out;
+  return outsideCode(text, (part) => {
+    let out = options.broadcast === false
+      ? part
+      : part.replace(/(^|\s)@(channel|here)(?=$|[\s.,!?;:)])/g, (_match, pre: string, kind: string) => `${pre}<!${kind}>`);
+    for (const person of named) {
+      const escaped = person.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      out = out.replace(new RegExp(`(^|\\s)@${escaped}(?=$|[\\s.,!?;:)])`, "g"), `$1<@${person.id}>`);
+    }
+    return out;
+  });
 }

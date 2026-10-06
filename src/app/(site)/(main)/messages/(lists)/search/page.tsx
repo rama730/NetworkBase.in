@@ -2,6 +2,11 @@ import { Suspense } from "react";
 
 import { ListSkeleton } from "@/components/messages/ListSkeleton";
 import { SearchView } from "@/components/messages/MessagesViews";
+import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
+
+export function generateMetadata() {
+  return buildRouteMetadata({ title: "Search messages | NetworkBase", description: "Search every conversation you are in.", path: "/messages/search" });
+}
 
 export default function MessagesSearchPage() {
   return (

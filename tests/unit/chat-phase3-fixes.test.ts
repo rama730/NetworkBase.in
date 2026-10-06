@@ -18,14 +18,16 @@ const data = (channels: ChatChannelSummary[]): ChatBootstrap => ({ server_time: 
 test("a mention or thread-reply hint bumps the Inbox badge; a plain DM message doesn't", () => {
   const base = data([channel("c1"), channel("dm", { kind: "dm", name: null, project_id: null })]);
   assert.equal(applyHint(base, { channel_id: "c1", seq: 6, mention: true, thread_root_seq: null })?.inbox_unread, 3);
-  assert.equal(applyHint(base, { channel_id: "c1", seq: 6, mention: false, thread_root_seq: 2 })?.inbox_unread, 3);
+  assert.equal(applyHint(base, { channel_id: "c1", seq: 6, mention: false, thread_root_seq: 2, follows: true })?.inbox_unread, 3);
+  // A reply in a thread you don't follow (a DM member on "All") isn't in your Inbox (round 3 #3).
+  assert.equal(applyHint(base, { channel_id: "c1", seq: 6, mention: false, thread_root_seq: 2, follows: false })?.inbox_unread, 2);
   assert.equal(applyHint(base, { channel_id: "dm", seq: 6, mention: false, thread_root_seq: null })?.inbox_unread, 2);
 });
 
 test("muted conversations: a mention still bumps the Inbox badge, a thread reply doesn't (round 2 #36)", () => {
   const base = data([channel("c1", { notify: "mute" })]);
   assert.equal(applyHint(base, { channel_id: "c1", seq: 6, mention: true, thread_root_seq: null })?.inbox_unread, 3);
-  assert.equal(applyHint(base, { channel_id: "c1", seq: 6, mention: false, thread_root_seq: 2 })?.inbox_unread, 2);
+  assert.equal(applyHint(base, { channel_id: "c1", seq: 6, mention: false, thread_root_seq: 2, follows: true })?.inbox_unread, 2);
 });
 
 test("DM count is top-level messages only, like bold", () => {

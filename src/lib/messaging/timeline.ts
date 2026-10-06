@@ -23,6 +23,8 @@ export function buildTimeline(
   let previous: ChatMessageView | null = null;
   let newPlaced = false;
   for (const message of messages) {
+    // A deleted message nobody replied to just goes (like Slack); one with replies keeps its line.
+    if (message.deleted_at && !message.reply_count) continue;
     const calendar = getMessageCalendarDay(message.created_at, options.timeZone);
     let dayBreak = false;
     if (calendar.key !== day) {
@@ -70,6 +72,23 @@ export function patchPages(pages: MessagePages, seq: number, patch: (message: Ch
 }
 
 /**
+ * The server's copy of your message keeps the on-device previews of its files (same asset),
+ * so a photo you just sent doesn't flash while the uploaded copy loads.
+ * ponytail: the preview's blob URL lives until the page closes. ceiling: a few MB for a heavy
+ * photo session. upgrade: revoke once the server image has loaded.
+ */
+export function keepLocalPreviews(server: ChatMessageView, optimistic: ChatMessageView | undefined): ChatMessageView {
+  if (!optimistic?.attachments.some((a) => a.local_url)) return server;
+  return {
+    ...server,
+    attachments: server.attachments.map((a) => {
+      const local = optimistic.attachments.find((o) => o.asset_id === a.asset_id);
+      return local?.local_url ? { ...a, local_url: local.local_url, width: a.width ?? local.width, height: a.height ?? local.height } : a;
+    }),
+  };
+}
+
+/**
  * A new or confirmed message. Top-level messages append to the newest page (an
  * optimistic copy with the same client id is replaced); replies only update
  * their root's reply line.
@@ -86,7 +105,7 @@ export function upsertMessage(pages: MessagePages, message: ChatMessageView): Me
   const index = newest.findIndex((m) => m.seq === message.seq || (message.client_message_id !== null && m.client_message_id === message.client_message_id));
   if (index >= 0) {
     const page = newest.slice();
-    page[index] = { ...newest[index]!, ...message };
+    page[index] = keepLocalPreviews({ ...newest[index]!, ...message }, newest[index]);
     return [page, ...older];
   }
   if (pages.some((page) => page.some((m) => m.seq === message.seq))) return pages;

@@ -7,12 +7,13 @@ import { useRouter } from "next/navigation";
 import { bootstrap } from "@/app/actions/chat/read";
 import { useAuth } from "@/hooks/useAuth";
 import { CHAT_POLL_BASE_MS, CHAT_POLL_JITTER_MS, userTopic } from "@/lib/messaging/constants";
-import { applyHint, applyInboxCounts, applyReadMoved, chatBadge, mergeDelta, type ChatHint, type InboxCounts } from "@/lib/messaging/shell-state";
+import { applyHint, applyInboxCounts, applyMentionCount, applyReadMoved, chatBadge, mergeDelta, type ChatHint, type InboxCounts } from "@/lib/messaging/shell-state";
 import type { ChatBootstrap } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { subscribeBroadcast, type BroadcastStatus } from "@/lib/realtime/private-broadcast";
 import { readShellPart } from "@/lib/shell-batch";
 import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
+import { retryAllFailed } from "@/components/messages/failed-sends";
 
 type Pending = { invites: number; applications: number };
 type Snapshot = { data: ChatBootstrap; pending: Pending };
@@ -105,6 +106,13 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
     }
   }, [key, queryClient, refresh]);
 
+  // Back online: sends that failed while offline go out by themselves.
+  useEffect(() => {
+    const onOnline = () => retryAllFailed(queryClient);
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [queryClient]);
+
   useEffect(() => {
     try {
       LEGACY_STORAGE_KEYS.forEach((name) => window.localStorage.removeItem(name));
@@ -152,18 +160,27 @@ export function ChatShellProvider({ children }: { children: React.ReactNode }) {
         const current = queryClient.getQueryData<Snapshot>(key);
         if (!current) return;
         if (event === "hint") {
-          // The open Inbox list (and followed threads) pick up the new item too.
-          void queryClient.invalidateQueries({ queryKey: ["chat-v3", "inbox"] });
-          void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
-          const next = applyHint(current.data, payload as unknown as ChatHint);
+          const hint = payload as unknown as ChatHint;
+          // The open Inbox list (and followed threads) pick up a new mention or reply; plain DMs aren't in them.
+          if (hint.mention || hint.thread_root_seq !== null) {
+            void queryClient.invalidateQueries({ queryKey: ["chat-v3", "inbox"] });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
+          }
+          const next = applyHint(current.data, hint);
           if (!next) return void pollDelta();
           if (next !== current.data) queryClient.setQueryData<Snapshot>(key, { ...current, data: next });
+          // The Threads count is per thread, not per reply: only the server knows if this one was already unread.
+          if (hint.follows && hint.thread_root_seq !== null) void pollDelta();
         } else if (event === "read.moved" && typeof payload.channel_id === "string" && typeof payload.seq === "number") {
           // Reads carry the fresh Inbox counts, so the badge, the Inbox row and the tab title drop together.
           const moved = applyReadMoved(current.data, payload.channel_id, payload.seq);
           queryClient.setQueryData<Snapshot>(key, { ...current, data: applyInboxCounts(moved, payload as InboxCounts) });
         } else if (event === "inbox.count") {
-          queryClient.setQueryData<Snapshot>(key, { ...current, data: applyInboxCounts(current.data, payload as InboxCounts) });
+          let data = applyInboxCounts(current.data, payload as InboxCounts);
+          if (typeof payload.channel_id === "string" && typeof payload.mention_count === "number") {
+            data = applyMentionCount(data, payload.channel_id, payload.mention_count);
+          }
+          queryClient.setQueryData<Snapshot>(key, { ...current, data });
           void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
         }
       },

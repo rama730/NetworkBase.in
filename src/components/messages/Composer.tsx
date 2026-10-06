@@ -4,29 +4,35 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { EditorContent, type Editor } from "@tiptap/react";
-import { ALargeSmall, BarChart3, Camera, ChevronDown, Clock, Code2, FileText, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "lucide-react";
+import { EditorState } from "@tiptap/pm/state";
+import { ALargeSmall, BarChart3, Camera, ChevronDown, Code2, FileText, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { scheduleMessage } from "@/app/actions/chat/later";
-import { createTaskFromMessage, react, sendMessage } from "@/app/actions/chat/messages";
-import { applyLink, chatDraftToHtmlish, chatMarkdown, FormatToolbar, isBlank, useChatEditor } from "@/components/messages/ChatEditor";
+import { createTaskFromMessage, sendMessage } from "@/app/actions/chat/messages";
+import { applyLink, chatDraftToHtmlish, chatMarkdown, FormatToolbar, isBlank, linkAtCaret, useChatEditor } from "@/components/messages/ChatEditor";
+import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { readChatUi, readDraft, writeChatUi, writeDraft } from "@/components/messages/chat-ui-store";
-import { matchMentions, MentionDropdown } from "@/components/messages/parts/MentionDropdown";
+import { ComposerMenu, type ComposerMenuItem } from "@/components/messages/parts/ComposerMenu";
+import { matchMentions, MentionDropdown, openCombobox } from "@/components/messages/parts/MentionDropdown";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
 import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
 import { LOAD_DRAFT_EVENT, failSend, type LoadDraftDetail } from "@/components/messages/failed-sends";
 import { DROP_EVENT, DropOverlay, draftKeyOf, useFileDrop, type DropDetail } from "@/components/messages/useFileDrop";
-import { isMac } from "@/components/messages/keys";
-import { uploadChatFile } from "@/components/messages/upload";
+import { isMac, keyLabel } from "@/components/messages/keys";
+import { fileProblem, uploadChatFile, uploadReason, uploadRefused } from "@/components/messages/upload";
 import { useUpdatePages } from "@/components/messages/useConversation";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { CHAT_MAX_ATTACHMENTS, CHAT_MAX_BODY } from "@/lib/messaging/constants";
-import { formatChatTime, formatFileSize } from "@/lib/messaging/channel-view";
+import { formatChatTime } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
+import { readMediaDimensions } from "@/lib/messaging/media-metadata";
+import { pollBody } from "@/lib/messaging/poll";
 import { laterTimes } from "@/lib/messaging/reminders";
-import { upsertMessage } from "@/lib/messaging/timeline";
+import { keepLocalPreviews, upsertMessage } from "@/lib/messaging/timeline";
 import { queryKeys } from "@/lib/query-keys";
 import { typingLabel } from "@/lib/messaging/typing";
 import { PresenceGlyph } from "@/components/presence/PresenceGlyph";
@@ -35,7 +41,7 @@ import { isAway } from "@/lib/presence/model";
 import { usePresenceUi } from "@/components/presence/presence-ui-store";
 import { encodeMentions } from "@/lib/messaging/tokens";
 import type { ChatMessageView, ChatPerson } from "@/lib/messaging/types";
-import { ATTACHMENT_UPLOAD_MAX_FILE_BYTES } from "@/lib/upload/security";
+import { DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES } from "@/lib/upload/security";
 
 type Upload = {
   id: string;
@@ -45,8 +51,13 @@ type Upload = {
   error: boolean;
   /** Why it failed, shown on the tile. */
   reason?: string;
+  /** The server refused the file itself: Retry can't help, only Remove. */
+  refused?: boolean;
   previewUrl?: string | null;
   isImage?: boolean;
+  /** Read on the device, so your own photo lands at its real shape (no square-to-shape jump). */
+  width?: number | null;
+  height?: number | null;
   /** Kept so a failed upload can be retried. */
   file?: File;
 };
@@ -55,8 +66,13 @@ const SLASH_COMMANDS = [
   { command: "/task", group: "Create", description: "Create a project task", example: "/task Finish API documentation" },
   { command: "/poll", group: "Create", description: "Ask a question with options", example: "/poll Best time to meet? | 10am | 2pm | 4pm" },
   { command: "/code", group: "Create", description: "Code block", example: "/code typescript" },
-  { command: "/status", group: "You", description: "Set your status", example: "/status" },
+  { command: "/status", group: "You", description: "Set your status", example: "/status In a meeting" },
 ];
+
+/** A message that is a command (/task, /poll, /status): never scheduled, it would post as plain text. */
+const isCommand = (text: string) => /^\/(task|poll|status|code)(\s|$)/i.test(text);
+
+type SendResult = { success: true; message?: ChatMessageView } | { success: false; error: string };
 
 type Props = {
   channelId: string;
@@ -76,30 +92,31 @@ type Props = {
   /** Thread replies: offer "Also send to #channel" with this label. */
   alsoSendTo?: string | null;
   /** New message: no conversation exists yet, so the caller sends the text (no files or scheduling until it does). */
-  send?: (body: string) => Promise<{ success: true } | { success: false; error: string }>;
-  /** Focus the box once it's ready (opening a thread with a mouse or keyboard; never on touch, where it would pop the keyboard). */
-  autoFocus?: boolean;
+  send?: (body: string) => Promise<SendResult>;
+  /**
+   * Focus the box once it's ready: true = with a mouse or keyboard only (never on touch, where it
+   * would pop the keyboard); "always" = an explicit tap asked for it (Inbox Reply).
+   */
+  autoFocus?: boolean | "always";
 };
 
 // Clock reads for editor and submit callbacks (never called while rendering).
 const clock = () => Date.now();
-// Polls: the chips voters click are added with the poll, so nobody hunts for 1️⃣ in a picker.
-const POLL_NUMBERS = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
-const POLL_DEFAULT = ["👍", "👎", "🤷"];
+// Drafts typed on this page already: coming back to one isn't "restored from earlier" (a reload is).
+const draftsThisPage = new Set<string>();
 
-/** Before sending: "Aisha is on vacation until Oct 14…" for someone you mentioned who is away. */
-function AwayMentionNotice({ userId, name }: { userId: string; name: string }) {
+/** Before sending: who you mentioned is away, on one line ("Away: Aisha · on vacation until Oct 14"). */
+function AwayName({ userId, name }: { userId: string; name: string }) {
   const presence = usePersonPresence(userId);
   const status = presence.status;
   if (!status || !isAway(status)) return null;
   const until = status.expiresAt ? new Date(status.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : null;
   return (
-    <p role="status" className="mb-2 flex items-start gap-2 rounded-lg bg-[var(--status-warning-soft)] px-3 py-2 text-[13px] leading-snug text-[var(--status-warning)]">
-      {status.emoji ? <span aria-hidden="true" className="font-[system-ui] text-[15px] leading-none">{status.emoji}</span> : null}
-      <span>
-        <strong className="font-semibold">{name}</strong>{status.text ? ` · ${status.text}` : ""}. Notifications paused{until ? ` until ${until}` : ""}; they&apos;ll see this when they&apos;re back.
-      </span>
-    </p>
+    <span data-away className="nb-tag">
+      {status.emoji ? <span aria-hidden="true" className="font-[system-ui]">{status.emoji}</span> : null}
+      <strong className="font-semibold text-foreground">{name}</strong>
+      {status.text || until ? <span>{[status.text, until ? `until ${until}` : null].filter(Boolean).join(" ")}</span> : null}
+    </span>
   );
 }
 
@@ -116,7 +133,7 @@ function TypingIndicator({ names }: { names: string[] }) {
     <div
       data-visible={visible}
       aria-hidden={!visible}
-      className="pointer-events-none absolute inset-x-3 bottom-[calc(100%+1px)] flex h-5 items-center gap-1.5 truncate bg-gradient-to-t from-card px-1 text-[12px] text-muted-foreground transition-[opacity,transform] duration-200 ease-out data-[visible=false]:translate-y-1 data-[visible=false]:opacity-0 motion-reduce:transition-none sm:inset-x-4"
+      className="pointer-events-none absolute inset-x-3 bottom-[calc(100%+1px)] flex h-5 items-center gap-1.5 truncate bg-gradient-to-t from-card px-1 text-[12px] text-muted-foreground transition-[opacity,transform] duration-[180ms] ease-out data-[visible=false]:translate-y-1 data-[visible=false]:opacity-0 motion-reduce:transition-none sm:inset-x-4"
     >
       <span className="nb-typing-dots" aria-hidden="true"><span /><span /><span /></span>
       <span className="truncate">
@@ -131,8 +148,8 @@ function TypingIndicator({ names }: { names: string[] }) {
 
 /** Bottom-bar button look: active shows a filled background and an underline bar, like Slack. */
 function barButton(active: boolean) {
-  return `relative grid size-8 place-items-center rounded-[5px] hover:bg-muted pointer-coarse:size-11 data-[state=open]:bg-muted data-[state=open]:text-foreground data-[state=open]:after:absolute data-[state=open]:after:inset-x-1.5 data-[state=open]:after:bottom-0.5 data-[state=open]:after:h-0.5 data-[state=open]:after:rounded-full data-[state=open]:after:bg-foreground ${
-    active ? "bg-muted text-foreground after:absolute after:inset-x-1.5 after:bottom-0.5 after:h-0.5 after:rounded-full after:bg-foreground" : "text-muted-foreground"
+  return `nb-icon-button relative size-8 pointer-coarse:size-11 data-[state=open]:bg-muted data-[state=open]:text-foreground data-[state=open]:after:absolute data-[state=open]:after:inset-x-1.5 data-[state=open]:after:bottom-0.5 data-[state=open]:after:h-0.5 data-[state=open]:after:rounded-full data-[state=open]:after:bg-foreground ${
+    active ? "bg-muted text-foreground after:absolute after:inset-x-1.5 after:bottom-0.5 after:h-0.5 after:rounded-full after:bg-foreground" : ""
   }`;
 }
 
@@ -140,32 +157,52 @@ function personLabel(person: ChatPerson) {
   return person.full_name || person.username || "";
 }
 
+/** "@ann" before the caret in this paragraph (a line break or a mention counts as a word gap). */
+function mentionQuery(editor: Editor) {
+  const { $head } = editor.state.selection;
+  const before = $head.parent.textBetween(0, $head.parentOffset, undefined, "\n");
+  const match = before.match(/(^|\s)@([^\s@]{0,30})$/);
+  return match ? match[2]! : null;
+}
+
+/** The next quarter hour, two hours from now: a tidy starting point for a custom time. */
+function customDefault() {
+  const at = new Date(clock() + 2 * 60 * 60_000);
+  at.setMinutes(Math.ceil(at.getMinutes() / 15) * 15, 0, 0);
+  return at;
+}
+
 /** Slack-style composer (WYSIWYG, markdown out): @mentions, /task, uploads, per-conversation drafts. */
 export function Composer({ channelId, placeholder, people, threadRootSeq = null, allowBroadcast, canCreateTask, onOpenCanvas, onTyping, typingNames = [], onEditLast, onSent, alsoSendTo = null, send, autoFocus = false }: Props) {
   const { user, profile } = useAuth();
+  const shell = useChatShell();
   const update = useUpdatePages(channelId);
   const queryClient = useQueryClient();
   const router = useRouter();
   const draftKey = draftKeyOf(channelId, threadRootSeq);
-  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   const mediaInput = useRef<HTMLInputElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const [value, setValue] = useState("");
   const [plain, setPlain] = useState("");
   const [blank, setBlank] = useState(true);
   const [slashForced, setSlashForced] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
   const menuKey = useRef<(key: "up" | "down" | "tab") => boolean>(() => false);
-  const [formatting, setFormatting] = useState(false);
+  // Read once on mount, so the toolbar doesn't pop in after the first paint.
+  const [formatting, setFormatting] = useState(() => (typeof window === "undefined" ? false : Boolean(readChatUi().formatting)));
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [mention, setMention] = useState<{ query: string } | null>(null);
   const [sending, setSending] = useState(false);
-  const [link, setLink] = useState<{ text: string; url: string } | null>(null);
+  // Send pressed while files upload: it goes out by itself when they finish (like Slack).
+  const [queued, setQueued] = useState(false);
+  const [link, setLink] = useState<{ text: string; url: string; error?: string } | null>(null);
   const [emojiAnchor, setEmojiAnchor] = useState<HTMLElement | null>(null);
   const [restored, setRestored] = useState(false);
   const [alsoToChannel, setAlsoToChannel] = useState(false);
   const [customSchedule, setCustomSchedule] = useState<Date | null>(null);
+  const [uploadNews, setUploadNews] = useState("");
   const submitRef = useRef<() => void>(() => undefined);
   const typedAt = useRef(0);
   const onTypingRef = useRef(onTyping);
@@ -174,18 +211,14 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   });
   // Closing the composer (tab switch, channel change) ends our typing.
   useEffect(() => () => onTypingRef.current?.(false), []);
-  useEffect(() => {
-    return () => {
-      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    };
-  }, []);
   const slashOpenRef = useRef(false);
   const menuOpen = useRef(false);
 
   const uploadsRef = useRef<Upload[]>([]);
+  const channelNames = useMemo(() => new Map((shell.data?.channels ?? []).filter((c) => c.name).map((c) => [c.id, c.name!])), [shell.data?.channels]);
 
   const labelOf = (raw: string) => {
-    if (raw.startsWith("<#")) return "#channel";
+    if (raw.startsWith("<#")) return `#${channelNames.get(raw.slice(2, -1)) ?? "channel"}`;
     const person = people.find((p) => raw === `<@${p.id}>`);
     return `@${person ? personLabel(person) || "someone" : "someone"}`;
   };
@@ -195,25 +228,24 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     setValue(next);
     setPlain(editor.getText());
     setBlank(isBlank(editor));
+    // Saved on every change (one localStorage write): leaving the conversation never loses the last keys.
+    writeDraft(draftKey, next);
+    draftsThisPage.add(draftKey);
 
-    // Debounced draft auto-saving (300ms) to prevent storage thrashing (Rule: 1M users optimization)
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = setTimeout(() => {
-      writeDraft(draftKey, next);
-    }, 300);
-
+    const typed = clock() - typedAt.current < 150;
     // Only real key presses count: toolbar toggles, emoji, slash and mention picks don't.
     if (!editor.getText().trim()) onTyping?.(false);
-    else if (clock() - typedAt.current < 150) onTyping?.(true);
-    const { $head } = editor.state.selection;
-    const before = $head.parent.textBetween(0, $head.parentOffset, undefined, "\ufffc");
-    const match = before.match(/(^|\s)@([^\s@]{0,30})$/);
-    setMention(match ? { query: match[2]! } : null);
+    else if (typed) onTyping?.(true);
+    // The slash button opened the list over your text; typing on closes it again.
+    if (typed && slashForced) setSlashForced(false);
+    const query = mentionQuery(editor);
+    setMention(query === null ? null : { query });
   };
 
   const editor = useChatEditor({
     content: "",
     placeholder,
+    className: "min-h-[2.75em]",
     onUpdate: onEditorUpdate,
     handlers: {
       onEnter: () => {
@@ -252,7 +284,8 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   useEffect(() => {
     const draft = readDraft(draftKey);
     load(draft);
-    setRestored(Boolean(draft.trim()));
+    // "Restored from earlier" only for a draft from before this page load, not one you left a minute ago.
+    setRestored(Boolean(draft.trim()) && !draftsThisPage.has(draftKey));
     transfers.current.forEach((controller) => controller.abort());
     transfers.current.clear();
     uploadsRef.current.forEach((u) => {
@@ -261,6 +294,18 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     setUploads([]);
   }, [draftKey, editor]);
 
+  // Mentions in a restored draft read "@someone" until the member list arrives; then they get their names.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !people.length) return;
+    const { tr } = editor.state;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name !== "chatToken" || node.attrs.label !== "@someone") return;
+      const label = labelOf(node.attrs.raw);
+      if (label !== "@someone") tr.setNodeMarkup(pos, undefined, { ...node.attrs, label });
+    });
+    if (tr.docChanged) editor.view.dispatch(tr.setMeta("addToHistory", false));
+  }, [editor, people]);
+
   useEffect(() => {
     return () => {
       uploadsRef.current.forEach((u) => {
@@ -268,21 +313,36 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       });
     };
   }, []);
-  useEffect(() => setFormatting(Boolean(readChatUi().formatting)), []);
   useEffect(() => {
-    if (autoFocus && editor && !editor.isDestroyed && window.matchMedia("(pointer: fine)").matches) editor.commands.focus("end");
+    if (!autoFocus || !editor || editor.isDestroyed) return;
+    if (autoFocus === "always" || window.matchMedia("(pointer: fine)").matches) editor.commands.focus("end");
   }, [autoFocus, editor]);
+
+  // Phones: toasts sit just above this composer, whatever its height (not a fixed 96px).
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() => root.style.setProperty("--nb-composer-height", `${box.offsetHeight}px`));
+    observer.observe(box);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--nb-composer-height");
+    };
+  }, []);
 
   const mentionable = useMemo(() => {
     const list: { id: string; username: string | null; fullName: string | null; avatarUrl: string | null; hint?: string }[] = people.filter((p) => p.id !== user?.id).map((p) => ({ id: p.id, username: p.username, fullName: p.full_name, avatarUrl: p.avatar_url }));
     if (allowBroadcast) {
-      list.unshift(
+      // After the people (matchMentions ranks them last too): "@h" finds Hana before @here.
+      list.push(
         { id: "here", username: "here", fullName: "here", avatarUrl: null, hint: "Notify everyone online" },
         { id: "channel", username: "channel", fullName: "channel", avatarUrl: null, hint: "Notify everyone in this conversation" },
       );
     }
     return list;
   }, [allowBroadcast, people, user?.id]);
+  const encode = (text: string) => encodeMentions(text, people.map((p) => ({ id: p.id, name: personLabel(p) })), { broadcast: allowBroadcast });
 
   const commands = SLASH_COMMANDS.filter((cmd) => cmd.command !== "/task" || (canCreateTask && !threadRootSeq));
   const typedSlash = plain.startsWith("/") && !/\s/.test(plain) ? plain.toLowerCase() : null;
@@ -292,29 +352,29 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     : slashForced ? commands : [];
   const activeSlash = Math.min(slashIndex, Math.max(0, matchingSlash.length - 1));
 
-  /** /code [lang]: turn the box into an empty code block to type in (nothing is sent). */
+  /**
+   * One code-block behavior for the + menu, the toolbar, ⌘⌥⇧C and /code: toggle a code block at the
+   * caret. A typed "/code" (or "/code lang") is replaced by the block; anything else stays.
+   */
   const startCodeBlock = (language: string | null) => {
     if (!editor) return;
-    editor.chain().clearContent().focus().setCodeBlock(language ? { language } : undefined).run();
+    const chain = editor.chain().focus();
+    if (/^\/code(\s+\S*)?$/i.test(editor.getText().trim())) chain.clearContent();
+    chain.toggleCodeBlock(language ? { language } : undefined).run();
   };
 
   const pickSlash = (command: string) => {
-    if (command === "/code") {
-      setSlashForced(false);
-      setSlashIndex(0);
-      startCodeBlock(null);
-      return;
-    }
+    setSlashForced(false);
+    setSlashIndex(0);
+    if (command === "/code") return startCodeBlock(null);
     if (command === "/status") {
-      setSlashForced(false);
       if (typedSlash !== null) clear();
       usePresenceUi.getState().setPickerOpen(true);
       return;
     }
-    const rest = typedSlash !== null ? "" : plain.trim();
-    setSlashForced(false);
-    setSlashIndex(0);
-    setText(`${command} ${rest}`.trimEnd() + " ");
+    // The command goes in front of what you wrote (formatting and mentions kept).
+    if (typedSlash !== null) setText(`${command} `);
+    else prefix(`${command} `);
   };
 
   const insertText = (text: string) => {
@@ -326,13 +386,22 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (!editor) return;
     editor.chain().clearContent().insertContent({ type: "text", text }).focus("end").run();
   };
+  /** Put text before what's typed: "+ → Poll" on a written question keeps it. */
+  const prefix = (text: string) => {
+    if (!editor) return;
+    if (blank) return setText(text);
+    editor.chain().focus("start").insertContent({ type: "text", text }).focus("end").run();
+  };
 
   const pickMention = (participant: { id: string; username: string | null; fullName: string | null }) => {
-    if (!mention || !editor) return;
-    const caret = editor.state.selection.from;
-    const from = caret - mention.query.length - 1;
-    const broadcast = participant.id === "here" || participant.id === "channel";
+    if (!editor) return;
+    // Matched again at pick time: the caret may have moved since the list opened.
+    const query = mentionQuery(editor);
     setMention(null);
+    if (query === null) return;
+    const caret = editor.state.selection.from;
+    const from = caret - query.length - 1;
+    const broadcast = participant.id === "here" || participant.id === "channel";
     editor.chain().focus().deleteRange({ from, to: caret })
       .insertContent(broadcast
         ? `@${participant.id} `
@@ -342,8 +411,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
 
   function openLink() {
     if (!editor) return;
-    const { from, to } = editor.state.selection;
-    setLink({ text: editor.state.doc.textBetween(from, to, " "), url: String(editor.getAttributes("link").href ?? "") });
+    setLink(linkAtCaret(editor));
   }
 
   // In-flight transfers, so removing a tile (or leaving) really cancels it (UPL-03).
@@ -368,16 +436,20 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
         ? list.map((u) => (u.id === id ? { ...u, progress } : u))
         : list));
       uploadChatFile(channelId, file, onProgress, controller.signal)
-        .then((assetId) => setUploads((list) => list.map((u) => (u.id === id ? { ...u, assetId, progress: 100 } : u))))
+        .then((assetId) => {
+          setUploads((list) => list.map((u) => (u.id === id ? { ...u, assetId, progress: 100 } : u)));
+          setUploadNews(`${file.name} uploaded`);
+        })
         .catch((error: unknown) => {
           if (controller.signal.aborted) return;
-          const reason = !navigator.onLine ? "You're offline" : error instanceof Error && error.message.length < 80 ? error.message : "Upload failed";
-          setUploads((list) => list.map((u) => (u.id === id ? { ...u, error: true, reason } : u)));
+          const reason = uploadReason(error);
+          setUploads((list) => list.map((u) => (u.id === id ? { ...u, error: true, reason, refused: uploadRefused(error) } : u)));
+          setUploadNews(`${file.name} didn't upload: ${reason}`);
         })
         .finally(() => transfers.current.delete(id));
   };
   const retryUpload = (u: Upload) => {
-    if (!u.file) return;
+    if (!u.file || u.refused) return;
     setUploads((list) => list.map((x) => (x.id === u.id ? { ...x, error: false, reason: undefined, progress: 0 } : x)));
     startUpload(u.id, u.file);
   };
@@ -389,14 +461,20 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     const picked = Array.from(files);
     if (picked.length > room) toast.error(`Up to ${CHAT_MAX_ATTACHMENTS} files per message; ${picked.length - Math.max(room, 0)} skipped.`);
     for (const file of picked.slice(0, Math.max(room, 0))) {
-      if (file.size > ATTACHMENT_UPLOAD_MAX_FILE_BYTES) {
-        toast.error(`${file.name} is too large (max ${formatFileSize(ATTACHMENT_UPLOAD_MAX_FILE_BYTES)}).`);
+      const problem = fileProblem(file, DEFAULT_ATTACHMENT_UPLOAD_MAX_FILE_BYTES);
+      if (problem) {
+        toast.error(problem);
         continue;
       }
       const id = crypto.randomUUID();
       const isImage = file.type.startsWith("image/");
       const previewUrl = isImage ? URL.createObjectURL(file) : null;
       setUploads((list) => [...list, { id, name: file.name, progress: 0, assetId: null, error: false, previewUrl, isImage, file }]);
+      if (isImage || file.type.startsWith("video/")) {
+        void readMediaDimensions(file).then((size) => {
+          if (size) setUploads((list) => list.map((u) => (u.id === id ? { ...u, width: size.width, height: size.height } : u)));
+        });
+      }
       startUpload(id, file);
     }
   };
@@ -433,15 +511,19 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   }, [draftKey]);
 
   const clear = () => {
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     onTyping?.(false);
-    editor?.commands.clearContent(false);
+    if (editor && !editor.isDestroyed) {
+      // A fresh editor state: ⌘Z can't bring back (and resend) what was just sent.
+      const { schema, plugins } = editor.state;
+      editor.view.updateState(EditorState.create({ schema, plugins }));
+    }
     setValue("");
     setPlain("");
     setBlank(true);
     setSlashForced(false);
     setRestored(false);
     setAlsoToChannel(false);
+    setMention(null);
     writeDraft(draftKey, "");
   };
 
@@ -461,12 +543,19 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     });
   };
 
-  /** Send later: the text only (uploads send now), queued for the chat-due job. */
+  // Scheduling waits for text, takes no files or commands, and no channel copy of a thread reply.
+  const scheduleBlocked = !plain.trim()
+    ? "Type a message to schedule it"
+    : uploads.length ? "Scheduled messages can't carry files yet"
+    : isCommand(plain.trim()) ? "Commands can't be scheduled"
+    : alsoToChannel ? "Untick \"Also send\" to schedule a reply"
+    : null;
+
+  /** Send later: the text only, queued for the chat-due job. */
   const schedule = async (at: Date) => {
-    const text = plain.trim() ? value.trim() : "";
-    if (!text || sending) return;
-    if (uploads.length) return void toast.message("Scheduled messages can't carry attachments yet. Send files now, or remove them.");
-    const body = encodeMentions(text, people.map((p) => ({ id: p.id, name: personLabel(p) })));
+    if (scheduleBlocked) return void toast.message(scheduleBlocked);
+    if (sending) return;
+    const body = encode(value.trim());
     if (body.length > CHAT_MAX_BODY) return void toast.error(chatErrorMessage("chat_body_too_long"));
     setSending(true);
     const result = await scheduleMessage({ channelId, body, sendAt: at.toISOString(), threadRootSeq });
@@ -481,17 +570,18 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
 
   const submit = async () => {
     let text = plain.trim() ? value.trim() : "";
-    const ready = uploads.filter((u) => u.assetId).map((u) => u.assetId!);
-    if (sending || (!plain.trim() && !ready.length)) return;
-    if (uploads.some((u) => !u.assetId && !u.error)) {
-      toast.message("Wait for uploads to finish.");
-      return;
-    }
+    if (!plain.trim() && !uploads.some((u) => u.assetId || (!u.error && !u.assetId))) return;
     if (uploads.some((u) => u.error)) {
       toast.error("A file didn't upload. Retry it or remove it, then send.");
       return;
     }
+    if (uploads.some((u) => !u.assetId)) {
+      setQueued(true);
+      return;
+    }
+    const ready = uploads.filter((u) => u.assetId);
     if (!threadRootSeq && canCreateTask && /^\/task\s+\S/.test(text)) {
+      if (sending) return;
       setSending(true);
       const result = await createTaskFromMessage({ channelId, title: text.replace(/^\/task\s+/, "").slice(0, 200) });
       setSending(false);
@@ -501,35 +591,25 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       onSent?.();
       return;
     }
-    if (/^\/status(\s|$)/i.test(text)) {
+    const status = text.match(/^\/status(?:\s+([\s\S]*))?$/i);
+    if (status) {
       clear();
-      usePresenceUi.getState().setPickerOpen(true);
+      usePresenceUi.getState().setPickerOpen(true, status[1]?.trim() || null);
       return;
     }
+    // "/code" or "/code typescript" opens a code block; "/code review done" is just a message.
+    const code = text.match(/^\/code(?:\s+([\w+#.-]{1,20}))?$/i);
+    if (code) return startCodeBlock(code[1] ?? null);
     const draft = text;
-    let pollVotes: string[] = [];
     if (/^\/poll(\s+|$)/i.test(text)) {
-      const raw = text.replace(/^\/poll\s*/i, "").trim();
-      if (!raw) {
-        toast.message("Usage: /poll Question | Option 1 | Option 2");
-        return;
-      }
-      const parts = raw.split("|").map((p) => p.trim()).filter(Boolean);
-      if (parts.length > 1) {
-        const options = parts.slice(1, POLL_NUMBERS.length + 1);
-        pollVotes = POLL_NUMBERS.slice(0, options.length);
-        text = `📊 **Poll: ${parts[0]}**\n\n` + options.map((opt, i) => `${POLL_NUMBERS[i]} ${opt}`).join("\n") + "\n\n*Vote by clicking a number below.*";
-      } else {
-        pollVotes = POLL_DEFAULT;
-        text = `📊 **Poll: ${raw}**\n\n👍 Yes\n👎 No\n🤷 Maybe\n\n*Vote by clicking below.*`;
-      }
-    } else if (/^\/code(\s+|$)/i.test(text)) {
-      startCodeBlock(text.replace(/^\/code\s*/i, "").trim() || null);
-      return;
+      const poll = pollBody(text);
+      if (!poll) return void toast.message("Usage: /poll Question | Option 1 | Option 2");
+      text = poll;
     }
-    const body = encodeMentions(text, people.map((p) => ({ id: p.id, name: personLabel(p) })));
+    const body = encode(text);
     if (body.length > CHAT_MAX_BODY) return void toast.error(chatErrorMessage("chat_body_too_long"));
     if (send) {
+      if (sending) return;
       clear();
       setSending(true);
       const result = await send(body).catch(() => ({ success: false as const, error: "chat_network" })).finally(() => setSending(false));
@@ -543,10 +623,11 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       return;
     }
     const clientId = crypto.randomUUID();
-    // Files show at once from their on-device previews; the server's copy replaces them when it lands.
-    const localAttachments = uploads.filter((u) => u.assetId).map((u, idx) => ({
+    // Files show at once from their on-device previews (at their real shape); the server's copy replaces them when it lands.
+    const assetIds = ready.map((u) => u.assetId!);
+    const localAttachments = ready.map((u, idx) => ({
       idx, asset_id: u.assetId!, name: u.name, mime: u.file?.type || "application/octet-stream", size: u.file?.size ?? 0,
-      width: null, height: null, local_url: u.previewUrl ?? undefined,
+      width: u.width ?? null, height: u.height ?? null, local_url: u.previewUrl ?? undefined,
     }));
     const optimistic: ChatMessageView = {
       channel_id: channelId, seq: -clock(), author_id: user?.id ?? null,
@@ -555,9 +636,9 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       edited_at: null, deleted_at: null, created_at: new Date().toISOString(), client_message_id: clientId,
       attachments: localAttachments, reactions: [], card: null, pinned: false,
     };
-    // The box clears at once; any failure puts the text and attachments back.
-    const sentUploads = uploads;
-    const sentAlso = alsoToChannel;
+    // The box clears at once. A failure leaves the message in place as "Not sent · Retry"; when
+    // it isn't on screen (a reply from the Inbox), the text comes back to the box instead.
+    const sentAlso = Boolean(threadRootSeq && alsoToChannel);
     const threadKey = threadRootSeq ? queryKeys.chat.thread(channelId, threadRootSeq) : null;
     const putInThread = (map: (replies: ChatMessageView[]) => ChatMessageView[]) => {
       if (threadKey) queryClient.setQueryData<{ replies: ChatMessageView[] }>(threadKey, (t) => (t ? { ...t, replies: map(t.replies) } : t));
@@ -566,39 +647,32 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     setUploads([]);
     if (threadKey) putInThread((replies) => [...replies, optimistic]);
     else update((pages) => upsertMessage(pages, optimistic));
-    setSending(true);
-    const result = await sendMessage({ channelId, body, clientId, threadRootSeq, assetIds: ready, alsoToChannel: Boolean(threadRootSeq && alsoToChannel) })
-      .catch(() => ({ success: false as const, error: "chat_network" }))
-      .finally(() => setSending(false));
+    onSent?.();
+    const result = await sendMessage({ channelId, body, clientId, threadRootSeq, assetIds, alsoToChannel: sentAlso })
+      .catch(() => ({ success: false as const, error: "chat_network" }));
     if (!result.success) {
-      // It stays in place as "Not sent · Retry · Delete" (failed-sends.ts), files included.
-      failSend(queryClient, clientId, { channelId, threadRootSeq, body, assetIds: ready, alsoToChannel: Boolean(threadRootSeq && sentAlso) });
-      toast.error(chatErrorMessage(result.error));
+      const shown = failSend(queryClient, clientId, { channelId, threadRootSeq, body, assetIds, alsoToChannel: sentAlso });
+      if (shown) return void toast.error(chatErrorMessage(result.error));
+      if (!editor?.getText().trim()) {
+        load(draft);
+        writeDraft(draftKey, draft);
+      }
+      toast.error(`${chatErrorMessage(result.error)} Your message is back in the box.`);
       return;
     }
-    if (threadKey) putInThread((replies) => replies.map((m) => (m.client_message_id === clientId ? result.message : m)));
+    if (threadKey) putInThread((replies) => replies.map((m) => (m.client_message_id === clientId ? keepLocalPreviews(result.message, m) : m)));
     else update((pages) => upsertMessage(pages, result.message));
-    // The server's copy is on screen: the on-device previews can go (a failed send keeps them).
-    sentUploads.forEach((u) => {
-      if (u.previewUrl) URL.revokeObjectURL(u.previewUrl);
-    });
-    for (const emoji of pollVotes) await react({ channelId, seq: result.message.seq, emoji, on: true });
-    // The channel copy of a thread reply: say where it went.
-    if (threadRootSeq && sentAlso && alsoSendTo) toast.success(`Also sent to ${alsoSendTo}`);
-    onSent?.();
+    // The channel copy of a thread reply: say where it went, only if it really did.
+    if (sentAlso && alsoSendTo) {
+      if ("alsoSent" in result && result.alsoSent) toast.success(`Also sent to ${alsoSendTo}`);
+      else toast.error(`The reply was sent, but not the copy to ${alsoSendTo}.`);
+    }
   };
   // Screen readers follow the highlighted command while focus stays in the editor (like @mentions).
   useEffect(() => {
     const input = editor && !editor.isDestroyed ? editor.view.dom : null;
     if (!input || !matchingSlash.length) return;
-    input.setAttribute("aria-controls", `${draftKey}-slash`);
-    input.setAttribute("aria-expanded", "true");
-    input.setAttribute("aria-activedescendant", `${draftKey}-slash-${activeSlash}`);
-    return () => {
-      input.removeAttribute("aria-controls");
-      input.removeAttribute("aria-expanded");
-      input.removeAttribute("aria-activedescendant");
-    };
+    return openCombobox(input, `${draftKey}-slash`, `${draftKey}-slash-${activeSlash}`);
   }, [activeSlash, draftKey, editor, matchingSlash.length]);
   useEffect(() => {
     submitRef.current = () => {
@@ -618,17 +692,53 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   const coarse = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
   const uploading = uploads.filter((u) => !u.assetId && !u.error);
   const uploadPercent = uploading.length ? Math.round(uploading.reduce((sum, u) => sum + u.progress, 0) / uploading.length) : 100;
-  const canSend = Boolean(plain.trim() || uploads.some((u) => u.assetId)) && !uploads.some((u) => u.error) && !uploading.length;
-  const sendBlockedReason = uploading.length ? "Wait for the upload to finish" : uploads.some((u) => u.error) ? "Retry or remove the failed file" : "Type a message to send";
-  // A counter only near the limit.
-  const nearLimit = value.length > CHAT_MAX_BODY * 0.9;
-  const slashHint = /^\/(task|poll) $/i.test(plain) ? SLASH_COMMANDS.find((cmd) => plain.toLowerCase().startsWith(cmd.command))?.example ?? null : null;
+  // The server counts the encoded body (mentions as tokens), so the counter does too.
+  const length = value.length > CHAT_MAX_BODY * 0.8 ? encode(value).length : value.length;
+  const tooLong = length > CHAT_MAX_BODY;
+  const failedFile = uploads.some((u) => u.error);
+  const canSend = Boolean(plain.trim() || uploads.length) && !failedFile && !tooLong && !queued;
+  const sendBlockedReason = tooLong ? `Shorten it to ${CHAT_MAX_BODY.toLocaleString()} characters` : failedFile ? "Retry or remove the failed file" : queued ? "Sends when the upload finishes" : "Type a message to send";
+  // Queued while files uploaded: send as soon as the last one is ready (or stop if one failed).
+  useEffect(() => {
+    if (!queued) return;
+    if (failedFile) return setQueued(false);
+    if (uploading.length) return;
+    setQueued(false);
+    void submit();
+  });
+  // A counter only near the limit; the editor points at it so a screen reader hears the count.
+  const nearLimit = length > CHAT_MAX_BODY * 0.9;
+  useEffect(() => {
+    const input = editor && !editor.isDestroyed ? editor.view.dom : null;
+    if (!input || !nearLimit) return;
+    input.setAttribute("aria-describedby", `${draftKey}-count`);
+    return () => input.removeAttribute("aria-describedby");
+  }, [draftKey, editor, nearLimit]);
+  const slashHint = /^\/(task|poll|status) $/i.test(plain) ? SLASH_COMMANDS.find((cmd) => plain.toLowerCase().startsWith(cmd.command))?.example ?? null : null;
   const mentionedIds = useMemo(() => Array.from(new Set(Array.from(value.matchAll(/<@([0-9a-f-]{36})>/g), (match) => match[1]!))).filter((id) => id !== user?.id).slice(0, 5), [user?.id, value]);
+  const sendHint = coarse ? "Send" : `Send (${keyLabel("enter")}) · ${keyLabel("shift+enter")} for a new line`;
+
+  const addItems: ComposerMenuItem[] = [
+    ...(send ? [] : [
+      { label: "Upload file", icon: Paperclip, onSelect: () => fileInput.current?.click() },
+      { label: "Photos and videos", icon: ImageIcon, onSelect: () => mediaInput.current?.click() },
+      ...(coarse ? [{ label: "Camera", icon: Camera, onSelect: () => cameraInput.current?.click() }] : []),
+    ]),
+    { label: "Code block", icon: Code2, onSelect: () => startCodeBlock(null) },
+    ...(onOpenCanvas && !threadRootSeq ? [{ label: "Open canvas", icon: FileText, onSelect: onOpenCanvas }] : []),
+    ...(canCreateTask && !threadRootSeq ? [{ label: "Create task", icon: SquareCheck, onSelect: () => prefix("/task ") }] : []),
+    { label: "Poll", icon: BarChart3, onSelect: () => prefix("/poll ") },
+  ];
+  const scheduleItems: ComposerMenuItem[] = [
+    ...laterTimes("schedule").map((option) => ({ label: option.label, onSelect: () => void schedule(option.at()) })),
+    { label: "Custom time…", onSelect: () => setCustomSchedule(customDefault()), separatorBefore: true },
+  ];
 
   return (
-    <div className="nb-message-composer relative border-t border-border bg-card px-3 pt-2 sm:px-4" {...drop.handlers}>
-      <DropOverlay show={drop.dragging} />
+    <div ref={boxRef} className="nb-message-composer relative border-t border-border bg-card px-3 pt-2 sm:px-4" {...(send ? {} : drop.handlers)}>
+      {send ? null : <DropOverlay show={drop.dragging} />}
       <TypingIndicator names={typingNames} />
+      <p className="sr-only" aria-live="polite">{uploadNews}</p>
       {uploads.length ? (
         <ul className="mb-2 flex flex-wrap gap-2" aria-label="Attachments">
           {uploads.map((u) => (
@@ -636,74 +746,83 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
               <li key={u.id} className="relative flex size-20 flex-none overflow-hidden rounded-md border border-border bg-muted">
                 <img src={u.previewUrl} alt={u.name} className="size-full object-cover" />
                 {u.progress < 100 && !u.error ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white">
-                    <span className="font-mono text-[11px] font-semibold">{u.progress}%</span>
-                    <div className="mt-1 h-1 w-12 overflow-hidden rounded-full bg-white/30">
-                      <div className="h-full bg-primary transition-all duration-150" style={{ width: `${u.progress}%` }} />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-foreground/50 text-background">
+                    <span className="nb-meta text-background">{u.progress}%</span>
+                    <div className="mt-1 h-1 w-12 overflow-hidden rounded-full bg-background/30">
+                      <div className="h-full bg-primary transition-[width] duration-[130ms]" style={{ width: `${u.progress}%` }} />
                     </div>
                   </div>
                 ) : null}
                 {u.error ? (
-                  <button type="button" onClick={() => retryUpload(u)} title={u.reason} className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-destructive/80 px-1 text-center text-[11px] font-semibold text-destructive-foreground" aria-label={`${u.name} didn't upload: ${u.reason ?? "Upload failed"}. Retry`}>
-                    {u.reason === "You're offline" ? "Offline" : "Failed"}
-                    <span className="underline">Retry</span>
-                  </button>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-destructive/85 px-1 text-center text-[11px] font-semibold leading-tight text-destructive-foreground">
+                    <span className="line-clamp-2">{u.reason ?? "Upload failed"}</span>
+                    {u.refused ? null : <button type="button" onClick={() => retryUpload(u)} className="underline pointer-coarse:min-h-8" aria-label={`Retry ${u.name}`}>Retry</button>}
+                  </div>
                 ) : null}
-                <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-black/60 text-white hover:bg-black pointer-coarse:size-8">
-                  <X size={12} />
+                <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="absolute right-1 top-1 grid size-6 place-items-center rounded-sm bg-foreground/70 text-background hover:bg-foreground pointer-coarse:size-8">
+                  <X size={14} />
                 </button>
               </li>
             ) : (
-              <li key={u.id} className={`flex max-w-[220px] items-center gap-2 rounded-[5px] border px-2 py-1 text-[13px] ${u.error ? "border-destructive text-destructive" : "border-border"}`}>
+              <li key={u.id} className={`flex max-w-[260px] items-center gap-2 rounded-md border px-2 py-1 text-[13px] ${u.error ? "border-destructive text-destructive" : "border-border"}`}>
                 <Paperclip size={14} aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate">{u.name}</span>
                 {u.error ? (
-                  <button type="button" onClick={() => retryUpload(u)} title={u.reason} className="font-mono text-[11px] underline" aria-label={`${u.name} didn't upload: ${u.reason ?? "Upload failed"}. Retry`}>Retry</button>
+                  <>
+                    <span className="max-w-[96px] truncate text-[11px]" title={u.reason}>{u.reason ?? "Upload failed"}</span>
+                    {u.refused ? null : <button type="button" onClick={() => retryUpload(u)} className="nb-meta text-destructive underline pointer-coarse:min-h-11" aria-label={`Retry ${u.name}`}>Retry</button>}
+                  </>
                 ) : (
-                  <span className="font-mono text-[11px]">{u.assetId ? "Ready" : `${u.progress}%`}</span>
+                  <span className="nb-meta">{u.assetId ? "Ready" : `${u.progress}%`}</span>
                 )}
-                <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="grid size-6 place-items-center pointer-coarse:size-11"><X size={12} /></button>
+                <button type="button" aria-label={`Remove ${u.name}`} onClick={() => removeUpload(u.id)} className="nb-icon-button size-6 pointer-coarse:size-11"><X size={14} /></button>
               </li>
             )
           ))}
         </ul>
       ) : null}
-      {mentionedIds.map((id) => <AwayMentionNotice key={id} userId={id} name={labelOf(`<@${id}>`).slice(1)} />)}
+      {mentionedIds.length ? (
+        <p role="status" className="mb-2 hidden flex-wrap items-center gap-1.5 rounded-md bg-[var(--status-warning-soft)] px-3 py-1.5 text-[13px] text-[var(--status-warning)] has-[[data-away]]:flex">
+          <span>Away (they&apos;ll see this when they&apos;re back):</span>
+          {mentionedIds.map((id) => <AwayName key={id} userId={id} name={labelOf(`<@${id}>`).slice(1)} />)}
+        </p>
+      ) : null}
       {restored && !blank ? (
         <div className="mb-1.5 flex items-center gap-2 text-[12px] text-muted-foreground">
-          <span className="rounded-[3px] bg-muted px-1.5 py-0.5 font-medium text-foreground">Draft</span>
+          <span className="nb-status" data-status="draft">Draft</span>
           <span>Restored from earlier.</span>
-          <button type="button" onClick={discardDraft} className="font-medium text-primary hover:underline">Discard</button>
+          <Button type="button" variant="link" size="sm" onClick={discardDraft} className="h-auto px-0 pointer-coarse:min-h-11">Discard</Button>
         </div>
       ) : null}
-      {slashHint ? <p className="mb-1 px-1 font-mono text-[12px] text-muted-foreground">e.g. {slashHint}</p> : null}
-      <div className="relative rounded-lg border border-input bg-card focus-within:border-ring">
+      {slashHint ? <p className="nb-meta mb-1 px-1">e.g. {slashHint}</p> : null}
+      <div className="relative rounded-md border border-input bg-card focus-within:border-ring">
         {matchingSlash.length > 0 ? (
-          <div className="absolute bottom-full left-0 z-30 mb-1 w-80 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
-            <div className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold uppercase text-muted-foreground" aria-hidden="true">
-              <span>Slash commands</span>
-              <span className="font-normal normal-case">↑↓ to move · ↵ to pick · esc</span>
+          <div className="absolute bottom-full left-0 z-30 mb-1 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md">
+            <div className="flex items-center justify-between px-2 py-1" aria-hidden="true">
+              <span className="nb-micro">Slash commands</span>
+              <span className="nb-meta pointer-coarse:hidden">↑↓ move · ↵ pick · esc</span>
             </div>
             <div id={`${draftKey}-slash`} role="listbox" aria-label="Slash commands">
             {[...new Set(matchingSlash.map((cmd) => cmd.group))].map((group) => (
               <div key={group} role="group" aria-label={group}>
-              <p className="px-2 pb-0.5 pt-1.5 text-[11px] font-semibold text-muted-foreground" aria-hidden="true">{group}</p>
+              <p className="nb-micro px-2 pb-0.5 pt-1.5" aria-hidden="true">{group}</p>
               {matchingSlash.map((cmd, index) => cmd.group !== group ? null : (
               <button
                 key={cmd.command}
                 id={`${draftKey}-slash-${index}`}
                 type="button"
                 role="option"
+                tabIndex={-1}
                 aria-selected={index === activeSlash}
                 onMouseEnter={() => setSlashIndex(index)}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   pickSlash(cmd.command);
                 }}
-                className={`flex w-full flex-col items-start rounded-[4px] px-2 py-1.5 text-left text-[13px] ${index === activeSlash ? "bg-accent text-accent-foreground" : ""}`}
+                className={`flex min-h-[34px] w-full flex-col items-start rounded-md px-2 py-1.5 text-left text-[13px] pointer-coarse:min-h-11 ${index === activeSlash ? "bg-accent text-accent-foreground" : ""}`}
               >
                 <span><span className="font-mono font-medium text-primary">{cmd.command}</span> <span className="text-muted-foreground">{cmd.description}</span></span>
-                <span className="font-mono text-[11px] text-muted-foreground">{cmd.example}</span>
+                <span className="nb-meta">{cmd.example}</span>
               </button>
               ))}
               </div>
@@ -722,7 +841,8 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           }}
           onClick={() => editor?.commands.focus()}
           onPasteCapture={(e) => {
-            if (!e.clipboardData.files.length) return;
+            // Only a real file paste attaches: copied cells (Sheets, Excel, Word) carry an image AND their text, and the text wins.
+            if (!e.clipboardData.files.length || e.clipboardData.types.includes("text/plain")) return;
             e.preventDefault();
             e.stopPropagation();
             addFiles(e.clipboardData.files);
@@ -733,63 +853,20 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           <EditorContent editor={editor} />
         </div>
         <div className="flex items-center gap-0.5 px-1 pb-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger className={barButton(false)} aria-label="Add attachment or action" title="Add attachment or action">
-              <Plus size={18} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-56 p-1">
-              {send ? null : (
-                <>
-                  <DropdownMenuItem onSelect={() => fileInput.current?.click()} className="gap-2.5 cursor-pointer">
-                    <Paperclip size={14} className="text-muted-foreground" />
-                    <span>Upload file</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => mediaInput.current?.click()} className="gap-2.5 cursor-pointer">
-                    <ImageIcon size={14} className="text-muted-foreground" />
-                    <span>Photos and videos</span>
-                  </DropdownMenuItem>
-                  {coarse ? (
-                    <DropdownMenuItem onSelect={() => cameraInput.current?.click()} className="gap-2.5 cursor-pointer">
-                      <Camera size={14} className="text-muted-foreground" />
-                      <span>Camera</span>
-                    </DropdownMenuItem>
-                  ) : null}
-                </>
-              )}
-              <DropdownMenuItem
-                onSelect={() => {
-                  editor?.chain().focus().insertContent("```\n\n```").run();
-                }}
-                className="gap-2.5 cursor-pointer"
-              >
-                <Code2 size={14} className="text-muted-foreground" />
-                <span>Code block</span>
-              </DropdownMenuItem>
-              {onOpenCanvas && !threadRootSeq ? (
-                <DropdownMenuItem onSelect={onOpenCanvas} className="gap-2.5 cursor-pointer">
-                  <FileText size={14} className="text-muted-foreground" />
-                  <span>Open canvas</span>
-                </DropdownMenuItem>
-              ) : null}
-              {canCreateTask && !threadRootSeq ? (
-                <DropdownMenuItem onSelect={() => setText("/task ")} className="gap-2.5 cursor-pointer">
-                  <SquareCheck size={14} className="text-muted-foreground" />
-                  <span>Create task</span>
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem onSelect={() => setText("/poll ")} className="gap-2.5 cursor-pointer">
-                <BarChart3 size={14} className="text-muted-foreground" />
-                <span>Poll</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <button type="button" aria-label={formatting ? "Hide formatting" : "Show formatting"} title={formatting ? "Hide formatting" : "Show formatting"} aria-pressed={formatting} onMouseDown={(e) => e.preventDefault()} onClick={() => { setFormatting(!formatting); writeChatUi({ formatting: !formatting }); }} className={barButton(formatting)}>
+          <ComposerMenu
+            title="Add"
+            trigger={<Plus size={18} />}
+            items={addItems}
+            triggerProps={{ className: barButton(false), "aria-label": "Add attachment or action", title: "Add attachment or action" }}
+          />
+          <button type="button" aria-label="Formatting" title="Formatting" aria-pressed={formatting} onMouseDown={(e) => e.preventDefault()} onClick={() => { setFormatting(!formatting); writeChatUi({ formatting: !formatting }); }} className={barButton(formatting)}>
             <ALargeSmall size={18} />
           </button>
           <button
             type="button"
             data-reaction-trigger
             aria-label="Emoji"
+            aria-haspopup="dialog"
             title={isMac() ? "Emoji (⌃⌘Space for more)" : "Emoji"}
             aria-expanded={Boolean(emojiAnchor)}
             onMouseDown={(e) => e.preventDefault()}
@@ -798,15 +875,15 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           >
             <Smile size={18} />
           </button>
-          <button type="button" aria-label="Mention someone" title="Mention someone" aria-pressed={Boolean(mention)} onMouseDown={(e) => e.preventDefault()} onClick={() => insertText(plain && !/\s$/.test(plain) ? " @" : "@")} className={barButton(Boolean(mention))}>
-            <PresenceGlyph kind="at" className="size-[19px]" />
+          <button type="button" aria-label="Mention someone" title="Mention someone" onMouseDown={(e) => e.preventDefault()} onClick={() => insertText(plain && !/\s$/.test(plain) ? " @" : "@")} className={barButton(Boolean(mention))}>
+            <PresenceGlyph kind="at" className="size-[18px]" />
           </button>
           <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
           <button
             type="button"
             aria-label="Slash commands"
             title="Slash commands"
-            aria-pressed={matchingSlash.length > 0}
+            aria-expanded={matchingSlash.length > 0}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               if (matchingSlash.length) {
@@ -823,58 +900,54 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           >
             <Slash size={18} />
           </button>
-          {nearLimit ? <span className={`ml-auto font-mono text-[11px] ${value.length > CHAT_MAX_BODY ? "text-destructive" : "text-muted-foreground"}`}>{value.length.toLocaleString()}/{CHAT_MAX_BODY.toLocaleString()}</span> : null}
+          {nearLimit ? (
+            <span id={`${draftKey}-count`} aria-live="polite" className={`nb-meta ml-auto ${tooLong ? "text-destructive" : ""}`}>
+              {length.toLocaleString()}/{CHAT_MAX_BODY.toLocaleString()}<span className="sr-only"> characters</span>
+            </span>
+          ) : null}
           {/* aria-disabled (not disabled): keyboard and screen-reader users can still reach it and hear why. */}
           <button
             type="button"
-            onClick={() => canSend && !sending && void submit()}
-            aria-disabled={!canSend || sending}
+            onClick={() => canSend && void submit()}
+            aria-disabled={!canSend}
             aria-describedby={canSend ? undefined : `${draftKey}-send-why`}
-            aria-label={uploading.length ? `Uploading, ${uploadPercent}%` : "Send"}
-            title={canSend ? "Send (Enter) · Shift+Enter for new line" : sendBlockedReason}
-            className={`${nearLimit ? "ml-2" : "ml-auto"} inline-flex h-8 items-center gap-1.5 ${send ? "rounded-[5px]" : "rounded-l-[5px]"} px-3.5 text-[13px] font-medium transition-colors shadow-2xs pointer-coarse:h-11 ${
-              canSend && !sending
-                ? "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
-                : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
+            aria-label={queued ? `Sending when the upload finishes, ${uploadPercent}%` : "Send"}
+            title={canSend ? sendHint : sendBlockedReason}
+            className={`${nearLimit ? "ml-2" : "ml-auto"} inline-flex h-8 items-center gap-1.5 ${send ? "rounded-md" : "rounded-l-md"} bg-primary px-3.5 text-[13px] font-medium text-primary-foreground transition-colors duration-[130ms] pointer-coarse:h-11 ${
+              canSend ? "cursor-pointer hover:bg-[var(--primary-hover)]" : "cursor-not-allowed opacity-50"
             }`}
           >
-            <SendHorizontal size={15} /> <span className={uploading.length ? "" : "hidden sm:inline"}>{uploading.length ? `${uploadPercent}%` : "Send"}</span>
+            <SendHorizontal size={16} /> <span className={queued ? "" : "hidden sm:inline"}>{queued ? `Sending at ${uploadPercent}%` : "Send"}</span>
           </button>
           <span id={`${draftKey}-send-why`} className="sr-only">{sendBlockedReason}</span>
-          {send ? null : <span className="contents" title={uploads.length ? "Scheduled messages can't carry files yet" : undefined}><DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={!plain.trim() || sending || uploads.length > 0}
-              aria-label={uploads.length ? "Schedule message (not with files)" : "Schedule message"}
-              title={uploads.length ? "Scheduled messages can't carry files yet" : "Send later"}
-              className="-ml-px inline-flex h-8 items-center rounded-r-[5px] border-l border-primary-foreground/20 bg-primary px-1.5 text-primary-foreground disabled:bg-muted disabled:text-muted-foreground disabled:opacity-50 pointer-coarse:h-11"
-            >
-              <ChevronDown size={14} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="end" className="w-56">
-              <DropdownMenuLabel className="flex items-center gap-2"><Clock size={14} /> Schedule message</DropdownMenuLabel>
-              {laterTimes("schedule").map((option) => (
-                <DropdownMenuItem key={option.label} onSelect={() => void schedule(option.at())}>
-                  <span className="flex-1">{option.label}</span>
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setCustomSchedule(new Date(clock() + 2 * 60 * 60_000))}>Custom time…</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu></span>}
+          {send ? null : (
+            <ComposerMenu
+              title="Schedule message"
+              trigger={<ChevronDown size={16} />}
+              items={scheduleItems}
+              align="end"
+              disabled={Boolean(scheduleBlocked) || sending}
+              triggerProps={{
+                "aria-label": scheduleBlocked ? `Schedule message (${scheduleBlocked})` : "Schedule message",
+                title: scheduleBlocked ?? "Schedule message",
+                className: `-ml-px inline-flex h-8 items-center rounded-r-md border-l border-primary-foreground/20 bg-primary px-2 text-primary-foreground pointer-coarse:h-11 pointer-coarse:px-3.5 ${scheduleBlocked || sending ? "cursor-not-allowed opacity-50" : "hover:bg-[var(--primary-hover)]"}`,
+              }}
+            />
+          )}
         </div>
       </div>
       {threadRootSeq && alsoSendTo ? (
-        <label className="mt-1.5 flex w-fit items-center gap-2 text-[13px] text-muted-foreground">
-          <input type="checkbox" checked={alsoToChannel} onChange={(e) => setAlsoToChannel(e.target.checked)} className="accent-[var(--primary)]" />
+        <label className="mt-1.5 flex w-fit items-center gap-2 text-[13px] text-muted-foreground pointer-coarse:min-h-11">
+          <input type="checkbox" checked={alsoToChannel} onChange={(e) => setAlsoToChannel(e.target.checked)} className="size-4 accent-[var(--primary)]" />
           Also send to {alsoSendTo}
         </label>
       ) : null}
-      <div className="h-2" aria-hidden="true" />
       {emojiAnchor ? (
         <ReactionQuickBar
           anchor={emojiAnchor}
           onReact={(emoji) => { setEmojiAnchor(null); insertText(emoji); }}
           onClose={() => setEmojiAnchor(null)}
+          returnFocus={() => editor?.commands.focus()}
           verb="Insert"
         />
       ) : null}
@@ -890,28 +963,44 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
       <input ref={mediaInput} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
       <Dialog open={link !== null} onOpenChange={(open) => !open && setLink(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-[460px]">
           <DialogTitle>{link?.url ? "Edit link" : "Add link"}</DialogTitle>
           <form
             className="space-y-3"
             onSubmit={(event) => {
               event.preventDefault();
-              if (editor && link) applyLink(editor, link.url, link.text);
+              if (!editor || !link) return setLink(null);
+              // An address we can't link keeps the dialog open and says why (never dropped silently).
+              if (!applyLink(editor, link.url, link.text)) return setLink({ ...link, error: "Use a web address (https://…) or an email (mailto:…)." });
               setLink(null);
             }}
           >
             <label className="block text-[13px] font-medium">Text
-              <input value={link?.text ?? ""} onChange={(e) => setLink((l) => l && { ...l, text: e.target.value })} className="mt-1 h-9 w-full rounded-[5px] border border-input bg-background px-3 text-[14px] outline-none focus:border-ring" />
+              <Input value={link?.text ?? ""} onChange={(e) => setLink((l) => l && { ...l, text: e.target.value })} className="mt-1" />
             </label>
             <label className="block text-[13px] font-medium">Link
-              <input autoFocus type="url" inputMode="url" placeholder="https://" value={link?.url ?? ""} onChange={(e) => setLink((l) => l && { ...l, url: e.target.value })} className="mt-1 h-9 w-full rounded-[5px] border border-input bg-background px-3 text-[14px] outline-none focus:border-ring" />
+              <Input
+                autoFocus
+                type="text"
+                inputMode="url"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="example.com"
+                aria-invalid={Boolean(link?.error)}
+                aria-describedby={link?.error ? `${draftKey}-link-error` : undefined}
+                value={link?.url ?? ""}
+                onChange={(e) => setLink((l) => l && { ...l, url: e.target.value, error: undefined })}
+                className="mt-1"
+              />
             </label>
+            {link?.error ? <p id={`${draftKey}-link-error`} role="alert" className="text-[13px] text-destructive">{link.error}</p> : null}
             <DialogFooter>
               {editor?.isActive("link") ? (
-                <button type="button" onClick={() => { editor.chain().focus().extendMarkRange("link").unsetLink().run(); setLink(null); }} className="mr-auto h-9 rounded-[5px] px-3 text-[13px] text-destructive hover:bg-muted">Remove link</button>
+                <Button type="button" variant="ghost" onClick={() => { editor.chain().focus().extendMarkRange("link").unsetLink().run(); setLink(null); }} className="mr-auto text-destructive">Remove link</Button>
               ) : null}
-              <button type="button" onClick={() => setLink(null)} className="h-9 rounded-[5px] border border-border px-3 text-[13px]">Cancel</button>
-              <button type="submit" className="h-9 rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground">Save</button>
+              <Button type="button" variant="outline" onClick={() => setLink(null)}>Cancel</Button>
+              <Button type="submit">Save</Button>
             </DialogFooter>
           </form>
         </DialogContent>

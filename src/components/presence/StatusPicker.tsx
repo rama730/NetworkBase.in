@@ -65,18 +65,19 @@ export function StatusPicker() {
   const [visibility, setVisibility] = useState<StatusVisibility>("network");
   const [saving, setSaving] = useState(false);
 
-  // Load the current status each time the picker opens.
+  const draftText = usePresenceUi((state) => state.draftText);
+  // Load the current status each time the picker opens (or the text typed after /status).
   useEffect(() => {
     if (!open || !settings.data) return;
     const current = settings.data.status;
-    setEmoji(current?.emoji ?? null);
-    setText(current?.text ?? "");
+    setEmoji(draftText ? null : current?.emoji ?? null);
+    setText(draftText ?? current?.text ?? "");
     setClearAfter(current ? (current.expiresAt ? "custom" : "never") : "today");
     setUntil(current?.expiresAt ? toLocalInput(new Date(current.expiresAt)) : "");
     setPause(current?.pausesNotifications ?? false);
     setShowActivityState(settings.data.showActivity);
     setVisibility(settings.data.visibility);
-  }, [open, settings.data]);
+  }, [draftText, open, settings.data]);
 
   const pick = (suggestion: StatusSuggestion) => {
     setEmoji(suggestion.emoji);

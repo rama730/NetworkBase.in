@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Extension, Node as TiptapNode, type Editor } from "@tiptap/core";
 import { useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import { Bold, Code, FileCode, Italic, Link2, List, ListOrdered, Quote, Strikethrough } from "lucide-react";
+
+import { keyLabel, rovingTabKey } from "@/components/messages/keys";
 
 /**
  * The message editor (composer and inline edit): formatting shows as you type,
@@ -24,7 +26,7 @@ const ChatToken = TiptapNode.create({
     return [{ tag: "span[data-chat-token]", getAttrs: (el) => ({ raw: (el as HTMLElement).getAttribute("data-chat-token"), label: (el as HTMLElement).textContent }) }];
   },
   renderHTML({ node }) {
-    return ["span", { "data-chat-token": node.attrs.raw, class: "rounded-[3px] bg-accent px-0.5 font-medium text-primary" }, node.attrs.label];
+    return ["span", { "data-chat-token": node.attrs.raw, class: "rounded-sm bg-accent px-0.5 font-medium text-primary" }, node.attrs.label];
   },
   renderText({ node }) {
     return node.attrs.label;
@@ -50,8 +52,9 @@ function slackKeys(handlers: { current: Handlers }) {
     name: "slackKeys",
     addKeyboardShortcuts() {
       return {
-        // Slack: Enter sends everywhere (code blocks too); Shift+Enter adds a line.
-        Enter: () => handlers.current.onEnter?.() ?? false,
+        // Slack: Enter sends everywhere (code blocks too); Shift+Enter adds a line. On a touch
+        // keyboard (no Shift+Enter) Enter adds a line and the Send button sends, like Slack's apps.
+        Enter: () => (isTouch() ? false : handlers.current.onEnter?.() ?? false),
         "Shift-Enter": ({ editor }) => {
           if (editor.isActive("codeBlock")) return editor.commands.newlineInCode();
           if (editor.isActive("listItem")) return editor.commands.splitListItem("listItem");
@@ -65,8 +68,10 @@ function slackKeys(handlers: { current: Handlers }) {
         "Mod-Shift-c": ({ editor }) => editor.commands.toggleCode(),
         "Mod-Alt-Shift-c": ({ editor }) => editor.commands.toggleCodeBlock(),
         "Mod-Shift-9": ({ editor }) => editor.commands.toggleBlockquote(),
+        // Only where there's a link dialog (the composer); the edit box lets the key through.
         "Mod-Shift-u": () => {
-          handlers.current.onLink?.();
+          if (!handlers.current.onLink) return false;
+          handlers.current.onLink();
           return true;
         },
       };
@@ -74,10 +79,15 @@ function slackKeys(handlers: { current: Handlers }) {
   });
 }
 
-/** Stored body → editor input: tokens become atoms, any other "<" stays literal text. */
+const isTouch = () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+
+/**
+ * Stored body → editor input: tokens become atoms, autolinks (<https://…>) stay links,
+ * and any other "<" stays literal text.
+ */
 export function chatDraftToHtmlish(body: string, labelOf: (raw: string) => string) {
   return body
-    .replace(/<(?![@#][0-9a-f-]{36}>)/g, "&lt;")
+    .replace(/<(?![@#][0-9a-f-]{36}>)(?!(?:https?|mailto):[^>\s]+>)/g, "&lt;")
     .replace(/<([@#])([0-9a-f-]{36})>/g, (raw) => `<span data-chat-token="${raw}">${labelOf(raw).replace(/[<&]/g, "")}</span>`);
 }
 
@@ -117,61 +127,86 @@ export function useChatEditor(options: {
   useEffect(() => {
     latest.current = { handlers: options.handlers, onUpdate: options.onUpdate };
   });
-  return useEditor({
+  const attributes = (placeholder: string) => ({
+    class: `nb-compose outline-none ${options.className ?? ""}`,
+    "aria-label": placeholder,
+    "aria-multiline": "true",
+    role: "textbox",
+    // The phone keyboard's return key: a new line there, Send on a keyboard with Shift+Enter.
+    enterkeyhint: isTouch() ? "enter" : "send",
+  });
+  const editor = useEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: false,
         horizontalRule: false,
-        link: { openOnClick: false, autolink: true },
+        link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
       }),
       ChatToken,
-      Markdown.configure({ html: true, breaks: true, linkify: true, transformPastedText: true }),
+      // Pasted text stays the text you copied (no markdown or HTML parsing): "<Button>", "*.txt"
+      // and "# title" arrive as typed. Pasted rich content (HTML) still keeps its formatting.
+      Markdown.configure({ html: true, breaks: true, linkify: true, transformPastedText: false }),
       keys,
     ],
     content: options.content,
     onUpdate: ({ editor }) => latest.current.onUpdate?.(editor),
-    editorProps: {
-      attributes: {
-        class: `nb-compose outline-none ${options.className ?? ""}`,
-        "aria-label": options.placeholder,
-        "aria-multiline": "true",
-        role: "textbox",
-      },
-    },
+    editorProps: { attributes: attributes(options.placeholder) },
   });
+  // The accessible name follows the placeholder (New message changes it as people are added).
+  const named = useRef(options.placeholder);
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || named.current === options.placeholder) return;
+    named.current = options.placeholder;
+    editor.setOptions({ editorProps: { ...editor.options.editorProps, attributes: attributes(options.placeholder) } });
+  });
+  return editor;
 }
 
 const TOOLBAR = [
-  { name: "bold", label: "Bold (⌘B)", icon: Bold, run: (e: Editor) => e.chain().focus().toggleBold().run() },
-  { name: "italic", label: "Italic (⌘I)", icon: Italic, run: (e: Editor) => e.chain().focus().toggleItalic().run() },
-  { name: "strike", label: "Strikethrough (⌘⇧X)", icon: Strikethrough, run: (e: Editor) => e.chain().focus().toggleStrike().run() },
-  { name: "link", label: "Link (⌘⇧U)", icon: Link2, run: null },
-  { name: "orderedList", label: "Numbered list (⌘⇧7)", icon: ListOrdered, run: (e: Editor) => e.chain().focus().toggleOrderedList().run() },
-  { name: "bulletList", label: "Bulleted list (⌘⇧8)", icon: List, run: (e: Editor) => e.chain().focus().toggleBulletList().run() },
-  { name: "blockquote", label: "Quote (⌘⇧9)", icon: Quote, run: (e: Editor) => e.chain().focus().toggleBlockquote().run() },
-  { name: "code", label: "Code (⌘⇧C)", icon: Code, run: (e: Editor) => e.chain().focus().toggleCode().run() },
-  { name: "codeBlock", label: "Code block (⌘⌥⇧C)", icon: FileCode, run: (e: Editor) => e.chain().focus().toggleCodeBlock().run() },
+  { name: "bold", label: "Bold", keys: "mod+b", icon: Bold, run: (e: Editor) => e.chain().focus().toggleBold().run() },
+  { name: "italic", label: "Italic", keys: "mod+i", icon: Italic, run: (e: Editor) => e.chain().focus().toggleItalic().run() },
+  { name: "strike", label: "Strikethrough", keys: "mod+shift+x", icon: Strikethrough, run: (e: Editor) => e.chain().focus().toggleStrike().run() },
+  { name: "link", label: "Link", keys: "mod+shift+u", icon: Link2, run: null },
+  { name: "orderedList", label: "Numbered list", keys: "mod+shift+7", icon: ListOrdered, run: (e: Editor) => e.chain().focus().toggleOrderedList().run() },
+  { name: "bulletList", label: "Bulleted list", keys: "mod+shift+8", icon: List, run: (e: Editor) => e.chain().focus().toggleBulletList().run() },
+  { name: "blockquote", label: "Quote", keys: "mod+shift+9", icon: Quote, run: (e: Editor) => e.chain().focus().toggleBlockquote().run() },
+  { name: "code", label: "Code", keys: "mod+shift+c", icon: Code, run: (e: Editor) => e.chain().focus().toggleCode().run() },
+  { name: "codeBlock", label: "Code block", keys: "mod+alt+shift+c", icon: FileCode, run: (e: Editor) => e.chain().focus().toggleCodeBlock().run() },
 ] as const;
 
-/** Formatting buttons that apply in place and show what is active at the caret. */
+/** Formatting buttons that apply in place and show what is active at the caret. One Tab stop; ←/→ move. */
 export function FormatToolbar({ editor, onLink }: { editor: Editor; onLink: () => void }) {
   const active = useEditorState({
     editor,
     selector: ({ editor: e }) => Object.fromEntries(TOOLBAR.map(({ name }) => [name, e.isActive(name)])) as Record<string, boolean>,
   });
+  const [current, setCurrent] = useState(0);
   return (
-    <div className="flex flex-wrap gap-0.5 border-b border-border px-1 py-1" role="toolbar" aria-label="Formatting">
-      {TOOLBAR.map(({ name, label, icon: Icon, run }) => (
+    <div
+      className="flex flex-wrap gap-0.5 border-b border-border px-1 py-1"
+      role="toolbar"
+      aria-label="Formatting"
+      onKeyDown={(event) => {
+        const next = rovingTabKey(event, current, TOOLBAR.length);
+        if (next === null) return;
+        setCurrent(next);
+        (event.currentTarget.children[next] as HTMLElement | undefined)?.focus();
+      }}
+    >
+      {TOOLBAR.map(({ name, label, keys, icon: Icon, run }, index) => (
         <button
           key={name}
           type="button"
+          tabIndex={index === current ? 0 : -1}
           aria-label={label}
-          title={label}
+          aria-keyshortcuts={keys.replace("mod", "Meta")}
+          title={`${label} (${keyLabel(keys)})`}
           aria-pressed={active[name] ?? false}
           onMouseDown={(event) => event.preventDefault()}
+          onFocus={() => setCurrent(index)}
           onClick={() => (run ? run(editor) : onLink())}
-          className={`grid size-8 place-items-center rounded-[5px] hover:bg-muted hover:text-foreground pointer-coarse:size-11 ${active[name] ? "bg-muted text-foreground" : "text-muted-foreground"}`}
+          className={`nb-icon-button size-8 pointer-coarse:size-11 ${active[name] ? "bg-muted text-foreground" : ""}`}
         >
           <Icon size={16} />
         </button>
@@ -180,15 +215,29 @@ export function FormatToolbar({ editor, onLink }: { editor: Editor; onLink: () =
   );
 }
 
-/** Wrap the selection (or insert text) as a link; an empty URL removes it. */
+/** The link under the caret (or the selection) and its text, for the link dialog. */
+export function linkAtCaret(editor: Editor) {
+  // Inside an existing link: edit that whole link, not a new one at the caret.
+  if (editor.isActive("link")) editor.chain().extendMarkRange("link").run();
+  const { from, to } = editor.state.selection;
+  return { text: editor.state.doc.textBetween(from, to, " "), url: String(editor.getAttributes("link").href ?? "") };
+}
+
+/**
+ * Put a link on the selection (or at the caret), with the text as typed in the dialog; an
+ * empty URL removes it. False when the address isn't one we can link (the dialog says so).
+ */
 export function applyLink(editor: Editor, url: string, text: string) {
   const href = url.trim() && !/^[a-z][a-z0-9+.-]*:/i.test(url.trim()) ? `https://${url.trim()}` : url.trim();
-  if (!href) return void editor.chain().focus().extendMarkRange("link").unsetLink().run();
-  if (!/^https?:|^mailto:/i.test(href)) return;
-  const { empty } = editor.state.selection;
-  if (empty) {
-    editor.chain().focus().insertContent({ type: "text", text: text.trim() || href, marks: [{ type: "link", attrs: { href } }] }).insertContent(" ").run();
-  } else {
-    editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
+  if (!href) {
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    return true;
   }
+  if (!/^https?:\/\/\S|^mailto:\S/i.test(href)) return false;
+  const { empty, from, to } = editor.state.selection;
+  const label = text.trim() || (empty ? href : editor.state.doc.textBetween(from, to, " "));
+  // Replaces the selection (an edited link included), so it's never a second copy.
+  const chain = editor.chain().focus().insertContent({ type: "text", text: label, marks: [{ type: "link", attrs: { href } }] });
+  (empty ? chain.insertContent(" ") : chain).run();
+  return true;
 }

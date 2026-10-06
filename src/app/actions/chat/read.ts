@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 
 import { publishUser, publishUserEvents } from "@/lib/messaging/publish";
 import { chatFailure, chatRows, chatValue, invalidInput, isUuid, jsonParam, requireChatUser, unauthorized } from "@/lib/messaging/server";
+import { countsOrNothing, inboxCounts } from "@/lib/messaging/inbox-counts";
 import type { ChatBootstrap } from "@/lib/messaging/types";
 
 /**
@@ -37,33 +38,6 @@ export async function bootstrap(input: { since?: string | null } = {}) {
     return chatFailure(error, "bootstrap");
   }
 }
-
-/**
- * The Inbox counts: unread mentions and thread replies (the badge), mentions alone, and
- * followed threads with new replies. Muted conversations: mentions still count, threads don't.
- */
-async function inboxCounts(userId: string) {
-  const [counts] = await chatRows<{ inbox_unread: number; inbox_mentions: number; threads_unread: number }>(sql`
-    SELECT
-      (SELECT count(*)::int FROM chat_mentions mn
-        JOIN chat_channel_members mem ON mem.channel_id = mn.channel_id AND mem.user_id = mn.user_id
-        JOIN chat_messages msg ON msg.channel_id = mn.channel_id AND msg.channel_seq = mn.message_seq
-        WHERE mn.user_id = ${userId}::uuid AND mn.read_at IS NULL AND msg.deleted_at IS NULL
-          AND (mn.kind <> 'thread_reply' OR mem.notify <> 'mute')) AS inbox_unread,
-      (SELECT count(*)::int FROM chat_mentions mn
-        JOIN chat_messages msg ON msg.channel_id = mn.channel_id AND msg.channel_seq = mn.message_seq
-        WHERE mn.user_id = ${userId}::uuid AND mn.read_at IS NULL AND msg.deleted_at IS NULL AND mn.kind <> 'thread_reply'
-          AND app_private.chat_is_member(mn.channel_id, ${userId}::uuid)) AS inbox_mentions,
-      (SELECT count(*)::int FROM chat_thread_follows f
-        JOIN chat_channel_members mem ON mem.channel_id = f.channel_id AND mem.user_id = f.user_id
-        JOIN chat_messages msg ON msg.channel_id = f.channel_id AND msg.channel_seq = f.root_seq
-        WHERE f.user_id = ${userId}::uuid AND coalesce(msg.last_reply_seq, 0) > f.last_read_seq AND mem.notify <> 'mute') AS threads_unread
-  `);
-  return counts ?? { inbox_unread: 0, inbox_mentions: 0, threads_unread: 0 };
-}
-
-/** For the read events only: a failed count must not fail a read that already happened (the poll catches up). */
-const countsOrNothing = (userId: string) => inboxCounts(userId).catch(() => ({}));
 
 /** Move the read cursor forward (only-if-newer) and tell the user's other tabs. */
 export async function markRead(input: { channelId: string; seq: number }) {
@@ -110,8 +84,15 @@ export async function markThreadRead(input: { channelId: string; rootSeq: number
     const moved = await chatValue<boolean>(sql`
       SELECT app_private.chat_mark_thread_read(${input.channelId}::uuid, ${user.id}::uuid, ${input.rootSeq}::bigint, ${input.seq}::bigint) AS value
     `);
-    // Badges everywhere drop now, not at the next poll (the thread's mentions were read too).
-    publishUser(user.id, "inbox.count", await countsOrNothing(user.id));
+    // Badges everywhere drop now, not at the next poll (the thread's mentions were read too),
+    // and so does the conversation's @ count in the sidebar (0193 recounts it).
+    const [counts, mentionCount] = await Promise.all([
+      countsOrNothing(user.id),
+      chatValue<number | null>(sql`
+        SELECT mention_count AS value FROM chat_channel_members WHERE channel_id = ${input.channelId}::uuid AND user_id = ${user.id}::uuid
+      `).catch(() => null),
+    ]);
+    publishUser(user.id, "inbox.count", { ...counts, channel_id: input.channelId, mention_count: mentionCount });
     return { success: true as const, moved };
   } catch (error) {
     return chatFailure(error, "mark_thread_read");

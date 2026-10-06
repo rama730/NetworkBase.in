@@ -11,6 +11,8 @@ import { StatusInline } from "@/components/presence/StatusInline";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { useAuth } from "@/hooks/useAuth";
 import { profileHref } from "@/lib/routing/identifiers";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type Person = { id: string; username: string | null; full_name: string | null; avatar_url: string | null };
 
@@ -22,13 +24,13 @@ function CardBody({ person }: { person: Person }) {
   return (
     <div className="flex w-[300px] flex-col gap-3.5 p-4">
       <div className="flex items-center gap-3.5">
-        <PresenceAvatar userId={person.id} identity={identity} size={48} roundedClassName="rounded-full" />
+        <PresenceAvatar userId={person.id} identity={identity} size={48} />
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-[17px] font-bold">{name}</span>
-          {person.username ? <span className="truncate font-mono text-[12px] text-muted-foreground">@{person.username}</span> : null}
+          <span className="nb-card-title truncate">{name}</span>
+          {person.username ? <span className="nb-meta truncate">@{person.username}</span> : null}
         </div>
       </div>
-      <div className="flex flex-col gap-2 rounded-lg bg-muted p-3">
+      <div className="flex flex-col gap-2 rounded-md bg-muted p-3">
         {presence.status ? (
           <>
             <StatusInline emoji={presence.status.emoji} text={presence.statusText} className="truncate text-[14px] font-semibold" />
@@ -37,22 +39,19 @@ function CardBody({ person }: { person: Person }) {
         ) : null}
         <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
           <PresenceBadge availability={presence.availability} size={10} style={{ ["--presence-cut" as string]: "var(--muted)" }} />
-          {presence.availabilityText}
+          {/* No "Offline" guess before presence has loaded. */}
+          {presence.loaded ? presence.availabilityText : "\u00a0"}
         </span>
       </div>
       <div className="flex gap-2">
         {user?.id !== person.id ? (
-          <Link
-            href={`/messages?userId=${person.id}`}
-            onClick={(event) => messageUserInWindow(person.id, event)}
-            className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-primary text-[14px] font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            Message
-          </Link>
+          <Button asChild className="flex-1 pointer-coarse:h-11">
+            <Link href={`/messages?userId=${person.id}`} onClick={(event) => messageUserInWindow(person.id, event)}>Message</Link>
+          </Button>
         ) : null}
-        <Link href={profileHref({ id: person.id, username: person.username })} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-border text-[14px] font-semibold hover:bg-muted">
-          View profile
-        </Link>
+        <Button asChild variant="outline" className="flex-1 pointer-coarse:h-11">
+          <Link href={profileHref({ id: person.id, username: person.username })}>View profile</Link>
+        </Button>
       </div>
     </div>
   );
@@ -60,9 +59,11 @@ function CardBody({ person }: { person: Person }) {
 
 /**
  * Wraps a person's avatar or name: opens their card on hover (after a short
- * delay) or click/Enter. The card loads only when opened.
+ * delay) or click/Enter. The card loads only when opened. `label=""` keeps the visible
+ * text as the name (a row's "Ana (you)"); `focusable={false}` for a second trigger on the
+ * same person (the avatar beside the name), so a row costs one Tab stop.
  */
-export function PersonHoverCard({ person, children, label }: { person: Person | null; children: React.ReactNode; label?: string }) {
+export function PersonHoverCard({ person, children, label, className, focusable = true }: { person: Person | null; children: React.ReactNode; label?: string; className?: string; focusable?: boolean }) {
   const [open, setOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   if (!person) return <>{children}</>;
@@ -73,8 +74,10 @@ export function PersonHoverCard({ person, children, label }: { person: Person | 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
-        className="rounded-[5px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        aria-label={label ?? `About ${person.full_name || person.username || "this person"}`}
+        className={cn("rounded-md text-left", className)}
+        tabIndex={focusable ? undefined : -1}
+        aria-hidden={focusable ? undefined : true}
+        aria-label={label === undefined ? `About ${person.full_name || person.username || "this person"}` : label || undefined}
         onPointerEnter={(event) => event.pointerType === "mouse" && schedule(true, 450)}
         onPointerLeave={(event) => event.pointerType === "mouse" && schedule(false, 200)}
       >
@@ -88,7 +91,7 @@ export function PersonHoverCard({ person, children, label }: { person: Person | 
           collisionPadding={12}
           onPointerEnter={() => timer.current && clearTimeout(timer.current)}
           onPointerLeave={() => schedule(false, 200)}
-          className="z-50 rounded-xl border border-border bg-popover text-popover-foreground shadow-lg outline-none"
+          className="z-50 rounded-lg border border-border bg-popover text-popover-foreground shadow-md outline-none"
         >
           <CardBody person={person} />
         </Popover.Content>

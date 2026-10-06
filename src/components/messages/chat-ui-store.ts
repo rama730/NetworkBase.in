@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { create } from "zustand";
 
 // UI state for Messages (L-24): the selected project survives route changes and,
@@ -117,23 +117,33 @@ export function readDrafts(): DraftEntry[] {
   return drafts;
 }
 
-/** Drafts, kept current as composers save and clear them (this tab and others). */
+// One stable list while nothing changed (useSyncExternalStore needs the same snapshot back).
+let draftsCache: { sig: string; list: DraftEntry[] } = { sig: "", list: [] };
+function draftsSnapshot() {
+  const list = readDrafts();
+  const sig = list.map((d) => `${d.key}\u0000${d.body}`).join("\u0001");
+  if (sig !== draftsCache.sig) draftsCache = { sig, list };
+  return draftsCache.list;
+}
+function subscribeDrafts(onChange: () => void) {
+  const onStorage = (event: StorageEvent) => {
+    if (!event.key || event.key.startsWith("chat-draft:")) onChange();
+  };
+  window.addEventListener(DRAFTS_EVENT, onChange);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(DRAFTS_EVENT, onChange);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+const NO_DRAFTS: DraftEntry[] = [];
+
+/**
+ * Drafts, kept current as composers save and clear them (this tab and others). Read during
+ * render, so Drafts never flashes "No drafts" and the sidebar count never starts at 0.
+ */
 export function useDrafts() {
-  const [drafts, setDrafts] = useState<DraftEntry[]>([]);
-  useEffect(() => {
-    const sync = () => setDrafts(readDrafts());
-    sync();
-    const onStorage = (event: StorageEvent) => {
-      if (!event.key || event.key.startsWith("chat-draft:")) sync();
-    };
-    window.addEventListener(DRAFTS_EVENT, sync);
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(DRAFTS_EVENT, sync);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
-  return drafts;
+  return useSyncExternalStore(subscribeDrafts, draftsSnapshot, () => NO_DRAFTS);
 }
 
 // Collapsed sections and the Unreads filter follow the account (auth user_metadata, like

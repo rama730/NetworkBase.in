@@ -6,7 +6,7 @@ import { channelTopic, userTopic } from "@/lib/messaging/constants";
 import { chatPushTopic, createPushSuppressor } from "@/lib/messaging/push-policy";
 import { messageHref } from "@/lib/messaging/routes";
 import { chatRows, uuidArray } from "@/lib/messaging/server";
-import { tokensToPlainText } from "@/lib/messaging/tokens";
+import { previewText } from "@/lib/messaging/tokens";
 import type { ChatMessageView } from "@/lib/messaging/types";
 import {
   isNotificationPauseActive,
@@ -14,6 +14,7 @@ import {
   normalizeNotificationPreferences,
 } from "@/lib/notifications/preferences";
 import { sendPushToUser } from "@/lib/notifications/web-push";
+import { getRedisClient } from "@/lib/redis";
 import { broadcast, type ServerBroadcast } from "@/lib/realtime/server-broadcast";
 
 const allowPush = createPushSuppressor(30_000);
@@ -48,16 +49,22 @@ const PUSH_CONCURRENCY = 10;
 /**
  * After a send: one REST batch with message.new for open viewers plus a hint
  * for every user to notify (DM partners, mentions, thread followers), then web
- * push for the ones whose preferences allow it.
+ * push for the ones whose preferences allow it. Muted members only get the hint.
  */
 export function publishSentMessage(input: {
   message: ChatMessageView;
   notify: string[];
   mentioned: string[];
+  /** Mentioned but muted: a hint for the badge, never a push. */
+  muted?: string[];
+  /** Thread followers among `notify` (a reply counts in the Inbox only for them). */
+  follows?: string[];
   /** "#design", a group chat's name, or null for a DM. */
   channelLabel: string | null;
 }) {
   const { message, notify, mentioned } = input;
+  const muted = new Set(input.muted ?? []);
+  const follows = new Set(input.follows ?? []);
   after(async () => {
     const events: ServerBroadcast[] = [
       { topic: channelTopic(message.channel_id), event: "message.new", payload: message as unknown as Record<string, unknown> },
@@ -69,30 +76,38 @@ export function publishSentMessage(input: {
           seq: message.seq,
           mention: mentioned.includes(userId),
           thread_root_seq: message.thread_root_seq,
+          follows: follows.has(userId),
         },
       })),
     ];
     await broadcast(events);
-    if (notify.length === 0) return;
+    const pushable = notify.filter((userId) => !muted.has(userId));
+    if (pushable.length === 0) return;
 
     try {
       const recipients = await chatRows<{ id: string; notification_preferences: unknown }>(sql`
-        SELECT id, notification_preferences FROM profiles WHERE id = ANY(${uuidArray(notify)})
+        SELECT id, notification_preferences FROM profiles WHERE id = ANY(${uuidArray(pushable)})
       `);
       const authorName = message.author?.full_name || message.author?.username || "Someone";
       // A thread reply says so ("replied in a thread in #design"), so it isn't read as a channel message.
       const title = message.thread_root_seq
         ? `${authorName} replied in a thread${input.channelLabel ? ` in ${input.channelLabel}` : ""}`
         : input.channelLabel ? `${authorName} in ${input.channelLabel}` : authorName;
-      const body = tokensToPlainText(message.body).slice(0, 240) || (message.attachments.length ? "Sent an attachment" : "New message");
+      const body = previewText(message.body).slice(0, 240) || (message.attachments.length ? "Sent an attachment" : "New message");
       const now = new Date();
       const pushOne = async (recipient: (typeof recipients)[number]) => {
         const prefs = normalizeNotificationPreferences(recipient.notification_preferences);
         const isMention = mentioned.includes(recipient.id);
-        if (!prefs.delivery.push || isNotificationPauseActive(prefs, now) || isQuietHoursActive(prefs, now)) return;
+        if (!prefs.delivery.push || isNotificationPauseActive(prefs, now)) return;
+        // Quiet hours on the recipient's clock: their saved zone, else where their browser last reported.
+        const zone = prefs.quietHours.enabled && !prefs.quietHours.timeZone
+          ? await getRedisClient()?.get<string>(`presence:tz:${recipient.id}`).catch(() => null) ?? null
+          : null;
+        if (isQuietHoursActive(prefs, now, zone)) return;
         // Channel notify settings already shaped `notify`; the global switch left is mentions.
         if (isMention && !prefs.mentions) return;
-        if (!allowPush(recipient.id, message.channel_id)) return;
+        // One push per conversation per 30 s, but an @mention always gets through.
+        if (!allowPush(recipient.id, message.channel_id) && !isMention) return;
         await sendPushToUser(recipient.id, {
           id: `${message.channel_id}:${message.seq}`,
           title,

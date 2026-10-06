@@ -38,11 +38,33 @@ function clampMinute(value: unknown, fallback: number): number {
 function normalizeQuietHours(value: unknown): NotificationQuietHours {
     if (!value || typeof value !== "object") return { ...DEFAULT_QUIET_HOURS };
     const candidate = value as Partial<Record<keyof NotificationQuietHours, unknown>>;
+    const timeZone = validTimeZone(candidate.timeZone);
     return {
         enabled: typeof candidate.enabled === "boolean" ? candidate.enabled : DEFAULT_QUIET_HOURS.enabled,
         startMinute: clampMinute(candidate.startMinute, DEFAULT_QUIET_HOURS.startMinute),
         endMinute: clampMinute(candidate.endMinute, DEFAULT_QUIET_HOURS.endMinute),
+        ...(timeZone ? { timeZone } : {}),
     };
+}
+
+/** A real IANA zone name ("America/Los_Angeles"), else null. */
+export function validTimeZone(value: unknown): string | null {
+    if (typeof value !== "string" || !value || value.length > 64) return null;
+    try {
+        new Intl.DateTimeFormat("en-US", { timeZone: value });
+        return value;
+    } catch {
+        return null;
+    }
+}
+
+/** Minutes since midnight at `now`, in `timeZone` (the server's own zone without one). */
+function minuteOfDayIn(now: Date, timeZone: string | null | undefined) {
+    const zone = validTimeZone(timeZone);
+    if (!zone) return now.getHours() * 60 + now.getMinutes();
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: zone, hour: "numeric", minute: "numeric", hourCycle: "h23" }).formatToParts(now);
+    const pick = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+    return pick("hour") * 60 + pick("minute");
 }
 
 export const NOTIFICATION_PREFERENCE_CATEGORIES = [
@@ -154,30 +176,29 @@ export function getNotificationPauseUntil(preferences: NotificationPreferences, 
     return Number.isNaN(pausedUntil.getTime()) ? null : pausedUntil;
 }
 
-export function isQuietHoursActive(preferences: NotificationPreferences, now: Date = new Date()) {
+/**
+ * Quiet hours are the user's own clock: their saved zone, else `fallbackZone` (where their
+ * browser last was), else server time. 22:00–07:00 in California is night there, not here.
+ */
+export function isQuietHoursActive(preferences: NotificationPreferences, now: Date = new Date(), fallbackZone?: string | null) {
     const { enabled, startMinute, endMinute } = preferences.quietHours;
     if (!enabled) return false;
     if (startMinute === endMinute) return false;
-    const minuteOfDay = now.getHours() * 60 + now.getMinutes();
+    const minuteOfDay = minuteOfDayIn(now, preferences.quietHours.timeZone ?? fallbackZone);
     if (startMinute < endMinute) {
         return minuteOfDay >= startMinute && minuteOfDay < endMinute;
     }
     return minuteOfDay >= startMinute || minuteOfDay < endMinute;
 }
 
-export function getQuietHoursResumeAt(preferences: NotificationPreferences, now: Date = new Date()): Date | null {
-    if (!isQuietHoursActive(preferences, now)) return null;
-    const { startMinute, endMinute } = preferences.quietHours;
-    const resume = new Date(now);
-    resume.setHours(Math.floor(endMinute / 60), endMinute % 60, 0, 0);
-
-    const minuteOfDay = now.getHours() * 60 + now.getMinutes();
-    if (startMinute > endMinute && minuteOfDay >= startMinute) {
-        resume.setDate(resume.getDate() + 1);
-    }
-    if (resume.getTime() <= now.getTime()) {
-        resume.setDate(resume.getDate() + 1);
-    }
+export function getQuietHoursResumeAt(preferences: NotificationPreferences, now: Date = new Date(), fallbackZone?: string | null): Date | null {
+    if (!isQuietHoursActive(preferences, now, fallbackZone)) return null;
+    // The minutes from now (on the user's clock) until the end, added to now: right in any zone.
+    // ponytail: a DST change inside quiet hours shifts the resume by an hour. upgrade: zoned date math.
+    const minuteOfDay = minuteOfDayIn(now, preferences.quietHours.timeZone ?? fallbackZone);
+    const minutes = (preferences.quietHours.endMinute - minuteOfDay + 1440) % 1440 || 1440;
+    const resume = new Date(now.getTime() + minutes * 60_000);
+    resume.setSeconds(0, 0);
     return resume;
 }
 

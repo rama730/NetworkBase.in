@@ -247,12 +247,12 @@ export function CanvasBody({ editor, channelId }: { editor: Editor | null; chann
               draggable
               onDragStart={onDragStart}
               onClick={() => setMenuOpen(true)}
-              className="grid size-6 cursor-grab place-items-center rounded-[4px] text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing"
+              className="nb-icon-button size-7 cursor-grab active:cursor-grabbing pointer-coarse:size-11"
               aria-label="Block options (drag to move)"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
             >
-              <GripVertical size={15} />
+              <GripVertical size={16} />
             </button>
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
@@ -261,34 +261,34 @@ export function CanvasBody({ editor, channelId }: { editor: Editor | null; chann
             <DropdownMenuContent align="start" className="w-56">
               {node.type.name === "image" ? (
                 <>
-                  <DropdownMenuLabel className="text-[11px] uppercase text-muted-foreground">Image size</DropdownMenuLabel>
+                  <DropdownMenuLabel className="nb-micro">Image size</DropdownMenuLabel>
                   {(["s", "m", "full"] as const).map((size) => (
                     <DropdownMenuItem key={size} onSelect={() => resize(size)}>
                       {size === "s" ? "Small" : size === "m" ? "Medium" : "Full width"}{node.attrs.title === size ? " ✓" : ""}
                     </DropdownMenuItem>
                   ))}
-                  <DropdownMenuItem onSelect={() => window.open(String(node.attrs.src), "_blank", "noopener")}><ExternalLink size={14} /> Open original</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => window.open(String(node.attrs.src), "_blank", "noopener")}><ExternalLink /> Open original</DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <a href={String(node.attrs.src)} download={String(node.attrs.alt ?? "image")}><Download size={14} /> Download</a>
+                    <a href={String(node.attrs.src)} download={String(node.attrs.alt ?? "image")}><Download /> Download</a>
                   </DropdownMenuItem>
                 </>
               ) : (
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger><Type size={14} /> Turn into</DropdownMenuSubTrigger>
+                  <DropdownMenuSubTrigger><Type /> Turn into</DropdownMenuSubTrigger>
                   <DropdownMenuSubContent className="w-48">
                     {TURN_INTO.map(({ label, icon: Icon, run }) => (
-                      <DropdownMenuItem key={label} onSelect={() => { selectBlock(); run(editor); }}><Icon size={14} /> {label}</DropdownMenuItem>
+                      <DropdownMenuItem key={label} onSelect={() => { selectBlock(); run(editor); }}><Icon /> {label}</DropdownMenuItem>
                     ))}
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={duplicate}><CopyPlus size={14} /> Duplicate</DropdownMenuItem>
+              <DropdownMenuItem onSelect={duplicate}><CopyPlus /> Duplicate</DropdownMenuItem>
               {node.textContent ? (
-                <DropdownMenuItem onSelect={() => { void copyWithToast(node.textContent, "Copied"); }}><Copy size={14} /> Copy text</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { void copyWithToast(node.textContent, "Copied"); }}><Copy /> Copy text</DropdownMenuItem>
               ) : null}
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onSelect={remove}><Trash2 size={14} /> Delete</DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onSelect={remove}><Trash2 /> Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           </div>
@@ -308,19 +308,21 @@ export function CanvasPreview({ markdown }: { markdown: string }) {
   return <EditorContent editor={editor} />;
 }
 
+// The printed canvas uses the brand type and ink-on-paper colours (spec), not system defaults.
+// ponytail: fixed print colours (a PDF is always light). upgrade: none needed.
 const PRINT_CSS = `
-  body { font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #111; margin: 0; }
-  h1.title { font-size: 30px; margin: 0 0 16px; }
-  h1 { font-size: 26px; } h2 { font-size: 21px; } h3 { font-size: 17px; }
-  img { max-width: 100%; break-inside: avoid; border-radius: 6px; }
+  body { font: 15px/1.6 "Instrument Sans", ui-sans-serif, system-ui, sans-serif; color: #141A1E; background: #FAF8F4; margin: 0; }
+  h1.title { font-size: 30px; font-weight: 600; margin: 0 0 16px; }
+  h1 { font-size: 24px; font-weight: 600; } h2 { font-size: 20px; font-weight: 600; } h3 { font-size: 17px; font-weight: 600; }
+  img { max-width: 100%; break-inside: avoid; border-radius: 8px; }
   img[data-size="s"] { width: 33%; } img[data-size="m"] { width: 60%; }
   ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
   ul[data-type="taskList"] li { display: flex; gap: 8px; } ul[data-type="taskList"] li > label { flex: none; }
-  ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; color: #777; }
-  blockquote { border-left: 3px solid #ccc; margin: 0; padding-left: 12px; color: #555; }
-  pre { background: #f4f4f5; padding: 12px; border-radius: 6px; white-space: pre-wrap; }
-  code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
-  a { color: #1d4ed8; }
+  ul[data-type="taskList"] li[data-checked="true"] > div { text-decoration: line-through; color: #5B6770; }
+  blockquote { border-left: 2px solid #D7DDDF; margin: 0; padding-left: 12px; color: #5B6770; }
+  pre { background: #F1EEE7; padding: 12px; border-radius: 5px; white-space: pre-wrap; }
+  code { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 13px; }
+  a { color: #C24720; }
   @page { margin: 18mm; }
 `;
 

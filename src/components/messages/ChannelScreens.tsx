@@ -9,8 +9,9 @@ import { usePanes } from "@/components/messages/usePanes";
 /** The conversation, plus the thread/details drawer when ?thread= or ?details= is set. */
 export function ChannelScreen({ channelId }: { channelId: string }) {
   const params = useSearchParams();
-  const around = Number(params?.get("m")) || null;
   const panes = usePanes(channelId);
+  // ?thread=5&m=12 points at reply 12 in the thread: the timeline stays where it is (no jump).
+  const around = panes.thread ? null : Number(params?.get("m")) || null;
   return (
     <div className="flex h-full min-h-0">
       <div className="h-full min-w-0 flex-1">

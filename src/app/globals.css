@@ -5,7 +5,6 @@
 
 @theme inline {
   --color-background: var(--background);
-  --color-chat-accent: var(--chat-accent);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-instrument-sans);
   --font-serif: var(--font-instrument-serif);
@@ -138,9 +137,6 @@
   --nb-brand-hover: var(--primary-hover);
   --nb-sidebar-width: 224px;
   --nb-sidebar-collapsed-width: 64px;
-  /* Chat counts and unread marks (report 7.11): 5:1 on white, 4.6:1 on the page; pill text on top. */
-  --chat-accent: #C2461D;
-  --chat-accent-foreground: #FFFFFF;
   --nb-page-inset: 24px;
   --nb-workspace-inset: 20px;
   --nb-grid-line: rgb(33 42 48 / 7%);
@@ -285,8 +281,6 @@
   --background: #0D1114; --foreground: #FAF8F4;
   --card: #141A1E; --card-foreground: #FAF8F4;
   --popover: #212A30; --popover-foreground: #FAF8F4;
-  /* Lighter in dark mode: 7:1 on the card, with dark pill text. */
-  --chat-accent: #F08A5D; --chat-accent-foreground: #141A1E;
   --primary: var(--theme-action-solid-dark); --primary-foreground: #141A1E;
   --primary-hover: var(--theme-action-hover-dark); --primary-active: var(--theme-action-active-dark);
   --secondary: #212A30; --secondary-foreground: #D7DDDF;
@@ -752,7 +746,7 @@ html[data-reduce-motion="true"] .nb-skeleton {
 .nb-nav-link:hover { background:var(--muted); color:var(--foreground); }
 .nb-nav-link[aria-current="page"] { background:var(--sidebar-accent); color:var(--foreground); }
 .nb-nav-link[aria-current="page"] > svg { color:var(--primary); }
-.nb-nav-count { margin-left:auto; padding:1px 5px; background:var(--secondary); border-radius:3px; font:11px var(--font-jetbrains-mono),monospace; }
+.nb-nav-count, .nb-chat-count { margin-left:auto; padding:1px 5px; background:var(--secondary); border-radius:3px; font:11px var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; }
 .nb-tab-count { display:inline-flex; min-width:20px; align-items:center; justify-content:center; padding:1px 5px; border-radius:3px; background:var(--secondary); color:var(--secondary-foreground); font:500 11px/1.35 var(--font-jetbrains-mono),monospace; font-variant-numeric:tabular-nums; }
 .nb-main-frame { min-width:0; transition:margin-left 180ms cubic-bezier(.2,.8,.3,1); }
 .nb-sidebar[data-collapsed="true"] { width:var(--nb-sidebar-collapsed-width); }
@@ -844,7 +838,7 @@ svg.lucide { stroke-width:1.75; }
 @media (max-width:767px) {
   code, kbd, samp, pre { font-family: var(--font-jetbrains-mono), ui-monospace, monospace; }
   /* Toasts sit above a mounted composer or wizard footer instead of covering it (spec §09 R12). */
-  body:has(.nb-message-composer, .nb-wizard-footer) [data-sonner-toaster][data-y-position="bottom"] { bottom: calc(96px + env(safe-area-inset-bottom)) !important; }
+  body:has(.nb-message-composer, .nb-wizard-footer) [data-sonner-toaster][data-y-position="bottom"] { bottom: calc(var(--nb-composer-height, 88px) + 8px + env(safe-area-inset-bottom)) !important; }
 }
 @media (pointer:coarse) {
   /* :root[data-density] out-specifies the density presets, which are always set. */
@@ -993,13 +987,24 @@ svg.lucide { stroke-width:1.75; }
 }
 
 .nb-message-composer { padding-bottom:max(8px,env(safe-area-inset-bottom)); }
+
+/* Messages keyboard focus (report §7.13, WCAG 2.4.7). The app's guard above removes every ring,
+   so focus here is a tone of its own: a clay tint (spec: focus is clay), never the hover grey,
+   and never an outer halo. Shared Buttons and fields keep their own focus look. */
+[data-messages-surface] :is(a, button, summary, [role="tab"], [role="option"], [role="menuitem"], [tabindex]):not([data-slot="button"], [contenteditable], input, textarea, select):focus-visible {
+  background-color: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--foreground);
+}
+[data-messages-surface] .nb-message-composer :is([contenteditable]):focus-visible { background-color: transparent; }
 .nb-wizard-footer { padding-bottom:max(16px,env(safe-area-inset-bottom)); }
 
 /* ── Messages (report 7.10–7.13) ─────────────────────────────────────────────
-   Chat sidebar rows follow the theme. Rows are 32px, 44px on touch. */
-.nb-chat-row { display:flex; align-items:center; gap:8px; min-height:32px; width:100%; padding:0 10px; border-radius:5px; color:var(--muted-foreground); font-size:14px; text-align:left; }
-.nb-chat-row:hover, .nb-chat-row:focus-visible { background:var(--muted); color:var(--foreground); }
-.nb-chat-row[aria-current="page"] { background:var(--sidebar-accent); color:var(--foreground); font-weight:500; }
+   Chat sidebar rows are the app's nav rows (.nb-nav-link): the density height, 13/500, a clay
+   icon on the current row, 44px on touch. Keyboard focus is a tint of its own, never the hover. */
+.nb-chat-row { display:flex; align-items:center; gap:8px; min-height:var(--ui-nav-item-height); width:100%; padding:0 10px; border-radius:5px; color:var(--muted-foreground); font-size:13px; font-weight:500; text-align:left; transition:background-color 130ms,color 130ms; }
+.nb-chat-row:hover { background:var(--muted); color:var(--foreground); }
+.nb-chat-row[aria-current="page"] { background:var(--sidebar-accent); color:var(--foreground); }
+.nb-chat-row[aria-current="page"] > svg { color:var(--primary); }
 .nb-chat-row[data-unread="true"] { color:var(--foreground); font-weight:600; }
 /* 1024–1279px with a thread or details open: the conversation list steps aside so the timeline keeps its width. */
 @media (min-width: 1024px) and (max-width: 1279px) {
@@ -1010,9 +1015,9 @@ svg.lucide { stroke-width:1.75; }
 /* Sidebar rows: on hover or keyboard focus the row makes room for its ⋯, so the count slides left instead of hiding. */
 @media (pointer:fine) { .nb-chat-hover:hover > .nb-chat-row, .nb-chat-hover:focus-within > .nb-chat-row, .nb-chat-hover:has([data-state="open"]) > .nb-chat-row { padding-right:34px; } }
 .nb-chat-row-preview { min-height:64px; padding:10px 12px; align-items:flex-start; }
-.nb-chat-count { margin-left:auto; padding:1px 5px; border-radius:3px; background:var(--chat-accent); color:var(--chat-accent-foreground); font:11px var(--font-jetbrains-mono),monospace; line-height:16px; }
-.nb-chat-section-title { display:flex; align-items:center; gap:4px; min-height:28px; padding:0 6px; font:11px var(--font-jetbrains-mono),monospace; text-transform:uppercase; letter-spacing:.04em; color:var(--muted-foreground); }
-.nb-chat-list .nb-chat-row { min-height:44px; font-size:15px; }
+/* Section labels are the shared micro label (.nb-micro). */
+.nb-chat-section-title { display:flex; align-items:center; gap:4px; min-height:28px; padding:0 6px; font:500 11px/1.2 var(--font-jetbrains-mono),monospace; text-transform:uppercase; letter-spacing:.09em; color:var(--muted-foreground); }
+.nb-chat-list .nb-chat-row { min-height:44px; }
 .nb-chat-list .nb-chat-row-preview { min-height:64px; }
 @media (pointer:coarse) { .nb-chat-row { min-height:44px; } }
 .nb-shell--messages { height:var(--chat-vvh, 100dvh); }
@@ -1025,9 +1030,9 @@ svg.lucide { stroke-width:1.75; }
 /* ── Channel canvas + chat composer editors (Tiptap) ── */
 .nb-canvas { font-size: 15px; line-height: 1.65; color: var(--foreground); min-height: 50vh; padding-bottom: 30vh; }
 .nb-canvas > * + * { margin-top: 0.6em; }
-.nb-canvas h1 { font-size: 26px; font-weight: 700; line-height: 1.25; margin-top: 1.1em; letter-spacing: -0.01em; }
-.nb-canvas h2 { font-size: 21px; font-weight: 700; line-height: 1.3; margin-top: 1em; }
-.nb-canvas h3 { font-size: 17px; font-weight: 650; line-height: 1.35; margin-top: 0.9em; }
+.nb-canvas h1 { font-size: 24px; font-weight: 600; line-height: 1.25; margin-top: 1.1em; letter-spacing: -0.01em; }
+.nb-canvas h2 { font-size: 20px; font-weight: 600; line-height: 1.3; margin-top: 1em; }
+.nb-canvas h3 { font-size: 17px; font-weight: 600; line-height: 1.35; margin-top: 0.9em; }
 .nb-canvas > :first-child { margin-top: 0; }
 .nb-canvas ul:not([data-type="taskList"]), .nb-compose ul { list-style-type: disc; padding-left: 1.4em; }
 .nb-canvas ol, .nb-compose ol { list-style-type: decimal; padding-left: 1.4em; }

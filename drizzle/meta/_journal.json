@@ -1331,6 +1331,13 @@
       "when": 1790908169000,
       "tag": "0192_chat_inbox_mute_rule",
       "breakpoints": true
+    },
+    {
+      "idx": 190,
+      "version": "7",
+      "when": 1790908170000,
+      "tag": "0193_chat_round3_counts",
+      "breakpoints": true
     }
   ]
 }

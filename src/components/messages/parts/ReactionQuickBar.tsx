@@ -20,6 +20,8 @@ interface ReactionQuickBarProps {
     onClose: () => void;
     /** What a pick does, for screen readers: "React with" (messages) or "Insert" (the composer). */
     verb?: string;
+    /** Where focus goes when it closes (the composer's editor); default: what opened it. */
+    returnFocus?: () => void;
 }
 
 /** ←/→ (and ↑/↓) move between the emoji, like any toolbar. */
@@ -33,15 +35,15 @@ function moveFocus(event: React.KeyboardEvent<HTMLDivElement>) {
     buttons[(at + step + buttons.length) % buttons.length]?.focus();
 }
 
-export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = [], onReact, onClose, verb = 'React with' }: ReactionQuickBarProps) {
+export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = [], onReact, onClose, verb = 'React with', returnFocus }: ReactionQuickBarProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [showExtended, setShowExtended] = useState(false);
     const quick = useQuickReactions();
 
     // Focus lands in the picker once; Esc closes it and returns focus to what opened it.
-    const latest = useRef({ anchor, onClose });
+    const latest = useRef({ anchor, onClose, returnFocus });
     useEffect(() => {
-        latest.current = { anchor, onClose };
+        latest.current = { anchor, onClose, returnFocus };
     });
     useEffect(() => {
         ref.current?.querySelector<HTMLButtonElement>('button')?.focus();
@@ -50,7 +52,8 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
             event.preventDefault();
             event.stopPropagation();
             latest.current.onClose();
-            latest.current.anchor?.focus();
+            if (latest.current.returnFocus) latest.current.returnFocus();
+            else latest.current.anchor?.focus();
         };
         document.addEventListener('keydown', onKeyDown, true);
         return () => document.removeEventListener('keydown', onKeyDown, true);
@@ -110,7 +113,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
             role="toolbar"
             aria-label={verb === 'Insert' ? 'Emoji' : 'Quick reactions'}
             onKeyDown={moveFocus}
-            className="msg-reaction-quick-bar fixed z-[130] flex flex-col rounded-lg border border-border bg-popover p-1.5 shadow-lg"
+            className="msg-reaction-quick-bar fixed z-[60] flex flex-col rounded-lg border border-border bg-popover p-1.5 shadow-md"
         >
             <div className="flex items-center gap-1">
                 {quick.map((emoji) => (
@@ -123,8 +126,8 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                             onClose();
                         }}
                         className={cn(
-                            "nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-muted",
-                            selectedReactions.includes(emoji) && "bg-accent/50 ring-1 ring-ring/30"
+                            "nb-touch-target flex h-8 w-8 items-center justify-center rounded-md text-lg transition-colors duration-[130ms] hover:bg-muted",
+                            selectedReactions.includes(emoji) && "bg-accent"
                         )}
                         aria-label={`${verb} ${emoji}`}
                     >
@@ -138,7 +141,7 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                             e.stopPropagation();
                             setShowExtended(true);
                         }}
-                        className="nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground text-sm font-semibold border border-dashed border-border"
+                        className="nb-touch-target flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground text-sm font-semibold border border-dashed border-border"
                         aria-label="More reactions"
                     >
                         +
@@ -157,8 +160,8 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                                 onClose();
                             }}
                             className={cn(
-                                "nb-touch-target flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform hover:scale-125 hover:bg-muted",
-                                selectedReactions.includes(emoji) && "bg-accent/50 ring-1 ring-ring/30"
+                                "nb-touch-target flex h-8 w-8 items-center justify-center rounded-md text-lg transition-colors duration-[130ms] hover:bg-muted",
+                                selectedReactions.includes(emoji) && "bg-accent"
                             )}
                             aria-label={`${verb} ${emoji}`}
                         >

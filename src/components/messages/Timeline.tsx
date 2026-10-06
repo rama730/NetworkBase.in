@@ -3,13 +3,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { ChevronDown, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { MessageRow } from "@/components/messages/MessageRow";
+import { Button } from "@/components/ui/button";
 import { formatChatTime } from "@/lib/messaging/channel-view";
 import { buildTimeline, newFromOthers, type TimelineItem } from "@/lib/messaging/timeline";
 import type { ChatMessageView } from "@/lib/messaging/types";
 
 const START_INDEX = 1_000_000;
+
+/** "Show in conversation" from a thread on a phone: scroll the timeline to that message and flash it. */
+export const REVEAL_EVENT = "chat-reveal";
+export type RevealEvent = { channelId: string; seq: number };
 const HIGHLIGHT_MS = 2_500;
 // Jump to a date loads older pages until it's reached, at most this many.
 const MAX_JUMP_PAGES = 12;
@@ -32,6 +38,11 @@ type Props = {
   revealSeq?: number | null;
   /** Loading an earlier page failed: the top says so, with Retry. */
   olderError?: boolean;
+  /** The loaded window ends before the conversation does (after a jump): Latest reloads the newest page. */
+  behindLatest?: boolean;
+  onReloadLatest?: () => void;
+  /** Changes when you send: scroll down to your message even if you were reading older ones. */
+  sentTick?: number;
 };
 
 function startOfDay(value: string) {
@@ -55,7 +66,7 @@ function TimelineHeader({ context }: { context?: TimelineContext }) {
   if (context.olderError && !context.loadingOlder) {
     return (
       <div role="alert" className="py-3 text-center text-[12px] text-muted-foreground">
-        Earlier messages didn&apos;t load. <button type="button" onClick={context.loadOlder} className="font-medium text-primary underline">Retry</button>
+        Earlier messages couldn&apos;t load. <Button type="button" variant="outline" size="sm" onClick={context.loadOlder} className="ml-2">Retry</Button>
       </div>
     );
   }
@@ -64,7 +75,7 @@ function TimelineHeader({ context }: { context?: TimelineContext }) {
 // Room for the floating typing indicator only while someone types; otherwise the gap closes.
 // Growing is instant (a smooth scroll follows); shrinking glides, so nothing jumps.
 function TimelineFooter({ context }: { context?: TimelineContext }) {
-  return <div className={context?.typing ? "h-6" : "h-2 transition-[height] duration-200 ease-out motion-reduce:transition-none"} />;
+  return <div className={context?.typing ? "h-6" : "h-2 transition-[height] duration-[180ms] ease-out motion-reduce:transition-none"} />;
 }
 const COMPONENTS = { Header: TimelineHeader, Footer: TimelineFooter };
 
@@ -112,7 +123,7 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
           }}
           onBlur={() => setTyping(false)}
           className={typing
-            ? "absolute left-1/2 top-full z-20 mt-1 h-9 -translate-x-1/2 rounded-[5px] border border-input bg-card px-2 text-[13px] shadow-md"
+            ? "absolute left-1/2 top-full z-20 mt-1 h-9 -translate-x-1/2 rounded-md border border-input bg-card px-2 text-[13px] shadow-md"
             : "pointer-events-none absolute inset-0 opacity-0"}
         />
       </span>
@@ -125,7 +136,7 @@ function DayLabel({ label, onPick }: { label: string; onPick: (date: string) => 
  * Virtualized timeline (Virtuoso prepend pattern): older pages prepend without
  * moving the reader, new messages follow only when already at the bottom.
  */
-export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead, typing = false, revealSeq = null, olderError = false }: Props) {
+export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, loadOlder, intro, highlightSeq, onSeen, onMarkRead, typing = false, revealSeq = null, olderError = false, behindLatest = false, onReloadLatest, sentTick = 0 }: Props) {
   const virtuoso = useRef<VirtuosoHandle>(null);
   // The divider stays where it was when the channel opened, not where the cursor moves to.
   const [dividerSeq] = useState(lastReadSeq);
@@ -203,6 +214,20 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     setHighlight(highlightSeq);
   }, [highlightSeq, items]);
 
+  // A thread closed with "Show in conversation" asks for its root.
+  useEffect(() => {
+    const onReveal = (event: Event) => {
+      const { channelId, seq } = (event as CustomEvent<RevealEvent>).detail ?? {};
+      const index = items.findIndex((item) => item.type === "message" && item.message.seq === seq && item.message.channel_id === channelId);
+      if (index < 0) return;
+      // Next frame: the drawer that covered the timeline is gone by then.
+      requestAnimationFrame(() => virtuoso.current?.scrollToIndex({ index, align: "center" }));
+      setHighlight(seq);
+    };
+    window.addEventListener(REVEAL_EVENT, onReveal);
+    return () => window.removeEventListener(REVEAL_EVENT, onReveal);
+  }, [items]);
+
   // Editing an older message (↑ in the composer) scrolls it into view, once per edit.
   const revealed = useRef<number | null>(null);
   useEffect(() => {
@@ -223,6 +248,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     const index = items.findIndex((item) => item.type === "message" && Date.parse(item.message.created_at) >= jump.at);
     const first = items.find((item) => item.type === "message");
     const reached = first?.type === "message" && Date.parse(first.message.created_at) <= jump.at;
+    const limit = hasOlder && jump.pages >= MAX_JUMP_PAGES && !reached;
     if (index >= 0 && (reached || !hasOlder || jump.pages >= MAX_JUMP_PAGES)) {
       virtuoso.current?.scrollToIndex({ index, align: "start" });
       const item = items[index];
@@ -237,6 +263,8 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
       virtuoso.current?.scrollToIndex({ index: index >= 0 ? index : 0, align: "start" });
       setJump(null);
     }
+    // It stopped short: say so instead of landing somewhere unexplained.
+    if (limit) toast("That day is further back. Showing the earliest messages loaded so far.");
   }, [hasOlder, items, jump, loadOlder, loadingOlder]);
   const pickDate = useCallback((date: string) => setJump({ at: startOfDay(date), pages: 0 }), []);
 
@@ -255,16 +283,32 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     onMarkRead?.();
   }, [onMarkRead]);
   const toLatest = useCallback(() => {
-    virtuoso.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
     setUnseen(0);
     markRead();
-  }, [markRead]);
+    // After a jump the newest messages aren't loaded: the end of this window isn't the latest.
+    if (behindLatest && onReloadLatest) return onReloadLatest();
+    virtuoso.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" });
+  }, [behindLatest, markRead, onReloadLatest]);
+  // You sent something while reading older messages: follow it down (like Slack).
+  const lastSentTick = useRef(sentTick);
+  useEffect(() => {
+    if (sentTick === lastSentTick.current) return;
+    lastSentTick.current = sentTick;
+    const frame = requestAnimationFrame(() => virtuoso.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }));
+    return () => cancelAnimationFrame(frame);
+  }, [sentTick]);
   const toFirstUnread = useCallback(() => {
     const index = items.findIndex((item) => item.type === "new");
     if (index >= 0) virtuoso.current?.scrollToIndex({ index, align: "start", behavior: "smooth" });
   }, [items]);
 
-  const tabSeq = focusSeq ?? (newestSeq || null);
+  // Tab lands on the row you last focused while it's still loaded, else the newest real message
+  // (never a system line, which isn't a row you can act on).
+  const tabSeq = useMemo(() => {
+    const rows = items.filter((item): item is Extract<TimelineItem, { type: "message" }> => item.type === "message" && item.message.kind !== "system");
+    if (focusSeq !== null && rows.some((item) => item.message.seq === focusSeq)) return focusSeq;
+    return rows.at(-1)?.message.seq ?? null;
+  }, [focusSeq, items]);
   const onListKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
     const row = e.target as HTMLElement;
@@ -294,8 +338,8 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
     if (item.type === "new") {
       return (
         <div className="flex items-center gap-3 px-4 py-1" role="separator" aria-label="New messages">
-          <span className="h-px flex-1 bg-[var(--chat-accent)]" />
-          <span className="font-mono text-[11px] uppercase text-[var(--chat-accent)]">New messages</span>
+          <span className="h-px flex-1 bg-primary" />
+          <span className="nb-micro text-primary">New messages</span>
         </div>
       );
     }
@@ -314,13 +358,17 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         if ((e.target as HTMLElement).hasAttribute?.("data-message-row") && seq) setFocusSeq(seq);
       }}
     >
-      {bannerOpen && unreadAtOpen && onMarkRead ? (
-        <div className="absolute inset-x-3 top-2 z-20 flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-[13px] text-primary-foreground shadow-md">
+      {jump ? (
+        <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center">
+          <span role="status" className="nb-tag shadow-sm">Finding {new Date(jump.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}…</span>
+        </div>
+      ) : bannerOpen && unreadAtOpen && onMarkRead ? (
+        <div className="absolute inset-x-3 top-2 z-20 flex items-center gap-1 rounded-md border border-[var(--status-info)]/30 bg-[var(--status-info-soft)] py-1 pl-3 pr-1 text-[13px] text-foreground shadow-sm">
           <button type="button" onClick={toFirstUnread} className="min-w-0 flex-1 truncate text-left font-medium hover:underline">
             {unreadAtOpen.count}{unreadAtOpen.more ? "+" : ""} new message{unreadAtOpen.count === 1 && !unreadAtOpen.more ? "" : "s"} since {formatChatTime(unreadAtOpen.since, "at")}
           </button>
-          <button type="button" onClick={markRead} className="flex-none rounded-[4px] px-1.5 py-0.5 font-medium hover:bg-primary-foreground/15">Mark as read</button>
-          <button type="button" onClick={() => setBannerOpen(false)} className="grid size-6 flex-none place-items-center rounded-[4px] hover:bg-primary-foreground/15" aria-label="Dismiss"><X size={14} /></button>
+          <Button type="button" variant="ghost" size="sm" onClick={markRead} className="flex-none pointer-coarse:h-11">Mark as read</Button>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={() => setBannerOpen(false)} className="flex-none pointer-coarse:size-11" aria-label="Dismiss"><X size={16} /></Button>
         </div>
       ) : topDay ? (
         <div className="pointer-events-none absolute inset-x-0 top-1 z-10 flex justify-center">
@@ -359,11 +407,12 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         components={COMPONENTS}
       />
       <p className="sr-only" aria-live="polite">{announcement}</p>
-      {!atBottom ? (
-        <button type="button" onClick={toLatest} aria-label={unseen ? `Jump to latest, ${unseen} new` : "Jump to latest"} className="absolute bottom-3 right-4 z-10 inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] shadow-md">
+      {!atBottom || behindLatest ? (
+        <Button type="button" variant="outline" size="sm" onClick={toLatest} aria-label={unseen ? `Jump to latest, ${unseen} new` : "Jump to latest"} className="absolute bottom-3 right-4 z-10 shadow-md pointer-coarse:h-11">
           <ChevronDown size={16} />
-          <span>{unseen ? `${unseen > 99 ? "99+" : unseen} new` : "Latest"}</span>
-        </button>
+          Latest
+          {unseen ? <span className="nb-tab-count">{unseen > 99 ? "99+" : unseen}</span> : null}
+        </Button>
       ) : null}
     </div>
   );

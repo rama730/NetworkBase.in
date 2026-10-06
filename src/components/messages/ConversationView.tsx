@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, ArrowLeft, Bell, BellDot, BellOff, Check, ExternalLink, Hash, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Search, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Hash, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
@@ -25,14 +25,20 @@ import { Timeline } from "@/components/messages/Timeline";
 import { usePanes } from "@/components/messages/usePanes";
 import { useChannelCanvas, useChannelDetails, useChannelMembers, useChannelMessages, useChannelTabs, useSavedSeqs, useTyping } from "@/components/messages/useConversation";
 import { SkeletonTasks } from "@/components/projects/skeletons/SkeletonTasks";
-import { PersonPresenceBadge } from "@/components/presence/PersonPresence";
+import { PersonPresenceBadge, PresenceAvatar } from "@/components/presence/PersonPresence";
 import { StatusInline } from "@/components/presence/StatusInline";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { RowsSkeleton } from "@/components/messages/parts/RowsSkeleton";
+import { detailsKeys, isDetailsKey, keyLabel } from "@/components/messages/keys";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
+import { useDocumentTitlePrefix } from "@/hooks/useDocumentTitlePrefix";
 import type { ChannelDetails } from "@/app/actions/chat/channels";
 import type { CanvasTemplate } from "@/lib/messaging/canvas-store";
 import { conversationTabs, restoreTabOrder, type ChannelTabItem } from "@/lib/messaging/channel-tabs";
@@ -63,7 +69,7 @@ type Props = {
 
 
 function IntroButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" onClick={onClick} className="inline-flex h-8 items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium hover:bg-muted">{children}</button>;
+  return <Button type="button" variant="outline" size="sm" onClick={onClick} className="pointer-coarse:h-11">{children}</Button>;
 }
 
 function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onCanvas }: {
@@ -86,7 +92,7 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
     return (
       <div className="space-y-3 px-4 py-5">
         <p className="text-[13px] text-muted-foreground">This is the start of your group conversation. Give it a name so it&apos;s easy to find.</p>
-        {isMember ? <div className="flex flex-wrap gap-2"><IntroButton onClick={onDetails}>Name the group</IntroButton><IntroButton onClick={onAddPeople}><UserPlus size={14} /> Add people</IntroButton></div> : null}
+        {isMember ? <div className="flex flex-wrap gap-2"><IntroButton onClick={onDetails}>Name the group</IntroButton><IntroButton onClick={onAddPeople}><UserPlus size={16} /> Add people</IntroButton></div> : null}
       </div>
     );
   }
@@ -94,20 +100,20 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
   return (
     <div className="space-y-4 px-4 pb-6 pt-6 sm:px-6 sm:pt-8">
       <div>
-        <h2 className="flex flex-wrap items-center gap-x-2 text-[24px] font-bold tracking-tight text-foreground sm:text-[28px]">
+        <h2 className="nb-section-title flex flex-wrap items-center gap-x-2 text-foreground">
           <span>{isDefault ? "Welcome to" : "This is the start of"}</span>
-          <span className="inline-flex items-center gap-1.5">
-            {channel.kind === "private" ? <Lock size={22} className="text-muted-foreground" aria-hidden="true" /> : <Hash size={24} className="stroke-[2.5] text-muted-foreground" aria-hidden="true" />}
+          <span className="inline-flex items-center gap-1">
+            {channel.kind === "private" ? <Lock size={18} className="text-muted-foreground" aria-hidden="true" /> : <Hash size={18} className="text-muted-foreground" aria-hidden="true" />}
             <span>{channel.name}</span>
           </span>
         </h2>
-        <p className="mt-2 max-w-2xl text-[15px] leading-normal text-muted-foreground">
+        <p className="nb-body mt-2 max-w-2xl text-muted-foreground">
           {channel.description || (isDefault
             ? `${channel.project_title ?? "The project"}'s home channel. Everyone on the team is here: share updates, decisions and wins.`
             : `Everything about #${channel.name} lives here: conversations, files and decisions.`)}
         </p>
         {channel.created_at ? (
-          <p className="mt-1 font-mono text-[11px] text-muted-foreground/70">
+          <p className="nb-meta mt-1">
             Created {new Date(channel.created_at).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
           </p>
         ) : null}
@@ -115,7 +121,7 @@ function Intro({ channel, meId, isMember, hasCanvas, onDetails, onAddPeople, onC
       {isMember ? (
         <div className="flex flex-wrap gap-2">
           {!channel.description ? <IntroButton onClick={onDetails}>Add a description</IntroButton> : null}
-          <IntroButton onClick={onAddPeople}><UserPlus size={14} /> Add people</IntroButton>
+          <IntroButton onClick={onAddPeople}><UserPlus size={16} /> Add people</IntroButton>
           {/* Once a canvas exists its tab is right above; the intro only offers to start one. */}
           {onCanvas && !hasCanvas ? <IntroButton onClick={onCanvas}>Create a canvas</IntroButton> : null}
         </div>
@@ -134,7 +140,7 @@ function PinRow({ message, channelId }: { message: ChatMessageView; channelId: s
     const result = await pinMessage({ channelId, seq: message.seq, on: false });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     refreshPins();
-    toast("Unpinned", {
+    toast.success("Unpinned", {
       action: {
         label: "Undo",
         onClick: () => void pinMessage({ channelId, seq: message.seq, on: true }).then((undo) => {
@@ -147,18 +153,18 @@ function PinRow({ message, channelId }: { message: ChatMessageView; channelId: s
   const when = new Date(message.created_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
   return (
     <li className="flex gap-3 border-b border-border px-4 py-3">
-      <UserAvatar identity={message.author} size={34} roundedClassName="rounded-[5px]" />
+      <UserAvatar identity={message.author} size={34} />
       <div className="min-w-0 flex-1">
         <p className="flex items-baseline gap-2 text-[13px]">
           <span className="font-medium">{personName(message.author)}</span>
-          <time dateTime={message.created_at} className="font-mono text-[12px] text-muted-foreground" title={new Date(message.created_at).toLocaleString()}>{when}</time>
+          <time dateTime={message.created_at} className="nb-meta" title={new Date(message.created_at).toLocaleString()}>{when}</time>
         </p>
         {message.body ? <MessageBody body={message.body} nameOf={ctx.nameOf} channelNameOf={ctx.channelNameOf} meId={ctx.meId} /> : null}
         {message.attachments.length ? <p className="text-[13px] text-muted-foreground">{message.attachments.map((a) => a.name || "Attachment").join(", ")}</p> : null}
-        <div className="mt-1 flex gap-3 text-[13px]">
+        <div className="mt-1 flex gap-1">
           {/* A pinned thread reply opens its thread (replies aren't in the main timeline). */}
-          <button type="button" onClick={() => router.replace(messageHref(channelId, message.seq, message.thread_root_seq), { scroll: false })} className="font-medium text-primary hover:underline">Jump to message</button>
-          <button type="button" onClick={() => void unpin()} className="text-muted-foreground hover:text-foreground">Unpin</button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => router.replace(messageHref(channelId, message.seq, message.thread_root_seq), { scroll: false })} className="-ml-2.5 pointer-coarse:h-11">Jump to message</Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => void unpin()} className="text-muted-foreground pointer-coarse:h-11">Unpin</Button>
         </div>
       </div>
     </li>
@@ -174,24 +180,17 @@ export function Pins({ channelId }: { channelId: string }) {
       return result.messages;
     },
   });
-  if (pins.isLoading) return <p role="status" className="p-6 text-center text-[13px] text-muted-foreground">Loading pins…</p>;
+  if (pins.isLoading) return <RowsSkeleton label="Loading pins…" />;
   // An error is not "nothing pinned".
-  if (pins.isError) {
-    return (
-      <div role="alert" className="p-6 text-center text-[13px]">
-        <p>Pins didn&apos;t load.</p>
-        <button type="button" onClick={() => void pins.refetch()} className="mt-2 rounded-[5px] border border-border px-3 py-1.5 font-medium hover:bg-muted">Retry</button>
-      </div>
-    );
-  }
-  if (!pins.data?.length) return <p className="p-6 text-center text-[13px] text-muted-foreground">Nothing pinned yet. Pin important messages from their actions menu.</p>;
+  if (pins.isError) return <ErrorNotice what="Pins" onRetry={() => void pins.refetch()} className="m-4" />;
+  if (!pins.data?.length) return <EmptyState compact icon={Pin} title="Nothing pinned yet" description="Pin important messages from their actions menu." className="m-4" />;
   return <ul aria-label="Pins" className="app-scroll app-scroll-y min-h-0 flex-1">{pins.data.map((m) => <PinRow key={m.seq} message={m} channelId={channelId} />)}</ul>;
 }
 
 // The editors (Tiptap) load after the timeline; the placeholders hold their space.
 const Composer = dynamic(() => import("@/components/messages/Composer").then((m) => m.Composer), {
   ssr: false,
-  loading: () => <div className="nb-message-composer border-t border-border bg-card px-3 pt-2 sm:px-4"><div className="h-[86px] rounded-lg border border-input" /></div>,
+  loading: () => <div className="nb-message-composer border-t border-border bg-card px-3 pt-2 sm:px-4"><div className="h-[86px] rounded-md border border-input" /></div>,
 });
 const ChannelCanvas = dynamic(() => import("@/components/messages/ChannelCanvas").then((m) => m.ChannelCanvas), { ssr: false, loading: () => <div className="flex-1" /> });
 const CanvasTemplateModal = dynamic(() => import("@/components/messages/CanvasTemplateModal").then((m) => m.CanvasTemplateModal), { ssr: false });
@@ -255,6 +254,11 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     setTimeline({ around, epoch: loaded || around === null ? timeline.epoch : timeline.epoch + 1 });
   }
   const typing = useTyping(channelId, { rootSeq: null, people, memberCount: channel?.member_count ?? 0, enabled: isMember });
+  // The browser tab says which conversation ("#design | Messages"), on the full page only.
+  useDocumentTitlePrefix(surface === "page" && channel ? (isSelfDm(channel, meId) ? "Notes to self" : channel.name ? `#${channel.name}` : channelTitle(channel, meId)) : null);
+  // Bumped on each send, so the timeline follows your message down even if you were reading older ones.
+  const [sentTick, setSentTick] = useState(0);
+  const onSent = useCallback(() => setSentTick((tick) => tick + 1), []);
   const online = useOnlineUsers(channel?.kind === "dm" && channel.dm_user && channel.dm_user.id !== meId ? [channel.dm_user.id] : []);
   const memberIds = useMemo(() => people.slice(0, 3).map((p) => p.id), [people]);
   const memberOnline = useOnlineUsers(memberIds);
@@ -371,11 +375,11 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     else router.push(conversationHref(channelId, { details: which }));
   }, [channelId, panes, router, surface]);
 
-  // ⌘⇧I toggles Details (⌘I stays Italic in the composer), from anywhere on the page.
+  // ⌘⇧I (Ctrl+Alt+I off a Mac) toggles Details (⌘I stays Italic in the composer), from anywhere on the page.
   useEffect(() => {
     if (surface !== "page") return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "i" || e.key === "I")) {
+      if (isDetailsKey(e)) {
         e.preventDefault();
         if (panes.details) panes.closeDetails();
         else openDetails("about");
@@ -385,7 +389,16 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [openDetails, panes, surface]);
 
-  const names = useMemo(() => new Map(people.map((p) => [p.id, personName(p)])), [people]);
+  // Mentions of people who left (or while previewing) still show a name: anyone the sidebar knows.
+  const names = useMemo(() => {
+    const known = new Map<string, string>();
+    for (const c of shell.data?.channels ?? []) {
+      if (c.dm_user) known.set(c.dm_user.id, personName(c.dm_user));
+      for (const p of c.members_preview ?? []) known.set(p.id, personName(p));
+    }
+    for (const p of people) known.set(p.id, personName(p));
+    return known;
+  }, [people, shell.data?.channels]);
   const channelNames = useMemo(() => new Map((shell.data?.channels ?? []).filter((c) => c.name).map((c) => [c.id, c.name!])), [shell.data?.channels]);
   const nameOf = useCallback((id: string) => names.get(id), [names]);
   const channelNameOf = useCallback((id: string) => channelNames.get(id), [channelNames]);
@@ -449,18 +462,34 @@ export function ConversationView({ channelId, around = null, surface = "page", o
     else if (await exit.leave() && surface === "window") onBack?.();
   };
 
-  if (details.isError) {
+  const backButton = surface === "window" || onBack ? (
+    <button type="button" onClick={onBack ?? (() => router.push("/messages"))} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button>
+  ) : (
+    <span className="contents lg:hidden">
+      <button type="button" onClick={goBack} className="nb-icon-button nb-touch-target" aria-label="Back to conversations"><ArrowLeft size={16} /></button>
+    </span>
+  );
+  // A failed refetch keeps the conversation on screen; only a first load that fails says so.
+  if (details.isError && !channel) {
+    const missing = ["chat_channel_not_found", "chat_not_member", "chat_invalid_input"].includes(details.error.message);
     return (
-      <div className="grid h-full place-items-center p-6 text-center">
-        <div className="space-y-2">
-          <h1 className="text-[17px] font-semibold">Conversation not found</h1>
-          <p className="text-[13px] text-muted-foreground">It may be private, archived, or you may have left it.</p>
-          <Link href="/messages" className="text-[13px] font-medium text-primary">Back to messages</Link>
+      <div className="flex h-full flex-col bg-card">
+        <div className="flex h-14 flex-none items-center gap-2 border-b border-border px-2 sm:px-3">{backButton}<span className="flex-1" />{windowActions}</div>
+        <div className="grid flex-1 place-items-center p-6 text-center">
+          {missing ? (
+            <div className="space-y-2">
+              <h1 className="nb-card-title">Conversation not found</h1>
+              <p className="nb-compact text-muted-foreground">It may be private, archived, or you may have left it.</p>
+              <Button asChild variant="outline" size="sm"><Link href="/messages">Back to messages</Link></Button>
+            </div>
+          ) : (
+            <ErrorNotice what="This conversation" onRetry={() => void details.refetch()} />
+          )}
         </div>
       </div>
     );
   }
-  if (!channel) return <ConversationSkeleton />;
+  if (!channel) return <ConversationSkeleton header={<>{backButton}{surface === "window" ? <span className="ml-auto flex items-center">{windowActions}</span> : null}</>} tabs={surface === "page"} />;
 
   const self = isSelfDm(channel, meId);
   const title = self ? `${personName(channel.dm_user)} (you)` : channelTitle(channel, meId);
@@ -476,23 +505,20 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       {notifyChoices(channel).map((choice) => <DropdownMenuRadioItem key={choice.value} value={choice.value}>{choice.label}</DropdownMenuRadioItem>)}
     </DropdownMenuRadioGroup>
   );
-  const headerButton = "grid size-8 pointer-coarse:size-11 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground";
+  const headerButton = "nb-icon-button nb-touch-target size-8";
+  const detailsShortcut = keyLabel(detailsKeys());
+  // DMs with only Messages skip the tab bar (40px for one tab); bookmarks and files move to ⋯.
+  const showTabBar = isMember && surface === "page" && (tabs.length > 1 || !isDirect);
+  const starLabel = channel.starred ? `Unstar ${isChannel ? "channel" : "conversation"}` : `Star ${isChannel ? "channel" : "conversation"}`;
 
   return (
     <ConversationContext.Provider value={ctx}>
       <section className="flex h-full min-h-0 flex-col bg-card" aria-label={title} data-chat-pane="conversation">
         <header className="group/header flex h-14 flex-none items-center gap-1 border-b border-border px-2 sm:px-3">
-          {surface === "window" || onBack ? (
-            <button type="button" onClick={onBack ?? (() => router.push("/messages"))} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={18} /></button>
-          ) : (
-            <span className="contents lg:hidden">
-              <button type="button" onClick={goBack} className="nb-icon-button nb-touch-target" aria-label="Back to conversations"><ArrowLeft size={18} /></button>
-            </span>
-          )}
+          {backButton}
           {channel.kind === "dm" ? (
-            <button type="button" onClick={() => openDetails("about")} className="relative inline-flex flex-none rounded-[5px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" aria-label={`About ${title}`}>
-              <UserAvatar identity={channel.dm_user} size={32} roundedClassName="rounded-[5px]" />
-              {channel.dm_user ? <PersonPresenceBadge userId={channel.dm_user.id} live={channel.dm_user.id === meId || dmOnline} size={14} className="absolute" style={{ right: -3, bottom: -3 }} /> : null}
+            <button type="button" onClick={() => openDetails("about")} className="inline-flex flex-none rounded-md" aria-label={`About ${title}`}>
+              <PresenceAvatar identity={channel.dm_user} userId={channel.dm_user?.id} live={channel.dm_user?.id === meId || dmOnline} size={34} title="" />
             </button>
           ) : null}
           <div className="min-w-0 flex-1 pl-1">
@@ -500,21 +526,21 @@ export function ConversationView({ channelId, around = null, surface = "page", o
               <button
                 type="button"
                 onClick={() => openDetails("about")}
-                className="group/title inline-flex min-w-0 items-center gap-1 rounded-xs text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                title="Conversation details (⌘⇧I)"
+                className="group/title inline-flex min-w-0 items-center gap-1 rounded-sm text-left"
+                title={`Conversation details (${detailsShortcut})`}
               >
-                {channel.kind !== "dm" ? <ConversationIcon channel={channel} size={18} strokeWidth={2.25} aria-hidden="true" className="shrink-0" /> : null}
-                <h1 className="truncate text-[17px] font-bold leading-tight text-foreground group-hover/title:underline">{title}</h1>
+                {channel.kind !== "dm" ? <ConversationIcon channel={channel} size={16} aria-hidden="true" className="shrink-0" /> : null}
+                <h1 className="nb-card-title truncate text-foreground group-hover/title:underline">{title}</h1>
               </button>
               {isMember ? (
                 <button
                   type="button"
                   onClick={() => void setState({ starred: !channel.starred })}
-                  className={`grid size-6 shrink-0 place-items-center rounded-[4px] hover:bg-muted pointer-coarse:size-11 ${channel.starred ? "" : "opacity-0 focus-visible:opacity-100 group-hover/header:opacity-100 pointer-coarse:opacity-100"}`}
-                  aria-label={channel.starred ? `Unstar ${isChannel ? "channel" : "conversation"}` : `Star ${isChannel ? "channel" : "conversation"}`}
+                  className={`nb-icon-button nb-touch-target hidden shrink-0 sm:inline-flex ${channel.starred ? "" : "opacity-0 focus-visible:opacity-100 group-hover/header:opacity-100 pointer-coarse:opacity-100"}`}
+                  aria-label={starLabel}
                   aria-pressed={channel.starred}
                 >
-                  <Star size={14} className={channel.starred ? "text-[var(--status-warning)]" : "text-muted-foreground"} fill={channel.starred ? "currentColor" : "none"} />
+                  <Star size={16} className={channel.starred ? "text-primary" : "text-muted-foreground"} fill={channel.starred ? "currentColor" : "none"} />
                 </button>
               ) : null}
               {channel.kind === "dm" && channel.dm_user ? (
@@ -526,7 +552,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             {channel.topic ? (
               <button type="button" onClick={() => openDetails("about")} className="block max-w-full truncate text-left text-[12px] text-muted-foreground hover:text-foreground">{channel.topic}</button>
             ) : isMember && isChannel && channel.can_admin && !archived ? (
-              <button type="button" onClick={() => openDetails("about")} className="block text-left text-[12px] text-muted-foreground/80 hover:text-foreground">Add a topic</button>
+              <button type="button" onClick={() => openDetails("about")} className="block text-left text-[12px] text-muted-foreground hover:text-foreground">Add a topic</button>
             ) : null}
           </div>
           {surface === "window" ? (
@@ -542,14 +568,14 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                       {notifyMenu}
                       <DropdownMenuSeparator />
                       {channel.kind === "dm" ? (
-                        <DropdownMenuItem onSelect={() => void closeConversation()}><X size={14} className="mr-2" /> Close conversation</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => void closeConversation()}><X /> Close conversation</DropdownMenuItem>
                       ) : !channel.is_default && !channel.application_id ? (
-                        <DropdownMenuItem onSelect={() => setConfirm("leave")}><LogOut size={14} className="mr-2" /> Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
+                        <DropdownMenuItem variant="destructive" onSelect={() => setConfirm("leave")}><LogOut /> Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
                       ) : null}
                     </>
                   ) : null}
                   <DropdownMenuItem onSelect={() => { useChatWindow.getState().close(); router.push(conversationHref(channelId)); }}>
-                    <ExternalLink size={14} className="mr-2" /> Open in Messages
+                    <ExternalLink /> Open in Messages
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -559,7 +585,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             <>
               {isMember ? (
                 <DropdownMenu>
-                  <DropdownMenuTrigger className={headerButton} aria-label={`Notifications: ${notifyText}`} title={`Notifications: ${notifyText}`}>
+                  <DropdownMenuTrigger className={`${headerButton} hidden sm:inline-flex`} aria-label={`Notifications: ${notifyText}`} title={`Notifications: ${notifyText}`}>
                     <NotifyIcon size={16} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
@@ -569,7 +595,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 </DropdownMenu>
               ) : null}
               {isMember ? (
-                <Link href={`/messages/search?in=${channelId}`} className={headerButton} aria-label={`Search in ${displayName}`} title={`Search in ${displayName}`}>
+                <Link href={`/messages/search?in=${channelId}`} className={`${headerButton} hidden sm:inline-flex`} aria-label={`Search in ${displayName}`} title={`Search in ${displayName}`}>
                   <Search size={16} />
                 </Link>
               ) : null}
@@ -577,25 +603,25 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 <button
                   type="button"
                   onClick={() => openDetails("members")}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-[5px] px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:h-11"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:h-11"
                   aria-label={`${channel.member_count} members`}
                   title="Members"
                 >
                   <span className="hidden items-center -space-x-1.5 sm:inline-flex">
                     {people.slice(0, 3).map((p) => (
-                      <span key={p.id} className="relative inline-block rounded-[4px] ring-2 ring-card">
-                        <UserAvatar title="" identity={p} size={22} roundedClassName="rounded-[4px]" />
+                      <span key={p.id} className="relative inline-block rounded-sm ring-2 ring-card">
+                        <UserAvatar title="" identity={p} size={20} />
                         <PersonPresenceBadge userId={p.id} live={memberOnline[p.id]} size={8} className="absolute" style={{ right: -2, bottom: -2, ["--presence-cut" as string]: "var(--card)" }} />
                       </span>
                     ))}
                   </span>
                   {/* Below sm the avatars are hidden: the icon says what the number counts. */}
-                  <Users size={14} aria-hidden="true" className={people.length ? "sm:hidden" : ""} />
-                  <span className="font-mono text-[12px] font-medium text-foreground">{channel.member_count}</span>
+                  <Users size={16} aria-hidden="true" className={people.length ? "sm:hidden" : ""} />
+                  <span className="nb-meta text-foreground">{channel.member_count}</span>
                 </button>
               ) : null}
               {!isMember && channel.kind === "public" && !archived ? (
-                <button type="button" onClick={() => void join()} className="ml-1 inline-flex h-8 items-center rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground">Join</button>
+                <Button type="button" size="sm" onClick={() => void join()} className="ml-1 pointer-coarse:h-11">Join</Button>
               ) : null}
               {isMember || canPreview ? (
                 <DropdownMenu>
@@ -603,25 +629,42 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                     <MoreHorizontal size={16} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-60">
-                    {isMember ? <DropdownMenuItem onSelect={() => openDetails("about")}><PanelRight size={14} className="mr-2" /> Conversation details <kbd className="ml-auto font-mono text-[11px] text-muted-foreground">⌘⇧I</kbd></DropdownMenuItem> : null}
-                    {canAddPeople(channel) ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus size={14} className="mr-2" /> Add people</DropdownMenuItem> : null}
+                    {isMember ? <DropdownMenuItem onSelect={() => openDetails("about")}><PanelRight /> Conversation details <kbd className="nb-meta ml-auto">{detailsShortcut}</kbd></DropdownMenuItem> : null}
+                    {canAddPeople(channel) ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus /> Add people</DropdownMenuItem> : null}
+                    {/* On phones the header keeps only the essentials; star, search and notifications live here. */}
+                    {isMember ? (
+                      <>
+                        <DropdownMenuItem className="sm:hidden" onSelect={() => void setState({ starred: !channel.starred })}><Star /> {starLabel}</DropdownMenuItem>
+                        <DropdownMenuItem className="sm:hidden" onSelect={() => router.push(`/messages/search?in=${channelId}`)}><Search /> Search in {displayName}</DropdownMenuItem>
+                        <DropdownMenuSeparator className="sm:hidden" />
+                        <DropdownMenuLabel className="sm:hidden">Notifications</DropdownMenuLabel>
+                        <div className="sm:hidden">{notifyMenu}</div>
+                      </>
+                    ) : null}
+                    {/* A DM without its tab bar: bookmarks and files start here. */}
+                    {isMember && !showTabBar ? (
+                      <>
+                        <DropdownMenuItem onSelect={() => setDialog("bookmark")}><Bookmark /> Add a bookmark</DropdownMenuItem>
+                        {!(sharedTabs.data ?? []).some((t) => t.kind === "files") ? <DropdownMenuItem onSelect={() => void addTab("files", "Files")}><FileText /> Show files</DropdownMenuItem> : null}
+                      </>
+                    ) : null}
                     {isMember ? <DropdownMenuSeparator /> : null}
                     <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${conversationHref(channelId)}`, "Link copied"); }}>
-                      <Link2 size={14} className="mr-2" /> Copy link
+                      <Link2 /> Copy link
                     </DropdownMenuItem>
-                    {isMember && hasUnread ? <DropdownMenuItem onSelect={() => void markAllRead(true)}><Check size={14} className="mr-2" /> Mark as read</DropdownMenuItem> : null}
+                    {isMember && hasUnread ? <DropdownMenuItem onSelect={() => void markAllRead(true)}><CheckCheck /> Mark as read</DropdownMenuItem> : null}
                     {isMember && (channel.kind === "dm" || (!channel.is_default && !channel.application_id) || (channel.can_admin && isChannel && !channel.is_default)) ? <DropdownMenuSeparator /> : null}
                     {!isMember ? null : channel.kind === "dm" ? (
-                      <DropdownMenuItem onSelect={() => void closeConversation()}><X size={14} className="mr-2" /> Close conversation</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => void closeConversation()}><X /> Close conversation</DropdownMenuItem>
                     ) : !channel.is_default && !channel.application_id && !archived ? (
-                      <DropdownMenuItem onSelect={() => setConfirm("leave")}><LogOut size={14} className="mr-2" /> Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
+                      <DropdownMenuItem variant="destructive" onSelect={() => setConfirm("leave")}><LogOut /> Leave {isChannel ? "channel" : "conversation"}</DropdownMenuItem>
                     ) : null}
                     {isMember && channel.can_admin && isChannel && !channel.is_default ? (
                       archived ? (
-                        <DropdownMenuItem onSelect={unarchive}><ArchiveRestore size={14} className="mr-2" /> Unarchive channel</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={unarchive}><ArchiveRestore /> Unarchive channel</DropdownMenuItem>
                       ) : (
-                        <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setConfirm("archive")}>
-                          <Archive size={14} className="mr-2" /> Archive channel
+                        <DropdownMenuItem variant="destructive" onSelect={() => setConfirm("archive")}>
+                          <Archive /> Archive channel
                         </DropdownMenuItem>
                       )
                     ) : null}
@@ -632,7 +675,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
           )}
         </header>
 
-        {isMember && surface === "page" ? (
+        {showTabBar ? (
           <ChannelTabBar
             activeTab={activeTab.id}
             tabs={tabs}
@@ -652,7 +695,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
         {/* The tab bar's panel (labelled by the selected tab); without a tab bar it's a plain column. */}
         <div
           className="flex min-h-0 flex-1 flex-col"
-          {...(isMember && surface === "page" ? { id: "conversation-tabpanel", role: "tabpanel", "aria-labelledby": `conversation-tab-${activeTab.id}` } : {})}
+          {...(showTabBar ? { id: "conversation-tabpanel", role: "tabpanel", "aria-labelledby": `conversation-tab-${activeTab.id}` } : {})}
         >
         {!isMember && !canPreview ? (
           <div className="grid flex-1 place-items-center p-6 text-center">
@@ -700,22 +743,29 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 onMarkRead={isMember ? () => void markAllRead() : undefined}
                 typing={typing.names.length > 0}
                 revealSeq={editingSeq}
+                behindLatest={!around && (conversation.messages.findLast((m) => m.seq > 0)?.seq ?? 0) < channel.last_top_seq}
+                onReloadLatest={() => {
+                  // Leaving a jump: drop ?m= (the timeline then starts over at the newest page).
+                  if (around && surface === "page" && pathname) {
+                    const params = new URLSearchParams(window.location.search);
+                    params.delete("m");
+                    const query = params.toString();
+                    router.replace(`${pathname}${query ? `?${query}` : ""}`, { scroll: false });
+                  } else conversation.reloadLatest();
+                }}
+                sentTick={sentTick}
               />
             )}
-            {conversation.query.isError ? (
-              <p role="alert" className="border-t border-border bg-[var(--status-danger-soft)] px-4 py-2 text-[13px] text-[var(--status-danger)]">
-                Messages couldn&apos;t load. <button type="button" className="font-medium underline" onClick={() => void conversation.query.refetch()}>Retry</button>
-              </p>
-            ) : null}
+            {conversation.query.isError ? <ErrorNotice what="Messages" onRetry={() => void conversation.query.refetch()} className="mx-3 mb-2" /> : null}
             {!isMember ? (
-              <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border bg-muted/40 px-4 py-3 text-[13px]">
+              <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border bg-muted px-4 py-3 text-[13px]">
                 <span className="text-muted-foreground">You&apos;re previewing <strong className="font-semibold text-foreground">{displayName}</strong>.</span>
-                <button type="button" onClick={() => void join()} className="inline-flex h-8 items-center rounded-[5px] bg-primary px-3 font-medium text-primary-foreground">Join channel</button>
+                <Button type="button" size="sm" onClick={() => void join()} className="pointer-coarse:h-11">Join channel</Button>
               </div>
             ) : archived ? (
               <div className="flex flex-wrap items-center justify-center gap-3 border-t border-border px-4 py-3 text-[13px] text-muted-foreground">
                 <span>This channel is archived. You can read it, but not post.</span>
-                {channel.can_admin ? <button type="button" onClick={() => void unarchive()} className="inline-flex h-8 items-center rounded-[5px] border border-border px-3 font-medium text-foreground hover:bg-muted">Unarchive</button> : null}
+                {channel.can_admin ? <Button type="button" variant="outline" size="sm" onClick={() => void unarchive()} className="pointer-coarse:h-11">Unarchive</Button> : null}
               </div>
             ) : (
               <Composer
@@ -728,6 +778,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 onTyping={typing.notify}
                 typingNames={typing.names}
                 onEditLast={editLast}
+                onSent={onSent}
+                autoFocus
               />
             )}
           </div>
@@ -775,15 +827,13 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             : channel.kind === "public" ? "You can rejoin a public channel at any time." : "You'll need to be added again to come back."}
         confirmLabel={confirm === "replace" ? "Replace" : confirm === "canvas" ? "Delete canvas" : confirm === "archive" ? "Archive" : "Leave"}
         variant="destructive"
-        onConfirm={() => {
+        onConfirm={async () => {
           if (confirm === "replace") {
-            setConfirm(null);
             if (pendingSeed) openCanvas(pendingSeed);
             setPendingSeed(null);
           } else if (confirm === "canvas") {
-            setConfirm(null);
-            void removeCanvas();
-          } else void leaveOrArchive();
+            await removeCanvas();
+          } else await leaveOrArchive();
         }}
       />
     </ConversationContext.Provider>

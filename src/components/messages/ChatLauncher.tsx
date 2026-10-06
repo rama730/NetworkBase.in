@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { MessageCircle } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 
 import { CHAT_WINDOW_QUERY, chatWindowHiddenOn, useChatWindow } from "@/components/messages/chat-window-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
@@ -49,8 +49,9 @@ export default function ChatLauncher() {
         data-testid="chat-launcher"
         className="fixed bottom-6 right-6 z-20 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-md"
       >
-        <MessageCircle size={22} aria-hidden="true" />
-        {badge ? <span className="nb-chat-count absolute -right-1 -top-1 m-0" aria-hidden="true">{badge > 99 ? "99+" : badge}</span> : null}
+        <MessageSquare size={24} aria-hidden="true" />
+        {/* The nav's neutral count, readable on the clay button (never clay on clay). */}
+        {badge ? <span className="nb-chat-count absolute -right-1 -top-1 m-0 border border-card text-secondary-foreground" aria-hidden="true">{badge > 99 ? "99+" : badge}</span> : null}
       </button>
       {open ? <ChatWindow onMinimize={() => { setOpen(false); button.current?.focus(); }} onClose={() => { close(); button.current?.focus(); }} /> : null}
     </>

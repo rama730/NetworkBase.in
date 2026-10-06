@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -20,8 +20,10 @@ import { ReportMessageDialog } from "@/components/messages/parts/ReportMessageDi
 import { useUpdatePages } from "@/components/messages/useConversation";
 import { noteReaction, useQuickReactions } from "@/components/messages/useQuickReactions";
 import { discardSend, editFailedSend, failedSend, retrySend } from "@/components/messages/failed-sends";
+import { keyLabel } from "@/components/messages/keys";
 import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -34,6 +36,7 @@ import { chatErrorMessage } from "@/lib/messaging/errors";
 import { applyReaction, patchPages, upsertMessage } from "@/lib/messaging/timeline";
 import { laterTimes } from "@/lib/messaging/reminders";
 import { encodeMentions, parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
+import { pollOptions } from "@/lib/messaging/poll";
 import type { ChatAttachmentView, ChatMessageView } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
@@ -57,8 +60,11 @@ const EditBox = dynamic(() => import("@/components/messages/MessageEditBox").the
 function LinkPreview({ body }: { body: string }) {
   const url = firstLink(body);
   const preview = useLinkPreview(url);
-  if (!url || !preview.data) return null;
-  return <LinkPreviewCard preview={preview.data} isOwn={false} />;
+  if (!url) return null;
+  // While it loads, a placeholder holds the card's space so the message doesn't jump.
+  if (preview.isLoading) return <LinkPreviewCard preview={{ url, domain: new URL(url).hostname.replace(/^www\./, ""), title: null, description: null, image: null }} loading />;
+  if (!preview.data) return null;
+  return <LinkPreviewCard preview={preview.data} />;
 }
 
 type Action = { id: string; label: string; icon: LucideIcon; run: () => void; shortcut?: string; destructive?: boolean; group: 1 | 2 | 3 };
@@ -113,13 +119,13 @@ function ReactionChip({ emoji, count, me, seq, onToggle }: { emoji: string; coun
           aria-disabled={ctx.isMember === false || undefined}
           aria-pressed={me}
           aria-label={`${emoji} ${count}${me ? ", you reacted" : ""}`}
-          className={`inline-flex h-6 items-center gap-1 rounded-[5px] border px-1.5 text-[13px] pointer-coarse:h-9 ${me ? "border-primary bg-accent" : "border-border bg-card"}`}
+          className={`inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[13px] pointer-coarse:h-9 ${me ? "border-primary bg-accent" : "border-border bg-card"}`}
         >
-          <span>{emoji}</span><span className="font-mono text-[11px]">{count}</span>
+          <span>{emoji}</span><span className="nb-meta text-foreground">{count}</span>
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[240px] text-center">
-        {who ? `${who} reacted with ${emoji}` : "Loading…"}
+        {who ? `${who} reacted with ${emoji}` : count ? "Loading…" : "No votes yet"}
       </TooltipContent>
     </Tooltip>
   );
@@ -139,9 +145,9 @@ function SystemRow({ message, others }: { message: ChatMessageView; others?: Cha
   return (
     <div className="my-1 flex items-center gap-2.5 px-4 py-1 text-[13px] text-muted-foreground" data-seq={message.seq} title={people.length > 2 ? people.join(", ") : undefined}>
       {/* The icon sits in the avatar column, so the text lines up with message text. */}
-      <span className="flex w-[34px] flex-none justify-center" aria-hidden="true"><span className="inline-flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground"><Icon size={11} /></span></span>
+      <span className="flex w-[34px] flex-none justify-center" aria-hidden="true"><span className="inline-flex size-5 items-center justify-center rounded-sm bg-muted text-muted-foreground"><Icon size={14} /></span></span>
       <span className="min-w-0 flex-1 truncate"><span className="font-medium text-foreground">{who}</span> {body}</span>
-      <span className="font-mono text-[12px]">{formatChatTime((others?.at(-1) ?? message).created_at, "clock")}</span>
+      <span className="nb-meta">{formatChatTime((others?.at(-1) ?? message).created_at, "clock")}</span>
     </div>
   );
 }
@@ -183,7 +189,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     const { userIds, broadcast } = parseMentions(message.body);
     return Boolean(broadcast) || (ctx.meId ? userIds.includes(ctx.meId) : false);
   })();
-  const plain = () => tokensToPlainText(message.body, ctx.nameOf);
+  const plain = () => tokensToPlainText(message.body, ctx.nameOf, ctx.channelNameOf);
   const hasContent = Boolean(message.body || message.attachments.length);
   const failed = message.failed ? failedSend(message.client_message_id) : null;
 
@@ -207,15 +213,25 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     void copyWithToast(plain() || message.attachments.map((a) => a.name || "file").join(", "), "Text copied");
   };
   const startEdit = () => ctx.setEditingSeq(message.seq);
-  const saveEdit = async (markdown: string) => {
-    const body = encodeMentions(markdown.trim(), ctx.people.map((p) => ({ id: p.id, name: p.full_name || p.username || "" })));
+  // Saving or cancelling an edit puts focus back in this pane's message box, never on <body>.
+  const backToComposer = () => requestAnimationFrame(() => {
+    rowRef.current?.closest("[data-chat-pane]")?.querySelector<HTMLElement>(".nb-message-composer [contenteditable]")?.focus();
+  });
+  const cancelEdit = () => {
     ctx.setEditingSeq(null);
-    // Emptied a text-only message: that's a delete, so ask (with the usual Undo) instead of silently ignoring it.
+    backToComposer();
+  };
+  const saveEdit = async (markdown: string) => {
+    const body = encodeMentions(markdown.trim(), ctx.people.map((p) => ({ id: p.id, name: p.full_name || p.username || "" })), { broadcast: false });
+    ctx.setEditingSeq(null);
+    backToComposer();
+    // Emptied a text-only message: that's a delete, so ask (the same dialog as Delete) instead of ignoring it.
+    // With files, empty text just removes the caption.
     if (!body && !message.attachments.length) {
-      toast("Delete this message?", { action: { label: "Delete", onClick: removeWithUndo } });
+      setConfirmDelete(true);
       return;
     }
-    if (!body || body === message.body) return;
+    if (body === message.body) return;
     const previous = { body: message.body, edited_at: message.edited_at };
     update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, body, edited_at: new Date().toISOString() })));
     const result = await editMessage({ channelId: ctx.channelId, seq: message.seq, body });
@@ -224,10 +240,10 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       toast.error(chatErrorMessage(result.error));
     }
   };
+  // From the confirm dialog: a failure throws, so the dialog stays open and says why.
   const remove = async () => {
-    setConfirmDelete(false);
     const result = await deleteMessage({ channelId: ctx.channelId, seq: message.seq });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    if (!result.success) throw new Error(chatErrorMessage(result.error));
     update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, body: "", attachments: [], deleted_at: new Date().toISOString() })));
   };
   // Your own message disappears at once with an Undo; it's deleted for real after 5 s.
@@ -266,15 +282,15 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, pinned: nextPinned })));
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.pins(ctx.channelId) });
-    if (nextPinned && ctx.openPinsTab) toast("Pinned to the conversation", { action: { label: "View pins", onClick: () => ctx.openPinsTab?.() } });
-    else toast(nextPinned ? "Pinned to the conversation" : "Unpinned");
+    if (nextPinned && ctx.openPinsTab) toast.success("Pinned to the conversation", { action: { label: "View pins", onClick: () => ctx.openPinsTab?.() } });
+    else toast.success(nextPinned ? "Pinned to the conversation" : "Unpinned");
   };
   const unread = async () => {
     const result = await markUnread({ channelId: ctx.channelId, seq: message.seq });
     if (!result.success) return void toast.error(chatErrorMessage(result.error));
     // Only the sidebar data refreshes; rows don't subscribe to the shell (REND-02).
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.bootstrap(ctx.meId) });
-    toast("Marked unread from here");
+    toast.success("Marked unread from here");
   };
   const createTask = async () => {
     const title = plain().replace(/\s+/g, " ").trim().slice(0, 200) || "Task from chat";
@@ -296,7 +312,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     if (ctx.projectId && message.kind === "user" && !message.card && message.body) list.push({ id: "task", label: "Create task", icon: SquareCheck, run: () => void createTask(), group: 2 });
     list.push({ id: "pin", label: message.pinned ? "Unpin" : "Pin to conversation", icon: Pin, run: () => void togglePin(), group: 2 });
     if (own && !message.card) list.push({ id: "edit", label: "Edit message", icon: Pencil, run: startEdit, shortcut: "E", group: 3 });
-    if (canDelete) list.push({ id: "delete", label: "Delete message", icon: Trash2, run: () => (own && !message.reply_count ? removeWithUndo() : setConfirmDelete(true)), shortcut: "⌫", destructive: true, group: 3 });
+    if (canDelete) list.push({ id: "delete", label: "Delete message", icon: Trash2, run: () => (own && !message.reply_count ? removeWithUndo() : setConfirmDelete(true)), shortcut: keyLabel("backspace"), destructive: true, group: 3 });
     // Task, application and invite cards are the app's own messages: nothing to report.
     if (!own && !message.card) list.push({ id: "report", label: "Report message", icon: Flag, run: () => setReportOpen(true), group: 3 });
   }
@@ -318,6 +334,24 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
     action.run();
   };
 
+  // @mention chips open the person's card (the people list has their avatar and username).
+  // Stable, so the message's markdown isn't parsed again on every hover or menu change.
+  const { people, nameOf } = ctx;
+  const wrapMention = useCallback((userId: string, chip: React.ReactNode) => {
+    const person = people.find((p) => p.id === userId) ?? { id: userId, username: null, full_name: nameOf(userId) ?? null, avatar_url: null };
+    return <PersonHoverCard person={person}>{chip}</PersonHoverCard>;
+  }, [nameOf, people]);
+  // Who reacted, for the touch sheet (no hover tooltips on a phone).
+  const reactors = useQuery({
+    queryKey: queryKeys.chat.reactors(ctx.channelId, message.seq),
+    enabled: sheet === "actions" && message.reactions.length > 0,
+    queryFn: async () => {
+      const result = await listReactors({ channelId: ctx.channelId, seq: message.seq });
+      return result.success ? result.reactors : {};
+    },
+    staleTime: 15_000,
+  });
+
   if (message.kind === "system") return <SystemRow message={message} others={others} />;
 
   const isToolbarOpen = moreOpen || closing || Boolean(pickerAnchor);
@@ -329,11 +363,11 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   };
   const groups = [1, 2, 3].map((group) => list.filter((a) => a.group === group)).filter((g) => g.length);
   const remind = (at: () => Date) => ctx.setSaved?.(message.seq, true, at().toISOString());
-  // @mention chips open the person's card (the people list has their avatar and username).
-  const wrapMention = (userId: string, chip: React.ReactNode) => {
-    const person = ctx.people.find((p) => p.id === userId) ?? { id: userId, username: null, full_name: ctx.nameOf(userId) ?? null, avatar_url: null };
-    return <PersonHoverCard person={person}>{chip}</PersonHoverCard>;
-  };
+  // A poll shows a chip for every option from the start (0 votes too); other reactions follow.
+  const options = pollOptions(message.body);
+  const chips = options.length
+    ? [...options.map((emoji) => message.reactions.find((r) => r.emoji === emoji) ?? { emoji, count: 0, me: false }), ...message.reactions.filter((r) => !options.includes(r.emoji))]
+    : message.reactions;
   const fullTime = new Date(message.created_at).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
   const rowId = `msg-${ctx.channelId}-${ctx.inThread ? "t" : "c"}-${message.seq}`;
   const placeBar = () => {
@@ -356,8 +390,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       onKeyDown={onRowKeyDown}
       onMouseEnter={placeBar}
       onFocus={placeBar}
-      // Mention: an inset bar (no 2px shift); a jump target: the accent tint, so the two never look alike.
-      className={`group/msg relative px-4 ${grouped ? "pt-0.5" : "pt-3"} pb-0.5 outline-none hover:bg-muted/50 focus-within:bg-muted/50 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring [-webkit-touch-callout:none] ${highlighted ? "bg-accent" : mentioned ? "bg-[var(--status-warning-soft)]/40 shadow-[inset_2px_0_0_var(--status-warning)]" : ""} ${pending && !message.failed ? "opacity-60" : ""}`}
+      // Mention: a neutral well (status colours mean status, and the spec has no side bar);
+      // a jump target: the accent tint, so the two never look alike.
+      className={`group/msg relative px-4 ${grouped ? "pt-0.5" : "pt-3"} pb-0.5 outline-none hover:bg-muted focus-within:bg-muted [-webkit-touch-callout:none] ${highlighted ? "bg-accent" : mentioned ? "bg-muted" : ""}`}
       onContextMenu={(e) => {
         // Touch: long-press opens our sheet, not the browser's callout.
         if (actions && window.matchMedia("(pointer: coarse)").matches) e.preventDefault();
@@ -371,20 +406,20 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       onTouchEnd={() => pressTimer.current && clearTimeout(pressTimer.current)}
       onTouchMove={() => pressTimer.current && clearTimeout(pressTimer.current)}
     >
-      <span id={`${rowId}-who`} className="sr-only">{authorName}, {fullTime}</span>
+      <span id={`${rowId}-who`} className="sr-only">{authorName}, {fullTime}{pending && !message.failed ? ", sending" : ""}</span>
       {message.pinned || saved ? (
         <p className="flex items-center gap-3 pb-0.5 pl-11 text-[12px] text-muted-foreground">
-          {message.pinned ? <span className="inline-flex items-center gap-1"><Pin size={11} aria-hidden="true" /> Pinned</span> : null}
-          {saved ? <span className="inline-flex items-center gap-1 text-[var(--chat-accent)]"><Bookmark size={11} aria-hidden="true" fill="currentColor" /> Saved</span> : null}
+          {message.pinned ? <span className="inline-flex items-center gap-1"><Pin size={14} aria-hidden="true" /> Pinned</span> : null}
+          {saved ? <span className="inline-flex items-center gap-1 text-primary"><Bookmark size={14} aria-hidden="true" fill="currentColor" /> Saved</span> : null}
         </p>
       ) : null}
       <div className="flex gap-2.5">
         <div className="w-[34px] flex-none">
           {grouped ? (
-            <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="hidden pt-1 font-mono text-[11px] text-muted-foreground hover:underline group-hover/msg:block">{formatChatTime(message.created_at, "clock")}</button>
+            <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="nb-meta hidden pt-1 hover:underline group-hover/msg:block group-focus-within/msg:block">{formatChatTime(message.created_at, "clock")}</button>
           ) : (
             <PersonHoverCard person={message.author}>
-              <UserAvatar identity={message.author} size={34} roundedClassName="rounded-[5px]" />
+              <UserAvatar identity={message.author} size={34} />
             </PersonHoverCard>
           )}
         </div>
@@ -394,7 +429,8 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
               <PersonHoverCard person={message.author}>
                 <span className="text-[13px] font-medium hover:underline">{authorName}</span>
               </PersonHoverCard>
-              <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="font-mono text-[12px] text-muted-foreground hover:underline">{formatChatTime(message.created_at, "clock")}</button>
+              <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="nb-meta hover:underline">{formatChatTime(message.created_at, "clock")}</button>
+              {pending && !message.failed ? <span className="nb-meta" aria-hidden="true">Sending…</span> : null}
             </div>
           )}
           {deleted ? (
@@ -404,7 +440,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
               body={message.body}
               labelOf={(raw) => (raw.startsWith("<#") ? `#${ctx.channelNameOf(raw.slice(2, -1)) ?? "channel"}` : `@${ctx.nameOf(raw.slice(2, -1)) ?? "someone"}`)}
               onSave={(markdown) => void saveEdit(markdown)}
-              onCancel={() => ctx.setEditingSeq(null)}
+              onCancel={cancelEdit}
               people={ctx.people}
             />
           ) : (
@@ -420,37 +456,39 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                 />
               ) : message.edited_at ? <span className="text-[12px] text-muted-foreground">(edited)</span> : null}
               {message.attachments.length ? (
-                <div className="mt-1 max-w-[520px]"><MessageAttachmentsV2 attachments={message.attachments.map(toViewerAttachment)} /></div>
+                <div className="mt-1 max-w-[480px]"><MessageAttachmentsV2 attachments={message.attachments.map(toViewerAttachment)} /></div>
               ) : null}
               {message.card ? <MessageCard card={message.card} /> : null}
               {message.body ? <LinkPreview body={message.body} /> : null}
             </>
           )}
           {/* A deleted message keeps no reactions (like Slack). */}
-          {message.reactions.length && !deleted ? (
+          {chips.length && !deleted ? (
             <TooltipProvider delayDuration={250}>
               <div className="mt-1 flex flex-wrap gap-1">
-                {message.reactions.map((r) => (
+                {chips.map((r) => (
                   <ReactionChip key={r.emoji} emoji={r.emoji} count={r.count} me={r.me} seq={message.seq} onToggle={() => void toggleReaction(r.emoji)} />
                 ))}
                 {actions ? (
-                  <button type="button" data-reaction-trigger onClick={(e) => setPickerAnchor(pickerAnchor ? null : e.currentTarget)} aria-label="Add reaction" title="Add reaction" className="inline-flex h-6 items-center rounded-[5px] border border-border bg-card px-1.5 text-muted-foreground hover:text-foreground pointer-coarse:h-9">
-                    <SmilePlus size={13} />
+                  <button type="button" data-reaction-trigger onClick={(e) => setPickerAnchor(pickerAnchor ? null : e.currentTarget)} aria-label="Add reaction" title="Add reaction" className="inline-flex h-6 items-center rounded-md border border-border bg-card px-1.5 text-muted-foreground hover:text-foreground pointer-coarse:h-9">
+                    <SmilePlus size={14} />
                   </button>
                 ) : null}
               </div>
             </TooltipProvider>
           ) : null}
+          {pending && !message.failed && grouped ? <p className="nb-meta" aria-hidden="true">Sending…</p> : null}
           {message.failed ? (
             <p role="alert" className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[var(--status-danger)]">
               <span>Not sent{failed?.assetIds.length ? ` · ${failed.assetIds.length} file${failed.assetIds.length === 1 ? "" : "s"}` : ""}</span>
-              {failed ? <button type="button" onClick={() => message.client_message_id && void retrySend(queryClient, message.client_message_id)} className="font-medium underline">Retry</button> : null}
-              {failed && message.body ? <button type="button" onClick={() => message.client_message_id && editFailedSend(queryClient, message.client_message_id, ctx.channelId, message.thread_root_seq, failed.body)} className="font-medium underline">Edit</button> : null}
-              <button type="button" onClick={() => message.client_message_id && discardSend(queryClient, message.client_message_id, ctx.channelId, message.thread_root_seq)} className="font-medium underline">Delete</button>
+              {failed ? <button type="button" onClick={() => message.client_message_id && void retrySend(queryClient, message.client_message_id)} className="font-medium underline pointer-coarse:min-h-11">Retry</button> : null}
+              {/* Edit puts the text back in the box; files can't go with it, so a send with files only retries. */}
+              {failed && message.body && !failed.assetIds.length ? <button type="button" onClick={() => message.client_message_id && editFailedSend(queryClient, message.client_message_id, ctx.channelId, message.thread_root_seq, failed.body)} className="font-medium underline pointer-coarse:min-h-11">Edit</button> : null}
+              <button type="button" onClick={() => message.client_message_id && discardSend(queryClient, message.client_message_id, ctx.channelId, message.thread_root_seq)} className="font-medium underline pointer-coarse:min-h-11">Delete</button>
             </p>
           ) : null}
           {!ctx.inThread && message.reply_count > 0 ? (
-            <button type="button" onClick={() => ctx.openThread(message.seq)} className="mt-1 inline-flex min-h-7 items-center gap-2 rounded-[5px] px-1 text-[13px] font-medium text-primary hover:bg-card hover:underline">
+            <button type="button" onClick={() => ctx.openThread(message.seq)} className="mt-1 inline-flex min-h-7 items-center gap-2 rounded-md px-1 text-[13px] font-medium text-primary hover:bg-card hover:underline pointer-coarse:min-h-11">
               {message.reply_count} {message.reply_count === 1 ? "reply" : "replies"}
               {message.last_reply_at ? <span className="font-normal text-muted-foreground">last reply {formatChatTime(message.last_reply_at, "ago")}</span> : null}
             </button>
@@ -460,28 +498,28 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
 
       {actions ? (
         <div
-          className={`absolute ${barInside ? "top-1" : "-top-3"} right-4 z-20 ${isToolbarOpen ? "flex" : "hidden group-hover/msg:flex group-focus-within/msg:flex"} items-center rounded-[5px] border border-border bg-card/95 shadow-sm backdrop-blur-sm pointer-coarse:!hidden`}
+          className={`absolute ${barInside ? "top-1" : "-top-3"} right-4 z-20 ${isToolbarOpen ? "flex" : "hidden group-hover/msg:flex group-focus-within/msg:flex"} items-center rounded-md border border-border bg-card shadow-md pointer-coarse:!hidden`}
           role="toolbar"
           aria-label="Message actions"
         >
           {quick.slice(0, HOVER_QUICK_COUNT).map((emoji) => (
-            <button key={emoji} type="button" className="grid size-8 place-items-center rounded-[5px] hover:bg-muted" aria-label={`React ${emoji}`} onClick={() => void toggleReaction(emoji)}>{emoji}</button>
+            <button key={emoji} type="button" className="nb-icon-button size-8" aria-label={`React ${emoji}`} onClick={() => void toggleReaction(emoji)}>{emoji}</button>
           ))}
-          <button type="button" data-reaction-trigger className="grid size-8 place-items-center rounded-[5px] hover:bg-muted" aria-label="Add reaction" title="Add reaction" onClick={(e) => setPickerAnchor(pickerAnchor ? null : e.currentTarget)}><SmilePlus size={16} /></button>
+          <button type="button" data-reaction-trigger className="nb-icon-button size-8" aria-label="Add reaction" title="Add reaction" onClick={(e) => setPickerAnchor(pickerAnchor ? null : e.currentTarget)}><SmilePlus size={16} /></button>
           {(["reply", "save", "share"] as const).map((id) => {
             const action = find(id);
             if (!action) return null;
             const Icon = action.icon;
             return (
               // No key hint here: the keys act on a selected row (Tab, ↑/↓), not the hovered one.
-              <button key={id} type="button" className="grid size-8 place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={action.label} title={action.label} onClick={action.run}>
+              <button key={id} type="button" className="nb-icon-button size-8" aria-label={action.label} title={action.label} onClick={action.run}>
                 <Icon size={16} />
               </button>
             );
           })}
           <DropdownMenu open={moreOpen} onOpenChange={handleMoreOpenChange} modal={false}>
             <DropdownMenuTrigger asChild>
-              <button type="button" className={`grid size-8 place-items-center rounded-[5px] transition-colors ${moreOpen ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`} aria-label="More actions">
+              <button type="button" className={`nb-icon-button size-8 ${moreOpen ? "bg-muted text-foreground" : ""}`} aria-label="More actions">
                 <MoreHorizontal size={16} />
               </button>
             </DropdownMenuTrigger>
@@ -492,16 +530,16 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                   {group.map((action) => {
                     const Icon = action.icon;
                     return (
-                      <DropdownMenuItem key={action.id} onSelect={action.run} className={`gap-2 ${action.destructive ? "text-destructive focus:text-destructive" : ""}`}>
-                        <Icon size={14} className={action.destructive ? "" : "text-muted-foreground"} />
+                      <DropdownMenuItem key={action.id} onSelect={action.run} variant={action.destructive ? "destructive" : "default"}>
+                        <Icon />
                         <span className="flex-1">{action.label}</span>
-                        {action.shortcut ? <span className="font-mono text-[11px] text-muted-foreground">{action.shortcut}</span> : null}
+                        {action.shortcut ? <kbd className="nb-meta">{action.shortcut}</kbd> : null}
                       </DropdownMenuItem>
                     );
                   })}
                   {index === 0 && ctx.setSaved ? (
                     <DropdownMenuSub>
-                      <DropdownMenuSubTrigger className="gap-2"><AlarmClock size={14} className="text-muted-foreground" /> Remind me about this</DropdownMenuSubTrigger>
+                      <DropdownMenuSubTrigger><AlarmClock /> Remind me about this</DropdownMenuSubTrigger>
                       <DropdownMenuSubContent className="w-48">
                         {laterTimes("remind").map((option) => <DropdownMenuItem key={option.label} onSelect={() => remind(option.at)}>{option.label}</DropdownMenuItem>)}
                         <DropdownMenuSeparator />
@@ -532,10 +570,10 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
           {sheet === "remind" ? (
             <>
               <div className="flex items-center gap-1 px-2 pt-2">
-                <button type="button" onClick={() => setSheet("actions")} className="inline-flex min-h-11 items-center rounded-[5px] px-3 text-[15px] text-primary">‹ Back</button>
+                <button type="button" onClick={() => setSheet("actions")} className="inline-flex min-h-11 items-center rounded-md px-3 text-[15px] text-primary">‹ Back</button>
                 <DialogTitle className="text-[15px] font-semibold">Remind me</DialogTitle>
               </div>
-              <div className="px-2 pb-3 [&>button]:flex [&>button]:min-h-11 [&>button]:w-full [&>button]:items-center [&>button]:rounded-[5px] [&>button]:px-3 [&>button]:text-[15px]">
+              <div className="px-2 pb-3 [&>button]:flex [&>button]:min-h-11 [&>button]:w-full [&>button]:items-center [&>button]:rounded-md [&>button]:px-3 [&>button]:text-[15px]">
                 {laterTimes("remind").map((option) => <button key={option.label} type="button" onClick={() => { setSheet(null); remind(option.at); }}>{option.label}</button>)}
                 <button type="button" onClick={() => { setSheet(null); setCustomRemind(new Date(Date.now() + 2 * 60 * 60_000)); }}>Custom time…</button>
               </div>
@@ -545,12 +583,23 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
               <DialogTitle className="sr-only">Message actions</DialogTitle>
               <div className="flex justify-around px-2 py-3">
                 {quick.map((emoji) => (
-                  <button key={emoji} type="button" className="grid size-11 place-items-center rounded-full text-xl hover:bg-muted" aria-label={`React ${emoji}`} onClick={() => { setSheet(null); void toggleReaction(emoji); }}>{emoji}</button>
+                  <button key={emoji} type="button" className="grid size-11 place-items-center rounded-md text-xl hover:bg-muted" aria-label={`React ${emoji}`} onClick={() => { setSheet(null); void toggleReaction(emoji); }}>{emoji}</button>
                 ))}
                 {/* Any other emoji: the full picker. */}
-                <button type="button" className="grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-muted" aria-label="More reactions" onClick={() => { setSheet(null); setPickerAnchor(rowRef.current); }}><SmilePlus size={20} /></button>
+                <button type="button" className="grid size-11 place-items-center rounded-md text-muted-foreground hover:bg-muted" aria-label="More reactions" onClick={() => { setSheet(null); setPickerAnchor(rowRef.current); }}><SmilePlus size={24} /></button>
               </div>
-              <div className="px-2 pb-3 [&>button]:flex [&>button]:min-h-11 [&>button]:w-full [&>button]:items-center [&>button]:gap-3 [&>button]:rounded-[5px] [&>button]:px-3 [&>button]:text-[15px]">
+              {/* Who reacted (a phone has no hover tooltips). */}
+              {message.reactions.length ? (
+                <ul className="mx-4 mb-2 space-y-1 border-y border-border py-2 text-[13px]" aria-label="Reactions">
+                  {message.reactions.map((r) => (
+                    <li key={r.emoji} className="flex gap-2">
+                      <span aria-hidden="true">{r.emoji}</span>
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground">{reactors.data?.[r.emoji]?.join(", ") ?? `${r.count}`}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <div className="px-2 pb-3 [&>button]:flex [&>button]:min-h-11 [&>button]:w-full [&>button]:items-center [&>button]:gap-3 [&>button]:rounded-md [&>button]:px-3 [&>button]:text-[15px]">
                 {list.map((action) => {
                   const Icon = action.icon;
                   return (
@@ -573,11 +622,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
         description={own ? "Replies in its thread stay. You can undo for a few seconds." : message.reply_count ? "It's removed for everyone. Replies in its thread stay." : "It's removed for everyone. This can't be undone."}
         confirmLabel="Delete"
         variant="destructive"
-        onConfirm={() => {
-          if (own) {
-            setConfirmDelete(false);
-            removeWithUndo();
-          } else void remove();
+        onConfirm={async () => {
+          if (own) removeWithUndo();
+          else await remove();
         }}
       />
       <TimePickerDialog

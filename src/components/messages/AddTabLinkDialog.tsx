@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Link2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Props = {
@@ -47,10 +49,10 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <div className="grid size-8 place-items-center rounded-[5px] bg-muted text-muted-foreground">
+            <div className="grid size-8 place-items-center rounded-md bg-muted text-muted-foreground">
               <Link2 size={16} />
             </div>
             <DialogTitle>Add a bookmark</DialogTitle>
@@ -66,19 +68,21 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
               Link
             </label>
             {/* inputMode url gives phones the URL keyboard; "example.com" is accepted (https:// is added). */}
-            <input
+            <Input
               id="tab-url-input"
               type="text"
               inputMode="url"
               autoComplete="url"
-              placeholder="https://..."
+              placeholder="example.com"
               value={url}
               onChange={(e) => {
                 setUrl(e.target.value);
                 if (error) setError(null);
               }}
               autoFocus
-              className="w-full rounded-[5px] border border-input bg-card px-3 py-2 text-[13px] font-mono outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              aria-invalid={Boolean(error) || undefined}
+              aria-describedby={error ? "tab-link-error" : undefined}
+              className="font-mono text-[13px]"
             />
           </div>
 
@@ -86,7 +90,7 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
             <label htmlFor="tab-title-input" className="text-[13px] font-medium text-foreground">
               Bookmark name <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
-            <input
+            <Input
               id="tab-title-input"
               type="text"
               placeholder="e.g. Figma designs, GitHub repo"
@@ -95,26 +99,15 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
                 setTitle(e.target.value);
                 if (error) setError(null);
               }}
-              className="w-full rounded-[5px] border border-input bg-card px-3 py-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              className="text-[13px]"
             />
           </div>
 
-          {error ? <p role="alert" className="text-[12px] text-destructive">{error}</p> : null}
+          {error ? <p id="tab-link-error" role="alert" className="text-[13px] text-destructive">{error}</p> : null}
 
           <DialogFooter className="pt-2">
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="rounded-[5px] border border-border px-3 py-1.5 text-[13px] font-medium hover:bg-muted"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="rounded-[5px] bg-primary px-3.5 py-1.5 text-[13px] font-medium text-primary-foreground hover:opacity-90"
-            >
-              Add bookmark
-            </button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit">Add bookmark</Button>
           </DialogFooter>
         </form>
       </DialogContent>
