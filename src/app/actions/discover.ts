@@ -15,13 +15,14 @@ import { getTrustedHeadersIp } from '@/lib/security/request-ip';
 import { normalizeSearchQuery, tokenizeSearchQuery } from '@/lib/search/query';
 import { recordGlobalSearchMetric } from '@/lib/search/observability';
 import { createHash } from 'node:crypto';
+import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
 import { z } from 'zod';
 
 const hubSearchInputSchema = z.object({
     filters: z.object({
         // Only values Discover offers: anything else would reach a Postgres enum and fail there.
         status: z.enum([PROJECT_STATUS.ALL, PROJECT_STATUS.IN_PROGRESS, PROJECT_STATUS.LAUNCHED]),
-        type: z.enum(Object.values(PROJECT_TYPE) as [string, ...string[]]),
+        type: z.enum([PROJECT_TYPE.ALL, ...PROJECT_TYPE_OPTIONS.map((type) => type.id)]),
         tech: z.array(z.string().trim().min(1).max(100)).max(20),
         sort: z.enum(Object.values(SORT_OPTIONS) as [string, ...string[]]),
         search: z.string().max(200).optional(),

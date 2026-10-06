@@ -326,7 +326,6 @@ export function GeneralSettingsSection({
             onProjectUpdated();
             broadcastProjectUpdated(projectId);
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsRoot() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
             router.refresh();
         } catch (error) {
@@ -468,7 +467,6 @@ export function GeneralSettingsSection({
             onProjectUpdated({ coverImage: finalized.publicUrl });
             broadcastProjectUpdated(projectId, { coverImage: finalized.publicUrl });
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsRoot() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
             router.refresh();
         } catch (error) {
@@ -502,7 +500,6 @@ export function GeneralSettingsSection({
             onProjectUpdated({ coverImage: null });
             broadcastProjectUpdated(projectId, { coverImage: null });
             void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsRoot() });
             void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
             router.refresh();
         } catch (error) {

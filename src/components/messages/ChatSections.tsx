@@ -11,7 +11,7 @@ import { getOrCreateDm, setMemberState } from "@/app/actions/chat/members";
 import { listScheduled } from "@/app/actions/chat/later";
 import { markRead } from "@/app/actions/chat/read";
 import { markUnread } from "@/app/actions/chat/messages";
-import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Skeleton } from "@/components/ui/skeleton";
 import { readChatUi, saveAccountUi, useChatUi, useDrafts } from "@/components/messages/chat-ui-store";
 import { useChatShell } from "@/components/messages/ChatShellProvider";

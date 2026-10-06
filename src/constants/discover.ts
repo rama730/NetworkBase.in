@@ -1,4 +1,5 @@
 // Hub Constants
+import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
 
 export const FILTER_VIEWS = {
     ALL: 'all',
@@ -14,12 +15,9 @@ export const PROJECT_STATUS = {
     LAUNCHED: 'completed', // Maps to schema 'completed'
 } as const;
 
+// The types themselves are the ones a project is created with (PROJECT_TYPE_OPTIONS).
 export const PROJECT_TYPE = {
     ALL: 'all',
-    SIDE_PROJECT: 'side_project',
-    STARTUP: 'startup',
-    OPEN_SOURCE: 'open_source',
-    LEARNING: 'learning',
 } as const;
 
 export const SORT_OPTIONS = {
@@ -38,7 +36,7 @@ export const VIEW_MODES = {
 // Type exports
 export type FilterView = 'all' | 'trending' | 'recommendations' | 'following';
 export type ProjectStatus = typeof PROJECT_STATUS[keyof typeof PROJECT_STATUS];
-export type ProjectType = typeof PROJECT_TYPE[keyof typeof PROJECT_TYPE];
+export type ProjectType = typeof PROJECT_TYPE.ALL | (typeof PROJECT_TYPE_OPTIONS)[number]['id'];
 export type SortOption = typeof SORT_OPTIONS[keyof typeof SORT_OPTIONS];
 
 /** Tag on the anonymous Discover page cache; revalidated whenever a project's public data changes. */

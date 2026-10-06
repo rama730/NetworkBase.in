@@ -72,7 +72,7 @@ test("#162 #164 #165 errors with Retry, one list skeleton, a Messages error boun
   assert.doesNotMatch(views, /return result\.success \? result\.(items|threads) : \[\]/);
   // One error look and phrase everywhere (round 3 #160): the shared ErrorNotice.
   assert.match(read("src/components/messages/HomePane.tsx"), /<ErrorNotice what="Your conversations"/);
-  assert.match(read("src/components/messages/parts/ErrorNotice.tsx"), /couldn&apos;t load/);
+  assert.match(read("src/components/ui/ErrorNotice.tsx"), /couldn&apos;t load/);
   for (const page of ["inbox", "saved", "drafts", "search"]) {
     assert.match(read(`src/app/(site)/(main)/messages/(lists)/${page}/page.tsx`), /<Suspense fallback=\{<ListSkeleton/);
   }

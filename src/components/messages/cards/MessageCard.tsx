@@ -21,7 +21,7 @@ import { updateTaskStatusAction, type TaskStatus } from "@/app/actions/task";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import TaskStatusBadge from "@/components/projects/v2/tasks/badges/TaskStatusBadge";
 import { buttonVariants } from "@/components/ui/button";
-import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { getTaskStatusLabel } from "@/lib/projects/task-presentation";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { personName } from "@/lib/messaging/channel-view";

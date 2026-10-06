@@ -7,7 +7,7 @@ import { FileText, Search, X } from "lucide-react";
 import { listProjectCanvases } from "@/app/actions/chat/canvas";
 import { CanvasPreview } from "@/components/messages/CanvasEditor";
 import { useChannelCanvas } from "@/components/messages/useConversation";
-import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";

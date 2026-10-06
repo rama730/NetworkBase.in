@@ -37,7 +37,7 @@ import { useChannelMembers, useTyping } from "@/components/messages/useConversat
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
 import { useWindowNav } from "@/components/messages/window-nav";
 import { editingWithText, rovingTabKey } from "@/components/messages/keys";
-import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/input";

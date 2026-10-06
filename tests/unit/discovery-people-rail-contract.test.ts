@@ -28,7 +28,8 @@ test("Discovery people rail is a compact, shared-avatar recommendation surface",
   assert.match(css, /\.nb-person-presence-dot/);
   assert.match(css, /\.nb-person-connect/);
   // Compact rail lives only in the mobile People drawer (DiscoverHeader `people` slot).
-  assert.match(hub, /people=\{currentUser\?\.id \? <DiscoverPeopleRail initialPage=\{initialPeopleSuggestions\} variant="compact" \/> : null\}/);
+  assert.match(hub, /const people = viewerId \? <DiscoverPeopleRail initialPage=\{initialPeopleSuggestions\} variant="compact" \/> : null;/);
+  assert.match(hub, /people=\{people\}/);
   assert.equal(hub.match(/variant="compact"/g)?.length, 1);
 });
 

@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
-import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
