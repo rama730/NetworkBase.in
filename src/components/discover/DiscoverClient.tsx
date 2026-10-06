@@ -110,7 +110,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         isLoading,
         isPlaceholderData,
         refetch,
-    } = useDiscoverProjects(viewerId, filters, view, initialProjectsPage);
+    } = useDiscoverProjects(viewerId, filters, view, isDefault, initialProjectsPage);
 
     // Pages can overlap when projects arrive between requests: each project once.
     const allProjects = useMemo(() => {

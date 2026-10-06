@@ -5,9 +5,10 @@ import { Search, SlidersHorizontal, Users, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS, type FilterView, type SortOption } from '@/constants/discover';
-import type { DiscoverQuery } from '@/lib/discover/query';
+import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, type FilterView, type SortOption } from '@/constants/discover';
+import { DISCOVER_SORTS, type DiscoverQuery } from '@/lib/discover/query';
 import { projectStageLabel } from '@/lib/projects/status-presentation';
 import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
 import { resolveClientSkill } from '@/lib/skills/client';
@@ -19,12 +20,7 @@ const SCOPES: Array<{ id: FilterView; label: string; subtitle: string }> = [
     { id: FILTER_VIEWS.FOLLOWING, label: 'Following', subtitle: 'Projects you follow.' },
 ];
 
-export const SORT_LABELS: Record<string, string> = {
-    [SORT_OPTIONS.NEWEST]: 'Newest',
-    [SORT_OPTIONS.OLDEST]: 'Oldest',
-    [SORT_OPTIONS.MOST_VIEWED]: 'Most viewed',
-    [SORT_OPTIONS.MOST_FOLLOWED]: 'Most followed',
-};
+const SORT_LABELS: Record<string, string> = { newest: 'Newest', oldest: 'Oldest', most_viewed: 'Most viewed', most_followed: 'Most followed' };
 
 export const typeLabel = (id: string) => PROJECT_TYPE_OPTIONS.find((type) => type.id === id)?.label ?? id;
 
@@ -94,17 +90,11 @@ interface DiscoverHeaderProps {
 /** Title, scope and search, sort and filters (spec §15), and the selected filters as tags. */
 export default function DiscoverHeader({ query, activeFilters, onChange, onClearFilters, onOpenFilters, filtersButtonRef, people }: DiscoverHeaderProps) {
     const [peopleOpen, setPeopleOpen] = useState(false);
+    // The drawer is for narrow screens: once the rail sits beside the feed, it's closed.
+    const railShown = useMediaQuery('(min-width: 1200px)');
     const scope = SCOPES.find((item) => item.id === query.view) ?? SCOPES[0]!;
     // Trending and For you rank by their own score: a sort wouldn't apply.
     const sortable = query.view === FILTER_VIEWS.ALL || query.view === FILTER_VIEWS.FOLLOWING;
-
-    // The drawer is for narrow screens; when the rail appears beside the feed, close it.
-    useEffect(() => {
-        const wide = window.matchMedia('(min-width: 1200px)');
-        const onChange = () => { if (wide.matches) setPeopleOpen(false); };
-        wide.addEventListener('change', onChange);
-        return () => wide.removeEventListener('change', onChange);
-    }, []);
 
     const resultLine = [
         query.q ? `Results for “${query.q}”` : null,
@@ -139,7 +129,7 @@ export default function DiscoverHeader({ query, activeFilters, onChange, onClear
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {Object.entries(SORT_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                                {DISCOVER_SORTS.map((value) => <SelectItem key={value} value={value}>{SORT_LABELS[value]}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     ) : null}
@@ -182,7 +172,7 @@ export default function DiscoverHeader({ query, activeFilters, onChange, onClear
             ) : null}
 
             {people ? (
-                <Dialog open={peopleOpen} onOpenChange={setPeopleOpen}>
+                <Dialog open={peopleOpen && !railShown} onOpenChange={setPeopleOpen}>
                     <DialogContent presentation="right-drawer" className="overflow-y-auto p-4 sm:max-w-[400px]">
                         <DialogTitle className="nb-card-title">People you should meet</DialogTitle>
                         {people}

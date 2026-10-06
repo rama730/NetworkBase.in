@@ -1,23 +1,15 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
-
 import { SkillPicker } from '@/components/skills/SkillPicker';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PROJECT_STATUS, PROJECT_TYPE, type ProjectStatus, type ProjectType } from '@/constants/discover';
 import { DISCOVER_STATUSES, type DiscoverQuery } from '@/lib/discover/query';
 import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
 import { projectStageLabel } from '@/lib/projects/status-presentation';
-
-const PHONE = '(max-width: 767px)';
-const subscribePhone = (onChange: () => void) => {
-    const media = window.matchMedia(PHONE);
-    media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
-};
 
 const MAX_SKILLS = 8;
 
@@ -32,7 +24,7 @@ export function DiscoverFiltersPanel({ open, onOpenChange, query, onChange, onCl
     onChange: (patch: Partial<DiscoverQuery>) => void;
     onClear: () => void;
 }) {
-    const phone = useSyncExternalStore(subscribePhone, () => window.matchMedia(PHONE).matches, () => false);
+    const phone = useMediaQuery('(max-width: 767px)');
     const statuses: ProjectStatus[] = [PROJECT_STATUS.ALL, ...DISCOVER_STATUSES];
 
     return (

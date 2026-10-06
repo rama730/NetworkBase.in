@@ -9,14 +9,10 @@ import { ROUTES } from '@/constants/routes';
 import { cn } from '@/lib/utils';
 
 const KEY = 'onboarding:profile-strength:v1';
-const listeners = new Set<() => void>();
+// A dismiss here (both copies: under the header and in the rail) or in another tab.
 const subscribe = (onChange: () => void) => {
-    listeners.add(onChange);
     window.addEventListener('storage', onChange);
-    return () => {
-        listeners.delete(onChange);
-        window.removeEventListener('storage', onChange);
-    };
+    return () => window.removeEventListener('storage', onChange);
 };
 const read = () => {
     try {
@@ -45,7 +41,7 @@ export function ProfileChecklist({ userId, className }: { userId: string; classN
         } catch {
             // Storage blocked: it stays hidden until the page reloads.
         }
-        listeners.forEach((listener) => listener());
+        window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
     };
 
     return (
