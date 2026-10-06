@@ -88,7 +88,7 @@ async function backfillProjects() {
 
 async function backfillRoles() {
     await forEachBatch(
-        (cursor) => db.select({ id: projectOpenRoles.id, skills: projectOpenRoles.skills })
+        (cursor) => db.select({ id: projectOpenRoles.id, projectId: projectOpenRoles.projectId, skills: projectOpenRoles.skills })
             .from(projectOpenRoles)
             .where(cursor ? gt(projectOpenRoles.id, cursor) : undefined)
             .orderBy(asc(projectOpenRoles.id))
@@ -99,7 +99,7 @@ async function backfillRoles() {
             stats.labels += source.length
             if (!APPLY) return
             await db.transaction(async (tx) => {
-                const resolved = await syncRoleSkills(tx, role.id, source)
+                const resolved = await syncRoleSkills(tx, role.projectId, role.id, source)
                 await tx.update(projectOpenRoles).set({ skills: resolved.map((skill) => skill.name) }).where(inArray(projectOpenRoles.id, [role.id]))
             })
         },

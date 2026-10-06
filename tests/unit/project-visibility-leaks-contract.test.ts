@@ -125,3 +125,11 @@ test("COR-029: request feeds and role alignment project people through profile p
   const resolver = read("src/app/actions/matchmaking/resolver.ts");
   assert.ok(resolver.indexOf("relationship?.canViewProfile") < resolver.indexOf("db.query.profiles.findFirst"));
 });
+
+test("COR-059: subtree rewrites match literal path prefixes within the task scope", () => {
+  const merge = read("src/lib/projects/merge-sandbox.ts");
+  assert.doesNotMatch(merge, /path LIKE/);
+  const project = read("src/app/actions/project/index.ts");
+  assert.doesNotMatch(project, /path LIKE \$\{`\$\{node\.path\}\/%`\}/);
+  assert.match(project, /AND task_id = \$\{taskId\}\s+AND starts_with\(path, \$\{`\$\{node\.path\}\/`\}\)/);
+});
