@@ -133,3 +133,10 @@ test("COR-059: subtree rewrites match literal path prefixes within the task scop
   assert.doesNotMatch(project, /path LIKE \$\{`\$\{node\.path\}\/%`\}/);
   assert.match(project, /AND task_id = \$\{taskId\}\s+AND starts_with\(path, \$\{`\$\{node\.path\}\/`\}\)/);
 });
+
+test("COR-006: hydration resolves GitHub access itself and events carry no credential", () => {
+  const hydrate = read("src/inngest/functions/project-import-hydrate.ts");
+  assert.match(hydrate, /resolveGithubRepoAccess\(\{/);
+  assert.doesNotMatch(hydrate, /importSource\.metadata\?\.importAuth/);
+  assert.match(read("src/lib/github/project-import-runner.ts"), /importSource: clearSealedGithubTokenFromImportSource\(project\.importSource\)/);
+});

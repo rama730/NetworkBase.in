@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { fileVersions, projectNodes, projects, storageAssets } from "@/lib/db/schema";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { fetchAndParseTarball } from "@/lib/github/tarball-stream";
+import { resolveGithubRepoAccess } from "@/lib/github/auth-resolver";
 import { createAdminClient } from "@/lib/supabase/server";
 import { buildProjectFileKey } from "@/lib/storage/project-file-key";
 import { createUploadIntent, finalizeUploadIntent } from "@/lib/upload/upload-intents";
@@ -19,7 +20,6 @@ export const projectImportHydrate = inngest.createFunction(
         const { projectId, importSource, userId } = event.data;
 
         await step.run("tarball-hydrate", async () => {
-            const token = importSource.metadata?.importAuth || importSource.metadata?.githubToken;
             const branch = importSource.branch || "main";
             
             const adminClient = await createAdminClient();
@@ -34,6 +34,15 @@ export const projectImportHydrate = inngest.createFunction(
                 where: eq(projects.id, projectId),
                 columns: { importSource: true }
             });
+            // Current repository access from the project's sealed credential or the
+            // GitHub App installation; never a token from the event (COR-006).
+            const storedSource = project?.importSource as { repoUrl?: string; metadata?: Record<string, unknown> } | null;
+            const access = await resolveGithubRepoAccess({
+                repoUrl: storedSource?.repoUrl || importSource.repoUrl,
+                preferredInstallationId: (storedSource?.metadata?.githubInstallationId as string | number | null | undefined) ?? null,
+                sealedImportToken: storedSource?.metadata?.importAuth as string | undefined,
+            });
+            const token = access.token ?? undefined;
 
             if (project?.importSource) {
                 const currentSource = project.importSource as any;

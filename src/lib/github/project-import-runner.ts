@@ -439,7 +439,8 @@ export async function runGithubProjectImport(input: {
         const { inngest } = await import("@/inngest/client");
         await inngest.send({
             name: "project/import.hydrate",
-            data: { projectId, userId, importSource: project.importSource as any }
+            // Events never carry credentials; the worker resolves access itself (COR-006).
+            data: { projectId, userId, importSource: clearSealedGithubTokenFromImportSource(project.importSource) as any }
         }).catch(err => {
             if (err?.message?.includes('401') || err?.message?.includes('Event key not found')) {
                 // Ignore in development if Inngest is not configured
