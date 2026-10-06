@@ -75,7 +75,10 @@ test("sidebar: Search row, Unreads toggle, one-click +, focus-visible controls",
   assert.match(sections, /pointer-fine:group-focus-within\/section:opacity-100/);
   assert.match(sections, /title="Direct messages"\s*count=\{dmUnread\}\s*noun="unread conversations"/);
   assert.match(read("src/app/globals.css"), /\.nb-chat-hover:hover > \.nb-chat-row/);
-  assert.match(read("src/components/messages/ConversationView.tsx"), /\{isMember \? \(\s*<button\s*type="button"\s*onClick=\{\(\) => void setState\(\{ starred: !channel\.starred \}\)\}/);
+  // The header shows a star only when starred (no empty hover slot); starring lives in ⋯.
+  const view = read("src/components/messages/ConversationView.tsx");
+  assert.match(view, /\{isMember && channel\.starred \? \(\s*<button type="button" onClick=\{\(\) => void setState\(\{ starred: false \}\)\}/);
+  assert.match(view, /<DropdownMenuItem onSelect=\{\(\) => void setState\(\{ starred: !channel\.starred \}\)\}><Star \/> \{starLabel\}/);
 });
 
 test("lists: desktop close, Browse join state, switcher search and loading, DM link errors", () => {

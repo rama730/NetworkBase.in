@@ -21,8 +21,8 @@ const DetailsPane = dynamic(() => import("@/components/messages/DetailsPane").th
 type View = "thread" | "details";
 
 /**
- * Thread and Details in one drawer: a 320px column beside the timeline at 1024px+
- * (spec §09), a full screen with Back below. With both open they are tabs, and both
+ * Thread and Details in one drawer: a column beside the timeline at 1024px+ (320px, growing with the
+ * window to 480px so replies have room), a full screen with Back below. With both open they are tabs, and both
  * stay mounted, so checking members never loses the thread's scroll, count or focus.
  */
 export function ChatDrawer({ channelId }: { channelId: string }) {
@@ -120,7 +120,7 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
       aria-modal={modal || undefined}
       onKeyDown={trapTab}
       // Below 1024px it covers the screen at the visible height, so the reply box sits above the phone's keyboard.
-      className="fixed inset-x-0 top-0 z-40 flex h-[var(--chat-vvh,100dvh)] flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[320px] lg:flex-none lg:border-l lg:border-border lg:h-auto"
+      className="fixed inset-x-0 top-0 z-40 flex h-[var(--chat-vvh,100dvh)] flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[clamp(320px,32vw,480px)] lg:flex-none lg:border-l lg:border-border lg:h-auto"
     >
       <header className="flex min-h-14 flex-none items-center gap-1 border-b border-border px-2">
         <span className="contents lg:hidden">
@@ -151,15 +151,15 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
             {where ? <span className="truncate px-1 text-[12px] text-muted-foreground">{where}</span> : null}
           </div>
         ) : (
-          <div className="flex min-w-0 flex-1 items-baseline gap-2 px-2">
-            <h2 ref={heading} tabIndex={-1} className="nb-card-title flex-none rounded-sm outline-none">{label}</h2>
+          <div className="flex min-w-0 flex-1 flex-col px-2 py-1">
+            <h2 ref={heading} tabIndex={-1} className="nb-card-title rounded-sm outline-none">{label}</h2>
             {where ? (
               active === "thread" && panes.thread ? (
-                <Link href={showInConversationHref(channelId, panes.thread)} onClick={(event) => { event.preventDefault(); router.replace(showInConversationHref(channelId, panes.thread!), { scroll: false }); }} replace scroll={false} className="truncate text-[13px] text-muted-foreground hover:text-foreground hover:underline" title="Show in conversation">
+                <Link href={showInConversationHref(channelId, panes.thread)} onClick={(event) => { event.preventDefault(); router.replace(showInConversationHref(channelId, panes.thread!), { scroll: false }); }} replace scroll={false} className="max-w-full self-start truncate text-xs leading-4 text-muted-foreground hover:text-foreground hover:underline" title="Show in conversation">
                   {where}
                 </Link>
               ) : (
-                <span className="truncate text-[13px] text-muted-foreground">{where}</span>
+                <span className="truncate text-xs leading-4 text-muted-foreground">{where}</span>
               )
             ) : null}
           </div>
