@@ -1,5 +1,6 @@
 import { defineConfig } from "@playwright/test";
 import { config as loadEnv } from "dotenv";
+import { bindE2EEnvironment } from "./scripts/lib/disposable-db";
 
 loadEnv({ path: ".env.local" });
 
@@ -13,9 +14,7 @@ const devServerMode = (process.env.E2E_DEV_SERVER_MODE || "webpack").toLowerCase
 if (!process.env.E2E_RUN_ID) {
     process.env.E2E_RUN_ID = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
-if (process.env.E2E_DATABASE_URL?.trim()) {
-    process.env.DATABASE_URL = process.env.E2E_DATABASE_URL;
-}
+bindE2EEnvironment();
 const retries = 1;
 
 const projects = browserMatrix === "nightly"
@@ -50,8 +49,8 @@ export default defineConfig({
         : {
             command:
                 devServerMode === "turbo"
-                    ? "pnpm run dev"
-                    : "pnpm exec next dev --webpack -H 0.0.0.0",
+                    ? "npm run dev"
+                    : "npx next dev --webpack -H 0.0.0.0",
             url: `${baseURL}/api/v1/ready`,
             reuseExistingServer: !process.env.CI,
             timeout: 120_000,

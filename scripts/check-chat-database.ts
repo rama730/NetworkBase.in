@@ -10,19 +10,11 @@ import { randomUUID } from "node:crypto";
 import dotenv from "dotenv";
 import postgres from "postgres";
 
+import { requireDisposableDatabaseUrl } from "./lib/disposable-db";
+
 dotenv.config({ path: ".env.local" });
 
-const disposableUrl =
-  process.env.E2E_DATABASE_URL
-  || process.env.DATABASE_URL_FRESH
-  || process.env.DATABASE_URL_REPLAY_FRESH;
-
-if (!disposableUrl) {
-  throw new Error("Chat database checks require E2E_DATABASE_URL or DATABASE_URL_FRESH. The primary database is never used.");
-}
-if (process.env.DATABASE_URL && disposableUrl === process.env.DATABASE_URL) {
-  throw new Error("Refusing to run chat database checks against DATABASE_URL.");
-}
+const disposableUrl = requireDisposableDatabaseUrl("check:chat:db");
 
 // Rows are asserted at runtime by each check, so query results are loosely typed here.
 type LooseSql = ((strings: TemplateStringsArray, ...values: unknown[]) => Promise<any[]>) & ReturnType<typeof postgres>;

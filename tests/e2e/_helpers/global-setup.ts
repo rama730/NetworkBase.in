@@ -1,3 +1,4 @@
+import { assertE2EEnvironmentIsolated } from "../../../scripts/lib/disposable-db";
 import { ensureE2EFixtures } from "./fixtures";
 
 async function globalSetup() {
@@ -16,15 +17,8 @@ async function globalSetup() {
         `[e2e] Critical gate requires deterministic fixtures. Missing: ${missing.join(", ")}`,
       );
     }
-    if (
-      process.env.E2E_ALLOW_PRIMARY_DATABASE !== "1"
-      && process.env.DATABASE_URL
-      && process.env.E2E_DATABASE_URL === process.env.DATABASE_URL
-    ) {
-      throw new Error(
-        "[e2e] E2E_DATABASE_URL must point to a disposable database distinct from DATABASE_URL.",
-      );
-    }
+    // Compares database identities captured before rebinding (OPS-003).
+    assertE2EEnvironmentIsolated();
   }
   ensureE2EFixtures();
 }

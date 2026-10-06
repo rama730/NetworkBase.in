@@ -13,7 +13,7 @@ export function ensureE2EFixtures(): void {
   if (seeded || process.env.E2E_SKIP_SEED === "1") return;
 
   const env = { ...process.env, E2E_RUN_ID: e2eRunId };
-  execSync("pnpm run -s seed:e2e:fixtures", {
+  execSync("npm run -s seed:e2e:fixtures", {
     env,
     stdio: "inherit",
   });
@@ -24,7 +24,7 @@ export function cleanupE2EFixtures(): void {
   if (process.env.E2E_SKIP_CLEANUP === "1") return;
 
   try {
-    execSync("pnpm run -s cleanup:e2e:fixtures", {
+    execSync("npm run -s cleanup:e2e:fixtures", {
       env: { ...process.env, E2E_RUN_ID: e2eRunId },
       stdio: "inherit",
     });

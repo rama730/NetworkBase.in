@@ -1,6 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { config } from "dotenv";
 
+import { assertDisposableDatabaseUrl } from "./lib/disposable-db";
+
 config({ path: ".env.local" });
 
 const disposableDatabaseUrl =
@@ -12,9 +14,7 @@ if (!disposableDatabaseUrl) {
   );
 }
 
-if (process.env.DATABASE_URL && disposableDatabaseUrl === process.env.DATABASE_URL) {
-  throw new Error("Migration generation must never replay against DATABASE_URL.");
-}
+assertDisposableDatabaseUrl(disposableDatabaseUrl, "db:generate");
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";

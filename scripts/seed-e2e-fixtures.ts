@@ -3,6 +3,8 @@ import postgres from 'postgres';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
+import { assertDisposableDatabaseUrl } from './lib/disposable-db';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, '..', '.env.local') });
 
@@ -14,6 +16,7 @@ if (!DATABASE_URL) {
     console.error('E2E_DATABASE_URL is required and must identify a disposable test database');
     process.exit(1);
 }
+assertDisposableDatabaseUrl(DATABASE_URL, 'seed:e2e:fixtures');
 
 const sql = postgres(DATABASE_URL, {
     prepare: false,

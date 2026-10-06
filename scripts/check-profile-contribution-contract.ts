@@ -96,7 +96,7 @@ async function main() {
   requireContract("public empty state is distinct", card.includes("No public project contributions"));
   requireContract("duplicate stage editor is absent", !card.includes("collaboration-stages"));
   requireContract("stale stage clients get terminal response", stageRoute.includes("410") && stageRoute.includes("NOT_SUPPORTED"));
-  requireContract("database integration check is disposable-only", databaseCheck.includes("Refusing to run") && databaseCheck.includes("ROLLBACK"));
+  requireContract("database integration check is disposable-only", databaseCheck.includes("requireDisposableDatabaseUrl(") && databaseCheck.includes("ROLLBACK"));
   requireContract("repair runbook documents authority", runbook.includes("Field ownership matrix"));
   requireContract("repair runbook documents observability", runbook.includes("Observability and alerts"));
 

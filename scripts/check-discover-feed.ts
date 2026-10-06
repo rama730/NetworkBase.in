@@ -9,10 +9,10 @@ import Module from "node:module";
 
 import dotenv from "dotenv";
 
+import { requireDisposableDatabaseUrl } from "./lib/disposable-db";
+
 dotenv.config({ path: ".env.local" });
-const disposableUrl = process.env.E2E_DATABASE_URL || process.env.DATABASE_URL_FRESH;
-if (!disposableUrl) throw new Error("check:discover requires DATABASE_URL_FRESH or E2E_DATABASE_URL.");
-if (disposableUrl === process.env.DATABASE_URL) throw new Error("Refusing to run against DATABASE_URL.");
+const disposableUrl = requireDisposableDatabaseUrl("check:discover");
 process.env.DATABASE_URL = disposableUrl;
 
 type Loader = (request: string, parent: unknown, isMain: boolean) => unknown;
