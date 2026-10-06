@@ -16,6 +16,7 @@ import { logger } from "@/lib/logger";
 import { normalizeProjectDescription, normalizeProjectTitle, trimDisplayText, trimOptionalDisplayText } from "@/lib/profile/display";
 import { syncContributionSkills } from "@/lib/skills/service";
 import { formatProjectTeamRole } from "@/lib/projects/settings-policies";
+import { filterProjectLinksForAudience } from "@/lib/projects/social-links";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { containsLikePattern, normalizeSearchQuery } from "@/lib/search/query";
 import { isUuid } from "@/lib/validations/uuid";
@@ -187,7 +188,8 @@ type ProfileContributionRow = {
   total_count: number | string;
 };
 
-const SUMMARY_VERSION = 6;
+// v7: members-only project links removed from cached summaries (AUTH-013).
+const SUMMARY_VERSION = 7;
 const SUMMARY_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_LIMIT = 12;
 const EMPTY_SUMMARY: ProfileCollaborationSummary = {
@@ -363,7 +365,9 @@ function projectFromRow(row: ProfileProjectRow): ProfileCollaborationProject {
     tags: stringArray(row.tags),
     verified: true,
     githubRepoUrl: trimOptionalDisplayText(row.github_repo_url),
-    externalLinks: row.external_links ?? null,
+    // Profile portfolios and the shared public summary are public projections:
+    // members-only project links never leave the project page (AUTH-013).
+    externalLinks: filterProjectLinksForAudience(row.external_links, false),
     openRolesCount: numberOrNull(row.open_roles_count) ?? 0,
   };
 }
