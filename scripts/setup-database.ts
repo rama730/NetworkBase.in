@@ -57,7 +57,17 @@ function requiresDatabaseTls(connectionString: string | undefined) {
   }
 }
 
+// Session-level advisory locks need a session: Supavisor's transaction pooler
+// (port 6543) hands each statement to a different backend.
+if (DATABASE_URL && !DRY_RUN && new URL(DATABASE_URL).port === "6543") {
+  console.error("❌ Migrations need a direct/session connection, not the transaction pooler (port 6543).");
+  process.exit(1);
+}
+
+// max: 1 keeps the lock, journal bootstrap, every migration statement and the
+// unlock on one reserved session (MIG-003).
 const sql = postgres(DATABASE_URL || "postgres://dry-run.invalid/unused", {
+  max: 1,
   prepare: false,
   ssl: requiresDatabaseTls(DATABASE_URL) ? "require" : false,
 });
@@ -147,7 +157,8 @@ async function ensureAuthUidHelper() {
 }
 
 async function acquireMigrationLock() {
-  await sql`SELECT pg_advisory_lock(hashtext(${MIGRATION_LOCK_KEY}))`;
+  const [row] = await sql<{ locked: boolean }[]>`SELECT pg_try_advisory_lock(hashtext(${MIGRATION_LOCK_KEY})) AS locked`;
+  if (!row?.locked) throw new Error("Another migration run holds the migration lock; retry after it finishes.");
 }
 
 async function releaseMigrationLock() {
@@ -443,9 +454,9 @@ async function setupDatabase() {
     return;
   }
 
-  await ensureJournalTable();
   await acquireMigrationLock();
   try {
+    await ensureJournalTable();
     await ensureAuthUidHelper();
     await reconcileJournalIndexes(journal.entries);
     let appliedMigrations = await readAppliedMigrations();
