@@ -10,8 +10,9 @@ import { consumeRateLimit } from "@/lib/security/rate-limit";
 
 const MAX_WATERMARK_PROJECTS = 50;
 // ponytail: the extension client lives outside this repo, so its cadence is
-// unverified; 30/min tolerates a 2s cadence. Tighten once the client's interval is pinned.
-const HEARTBEATS_PER_MINUTE = 30;
+// unverified; 60/min per user tolerates a few devices at a 2-4s cadence.
+// Tighten once the client's interval is pinned.
+const HEARTBEATS_PER_MINUTE = 60;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,8 +54,8 @@ export async function POST(request: Request) {
       return jsonError("Invalid heartbeat request", 400, "BAD_REQUEST");
     }
 
-    // Per user+device budget (VALID-001).
-    const budget = await consumeRateLimit(`extension-heartbeat:${user.id}:${parsed.data.deviceId}`, HEARTBEATS_PER_MINUTE, 60);
+    // Per-user budget: deviceId is client-chosen, so it cannot partition the limit (VALID-001).
+    const budget = await consumeRateLimit(`extension-heartbeat:${user.id}`, HEARTBEATS_PER_MINUTE, 60);
     if (!budget.allowed) return jsonError("Too many heartbeats", 429, "RATE_LIMITED");
 
     const now = new Date();
