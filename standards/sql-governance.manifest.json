@@ -200,7 +200,8 @@
     "drizzle/0196_rls_p0_visibility.sql",
     "drizzle/0197_chat_due_work_leases.sql",
     "drizzle/0198_account_deletion_phases.sql",
-    "drizzle/0199_browser_roles_read_only.sql"
+    "drizzle/0199_browser_roles_read_only.sql",
+    "drizzle/0200_project_tab_rls.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

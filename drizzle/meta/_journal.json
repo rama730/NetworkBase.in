@@ -1380,6 +1380,13 @@
       "when": 1791321838729,
       "tag": "0199_browser_roles_read_only",
       "breakpoints": true
+    },
+    {
+      "idx": 197,
+      "version": "7",
+      "when": 1791322029893,
+      "tag": "0200_project_tab_rls",
+      "breakpoints": true
     }
   ]
 }
