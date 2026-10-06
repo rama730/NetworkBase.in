@@ -40,10 +40,9 @@ export function useMarkAllRead() {
       title={`${pending?.label ?? MARK_ALL_LABEL}?`}
       description={pending ? `${pending.count} ${pending.noun}${pending.count === 1 ? "" : "s"} will be marked as read.` : undefined}
       confirmLabel={pending?.label ?? MARK_ALL_LABEL}
-      onConfirm={() => {
-        const run = pending?.run;
-        setPending(null);
-        void run?.();
+      // The dialog waits for it (its own spinner) and closes when done.
+      onConfirm={async () => {
+        await pending?.run();
       }}
     />
   );

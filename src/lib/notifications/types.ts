@@ -63,6 +63,8 @@ export type NotificationQuietHours = {
     enabled: boolean;
     startMinute: number;
     endMinute: number;
+    /** The IANA zone the hours are in (saved from the browser); without it, server time. */
+    timeZone?: string | null;
 };
 
 export type NotificationDeliveryPreferences = {

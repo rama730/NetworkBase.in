@@ -5,6 +5,7 @@ import { CheckSquare, Copy, ExternalLink, FileText, Files, LayoutTemplate, Link2
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ChannelTabItem } from "@/lib/messaging/channel-tabs";
+import { rovingTabKey } from "@/components/messages/keys";
 import { normalizeSafeExternalUrl } from "@/lib/messaging/safe-links";
 
 type Props = {
@@ -63,16 +64,11 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
   // Arrows, Home and End move between tabs (and the + button). No delete key: removing a shared tab affects everyone, so it's the × (with Undo).
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const elements = Array.from(containerRef.current?.querySelectorAll<HTMLElement>('[role="tab"], [data-add-tab-trigger]') ?? []);
-    const index = elements.indexOf(e.currentTarget as HTMLElement);
-    const next = e.key === "ArrowRight" ? (index + 1) % elements.length
-      : e.key === "ArrowLeft" ? (index - 1 + elements.length) % elements.length
-      : e.key === "Home" ? 0 : e.key === "End" ? elements.length - 1 : null;
-    if (next === null) return;
-    e.preventDefault();
-    elements[next]?.focus();
+    const next = rovingTabKey(e, elements.indexOf(e.currentTarget as HTMLElement), elements.length);
+    if (next !== null) elements[next]?.focus();
   }, []);
 
-  const tabClass = "nb-tab inline-flex items-center border-b-2 px-2 pb-2 text-[13px] font-medium transition-colors";
+  const tabClass = "nb-tab inline-flex items-center border-b-2 px-2 pb-2 text-[13px] font-medium transition-colors duration-[130ms] pointer-coarse:min-h-11";
   const views = tabs.filter((tab) => tab.kind !== "link");
   const bookmarks = tabs.filter((tab) => tab.kind === "link");
   const closeButton = (tab: ChannelTabItem) => (
@@ -85,15 +81,16 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
       }}
       aria-label={tab.kind === "canvas" ? "Hide canvas tab" : `Remove ${tab.title} ${tab.kind === "link" ? "bookmark" : "tab"}`}
       title={tab.kind === "canvas" ? "Hide for you (the canvas stays)" : "Remove for everyone"}
-      className="absolute right-0.5 top-1/2 -mt-1 grid size-5 -translate-y-1/2 place-items-center rounded-[3px] bg-card text-muted-foreground opacity-0 shadow-[-6px_0_6px_var(--card)] transition-opacity hover:bg-muted hover:text-foreground focus:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:size-8 pointer-coarse:opacity-100"
+      className="absolute right-0.5 top-1/2 -mt-1 grid size-5 -translate-y-1/2 place-items-center rounded-sm bg-card text-muted-foreground opacity-0 shadow-[-6px_0_6px_var(--card)] transition-opacity hover:bg-muted hover:text-foreground focus:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:size-8 pointer-coarse:opacity-100"
     >
-      <X size={12} />
+      <X size={14} />
     </button>
   );
   return (
     <div
       ref={containerRef}
-      className={`flex h-10 flex-none items-end gap-1 overflow-x-auto scroll-smooth border-b border-border px-4 ${more ? "[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)]" : ""}`}
+      // Taller on touch, so the 44px tabs and + fit without the strip scrolling up and down.
+      className={`flex h-10 flex-none items-end gap-1 overflow-x-auto overflow-y-hidden scroll-smooth border-b border-border px-4 pointer-coarse:h-12 ${more ? "[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)]" : ""}`}
     >
       <div className="flex items-end gap-1" role="tablist" aria-label="Conversation views">
         {views.map((tab) => {
@@ -112,9 +109,9 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
                 onClick={() => onSelectTab(tab.id)}
                 onKeyDown={handleKeyDown}
                 // On touch the × always shows: room for it, so it never covers the name.
-                className={`${tabClass} ${closable ? "pointer-coarse:pr-8" : ""} ${selected ? "border-[var(--chat-accent)] text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                className={`${tabClass} ${closable ? "pointer-coarse:pr-8" : ""} ${selected ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               >
-                <Icon size={13} className="mr-1.5 shrink-0 opacity-70" aria-hidden="true" />
+                <Icon size={16} className="mr-1.5 shrink-0" aria-hidden="true" />
                 <span className="max-w-[130px] truncate">{tab.title}</span>
                 {tab.kind === "pins" && pinCount > 0 ? <span className="nb-tab-count ml-1.5">{pinCount}<span className="sr-only"> pinned</span></span> : null}
               </button>
@@ -138,9 +135,9 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
                   title={tab.url ? `Open ${tab.url} in a new tab` : undefined}
                   className={`${tabClass} pointer-coarse:pr-8 border-transparent text-muted-foreground hover:text-foreground`}
                 >
-                  <Link2 size={13} className="mr-1.5 shrink-0 opacity-70" aria-hidden="true" />
+                  <Link2 size={16} className="mr-1.5 shrink-0" aria-hidden="true" />
                   <span className="max-w-[130px] truncate">{tab.title}</span>
-                  <ExternalLink size={11} className="ml-1 shrink-0 opacity-60" aria-hidden="true" />
+                  <ExternalLink size={14} className="ml-1 shrink-0" aria-hidden="true" />
                   <span className="sr-only"> (opens in a new tab)</span>
                 </a>
                 {closeButton(tab)}
@@ -150,37 +147,37 @@ export function ChannelTabBar({ activeTab, tabs, pinCount, onSelectTab, onCloseT
         </>
       ) : null}
 
-      <div className="mb-1.5 flex flex-none items-center">
+      <div className="mb-1.5 flex flex-none items-center pointer-coarse:mb-0.5">
         <DropdownMenu>
           <DropdownMenuTrigger
             data-add-tab-trigger
             aria-label="Add a tab"
             title="Add a tab"
             onKeyDown={handleKeyDown}
-            className="inline-flex size-7 items-center justify-center rounded-[4px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring pointer-coarse:size-11"
+            className="nb-icon-button size-7 pointer-coarse:size-11"
           >
-            <Plus size={15} />
+            <Plus size={16} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-60">
             {onAddCanvas ? (
               <>
-                <DropdownMenuItem onSelect={() => onAddCanvas("blank")} className="gap-2"><FileText size={15} className="text-muted-foreground" /> {hasCanvas ? "Open canvas" : "New canvas"}</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onAddCanvas("template")} className="gap-2"><LayoutTemplate size={15} className="text-muted-foreground" /> Templates…</DropdownMenuItem>
-                {canCopyCanvas ? <DropdownMenuItem onSelect={() => onAddCanvas("existing")} className="gap-2"><Copy size={15} className="text-muted-foreground" /> Copy from another channel…</DropdownMenuItem> : null}
+                <DropdownMenuItem onSelect={() => onAddCanvas("blank")}><FileText /> {hasCanvas ? "Open canvas" : "New canvas"}</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onAddCanvas("template")}><LayoutTemplate /> Templates…</DropdownMenuItem>
+                {canCopyCanvas ? <DropdownMenuItem onSelect={() => onAddCanvas("existing")}><Copy /> Copy from another channel…</DropdownMenuItem> : null}
                 <DropdownMenuSeparator />
               </>
             ) : null}
             {onAddFiles ? (
-              <DropdownMenuItem onSelect={onAddFiles} className="gap-2"><Files size={15} className="text-muted-foreground" /> Add Files tab</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onAddFiles}><Files /> Add Files tab</DropdownMenuItem>
             ) : null}
             {onAddTasks ? (
-              <DropdownMenuItem onSelect={onAddTasks} className="gap-2"><CheckSquare size={15} className="text-muted-foreground" /> Add Tasks tab</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onAddTasks}><CheckSquare /> Add Tasks tab</DropdownMenuItem>
             ) : null}
-            <DropdownMenuItem onSelect={onAddBookmark} className="gap-2"><Link2 size={15} className="text-muted-foreground" /> Add bookmark…</DropdownMenuItem>
+            <DropdownMenuItem onSelect={onAddBookmark}><Link2 /> Add bookmark…</DropdownMenuItem>
             {onEditTabs ? (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={onEditTabs} className="gap-2"><SlidersHorizontal size={15} className="text-muted-foreground" /> Edit tabs</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onEditTabs}><SlidersHorizontal /> Edit tabs</DropdownMenuItem>
               </>
             ) : null}
           </DropdownMenuContent>

@@ -211,7 +211,8 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(source("src/components/layout/AppSidebar.tsx"), /MAIN_NAV_ITEMS/);
   assert.match(topNav, /hidden min-w-0 flex-1 items-center md:flex/);
   assert.match(topNav, /<div className="md:hidden">\s*<Logo/);
-  assert.match(topNav, /className="nb-mobile-menu-trigger[^\"]*md:hidden"\s+aria-label="Open mobile menu"/);
+  // The label also says when there are unread messages (the dot alone isn't heard; round 3 #92).
+  assert.match(topNav, /className="nb-mobile-menu-trigger[^\"]*md:hidden"\s+aria-label=\{chatUnread \? "Open mobile menu, unread messages" : "Open mobile menu"\}/);
   assert.match(globals, /@media \(min-width:768px\) \{[\s\S]*?\.nb-mobile-menu-trigger \{ display:none; \}/);
   assert.doesNotMatch(topNav, /createProject=1/);
   assert.match(topNav, /href="\/projects\/new"/);

@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { markRead } from "@/app/actions/chat/read";
 import { escapeTaken, isTypingTarget } from "@/components/messages/keys";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
-import { isUnread, needsAttention, sidebarOrder } from "@/lib/messaging/channel-view";
+import { isUnread, MARK_ALL_LABEL, needsAttention, sidebarOrder } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref } from "@/lib/messaging/routes";
 import type { ChatChannelSummary } from "@/lib/messaging/types";
@@ -71,7 +71,7 @@ function useMessagesKeyboardShortcuts(confirmMarkAll: (rows: ChatChannelSummary[
         if (!rows.length) return;
         e.preventDefault();
         const project = data?.projects?.find((p) => p.id === projectId);
-        confirmMarkAll(rows, project ? `Mark ${project.title} and your DMs read` : "Mark everything read");
+        confirmMarkAll(rows, project ? `Mark ${project.title} and your DMs read` : MARK_ALL_LABEL);
         return;
       }
 

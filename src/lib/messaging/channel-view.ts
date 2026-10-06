@@ -1,4 +1,5 @@
 import type { ChatBootstrap, ChatChannelSummary, ChatNotify, ChatPerson } from "@/lib/messaging/types";
+import { formatAbsoluteTimestamp, formatRelativeTimestamp } from "@/lib/notifications/presentation";
 
 /**
  * Notification choices. Every message notifies only in DMs and group chats outside projects
@@ -206,6 +207,9 @@ export function initials(title: string) {
  * Chat times. "auto": 3:42 PM today, else Oct 3. "at" (reminders, scheduled sends, past or future):
  * "Today 3:42 PM", "Tomorrow 9:00 AM", else "Mon, Oct 6, 9:00 AM".
  */
+/** A list time's tooltip: the full date and time ("Oct 3, 2025, 4:12 PM"). */
+export const fullTime = (value: string) => formatAbsoluteTimestamp(value) ?? undefined;
+
 export function formatChatTime(value: string | Date, mode: "clock" | "ago" | "auto" | "at" = "auto") {
   const date = new Date(value);
   if (mode === "at") {
@@ -220,17 +224,14 @@ export function formatChatTime(value: string | Date, mode: "clock" | "ago" | "au
     if (days === -1) return `Yesterday ${clock}`;
     return date.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
-  if (mode === "ago") {
-    const minutes = Math.round((Date.now() - date.getTime()) / 60_000);
-    if (minutes < 1) return "just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    if (minutes < 1440) return `${Math.round(minutes / 60)}h ago`;
-    return `${Math.round(minutes / 1440)}d ago`;
-  }
+  // The same "5m ago" as Notifications (one rounding everywhere).
+  if (mode === "ago") return formatRelativeTimestamp(date.toISOString()) ?? "";
   if (mode === "clock" || date.toDateString() === new Date().toDateString()) {
     return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   }
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  // Another year says which ("Oct 3, 2025"), so an old search hit isn't read as this October.
+  const otherYear = date.getFullYear() !== new Date().getFullYear();
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", ...(otherYear ? { year: "numeric" } : {}) });
 }
 
 /** The swipe buttons for a list row: Read only when there's something unread; DMs Close, channels Star. */

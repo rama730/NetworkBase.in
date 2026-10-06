@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { resumeNotifications } from "@/app/actions/presence";
+import { useMyPresenceSettings } from "@/components/presence/useMyPresence";
+import { queryKeys } from "@/lib/query-keys";
 import { BellOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -37,7 +41,13 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
     return () => { active = false; };
   }, []);
 
-  const save = (next: NotificationPreferences) => updateMutation.mutate(next, { onError: () => toast.error("Failed to save preferences") });
+  const queryClient = useQueryClient();
+  const presence = useMyPresenceSettings();
+  // Quiet hours keep the zone they were set in, so the server applies them on your clock.
+  const save = (next: NotificationPreferences) => updateMutation.mutate(
+    { ...next, quietHours: { ...next.quietHours, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } },
+    { onError: () => toast.error("Failed to save preferences") },
+  );
   const toggleCategory = (key: NotificationPreferenceCategory) => { if (preferences) save({ ...preferences, [key]: !preferences[key] }); };
   const setAllCategories = (enabled: boolean) => {
     if (!preferences) return;
@@ -45,7 +55,22 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
     for (const { key } of NOTIFICATION_PREFERENCE_CATEGORIES) next[key] = enabled;
     save(next);
   };
-  const pause = (hours: number | null) => { if (preferences) save({ ...preferences, pausedUntil: hours === null ? null : new Date(Date.now() + hours * 3_600_000).toISOString() }); };
+  // "Tomorrow" means 9 AM tomorrow (not 24 hours from now).
+  const pauseUntil = (choice: "1h" | "8h" | "tomorrow") => {
+    if (choice !== "tomorrow") return new Date(Date.now() + (choice === "1h" ? 1 : 8) * 3_600_000);
+    const at = new Date();
+    at.setDate(at.getDate() + 1);
+    at.setHours(9, 0, 0, 0);
+    return at;
+  };
+  const pause = (choice: "1h" | "8h" | "tomorrow") => { if (preferences) save({ ...preferences, pausedUntil: pauseUntil(choice).toISOString() }); };
+  // Resume also lifts a pause your status set (so your card stops saying "Notifications paused").
+  const resume = async () => {
+    const result = await resumeNotifications();
+    if (!result.success) return void toast.error("Couldn't resume notifications.");
+    void queryClient.invalidateQueries({ queryKey: queryKeys.settings.notifications() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.presence.mine() });
+  };
   const setQuietTime = (field: "startMinute" | "endMinute", value: string) => {
     if (!preferences) return;
     const minute = parseTimeInput(value);
@@ -96,6 +121,7 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
 
   const isSaving = updateMutation.isPending;
   const pauseActive = isNotificationPauseActive(preferences);
+  const pausedByStatus = pauseActive && Boolean(presence.data?.status?.pausesNotifications);
   const enabledCategoryCount = NOTIFICATION_PREFERENCE_CATEGORIES.filter(({ key }) => preferences[key]).length;
   const allCategoriesEnabled = enabledCategoryCount === NOTIFICATION_PREFERENCE_CATEGORIES.length;
   const deliveryDescriptions = {
@@ -113,14 +139,19 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
         <Button type="button" variant="outline" size="sm" onClick={() => setAllCategories(!allCategoriesEnabled)} disabled={isSaving}>{allCategoriesEnabled ? "Turn all off" : "Turn all on"}</Button>
       </div>
       {/* What these switches don't cover, said once. */}
-      <p className="pt-3 nb-compact text-muted-foreground">Direct messages still notify you. Mute a conversation, or change what notifies you there, from its bell menu in Messages.</p>
+      <p className="pt-3 nb-compact text-muted-foreground">Direct messages, group chats and threads you follow still notify you. Mute a conversation, or change what notifies you there, from its bell menu in Messages.</p>
       <div className="divide-y divide-border">
         {NOTIFICATION_PREFERENCE_CATEGORIES.map((category) => <PreferenceSwitch key={category.key} id={category.key} title={category.title} description={category.description} checked={preferences[category.key]} disabled={isSaving} onToggle={() => toggleCategory(category.key)} />)}
       </div>
       <div className="mt-4 border-t border-border pt-4">
         <h4 className="nb-ui-label text-foreground">Quiet controls</h4>
         <div className="mt-2 divide-y divide-border">
-          <SettingsRow title={pauseActive ? "Notifications paused" : "Pause notifications"} description={preferences.pausedUntil ? `Delivery resumes ${new Date(preferences.pausedUntil).toLocaleString()}.` : "Updates remain available in the tray while delivery is paused."} right={<div className="flex flex-wrap gap-2">{([[1, "1 hour"], [8, "8 hours"], [24, "Tomorrow"]] as const).map(([hours, label]) => <Button key={hours} type="button" variant="outline" size="sm" onClick={() => pause(hours)} disabled={isSaving}>{label}</Button>)}{preferences.pausedUntil ? <Button type="button" variant="ghost" size="sm" onClick={() => pause(null)} disabled={isSaving}>Resume</Button> : null}</div>} />
+          {/* Only an active pause says when it ends (an old one would read "resumes" in the past). */}
+          <SettingsRow
+            title={pauseActive ? (pausedByStatus ? "Paused by your status" : "Notifications paused") : "Pause notifications"}
+            description={pauseActive && preferences.pausedUntil ? `Delivery resumes ${new Date(preferences.pausedUntil).toLocaleString()}.` : "Updates remain available in the tray while delivery is paused."}
+            right={<div className="flex flex-wrap gap-2">{([["1h", "1 hour"], ["8h", "8 hours"], ["tomorrow", "Until tomorrow 9 AM"]] as const).map(([choice, label]) => <Button key={choice} type="button" variant="outline" size="sm" onClick={() => pause(choice)} disabled={isSaving}>{label}</Button>)}{pauseActive ? <Button type="button" variant="ghost" size="sm" onClick={() => void resume()} disabled={isSaving}>Resume</Button> : null}</div>}
+          />
           <SettingsRow title="Quiet hours" description={preferences.quietHours.enabled ? `From ${formatMinuteOfDay(preferences.quietHours.startMinute)} to ${formatMinuteOfDay(preferences.quietHours.endMinute)} each day, updates wait in the tray until it ends and chat messages don't push (they stay unread in Messages).` : "Set a recurring daily period without delivery interruptions."} right={<div className="flex items-center gap-3"><span className="nb-meta text-muted-foreground select-none w-6 text-right">{preferences.quietHours.enabled ? "On" : "Off"}</span><SettingsSwitch aria-label="Enable quiet hours" checked={preferences.quietHours.enabled} onCheckedChange={() => save({ ...preferences, quietHours: { ...preferences.quietHours, enabled: !preferences.quietHours.enabled } })} disabled={isSaving} /></div>} />
           {preferences.quietHours.enabled ? <div className="grid gap-3 py-4 sm:grid-cols-2">
             {(["startMinute", "endMinute"] as const).map((field) => <label key={field} className="nb-compact text-muted-foreground"><span className="mb-2 block nb-meta text-foreground">{field === "startMinute" ? "From" : "Until"}</span><input type="time" aria-label={field === "startMinute" ? "Quiet hours start" : "Quiet hours end"} value={formatMinuteOfDay(preferences.quietHours[field])} disabled={isSaving} onChange={(event) => setQuietTime(field, event.target.value)} className="h-10 w-full rounded-md border border-border bg-background px-3 nb-compact text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" /></label>)}

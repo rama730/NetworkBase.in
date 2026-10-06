@@ -24,7 +24,8 @@ test("Undo of a removed tab puts it back where it was", () => {
 
 test("header and tabs: archive icon, no delete key, ?tab= in the URL, canvas confirms", () => {
   const view = read("src/components/messages/ConversationView.tsx");
-  assert.match(view, /<Archive size=\{14\} className="mr-2" \/> Archive channel/);
+  // Menu items take the shared sizing and the destructive variant (round 3 #153).
+  assert.match(view, /<DropdownMenuItem variant="destructive" onSelect=\{\(\) => setConfirm\("archive"\)\}>\s*<Archive \/> Archive channel/);
   assert.match(view, /params\.set\("tab", id\)/);
   assert.match(view, /title=\{confirm === "replace" \? "Replace the canvas\?"/);
   assert.match(view, /key=\{`\$\{channelId\}:\$\{timeline\.epoch\}`\}/);
@@ -42,7 +43,7 @@ test("message row: keyboard, time button, grouped icons, delete with replies, fa
   assert.match(row, /tabIndex=\{tabStop \? 0 : -1\}/);
   assert.match(read("src/components/messages/Timeline.tsx"), /onKeyDown=\{onListKeyDown\}/);
   // Round 2 #145: pinned and saved read as a small label line above the message.
-  assert.match(row, /<Pin size=\{11\} aria-hidden="true" \/> Pinned/);
+  assert.match(row, /<Pin size=\{14\} aria-hidden="true" \/> Pinned/);
   assert.match(row, /own && !message\.reply_count \? removeWithUndo\(\) : setConfirmDelete\(true\)/);
   assert.match(row, /Not sent[\s\S]*Retry[\s\S]*Delete/);
   assert.match(row, /if \(ctx\.share && hasContent\)/);

@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { Bell, Copy, Link2, Lock, MessageSquare, MoreHorizontal, Star, UserPlus } from "lucide-react";
+import { Bell, Copy, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldCheck, ShieldOff, Star, User, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { joinChannel, renameGroup, setChannelPrivacy, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
-import { getOrCreateDm, getPersonContext, removeMember, setMemberRole, setMemberState } from "@/app/actions/chat/members";
+import { addMembers, getOrCreateDm, getPersonContext, removeMember, setMemberRole, setMemberState } from "@/app/actions/chat/members";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { AddPeopleDialog } from "@/components/messages/parts/AddPeople";
 import { useChannelDetails, useChannelMembers } from "@/components/messages/useConversation";
@@ -18,6 +18,13 @@ import { PresenceBadge } from "@/components/presence/PresenceBadge";
 import { StatusInline } from "@/components/presence/StatusInline";
 import { usePersonPresence } from "@/components/presence/usePresence";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SettingsSwitch } from "@/components/settings/ui/SettingsSwitch";
+import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
@@ -32,7 +39,7 @@ import { profileHref } from "@/lib/routing/identifiers";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
 import { useConversationExit } from "@/components/messages/useConversationExit";
-import { rovingTabKey } from "@/components/messages/keys";
+import { keyLabel, rovingTabKey } from "@/components/messages/keys";
 
 type Field = "name" | "topic" | "description" | "title";
 
@@ -58,19 +65,19 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
     saving.current = false;
     if (ok) setDraft(null);
   };
-  const Input = multiline ? "textarea" : "input";
+  const Field = multiline ? "textarea" : "input";
   return (
     <div className="p-4">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-foreground">{label}</span>
+        <span className="nb-ui-label text-foreground">{label}</span>
         {/* Out of the tab order: the value below is the same button for keyboards and screen readers. */}
-        {editable && draft === null ? <button type="button" tabIndex={-1} aria-hidden="true" onClick={start} className="text-[12px] font-medium text-primary hover:underline">Edit</button> : null}
+        {editable && draft === null ? <button type="button" tabIndex={-1} aria-hidden="true" onClick={start} className="text-[13px] font-medium text-primary hover:underline">Edit</button> : null}
       </div>
       {draft !== null ? (
         <div className="mt-1.5 space-y-1">
-          <div className="flex items-start rounded-[5px] border border-input bg-card px-2 focus-within:ring-1 focus-within:ring-ring">
-            {prefix ? <span className="select-none py-1.5 font-mono text-[14px] text-muted-foreground">{prefix}</span> : null}
-            <Input
+          <div className="flex items-start rounded-md border border-input bg-card px-2 focus-within:border-ring">
+            {prefix ? <span className="select-none py-1.5 font-mono text-[15px] text-muted-foreground">{prefix}</span> : null}
+            <Field
               autoFocus
               aria-label={label}
               value={draft}
@@ -81,26 +88,28 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
                 if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cancelled.current = true; setDraft(null); }
                 if (e.key === "Enter" && (!multiline || e.metaKey || e.ctrlKey)) { e.preventDefault(); void save(); }
               }}
-              className="w-full resize-none bg-transparent py-1.5 text-[14px] outline-none"
+              className="w-full resize-none bg-transparent py-1.5 text-[15px] outline-none"
             />
           </div>
-          <div className="flex items-start gap-3 text-[12px]">
+          <div className="flex items-start gap-3 text-[13px]">
             {hint || !valid(draft.trim()) ? <p className={`flex-1 ${valid(draft.trim()) ? "text-muted-foreground" : "text-destructive"}`}>{hint}</p> : <span className="flex-1" />}
-            {/* A visible limit instead of a silent cut. */}
-            {max ? <span className={`font-mono ${draft.length >= max ? "text-destructive" : "text-muted-foreground"}`}>{draft.length}/{max}</span> : null}
+            {/* A visible limit instead of a silent cut; red only past it (the limit itself is fine). */}
+            {max ? <span className={`nb-meta ${draft.length > max ? "text-destructive" : ""}`}>{draft.length}/{max}</span> : null}
           </div>
-          <p className="text-[11px] text-muted-foreground">{multiline ? "⌘Enter to save · Esc to cancel" : "Enter to save · Esc to cancel"}</p>
+          <p className="text-[13px] text-muted-foreground">{multiline ? `${keyLabel("mod+enter")} to save · Esc to cancel` : "Enter to save · Esc to cancel"}</p>
         </div>
-      ) : (
+      ) : editable ? (
         <button
           type="button"
-          disabled={!editable}
-          aria-label={editable ? `Edit ${label.toLowerCase()}${value ? `: ${value}` : ""}` : undefined}
+          aria-label={`Edit ${label.toLowerCase()}${value ? `: ${value}` : ""}`}
           onClick={start}
-          className={`mt-1 block w-full whitespace-pre-wrap text-left text-[13px] leading-relaxed ${value ? "text-foreground" : "text-muted-foreground"} ${editable ? "cursor-text rounded-[4px] hover:bg-muted/60" : "cursor-default"}`}
+          className={`mt-1 block w-full cursor-text whitespace-pre-wrap rounded-sm text-left text-[13px] leading-relaxed hover:bg-muted ${value ? "text-foreground" : "text-muted-foreground"}`}
         >
-          {value ? `${prefix ?? ""}${value}` : editable ? placeholder : "None"}
+          {value ? `${prefix ?? ""}${value}` : placeholder}
         </button>
+      ) : (
+        // Not yours to edit: plain text, not a dimmed button.
+        <p className={`mt-1 whitespace-pre-wrap text-[13px] leading-relaxed ${value ? "text-foreground" : "text-muted-foreground"}`}>{value ? `${prefix ?? ""}${value}` : "None"}</p>
       )}
     </div>
   );
@@ -108,35 +117,38 @@ function EditableRow({ label, value, placeholder, editable, multiline, prefix, o
 
 /** Star and Copy link, at the top of About (and a DM's details). */
 function QuickActions({ channel, onStar }: { channel: ChannelDetails; onStar?: () => void }) {
-  const button = "inline-flex h-8 items-center gap-1.5 rounded-[5px] border border-border px-2.5 text-[13px] font-medium hover:bg-muted pointer-coarse:h-11";
   return (
     <div className="flex flex-wrap gap-2">
       {onStar ? (
-        <button type="button" onClick={onStar} aria-pressed={channel.starred} className={button}>
-          <Star size={14} className={channel.starred ? "text-[var(--status-warning)]" : ""} fill={channel.starred ? "currentColor" : "none"} aria-hidden="true" />
+        <Button type="button" variant="outline" size="sm" onClick={onStar} aria-pressed={channel.starred} className="pointer-coarse:h-11">
+          <Star size={16} className={channel.starred ? "text-primary" : ""} fill={channel.starred ? "currentColor" : "none"} aria-hidden="true" />
           {channel.starred ? "Starred" : "Star"}
-        </button>
+        </Button>
       ) : null}
-      <button type="button" onClick={() => { void copyWithToast(`${window.location.origin}${conversationHref(channel.id)}`, "Link copied"); }} className={button}>
-        <Link2 size={14} aria-hidden="true" /> Copy link
-      </button>
+      <Button type="button" variant="outline" size="sm" onClick={() => { void copyWithToast(`${window.location.origin}${conversationHref(channel.id)}`, "Link copied"); }} className="pointer-coarse:h-11">
+        <Link2 size={16} aria-hidden="true" /> Copy link
+      </Button>
     </div>
   );
 }
 
 function NotifyRow({ channel, onChange }: { channel: ChannelDetails; onChange: (notify: ChatNotify) => void }) {
+  const id = `notify-${channel.id}`;
   return (
-    <label className="flex items-start gap-3 p-4">
-      <Bell size={15} aria-hidden="true" className="mt-1 text-muted-foreground" />
+    <div className="flex items-start gap-3 p-4">
+      <Bell size={16} aria-hidden="true" className="mt-0.5 text-muted-foreground" />
       <span className="flex-1">
-        <span className="block text-[13px] font-semibold">Notifications</span>
+        <span id={id} className="nb-ui-label block">Notifications</span>
         {/* What the choice actually does. */}
-        <span className="block text-[12px] text-muted-foreground">{notifyHelp(channel, channel.notify)}</span>
+        <span className="block text-[13px] text-muted-foreground">{notifyHelp(channel, channel.notify)}</span>
       </span>
-      <select value={notifyChoice(channel, channel.notify)} onChange={(e) => onChange(e.target.value as ChatNotify)} className="h-8 rounded-[5px] border border-input bg-card px-2 text-[13px] pointer-coarse:h-11">
-        {notifyChoices(channel).map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
-      </select>
-    </label>
+      <Select value={notifyChoice(channel, channel.notify)} onValueChange={(value) => onChange(value as ChatNotify)}>
+        <SelectTrigger aria-labelledby={id} className="w-auto min-w-[120px] text-[13px] pointer-coarse:h-11"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {notifyChoices(channel).map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -149,11 +161,14 @@ function MemberRow({ member, channel, meId, online, onRemove }: { member: Channe
   const message = async () => {
     if (opening) return;
     setOpening(true);
-    const opened = toast.loading(`Opening a message with ${personName(member)}…`);
-    const result = await getOrCreateDm({ userId: member.id }).finally(() => setOpening(false));
-    toast.dismiss(opened);
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
-    router.push(conversationHref(result.channelId));
+    const opening$ = getOrCreateDm({ userId: member.id }).then((result) => {
+      if (!result.success) throw new Error(chatErrorMessage(result.error));
+      return result.channelId;
+    }).finally(() => setOpening(false));
+    // No success toast: the conversation opening is the confirmation (sonner dismisses the loading one).
+    toast.promise(opening$, { loading: `Opening a message with ${personName(member)}…`, error: (error: Error) => error.message });
+    const channelId = await opening$.catch(() => null);
+    if (channelId) router.push(conversationHref(channelId));
   };
   const role = async (next: "admin" | "member", undo = true) => {
     const result = await setMemberRole({ channelId: channel.id, userId: member.id, role: next });
@@ -164,42 +179,58 @@ function MemberRow({ member, channel, meId, online, onRemove }: { member: Channe
   };
   const canManage = channel.can_admin && !self && member.role !== "owner" && channel.kind !== "dm";
   return (
-    <div role="listitem" className="group/member flex min-h-12 items-center gap-2.5 rounded-[5px] px-2 hover:bg-muted/50">
-      <PersonHoverCard person={member}>
-        <span className="inline-flex flex-none"><PresenceAvatar userId={member.id} live={online} identity={member} size={30} roundedClassName="rounded-[5px]" /></span>
+    // The badge's cut-out follows the row's hover colour (no card-coloured halo).
+    <div role="listitem" className="group/member flex min-h-12 items-center gap-2.5 rounded-md px-2 hover:bg-muted hover:[--presence-cut:var(--muted)]">
+      <PersonHoverCard person={member} focusable={false}>
+        <span className="inline-flex flex-none"><PresenceAvatar userId={member.id} live={online} identity={member} size={34} /></span>
       </PersonHoverCard>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5">
-          <PersonHoverCard person={member}>
-            <span className="truncate text-[14px] font-medium hover:underline">{personName(member)}{self ? " (you)" : ""}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <PersonHoverCard person={member} label="" className="min-w-0">
+            <span className="block truncate text-[13px] font-medium hover:underline">{personName(member)}{self ? " (you)" : ""}</span>
           </PersonHoverCard>
           {presence.status?.emoji ? <span className="flex-none font-[system-ui] text-[13px]" title={presence.statusText ?? undefined}>{presence.status.emoji}</span> : null}
         </span>
         {/* No "Offline" guess before presence has loaded. */}
         <span className="block truncate text-[12px] text-muted-foreground">{presence.statusText || (presence.loaded ? presence.availabilityText : " ")}</span>
       </span>
-      {ROLE_LABEL[member.role] ? <span className="flex-none rounded-[3px] bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">{ROLE_LABEL[member.role]}</span> : null}
+      {ROLE_LABEL[member.role] ? <span className="nb-tag flex-none">{ROLE_LABEL[member.role]}</span> : null}
       {!self ? (
         <DropdownMenu>
-          <DropdownMenuTrigger className="grid size-8 flex-none place-items-center rounded-[5px] pointer-coarse:size-11 text-muted-foreground hover:bg-muted hover:text-foreground pointer-fine:opacity-0 pointer-fine:group-hover/member:opacity-100 pointer-fine:group-focus-within/member:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100" aria-label={`Options for ${personName(member)}`}>
-            <MoreHorizontal size={15} />
+          <DropdownMenuTrigger className="nb-icon-button nb-touch-target size-8 flex-none pointer-fine:opacity-0 pointer-fine:group-hover/member:opacity-100 pointer-fine:group-focus-within/member:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100" aria-label={`Options for ${personName(member)}`}>
+            <MoreHorizontal size={16} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem disabled={opening} onSelect={() => void message()}><MessageSquare size={14} className="mr-2" /> Message</DropdownMenuItem>
-            {member.username ? <DropdownMenuItem asChild><Link href={profileHref({ id: member.id, username: member.username })}>View profile</Link></DropdownMenuItem> : null}
+            <DropdownMenuItem disabled={opening} onSelect={() => void message()}><MessageSquare /> Message</DropdownMenuItem>
+            {member.username ? <DropdownMenuItem asChild><Link href={profileHref({ id: member.id, username: member.username })}><User /> View profile</Link></DropdownMenuItem> : null}
             {canManage ? (
               <>
                 <DropdownMenuSeparator />
                 {member.role === "admin"
-                  ? <DropdownMenuItem onSelect={() => void role("member")}>Remove as admin</DropdownMenuItem>
-                  : <DropdownMenuItem onSelect={() => void role("admin")}>Make admin</DropdownMenuItem>}
+                  ? <DropdownMenuItem onSelect={() => void role("member")}><ShieldOff /> Remove as admin</DropdownMenuItem>
+                  : <DropdownMenuItem onSelect={() => void role("admin")}><ShieldCheck /> Make admin</DropdownMenuItem>}
                 {/* Everyone in the project is in #general; the server refuses removals there. */}
-                {channel.is_default ? null : <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => onRemove(member)}>Remove from channel</DropdownMenuItem>}
+                {channel.is_default ? null : <DropdownMenuItem variant="destructive" onSelect={() => onRemove(member)}><UserMinus /> Remove from channel</DropdownMenuItem>}
               </>
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
+    </div>
+  );
+}
+
+/** Member rows loading, in the shared shimmer. */
+function MemberRowsSkeleton() {
+  return (
+    <div role="status" className="space-y-3 p-2">
+      <span className="sr-only">Loading members…</span>
+      {[60, 45, 70].map((width) => (
+        <div key={width} className="flex items-center gap-2.5">
+          <Skeleton className="size-[34px] flex-none rounded-md" />
+          <Skeleton className="h-3 rounded-sm" style={{ width: `${width}%` }} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -211,7 +242,7 @@ const MEMBER_LIST = {
   }),
 };
 
-function Members({ channel, meId, onAdd, scrollParent }: { channel: ChannelDetails; meId: string | null; onAdd: () => void; scrollParent: HTMLElement | null }) {
+function Members({ channel, meId, onAdd, onJoin, scrollParent }: { channel: ChannelDetails; meId: string | null; onAdd: () => void; onJoin: () => Promise<void>; scrollParent: HTMLElement | null }) {
   const queryClient = useQueryClient();
   const members = useChannelMembers(channel.id, channel.is_member);
   const [filter, setFilter] = useState("");
@@ -226,28 +257,52 @@ function Members({ channel, meId, onAdd, scrollParent }: { channel: ChannelDetai
   const [range, setRange] = useState({ start: 0, end: 30 });
   const ids = useMemo(() => list.slice(range.start, range.end + 1).slice(0, 50).map((m) => m.id), [list, range]);
   const online = useOnlineUsers(ids);
-  const remove = async () => {
-    const member = removing;
-    setRemoving(null);
-    if (!member) return;
-    const result = await removeMember({ channelId: channel.id, userId: member.id });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+  const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.members(channel.id) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channel.id) });
-    toast.success(`${personName(member)} was removed`);
   };
-  // Previewing a public channel: the list is for members.
+  // From the confirm dialog: a failure throws, so the dialog stays open and says why.
+  const remove = async () => {
+    const member = removing;
+    if (!member) return;
+    const result = await removeMember({ channelId: channel.id, userId: member.id });
+    if (!result.success) throw new Error(chatErrorMessage(result.error));
+    refresh();
+    const undo = async () => {
+      const added = await addMembers({ channelId: channel.id, userIds: [member.id] });
+      if (!added.success) return void toast.error(chatErrorMessage(added.error));
+      refresh();
+    };
+    toast.success(`${personName(member)} was removed`, { action: { label: "Undo", onClick: () => void undo() } });
+  };
+  // Previewing a public channel: the list is for members, and Join is right here.
   if (!channel.is_member) {
-    return <p className="p-6 text-center text-[13px] text-muted-foreground">Join #{channel.name} to see its {channel.member_count} members.</p>;
+    return (
+      <EmptyState
+        compact
+        icon={Users}
+        title={`${channel.member_count} members`}
+        description={`Join #${channel.name} to see who's here.`}
+        action={channel.kind === "public" && !channel.channel_archived_at ? <Button type="button" size="sm" onClick={() => void onJoin()} className="pointer-coarse:h-11">Join channel</Button> : undefined}
+        className="m-3"
+      />
+    );
   }
+  // ponytail: the member list holds the first 500 (listMembers); the search box says so past that.
+  const capped = channel.member_count > 500;
   return (
     <div className="space-y-2 p-3">
-      {canAddPeople(channel) ? <button type="button" onClick={onAdd} className="flex h-9 w-full items-center gap-2 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted"><UserPlus size={14} /> Add people</button> : null}
-      <label className="block">
+      {canAddPeople(channel) ? <Button type="button" variant="outline" onClick={onAdd} className="w-full justify-start pointer-coarse:h-11"><UserPlus size={16} /> Add people</Button> : null}
+      <label className="relative block">
         <span className="sr-only">Find members</span>
-        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={`Find among ${channel.member_count} members`} className="h-9 w-full rounded-[5px] border border-input bg-background px-3 text-[14px]" />
+        <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={capped ? "Find among the first 500 members" : `Find among ${channel.member_count} members`} className="pl-9 pr-9 pointer-coarse:h-11" />
+        {filter ? (
+          <button type="button" onClick={() => setFilter("")} aria-label="Clear search" className="nb-icon-button absolute right-1 top-1/2 size-7 -translate-y-1/2"><X size={14} /></button>
+        ) : null}
       </label>
-      {members.isLoading ? <p className="p-4 text-center text-[13px] text-muted-foreground">Loading members…</p> : null}
+      {members.isLoading ? <MemberRowsSkeleton /> : null}
+      {members.isError ? <ErrorNotice what="Members" onRetry={() => void members.refetch()} /> : null}
       {scrollParent ? (
         <Virtuoso
           customScrollParent={scrollParent}
@@ -258,7 +313,7 @@ function Members({ channel, meId, onAdd, scrollParent }: { channel: ChannelDetai
           itemContent={(_index, member) => <MemberRow member={member} channel={channel} meId={meId} online={online[member.id]} onRemove={setRemoving} />}
         />
       ) : null}
-      {members.data && !list.length ? <p className="p-4 text-center text-[13px] text-muted-foreground">No members match.</p> : null}
+      {members.data && !list.length ? <EmptyState compact icon={Search} title="No members match" description={`Nobody here matches "${filter}".`} /> : null}
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
@@ -266,7 +321,7 @@ function Members({ channel, meId, onAdd, scrollParent }: { channel: ChannelDetai
         description={channel.kind === "public" ? "They can rejoin this public channel later." : "They'll need to be added again to come back."}
         confirmLabel="Remove"
         variant="destructive"
-        onConfirm={() => void remove()}
+        onConfirm={remove}
       />
     </div>
   );
@@ -294,33 +349,36 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
   const tz = context.data?.timeZone;
   const localTime = tz ? now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: tz }) : null;
   return (
-    <div className="app-scroll app-scroll-y min-h-0 flex-1">
-      <div className="space-y-2 border-b border-border p-4">
-        <PresenceAvatar userId={person?.id} identity={person} size={72} roundedClassName="rounded-lg" />
-        <p className="text-[18px] font-semibold">{self ? `${personName(person)} (you)` : personName(person)}</p>
-        {person?.username ? <p className="font-mono text-[12px] text-muted-foreground">@{person.username}</p> : null}
-        {presence.status ? <StatusInline emoji={presence.status.emoji} text={presence.statusText} className="text-[14px]" /> : null}
+    <div className="app-scroll app-scroll-y min-h-0 flex-1 divide-y divide-border">
+      <div className="space-y-2 p-4">
+        <PresenceAvatar userId={person?.id} identity={person} size={72} />
+        <p className="nb-section-title">{self ? `${personName(person)} (you)` : personName(person)}</p>
+        {person?.username ? <p className="nb-meta">@{person.username}</p> : null}
+        {presence.status ? <StatusInline emoji={presence.status.emoji} text={presence.statusText} className="text-[15px]" /> : null}
         <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
           <PresenceBadge availability={presence.availability} size={10} />
-          {presence.availabilityText}
+          {/* No "Offline" guess before presence has loaded. */}
+          {presence.loaded ? presence.availabilityText : "\u00a0"}
           {localTime ? <span>· {localTime} local time</span> : null}
         </p>
-        {person?.username && !self ? (
-          <Link href={profileHref({ id: person.id, username: person.username })} className="inline-flex h-[var(--ui-control-height)] items-center rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted">View profile</Link>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {person?.username && !self ? (
+            <Button asChild variant="outline" size="sm" className="pointer-coarse:h-11"><Link href={profileHref({ id: person.id, username: person.username })}><User size={16} /> View profile</Link></Button>
+          ) : null}
+        </div>
         <QuickActions channel={channel} onStar={() => setState({ starred: !channel.starred })} />
       </div>
       {context.data && (context.data.sharedProjects.length || context.data.sharedChannels.length) ? (
-        <div className="space-y-3 border-t border-border p-4">
+        <div className="space-y-3 p-4">
           {context.data.sharedProjects.length ? (
             <div>
-              <p className="mb-1 text-[12px] font-semibold text-muted-foreground">Projects in common</p>
+              <p className="nb-micro mb-1">Projects in common</p>
               {context.data.sharedProjects.map((p) => <Link key={p.id} href={`/projects/${p.slug ?? p.id}`} className="block truncate py-0.5 text-[13px] text-primary hover:underline">{p.title}</Link>)}
             </div>
           ) : null}
           {context.data.sharedChannels.length ? (
             <div>
-              <p className="mb-1 text-[12px] font-semibold text-muted-foreground">Channels in common</p>
+              <p className="nb-micro mb-1">Channels in common</p>
               {context.data.sharedChannels.map((c) => (
                 <Link key={c.id} href={conversationHref(c.id)} className="block truncate py-0.5 text-[13px] hover:underline">#{c.name}{c.project_title ? <span className="text-muted-foreground"> · {c.project_title}</span> : null}</Link>
               ))}
@@ -329,15 +387,11 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
         </div>
       ) : null}
       {/* Notes to self: nothing to notify or close. */}
+      {self ? null : <NotifyRow channel={channel} onChange={(notify) => setState({ notify })} />}
       {self ? null : (
-        <>
-          <div className="border-t border-border">
-            <NotifyRow channel={channel} onChange={(notify) => setState({ notify })} />
-          </div>
-          <div className="border-t border-border p-4">
-            <button type="button" onClick={onClose} className="h-9 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted">Close conversation</button>
-          </div>
-        </>
+        <div className="p-4">
+          <Button type="button" variant="outline" onClick={onClose} className="pointer-coarse:h-11"><X size={16} /> Close conversation</Button>
+        </div>
       )}
     </div>
   );
@@ -358,22 +412,15 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const exit = useConversationExit({ id: channelId, project_id: channel?.project_id ?? null, kind: channel?.kind ?? "public", name: channel?.name ?? null });
 
-  if (details.isError && !channel) {
-    return (
-      <div role="alert" className="space-y-2 p-6 text-center text-[13px]">
-        <p className="text-muted-foreground">Details didn&apos;t load.</p>
-        <button type="button" onClick={() => void details.refetch()} className="rounded-[5px] border border-border px-3 py-1.5 font-medium hover:bg-muted">Retry</button>
-      </div>
-    );
-  }
+  if (details.isError && !channel) return <ErrorNotice what="Details" onRetry={() => void details.refetch()} className="m-4" />;
   if (!channel) {
     return (
       <div role="status" className="flex-1 space-y-4 p-4">
         <span className="sr-only">Loading details…</span>
         {[40, 70, 55].map((width) => (
-          <div key={width} className="animate-pulse space-y-2">
-            <div className="h-3 w-20 rounded bg-muted" />
-            <div className="h-3 rounded bg-muted" style={{ width: `${width}%` }} />
+          <div key={width} className="space-y-2">
+            <Skeleton className="h-3 w-20 rounded-sm" />
+            <Skeleton className="h-3 rounded-sm" style={{ width: `${width}%` }} />
           </div>
         ))}
       </div>
@@ -381,6 +428,8 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
   }
   const isDm = channel.kind === "dm";
   const isGroup = channel.kind === "private" && channel.name === null;
+  // Only a real group chat (outside projects, not an application thread) has a name you can change.
+  const namedByMembers = isGroup && !channel.project_id && !channel.application_id;
 
   const refreshChannel = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.channel(channelId) });
@@ -410,14 +459,12 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
     refreshChannel();
   };
   const switchPrivacy = async () => {
-    setConfirmPrivacy(false);
     const result = await setChannelPrivacy({ channelId, private: channel?.kind !== "private" });
-    if (!result.success) return void toast.error(chatErrorMessage(result.error));
+    if (!result.success) throw new Error(chatErrorMessage(result.error));
     toast.success(channel?.kind === "private" ? "The channel is public now" : "The channel is private now");
     refreshChannel();
   };
   const leaveOrArchive = async (action: "leave" | "archive") => {
-    setConfirm(null);
     if (action === "archive") await exit.archive();
     else await exit.leave();
   };
@@ -456,30 +503,30 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
             tabIndex={tab === value ? 0 : -1}
             onClick={() => onTab(value)}
             onKeyDown={(event) => tabKeys(event, index)}
-            className={`nb-tab -mb-px min-h-10 border-b-2 text-[13px] font-medium capitalize ${tab === value ? "border-[var(--chat-accent)]" : "border-transparent text-muted-foreground"}`}
+            className={`nb-tab -mb-px inline-flex min-h-10 items-center gap-1.5 border-b-2 text-[13px] font-medium capitalize ${tab === value ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
-            {value === "members" ? `Members · ${channel.member_count}` : "About"}
+            {value === "members" ? <>Members <span className="nb-tab-count">{channel.member_count > 999 ? "999+" : channel.member_count}</span></> : "About"}
           </button>
         ))}
       </div>
       <div ref={setScroller} id="details-panel" role="tabpanel" aria-labelledby={`details-tab-${tab}`} className="app-scroll app-scroll-y min-h-0 flex-1">
-        {tab === "members" ? <Members channel={channel} meId={meId} onAdd={() => setAdding(true)} scrollParent={scroller} /> : (
+        {tab === "members" ? <Members channel={channel} meId={meId} onAdd={() => setAdding(true)} onJoin={join} scrollParent={scroller} /> : (
           <div className="space-y-3 p-4">
             {channel.channel_archived_at ? (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3 text-[13px]">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted px-4 py-3 text-[13px]">
                 <span className="flex-1">This channel is archived. History stays readable.</span>
-                {channel.can_admin ? <button type="button" onClick={() => void exit.unarchive()} className="h-8 rounded-[5px] border border-border px-3 font-medium hover:bg-muted">Unarchive</button> : null}
+                {channel.can_admin ? <Button type="button" variant="outline" size="sm" onClick={() => void exit.unarchive()} className="pointer-coarse:h-11">Unarchive</Button> : null}
               </div>
             ) : !channel.is_member && channel.kind === "public" ? (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-3 text-[13px]">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted px-4 py-3 text-[13px]">
                 <span className="flex-1">You&apos;re previewing <strong className="font-semibold">#{channel.name}</strong>.</span>
-                <button type="button" onClick={() => void join()} className="h-8 rounded-[5px] bg-primary px-3 font-medium text-primary-foreground">Join</button>
+                <Button type="button" size="sm" onClick={() => void join()} className="pointer-coarse:h-11">Join</Button>
               </div>
             ) : null}
             <QuickActions channel={channel} onStar={channel.is_member ? () => void setState({ starred: !channel.starred }) : undefined} />
-            <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card/40">
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
               {isGroup ? (
-                <EditableRow label="Group name" value={channel.title ?? null} placeholder="Name this group" editable={channel.is_member && !archived} onSave={saveField("title")} valid={(v) => v.length <= 80} max={80} hint="Up to 80 characters." />
+                <EditableRow label={namedByMembers ? "Group name" : "Name"} value={channel.title ?? null} placeholder="Name this group" editable={namedByMembers && channel.is_member && !archived} onSave={saveField("title")} valid={(v) => v.length <= 80} max={80} />
               ) : (
                 <EditableRow
                   label="Channel name"
@@ -494,8 +541,8 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
                 />
               )}
               {channel.is_default ? (
-                <p className="flex items-center gap-2 px-4 py-2 text-[12px] text-muted-foreground">
-                  <span className="rounded-[3px] bg-secondary px-1.5 py-0.5 text-[10px] font-medium">Default channel</span>
+                <p className="flex items-center gap-2 px-4 py-2 text-[13px] text-muted-foreground">
+                  <span className="nb-tag">Default channel</span>
                   Everyone in the project is a member.
                 </p>
               ) : null}
@@ -505,41 +552,42 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
                   <EditableRow label="Description" value={channel.description} placeholder="Add a description" editable={canEdit} multiline onSave={saveField("description")} transform={(raw) => raw.slice(0, CHAT_MAX_DESCRIPTION)} max={CHAT_MAX_DESCRIPTION} />
                 </>
               ) : null}
-              {channel.is_member ? <NotifyRow channel={channel} onChange={(notify) => void setState({ notify })} /> : null}
+              {/* An archived channel sends nothing, so it has no notification setting. */}
+              {channel.is_member && !archived ? <NotifyRow channel={channel} onChange={(notify) => void setState({ notify })} /> : null}
               {canSwitchPrivacy ? (
-                <label className="flex items-center gap-3 p-4">
-                  <Lock size={15} aria-hidden="true" className="text-muted-foreground" />
+                <div className="flex items-center gap-3 p-4">
+                  <Lock size={16} aria-hidden="true" className="text-muted-foreground" />
                   <span className="flex-1">
-                    <span className="block text-[13px] font-semibold">Private channel</span>
-                    <span className="block text-[12px] text-muted-foreground">{channel.kind === "private" ? "Only members can see it." : "Everyone in the project can find and join it."}</span>
+                    <span id="privacy-label" className="nb-ui-label block">Private channel</span>
+                    <span className="block text-[13px] text-muted-foreground">{channel.kind === "private" ? "Only members can see it." : "Everyone in the project can find and join it."}</span>
                   </span>
-                  <input type="checkbox" role="switch" checked={channel.kind === "private"} onChange={() => setConfirmPrivacy(true)} className="size-5 accent-[var(--primary)]" />
-                </label>
+                  <SettingsSwitch aria-labelledby="privacy-label" checked={channel.kind === "private"} onCheckedChange={() => setConfirmPrivacy(true)} />
+                </div>
               ) : null}
               {channel.project_title ? (
                 <div className="p-4">
-                  <span className="text-[13px] font-semibold">Project</span>
+                  <span className="nb-ui-label">Project</span>
                   <p className="mt-1 text-[13px]"><Link href={`/projects/${channel.project_slug ?? channel.project_id}`} className="font-medium text-primary hover:underline">{channel.project_title}</Link></p>
                 </div>
               ) : null}
               <div className="p-4">
-                <span className="text-[13px] font-semibold">Created</span>
+                <span className="nb-ui-label">Created</span>
                 <p className="mt-1 text-[13px] text-muted-foreground">{creatorName ? `By ${creatorName} on ` : "On "}{createdDate}</p>
               </div>
             </div>
             {canLeave || canArchive ? (
               <div className="flex flex-wrap gap-2 pt-1">
-                {canLeave && channel.is_member ? <button type="button" onClick={() => setConfirm("leave")} className="h-9 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted">Leave {isGroup ? "conversation" : "channel"}</button> : null}
-                {canArchive ? <button type="button" onClick={() => setConfirm("archive")} className="h-9 rounded-[5px] border border-border px-3 text-[13px] font-medium text-destructive hover:bg-destructive/10">Archive channel</button> : null}
+                {canLeave && channel.is_member ? <Button type="button" variant="outline" onClick={() => setConfirm("leave")} className="pointer-coarse:h-11">Leave {isGroup ? "conversation" : "channel"}</Button> : null}
+                {canArchive ? <Button type="button" variant="outline" onClick={() => setConfirm("archive")} className="text-destructive hover:text-destructive pointer-coarse:h-11">Archive channel</Button> : null}
               </div>
             ) : null}
             {/* Like Slack, the ID sits at the bottom of About: admins need it for integrations and support. */}
             {channel.can_admin ? (
-              <div className="flex items-center justify-between px-1 text-[11px] text-muted-foreground">
-                <span className="truncate font-mono">ID: {channel.id}</span>
-                <button type="button" onClick={() => { void copyWithToast(channel.id, "ID copied"); }} className="ml-2 inline-flex items-center gap-1 font-medium hover:text-foreground" title="Copy ID">
-                  <Copy size={12} /> Copy
-                </button>
+              <div className="flex items-center justify-between gap-2 px-1">
+                <span className="nb-meta truncate">ID: {channel.id}</span>
+                <Button type="button" variant="ghost" size="sm" onClick={() => { void copyWithToast(channel.id, "ID copied"); }} title="Copy ID" className="pointer-coarse:h-11">
+                  <Copy size={14} /> Copy
+                </Button>
               </div>
             ) : null}
           </div>
@@ -552,7 +600,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
         description={confirm === "archive" ? "Nobody can post in an archived channel. History stays readable, and admins can unarchive it." : channel.kind === "public" ? "You can rejoin a public channel at any time." : "You'll need to be added again to come back."}
         confirmLabel={confirm === "archive" ? "Archive" : "Leave"}
         variant="destructive"
-        onConfirm={() => void leaveOrArchive(confirm ?? "leave")}
+        onConfirm={() => leaveOrArchive(confirm ?? "leave")}
       />
       <ConfirmDialog
         open={confirmPrivacy}
@@ -562,7 +610,7 @@ export function DetailsPane({ channelId, tab, onTab }: { channelId: string; tab:
           ? "Everyone in the project will be able to find, preview and join it."
           : "Current members stay. It's hidden from Browse, and new people need to be added."}
         confirmLabel={channel.kind === "private" ? "Make public" : "Make private"}
-        onConfirm={() => void switchPrivacy()}
+        onConfirm={switchPrivacy}
       />
       {adding ? <AddPeopleDialog channelId={channelId} title={isGroup ? "this conversation" : `#${channel.name}`} onClose={() => setAdding(false)} /> : null}
     </div>

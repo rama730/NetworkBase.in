@@ -2,6 +2,7 @@
 
 import { ArrowLeft, X } from "lucide-react";
 
+import { ConnectionBanner } from "@/components/messages/ConnectionBanner";
 import { useBack } from "@/components/messages/useBack";
 import { useWindowNav } from "@/components/messages/window-nav";
 
@@ -18,11 +19,12 @@ export function ViewScreen({ title, action, closable, children, back }: { title:
     return (
       <section className="flex h-full min-h-0 flex-col overflow-hidden bg-card" aria-label={title}>
         <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2">
-          <button type="button" onClick={win.back} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={18} /></button>
-          <h2 className="min-w-0 flex-1 truncate px-1 text-[15px] font-semibold">{title}</h2>
+          <button type="button" onClick={win.back} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button>
+          <h2 className="nb-card-title min-w-0 flex-1 truncate px-1">{title}</h2>
           {action}
           {win.actions}
         </header>
+        <ConnectionBanner />
         <div className="app-scroll app-scroll-y flex min-h-0 flex-1 flex-col">{children}</div>
       </section>
     );
@@ -31,16 +33,18 @@ export function ViewScreen({ title, action, closable, children, back }: { title:
     <section className="flex h-full min-h-0 flex-col overflow-hidden bg-card" aria-label={title}>
       <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2 sm:px-4">
         <span className="contents lg:hidden">
-          <button type="button" onClick={goBack} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={18} /></button>
+          <button type="button" onClick={goBack} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button>
         </span>
-        <h1 className="min-w-0 flex-1 truncate text-[17px] font-semibold">{title}</h1>
+        <h1 className="nb-card-title min-w-0 flex-1 truncate">{title}</h1>
         {action}
         {closable ? (
           <span className="hidden lg:contents">
-            <button type="button" onClick={goBack} className="nb-icon-button" aria-label={`Close ${title}`} title="Close"><X size={18} /></button>
+            <button type="button" onClick={goBack} className="nb-icon-button nb-touch-target" aria-label={`Close ${title}`} title="Close"><X size={16} /></button>
           </span>
         ) : null}
       </header>
+      {/* Offline shows on every screen, not only in a conversation. */}
+      <ConnectionBanner />
       <div className="app-scroll app-scroll-y flex min-h-0 flex-1 flex-col">{children}</div>
     </section>
   );

@@ -117,7 +117,7 @@ export function MessageAttachmentsV2({
                 ) : null}
 
                 {fileAttachments.length > 0 ? (
-                    <div className="w-[380px] min-w-0 max-w-full space-y-1 overflow-hidden">
+                    <div className="w-[480px] min-w-0 max-w-full space-y-1 overflow-hidden">
                         {fileAttachments.map((attachment) => (
                             <FileAttachmentCardV2
                                 key={attachment.id}
@@ -165,19 +165,28 @@ function MediaAttachmentListV2({
     onContentLoad?: () => void;
     returnedVideoState?: { id: string; time: number } | null;
 }) {
+    // Four tiles at most; the fourth says how many more and opens the viewer (which has them all).
+    const shown = attachments.slice(0, 4);
+    const more = attachments.length - shown.length;
     return (
         <div
             className="msg-bento-grid gap-1.5"
-            data-count={Math.min(attachments.length, 4)}
+            data-count={shown.length}
         >
-            {attachments.map((attachment) => (
-                <MediaAttachmentTileV2
-                    key={attachment.id}
-                    attachment={attachment}
-                    onClick={(rect, time) => onOpenMedia(attachment.id, rect, time)}
-                    onContentLoad={onContentLoad}
-                    returnedVideoState={returnedVideoState}
-                />
+            {shown.map((attachment, index) => (
+                <div key={attachment.id} className="relative min-h-0 min-w-0">
+                    <MediaAttachmentTileV2
+                        attachment={attachment}
+                        onClick={(rect, time) => onOpenMedia(attachment.id, rect, time)}
+                        onContentLoad={onContentLoad}
+                        returnedVideoState={returnedVideoState}
+                    />
+                    {more > 0 && index === 3 ? (
+                        <span className="pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-[inherit] bg-foreground/55 text-[20px] font-semibold text-background" aria-hidden="true">
+                            +{more}
+                        </span>
+                    ) : null}
+                </div>
             ))}
         </div>
     );
@@ -254,7 +263,7 @@ function MediaAttachmentTileV2({
                     aria-label={attachment.filename
                         ? `Open media viewer for ${attachment.filename}`
                         : 'Open media viewer'}
-                    className="absolute inset-0 z-10 rounded-[inherit] border-0 focus:outline-none focus-visible:bg-black/5 dark:focus-visible:bg-white/5"
+                    className="absolute inset-0 z-10 rounded-[inherit] border-0 focus:outline-none focus-visible:bg-foreground/25"
                 />
             ) : null}
 
@@ -265,7 +274,7 @@ function MediaAttachmentTileV2({
                         loaded ? 'opacity-0' : 'animate-none opacity-100',
                     )}
                 >
-                    <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
                 </div>
             ) : null}
 
@@ -273,7 +282,7 @@ function MediaAttachmentTileV2({
                 displayUrl ? (
                     // Historical video tiles deliberately render only the stored thumbnail.
                     // The selected viewer owns the first video-body request and playback.
-                    // eslint-disable-next-line @next/next/no-img-element
+                     
                     <img
                         src={displayUrl}
                         alt={attachment.filename || ''}
@@ -289,13 +298,13 @@ function MediaAttachmentTileV2({
                     />
                 ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-secondary">
-                        <Video className="h-8 w-8 text-muted-foreground/70" aria-hidden="true" />
+                        <Video className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
                     </div>
                 )
             ) : (
                 // Native img is intentional: local object URLs and remote
                 // attachment fallbacks are not compatible with image loaders.
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img
                     src={displayUrl || undefined}
                     alt={attachment.filename || ''}
@@ -323,7 +332,7 @@ function MediaAttachmentTileV2({
             {/* A video reads as a video, not a photo. */}
             {attachment.type === 'video' && !hasError ? (
                 <span className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden="true">
-                    <span className="grid size-10 place-items-center rounded-full bg-black/55 text-white">
+                    <span className="grid size-10 place-items-center rounded-full bg-foreground/60 text-background">
                         <Play className="h-5 w-5 translate-x-px" fill="currentColor" />
                     </span>
                 </span>
@@ -352,17 +361,14 @@ function FileAttachmentCardV2({
     const extension = (attachment.filename.match(/\.([a-z0-9]{1,5})$/i)?.[1] ?? '').toUpperCase();
     const content = (
         <>
-            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 dark:bg-primary/15">
-                <File className="h-5 w-5 text-primary" />
-                {extension ? <span className="absolute -bottom-1 rounded-[3px] bg-primary px-1 font-mono text-[9px] font-semibold leading-tight text-primary-foreground">{extension}</span> : null}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-card">
+                <File className="h-[18px] w-[18px] text-muted-foreground" />
             </div>
             <div className="min-w-0 flex-1">
-                <p className="truncate break-all text-sm font-medium text-foreground">
+                <p className="truncate break-all text-[13px] font-medium text-foreground">
                     {attachment.filename}
                 </p>
-                {attachment.sizeBytes ? (
-                    <p className="text-xs text-muted-foreground">{formatFileSize(attachment.sizeBytes)}</p>
-                ) : null}
+                <p className="nb-meta">{[extension, attachment.sizeBytes ? formatFileSize(attachment.sizeBytes) : null].filter(Boolean).join(" · ")}</p>
             </div>
         </>
     );
@@ -370,7 +376,7 @@ function FileAttachmentCardV2({
         <a
             href={attachment.url}
             download={attachment.filename}
-            className="grid size-9 shrink-0 place-items-center rounded-[5px] text-muted-foreground hover:bg-card hover:text-foreground pointer-coarse:size-11"
+            className="nb-icon-button size-9 shrink-0 pointer-coarse:size-11"
             aria-label={`Download ${attachment.filename}`}
             title="Download"
         >
@@ -380,7 +386,7 @@ function FileAttachmentCardV2({
 
     if (onPreview) {
         return (
-            <div className="flex w-full min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-lg bg-muted pr-1.5 transition-colors hover:bg-secondary">
+            <div className="flex w-full min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-lg border border-border bg-card pr-1.5 transition-colors duration-[130ms] hover:bg-muted">
                 <button type="button" onClick={onPreview} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-left">
                     {content}
                 </button>
@@ -390,7 +396,7 @@ function FileAttachmentCardV2({
     }
 
     return (
-        <div className="flex w-full min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-lg bg-muted pr-1.5 transition-colors hover:bg-secondary">
+        <div className="flex w-full min-w-0 max-w-full items-center gap-1 overflow-hidden rounded-lg border border-border bg-card pr-1.5 transition-colors duration-[130ms] hover:bg-muted">
             <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 flex-1 items-center gap-3 p-3">
                 {content}
             </a>
@@ -418,7 +424,7 @@ export function PdfViewerV2({ attachment }: { attachment: { localUrl?: string; u
                     download={attachment.filename}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary"
+                    className="inline-flex h-[var(--ui-control-height)] items-center rounded-md bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-[var(--primary-hover)]"
                 >
                     Download PDF
                 </a>
@@ -429,7 +435,7 @@ export function PdfViewerV2({ attachment }: { attachment: { localUrl?: string; u
     return (
         <iframe
             src={sourceUrl}
-            className="block h-full w-full border-0 bg-white"
+            className="block h-full w-full border-0 bg-card"
             title={attachment.filename}
             onError={() => {
                 if (sourceUrl === attachment.localUrl && attachment.url) {

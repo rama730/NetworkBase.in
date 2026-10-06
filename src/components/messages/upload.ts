@@ -6,10 +6,39 @@ import { uploadToSupabaseSignedUrl } from "@/lib/upload/supabase-signed-upload-c
 
 const ROUTE = "/api/v1/chat/attachments/presign";
 
+/** An upload error with its HTTP status: 4xx (too big, wrong type) won't work on a retry. */
+export type UploadError = Error & { status?: number };
+
 async function json(response: Response) {
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body?.message || body?.error?.message || "Upload failed");
+  if (!response.ok) {
+    const error: UploadError = new Error(body?.message || body?.error?.message || "Upload failed");
+    error.status = response.status;
+    throw error;
+  }
   return body?.data ?? body;
+}
+
+/** Retry can't help: the server refused the file itself (not a timeout or a rate limit). */
+export function uploadRefused(error: unknown) {
+  const status = Number((error as UploadError | null)?.status ?? 0);
+  return status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
+
+/** What a tile says when a file didn't upload: the server's reason, or plain words, never "Failed to fetch". */
+export function uploadReason(error: unknown) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return "You're offline";
+  if (error instanceof TypeError) return "Connection lost";
+  const message = error instanceof Error ? error.message : "";
+  return uploadRefused(error) && message && message.length < 80 && !/^Upload failed/.test(message) ? message : "Upload failed";
+}
+
+/** Files the server never accepts: caught before uploading, with the reason. */
+export function fileProblem(file: File, maxBytes: number) {
+  if (file.size === 0) return `${file.name} is empty.`;
+  if (file.type === "image/svg+xml" || /\.svg$/i.test(file.name)) return `${file.name}: SVG files can't be attached.`;
+  if (file.size > maxBytes) return `${file.name} is too large (max ${Math.round(maxBytes / 1024 / 1024)} MB).`;
+  return null;
 }
 
 /**

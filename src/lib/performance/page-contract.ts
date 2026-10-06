@@ -127,9 +127,11 @@ function buildActiveSurfaceContract(
 }
 
 // Every Slack-style chat route shares the /messages surface budget.
+// The list screens live in the (lists) route group (their own loading screen); a conversation doesn't.
 function messagesRoute(routeId: string) {
+  const file = routeId.startsWith("/messages/[channelId]") ? routeId : routeId.replace(/^\/messages/, "/messages/(lists)");
   return {
-    [routeId]: buildActiveSurfaceContract(routeId, `src/app/(site)/(main)${routeId}/page.tsx`, {
+    [routeId]: buildActiveSurfaceContract(routeId, `src/app/(site)/(main)${file}/page.tsx`, {
       renderingMode: "dynamic",
       invalidationOwner: "realtime",
       hydrationBoundary: "heavy",
@@ -262,7 +264,7 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "auth_snapshot",
     maxInitialPayloadKb: 240,
   }),
-  "/messages": buildActiveSurfaceContract("/messages", "src/app/(site)/(main)/messages/page.tsx", {
+  "/messages": buildActiveSurfaceContract("/messages", "src/app/(site)/(main)/messages/(lists)/page.tsx", {
     renderingMode: "dynamic",
     invalidationOwner: "realtime",
     hydrationBoundary: "heavy",

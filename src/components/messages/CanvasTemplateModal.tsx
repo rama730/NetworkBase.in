@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
 import { CanvasPreview } from "@/components/messages/CanvasEditor";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { CANVAS_TEMPLATES, type CanvasTemplate } from "@/lib/messaging/canvas-store";
 
@@ -58,35 +60,38 @@ export function CanvasTemplateModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="flex h-[600px] max-h-[88vh] w-[880px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-border p-0 shadow-xl sm:max-w-4xl">
+      <DialogContent showCloseButton={false} className="flex h-[600px] max-h-[88vh] w-[880px] max-w-[95vw] flex-col overflow-hidden border border-border p-0 sm:max-w-4xl">
         <DialogTitle className="sr-only">Canvas templates</DialogTitle>
         {/* Phones: the list on top, the preview below. */}
         <div className="flex h-full min-h-0 flex-1 flex-col divide-y divide-border sm:flex-row sm:divide-x sm:divide-y-0">
-          <div className="flex max-h-[40%] min-h-0 shrink-0 flex-col bg-muted/20 sm:max-h-none sm:w-64">
-            <div className="border-b border-border/70 p-3">
+          <div className="flex max-h-[40%] min-h-0 shrink-0 flex-col bg-muted sm:max-h-none sm:w-64">
+            <div className="border-b border-border p-3">
               <div className="relative">
-                <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input
+                <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
                   type="text"
                   placeholder="Search all templates"
+                  aria-label="Search templates"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-[13px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:border-ring focus:ring-1 focus:ring-ring"
+                  className="pl-9 text-[13px]"
                 />
               </div>
             </div>
             <div className="app-scroll app-scroll-y min-h-0 flex-1 space-y-3 p-2">
               {groups.map(({ category, items }) => (
                 <div key={category}>
-                  <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{category}</p>
+                  <p className="nb-micro px-2.5 pb-1 pt-1.5">{category}</p>
                   {items.map((template) => (
                     <button
                       key={template.id}
                       type="button"
                       onClick={() => setSelectedId(template.id)}
                       onDoubleClick={() => { onSelectTemplate(template); onOpenChange(false); }}
-                      className={`block w-full truncate rounded-md px-3 py-2 text-left text-[13px] font-medium transition-colors ${
-                        selectedTemplate?.id === template.id ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+                      aria-pressed={selectedTemplate?.id === template.id}
+                      // Selected = the paper well, never a clay fill (spec).
+                      className={`block w-full truncate rounded-md px-3 py-2 text-left text-[13px] font-medium text-foreground transition-colors duration-[130ms] pointer-coarse:min-h-11 ${
+                        selectedTemplate?.id === template.id ? "bg-card shadow-xs" : "hover:bg-card"
                       }`}
                     >
                       {template.name}
@@ -95,7 +100,7 @@ export function CanvasTemplateModal({
                 </div>
               ))}
               {groups.length === 0 ? (
-                <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">No templates match &ldquo;{searchQuery}&rdquo;</p>
+                <p className="px-3 py-6 text-center text-[13px] text-muted-foreground">No templates match &ldquo;{searchQuery}&rdquo;</p>
               ) : null}
             </div>
           </div>
@@ -103,20 +108,20 @@ export function CanvasTemplateModal({
           <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
             <div className="flex flex-none items-start justify-between gap-4 border-b border-border px-6 py-3">
               <div className="min-w-0">
-                <h3 className="truncate text-[14px] font-semibold text-foreground">{selectedTemplate?.name}</h3>
-                <p className="truncate text-[12px] text-muted-foreground">{selectedTemplate?.description}</p>
+                <h3 className="nb-ui-label truncate text-foreground">{selectedTemplate?.name}</h3>
+                <p className="truncate text-[13px] text-muted-foreground">{selectedTemplate?.description}</p>
               </div>
-              <button type="button" onClick={() => onOpenChange(false)} aria-label="Close dialog" className="grid size-7 flex-none place-items-center rounded-[5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <button type="button" onClick={() => onOpenChange(false)} aria-label="Close dialog" className="nb-icon-button nb-touch-target size-8 flex-none">
                 <X size={16} />
               </button>
             </div>
             <div className="app-scroll app-scroll-y min-h-0 flex-1 space-y-4 p-6 sm:p-8">
-              <h1 className="text-[24px] font-bold tracking-tight text-foreground">{generatedDoc.title}</h1>
+              <h1 className="nb-section-title text-foreground">{generatedDoc.title}</h1>
               <CanvasPreview markdown={generatedDoc.content} />
             </div>
-            <div className="flex h-14 flex-none items-center justify-end gap-2 border-t border-border bg-card px-6">
-              <button type="button" onClick={() => onOpenChange(false)} className="inline-flex h-9 items-center rounded-lg border border-border px-4 text-[13px] font-medium text-foreground hover:bg-muted">Cancel</button>
-              <button type="button" onClick={handleUseTemplate} className="inline-flex h-9 items-center rounded-lg bg-primary px-5 text-[13px] font-semibold text-primary-foreground hover:bg-primary/90">Use template</button>
+            <div className="flex h-14 flex-none items-center justify-end gap-2 border-t border-border bg-muted px-6">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="button" onClick={handleUseTemplate}>Use template</Button>
             </div>
           </div>
         </div>

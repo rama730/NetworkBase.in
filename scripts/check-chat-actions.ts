@@ -669,6 +669,86 @@ async function main() {
       const page = await messages.listMessages({ channelId: launch });
       return sentBoth.success && page.success && page.messages.some((m) => m.thread_root_seq === null && m.attachments.some((a) => a.asset_id === assetId));
     });
+    // Round 3 (0193): mentions in followed threads, unfollow and thread reads keep every count true.
+    await new Promise((resolve) => setTimeout(resolve, 11_000));
+    const unreadReplies = async (rootSeq: number) => (await sql`
+      SELECT count(*)::int AS n FROM chat_mentions mn JOIN chat_messages m ON m.channel_id = mn.channel_id AND m.channel_seq = mn.message_seq
+      WHERE mn.user_id = ${member} AND mn.channel_id = ${launch} AND m.thread_root_seq = ${rootSeq} AND mn.read_at IS NULL`)[0]?.n as number;
+    await check("#1 an @mention in a thread you follow is filed as a mention", async () => {
+      if (!threadRoot.success) return false;
+      as(owner, "Olivia");
+      const reply = await messages.sendMessage({ channelId: launch, body: `look <@${member}>`, threadRootSeq: threadRoot.message.seq });
+      as(member, "Mason");
+      if (!reply.success) return false;
+      const [row] = await sql`SELECT kind FROM chat_mentions WHERE user_id = ${member} AND channel_id = ${launch} AND message_seq = ${reply.message.seq}`;
+      const inbox = await activity.listInbox({ filter: "mentions" });
+      return row?.kind === "user" && inbox.success && inbox.items.some((i) => i.seq === reply.message.seq);
+    });
+    await check("#7 reading the thread recounts the conversation's @ count", async () => {
+      if (!threadRoot.success) return false;
+      const [before] = await sql`SELECT mention_count FROM chat_channel_members WHERE user_id = ${member} AND channel_id = ${launch}`;
+      const [last] = await sql`SELECT last_reply_seq::int AS seq FROM chat_messages WHERE channel_id = ${launch} AND channel_seq = ${threadRoot.message.seq}`;
+      await flush();
+      broadcasts.length = 0;
+      const result = await read.markThreadRead({ channelId: launch, rootSeq: threadRoot.message.seq, seq: Number(last?.seq) });
+      await flush();
+      const [after] = await sql`SELECT mention_count FROM chat_channel_members WHERE user_id = ${member} AND channel_id = ${launch}`;
+      return result.success && Number(before?.mention_count) > 0 && Number(after?.mention_count) === 0
+        && broadcasts.some((b) => b.event === "inbox.count" && b.topic === `chat:user:${member}`);
+    });
+    await check("#4 marking one thread reply read reads the older ones too", async () => {
+      if (!threadRoot.success) return false;
+      as(owner, "Olivia");
+      const first = await messages.sendMessage({ channelId: launch, body: "older reply", threadRootSeq: threadRoot.message.seq });
+      const second = await messages.sendMessage({ channelId: launch, body: "newer reply", threadRootSeq: threadRoot.message.seq });
+      as(member, "Mason");
+      if (!first.success || !second.success) return false;
+      const marked = await activity.markInboxRead({ items: [{ channelId: launch, seq: second.message.seq }] });
+      const [row] = await sql`SELECT read_at FROM chat_mentions WHERE user_id = ${member} AND channel_id = ${launch} AND message_seq = ${first.message.seq}`;
+      return marked.success && row?.read_at !== null && row?.read_at !== undefined;
+    });
+    await check("#6 leaving a thread takes its unread replies out of the badge", async () => {
+      if (!threadRoot.success) return false;
+      as(owner, "Olivia");
+      await messages.sendMessage({ channelId: launch, body: "reply before unfollow", threadRootSeq: threadRoot.message.seq });
+      as(member, "Mason");
+      const before = await unreadReplies(threadRoot.message.seq);
+      const left = await messages.setThreadFollow({ channelId: launch, rootSeq: threadRoot.message.seq, on: false });
+      const after = await unreadReplies(threadRoot.message.seq);
+      await messages.setThreadFollow({ channelId: launch, rootSeq: threadRoot.message.seq, on: true });
+      return left.success && before > 0 && after === 0;
+    });
+    await check("#9 a muted member who is mentioned still gets a hint (never a push)", async () => {
+      await members.setMemberState({ channelId: launch, notify: "mute" });
+      await flush();
+      broadcasts.length = 0;
+      as(owner, "Olivia");
+      const ping = await messages.sendMessage({ channelId: launch, body: `muted again <@${member}>` });
+      as(member, "Mason");
+      await flush();
+      await members.setMemberState({ channelId: launch, notify: "all" });
+      return ping.success && broadcasts.some((b) => b.event === "hint" && b.topic === `chat:user:${member}`);
+    });
+    await check("#10 the channel copy of a thread reply doesn't notify its mentions again", async () => {
+      if (!threadRoot.success) return false;
+      const sent = await messages.sendMessage({ channelId: launch, body: `copy for <@${owner}>`, threadRootSeq: threadRoot.message.seq, alsoToChannel: true });
+      const page = await messages.listMessages({ channelId: launch });
+      const copy = page.success ? page.messages.filter((m) => m.thread_root_seq === null && m.body.startsWith("copy for")).at(-1) : undefined;
+      return sent.success && "alsoSent" in sent && sent.alsoSent === true && copy !== undefined && !copy.body.includes(`<@${owner}>`) && copy.body.includes("@Olivia Owner");
+    });
+    await check("#22 an edit can remove a file's caption", async () => {
+      const [asset] = await sql`
+        INSERT INTO storage_assets (bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, owner_user_id, expires_at)
+        VALUES ('chat-attachments', ${`${launch}/${member}/round3-${Date.now()}.png`}, 'chat_attachment:file', 'verified', 'image/png', 10, 'image/png', 10, ${member}, now() + interval '1 day')
+        RETURNING id`;
+      const sent = await messages.sendMessage({ channelId: launch, body: "a caption", assetIds: [String(asset?.id)] });
+      if (!sent.success) return false;
+      const edited = await messages.editMessage({ channelId: launch, seq: sent.message.seq, body: "" });
+      const [row] = await sql`SELECT body FROM chat_messages WHERE channel_id = ${launch} AND channel_seq = ${sent.message.seq}`;
+      const textOnly = await messages.sendMessage({ channelId: launch, body: "text only" });
+      const refused = textOnly.success ? await messages.editMessage({ channelId: launch, seq: textOnly.message.seq, body: "" }) : { success: true };
+      return edited.success && row?.body === "" && !refused.success;
+    });
     await check("leaveChannel works for non-default channels only", async () => {
       const left = await channels.leaveChannel({ channelId: launch });
       const refused = await channels.leaveChannel({ channelId: general });

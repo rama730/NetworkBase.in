@@ -207,6 +207,22 @@ export async function clearMyStatus() {
   return { success: true as const };
 }
 
+/**
+ * Resume notifications now (Settings): lifts the pause, and a pause your status set too, so
+ * your card stops saying "Notifications paused" while you're back.
+ */
+export async function resumeNotifications() {
+  const user = await getAuthUser();
+  if (!user) return unauthorized;
+  await db.execute(sql`
+    UPDATE profiles SET
+      notification_preferences = jsonb_set(coalesce(notification_preferences, '{}'::jsonb), '{pausedUntil}', 'null'::jsonb),
+      status_pauses_notifications = false
+    WHERE id = ${user.id}::uuid
+  `);
+  return { success: true as const };
+}
+
 /** Who may see your status. */
 export async function setStatusVisibility(input: { visibility: StatusVisibility }) {
   const user = await getAuthUser();

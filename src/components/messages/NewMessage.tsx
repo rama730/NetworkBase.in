@@ -4,14 +4,17 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { renameGroup } from "@/app/actions/chat/channels";
 import { createGroup, getOrCreateDm } from "@/app/actions/chat/members";
 import { usePeopleSearch } from "@/components/messages/usePeopleSearch";
 import { sendMessage } from "@/app/actions/chat/messages";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
+import { readDraft, writeDraft } from "@/components/messages/chat-ui-store";
 import { ViewScreen } from "@/components/messages/ViewScreen";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
 import { isDirectLike, personName } from "@/lib/messaging/channel-view";
@@ -19,13 +22,16 @@ import { CHAT_MAX_GROUP_OTHERS } from "@/lib/messaging/constants";
 import { conversationHref } from "@/lib/messaging/routes";
 import type { ChatPerson } from "@/lib/messaging/types";
 
+/** The draft for a New message to these people ("new" before anyone is added). */
+const draftKeyFor = (to: ChatPerson[]) => (to.length ? `new-${to.map((p) => p.id).sort().join("+")}` : "new");
+
 const Composer = dynamic(() => import("@/components/messages/Composer").then((m) => m.Composer), { ssr: false });
 
 /**
  * "To:" chips of people you may message, then the first message. One person
  * opens (or creates) the DM; more create a group chat (D8). The conversation
  * is created on the first send, from the same Composer as every conversation
- * (draft key "new"; files and scheduling wait until the conversation exists).
+ * (a draft per set of recipients; files and scheduling wait until the conversation exists).
  */
 export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void }) {
   const router = useRouter();
@@ -58,18 +64,36 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
     return Array.from(map.values());
   }, [channels, meId]);
 
-  const isSearching = query.trim().length >= 2;
+  const typed = query.trim().toLowerCase();
+  const isSearching = typed.length >= 2;
+  // From the first letter, people you know are filtered here (no unrelated suggestion for Enter
+  // to pick); from two, the server's search takes over once it answers.
   const candidates = useMemo(() => {
-    const list = isSearching ? (people.data ?? []) : suggestedPeople;
+    const local = typed
+      ? suggestedPeople.filter((p) => personName(p).toLowerCase().includes(typed) || (p.username ?? "").toLowerCase().includes(typed))
+      : suggestedPeople;
+    const list = isSearching && people.data ? people.data : local;
     return list.filter((p) => !to.some((t) => t.id === p.id));
-  }, [isSearching, people.data, suggestedPeople, to]);
+  }, [isSearching, people.data, suggestedPeople, to, typed]);
 
   // Recipients picker keys: ↑/↓ move, Enter picks, Backspace in an empty field removes the last chip.
   const [active, setActive] = useState(0);
   const activeIndex = Math.min(active, candidates.length - 1);
+  // Each set of recipients has its own draft; editing the list carries what you're writing along
+  // (a later New message for someone else starts empty).
+  const changeTo = (next: ChatPerson[]) => {
+    const from = draftKeyFor(to);
+    const into = draftKeyFor(next);
+    const text = readDraft(from);
+    if (from !== into && text.trim() && !readDraft(into).trim()) {
+      writeDraft(into, text);
+      writeDraft(from, "");
+    }
+    setTo(next);
+  };
   const pick = (person: ChatPerson) => {
     if (person.can_dm === false) return;
-    setTo((list) => [...list, person]);
+    changeTo([...to, person]);
     setQuery("");
     setActive(0);
   };
@@ -87,7 +111,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
       pick(candidates[activeIndex]);
     } else if (event.key === "Backspace" && !query && to.length) {
       event.preventDefault();
-      setTo((list) => list.slice(0, -1));
+      changeTo(to.slice(0, -1));
     }
   };
   const full = to.length >= CHAT_MAX_GROUP_OTHERS;
@@ -104,6 +128,7 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
       : null;
 
   const send = async (body: string) => {
+    if (!to.length) return { success: false as const, error: "chat_no_recipients" };
     const key = to.map((p) => p.id).sort().join(",");
     let channelId = opened?.key === key ? opened.channelId : existing?.id ?? null;
     if (!channelId) {
@@ -136,10 +161,10 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[13px] text-muted-foreground">To:</span>
           {to.map((person) => (
-            <span key={person.id} className="inline-flex h-8 items-center gap-1 rounded-[5px] bg-secondary pl-1 pr-0.5 text-[13px]">
-              <UserAvatar identity={person} size={20} roundedClassName="rounded-[3px]" />
+            <span key={person.id} className="inline-flex h-8 items-center gap-1 rounded-md bg-secondary pl-1 pr-0.5 text-[13px]">
+              <UserAvatar identity={person} size={20} />
               {personName(person)}
-              <button type="button" onClick={() => setTo((list) => list.filter((p) => p.id !== person.id))} className="grid size-7 place-items-center pointer-coarse:size-11" aria-label={`Remove ${personName(person)}`}><X size={12} /></button>
+              <button type="button" onClick={() => changeTo(to.filter((p) => p.id !== person.id))} className="grid size-7 place-items-center rounded-sm hover:bg-muted pointer-coarse:size-11" aria-label={`Remove ${personName(person)}`}><X size={14} /></button>
             </span>
           ))}
           {!full ? (
@@ -159,11 +184,11 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
             />
           ) : null}
         </div>
-        {full ? <p className="mt-1 text-[12px] text-muted-foreground">A group chat holds up to {CHAT_MAX_GROUP_OTHERS + 1} people, you included. Remove someone to add another.</p> : null}
+        {full ? <p className="mt-1 text-[13px] text-muted-foreground">A group chat holds up to {CHAT_MAX_GROUP_OTHERS + 1} people, you included. Remove someone to add another.</p> : null}
         {candidates.length && !full ? (
           <div className="mt-2">
-            <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {isSearching ? "Search results" : "Recent and suggested"}
+            <p className="nb-micro px-2 py-1">
+              {isSearching && people.data ? "Search results" : typed ? "People you know" : "Recent and suggested"}
             </p>
             <ul id="new-message-people" role="listbox" className="max-h-64 overflow-y-auto" aria-label="People">
               {candidates.map((person, index) => (
@@ -174,57 +199,47 @@ export function NewMessage({ onOpen }: { onOpen?: (channelId: string) => void })
                     disabled={person.can_dm === false}
                     onClick={() => pick(person)}
                     onMouseEnter={() => setActive(index)}
-                    className={`flex min-h-11 w-full items-center gap-2 rounded-[5px] px-2 text-left text-[15px] hover:bg-muted disabled:opacity-50 ${index === activeIndex ? "bg-muted" : ""}`}
+                    className={`flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-[15px] hover:bg-muted disabled:opacity-50 ${index === activeIndex ? "bg-muted" : ""}`}
                   >
-                    <UserAvatar identity={person} size={24} roundedClassName="rounded-[5px]" />
+                    <UserAvatar identity={person} size={26} />
                     <span className="min-w-0 flex-1 truncate">{personName(person)}</span>
-                    {person.username ? <span className="font-mono text-[12px] text-muted-foreground">@{person.username}</span> : null}
-                    {person.can_dm === false ? <span className="text-[12px] text-muted-foreground">Can&apos;t message</span> : null}
+                    {person.username ? <span className="nb-meta">@{person.username}</span> : null}
+                    {person.can_dm === false ? <span className="text-[13px] text-muted-foreground">Can&apos;t message</span> : null}
                   </button>
                 </li>
               ))}
             </ul>
           </div>
-        ) : isSearching ? (
-          <p className="flex items-center gap-2 px-2 py-3 text-[13px] text-muted-foreground">
-            {people.isLoading ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                Searching…
-              </>
-            ) : (
-              `No people found matching "${query}"`
-            )}
+        ) : typed ? (
+          // "Searching…" until the typed name has really been searched: never a flash of "No people found".
+          <p role="status" className="px-2 py-3 text-[13px] text-muted-foreground">
+            {people.pending || typed.length < 2 ? "Searching…" : `No people found matching "${query}"`}
           </p>
         ) : null}
         {existing ? (
-          <p className="mt-2 flex flex-wrap items-center gap-2 rounded-[5px] bg-muted px-3 py-2 text-[13px]">
+          <p className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-muted px-3 py-2 text-[13px]">
             {to.length === 1 ? `You already have a conversation with ${personName(to[0])}.` : "You already have a group with these people; your message goes there."}
-            <button type="button" onClick={openExisting} className="font-medium text-primary hover:underline">Open it</button>
+            <Button type="button" variant="link" size="sm" onClick={openExisting} className="h-auto px-0 pointer-coarse:min-h-11">Open it</Button>
           </p>
         ) : null}
         {to.length > 1 && !existing ? (
           <label className="mt-2 flex items-center gap-2 text-[13px] text-muted-foreground">
             Group name
-            <input value={groupName} onChange={(e) => setGroupName(e.target.value.slice(0, 80))} placeholder="Optional, e.g. Launch crew" className="h-8 min-w-0 flex-1 rounded-[5px] border border-input bg-card px-2 text-[14px] text-foreground" />
+            <Input value={groupName} onChange={(e) => setGroupName(e.target.value.slice(0, 80))} placeholder="Optional, e.g. Launch crew" className="h-8 min-w-0 flex-1 text-[13px] pointer-coarse:h-11" />
           </label>
         ) : null}
       </div>
       <div className="flex-1" />
-      {to.length ? (
-        <div className="px-3 pb-2 sm:px-4">
-          <Composer
-            channelId="new"
-            placeholder={`Message ${to.map((p) => personName(p).split(" ")[0]).join(", ")}`}
-            people={to}
-            allowBroadcast={false}
-            canCreateTask={false}
-            send={send}
-          />
-        </div>
-      ) : (
-        <p className="border-t border-border px-4 py-3 text-[13px] text-muted-foreground">Add someone above to start the conversation.</p>
-      )}
+      {/* Always there, so a New message draft can be seen (and finished) even before anyone is added.
+          Its draft belongs to these recipients: Bob never gets the text you started for Alice. */}
+      <Composer
+        channelId={draftKeyFor(to)}
+        placeholder={to.length ? `Message ${to.map((p) => personName(p).split(" ")[0]).join(", ")}` : "Write a message, then add who it's for"}
+        people={to}
+        allowBroadcast={false}
+        canCreateTask={false}
+        send={send}
+      />
     </div>
   );
   if (onOpen) return content;

@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 /** A datetime-local value for an <input>, in the viewer's own zone. */
 export function localInput(date: Date) {
@@ -27,7 +29,7 @@ export function TimePickerDialog({ initial, title, label, confirmLabel, onPick, 
 }) {
   return (
     <Dialog open={initial !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-[460px]">
         <DialogTitle>{title}</DialogTitle>
         {/* Keyed on the opening time so each open starts from its own default. */}
         {initial ? <PickerForm key={initial.getTime()} initial={initial} label={label} confirmLabel={confirmLabel} onPick={onPick} onClose={onClose} /> : null}
@@ -45,6 +47,8 @@ function PickerForm({ initial, label, confirmLabel, onPick, onClose }: {
 }) {
   const [value, setValue] = useState(() => localInput(initial));
   const [min] = useState(() => localInput(new Date(clock() + 60_000)));
+  // The picker shows your local time; say which zone that is.
+  const [zone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, " "));
   return (
     <form
       className="space-y-3"
@@ -55,11 +59,12 @@ function PickerForm({ initial, label, confirmLabel, onPick, onClose }: {
       }}
     >
       <label className="block text-[13px] font-medium">{label}
-        <input type="datetime-local" required min={min} value={value} onChange={(e) => setValue(e.target.value)} className="mt-1 h-10 w-full rounded-[5px] border border-input bg-background px-3 text-[14px]" />
+        <Input type="datetime-local" required min={min} value={value} onChange={(e) => setValue(e.target.value)} className="mt-1" aria-describedby="time-picker-zone" />
       </label>
+      <p id="time-picker-zone" className="text-[13px] text-muted-foreground">Your time zone: {zone}</p>
       <DialogFooter>
-        <button type="button" onClick={onClose} className="h-9 rounded-[5px] border border-border px-3 text-[13px]">Cancel</button>
-        <button type="submit" className="h-9 rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground">{confirmLabel}</button>
+        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        <Button type="submit">{confirmLabel}</Button>
       </DialogFooter>
     </form>
   );

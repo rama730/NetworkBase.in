@@ -156,7 +156,7 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
     );
     assert.match(
         drawerSource,
-        /lg:relative lg:inset-auto lg:z-10 lg:w-\[380px\][^"]*lg:border-l lg:border-border[^"]*xl:w-\[420px\]/,
+        /lg:relative lg:inset-auto lg:z-10 lg:w-\[320px\][^"]*lg:border-l lg:border-border/,
         "ChatDrawer must dock as desktop sidecar panel adjacent to channel timeline",
     );
 
@@ -320,7 +320,7 @@ test("Section 2 (1M-Scale Pure Performance & Optimization) contracts", () => {
     );
     assert.match(
         useConversationSource,
-        /setCachedTimeline\(channelId, messages\)/,
+        /setCachedTimeline\(channelId, messages\.filter\(\(m\) => m\.seq > 0\)\)/,
         "useConversation must persist timeline in client storage cache",
     );
 
@@ -419,13 +419,13 @@ test("Section 4 (NetworkBase Integration) contracts", () => {
     // 4.1 Interactive status pill TaskCard
     assert.match(
         cardSource,
-        /TASK_STATUS_CONFIG: Record<TaskStatus, { label: string; className: string }>/,
-        "MessageCard must provide color-coded TASK_STATUS_CONFIG for interactive task cards",
+        /<TaskStatusBadge status=\{view\.status\} \/>/,
+        "MessageCard shows the app's own task status badge (same colours as the Tasks board, round 3 #132)",
     );
     assert.match(
         cardSource,
-        /<DropdownMenuTrigger[\s\S]*?rounded-full border px-2\.5 py-0\.5/,
-        "TaskCard must render status as interactive dropdown pill",
+        /<DropdownMenuTrigger[\s\S]*?<TaskStatusBadge status=\{view\.status\} \/>/,
+        "TaskCard renders its status as the shared task badge inside a dropdown",
     );
 
     // 4.2 Rich code snippets with line numbers and Copy (no fake "Open in IDE": plan #20)
@@ -472,8 +472,8 @@ test("Section 5 (UI/UX Polish & Modern Visual Refinements) contracts", () => {
     );
     assert.match(
         conversationViewSource,
-        /onClick=\{\(\) => openDetails\("members"\)\}[\s\S]*?roundedClassName="rounded-\[4px\]"[\s\S]*?channel\.member_count/,
-        "The header members button combines avatars (rounded-[4px]) and the count",
+        /onClick=\{\(\) => openDetails\("members"\)\}[\s\S]*?<UserAvatar title="" identity=\{p\} size=\{20\} \/>[\s\S]*?channel\.member_count/,
+        "The header members button combines avatars (the 20px scale size) and the count",
     );
     assert.doesNotMatch(
         conversationViewSource,
@@ -642,8 +642,8 @@ test("Section 6 (Slack-Parity Canvas Redesign) contracts", () => {
     );
     assert.match(
         templateModalSource,
-        /bg-primary text-primary-foreground/,
-        "CanvasTemplateModal must highlight active template with NetworkBase primary design token",
+        /selectedTemplate\?\.id === template\.id \? "bg-card shadow-xs"/,
+        "CanvasTemplateModal marks the selected template with the paper well (spec: selection is never a clay fill)",
     );
     assert.match(
         existingModalSource,
@@ -710,7 +710,7 @@ test("Section 7 (Header Ergonomics & Message Action Menu Fixes) contracts", () =
     // 7.2 Channel view header ergonomics: Clickable channel name opens About, project title inline
     assert.match(
         conversationViewSource,
-        /onClick=\{\(\) => openDetails\("about"\)\}[\s\S]*?title="Conversation details \(⌘⇧I\)"/,
+        /onClick=\{\(\) => openDetails\("about"\)\}[\s\S]*?title=\{`Conversation details \(\$\{detailsShortcut\}\)`\}/,
         "Clicking the conversation name opens Details (About), like ⌘⇧I (round 2 #104: ⌘I stays Italic)",
     );
     assert.match(
@@ -722,8 +722,8 @@ test("Section 7 (Header Ergonomics & Message Action Menu Fixes) contracts", () =
     // 7.4 Star: after the title, revealed on hover (always shown when starred), amber when on
     assert.match(
         conversationViewSource,
-        /group-hover\/header:opacity-100[\s\S]*?<Star size=\{14\} className=\{channel\.starred \? "text-\[var\(--status-warning\)\]"/,
-        "Star sits after the title, hover-revealed, with the amber (warning token) highlight",
+        /group-hover\/header:opacity-100[\s\S]*?<Star size=\{16\} className=\{channel\.starred \? "text-primary"/,
+        "Star sits after the title, hover-revealed, in the accent colour (status colours mean status, round 3 #131)",
     );
 
     // 7.5 Drawer header: title and "#channel · Project" inline; Thread and Details become tabs when both open
@@ -757,7 +757,7 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.1 Slack-parity channel starting point: hashtag inline before channel name, no profile box
     assert.match(
         conversationViewSource,
-        /<Hash size=\{24\}/,
+        /<Hash size=\{18\}/,
         "Channel Intro must render inline Hash icon before channel name",
     );
     assert.match(
@@ -789,14 +789,16 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.2 Notifications live on the header bell, always shown to members (plan #11, #13)
     assert.match(
         conversationViewSource,
-        /\{isMember \? \(\s*<DropdownMenu>\s*<DropdownMenuTrigger className=\{headerButton\} aria-label=\{`Notifications:/,
-        "The header bell is always visible to members",
+        /\{isMember \? \(\s*<DropdownMenu>\s*<DropdownMenuTrigger className=\{`\$\{headerButton\} hidden sm:inline-flex`\} aria-label=\{`Notifications:/,
+        "The header bell is visible to members (on phones it moves into ⋯, round 3 #98)",
     );
     assert.doesNotMatch(
         conversationViewSource,
-        /<DropdownMenuSub>|Pinned messages|Add a bookmark/,
+        /<DropdownMenuSub>|Pinned messages/,
         "The ⋯ menu keeps only Add people, Copy link, Mark as read, Leave/Close and Archive",
     );
+    // Except a DM without its tab bar (one tab only): bookmarks and files start from ⋯ (round 3 #100).
+    assert.match(conversationViewSource, /isMember && !showTabBar \? \([\s\S]*?Add a bookmark/);
 
     // 8.3 Composer plus menu rich creation options (code snippet, media)
     assert.match(
@@ -813,15 +815,15 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.4 State-aware Send button using semantic primary design tokens
     assert.match(
         composerSource,
-        /bg-primary text-primary-foreground hover:bg-primary\/90/,
+        /bg-primary px-3\.5 text-\[13px\] font-medium text-primary-foreground[\s\S]*?hover:bg-\[var\(--primary-hover\)\]/,
         "Composer Send button must use active primary design tokens when content is ready to send",
     );
 
     // 8.5 Power-user keyboard shortcuts: Cmd+I for Details, Cmd+L for link
     assert.match(
         conversationViewSource,
-        /\(e\.key === "i" \|\| e\.key === "I"\)/,
-        "ConversationView must support Cmd+I shortcut to open channel details",
+        /if \(isDetailsKey\(e\)\)/,
+        "ConversationView opens Details with ⌘⇧I (Ctrl+Alt+I off a Mac: Ctrl+Shift+I is DevTools, round 3 #97)",
     );
     const rowSource = fs.readFileSync(
         path.join(process.cwd(), "src/components/messages/MessageRow.tsx"),
@@ -836,13 +838,13 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.6 Canvas and Poll in the composer plus menu; Send later beside Send
     assert.match(
         composerSource,
-        /<span>Open canvas<\/span>[\s\S]*<span>Poll<\/span>/,
+        /label: "Open canvas"[\s\S]*label: "Poll"/,
         "Composer plus menu must include Canvas and Poll",
     );
     assert.match(
         composerSource,
-        /"Schedule message \(not with files\)" : "Schedule message"/,
-        "Composer offers Send later (scheduled messages), disabled while files are attached (plan #111)",
+        /: uploads\.length \? "Scheduled messages can't carry files yet"/,
+        "Composer offers Schedule message, off (with the reason) while files are attached (plan #111)",
     );
 
     // 8.7 Pre-cards removed: no Open canvas action pill in channel Intro
@@ -855,8 +857,8 @@ test("Section 8 (Comprehensive UI/UX Enhancements & Consolidation) contracts", (
     // 8.8 Debounced draft auto-saving in composer
     assert.match(
         composerSource,
-        /draftTimerRef/,
-        "Composer must debounce draft auto-saving to prevent storage thrashing",
+        /writeDraft\(draftKey, next\);\s*draftsThisPage\.add\(draftKey\)/,
+        "Composer saves the draft on every change (one localStorage write): leaving never loses the last keys (round 3 #175)",
     );
 });
 
@@ -911,7 +913,7 @@ test("Section 9 (Project Selection First & Professional Empty Placeholder) contr
     );
     assert.match(
         homePaneSource,
-        /<ProjectBadge project=\{project\} size="md"/,
+        /<ProjectBadge project=\{project\} size="sm"/,
         "HomePane must render ProjectBadge when a project is chosen",
     );
     assert.match(
@@ -957,7 +959,7 @@ test("Section 10 (Direct Message Minimal Redesign & Icon Cleanup) contracts", ()
     );
     assert.match(
         conversationViewSource,
-        /<PersonPresenceBadge userId=\{channel\.dm_user\.id\}/,
+        /<PresenceAvatar identity=\{channel\.dm_user\} userId=\{channel\.dm_user\?\.id\}/,
         "1-to-1 DM header avatar must integrate the presence badge directly on the avatar",
     );
 
@@ -984,7 +986,7 @@ test("Section 11 (Slack-Exact About Section Layout & Channel Name Editing) contr
     // 11.1 One About card: name, topic, description, notifications, project, created
     assert.match(
         detailsPaneSource,
-        /divide-y divide-border overflow-hidden rounded-xl border border-border bg-card\/40/,
+        /divide-y divide-border overflow-hidden rounded-lg border border-border bg-card"/,
         "DetailsPane About tab must render details grouped with divide-y dividers, not separate floating card boxes",
     );
     assert.match(

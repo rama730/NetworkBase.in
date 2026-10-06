@@ -145,7 +145,7 @@ export default function TopNav() {
                             ref={mobileMenuTriggerRef}
                             onClick={() => setShowMobileMenu(true)}
                             className="nb-mobile-menu-trigger relative -ml-2 inline-flex size-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted focus:outline-none md:hidden"
-                            aria-label="Open mobile menu"
+                            aria-label={chatUnread ? "Open mobile menu, unread messages" : "Open mobile menu"}
                             aria-expanded={showMobileMenu}
                             aria-controls="mobile-menu"
                         >
@@ -154,7 +154,7 @@ export default function TopNav() {
                                 <span aria-hidden="true" className="absolute right-2 top-2 size-2 rounded-full bg-[var(--status-warning)]" />
                             ) : null}
                             {/* Unread chat: a dot here, the count on Messages inside the menu. */}
-                            {chatUnread ? <span aria-hidden="true" data-testid="mobile-menu-chat-dot" className="absolute left-2 top-2 size-2 rounded-full bg-[var(--chat-accent)]" /> : null}
+                            {chatUnread ? <span aria-hidden="true" data-testid="mobile-menu-chat-dot" className="absolute left-2 top-2 size-2 rounded-full bg-primary ring-2 ring-card" /> : null}
                         </button>
                     )}
                     <div className="md:hidden">

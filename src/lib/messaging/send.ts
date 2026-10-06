@@ -23,6 +23,8 @@ type SendResult = {
   created_at: string;
   deduped: boolean;
   notify?: string[];
+  muted?: string[];
+  follows?: string[];
   channel_kind?: string;
 };
 
@@ -97,7 +99,7 @@ export async function sendAs(user: ChatSender, input: SendInput, card: ChatCardR
   };
 
   if (!result.deduped) {
-    publishSentMessage({ message, notify: result.notify ?? [], mentioned: userIds, channelLabel });
+    publishSentMessage({ message, notify: result.notify ?? [], muted: result.muted, follows: result.follows, mentioned: userIds, channelLabel });
   }
   return { success: true as const, message };
 }

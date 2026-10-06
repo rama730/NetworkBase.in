@@ -8,6 +8,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { Check, ChevronDown, Link2, MoreHorizontal, SquareArrowOutUpRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { REVEAL_EVENT, type RevealEvent } from "@/components/messages/Timeline";
 import { toast } from "sonner";
 
 import { joinChannel } from "@/app/actions/chat/channels";
@@ -20,8 +23,9 @@ import { seedCards, useChannelDetails, useChannelMembers, useSavedSeqs, useTypin
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, formatChatTime, personName } from "@/lib/messaging/channel-view";
+import { channelTitle, formatChatTime, isSelfDm, personName } from "@/lib/messaging/channel-view";
 import { channelTopic } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, showInConversationHref, threadHref } from "@/lib/messaging/routes";
@@ -33,13 +37,28 @@ import { copyWithToast } from "@/lib/clipboard";
 
 const Composer = dynamic(() => import("@/components/messages/Composer").then((m) => m.Composer), {
   ssr: false,
-  loading: () => <div className="nb-message-composer border-t border-border bg-card px-3 pt-2 sm:px-4"><div className="h-[86px] rounded-lg border border-input" /></div>,
+  loading: () => <div className="nb-message-composer border-t border-border bg-card px-3 pt-2 sm:px-4"><div className="h-[86px] rounded-md border border-input" /></div>,
 });
 const ShareDialog = dynamic(() => import("@/components/messages/parts/ShareDialog").then((m) => m.ShareDialog), { ssr: false });
 
 // Stable identity so Virtuoso never remounts the footer (VIRT-01). Room for the
 // floating typing indicator only while someone types; otherwise the gap closes.
-const THREAD_COMPONENTS = { Footer: ({ context }: { context?: { typing: boolean } }) => <div className={context?.typing ? "h-6" : "h-2 transition-[height] duration-200 ease-out motion-reduce:transition-none"} /> };
+const THREAD_COMPONENTS = { Footer: ({ context }: { context?: { typing: boolean } }) => <div className={context?.typing ? "h-6" : "h-2 transition-[height] duration-[180ms] ease-out motion-reduce:transition-none"} /> };
+
+/** Replies loading: rows in the shared shimmer (no pulse). */
+function RepliesSkeleton() {
+  return (
+    <div role="status" className="space-y-3 px-4 py-3">
+      <span className="sr-only">Loading replies…</span>
+      {[70, 45].map((width) => (
+        <div key={width} className="flex gap-2.5">
+          <Skeleton className="size-[34px] flex-none rounded-md" />
+          <div className="flex-1 space-y-2 pt-1"><Skeleton className="h-3 w-24 rounded-sm" /><Skeleton className="h-3 rounded-sm" style={{ width: `${width}%` }} /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type Thread = { root: ChatMessageView | null; replies: ChatMessageView[]; following: boolean; lastReadSeq: number | null; hasOlder: boolean };
 type Row = { type: "root"; message: ChatMessageView } | { type: "summary" } | { type: "loading" } | { type: "older" } | { type: "new" } | { type: "reply"; message: ChatMessageView; grouped: boolean };
@@ -111,11 +130,12 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
     },
   });
   const loadingReplies = thread.isPlaceholderData;
-  // Where "New replies" goes: the read position when the thread opened.
+  // Where "New replies" goes: the read position when the thread opened (from the real data,
+  // never the cached root shown while it loads, which knows nothing about reads).
   const [dividerSeq, setDividerSeq] = useState<number | null>(null);
   useEffect(() => {
-    if (dividerSeq === null && thread.data) setDividerSeq(thread.data.lastReadSeq ?? Number.MAX_SAFE_INTEGER);
-  }, [dividerSeq, thread.data]);
+    if (dividerSeq === null && thread.data && !thread.isPlaceholderData) setDividerSeq(thread.data.lastReadSeq ?? Number.MAX_SAFE_INTEGER);
+  }, [dividerSeq, thread.data, thread.isPlaceholderData]);
 
   const patch = useCallback((update: (message: ChatMessageView) => ChatMessageView | null, seq: number) => {
     queryClient.setQueryData<Thread>(key, (prev) => {
@@ -149,8 +169,13 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
         patch((m) => ({ ...m, body: String(payload.body ?? m.body), edited_at: String(payload.edited_at) }), seq);
       } else if (seq !== null && event === "message.delete") {
         patch((m) => ({ ...m, body: "", attachments: [], deleted_at: new Date().toISOString() }), seq);
-      } else if (seq !== null && (event === "reaction.add" || event === "reaction.remove") && payload.user_id !== meId) {
-        patch((m) => ({ ...m, reactions: applyReaction(m.reactions, String(payload.emoji), event === "reaction.add", false) }), seq);
+      } else if (seq !== null && (event === "reaction.add" || event === "reaction.remove")) {
+        const on = event === "reaction.add";
+        const mine = payload.user_id === meId;
+        // This tab already shows its own reaction; one made on another device still needs applying.
+        patch((m) => (mine && Boolean(m.reactions.find((r) => r.emoji === payload.emoji)?.me) === on
+          ? null
+          : { ...m, reactions: applyReaction(m.reactions, String(payload.emoji), on, mine) }), seq);
       }
     });
     return subscription.unsubscribe;
@@ -181,7 +206,9 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
     }
     void queryClient.invalidateQueries({ queryKey: queryKeys.chat.threads() });
     const muted = shell.data?.channels.find((c) => c.id === channelId)?.notify === "mute";
-    toast(on ? (muted ? "Following. This conversation is muted, so replies show in Threads without a notification." : "You'll be notified about new replies") : "You won't be notified about this thread");
+    toast.success(on
+      ? (muted ? "Following. This conversation is muted, so new replies won't notify you or show as new. Unmute it to hear about them." : "You'll be notified about new replies")
+      : "You won't be notified about this thread");
   };
 
   const join = async () => {
@@ -207,13 +234,14 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
     const replies = thread.data?.replies ?? [];
     for (let i = replies.length - 1; i >= 0; i -= 1) {
       const m = replies[i]!;
-      if (m.author_id === meId && m.seq > 0 && !m.deleted_at && !m.card) return setEditingSeq(m.seq);
+      if (m.author_id === meId && m.seq > 0 && !m.deleted_at && !m.card && m.kind === "user") return setEditingSeq(m.seq);
     }
   }, [meId, thread.data?.replies]);
 
+  // Replying follows the thread; the divider moves past your own reply, and your reply comes into view.
+  // No refetch: the reply is already in the list (a long thread isn't downloaded again per reply).
   const onSent = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: key });
-    // Replying follows the thread; the divider moves past your own reply, and your reply comes into view.
+    queryClient.setQueryData<Thread>(key, (prev) => (prev ? { ...prev, following: true } : prev));
     setDividerSeq(Number.MAX_SAFE_INTEGER);
     requestAnimationFrame(() => list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }));
   }, [key, queryClient]);
@@ -255,13 +283,13 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
       row.closest("[data-thread-list]")?.querySelector<HTMLElement>(`[data-message-row][data-seq="${next}"]`)?.focus({ preventScroll: true });
     }));
   };
-  // A linked reply (?m=) is highlighted for a moment.
+  // A linked reply (?m=) is highlighted for a moment, counted from when the replies are really there.
   const [highlight, setHighlight] = useState<number | null>(focusSeq);
   useEffect(() => {
-    if (!highlight) return;
+    if (!highlight || loadingReplies) return;
     const timer = setTimeout(() => setHighlight(null), 2_500);
     return () => clearTimeout(timer);
-  }, [highlight]);
+  }, [highlight, loadingReplies]);
 
   // ↑ to edit your last reply brings it into view (once per edit).
   const revealed = useRef<number | null>(null);
@@ -281,7 +309,19 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
   // DMs and groups by their name ("Also send to Alice"), channels by #name.
   const conversationLabel = details.data ? channelLabel ?? channelTitle(details.data, meId) : null;
   const archived = Boolean(details.data?.channel_archived_at);
-  const showInConversation = () => router.replace(showInConversationHref(channelId, rootSeq), { scroll: false });
+  const canReply = isMember && !archived;
+  // A note to yourself has nowhere else to send a copy.
+  const alsoSendTo = details.data && isSelfDm(details.data, meId) ? null : conversationLabel;
+  const showInConversation = () => {
+    // On a phone the thread was pushed like a page: go back to the conversation (not a second
+    // copy of it in history), then bring the root into view there.
+    if (onClose && !window.matchMedia("(min-width: 1024px)").matches) {
+      onClose();
+      window.dispatchEvent(new CustomEvent<RevealEvent>(REVEAL_EVENT, { detail: { channelId, seq: rootSeq } }));
+      return;
+    }
+    router.replace(showInConversationHref(channelId, rootSeq), { scroll: false });
+  };
   const controls = (
     <>
       {isMember && thread.data && !loadingReplies && !archived ? (
@@ -290,21 +330,21 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
           onClick={() => void follow(!thread.data!.following)}
           aria-pressed={thread.data.following}
           title={thread.data.following ? "You're notified about new replies. Click to stop." : "Get notified about new replies"}
-          className={`inline-flex h-7 flex-none items-center gap-1.5 rounded-[5px] border px-2 text-[12px] font-medium hover:bg-muted pointer-coarse:h-11 ${thread.data.following ? "border-primary/40 bg-accent text-accent-foreground" : "border-border"}`}
+          className={`inline-flex h-7 flex-none items-center gap-1.5 rounded-md border px-2 text-[12px] font-medium hover:bg-muted pointer-coarse:h-11 ${thread.data.following ? "border-primary/40 bg-accent text-accent-foreground" : "border-border"}`}
         >
-          {thread.data.following ? <><Check size={13} aria-hidden="true" /> Following</> : "Follow"}
+          {thread.data.following ? <><Check size={14} aria-hidden="true" /> Following</> : "Follow"}
         </button>
       ) : null}
       <DropdownMenu>
-        <DropdownMenuTrigger className="grid size-8 flex-none place-items-center rounded-[5px] text-muted-foreground hover:bg-muted hover:text-foreground pointer-coarse:size-11" aria-label="Thread options">
-          <MoreHorizontal size={15} />
+        <DropdownMenuTrigger className="nb-icon-button nb-touch-target size-8 flex-none" aria-label="Thread options">
+          <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem onSelect={() => { void copyWithToast(`${window.location.origin}${threadHref(channelId, rootSeq)}`, "Thread link copied"); }}>
-            <Link2 size={14} className="mr-2" /> Copy link to thread
+            <Link2 /> Copy link to thread
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={showInConversation}>
-            <SquareArrowOutUpRight size={14} className="mr-2" /> Show in conversation
+            <SquareArrowOutUpRight /> Show in conversation
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -331,21 +371,28 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             const seq = Number((e.target as HTMLElement).dataset?.seq);
             if ((e.target as HTMLElement).hasAttribute?.("data-message-row") && seq) setTabSeq(seq);
           }}
-          {...drop.handlers}
+          // Files dropped here go to the reply box only when you can reply (never vanish).
+          {...(canReply ? drop.handlers : {})}
         >
-          <DropOverlay show={drop.dragging} />
-          {thread.isLoading ? <p role="status" className="p-6 text-center text-[13px] text-muted-foreground">Loading thread…</p> : null}
+          {canReply ? <DropOverlay show={drop.dragging} /> : null}
+          {thread.isLoading ? <RepliesSkeleton /> : null}
           {thread.isError || (thread.data && !thread.data.root) ? (
-            <div role="alert" className="space-y-3 p-6 text-center text-[13px]">
-              <p className="text-muted-foreground">{thread.isError ? "This thread didn't load." : "This thread isn't available. It may have been deleted."}</p>
-              <div className="flex justify-center gap-2">
-                {thread.isError ? <button type="button" onClick={() => void thread.refetch()} className="rounded-[5px] border border-border px-3 py-1.5 font-medium hover:bg-muted">Retry</button> : null}
-                {onClose ? <button type="button" onClick={onClose} className="rounded-[5px] border border-border px-3 py-1.5 font-medium hover:bg-muted">Back to conversation</button> : <Link href={conversationHref(channelId)} className="rounded-[5px] border border-border px-3 py-1.5 font-medium hover:bg-muted">Back to conversation</Link>}
+            <div className="space-y-3 p-4">
+              {thread.isError
+                ? <ErrorNotice what="This thread" onRetry={() => void thread.refetch()} />
+                : <p role="alert" className="text-center text-[13px] text-muted-foreground">This thread isn&apos;t available. It may have been deleted.</p>}
+              <div className="flex justify-center">
+                {onClose
+                  ? <Button type="button" variant="outline" size="sm" onClick={onClose}>Back to conversation</Button>
+                  : <Button asChild variant="outline" size="sm"><Link href={conversationHref(channelId)}>Back to conversation</Link></Button>}
               </div>
             </div>
           ) : null}
           {rows.length ? (
             <Virtuoso
+              // Rebuilt once the real replies land, so it starts at the linked or first unread reply
+              // (the cached root alone would pin it to the bottom).
+              key={loadingReplies ? "cached" : "loaded"}
               ref={list}
               context={{ typing: typingNow }}
               atBottomStateChange={(bottom) => { atBottom.current = bottom; setShowLatest(!bottom); if (bottom) setUnseen(0); }}
@@ -359,33 +406,21 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
               computeItemKey={(index, row) => (row.type === "reply" || row.type === "root" ? `${row.type}:${row.message.client_message_id ?? row.message.seq}` : `${row.type}:${index}`)}
               itemContent={(_index, row) => {
                 if (row.type === "root") return <div className="pt-2"><MessageRow message={row.message} grouped={false} tabStop={rowTab === row.message.seq} /></div>;
-                if (row.type === "loading") {
-                  return (
-                    <div role="status" className="space-y-3 px-4 py-3">
-                      <span className="sr-only">Loading replies…</span>
-                      {[70, 45].map((width) => (
-                        <div key={width} className="flex animate-pulse gap-2.5">
-                          <div className="size-[34px] flex-none rounded-[5px] bg-muted" />
-                          <div className="flex-1 space-y-2 pt-1"><div className="h-3 w-24 rounded bg-muted" /><div className="h-3 rounded bg-muted" style={{ width: `${width}%` }} /></div>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                }
+                if (row.type === "loading") return <RepliesSkeleton />;
                 if (row.type === "new") {
                   return (
                     <div className="flex items-center gap-3 px-4 py-1" role="separator" aria-label="New replies">
-                      <span className="h-px flex-1 bg-[var(--chat-accent)]" />
-                      <span className="font-mono text-[11px] uppercase text-[var(--chat-accent)]">New replies</span>
+                      <span className="h-px flex-1 bg-primary" />
+                      <span className="nb-micro text-primary">New replies</span>
                     </div>
                   );
                 }
                 if (row.type === "older") {
                   return (
                     <div className="px-4 py-1">
-                      <button type="button" onClick={() => void loadOlder()} disabled={loadingOlder} className="text-[13px] font-medium text-primary hover:underline disabled:opacity-60">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => void loadOlder()} disabled={loadingOlder} className="-ml-2.5 text-primary pointer-coarse:h-11">
                         {loadingOlder ? "Loading…" : "Load earlier replies"}
-                      </button>
+                      </Button>
                     </div>
                   );
                 }
@@ -395,14 +430,14 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
                       {participants.length ? (
                         <span className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
                           <span className="inline-flex -space-x-1.5">
-                            {participants.slice(0, 4).map((p) => <span key={p.id} className="inline-block rounded-[4px] ring-2 ring-card"><UserAvatar identity={p} size={20} roundedClassName="rounded-[4px]" /></span>)}
+                            {participants.slice(0, 4).map((p) => <span key={p.id} className="inline-block rounded-sm ring-2 ring-card"><UserAvatar identity={p} size={20} /></span>)}
                           </span>
                           <span className="truncate">{names(participants)}</span>
                         </span>
                       ) : null}
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-[12px] text-muted-foreground">{replyCount ? `${replyCount} ${replyCount === 1 ? "reply" : "replies"}` : loadingReplies ? "Replies" : "No replies yet"}</span>
-                        {lastReply ? <span className="text-[12px] text-muted-foreground">· last {formatChatTime(lastReply, "ago")}</span> : null}
+                        <span className="nb-meta">{replyCount ? `${replyCount} ${replyCount === 1 ? "reply" : "replies"}` : loadingReplies ? "Replies" : "No replies yet"}</span>
+                        {lastReply ? <span className="nb-meta" title={new Date(lastReply).toLocaleString()}>· last reply {formatChatTime(lastReply, "ago")}</span> : null}
                         <span className="h-px flex-1 bg-border" />
                       </div>
                     </div>
@@ -414,12 +449,13 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             />
           ) : null}
           {showLatest && rows.length ? (
-            <button type="button" onClick={() => { list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }); setUnseen(0); }} aria-label={unseen ? `Jump to latest reply, ${unseen} new` : "Jump to latest reply"} className="absolute bottom-3 right-4 z-10 inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] shadow-md">
-              <ChevronDown size={15} /> {unseen ? `${unseen} new` : "Latest"}
-            </button>
+            <Button type="button" variant="outline" size="sm" onClick={() => { list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }); setUnseen(0); }} aria-label={unseen ? `Jump to latest reply, ${unseen} new` : "Jump to latest reply"} className="absolute bottom-3 right-4 z-10 shadow-md pointer-coarse:h-11">
+              <ChevronDown size={16} /> Latest
+              {unseen ? <span className="nb-tab-count">{unseen > 99 ? "99+" : unseen}</span> : null}
+            </Button>
           ) : null}
         </div>
-        {isMember && !details.data?.channel_archived_at ? (
+        {canReply ? (
           <Composer
             channelId={channelId}
             threadRootSeq={rootSeq}
@@ -431,7 +467,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             onTyping={typing.notify}
             typingNames={typing.names}
             onEditLast={editLast}
-            alsoSendTo={conversationLabel}
+            alsoSendTo={alsoSendTo}
             autoFocus={autoFocus}
           />
         ) : details.data ? (
@@ -441,7 +477,7 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
             ) : details.data.kind === "public" ? (
               <>
                 <span>Join {channelLabel ?? "the channel"} to reply.</span>
-                <button type="button" onClick={() => void join()} className="inline-flex h-8 items-center rounded-[5px] bg-primary px-3 font-medium text-primary-foreground">Join</button>
+                <Button type="button" size="sm" onClick={() => void join()} className="pointer-coarse:h-11">Join</Button>
               </>
             ) : (
               <span>You&apos;re not in this conversation.</span>

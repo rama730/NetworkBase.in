@@ -2,8 +2,12 @@
 
 import { create } from "zustand";
 
-/** The status picker is one dialog for the whole app, opened from the avatar menu, the profile, or /status. */
-export const usePresenceUi = create<{ pickerOpen: boolean; setPickerOpen: (open: boolean) => void }>()((set) => ({
+/**
+ * The status picker is one dialog for the whole app, opened from the avatar menu, the profile, or /status.
+ * `/status in a meeting` opens it with that text filled in (`draftText`).
+ */
+export const usePresenceUi = create<{ pickerOpen: boolean; draftText: string | null; setPickerOpen: (open: boolean, draftText?: string | null) => void }>()((set) => ({
   pickerOpen: false,
-  setPickerOpen: (pickerOpen) => set({ pickerOpen }),
+  draftText: null,
+  setPickerOpen: (pickerOpen, draftText = null) => set({ pickerOpen, draftText: pickerOpen ? draftText : null }),
 }));

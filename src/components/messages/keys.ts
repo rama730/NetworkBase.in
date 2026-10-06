@@ -1,5 +1,24 @@
 export const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 
+const KEY_NAMES: Record<string, [mac: string, other: string]> = {
+  mod: ["⌘", "Ctrl"], ctrl: ["⌃", "Ctrl"], shift: ["⇧", "Shift"], alt: ["⌥", "Alt"],
+  enter: ["↵", "Enter"], backspace: ["⌫", "Backspace"], esc: ["Esc", "Esc"], up: ["↑", "↑"], down: ["↓", "↓"],
+};
+
+/** One way to write keys everywhere: "mod+shift+k" → "⌘⇧K" on a Mac, "Ctrl+Shift+K" elsewhere. */
+export function keyLabel(combo: string) {
+  const mac = isMac();
+  const parts = combo.split("+").map((part) => KEY_NAMES[part.toLowerCase()]?.[mac ? 0 : 1] ?? part.toUpperCase());
+  return parts.join(mac ? "" : "+");
+}
+
+/** Conversation details: ⌘⇧I on a Mac, Ctrl+Alt+I elsewhere (Ctrl+Shift+I is the browser's DevTools). */
+export const detailsKeys = () => (isMac() ? "mod+shift+i" : "ctrl+alt+i");
+export function isDetailsKey(event: KeyboardEvent) {
+  if (event.code !== "KeyI" && event.key.toLowerCase() !== "i") return false;
+  return isMac() ? event.metaKey && event.shiftKey : event.ctrlKey && event.altKey && !event.shiftKey;
+}
+
 /** A tablist's ←/→/Home/End: the index to move to, or null for any other key (which then does nothing). */
 export function rovingTabKey(event: React.KeyboardEvent, index: number, count: number) {
   const next = event.key === "ArrowRight" ? (index + 1) % count : event.key === "ArrowLeft" ? (index + count - 1) % count

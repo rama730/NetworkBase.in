@@ -71,7 +71,7 @@ function DialogContent({
             ? "inset-x-0 bottom-0 flex max-h-[85dvh] w-full flex-col gap-0 rounded-t-xl rounded-b-none border-x-0 border-b-0 p-0 pb-[env(safe-area-inset-bottom)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom-full data-[state=closed]:slide-out-to-bottom-full duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] motion-reduce:animate-none"
             : presentation === "right-drawer"
             ? "inset-y-0 right-0 flex h-dvh w-full max-w-none flex-col gap-4 rounded-none border-y-0 border-r-0 border-l p-6 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-right-full data-[state=closed]:slide-out-to-right-full duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] motion-reduce:animate-none"
-            : "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 top-[50%] left-[50%] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl p-6 duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] sm:max-w-lg",
+            : "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 top-[50%] left-[50%] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl p-6 duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] sm:max-w-[460px]",
           className
         )}
         {...props}

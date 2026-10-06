@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { Compass, Dot, Inbox, SquarePen } from "lucide-react";
+import { AlarmClock, Compass, Dot, Inbox, SquarePen } from "lucide-react";
+
+import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { useWide } from "@/components/messages/useWide";
+import { Button } from "@/components/ui/button";
 
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ListScreen } from "@/components/messages/ListScreen";
@@ -11,7 +15,7 @@ import { useSelectedProject } from "@/components/messages/useSelectedProject";
 import { ProjectBadge } from "@/components/projects/ProjectBadge";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useAuth } from "@/hooks/useAuth";
-import { channelTitle, formatChatTime, isDirectLike, isVisible, needsAttention, projectsByActivity, rowCount } from "@/lib/messaging/channel-view";
+import { channelTitle, formatChatTime, fullTime, isDirectLike, isVisible, needsAttention, projectsByActivity, rowCount } from "@/lib/messaging/channel-view";
 import type { ChatChannelSummary } from "@/lib/messaging/types";
 import { conversationHref } from "@/lib/messaging/routes";
 import { useMarkAllRead } from "@/components/messages/useMarkAllRead";
@@ -21,25 +25,25 @@ import { ConversationIcon } from "@/components/messages/ConversationIcon";
 function ConversationLink({ channel, meId }: { channel: ChatChannelSummary; meId: string | null }) {
   const count = rowCount(channel);
   return (
-    <Link href={conversationHref(channel.id)} className="flex min-h-11 items-center gap-2.5 rounded-[5px] px-2 hover:bg-muted">
-      {channel.kind === "dm" ? <UserAvatar identity={channel.dm_user} size={24} roundedClassName="rounded-[4px]" /> : <ConversationIcon channel={channel} size={16} aria-hidden="true" className="mx-1 text-muted-foreground" />}
+    <Link href={conversationHref(channel.id)} className="flex min-h-11 items-center gap-2.5 rounded-md px-2 hover:bg-muted">
+      {channel.kind === "dm" ? <UserAvatar identity={channel.dm_user} size={26} /> : <ConversationIcon channel={channel} size={16} aria-hidden="true" className="mx-[5px] text-muted-foreground" />}
       <span className="min-w-0 flex-1">
         {/* The icon already says # or 🔒: the name goes without a "#". */}
-        <span className={`block truncate text-[14px] ${needsAttention(channel) ? "font-semibold" : ""}`}>{channelTitle(channel, meId)}</span>
-        {channel.last_preview ? <span className="block truncate text-[12px] text-muted-foreground">{channel.last_author_id === meId ? "You: " : ""}{channel.last_preview}</span> : null}
+        <span className={`block truncate text-[13px] ${needsAttention(channel) ? "font-semibold" : "font-medium"}`}>{channelTitle(channel, meId)}</span>
+        {channel.last_preview ? <span className="block truncate text-[13px] text-muted-foreground">{channel.last_author_id === meId ? "You: " : ""}{channel.last_preview}</span> : null}
       </span>
-      {channel.last_message_at ? <span className="flex-none font-mono text-[11px] text-muted-foreground">{formatChatTime(channel.last_message_at)}</span> : null}
-      {count ? <span className="nb-chat-count">{count > 99 ? "99+" : count}<span className="sr-only"> unread</span></span> : null}
+      {channel.last_message_at ? <span className="nb-meta flex-none" title={fullTime(channel.last_message_at)}>{formatChatTime(channel.last_message_at)}</span> : null}
+      {count ? <span className="nb-chat-count">{count > 99 ? "99+" : count}<span className="sr-only"> unread</span></span> : needsAttention(channel) ? <span className="sr-only">, unread</span> : null}
     </Link>
   );
 }
 
 function Card({ title, icon, action, children }: { title: string; icon: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-3" aria-label={title}>
+    <section className="rounded-lg border border-border bg-card p-3" aria-label={title}>
       <div className="mb-1.5 flex items-center gap-2 px-2">
         <span className="text-muted-foreground" aria-hidden="true">{icon}</span>
-        <h2 className="flex-1 text-[13px] font-semibold">{title}</h2>
+        <h2 className="nb-micro flex-1">{title}</h2>
         {action}
       </div>
       {children}
@@ -71,85 +75,89 @@ export function HomePane() {
   const markAll = () => markAllRead.conversations(clearable);
   const firstRun = Boolean(data) && visible.length <= 1;
   const browseProject = project ?? projectsByActivity(data)[0] ?? null;
+  const savedDue = data?.saved_due ?? 0;
 
+  // The same frame as every other Messages screen: a 56px header bar on the card surface.
   return (
-    <div className="app-scroll app-scroll-y h-full bg-background">
+    <section className="flex h-full min-h-0 flex-col bg-card" aria-label={project ? project.title : "Home"}>
+      <header className="flex h-14 flex-none items-center gap-2 border-b border-border px-4">
+        {project ? <ProjectBadge project={project} size="sm" /> : null}
+        <h1 className="nb-card-title min-w-0 flex-1 truncate">{project ? project.title : "Home"}</h1>
+        {project ? (
+          <Button asChild variant="outline" size="sm"><Link href={`/messages/p/${project.id}/browse`}><Compass size={16} aria-hidden="true" /> Browse channels</Link></Button>
+        ) : null}
+        <Button asChild size="sm"><Link href="/messages/new" prefetch={true}><SquarePen size={16} aria-hidden="true" /> New message</Link></Button>
+      </header>
+      <div className="app-scroll app-scroll-y min-h-0 flex-1">
       <div className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
-        <header className="flex flex-wrap items-center gap-3">
-          {project ? <ProjectBadge project={project} size="md" /> : null}
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[20px] font-semibold tracking-tight">{project ? project.title : "Home"}</h1>
-            {loadError ? null : (
-              <p className="text-[13px] text-muted-foreground">
-                {!data ? "Loading…" : needing.length ? `${needing.length} conversation${needing.length === 1 ? "" : "s"} with something new` : "You're all caught up."}
-              </p>
-            )}
-          </div>
-          {project ? (
-            <Link href={`/messages/p/${project.id}/browse`} className="inline-flex h-9 items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium hover:bg-muted"><Compass size={14} aria-hidden="true" /> Browse channels</Link>
-          ) : null}
-          <Link href="/messages/new" prefetch={true} className="inline-flex h-9 items-center gap-1.5 rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:bg-primary/90"><SquarePen size={14} aria-hidden="true" /> New message</Link>
-        </header>
+        {loadError || !data ? null : (
+          <p className="text-[13px] text-muted-foreground">
+            {needing.length ? `${needing.length} conversation${needing.length === 1 ? "" : "s"} with something new` : "You're all caught up."}
+          </p>
+        )}
 
         {/* One failure, one message. */}
         {loadError ? (
-          <div role="alert" className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-[14px]">
-            <span className="flex-1">Your conversations didn&apos;t load.</span>
-            <button type="button" onClick={refresh} className="rounded-[5px] border border-border px-3 py-1.5 text-[13px] font-medium hover:bg-muted">Retry</button>
-          </div>
+          <ErrorNotice what="Your conversations" onRetry={refresh} />
         ) : !data ? (
-          <ListSkeleton label="Loading conversations" />
+          <ListSkeleton label="Loading conversations" header={false} />
         ) : firstRun ? (
-          <section className="rounded-xl border border-border bg-card p-5" aria-labelledby="home-start">
-            <h2 id="home-start" className="text-[15px] font-semibold">Start a conversation</h2>
+          <section className="rounded-lg border border-border bg-card p-5" aria-labelledby="home-start">
+            <h2 id="home-start" className="nb-card-title">Start a conversation</h2>
             <p className="mt-1 text-[13px] text-muted-foreground">Message a teammate directly, or join a channel in one of your projects.</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/messages/new" className="inline-flex h-9 items-center gap-1.5 rounded-[5px] bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:bg-primary/90"><SquarePen size={14} aria-hidden="true" /> Message a teammate</Link>
-              <Link href={browseProject ? `/messages/p/${browseProject.id}/browse` : "/projects"} className="inline-flex h-9 items-center gap-1.5 rounded-[5px] border border-border px-3 text-[13px] font-medium hover:bg-muted"><Compass size={14} aria-hidden="true" /> {browseProject ? "Browse channels" : "Find a project"}</Link>
+              <Button asChild size="sm"><Link href="/messages/new"><SquarePen size={16} aria-hidden="true" /> Message a teammate</Link></Button>
+              <Button asChild variant="outline" size="sm"><Link href={browseProject ? `/messages/p/${browseProject.id}/browse` : "/projects"}><Compass size={16} aria-hidden="true" /> {browseProject ? "Browse channels" : "Find a project"}</Link></Button>
             </div>
           </section>
         ) : (
           <>
             {inboxUnread ? (
-              <Link href="/messages/inbox" className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 hover:bg-muted">
-                <Inbox size={18} aria-hidden="true" className="text-[var(--chat-accent)]" />
-                <span className="flex-1 text-[14px]"><strong className="font-semibold">{inboxUnread}</strong> unread in your Inbox: mentions and thread replies</span>
+              <Link href="/messages/inbox" className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:bg-muted">
+                <Inbox size={18} aria-hidden="true" className="text-primary" />
+                <span className="flex-1 text-[15px]"><strong className="font-semibold">{inboxUnread}</strong> unread in your Inbox: mentions and thread replies</span>
                 <span className="text-[13px] font-medium text-primary">Open</span>
               </Link>
             ) : null}
-            <Card
-              title="Unread"
-              icon={<Dot size={15} />}
-              action={clearable.length ? <button type="button" onClick={markAll} className="text-[12px] font-medium text-primary hover:underline">{project ? `Mark ${project.title} read` : MARK_ALL_LABEL}</button> : null}
-            >
-              {unread.length ? unread.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />) : <p className="px-2 py-2 text-[13px] text-muted-foreground">Nothing unread.</p>}
-              {needing.length > UNREAD_SHOWN ? (
-                <button type="button" onClick={() => setShowAll(!showAll)} aria-expanded={showAll} className="mt-1 min-h-9 w-full rounded-[5px] px-2 text-left text-[13px] font-medium text-primary hover:bg-muted">
-                  {showAll ? "Show less" : `Show all ${needing.length}`}
-                </button>
-              ) : null}
-            </Card>
+            {/* Reminders whose time has come: caught up on messages doesn't mean nothing's waiting. */}
+            {savedDue ? (
+              <Link href="/messages/saved" className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:bg-muted">
+                <AlarmClock size={18} aria-hidden="true" className="text-primary" />
+                <span className="flex-1 text-[15px]"><strong className="font-semibold">{savedDue}</strong> reminder{savedDue === 1 ? "" : "s"} due</span>
+                <span className="text-[13px] font-medium text-primary">Open</span>
+              </Link>
+            ) : null}
+            {/* All caught up: the line above says so; an empty card would say it twice. */}
+            {unread.length ? (
+              <Card
+                title="Unread"
+                icon={<Dot size={16} />}
+                action={clearable.length ? <Button type="button" variant="ghost" size="sm" onClick={markAll} className="text-primary pointer-coarse:h-11">{project ? `Mark ${project.title} read` : MARK_ALL_LABEL}</Button> : null}
+              >
+                {unread.map((c) => <ConversationLink key={c.id} channel={c} meId={meId} />)}
+                {needing.length > UNREAD_SHOWN ? (
+                  <button type="button" onClick={() => setShowAll(!showAll)} aria-expanded={showAll} className="mt-1 min-h-9 w-full rounded-md px-2 text-left text-[13px] font-medium text-primary hover:bg-muted pointer-coarse:min-h-11">
+                    {showAll ? "Show less" : `Show all ${needing.length}`}
+                  </button>
+                ) : null}
+              </Card>
+            ) : null}
           </>
         )}
       </div>
+      </div>
       {markAllRead.dialog}
-    </div>
+    </section>
   );
 }
 
-const WIDE = "(min-width: 1024px)";
-const subscribeWide = (onChange: () => void) => {
-  const media = window.matchMedia(WIDE);
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-};
 
 /**
  * The List screen below 1024px; the Home pane at 1024px+ (the sidebar lists conversations).
  * Only one mounts, so the conversation list and Home's queries don't run twice.
  */
 export function ListOrHome() {
-  const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => null);
+  const wide = useWide();
   // Before hydration knows the width, keep the route's skeleton up instead of a blank pane.
   if (wide === null) return <ListSkeleton label="Loading messages" />;
   return <div className="h-full">{wide ? <HomePane /> : <ListScreen />}</div>;

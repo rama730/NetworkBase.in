@@ -21,9 +21,9 @@ const DetailsPane = dynamic(() => import("@/components/messages/DetailsPane").th
 type View = "thread" | "details";
 
 /**
- * Thread and Details in one drawer: a 380–420px column beside the timeline at
- * 1024px+, a full screen with Back below. With both open they are tabs, so
- * checking a channel's members never closes the thread you were reading.
+ * Thread and Details in one drawer: a 320px column beside the timeline at 1024px+
+ * (spec §09), a full screen with Back below. With both open they are tabs, and both
+ * stay mounted, so checking members never loses the thread's scroll, count or focus.
  */
 export function ChatDrawer({ channelId }: { channelId: string }) {
   const panes = usePanes(channelId);
@@ -120,15 +120,15 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
       aria-modal={modal || undefined}
       onKeyDown={trapTab}
       // Below 1024px it covers the screen at the visible height, so the reply box sits above the phone's keyboard.
-      className="fixed inset-x-0 top-0 z-40 flex h-[var(--chat-vvh,100dvh)] flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[380px] lg:flex-none lg:border-l lg:border-border xl:w-[420px] lg:h-auto"
+      className="fixed inset-x-0 top-0 z-40 flex h-[var(--chat-vvh,100dvh)] flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[320px] lg:flex-none lg:border-l lg:border-border lg:h-auto"
     >
       <header className="flex min-h-14 flex-none items-center gap-1 border-b border-border px-2">
         <span className="contents lg:hidden">
-          <button type="button" onClick={close} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={18} /></button>
+          <button type="button" onClick={close} className="nb-icon-button nb-touch-target" aria-label="Back"><ArrowLeft size={16} /></button>
         </span>
         {both ? (
           <div className="flex min-w-0 flex-1 flex-col py-1">
-            <div role="tablist" aria-label="Side panel" className="flex min-w-0 items-center gap-1 px-1">
+            <div role="tablist" aria-label="Side panel" className="flex min-w-0 items-center gap-4 px-1">
               {VIEWS.map((value, index) => (
                 <button
                   key={value}
@@ -140,7 +140,7 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
                   tabIndex={active === value ? 0 : -1}
                   onClick={() => pickTab(value)}
                   onKeyDown={(event) => tabKeys(event, index)}
-                  className={`h-8 rounded-[5px] px-2.5 text-[14px] font-semibold capitalize ${active === value ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`nb-tab min-h-9 border-b-2 text-[13px] font-medium capitalize ${active === value ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
                 >
                   {value}
                 </button>
@@ -148,11 +148,11 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
               <h2 ref={heading} tabIndex={-1} className="sr-only">{label}</h2>
             </div>
             {/* Which conversation, even with both panes open. */}
-            {where ? <span className="truncate px-2.5 text-[12px] text-muted-foreground">{where}</span> : null}
+            {where ? <span className="truncate px-1 text-[12px] text-muted-foreground">{where}</span> : null}
           </div>
         ) : (
           <div className="flex min-w-0 flex-1 items-baseline gap-2 px-2">
-            <h2 ref={heading} tabIndex={-1} className="flex-none rounded-xs text-[16px] font-semibold outline-none focus-visible:ring-1 focus-visible:ring-ring">{label}</h2>
+            <h2 ref={heading} tabIndex={-1} className="nb-card-title flex-none rounded-sm outline-none">{label}</h2>
             {where ? (
               active === "thread" && panes.thread ? (
                 <Link href={showInConversationHref(channelId, panes.thread)} onClick={(event) => { event.preventDefault(); router.replace(showInConversationHref(channelId, panes.thread!), { scroll: false }); }} replace scroll={false} className="truncate text-[13px] text-muted-foreground hover:text-foreground hover:underline" title="Show in conversation">
@@ -164,15 +164,19 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
             ) : null}
           </div>
         )}
-        {active === "thread" ? <div ref={setSlot} className="flex flex-none items-center gap-1" /> : null}
+        {/* Kept mounted (hidden behind Details) so the thread's controls don't jump into a second row. */}
+        <div ref={setSlot} className={active === "thread" ? "flex flex-none items-center gap-1" : "hidden"} />
         <span className="hidden lg:contents">
-          <button type="button" onClick={close} className="nb-icon-button nb-touch-target" aria-label={`Close ${label.toLowerCase()}`}><X size={18} /></button>
+          <button type="button" onClick={close} className="nb-icon-button nb-touch-target" aria-label={`Close ${label.toLowerCase()}`}><X size={16} /></button>
         </span>
       </header>
       <div id="drawer-panel" className="flex min-h-0 flex-1 flex-col" {...(both ? { role: "tabpanel", "aria-labelledby": `drawer-tab-${active}` } : {})}>
-        {active === "thread" && panes.thread ? (
-          <ThreadPane key={`${channelId}:${panes.thread}`} channelId={channelId} rootSeq={panes.thread} headerSlot={slot} focusSeq={panes.m} autoFocus onClose={panes.closeThread} />
-        ) : panes.details ? (
+        {panes.thread ? (
+          <div className={active === "thread" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+            <ThreadPane key={`${channelId}:${panes.thread}`} channelId={channelId} rootSeq={panes.thread} headerSlot={slot} focusSeq={panes.m} autoFocus onClose={panes.closeThread} />
+          </div>
+        ) : null}
+        {panes.details && active === "details" ? (
           <DetailsPane channelId={channelId} tab={panes.details} onTab={panes.openDetails} />
         ) : null}
       </div>

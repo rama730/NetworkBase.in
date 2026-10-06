@@ -36,7 +36,7 @@ test("Canonical route metadata contract: My Profile has updated title fallback a
 });
 
 test("Canonical route metadata contract: Messages, Settings, and Workspace have matching metadata", () => {
-    const messagesSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/messages/page.tsx"), "utf-8");
+    const messagesSource = readFileSync(resolve(ROOT, "src/app/(site)/(main)/messages/(lists)/page.tsx"), "utf-8");
     assert.match(messagesSource, /title:\s*['"]Messages \| NetworkBase['"]/);
     assert.match(messagesSource, /path:\s*['"]\/messages['"]/);
 

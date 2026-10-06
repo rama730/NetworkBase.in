@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications/service";
 import { sendAs } from "@/lib/messaging/send";
 import { chatFailure, chatRows } from "@/lib/messaging/server";
-import { tokensToPlainText } from "@/lib/messaging/tokens";
+import { previewText } from "@/lib/messaging/tokens";
 import { messageHref } from "@/lib/messaging/routes";
 
 type DueMessage = { id: string; channel_id: string; user_id: string; body: string; thread_root_seq: number | null };
@@ -71,7 +71,7 @@ export async function fireDueReminders(limit = 500) {
               (SELECT coalesce(pr.full_name, pr.username) FROM profiles pr WHERE pr.id = m.author_id) AS author
   `);
   for (const row of due.filter((reminder) => reminder.eligible)) {
-    const preview = tokensToPlainText(row.body).replace(/\s+/g, " ").trim().slice(0, 140);
+    const preview = previewText(row.body).replace(/\s+/g, " ").trim().slice(0, 140);
     await createNotification({
       recipientUserId: row.user_id,
       kind: "chat_reminder",

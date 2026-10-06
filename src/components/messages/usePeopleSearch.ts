@@ -6,14 +6,17 @@ import { useEffect, useState } from "react";
 import { searchPeople } from "@/app/actions/chat/members";
 import { queryKeys } from "@/lib/query-keys";
 
-/** People you may message, searched 250 ms after typing stops (2+ characters). */
+/**
+ * People you may message, searched 250 ms after typing stops (2+ characters). `pending` is true
+ * while the typed text hasn't been searched yet, so callers never flash "No people found".
+ */
 export function usePeopleSearch(query: string, enabled = true) {
   const [debounced, setDebounced] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), 250);
     return () => clearTimeout(timer);
   }, [query]);
-  return useQuery({
+  const result = useQuery({
     queryKey: queryKeys.chat.people(debounced.toLowerCase()),
     enabled: enabled && debounced.length >= 2,
     queryFn: async () => {
@@ -22,4 +25,5 @@ export function usePeopleSearch(query: string, enabled = true) {
     },
     staleTime: 60_000,
   });
+  return { ...result, pending: query.trim() !== debounced || result.isFetching };
 }

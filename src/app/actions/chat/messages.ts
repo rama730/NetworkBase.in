@@ -14,6 +14,7 @@ import { parseMentions, tokensToPlainText } from "@/lib/messaging/tokens";
 import { messageHref } from "@/lib/messaging/routes";
 import type { ChatCardRef } from "@/lib/messaging/types";
 import { rateLimit } from "@/lib/redis";
+import { countsOrNothing } from "@/lib/messaging/inbox-counts";
 
 export async function sendMessage(input: SendInput & { alsoToChannel?: boolean }) {
   const user = await requireChatUser();
@@ -26,13 +27,29 @@ export async function sendMessage(input: SendInput & { alsoToChannel?: boolean }
     const sent = await sendAs(user, message, null);
     // ponytail: "Also send to #channel" posts a second, top-level copy (L-31), files included.
     // ceiling: the copy doesn't link back to the thread. upgrade: a reply-ref column.
-    if (sent.success && alsoToChannel && input.threadRootSeq && (input.body.trim() || input.assetIds?.length)) {
-      await sendAs(user, { channelId: input.channelId, body: input.body, assetIds: input.assetIds }, null);
-    }
-    return sent;
+    // Its mentions are flattened (the reply already notified them), and a failed copy
+    // never fails the reply that was sent: the client only says "Also sent" when it was.
+    if (!sent.success || !alsoToChannel || !input.threadRootSeq || !(input.body.trim() || input.assetIds?.length)) return sent;
+    const copy = await flattenMentions(input.body)
+      .then((body) => sendAs(user, { channelId: input.channelId, body, assetIds: input.assetIds }, null))
+      .catch(() => null);
+    return { ...sent, alsoSent: Boolean(copy?.success) };
   } catch (error) {
     return chatFailure(error, "send");
   }
+}
+
+/** "@Ann" as text instead of a <@id> token, so a copy never notifies anyone again. */
+async function flattenMentions(body: string) {
+  const ids = parseMentions(body).userIds;
+  const names = ids.length
+    ? await chatRows<{ id: string; name: string }>(sql`
+        SELECT id, coalesce(full_name, username, 'someone') AS name FROM profiles WHERE id = ANY(${uuidArray(ids)})
+      `)
+    : [];
+  return body
+    .replace(/<@([0-9a-fA-F-]{36})>/g, (_match, id: string) => `@${names.find((n) => n.id === id.toLowerCase())?.name ?? "someone"}`)
+    .replace(/<!(channel|here)>/g, "@$1");
 }
 
 /** `/task Title`: create a task in the channel's project, then post its card. */
@@ -152,6 +169,8 @@ export async function setThreadFollow(input: { channelId: string; rootSeq: numbe
   if (!isUuid(input?.channelId) || !Number.isInteger(input.rootSeq)) return invalidInput;
   try {
     await chatRows(sql`SELECT app_private.chat_set_thread_follow(${input.channelId}::uuid, ${user.id}::uuid, ${input.rootSeq}::bigint, ${Boolean(input.on)})`);
+    // Leaving a thread reads its replies: the badge drops everywhere now.
+    if (!input.on) publishUser(user.id, "inbox.count", await countsOrNothing(user.id));
     return { success: true as const };
   } catch (error) {
     return chatFailure(error, "thread_follow");

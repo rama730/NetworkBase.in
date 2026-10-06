@@ -37,7 +37,9 @@ test("Inbox: tab panel semantics, per-tab empty text, read toggle, thread action
   const views = read("src/components/messages/MessagesViews.tsx");
   assert.match(views, /role="tabpanel" aria-labelledby=\{`inbox-tab-\$\{filter\}`\}/);
   assert.match(views, /aria-controls="inbox-panel"/);
-  assert.match(views, /mentions: "When someone @mentions you, it shows up here\."/);
+  assert.match(views, /mentions: \{ title: "No mentions yet", text: "When someone @mentions you, it shows up here\." \}/);
+  // Unread is a tab of its own, like the Notifications tray (round 3 #134).
+  assert.match(views, /\{ id: "unread", label: "Unread" \}/);
   assert.match(views, /markInboxUnread\(\{ channelId: item\.channel_id, seq: item\.seq \}\)/);
   assert.match(views, /Unfollow/);
   assert.match(views, /markThreadRead\(\{ channelId: thread\.channel_id, rootSeq: thread\.root_seq, seq: thread\.last_reply_seq \}\)/);
