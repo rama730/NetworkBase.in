@@ -1,4 +1,4 @@
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { accountDeletions, projects, storageAssets } from "@/lib/db/schema";
@@ -27,14 +27,21 @@ export const accountCleanup = inngest.createFunction(
     });
     if (!verification.ok) throw new Error("Invalid account cleanup job request");
 
-    await step.run("mark-in-progress", async () => {
-      await db.update(accountDeletions)
-        .set({ cleanupStatus: "in_progress" })
+    // Claim: pending (or a retried registration blocker) -> storage_running.
+    // A cancelled or already-advanced deletion is left alone (COR-053).
+    const claimed = await step.run("claim-storage-phase", async () => {
+      const rows = await db.update(accountDeletions)
+        .set({ cleanupStatus: "storage_running" })
         .where(and(
           eq(accountDeletions.id, deletionId),
           eq(accountDeletions.userId, userId),
-        ));
+          isNull(accountDeletions.cancelledAt),
+          inArray(accountDeletions.cleanupStatus, ["pending", "failed", "storage_running"]),
+        ))
+        .returning({ id: accountDeletions.id });
+      return rows.length === 1;
     });
+    if (!claimed) return { deletionId, userId, skipped: "not_in_storage_phase" };
 
     const legacy = await step.run("check-unregistered-references", async () => {
       const result = await db.execute<{ legacy_count: number }>(sql`
@@ -90,11 +97,7 @@ export const accountCleanup = inngest.createFunction(
                 WHERE snapshot_ref.run_id = sync_run.id
                   AND snapshot_ref.path = sync_file->>'path'
               ))
-          + (SELECT count(*) FROM public.message_attachments attachment
-              JOIN public.messages message ON message.id = attachment.message_id
-            WHERE message.sender_id = ${userId}
-              AND attachment.storage_path IS NOT NULL
-              AND attachment.asset_id IS NULL)
+          -- chat_attachments always reference a storage asset (retired messages tables are gone).
           + (SELECT count(*) FROM public.extension_recovery_drafts draft
             WHERE draft.user_id = ${userId}
               AND draft.asset_id IS NULL)
@@ -114,13 +117,24 @@ export const accountCleanup = inngest.createFunction(
               reason: "Storage references must be registered before account deletion",
             },
           })
-          .where(eq(accountDeletions.id, deletionId));
+          .where(and(eq(accountDeletions.id, deletionId), eq(accountDeletions.cleanupStatus, "storage_running")));
       });
       throw new Error(`Account cleanup blocked by ${legacy} unregistered storage references`);
     }
 
+    // Asset scheduling and the phase change commit together, and only while the
+    // deletion is still ours and not cancelled.
     const scheduled = await step.run("schedule-registered-assets", async () => {
       return db.transaction(async (tx) => {
+        const [locked] = await tx.select({ id: accountDeletions.id })
+          .from(accountDeletions)
+          .where(and(
+            eq(accountDeletions.id, deletionId),
+            eq(accountDeletions.cleanupStatus, "storage_running"),
+            isNull(accountDeletions.cancelledAt),
+          ))
+          .for("update");
+        if (!locked) return null;
         const ownedProjects = tx
           .select({ id: projects.id })
           .from(projects)
@@ -143,23 +157,22 @@ export const accountCleanup = inngest.createFunction(
             inArray(storageAssets.state, ["pending", "verified"]),
           ))
           .returning({ id: storageAssets.id });
-        return rows.map((row) => row.id);
+        const ids = rows.map((row) => row.id);
+        await tx.update(accountDeletions)
+          .set({
+            cleanupStatus: "storage_scheduled",
+            cleanupDetails: {
+              scheduledAssetCount: ids.length,
+              sampleAssetIds: ids.slice(0, 100),
+              physicalDeletionOwner: "storage-asset-deletion",
+              scheduledAt: new Date().toISOString(),
+            },
+          })
+          .where(eq(accountDeletions.id, deletionId));
+        return ids;
       });
     });
-
-    await step.run("mark-scheduled", async () => {
-      await db.update(accountDeletions)
-        .set({
-          cleanupStatus: "completed",
-          cleanupDetails: {
-            scheduledAssetCount: scheduled.length,
-            sampleAssetIds: scheduled.slice(0, 100),
-            physicalDeletionOwner: "storage-asset-deletion",
-            scheduledAt: new Date().toISOString(),
-          },
-        })
-        .where(eq(accountDeletions.id, deletionId));
-    });
+    if (scheduled === null) return { deletionId, userId, skipped: "cancelled_or_advanced" };
 
     return {
       deletionId,

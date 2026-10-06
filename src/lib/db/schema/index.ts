@@ -4133,10 +4133,10 @@ export const accountDeletions = pgTable(
     legalRetentionUntil: timestamp("legal_retention_until", { withTimezone: true }).notNull(),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    confirmationToken: text("confirmation_token"),
-    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
+    // pending -> storage_running -> storage_scheduled -> db_deleted -> completed;
+    // failed = storage registration blocker (retried). See src/lib/account/deletion.ts.
     cleanupStatus: text("cleanup_status", {
-      enum: ["pending", "in_progress", "completed", "failed"],
+      enum: ["pending", "storage_running", "storage_scheduled", "db_deleted", "completed", "failed"],
     })
       .default("pending")
       .notNull(),

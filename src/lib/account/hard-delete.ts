@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, eq, isNull, lte, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { anonymizeChatAuthor, deleteDirectMessagesSql } from "@/lib/messaging/account";
@@ -57,84 +57,58 @@ export async function executeHardDelete(
       return { success: false, error: "Unauthorized" };
     }
 
-    // Verify the deletion record exists, matches the subject, and is eligible.
-    const [deletion] = await db
-      .select({
-        id: accountDeletions.id,
-        cleanupStatus: accountDeletions.cleanupStatus,
-      })
-      .from(accountDeletions)
-      .where(
-        and(
+    // Phase 1 (destructive, transactional): only from storage_scheduled, past
+    // the grace period, not cancelled. The deletion row lock makes cancellation
+    // and this phase mutually exclusive (COR-053).
+    const phase = await db.transaction(async (tx) => {
+      const [deletion] = await tx
+        .select({ phase: accountDeletions.cleanupStatus })
+        .from(accountDeletions)
+        .where(and(
           eq(accountDeletions.id, deletionId),
           eq(accountDeletions.userId, userId),
           isNull(accountDeletions.cancelledAt),
           isNull(accountDeletions.completedAt),
-        ),
-      )
-      .limit(1);
+          lte(accountDeletions.hardDeleteAt, new Date()),
+        ))
+        .for("update");
+      if (!deletion) return "ineligible" as const;
+      if (deletion.phase === "db_deleted") return "db_deleted" as const;
+      if (deletion.phase !== "storage_scheduled") return deletion.phase;
 
-    if (!deletion) {
-      return {
-        success: false,
-        error: "Deletion record not found or already processed",
-      };
-    }
-    if (
-      deletion.cleanupStatus !== "completed"
-      && deletion.cleanupStatus !== "in_progress"
-    ) {
-      return {
-        success: false,
-        error: `Storage cleanup is ${deletion.cleanupStatus}; hard delete will retry after cleanup completes`,
-      };
-    }
-
-    if (deletion.cleanupStatus === "completed") {
       // A recovery draft without a lifecycle record would lose its cleanup
       // evidence when the profile cascade runs. Registration must finish first.
-      const recoveryDraftCount = await db
+      const [unregisteredDraft] = await tx
         .select({ id: extensionRecoveryDrafts.id })
         .from(extensionRecoveryDrafts)
-        .where(and(
-          eq(extensionRecoveryDrafts.userId, userId),
-          isNull(extensionRecoveryDrafts.assetId),
-        ));
-      if (recoveryDraftCount.length > 0) {
-        return {
-          success: false,
-          error: `Storage registration pending for ${recoveryDraftCount.length} recovery drafts`,
-        };
-      }
+        .where(and(eq(extensionRecoveryDrafts.userId, userId), isNull(extensionRecoveryDrafts.assetId)))
+        .limit(1);
+      if (unregisteredDraft) return "registration_pending" as const;
 
-      // Database cleanup is the durable first phase. `in_progress` means this
-      // phase committed and a retry must resume at Auth deletion.
-      await anonymizeChatAuthor(userId);
-      await db.transaction(async (tx) => {
-        await tx.execute(deleteDirectMessagesSql(userId));
-        await tx.delete(projects).where(eq(projects.ownerId, userId));
-
-        await tx.delete(profiles).where(eq(profiles.id, userId));
-        await tx
-          .update(accountDeletions)
-          .set({
-            cleanupStatus: "in_progress",
-            cleanupDetails: {
-              databaseCleanupAt: new Date().toISOString(),
-              authCleanupPending: true,
-            },
-          })
-          .where(eq(accountDeletions.id, deletionId));
-      });
+      await anonymizeChatAuthor(userId, tx);
+      await tx.execute(deleteDirectMessagesSql(userId));
+      await tx.delete(projects).where(eq(projects.ownerId, userId));
+      await tx.delete(profiles).where(eq(profiles.id, userId));
+      await tx
+        .update(accountDeletions)
+        .set({
+          cleanupStatus: "db_deleted",
+          cleanupDetails: { databaseCleanupAt: new Date().toISOString(), authCleanupPending: true },
+        })
+        .where(and(eq(accountDeletions.id, deletionId), eq(accountDeletions.cleanupStatus, "storage_scheduled")));
+      return "db_deleted" as const;
+    });
+    if (phase !== "db_deleted") {
+      return { success: false, error: phase === "ineligible" ? "Deletion record not found, cancelled or not yet due" : `Deletion is in phase ${phase}; retry later` };
     }
 
-    // Auth deletion is phase two. If it fails, the durable deletion row remains
-    // `in_progress`; the scheduled job retries only this idempotent phase.
+    // Phase 2: Auth deletion (idempotent). Failure keeps db_deleted for retry.
     const admin = await createAdminClient();
     let authError: { message: string } | null = null;
     try {
       const { error } = await admin.auth.admin.deleteUser(userId);
-      authError = error;
+      // Already gone after a previous partial run is success.
+      authError = error && !/not.?found/i.test(error.message) ? error : null;
     } catch (error) {
       authError = {
         message: error instanceof Error ? error.message : "Auth deletion not available",
@@ -159,8 +133,6 @@ export async function executeHardDelete(
         // lifecycle job then anonymizes them automatically. The profile,
         // content, storage, and authentication identity are already deleted.
         reason: null,
-        confirmationToken: null,
-        tokenExpiresAt: null,
         metadata: {},
         cleanupDetails: {
           databaseCleanupComplete: true,
@@ -169,7 +141,7 @@ export async function executeHardDelete(
           minimalRegistrationRecordRetained: true,
         },
       })
-      .where(eq(accountDeletions.id, deletionId));
+      .where(and(eq(accountDeletions.id, deletionId), eq(accountDeletions.cleanupStatus, "db_deleted")));
 
     return { success: true };
   } catch (error) {
@@ -178,16 +150,16 @@ export async function executeHardDelete(
       error: error instanceof Error ? error.message : String(error),
     });
 
-    // Mark the deletion as failed
+    // Keep the durable phase so the next run resumes where this one stopped;
+    // only record the error.
     try {
       await db
         .update(accountDeletions)
         .set({
-          cleanupStatus: "failed",
-          cleanupDetails: {
-            error: error instanceof Error ? error.message : String(error),
-            failedAt: new Date().toISOString(),
-          },
+          cleanupDetails: sql`coalesce(${accountDeletions.cleanupDetails}, '{}'::jsonb) || jsonb_build_object(
+            'lastError', ${error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500)},
+            'lastErrorAt', now()
+          )`,
         })
         .where(eq(accountDeletions.id, deletionId));
     } catch {

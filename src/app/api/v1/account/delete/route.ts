@@ -1,35 +1,26 @@
-import { scheduleAccountDeletion } from '@/app/actions/account';
 import { getRequestId, jsonError, jsonSuccess, logApiRoute, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import { logger } from '@/lib/logger';
 import { validateCsrf } from '@/lib/security/csrf';
 import { checkIdempotencyKey, saveIdempotencyResult } from '@/lib/security/idempotency';
 import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { z } from 'zod';
+import { scheduleAccountDeletionForUser } from '@/lib/account/deletion';
+import { inngest } from '@/inngest/client';
+import { createSignedJobRequestToken } from '@/lib/security/job-request';
+import { resolveSecurityStepUp } from '@/lib/security/step-up';
+import { resolveStepUpCapabilities } from '@/lib/security/step-up-capabilities';
+import { queueCounterRefreshBestEffort } from '@/lib/workspace/counter-buffer';
+
+const ACCOUNT_DELETE_CONFIRM_TEXT = 'DELETE';
+// Accounts with no password, authenticator or recovery code prove possession by a fresh sign-in.
+const RECENT_SIGN_IN_MS = 10 * 60 * 1000;
 
 const deleteAccountBodySchema = z.object({
     confirmationText: z.string().max(50),
     reason: z.string().max(1000).optional(),
 });
 
-function toStatusCode(error?: string) {
-    if (!error) return 500;
-    if (error === 'Not authenticated') return 401;
-    if (error === 'Confirmation required') return 400;
-    if (error.includes('re-authenticate')) return 403;
-    if (error.includes('already scheduled')) return 409;
-    return 500;
-}
 
-function toErrorCode(status: number) {
-    switch (status) {
-        case 401: return 'UNAUTHORIZED';
-        case 400: return 'BAD_REQUEST';
-        case 403: return 'FORBIDDEN';
-        case 409: return 'CONFLICT';
-        case 429: return 'RATE_LIMITED';
-        default: return 'INTERNAL_ERROR';
-    }
-}
 
 export async function DELETE(request: Request) {
     const startedAt = Date.now();
@@ -160,24 +151,54 @@ export async function DELETE(request: Request) {
             confirmationText = '';
         }
 
-        const result = await scheduleAccountDeletion(confirmationText, reason);
-        if (!result.success) {
-            const status = toStatusCode(result.error);
-            const errorCode = toErrorCode(status);
-            logApiRoute(request, {
-                requestId,
-                action: 'account.delete',
-                startedAt,
-                success: false,
-                status,
-                errorCode,
-            });
-            return jsonError(
-                result.error || 'Failed to schedule account deletion',
-                status,
-                errorCode,
-            );
+        const fail = (message: string, status: number, errorCode: Parameters<typeof jsonError>[2], details?: unknown) => {
+            logApiRoute(request, { requestId, action: 'account.delete', startedAt, success: false, status, errorCode });
+            return jsonError(message, status, errorCode, details);
+        };
+        if (auth.extensionSessionId) return fail('Account deletion requires a browser session', 403, 'FORBIDDEN');
+        if (confirmationText.trim().toUpperCase() !== ACCOUNT_DELETE_CONFIRM_TEXT) return fail('Confirmation required', 400, 'BAD_REQUEST');
+
+        // AUTH-006: a server-verified, unexpired step-up proves possession; sending
+        // an OTP does not. Accounts with no step-up method need a fresh sign-in.
+        const stepUp = await resolveSecurityStepUp(user.id);
+        if (!stepUp.ok) {
+            const { availableMethods, primaryTotpFactorId } = await resolveStepUpCapabilities({ supabase: auth.supabase, user });
+            const signedInAt = user.last_sign_in_at ? Date.parse(user.last_sign_in_at) : NaN;
+            const freshSignIn = availableMethods.length === 0 && Number.isFinite(signedInAt) && Date.now() - signedInAt <= RECENT_SIGN_IN_MS;
+            if (!freshSignIn) {
+                return fail(
+                    availableMethods.length ? 'Verify your identity to delete your account' : 'Sign in again, then delete your account within 10 minutes',
+                    403,
+                    'STEP_UP_REQUIRED',
+                    { availableMethods, factorId: primaryTotpFactorId ?? null },
+                );
+            }
         }
+
+        const result = await scheduleAccountDeletionForUser({
+            userId: user.id,
+            email: user.email || '',
+            username: typeof user.user_metadata?.username === 'string' ? user.user_metadata.username : null,
+            reason: reason || null,
+        });
+        if (!result.ok) return fail('Account deletion is already scheduled', 409, 'CONFLICT');
+
+        if (result.affectedUserIds.length > 0) {
+            await queueCounterRefreshBestEffort(result.affectedUserIds).catch((error: unknown) =>
+                logger.warn('account.counter-refresh.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) }));
+        }
+        // The worker is retry-safe and the daily finalizer only advances a
+        // deletion whose storage phase completed, so a lost dispatch delays, never skips.
+        await inngest.send({
+            name: 'account/cleanup',
+            data: {
+                userId: user.id,
+                deletionId: result.deletionId,
+                jobSignature: createSignedJobRequestToken({ kind: 'account/cleanup', actorId: user.id, subjectId: result.deletionId }),
+            },
+        }).catch((error: unknown) =>
+            logger.warn('account.inngest-dispatch.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) }));
+        await auth.supabase.auth.signOut().catch(() => undefined);
 
         logApiRoute(request, {
             requestId,
@@ -188,7 +209,7 @@ export async function DELETE(request: Request) {
         });
         const successBody = JSON.stringify({
             ok: true,
-            data: { deletionId: result.deletionId, hardDeleteAt: result.hardDeleteAt },
+            data: { deletionId: result.deletionId, hardDeleteAt: result.hardDeleteAt.toISOString() },
         });
         try {
             await saveIdempotencyResult(request, 'account.delete', successBody, idempotencyCheck.lockToken, user.id);
@@ -202,7 +223,7 @@ export async function DELETE(request: Request) {
         }
         return jsonSuccess({
             deletionId: result.deletionId,
-            hardDeleteAt: result.hardDeleteAt,
+            hardDeleteAt: result.hardDeleteAt.toISOString(),
         });
     } catch (error) {
         logger.error('Account delete route error:', { module: 'api', error: error instanceof Error ? error.message : String(error) });
