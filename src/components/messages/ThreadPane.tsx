@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { Check, ChevronDown, Link2, MoreHorizontal, SquareArrowOutUpRight } from "lucide-react";
+import { Check, Link2, MoreHorizontal, SquareArrowOutUpRight } from "lucide-react";
+import { LatestBar } from "@/components/messages/parts/LatestBar";
 import { Button } from "@/components/ui/button";
 import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
 import { REVEAL_EVENT, type RevealEvent } from "@/components/messages/Timeline";
@@ -460,13 +461,8 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
               components={THREAD_COMPONENTS}
             />
           ) : null}
-          {showLatest && rows.length ? (
-            <Button type="button" variant="outline" size="sm" onClick={() => { list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }); setUnseen(0); }} aria-label={unseen ? `Jump to latest reply, ${unseen} new` : "Jump to latest reply"} className="absolute bottom-3 right-4 z-10 shadow-md pointer-coarse:h-11">
-              <ChevronDown size={16} /> Latest
-              {unseen ? <span className="nb-tab-count">{unseen > 99 ? "99+" : unseen}</span> : null}
-            </Button>
-          ) : null}
         </div>
+        {showLatest && rows.length ? <LatestBar onClick={() => { list.current?.scrollToIndex({ index: "LAST", align: "end", behavior: "smooth" }); setUnseen(0); }} unseen={unseen} label="Jump to latest reply" /> : null}
         {canReply ? (
           <Composer
             channelId={channelId}

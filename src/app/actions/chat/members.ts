@@ -134,11 +134,14 @@ export async function searchPeople(input: { query: string }) {
 
 export type PersonContext = {
   timeZone: string | null;
+  /** Shown on their card only when the profile is public, or you share a project. */
+  headline?: string | null;
+  location?: string | null;
   sharedProjects: { id: string; title: string; slug: string | null }[];
   sharedChannels: { id: string; name: string; project_title: string | null }[];
 };
 
-/** For a DM's details: their time zone (if they share activity) and what you have in common. */
+/** For a DM's details and a person's card: their time zone (if they share activity), headline and location, and what you have in common. */
 export async function getPersonContext(input: { userId: string }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;
@@ -146,7 +149,7 @@ export async function getPersonContext(input: { userId: string }) {
   try {
     const blocked = await chatValue<boolean>(sql`SELECT app_private.chat_is_blocked(${user.id}::uuid, ${input.userId}::uuid) AS value`);
     if (blocked) return { success: true as const, context: { timeZone: null, sharedProjects: [], sharedChannels: [] } satisfies PersonContext };
-    const [sharedProjects, sharedChannels, showActivity, timeZone] = await Promise.all([
+    const [sharedProjects, sharedChannels, profile, timeZone] = await Promise.all([
       chatRows<PersonContext["sharedProjects"][number]>(sql`
         SELECT p.id, p.title, p.slug FROM project_members a
         JOIN project_members b ON b.project_id = a.project_id AND b.user_id = ${input.userId}::uuid
@@ -161,10 +164,18 @@ export async function getPersonContext(input: { userId: string }) {
         WHERE a.user_id = ${user.id}::uuid AND c.name IS NOT NULL AND c.archived_at IS NULL
         ORDER BY c.last_message_at DESC NULLS LAST LIMIT 10
       `),
-      chatValue<boolean | null>(sql`SELECT show_activity AS value FROM profiles WHERE id = ${input.userId}::uuid`),
+      chatRows<{ show_activity: boolean | null; visibility: string | null; headline: string | null; location: string | null }>(sql`SELECT show_activity, visibility, headline, location FROM profiles WHERE id = ${input.userId}::uuid`).then((rows) => rows[0] ?? null),
       getRedisClient()?.get<string>(`presence:tz:${input.userId}`).catch(() => null) ?? Promise.resolve(null),
     ]);
-    const context: PersonContext = { timeZone: showActivity === false ? null : timeZone ?? null, sharedProjects, sharedChannels };
+    // The profile's own visibility decides: public, yours, or someone you share a project with.
+    const open = profile?.visibility === "public" || input.userId === user.id || sharedProjects.length > 0;
+    const context: PersonContext = {
+      timeZone: profile?.show_activity === false ? null : timeZone ?? null,
+      headline: open ? profile?.headline?.trim() || null : null,
+      location: open ? profile?.location?.trim() || null : null,
+      sharedProjects,
+      sharedChannels,
+    };
     return { success: true as const, context };
   } catch (error) {
     return chatFailure(error, "person_context");
