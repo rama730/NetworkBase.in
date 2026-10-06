@@ -551,6 +551,7 @@ const connectionsFeedInputSchema = z.object({
         seniorPlus: z.boolean().optional(),
         hasMutuals: z.boolean().optional(),
         hasSharedProjects: z.boolean().optional(),
+        openProfilesOnly: z.boolean().optional(),
     }).strict().optional(),
     historyFilters: z.object({
         status: z.enum(CONNECTION_REQUEST_HISTORY_STATUSES).optional(),

@@ -1,7 +1,7 @@
 /**
  * Runs the Discover feed queries against a disposable database with the real SQL: privacy (masked
  * owners, members-only links, private/deleted members, blocks), cursors (no repeats or gaps on any
- * sort) and the skills filter. Redis is stubbed out.
+ * sort), the skills filter, and the People rail's request. Redis and sign-in are stubbed out.
  *   DATABASE_URL_FRESH=postgresql://postgres@localhost:54329/nb_chat_test npm run check:discover
  */
 import { randomUUID } from "node:crypto";
@@ -18,8 +18,11 @@ process.env.DATABASE_URL = disposableUrl;
 type Loader = (request: string, parent: unknown, isMain: boolean) => unknown;
 const moduleWithLoad = Module as unknown as { _load: Loader };
 const originalLoad = moduleWithLoad._load;
+let currentUser: { id: string; user_metadata: Record<string, unknown> } | null = null;
 moduleWithLoad._load = function load(request, parent, isMain) {
   if (request === "server-only") return {};
+  if (request.endsWith("supabase/auth-user")) return { getAuthUser: async () => currentUser };
+  if (request === "next/server") return { after: () => undefined };
   if (request.endsWith("lib/redis")) {
     return {
       redis: null,
@@ -51,6 +54,8 @@ async function main() {
   const feed = await import("@/lib/projects/public-feed-service");
   const { decodePublicProjectsCursor } = await import("@/lib/projects/public-feed");
   const data = await import("@/lib/data/discover");
+  const connectionsActions = await import("@/app/actions/connections");
+  const { DISCOVER_RAIL_FILTERS } = await import("@/lib/discover/query");
 
   const [viewer, owner, privateOwner, deletedOwner, blockedOwner, privateMember, publicMember] =
     [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()] as const;
@@ -199,6 +204,17 @@ async function main() {
     });
     await check("the skills filter keeps one-letter skills (C)", async () =>
       (await everything({ ...base, tech: [`C${run}`] }, "all", viewer)).some((item) => item.id === ids.cLang));
+    // ---- People rail: the exact request the page and the rail send.
+    await check("the People rail request is accepted and lists only open profiles", async () => {
+      currentUser = { id: viewer, user_metadata: {} };
+      const result = await connectionsActions.getConnectionsFeed({ tab: "discover", limit: 3, includeMeta: false, filters: DISCOVER_RAIL_FILTERS });
+      currentUser = null;
+      if (!result.success) return false;
+      const ids = result.items.map((item) => item.id);
+      // Private and blocked people never fill a slot; the deleted account is gone.
+      return !ids.includes(privateOwner) && !ids.includes(privateMember) && !ids.includes(blockedOwner) && !ids.includes(deletedOwner);
+    });
+
     await check("a garbage cursor is a cursor error, not page 1", async () => {
       try {
         await data.getDiscoverProjects(base, "t:abc|not-a-date|1", 4, { view: "all", viewerId: viewer });

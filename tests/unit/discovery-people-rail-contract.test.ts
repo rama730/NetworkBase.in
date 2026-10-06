@@ -45,6 +45,8 @@ test("rail recommendations use the same privacy-safe source as the connection li
   assert.match(hubPage, /getConnectionsFeed\(\{ tab: 'discover', limit: 3, includeMeta: false, filters: DISCOVER_RAIL_FILTERS \}\)/);
   // The rail shows only people you can see and connect with.
   assert.match(connections, /openProfilesOnly/);
+  // The input schema is strict: a filter it doesn't list rejects every rail request.
+  assert.match(connections, /filters: z\.object\(\{[^}]*openProfilesOnly: z\.boolean\(\)\.optional\(\)/);
   assert.doesNotMatch(connections, /recommendationMode/);
   assert.match(connections, /applySuggestedProfilePrivacy\(user\.id, items\)/);
   assert.match(connections, /NOT EXISTS \(\s*SELECT 1 FROM \$\{connections\} existing/);
