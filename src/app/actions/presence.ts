@@ -3,6 +3,7 @@
 import { sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { getProjectAccessByIds } from "@/lib/data/project-access";
 import { logger } from "@/lib/logger";
 import { uuidArray } from "@/lib/messaging/server";
 import {
@@ -258,17 +259,15 @@ export async function getProjectStatuses(input: { projectIds: string[] }) {
   const user = await getAuthUser();
   const ids = Array.from(new Set((Array.isArray(input?.projectIds) ? input.projectIds : []).filter(isUuid))).slice(0, MAX_BATCH);
   if (ids.length === 0) return { success: true as const, projects: [] };
+  // Same readability rule as every other project reader: drafts and private
+  // projects only for owners/members (COR-022).
+  const access = await getProjectAccessByIds(ids, user?.id ?? null);
+  const readable = ids.filter((id) => access[id]?.canRead);
+  if (readable.length === 0) return { success: true as const, projects: [] };
   const found = await rows<ProjectStatusRow>(sql`
     SELECT p.id, p.status_emoji, p.status_text, p.status_expires_at, p.updated_at
     FROM projects p
-    WHERE p.id = ANY(${uuidArray(ids)}) AND p.deleted_at IS NULL
-      AND (
-        coalesce(p.visibility, 'public') <> 'private'
-        OR (${user?.id ?? null}::uuid IS NOT NULL AND (
-          p.owner_id = ${user?.id ?? null}::uuid
-          OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND m.user_id = ${user?.id ?? null}::uuid)
-        ))
-      )
+    WHERE p.id = ANY(${uuidArray(readable)}) AND p.deleted_at IS NULL
   `);
   return {
     success: true as const,

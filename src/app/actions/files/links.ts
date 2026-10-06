@@ -1,7 +1,8 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { profiles, projectNodes, tasks, taskNodeLinks } from "@/lib/db/schema";
+import { profiles, projectNodes, projects, tasks, taskNodeLinks } from "@/lib/db/schema";
+import { escapeLikePattern } from "@/app/actions/files/_constants";
 import { eq, and, isNull, inArray, sql, desc, ilike } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
 import { notifyTaskParticipantsForFileEvent } from "@/lib/notifications/task-file";
@@ -324,47 +325,12 @@ export async function searchProjectTasks(
 ): Promise<SearchableTask[]> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    await assertProjectFileReadAccess(projectId, user?.id ?? null);
+    const access = await assertProjectFileReadAccess(projectId, user?.id ?? null);
+    // Task titles, status and assignees are Tasks-tab data, not Files data (COR-003).
+    if (!canReadProjectTaskFiles(access)) return [];
 
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const trimmed = (query || "").trim();
-
-    // When query is empty, return recent tasks ordered by updatedAt
-    if (!trimmed) {
-        const rows = await db
-            .select({
-                id: tasks.id,
-                title: tasks.title,
-                status: tasks.status,
-                priority: tasks.priority,
-                taskNumber: tasks.taskNumber,
-                assigneeName: profiles.fullName,
-            })
-            .from(tasks)
-            .leftJoin(profiles, eq(tasks.assigneeId, profiles.id))
-            .where(and(eq(tasks.projectId, projectId), isNull(tasks.deletedAt)))
-            .orderBy(desc(tasks.updatedAt))
-            .limit(safeLimit);
-
-        // Fetch project key separately
-        const project = await db.query.projects.findFirst({
-            where: (p, { eq: pEq }) => pEq(p.id, projectId),
-            columns: { key: true },
-        });
-
-        return rows.map((r) => ({
-            id: r.id,
-            title: r.title,
-            status: r.status,
-            priority: r.priority,
-            taskNumber: r.taskNumber,
-            projectKey: project?.key ?? null,
-            assigneeName: r.assigneeName,
-        }));
-    }
-
-    // Search by title using ilike for fuzzy matching
-    const escapedQuery = trimmed.replace(/[%_\\]/g, "\\$&");
     const rows = await db
         .select({
             id: tasks.id,
@@ -372,31 +338,20 @@ export async function searchProjectTasks(
             status: tasks.status,
             priority: tasks.priority,
             taskNumber: tasks.taskNumber,
+            projectKey: projects.key,
             assigneeName: profiles.fullName,
         })
         .from(tasks)
+        .innerJoin(projects, eq(projects.id, tasks.projectId))
         .leftJoin(profiles, eq(tasks.assigneeId, profiles.id))
         .where(and(
             eq(tasks.projectId, projectId),
             isNull(tasks.deletedAt),
-            ilike(tasks.title, `%${escapedQuery}%`),
+            // Empty query: most recently updated tasks.
+            trimmed ? ilike(tasks.title, `%${escapeLikePattern(trimmed)}%`) : undefined,
         ))
         .orderBy(desc(tasks.updatedAt))
         .limit(safeLimit);
 
-    // Fetch project key separately
-    const project = await db.query.projects.findFirst({
-        where: (p, { eq: pEq }) => pEq(p.id, projectId),
-        columns: { key: true },
-    });
-
-    return rows.map((r) => ({
-        id: r.id,
-        title: r.title,
-        status: r.status,
-        priority: r.priority,
-        taskNumber: r.taskNumber,
-        projectKey: project?.key ?? null,
-        assigneeName: r.assigneeName,
-    }));
+    return rows.map((r) => ({ ...r, projectKey: r.projectKey ?? null }));
 }
