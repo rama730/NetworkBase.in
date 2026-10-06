@@ -119,6 +119,4 @@ export interface DiscoverFilters {
   tech: string[];
   sort: string;
   search?: string;
-  includedIds?: string[];
-  hideOpened?: boolean;
 }

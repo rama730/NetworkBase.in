@@ -104,6 +104,8 @@ export interface DiscoverFilters {
     seniorPlus?: boolean;
     hasMutuals?: boolean;
     hasSharedProjects?: boolean;
+    /** Discover's rail: only people you can actually see and connect with (no locked cards). */
+    openProfilesOnly?: boolean;
 }
 
 export interface HistoryFilters {
@@ -635,9 +637,8 @@ async function getConnectionsFeedImpl(
         includeMeta
             ? db.select({ id: projects.id }).from(projects).where(eq(projects.ownerId, user.id)).limit(50)
             : Promise.resolve([]),
-        includeMeta
-            ? db.select({ skills: profiles.skills }).from(profiles).where(eq(profiles.id, user.id)).limit(1)
-            : Promise.resolve([]),
+        // Always: one row, and skill matching on suggestions needs it even without the rest of the meta.
+        db.select({ skills: profiles.skills }).from(profiles).where(eq(profiles.id, user.id)).limit(1),
     ]);
     const searchPattern = safeSearch ? containsLikePattern(safeSearch.toLowerCase()) : undefined;
     const searchTokens = safeSearch ? tokenizeSearchQuery(safeSearch.toLowerCase()) : [];
@@ -1021,6 +1022,10 @@ async function getConnectionsFeedImpl(
     }
     if (input.filters?.seniorPlus) discoverConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
     if (input.filters?.hasMutuals) discoverConditions.push(sql`${connectionSuggestions.mutualConnectionsCount} > 0`);
+    if (input.filters?.openProfilesOnly) {
+        discoverConditions.push(eq(profiles.visibility, 'public'));
+        discoverConditions.push(sql`${profiles.connectionPrivacy} <> 'nobody'`);
+    }
     if (input.filters?.hasSharedProjects) {
         discoverConditions.push(sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.ownerId} = ${profiles.id})`);
     }
@@ -1124,6 +1129,10 @@ async function getConnectionsFeedImpl(
             )`);
         }
         if (input.filters?.seniorPlus) fallbackConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
+        if (input.filters?.openProfilesOnly) {
+            fallbackConditions.push(eq(profiles.visibility, 'public'));
+            fallbackConditions.push(sql`${profiles.connectionPrivacy} <> 'nobody'`);
+        }
         if (input.filters?.hasSharedProjects) {
             fallbackConditions.push(sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.ownerId} = ${profiles.id})`);
         }
@@ -1164,7 +1173,7 @@ async function getConnectionsFeedImpl(
                     WHEN lower(coalesce(${profiles.username}, '')) LIKE ${(safeSearch?.toLowerCase() ?? '') + '%'} THEN 80
                     WHEN lower(coalesce(${profiles.fullName}, '')) LIKE ${(safeSearch?.toLowerCase() ?? '') + '%'} THEN 75
                     ELSE 10
-                END DESC` : desc(profiles.lastActiveAt),
+                END DESC` : sql`${profiles.lastActiveAt} DESC NULLS LAST`,
                 searchPattern ? desc(profiles.updatedAt) : desc(profiles.id),
                 desc(profiles.id),
             )

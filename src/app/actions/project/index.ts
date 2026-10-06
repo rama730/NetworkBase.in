@@ -47,6 +47,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
 import { redis, getCachedData, cacheData } from "@/lib/redis";
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
+import { DISCOVER_ANON_CACHE_TAG } from "@/constants/discover";
 import { getViewerIdentityContext } from "@/lib/server/viewer-context";
 import {
   CreateProjectInput,
@@ -574,6 +575,8 @@ const revalidateProjectPaths = async (projectId: string) => {
   }
   revalidatePath("/discover");
   revalidatePath("/my-profile");
+  // The anonymous Discover page cache (actions/discover.ts) drops a hidden project at once.
+  revalidateTag(DISCOVER_ANON_CACHE_TAG, "max");
   revalidatePath(`/projects/${projectId}`);
   // Next.js 16's cache API requires an explicit cache-life profile for tag revalidation.
   revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");

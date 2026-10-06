@@ -1,5 +1,6 @@
-import { cache } from 'react';
 import { and, asc, desc, eq, ilike, inArray, isNull, lte, ne, or, sql, type SQL } from 'drizzle-orm';
+import { canonicalSkillKey } from '@/lib/skills/matching';
+import { normalizeSkillLookup } from '@/lib/skills/normalization';
 import { FILTER_VIEWS, SORT_OPTIONS, type FilterView } from '@/constants/discover';
 import { db } from '@/lib/db';
 import { connections, profiles, projectFollows, projectMembers, projectOpenRoles, projects, roleApplications } from '@/lib/db/schema';
@@ -21,8 +22,6 @@ export const DEFAULT_FILTERS: DiscoverFilters = {
     tech: [],
     sort: SORT_OPTIONS.NEWEST,
     search: undefined,
-    includedIds: undefined,
-    hideOpened: false,
 };
 
 interface DiscoverQueryOptions {
@@ -31,10 +30,13 @@ interface DiscoverQueryOptions {
     surface?: 'full' | 'preview';
 }
 
+// Cursors carry the exact sort key: created_at with microseconds (as Postgres stores it), the score as
+// JS prints it (round-trips a float8), and the "now" the first page ranked with, so every page of a
+// ranked feed scores the same way and a page edge never repeats or skips a row.
 type ParsedCursor =
-    | { kind: 'score'; fingerprint: string; score: number; createdAt: string; id: string }
+    | { kind: 'score'; fingerprint: string; score: number; createdAt: string; id: string; now: number }
     | { kind: 'time'; fingerprint: string; createdAt: string; id: string }
-    | { kind: 'snapshot'; fingerprint: string; score: number; id: string }
+    | { kind: 'snapshot'; fingerprint: string; now: number; id: string }
     | null;
 
 export class InvalidDiscoverCursorError extends Error {
@@ -67,6 +69,8 @@ type RawProjectRow = {
     externalLinks: import('@/lib/profile/normalization').SocialLinkStorage | null;
     githubRepoUrl: string | null;
     createdAt: Date;
+    /** created_at as text with microseconds, for cursors. */
+    cursorAt: string;
     updatedAt: Date;
     feedScore: number | null;
 };
@@ -123,56 +127,56 @@ const dedupeTerms = (values: Array<string | null | undefined>, max = MAX_PERSONA
     return Array.from(unique);
 };
 
+const isTimestamp = (value: string | undefined): value is string => Boolean(value) && Number.isFinite(Date.parse(value!));
+const isUuidLike = (value: string | undefined): value is string => Boolean(value) && /^[0-9a-f-]{36}$/i.test(value!);
+
 const parseDiscoverCursor = (cursor?: string): ParsedCursor => {
     if (!cursor) return null;
+    const [prefix, rest = ''] = [cursor.slice(0, 2), cursor.slice(2)];
+    const parts = rest.split('|');
 
-    if (cursor.startsWith('s:')) {
-        const [fingerprint, scoreRaw, createdAt, id, extra] = cursor.slice(2).split('|');
+    if (prefix === 's:') {
+        const [fingerprint, scoreRaw, createdAt, id, nowRaw, extra] = parts;
         const score = Number(scoreRaw);
-        if (fingerprint && Number.isFinite(score) && createdAt && Number.isFinite(Date.parse(createdAt)) && id && !extra) {
-            return { kind: 'score', fingerprint, score, createdAt, id };
+        const now = Number(nowRaw);
+        if (fingerprint && Number.isFinite(score) && isTimestamp(createdAt) && isUuidLike(id) && Number.isFinite(now) && extra === undefined) {
+            return { kind: 'score', fingerprint, score, createdAt, id, now };
         }
-        throw new InvalidDiscoverCursorError();
-    }
-
-    if (cursor.startsWith('h:')) {
-        const [fingerprint, scoreRaw, id, extra] = cursor.slice(2).split('|');
-        const score = Number(scoreRaw);
-        if (fingerprint && Number.isFinite(score) && id && !extra) {
-            return { kind: 'snapshot', fingerprint, score, id };
+    } else if (prefix === 'h:') {
+        const [fingerprint, nowRaw, id, extra] = parts;
+        const now = Number(nowRaw);
+        if (fingerprint && Number.isFinite(now) && isUuidLike(id) && extra === undefined) {
+            return { kind: 'snapshot', fingerprint, now, id };
         }
-        throw new InvalidDiscoverCursorError();
-    }
-
-    if (cursor.startsWith('t:')) {
-        const [fingerprint, createdAt, id, extra] = cursor.slice(2).split('|');
-        if (fingerprint && createdAt && Number.isFinite(Date.parse(createdAt)) && id && !extra) {
+    } else if (prefix === 't:') {
+        const [fingerprint, createdAt, id, extra] = parts;
+        if (fingerprint && isTimestamp(createdAt) && isUuidLike(id) && extra === undefined) {
             return { kind: 'time', fingerprint, createdAt, id };
         }
-        throw new InvalidDiscoverCursorError();
     }
-
     throw new InvalidDiscoverCursorError();
 };
 
-const buildTimeCursor = (fingerprint: string, createdAt: Date, id: string) =>
-    `t:${fingerprint}|${createdAt.toISOString()}|${id}`;
-const buildSnapshotCursor = (fingerprint: string, score: number, id: string) =>
-    `h:${fingerprint}|${Number.isFinite(score) ? score.toFixed(6) : '0.000000'}|${id}`;
+const buildTimeCursor = (fingerprint: string, cursorAt: string, id: string) => `t:${fingerprint}|${cursorAt}|${id}`;
+const buildSnapshotCursor = (fingerprint: string, now: number, id: string) => `h:${fingerprint}|${now}|${id}`;
+const buildScoreCursor = (fingerprint: string, score: number, cursorAt: string, id: string, now: number) =>
+    `s:${fingerprint}|${Number.isFinite(score) ? String(score) : '0'}|${cursorAt}|${id}|${now}`;
 
-const buildScoreCursor = (fingerprint: string, score: number, createdAt: Date, id: string) =>
-    `s:${fingerprint}|${Number.isFinite(score) ? score.toFixed(6) : '0.000000'}|${createdAt.toISOString()}|${id}`;
+/** created_at as UTC text with microseconds: a cursor built from it compares exactly. */
+const cursorAtSql = sql<string>`to_char(${projects.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
-const isProjectsSelectSchemaError = (error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    const lowered = message.toLowerCase();
-    return (
-        lowered.includes('from "projects"') &&
-        ((lowered.includes('column') && lowered.includes('does not exist')) || lowered.includes('failed query'))
-    );
+/** The trending score at a fixed moment (the first page's), so later pages rank the same way. */
+const trendingScoreSql = (nowMs: number) => {
+    const weights = DISCOVER_RANKING_WEIGHTS;
+    const now = new Date(nowMs).toISOString();
+    return sql<number>`(
+        (ln(1 + greatest(coalesce(${projects.viewCount}, 0), 0)) * ${weights.trending.views}) +
+        (ln(1 + greatest(coalesce(${projects.followersCount}, 0), 0)) * ${weights.trending.follows}) +
+        (greatest(0, 72 - (extract(epoch from (${now}::timestamptz - ${projects.updatedAt})) / 3600.0)) * ${weights.trending.recency})
+    )`;
 };
 
-const getViewerPersonalizationTerms = cache(async (viewerId: string | null | undefined): Promise<string[]> => {
+const getViewerPersonalizationTerms = async (viewerId: string | null | undefined): Promise<string[]> => {
     if (!viewerId) return [];
 
     const [viewerProfile, followedProjects] = await Promise.all([
@@ -211,7 +215,7 @@ const getViewerPersonalizationTerms = cache(async (viewerId: string | null | und
     }
 
     return dedupeTerms(values, MAX_PERSONALIZATION_TERMS);
-});
+};
 
 const buildTermMatchConditions = (terms: string[]) => terms.map((term) => {
         const pattern = likePattern(term);
@@ -286,13 +290,23 @@ const buildBaseConditions = (
     view: FilterView,
     viewerId: string | null,
 ): SQL<unknown>[] => {
-    // CRITICAL: Always exclude soft-deleted projects from every hub query
-    const conditions: SQL<unknown>[] = [isNull(projects.deletedAt)];
+    const conditions: SQL<unknown>[] = [
+        // CRITICAL: Always exclude soft-deleted projects from every hub query
+        isNull(projects.deletedAt),
+        or(eq(projects.visibility, 'public'), eq(projects.visibility, 'unlisted'))!,
+        ne(projects.status, 'draft'),
+        // A deleted account's projects leave Discover with it.
+        sql<boolean>`EXISTS (SELECT 1 FROM ${profiles} owner WHERE owner.id = ${projects.ownerId} AND owner.deleted_at IS NULL)`,
+    ];
 
-    if (view !== FILTER_VIEWS.MY_PROJECTS || !viewerId) {
-        const publicVisibility = or(eq(projects.visibility, 'public'), eq(projects.visibility, 'unlisted'));
-        if (publicVisibility) conditions.push(publicVisibility);
-        conditions.push(ne(projects.status, 'draft'));
+    // Neither side of a block sees the other's projects.
+    if (viewerId) {
+        conditions.push(sql<boolean>`NOT EXISTS (
+            SELECT 1 FROM ${connections} blocked
+            WHERE blocked.status = 'blocked'
+              AND ((blocked.requester_id = ${viewerId} AND blocked.addressee_id = ${projects.ownerId})
+                OR (blocked.requester_id = ${projects.ownerId} AND blocked.addressee_id = ${viewerId}))
+        )`);
     }
 
     if (view === FILTER_VIEWS.FOLLOWING && viewerId) {
@@ -308,7 +322,7 @@ const buildBaseConditions = (
     }
 
     if (filters.status && filters.status !== 'all') {
-        conditions.push(eq(projects.status, filters.status as 'draft' | 'active' | 'completed' | 'archived'));
+        conditions.push(eq(projects.status, filters.status as 'active' | 'completed' | 'archived'));
     }
 
     if (filters.type && filters.type !== 'all') {
@@ -317,40 +331,30 @@ const buildBaseConditions = (
 
     if (filters.search) {
         const normalizedSearchTerms = dedupeTerms(tokenizeSearchQuery(filters.search), MAX_SEARCH_TOKENS);
+        const fallback = normalizeTerm(filters.search);
         const searchConditions = buildTermMatchConditions(
-            normalizedSearchTerms.length > 0 ? normalizedSearchTerms : [filters.search],
+            normalizedSearchTerms.length > 0 ? normalizedSearchTerms : fallback ? [fallback] : [],
         );
         if (searchConditions.length > 0) {
             conditions.push(...searchConditions);
         }
     }
 
-    const selectedTechTerms = dedupeTerms(filters.tech, MAX_TECH_TERMS);
-    if (selectedTechTerms.length > 0) {
-        const techConditions = selectedTechTerms.map((term) =>
-            sql<boolean>`EXISTS (SELECT 1 FROM project_skills ps JOIN skills s ON ps.skill_id = s.id WHERE ps.project_id = ${projects.id} AND s.name ILIKE ${likePattern(term)})`,
-        );
-        conditions.push(or(...techConditions)!);
-    }
-
-    if (view === FILTER_VIEWS.MY_PROJECTS && viewerId) {
-        conditions.push(
-            sql<boolean>`(
-                ${projects.ownerId} = ${viewerId}
-                OR EXISTS (
-                    SELECT 1
-                    FROM "project_members" pm
-                    WHERE pm.project_id = ${projects.id}
-                    AND pm.user_id = ${viewerId}
-                )
-            )`,
-        );
-    }
-
-    if (filters.hideOpened && filters.includedIds?.length) {
-        conditions.push(
-            sql<boolean>`${projects.id} NOT IN (${sql.join(filters.includedIds.map(id => sql`${id}`), sql`, `)})`
-        );
+    // Skills match by identity, not substring ("java" isn't "javascript"; "C" and "R" count):
+    // the catalog key, the skill's own name, or one of its aliases.
+    const selectedTech = Array.from(new Set((filters.tech ?? []).map((value) => value.trim()).filter(Boolean))).slice(0, MAX_TECH_TERMS);
+    if (selectedTech.length > 0) {
+        const keys = selectedTech.map(canonicalSkillKey);
+        const lookups = selectedTech.map(normalizeSkillLookup);
+        const names = selectedTech.map((value) => value.toLowerCase());
+        const textArray = (values: string[]) => sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
+        conditions.push(sql<boolean>`EXISTS (
+            SELECT 1 FROM project_skills ps
+            JOIN skills s ON ps.skill_id = s.id
+            LEFT JOIN skill_aliases sa ON sa.skill_id = s.id
+            WHERE ps.project_id = ${projects.id}
+              AND (s.canonical_key = ANY(${textArray(keys)}) OR lower(s.name) = ANY(${textArray(names)}) OR sa.normalized_alias = ANY(${textArray(lookups)}))
+        )`);
     }
 
     return conditions;
@@ -378,11 +382,11 @@ const countArrayMatches = (values: string[] | null, terms: string[]) => {
     return count;
 };
 
-const calculateTrendScore = (candidate: CandidateProject) => {
+const calculateTrendScore = (candidate: CandidateProject, now: number) => {
     const weights = DISCOVER_RANKING_WEIGHTS;
     const views = Math.max(0, candidate.viewCount || 0);
     const follows = Math.max(0, candidate.followersCount || 0);
-    const hoursSinceUpdate = Math.max(0, (Date.now() - candidate.updatedAt.getTime()) / (1000 * 60 * 60));
+    const hoursSinceUpdate = Math.max(0, (now - candidate.updatedAt.getTime()) / (1000 * 60 * 60));
     const recency = Math.max(0, 72 - hoursSinceUpdate);
 
     return (
@@ -407,9 +411,9 @@ const calculateQualityScore = (candidate: CandidateProject) => {
     );
 };
 
-const calculateRecommendationScore = (candidate: CandidateProject, terms: string[]) => {
+const calculateRecommendationScore = (candidate: CandidateProject, terms: string[], now: number) => {
     const weights = DISCOVER_RANKING_WEIGHTS;
-    const trendScore = calculateTrendScore(candidate);
+    const trendScore = calculateTrendScore(candidate, now);
     const qualityScore = calculateQualityScore(candidate);
 
     if (terms.length === 0) {
@@ -486,9 +490,10 @@ const buildReasonLabels = (input: {
     trendScore: number;
     qualityScore: number;
     updatedAt: Date;
+    now: number;
 }) => {
     const reasons: string[] = [];
-    const ageHours = (Date.now() - input.updatedAt.getTime()) / (1000 * 60 * 60);
+    const ageHours = (input.now - input.updatedAt.getTime()) / (1000 * 60 * 60);
 
     if (input.view === FILTER_VIEWS.RECOMMENDATIONS && input.matchedTerms > 0) {
         reasons.push('Matches your skills');
@@ -517,74 +522,45 @@ const buildReasonLabels = (input: {
 
 const fetchSnapshotCandidates = async (
     conditions: SQL<unknown>[],
-): Promise<CandidateProject[]> => {
-    const weights = DISCOVER_RANKING_WEIGHTS;
-
-    try {
-        return await db
-            .select({
-                id: projects.id,
-                ownerId: projects.ownerId,
-                title: projects.title,
-                description: projects.description,
-                shortDescription: projects.shortDescription,
-                category: projects.category,
-                skills: projects.skills,
-                tags: projects.tags,
-                coverImage: projects.coverImage,
-                lifecycleStages: projects.lifecycleStages,
-                viewCount: projects.viewCount,
-                followersCount: projects.followersCount,
-                updatedAt: projects.updatedAt,
-                createdAt: projects.createdAt,
-            })
-            .from(projects)
-            .where(and(...conditions))
-            .orderBy(desc(projects.updatedAt), desc(projects.viewCount), desc(projects.followersCount))
-            .limit(weights.candidateLimit);
-    } catch (error) {
-        if (!isProjectsSelectSchemaError(error)) throw error;
-
-        return db
-            .select({
-                id: projects.id,
-                ownerId: projects.ownerId,
-                title: projects.title,
-                description: projects.description,
-                shortDescription: sql<string | null>`null`,
-                category: projects.category,
-                skills: sql<string[] | null>`null`,
-                tags: sql<string[] | null>`null`,
-                coverImage: sql<string | null>`null`,
-                lifecycleStages: sql<string[] | null>`null`,
-                viewCount: sql<number | null>`0`,
-                followersCount: sql<number | null>`0`,
-                updatedAt: projects.updatedAt,
-                createdAt: projects.createdAt,
-            })
-            .from(projects)
-            .where(and(...conditions))
-            .orderBy(desc(projects.updatedAt), desc(projects.createdAt))
-            .limit(weights.candidateLimit);
-    }
-};
+    now: number,
+): Promise<CandidateProject[]> => db
+    .select({
+        id: projects.id,
+        ownerId: projects.ownerId,
+        title: projects.title,
+        description: projects.description,
+        shortDescription: projects.shortDescription,
+        category: projects.category,
+        skills: projects.skills,
+        tags: projects.tags,
+        coverImage: projects.coverImage,
+        lifecycleStages: projects.lifecycleStages,
+        viewCount: projects.viewCount,
+        followersCount: projects.followersCount,
+        updatedAt: projects.updatedAt,
+        createdAt: projects.createdAt,
+    })
+    .from(projects)
+    .where(and(...conditions))
+    .orderBy(sql`${trendingScoreSql(now)} DESC`, desc(projects.id))
+    .limit(DISCOVER_RANKING_WEIGHTS.candidateLimit);
 
 const getFeedSnapshot = async (
     view: FilterView,
     viewerId: string | null,
     filters: DiscoverFilters,
     personalizationTerms: string[],
+    now: number,
 ) => {
-    const weights = DISCOVER_RANKING_WEIGHTS;
     const candidateConditions = buildBaseConditions(filters, view, viewerId);
-    const candidates = await fetchSnapshotCandidates(candidateConditions);
+    const candidates = await fetchSnapshotCandidates(candidateConditions, now);
 
     const scored = candidates.map((candidate) => {
-        const trendScore = calculateTrendScore(candidate);
+        const trendScore = calculateTrendScore(candidate, now);
         const qualityScore = calculateQualityScore(candidate);
 
         if (view === FILTER_VIEWS.RECOMMENDATIONS) {
-            const recommendation = calculateRecommendationScore(candidate, personalizationTerms);
+            const recommendation = calculateRecommendationScore(candidate, personalizationTerms, now);
             return {
                 id: candidate.id,
                 ownerId: candidate.ownerId,
@@ -596,6 +572,7 @@ const getFeedSnapshot = async (
                     trendScore,
                     qualityScore,
                     updatedAt: candidate.updatedAt,
+                    now,
                 }),
             };
         }
@@ -611,104 +588,57 @@ const getFeedSnapshot = async (
                 trendScore,
                 qualityScore,
                 updatedAt: candidate.updatedAt,
+                now,
             }),
         };
     });
 
-    const reranked = applyDiversityRerank(scored)
-        .slice(0, weights.maxSnapshotItems)
-        .map((entry) => ({
-            id: entry.id,
-            score: entry.score,
-            reasons: entry.reasons,
-        }));
+    const reranked = applyDiversityRerank(scored).map((entry) => ({
+        id: entry.id,
+        score: entry.score,
+        reasons: entry.reasons,
+    }));
 
-    return { snapshot: { items: reranked } as SnapshotPayload, cacheHit: false };
+    return { items: reranked } as SnapshotPayload;
 };
 
-const fetchProjectsByIds = async (projectIds: string[], conditions: SQL<unknown>[] = []) => {
-    if (projectIds.length === 0) {
-        return {
-            rows: [] as RawProjectRow[],
-            hasFollowersCountColumn: true,
-        };
-    }
+const projectSelectFields = {
+    id: projects.id,
+    ownerId: projects.ownerId,
+    title: projects.title,
+    slug: projects.slug,
+    description: projects.description,
+    shortDescription: projects.shortDescription,
+    coverImage: projects.coverImage,
+    category: projects.category,
+    viewCount: projects.viewCount,
+    followersCount: projects.followersCount,
+    tags: projects.tags,
+    skills: projects.skills,
+    visibility: projects.visibility,
+    status: projects.status,
+    lifecycleStages: projects.lifecycleStages,
+    importSource: projects.importSource,
+    externalLinks: projects.externalLinks,
+    githubRepoUrl: projects.githubRepoUrl,
+    createdAt: projects.createdAt,
+    cursorAt: cursorAtSql,
+    updatedAt: projects.updatedAt,
+};
 
-    let hasFollowersCountColumn = true;
-
-    try {
-        const rows = await db
-            .select({
-                id: projects.id,
-                ownerId: projects.ownerId,
-                title: projects.title,
-                slug: projects.slug,
-                description: projects.description,
-                shortDescription: projects.shortDescription,
-                coverImage: projects.coverImage,
-                category: projects.category,
-                viewCount: projects.viewCount,
-                followersCount: projects.followersCount,
-
-                tags: projects.tags,
-                skills: projects.skills,
-                visibility: projects.visibility,
-                status: projects.status,
-                lifecycleStages: projects.lifecycleStages,
-                importSource: projects.importSource,
-                externalLinks: projects.externalLinks,
-                githubRepoUrl: projects.githubRepoUrl,
-                createdAt: projects.createdAt,
-                updatedAt: projects.updatedAt,
-                feedScore: sql<number>`0`,
-            })
-            .from(projects)
-            .where(and(inArray(projects.id, projectIds), ...conditions));
-
-        const rank = new Map(projectIds.map((id, index) => [id, index]));
-        rows.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
-        return { rows, hasFollowersCountColumn };
-    } catch (error) {
-        if (!isProjectsSelectSchemaError(error)) throw error;
-        hasFollowersCountColumn = false;
-
-        const rows = await db
-            .select({
-                id: projects.id,
-                ownerId: projects.ownerId,
-                title: projects.title,
-                slug: sql<string | null>`null`,
-                description: projects.description,
-                shortDescription: sql<string | null>`null`,
-                coverImage: sql<string | null>`null`,
-                category: projects.category,
-                viewCount: sql<number | null>`0`,
-                followersCount: sql<number | null>`null`,
-                savesCount: sql<number | null>`null`,
-                tags: sql<string[] | null>`null`,
-                skills: sql<string[] | null>`null`,
-                visibility: projects.visibility,
-                status: projects.status,
-                lifecycleStages: sql<string[] | null>`null`,
-                importSource: sql<RawProjectRow['importSource']>`null`,
-                externalLinks: sql<RawProjectRow['externalLinks']>`null`,
-                githubRepoUrl: sql<string | null>`null`,
-                createdAt: projects.createdAt,
-                updatedAt: projects.updatedAt,
-                feedScore: sql<number>`0`,
-            })
-            .from(projects)
-            .where(and(inArray(projects.id, projectIds), ...conditions));
-
-        const rank = new Map(projectIds.map((id, index) => [id, index]));
-        rows.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
-        return { rows, hasFollowersCountColumn };
-    }
+const fetchProjectsByIds = async (projectIds: string[], conditions: SQL<unknown>[] = []): Promise<RawProjectRow[]> => {
+    if (projectIds.length === 0) return [];
+    const rows = await db
+        .select({ ...projectSelectFields, feedScore: sql<number>`0` })
+        .from(projects)
+        .where(and(inArray(projects.id, projectIds), ...conditions));
+    const rank = new Map(projectIds.map((id, index) => [id, index]));
+    rows.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+    return rows as RawProjectRow[];
 };
 
 const hydrateProjects = async (
     rawProjects: RawProjectRow[],
-    hasFollowersCountColumn: boolean,
     rankingReasonMap?: Map<string, string[]>,
     viewerId: string | null = null,
     surface: 'full' | 'preview' = 'full',
@@ -718,7 +648,7 @@ const hydrateProjects = async (
     const projectIds = rawProjects.map((project) => project.id);
     const ownerIds = Array.from(new Set(rawProjects.map((project) => project.ownerId)));
 
-    const [owners, roles, members, follows, connectedMembers, ownerRelationshipMap] = await Promise.all([
+    const [owners, roles, members, connectedMembers, ownerRelationshipMap] = await Promise.all([
         db.select({
                 id: profiles.id,
                 username: profiles.username,
@@ -740,7 +670,6 @@ const hydrateProjects = async (
             })
             .from(projectOpenRoles)
             .where(inArray(projectOpenRoles.projectId, projectIds))
-            .limit(200)
             .catch((error) => {
                 const message = error instanceof Error ? error.message : String(error);
                 if (message.toLowerCase().includes('project_open_roles') && message.toLowerCase().includes('does not exist')) {
@@ -766,7 +695,7 @@ const hydrateProjects = async (
                 },
             })
             .from(projectMembers)
-            .leftJoin(profiles, eq(projectMembers.userId, profiles.id))
+            .innerJoin(profiles, and(eq(projectMembers.userId, profiles.id), isNull(profiles.deletedAt)))
             .where(inArray(projectMembers.projectId, projectIds))
             .catch((error) => {
                 const message = error instanceof Error ? error.message : String(error);
@@ -778,13 +707,6 @@ const hydrateProjects = async (
                 }
                 throw error;
             }),
-        hasFollowersCountColumn
-            ? Promise.resolve([])
-            : db
-                .select({ projectId: projectFollows.projectId, count: sql<number>`count(*)` })
-                .from(projectFollows)
-                .where(inArray(projectFollows.projectId, projectIds))
-                .groupBy(projectFollows.projectId),
         surface === 'preview' && viewerId
             ? (() => {
                 const rankedConnectedMembers = db.select({
@@ -847,12 +769,14 @@ const hydrateProjects = async (
     ]);
 
     const ownerMap = new Map(owners.map((owner) => [owner.id, owner]));
-    const followCountMap = new Map(
-        (follows as Array<{ projectId: string; count: number | string | null }>).map((follow) => [
-            follow.projectId,
-            Number(follow.count || 0),
-        ]),
-    );
+    // Collaborators show only to people allowed to see them (public, or connected for
+    // connections-only), never across a block.
+    const memberIds = Array.from(new Set(members.map((member) => member.member.userId).filter((id) => !ownerRelationshipMap.has(id))));
+    const memberRelationshipMap = new Map([...ownerRelationshipMap, ...(await resolvePrivacyRelationships(viewerId, memberIds))]);
+    const canShowMember = (userId: string) => {
+        const relationship = memberRelationshipMap.get(userId);
+        return Boolean(relationship && relationship.canViewProfile && !relationship.blockedByViewer && !relationship.blockedByTarget);
+    };
     const leadFocusByProject = new Map(rawProjects.map((project) => {
         const rawLeadFocus = project.importSource?.metadata?.leadFocus;
         return [project.id, typeof rawLeadFocus === 'string' ? rawLeadFocus.trim() : ''] as const;
@@ -898,10 +822,11 @@ const hydrateProjects = async (
         string,
         Array<{
             member: { id: string; projectId: string; userId: string; role: string; joinedAt: Date };
-            user: { id: string; username: string | null; fullName: string | null; avatarUrl: string | null } | null;
+            user: { id: string; username: string | null; fullName: string | null; avatarUrl: string | null };
         }>
     >();
     members.forEach((member) => {
+        if (!canShowMember(member.member.userId)) return;
         if (!membersMap.has(member.member.projectId)) membersMap.set(member.member.projectId, []);
         membersMap.get(member.member.projectId)!.push(member);
     });
@@ -946,9 +871,7 @@ const hydrateProjects = async (
         const projectRoles = rolesMap.get(project.id) || [];
         const projectMembersRows = membersMap.get(project.id) || [];
 
-        const followersCount = hasFollowersCountColumn
-            ? project.followersCount || 0
-            : followCountMap.get(project.id) || 0;
+        const followersCount = project.followersCount || 0;
 
 
         const normalizedStatus: Project['status'] =
@@ -973,7 +896,7 @@ const hydrateProjects = async (
             visibility: project.visibility || 'public',
             externalLinks: filterProjectLinksForAudience(
                 project.externalLinks,
-                project.ownerId === viewerId || projectMembersRows.some((member) => member.member.userId === viewerId),
+                project.ownerId === viewerId || members.some((member) => member.member.projectId === project.id && member.member.userId === viewerId),
             ),
             githubRepoUrl: project.githubRepoUrl,
             viewCount: project.viewCount || 0,
@@ -984,22 +907,16 @@ const hydrateProjects = async (
             connectedFriends: visibleConnectedFriends,
             additionalConnectedFriendsCount: Math.max(0, connectedFriendsCount - visibleConnectedFriends.length),
             owner: ownerPresentation,
-            collaborators: projectMembersRows
-                .map((member) =>
-                    member.user
-                        ? {
-                            userId: member.member.userId,
-                            membershipRole: member.member.role,
-                            user: {
-                                id: member.user.id,
-                                username: member.user.username,
-                                fullName: member.user.fullName,
-                                avatarUrl: member.user.avatarUrl,
-                            },
-                        }
-                        : null,
-                )
-                .filter(Boolean) as Project['collaborators'],
+            collaborators: projectMembersRows.map((member) => ({
+                userId: member.member.userId,
+                membershipRole: member.member.role,
+                user: {
+                    id: member.user.id,
+                    username: member.user.username,
+                    fullName: member.user.fullName,
+                    avatarUrl: member.user.avatarUrl,
+                },
+            })) as Project['collaborators'],
             openRoles: projectRoles.map((role) => ({
                 id: role.id,
                 role: role.role,
@@ -1017,7 +934,7 @@ const hydrateProjects = async (
     });
 };
 
-export const getDiscoverProjects = cache(async (
+export const getDiscoverProjects = async (
     filters: DiscoverFilters = DEFAULT_FILTERS,
     cursor?: string,
     pageSize: number = 24,
@@ -1028,7 +945,7 @@ export const getDiscoverProjects = cache(async (
     const viewerId = options.viewerId ?? null;
     const surface = options.surface ?? 'full';
 
-    if ((view === FILTER_VIEWS.MY_PROJECTS || view === FILTER_VIEWS.FOLLOWING) && !viewerId) {
+    if (view === FILTER_VIEWS.FOLLOWING && !viewerId) {
         return {
             projects: [],
             nextCursor: undefined,
@@ -1049,30 +966,24 @@ export const getDiscoverProjects = cache(async (
             ? await getViewerPersonalizationTerms(viewerId)
             : [];
 
-    const shouldUseSnapshot =
-        (view === FILTER_VIEWS.TRENDING || view === FILTER_VIEWS.RECOMMENDATIONS) &&
-        !filters.includedIds?.length;
-
-    if (shouldUseSnapshot) {
+    if (view === FILTER_VIEWS.TRENDING || view === FILTER_VIEWS.RECOMMENDATIONS) {
         if (parsedCursor && parsedCursor.kind !== 'snapshot') {
             throw new InvalidDiscoverCursorError();
         }
-        const { snapshot, cacheHit } = await getFeedSnapshot(view, viewerId, filters, personalizationTerms);
+        // Every page ranks at the first page's moment; the cursor finds its place by id alone.
+        const now = parsedCursor?.kind === 'snapshot' ? parsedCursor.now : Date.now();
+        const snapshot = await getFeedSnapshot(view, viewerId, filters, personalizationTerms, now);
         let startIndex = 0;
         if (parsedCursor?.kind === 'snapshot') {
-            const cursorIndex = snapshot.items.findIndex(
-                (item) => item.id === parsedCursor.id && Math.abs(item.score - parsedCursor.score) < 0.000001,
-            );
+            const cursorIndex = snapshot.items.findIndex((item) => item.id === parsedCursor.id);
 
             if (cursorIndex === -1) {
                 logger.warn('discover.snapshot.cursor_not_found', {
                     view,
                     cursorId: parsedCursor.id,
-                    cursorScore: parsedCursor.score,
                     snapshotItemsLength: snapshot.items.length,
                     schemaVersion: DISCOVER_RANKING_SCHEMA_VERSION,
                     filtersFingerprint,
-                    cacheHit,
                 });
                 throw new InvalidDiscoverCursorError();
             }
@@ -1082,23 +993,20 @@ export const getDiscoverProjects = cache(async (
         const currentConditions = buildBaseConditions(filters, view, viewerId);
         const reasonsMap = new Map<string, string[]>();
         const pageRows: RawProjectRow[] = [];
-        let hasFollowersCountColumn = true;
         let consumedIndex = startIndex;
 
         while (pageRows.length < pageSize && consumedIndex < snapshot.items.length) {
             const pageItems = snapshot.items.slice(consumedIndex, consumedIndex + pageSize - pageRows.length);
             consumedIndex += pageItems.length;
-            const result = await fetchProjectsByIds(pageItems.map((item) => item.id), currentConditions);
-            hasFollowersCountColumn &&= result.hasFollowersCountColumn;
-            pageRows.push(...result.rows);
+            pageRows.push(...await fetchProjectsByIds(pageItems.map((item) => item.id), currentConditions));
             for (const item of pageItems) reasonsMap.set(item.id, item.reasons);
         }
 
-        const mappedProjects = await hydrateProjects(pageRows, hasFollowersCountColumn, reasonsMap, viewerId, surface);
+        const mappedProjects = await hydrateProjects(pageRows, reasonsMap, viewerId, surface);
         const lastSnapshotItem = snapshot.items[consumedIndex - 1];
         const nextCursor =
             consumedIndex < snapshot.items.length && lastSnapshotItem
-                ? buildSnapshotCursor(filtersFingerprint, lastSnapshotItem.score, lastSnapshotItem.id)
+                ? buildSnapshotCursor(filtersFingerprint, now, lastSnapshotItem.id)
                 : undefined;
 
         recordDiscoverMetric({
@@ -1107,7 +1015,7 @@ export const getDiscoverProjects = cache(async (
             durationMs: Date.now() - start,
             projectCount: mappedProjects.length,
             hasMore: !!nextCursor,
-            cacheHit,
+            cacheHit: false,
             strategy: 'snapshot',
             filtersFingerprint,
         });
@@ -1122,33 +1030,19 @@ export const getDiscoverProjects = cache(async (
 
     const conditions = buildBaseConditions(filters, view, viewerId);
 
-    const weights = DISCOVER_RANKING_WEIGHTS;
-    const trendingScoreExpr = sql<number>`(
-        (ln(1 + greatest(coalesce(${projects.viewCount}, 0), 0)) * ${weights.trending.views}) +
-        (ln(1 + greatest(coalesce(${projects.followersCount}, 0), 0)) * ${weights.trending.follows}) +
-        (greatest(0, 72 - (extract(epoch from (now() - ${projects.updatedAt})) / 3600.0)) * ${weights.trending.recency})
-    )`;
-
-    const recommendationRelevanceExpr = buildRecommendationRelevanceExpr(personalizationTerms);
-    const recommendationScoreExpr = sql<number>`(${recommendationRelevanceExpr} + (${trendingScoreExpr} * ${weights.recommendation.trendBlend}))`;
-
     const normalizedSort = filters.sort || SORT_OPTIONS.NEWEST;
     const activeSearchTerms = filters.search
         ? dedupeTerms(tokenizeSearchQuery(filters.search), MAX_SEARCH_TOKENS)
         : [];
-    const shouldUseTrendingScore = view === FILTER_VIEWS.TRENDING || normalizedSort === SORT_OPTIONS.TRENDING;
-    const shouldUseRecommendationScore =
-        view === FILTER_VIEWS.RECOMMENDATIONS && personalizationTerms.length > 0;
+    const now = parsedCursor?.kind === 'score' ? parsedCursor.now : Date.now();
 
     let scoreExpr: SQL<number> | null = null;
     let isOldestSort = false;
 
-    if (shouldUseRecommendationScore) {
-        scoreExpr = recommendationScoreExpr;
-    } else if (activeSearchTerms.length > 0 && normalizedSort === SORT_OPTIONS.NEWEST) {
+    if (activeSearchTerms.length > 0 && normalizedSort === SORT_OPTIONS.NEWEST) {
         scoreExpr = buildSearchRelevanceExpr(activeSearchTerms);
-    } else if (shouldUseTrendingScore) {
-        scoreExpr = trendingScoreExpr;
+    } else if (normalizedSort === SORT_OPTIONS.TRENDING) {
+        scoreExpr = trendingScoreSql(now);
     } else if (normalizedSort === SORT_OPTIONS.MOST_VIEWED) {
         scoreExpr = sql<number>`coalesce(${projects.viewCount}, 0)::float`;
     } else if (normalizedSort === SORT_OPTIONS.MOST_FOLLOWED) {
@@ -1161,21 +1055,18 @@ export const getDiscoverProjects = cache(async (
         throw new InvalidDiscoverCursorError();
     }
 
-    let scoreCursorCondition: SQL<unknown> | null = null;
-
     if (scoreExpr && parsedCursor?.kind === 'score') {
-        scoreCursorCondition = sql<boolean>`(
+        conditions.push(sql<boolean>`(
             (${scoreExpr}, ${projects.createdAt}, ${projects.id})
-            < (${parsedCursor.score}, ${new Date(parsedCursor.createdAt).toISOString()}, ${parsedCursor.id})
-        )`;
-        conditions.push(scoreCursorCondition);
+            < (${parsedCursor.score}::float8, ${parsedCursor.createdAt}::timestamptz, ${parsedCursor.id}::uuid)
+        )`);
     } else if (!scoreExpr && parsedCursor?.kind === 'time') {
         const operator = isOldestSort ? sql`>` : sql`<`;
         conditions.push(
             sql<boolean>`(
                 (${projects.createdAt}, ${projects.id})
                 ${operator}
-                (${new Date(parsedCursor.createdAt).toISOString()}, ${parsedCursor.id})
+                (${parsedCursor.createdAt}::timestamptz, ${parsedCursor.id}::uuid)
             )`,
         );
     }
@@ -1186,151 +1077,37 @@ export const getDiscoverProjects = cache(async (
             ? [asc(projects.createdAt), asc(projects.id)]
             : [desc(projects.createdAt), desc(projects.id)];
 
-    let rawProjects: RawProjectRow[];
-    let hasFollowersCountColumn = true;
-
-
-    try {
-        const selectFields = surface === 'preview' ? {
-            id: projects.id,
-            ownerId: projects.ownerId,
-            title: projects.title,
-            slug: projects.slug,
+    // The preview (global search) skips the heavy text columns it never shows.
+    const selectFields = surface === 'preview'
+        ? {
+            ...projectSelectFields,
             description: sql<string | null>`null`,
-            shortDescription: projects.shortDescription,
             coverImage: sql<string | null>`null`,
             category: sql<string | null>`null`,
-            viewCount: projects.viewCount,
-            followersCount: projects.followersCount,
             tags: sql<string[] | null>`null`,
-            skills: projects.skills,
             visibility: sql<string | null>`null`,
             status: sql<string | null>`null`,
             lifecycleStages: sql<string[] | null>`null`,
             importSource: sql<RawProjectRow['importSource']>`null`,
-            externalLinks: projects.externalLinks,
-            githubRepoUrl: projects.githubRepoUrl,
-            createdAt: projects.createdAt,
-            updatedAt: projects.updatedAt,
             feedScore: scoreExpr ?? sql<number>`0`,
-        } : {
-            id: projects.id,
-            ownerId: projects.ownerId,
-            title: projects.title,
-            slug: projects.slug,
-            description: projects.description,
-            shortDescription: projects.shortDescription,
-            coverImage: projects.coverImage,
-            category: projects.category,
-            viewCount: projects.viewCount,
-            followersCount: projects.followersCount,
-            tags: projects.tags,
-            skills: projects.skills,
-            visibility: projects.visibility,
-            status: projects.status,
-            lifecycleStages: projects.lifecycleStages,
-            importSource: projects.importSource,
-            externalLinks: projects.externalLinks,
-            githubRepoUrl: projects.githubRepoUrl,
-            createdAt: projects.createdAt,
-            updatedAt: projects.updatedAt,
-            feedScore: scoreExpr ?? sql<number>`0`,
-        };
+        }
+        : { ...projectSelectFields, feedScore: scoreExpr ?? sql<number>`0` };
 
-        rawProjects = await db.transaction(async (tx) => {
-            if (surface === 'preview') {
-                await tx.execute(sql`SET LOCAL pg_trgm.similarity_threshold = 0.4`);
-            }
-            return await tx
-                .select(selectFields)
-                .from(projects)
-                .where(and(...conditions))
-                .orderBy(...orderByClauses)
-                .limit(pageSize + 1);
-        });
-    } catch (error) {
-        if (!isProjectsSelectSchemaError(error)) throw error;
-
-        hasFollowersCountColumn = false;
-
-        const fallbackOrderBy: SQL<unknown>[] = isOldestSort
-            ? [asc(projects.createdAt), asc(projects.id)]
-            : [desc(projects.createdAt), desc(projects.id)];
-
-        const fallbackConditions =
-            scoreCursorCondition === null
-                ? conditions
-                : conditions.filter((condition) => condition !== scoreCursorCondition);
-
-        const fallbackSelectFields = surface === 'preview' ? {
-            id: projects.id,
-            ownerId: projects.ownerId,
-            title: projects.title,
-            slug: sql<string | null>`null`,
-            description: sql<string | null>`null`,
-            shortDescription: sql<string | null>`null`,
-            coverImage: sql<string | null>`null`,
-            category: sql<string | null>`null`,
-            viewCount: sql<number | null>`null`,
-            followersCount: sql<number | null>`null`,
-            tags: sql<string[] | null>`null`,
-            skills: sql<string[] | null>`null`,
-            visibility: sql<string | null>`null`,
-            status: sql<string | null>`null`,
-            lifecycleStages: sql<string[] | null>`null`,
-            importSource: sql<RawProjectRow['importSource']>`null`,
-            externalLinks: sql<RawProjectRow['externalLinks']>`null`,
-            githubRepoUrl: sql<string | null>`null`,
-            createdAt: projects.createdAt,
-            updatedAt: projects.updatedAt,
-            feedScore: sql<number>`0`,
-        } : {
-            id: projects.id,
-            ownerId: projects.ownerId,
-            title: projects.title,
-            slug: sql<string | null>`null`,
-            description: projects.description,
-            shortDescription: sql<string | null>`null`,
-            coverImage: sql<string | null>`null`,
-            category: projects.category,
-            viewCount: sql<number | null>`null`,
-            followersCount: sql<number | null>`null`,
-            tags: sql<string[] | null>`null`,
-            skills: sql<string[] | null>`null`,
-            visibility: projects.visibility,
-            status: projects.status,
-            lifecycleStages: sql<string[] | null>`null`,
-            importSource: sql<RawProjectRow['importSource']>`null`,
-            externalLinks: sql<RawProjectRow['externalLinks']>`null`,
-            githubRepoUrl: sql<string | null>`null`,
-            createdAt: projects.createdAt,
-            updatedAt: projects.updatedAt,
-            feedScore: sql<number>`0`,
-        };
-
-        rawProjects = await db.transaction(async (tx) => {
-            if (surface === 'preview') {
-                await tx.execute(sql`SET LOCAL pg_trgm.similarity_threshold = 0.4`);
-            }
-            return await tx
-                .select(fallbackSelectFields)
-                .from(projects)
-                .where(and(...fallbackConditions))
-                .orderBy(...fallbackOrderBy)
-                .limit(pageSize + 1);
-        });
-    }
+    const rawProjects = await db
+        .select(selectFields)
+        .from(projects)
+        .where(and(...conditions))
+        .orderBy(...orderByClauses)
+        .limit(pageSize + 1) as RawProjectRow[];
 
     const hasMore = rawProjects.length > pageSize;
     const pageProjects = hasMore ? rawProjects.slice(0, pageSize) : rawProjects;
-    const mappedProjects = await hydrateProjects(pageProjects, hasFollowersCountColumn, undefined, viewerId ?? null, surface);
+    const mappedProjects = await hydrateProjects(pageProjects, undefined, viewerId ?? null, surface);
     const lastProject = pageProjects.at(-1);
-    const nextCursor = hasMore
-        ? scoreExpr && lastProject
-            ? buildScoreCursor(filtersFingerprint, Number(lastProject.feedScore || 0), lastProject.createdAt, lastProject.id)
-            : lastProject
-                ? buildTimeCursor(filtersFingerprint, lastProject.createdAt, lastProject.id)
-                : undefined
+    const nextCursor = hasMore && lastProject
+        ? scoreExpr
+            ? buildScoreCursor(filtersFingerprint, Number(lastProject.feedScore || 0), lastProject.cursorAt, lastProject.id, now)
+            : buildTimeCursor(filtersFingerprint, lastProject.cursorAt, lastProject.id)
         : undefined;
 
     recordDiscoverMetric({
@@ -1350,4 +1127,4 @@ export const getDiscoverProjects = cache(async (
         hasMore,
         schemaVersion: DISCOVER_RANKING_SCHEMA_VERSION,
     };
-});
+};

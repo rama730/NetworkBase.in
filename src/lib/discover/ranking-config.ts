@@ -1,10 +1,8 @@
 export const DISCOVER_RANKING_WEIGHTS = {
     candidateLimit: 280,
-    maxSnapshotItems: 400,
     trending: {
         views: 0.45,
         follows: 1.3,
-        saves: 1.05,
         recency: 0.03,
     },
     quality: {
@@ -29,4 +27,4 @@ export const DISCOVER_RANKING_WEIGHTS = {
     },
 } as const;
 
-export const DISCOVER_RANKING_SCHEMA_VERSION = 2;
+export const DISCOVER_RANKING_SCHEMA_VERSION = 3;

@@ -10,6 +10,7 @@ import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+    DISCOVER_RAIL_FILTERS,
     getConnectionRequestSuccessMessage,
     type ConnectionFeedPage,
     type DiscoverConnectionItem,
@@ -136,7 +137,7 @@ function RailSkeleton() {
 }
 
 export function DiscoverPeopleRail({ initialPage, variant }: DiscoverPeopleRailProps) {
-    const { data, isLoading, isError, refetch } = useSuggestedPeople(3, undefined, undefined, initialPage);
+    const { data, isLoading, isError, refetch } = useSuggestedPeople(3, undefined, DISCOVER_RAIL_FILTERS, initialPage, false);
     const people = useMemo(() => data?.pages[0]?.items ?? [], [data]);
     const viewerSkills = data?.pages[0]?.viewerSkills ?? [];
 

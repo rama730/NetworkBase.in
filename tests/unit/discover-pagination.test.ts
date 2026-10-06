@@ -10,7 +10,9 @@ describe('Hub pagination', () => {
         const data = readFileSync(path.join(root, 'src/lib/data/discover.ts'), 'utf8');
         const follows = readFileSync(path.join(root, 'src/hooks/projects/useUserInteractions.ts'), 'utf8');
 
-        assert.match(action, /includedIds: filters\.includedIds\?\.length/);
+        // Only offered values reach SQL; every read is rate-limited.
+        assert.match(action, /status: z\.enum\(/);
+        assert.match(action, /consumeRateLimitForRoute\('publicRead'/);
         assert.match(data, /parsedCursor\.fingerprint !== filtersFingerprint/);
         assert.match(data, /parsedCursor\.kind !== \(scoreExpr \? 'score' : 'time'\)/);
         assert.match(data, /throw new InvalidDiscoverCursorError\(\)/);

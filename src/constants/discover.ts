@@ -4,7 +4,6 @@ export const FILTER_VIEWS = {
     ALL: 'all',
     TRENDING: 'trending',
     RECOMMENDATIONS: 'recommendations',
-    MY_PROJECTS: 'my_projects',
     FOLLOWING: 'following',
 } as const;
 
@@ -37,7 +36,10 @@ export const VIEW_MODES = {
 } as const;
 
 // Type exports
-export type FilterView = 'all' | 'trending' | 'recommendations' | 'my_projects' | 'following';
+export type FilterView = 'all' | 'trending' | 'recommendations' | 'following';
 export type ProjectStatus = typeof PROJECT_STATUS[keyof typeof PROJECT_STATUS];
 export type ProjectType = typeof PROJECT_TYPE[keyof typeof PROJECT_TYPE];
 export type SortOption = typeof SORT_OPTIONS[keyof typeof SORT_OPTIONS];
+
+/** Tag on the anonymous Discover page cache; revalidated whenever a project's public data changes. */
+export const DISCOVER_ANON_CACHE_TAG = 'discover-anon';
