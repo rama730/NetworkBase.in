@@ -5901,8 +5901,10 @@ export async function archiveProjectAction(
   }
 }
 
-async function countUnregisteredProjectStorage(projectId: string) {
-  const rows = await db.execute<{ legacy_count: number }>(sql`
+type ProjectWriteExecutor = Pick<typeof db, "execute">;
+
+async function countUnregisteredProjectStorage(projectId: string, executor: ProjectWriteExecutor = db) {
+  const rows = await executor.execute<{ legacy_count: number }>(sql`
     SELECT (
       (SELECT count(*) FROM public.projects project
         WHERE project.id = ${projectId}
@@ -6025,14 +6027,23 @@ export async function deleteProject(
       };
     }
 
-    // Preserve deletion evidence before domain rows cascade away.
-    await db.transaction(async (tx) => {
+    // Preserve deletion evidence before domain rows cascade away. Ownership and
+    // storage registration are rechecked under the project row lock, so a
+    // transfer or new legacy reference after the preflight blocks it (COR-048).
+    const blocked = await db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select({ ownerId: projects.ownerId })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .for("update");
+      if (!locked || locked.ownerId !== user.id) return "FORBIDDEN" as const;
+      if (await countUnregisteredProjectStorage(projectId, tx) > 0) return "STORAGE_MIGRATION_PENDING" as const;
       await scheduleProjectStorageDeletion(tx, projectId);
       // Hard-delete the project (cascades to nodes, tasks, sprints, members,
       // and its chat channels; cards elsewhere then show a restricted placeholder).
       const deletedProjects = await tx
         .delete(projects)
-        .where(eq(projects.id, projectId))
+        .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id)))
         .returning({ id: projects.id });
 
       // Keep denormalized profile stats in sync
@@ -6044,7 +6055,17 @@ export async function deleteProject(
           })
           .where(eq(profiles.id, user.id));
       }
+      return null;
     });
+    if (blocked) {
+      return {
+        success: false,
+        errorCode: blocked,
+        message: blocked === "FORBIDDEN"
+          ? "Only the project owner can delete this project."
+          : "Project deletion is waiting for storage references to be registered.",
+      };
+    }
 
     logger.metric("project.settings.delete.result", {
       projectId,
@@ -6107,16 +6128,33 @@ export async function deleteProjectDraftAction(
       };
     }
 
-    // Preserve object tombstones before project rows cascade away.
-    await db.transaction(async (tx) => {
+    // Only a draft the caller still owns is deep-deleted; both are rechecked
+    // under the row lock with storage registration (COR-048).
+    const blockedReason = await db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select({ ownerId: projects.ownerId, status: projects.status })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .for("update");
+      if (!locked) return null;
+      if (locked.ownerId !== user.id) return "Unauthorized";
+      if (locked.status !== "draft") return "Only draft projects can be discarded. Use project deletion instead.";
+      if (await countUnregisteredProjectStorage(projectId, tx) > 0) return "Draft deletion is waiting for storage references to be registered.";
       await scheduleProjectStorageDeletion(tx, projectId);
       // Delete project (cascades to members, roles, etc.)
-      await tx.delete(projects).where(eq(projects.id, projectId));
-      await tx
-        .update(profiles)
-        .set({ projectsCount: sql`GREATEST(0, ${profiles.projectsCount} - 1)` })
-        .where(eq(profiles.id, user.id));
+      const deleted = await tx
+        .delete(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id), eq(projects.status, "draft")))
+        .returning({ id: projects.id });
+      if (deleted.length > 0) {
+        await tx
+          .update(profiles)
+          .set({ projectsCount: sql`GREATEST(0, ${profiles.projectsCount} - 1)` })
+          .where(eq(profiles.id, user.id));
+      }
+      return null;
     });
+    if (blockedReason) return { success: false, error: blockedReason };
 
     revalidatePath("/discover");
     return { success: true };
@@ -9025,9 +9063,36 @@ export async function deleteSprintAction(data: {
       };
     }
 
-    await db
-      .delete(projectSprints)
-      .where(eq(projectSprints.id, validated.sprintId));
+    // The preflight above is advisory. Lock the sprint (task assignment's FK
+    // check and scheduler activation both wait on it), recheck, then delete
+    // only the still-empty Planning sprint (COR-048).
+    const deleted = await db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select({ status: projectSprints.status })
+        .from(projectSprints)
+        .where(and(eq(projectSprints.id, validated.sprintId), eq(projectSprints.projectId, validated.projectId)))
+        .for("update");
+      if (!locked || locked.status !== "planning") return false;
+      const [history] = await tx.execute<{ has_history: boolean }>(sql`
+        SELECT EXISTS (SELECT 1 FROM ${sprintTaskMemberships} m WHERE m.sprint_id = ${validated.sprintId}) AS has_history
+      `);
+      if (history?.has_history) return false;
+      const removed = await tx
+        .delete(projectSprints)
+        .where(and(
+          eq(projectSprints.id, validated.sprintId),
+          eq(projectSprints.projectId, validated.projectId),
+          eq(projectSprints.status, "planning"),
+        ))
+        .returning({ id: projectSprints.id });
+      return removed.length === 1;
+    });
+    if (!deleted) {
+      return {
+        success: false,
+        error: "Only an empty Planning sprint can be deleted.",
+      };
+    }
 
     await revalidateProjectPaths(validated.projectId);
 
