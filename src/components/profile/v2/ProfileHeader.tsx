@@ -30,10 +30,14 @@ function Chip({ children, className }: { children: React.ReactNode; className?: 
     )
 }
 
-/** Status and availability chips under the name (status first, like the hover card). */
+/** Status controls under the name. Active-now is already shown by the avatar badge. */
 function PresenceChips({ userId, lastActiveAt, isOwner }: { userId: string | null; lastActiveAt?: string | null; isOwner: boolean }) {
     const presence = usePersonPresence(userId, { fallbackLastActiveAt: lastActiveAt ?? null, live: isOwner || undefined })
     const openPicker = usePresenceUi((state) => state.setPickerOpen)
+    const showAvailability = presence.availability !== 'now'
+
+    if (!presence.status && !showAvailability && !isOwner) return null
+
     return (
         <div className="mt-2.5 flex flex-wrap items-center gap-2 max-md:col-span-2">
             {presence.status ? (
@@ -41,7 +45,9 @@ function PresenceChips({ userId, lastActiveAt, isOwner }: { userId: string | nul
                     <StatusInline emoji={presence.status.emoji} text={presence.statusText} />
                 </span>
             ) : null}
-            <span className="inline-flex h-[26px] items-center rounded-full bg-muted px-2.5 text-[13px] text-muted-foreground">{presence.availabilityText}</span>
+            {showAvailability ? (
+                <span className="inline-flex h-[26px] items-center rounded-full bg-muted px-2.5 text-[13px] text-muted-foreground">{presence.availabilityText}</span>
+            ) : null}
             {isOwner ? (
                 <button type="button" onClick={() => openPicker(true)} className="inline-flex h-[26px] items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground">
                     <Smile className="size-3.5" aria-hidden="true" />
