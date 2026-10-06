@@ -51,6 +51,7 @@ import { buildProjectDocViewModel } from "../../src/lib/projects/doc-view-model"
 
 test("Doc permissions keep public, private, and editor access separated", () => {
     const publicPermission = resolveProjectDocPermission({
+        projectStatus: "active",
         actorUserId: null,
         projectVisibility: "public",
         publicTabVisibility: { dashboard: true, readme: true, updates: true, files: true, sprints: false, tasks: false },

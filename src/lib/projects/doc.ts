@@ -230,6 +230,8 @@ export function getOrBuildProjectDocPublishMetadata(content: string) {
 export function resolveProjectDocPermission(input: {
     actorUserId?: string | null;
     projectVisibility?: unknown;
+    /** Project status; blank counts as draft. Draft projects publish nothing to outsiders. */
+    projectStatus?: string | null;
     publicTabVisibility?: unknown;
     settings?: unknown;
     membershipRole?: unknown;
@@ -250,8 +252,11 @@ export function resolveProjectDocPermission(input: {
     
     const override = settings.visibilityOverride || "inherit_project";
 
+    const isDraftProject = !input.projectStatus?.trim() || input.projectStatus === "draft";
     let isPublishedPublic = false;
-    if (override === "public") {
+    if (isDraftProject) {
+        isPublishedPublic = false;
+    } else if (override === "public") {
         isPublishedPublic = Boolean(input.hasPublishedReadme);
     } else if (override === "members_only") {
         isPublishedPublic = false;

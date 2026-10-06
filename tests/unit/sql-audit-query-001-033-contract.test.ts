@@ -19,7 +19,7 @@ test("QRY-001..006 hub pagination keeps filters, rejects cursors, and has no dea
 
 test("QRY-007..012 authorize before sensitive reads and keep file reads side-effect free", () => {
   const matchmaking = source("src/app/actions/matchmaking/resolver.ts");
-  const content = source("src/app/actions/files/content.ts");
+  const content = source("src/lib/files/content-reader.ts");
 
   assert.ok(matchmaking.indexOf("const access = await getProjectAccessById") < matchmaking.indexOf("db.query.profiles.findFirst"));
   assert.match(matchmaking, /!access\.isOwner && access\.memberRole !== 'admin'/);

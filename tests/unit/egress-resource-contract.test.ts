@@ -83,7 +83,7 @@ test("project PDF preview streams the authorized route without cloning a browser
 });
 
 test("file recovery uses an immutable bounded Git blob identity", () => {
-  const content = read("src/app/actions/files/content.ts");
+  const content = read("src/lib/files/content-reader.ts");
   assert.match(content, /tryRecoverFromGitHub\(projectId, node\.gitHash\)/);
   assert.match(content, /\/git\/blobs\/\$\{encodeURIComponent\(gitBlobSha\)\}/);
   assert.match(content, /MAX_GITHUB_BLOB_RESPONSE_BYTES/);
