@@ -101,6 +101,9 @@ export async function hideLinkPreview(input: { channelId: string; seq: number })
     const rows = await chatRows<{ channel_seq: number }>(sql`
       UPDATE chat_messages SET link_preview_hidden = true
       WHERE channel_id = ${input.channelId}::uuid AND channel_seq = ${input.seq} AND author_id = ${user.id}::uuid AND deleted_at IS NULL
+        -- Same rule as editing: a current member, in a live channel (DB-002).
+        AND app_private.chat_is_member(${input.channelId}::uuid, ${user.id}::uuid)
+        AND EXISTS (SELECT 1 FROM chat_channels c WHERE c.id = ${input.channelId}::uuid AND c.archived_at IS NULL)
       RETURNING channel_seq
     `);
     if (!rows.length) return { success: false as const, error: "chat_not_editable" };

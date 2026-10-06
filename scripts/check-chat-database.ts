@@ -538,6 +538,41 @@ async function main() {
     await sql`DELETE FROM storage_assets WHERE id IN (${ownAsset}, ${foreignAsset})`;
 
     // Report 10.3: after 0181 nothing of the old system is left.
+    // --- 0202 integrity (DB-002, DB-003, DB-004)
+    const [{ integrity }] = await sql`SELECT app_private.chat_create_channel(${projectId}::uuid, ${owner}::uuid, 'integrity', NULL, false) AS integrity`;
+    await sql`SELECT app_private.chat_add_members(${integrity}::uuid, ${owner}::uuid, ${[member]}::uuid[])`;
+    await check("DB-002: a removed member cannot edit their old message", async () => {
+      const sent = await send(integrity, member, "before removal");
+      const ownEdit = !(await denied(() => sql`SELECT app_private.chat_edit_message(${integrity}::uuid, ${sent.channel_seq}, ${member}::uuid, 'edited while member')`));
+      await sql`DELETE FROM chat_channel_members WHERE channel_id = ${integrity} AND user_id = ${member}`;
+      const blocked = await denied(() => sql`SELECT app_private.chat_edit_message(${integrity}::uuid, ${sent.channel_seq}, ${member}::uuid, 'edited after removal')`);
+      await sql`INSERT INTO chat_channel_members (channel_id, user_id) VALUES (${integrity}, ${member})`;
+      const [row] = await sql`SELECT body FROM chat_messages WHERE channel_id = ${integrity} AND channel_seq = ${sent.channel_seq}`;
+      return ownEdit && blocked && row?.body === "edited while member";
+    });
+    await check("DB-004: a partial read keeps the mention it did not reach", async () => {
+      const first = await send(integrity, owner, `hey <@${member}>`, { mentions: [member] });
+      const second = await send(integrity, owner, `again <@${member}>`, { mentions: [member] });
+      await sql`SELECT app_private.chat_mark_read(${integrity}::uuid, ${member}::uuid, ${first.channel_seq})`;
+      const partial = (await memberRow(integrity, member))?.mention_count;
+      await sql`SELECT app_private.chat_mark_read(${integrity}::uuid, ${member}::uuid, ${second.channel_seq})`;
+      const full = (await memberRow(integrity, member))?.mention_count;
+      return partial === 1 && full === 0;
+    });
+    await check("DB-003: a new group respects the per-user channel limit", async () => {
+      const filler = await sql`
+        INSERT INTO chat_channels (kind, created_by, member_count)
+        SELECT 'private', ${owner}::uuid, 1 FROM generate_series(1, 500) RETURNING id`;
+      const ids = filler.map((row) => row.id as string);
+      await sql`INSERT INTO chat_channel_members (channel_id, user_id) SELECT unnest(${ids}::uuid[]), ${open}::uuid`;
+      try {
+        return await sql`SELECT app_private.chat_create_group(${owner}::uuid, ${[open]}::uuid[])`
+          .then(() => false, (failure: { message?: string }) => failure.message === "chat_user_channel_limit");
+      } finally {
+        await sql`DELETE FROM chat_channels WHERE id = ANY(${ids}::uuid[])`;
+      }
+    });
+
     await check("old messaging system is gone (report 10.3)", async () => {
       const rows = await sql`
         SELECT 'table' AS k, tablename AS n FROM pg_tables

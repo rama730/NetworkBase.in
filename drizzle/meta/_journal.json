@@ -1394,6 +1394,13 @@
       "when": 1791322170830,
       "tag": "0201_tenant_composite_fks",
       "breakpoints": true
+    },
+    {
+      "idx": 199,
+      "version": "7",
+      "when": 1791322353437,
+      "tag": "0202_chat_integrity",
+      "breakpoints": true
     }
   ]
 }
