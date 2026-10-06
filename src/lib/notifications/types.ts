@@ -72,11 +72,20 @@ export type NotificationDeliveryPreferences = {
     push: boolean;
 };
 
+/** Messages push choices (Settings › Notifications › Messages). */
+export type NotificationChatPreferences = {
+    /** Push replies in threads you follow (mentions always push). */
+    threadReplies: boolean;
+    /** Show the message text in the push; off = "New message" only (privacy on a lock screen). */
+    showPreview: boolean;
+};
+
 export type NotificationPreferences = Record<NotificationPreferenceCategory, boolean> & {
     pausedUntil: string | null;
     mutedScopes: NotificationMuteScope[];
     quietHours: NotificationQuietHours;
     delivery: NotificationDeliveryPreferences;
+    chat: NotificationChatPreferences;
 };
 
 export type NotificationEntityRefs = {

@@ -92,6 +92,25 @@ export async function editMessage(input: { channelId: string; seq: number; body:
   }
 }
 
+/** Remove your message's link preview for everyone (the link stays in the text). */
+export async function hideLinkPreview(input: { channelId: string; seq: number }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.channelId) || !Number.isInteger(input.seq)) return invalidInput;
+  try {
+    const rows = await chatRows<{ channel_seq: number }>(sql`
+      UPDATE chat_messages SET link_preview_hidden = true
+      WHERE channel_id = ${input.channelId}::uuid AND channel_seq = ${input.seq} AND author_id = ${user.id}::uuid AND deleted_at IS NULL
+      RETURNING channel_seq
+    `);
+    if (!rows.length) return { success: false as const, error: "chat_not_editable" };
+    publishChannel(input.channelId, "message.preview_hidden", { channel_id: input.channelId, seq: input.seq });
+    return { success: true as const };
+  } catch (error) {
+    return chatFailure(error, "hide_preview");
+  }
+}
+
 export async function deleteMessage(input: { channelId: string; seq: number }) {
   const user = await requireChatUser();
   if (!user) return unauthorized;

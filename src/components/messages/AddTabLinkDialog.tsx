@@ -62,7 +62,7 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div className="space-y-1.5">
             <label htmlFor="tab-url-input" className="text-[13px] font-medium text-foreground">
               Link
@@ -105,7 +105,7 @@ export function AddTabLinkDialog({ open, onOpenChange, onAddTab }: Props) {
 
           {error ? <p id="tab-link-error" role="alert" className="text-[13px] text-destructive">{error}</p> : null}
 
-          <DialogFooter className="pt-2">
+          <DialogFooter paper>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit">Add bookmark</Button>
           </DialogFooter>

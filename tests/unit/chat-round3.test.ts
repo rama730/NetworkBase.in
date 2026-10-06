@@ -81,3 +81,18 @@ test("#7 a thread read's recounted @ count reaches the sidebar row", () => {
   assert.equal(applyMentionCount(data, CHAN, 0).channels[0]!.mention_count, 0);
   assert.equal(applyMentionCount(data, CHAN, 2), data);
 });
+
+test("#259 emoji: :shortcode: and search by name", async () => {
+  const { emojiForShortcode, searchEmoji } = await import("@/lib/messaging/emoji");
+  assert.equal(emojiForShortcode("tada"), "🎉");
+  assert.equal(emojiForShortcode("+1"), "👍");
+  assert.equal(emojiForShortcode("nope_not_one"), null);
+  assert.equal(searchEmoji("thu")[0]?.emoji, "👍");
+  assert.deepEqual(searchEmoji(""), []);
+});
+
+test("#262 chat push choices default on and survive older saved preferences", async () => {
+  const { normalizeNotificationPreferences } = await import("@/lib/notifications/preferences");
+  assert.deepEqual(normalizeNotificationPreferences({}).chat, { threadReplies: true, showPreview: true });
+  assert.deepEqual(normalizeNotificationPreferences({ chat: { threadReplies: false } }).chat, { threadReplies: false, showPreview: true });
+});

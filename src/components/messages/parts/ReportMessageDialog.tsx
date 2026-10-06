@@ -92,7 +92,7 @@ export function ReportMessageDialog({ isOpen, onClose, onSubmit }: ReportMessage
                     className="w-full rounded-md border border-input bg-card px-3 py-2 text-[15px] outline-none focus:border-ring"
                 />
                 {error ? <p role="alert" className="text-[13px] text-destructive">{error}</p> : null}
-                <DialogFooter>
+                <DialogFooter paper>
                     <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
                     <Button type="button" variant="destructive" onClick={() => void handleSubmit()} disabled={submitting}>
                         {submitting ? 'Submitting…' : 'Submit report'}

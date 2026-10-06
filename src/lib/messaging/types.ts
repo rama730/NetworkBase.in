@@ -104,6 +104,8 @@ export type ChatMessageView = {
   reactions: ChatReactionView[];
   card: ChatCardRef | null;
   pinned: boolean;
+  /** The author removed this message's link preview. */
+  link_preview_hidden?: boolean;
   /** Client only: an optimistic send the server refused; the row offers Retry and Delete. */
   failed?: boolean;
 };

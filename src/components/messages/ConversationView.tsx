@@ -23,7 +23,7 @@ import { MessageBody } from "@/components/messages/MessageBody";
 import { FilesView } from "@/components/messages/parts/FilesView";
 import { Timeline } from "@/components/messages/Timeline";
 import { usePanes } from "@/components/messages/usePanes";
-import { useChannelCanvas, useChannelDetails, useChannelMembers, useChannelMessages, useChannelTabs, useSavedSeqs, useTyping } from "@/components/messages/useConversation";
+import { useChannelCanvas, useChannelDetails, useChannelMembers, useChannelMessages, useChannelTabs, usePersonContext, useSavedSeqs, useTyping } from "@/components/messages/useConversation";
 import { SkeletonTasks } from "@/components/projects/skeletons/SkeletonTasks";
 import { PersonPresenceBadge, PresenceAvatar } from "@/components/presence/PersonPresence";
 import { StatusInline } from "@/components/presence/StatusInline";
@@ -46,7 +46,7 @@ import { canAddPeople, channelTitle, isSelfDm, notifiesEveryMessage, notifyChoic
 import { CHAT_BROADCAST_MENTION_MAX_MEMBERS } from "@/lib/messaging/constants";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { conversationHref, messageHref, type DetailsTab } from "@/lib/messaging/routes";
-import type { ChatMessageView, ChatNotify } from "@/lib/messaging/types";
+import type { ChatMessageView, ChatNotify, ChatPerson } from "@/lib/messaging/types";
 import { queryKeys } from "@/lib/query-keys";
 import { copyWithToast } from "@/lib/clipboard";
 import { useConversationExit } from "@/components/messages/useConversationExit";
@@ -768,6 +768,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 {channel.can_admin ? <Button type="button" variant="outline" size="sm" onClick={() => void unarchive()} className="pointer-coarse:h-11">Unarchive</Button> : null}
               </div>
             ) : (
+              <>
+              {channel.kind === "dm" && channel.dm_user && !self ? <DmContextLine person={channel.dm_user} /> : null}
               <Composer
                 channelId={channelId}
                 placeholder={placeholder}
@@ -781,6 +783,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 onSent={onSent}
                 autoFocus
               />
+              </>
             )}
           </div>
         )}
@@ -838,6 +841,26 @@ export function ConversationView({ channelId, around = null, surface = "page", o
       />
     </ConversationContext.Provider>
   );
+}
+
+/**
+ * Above the composer in a DM (round 3 #261): "Ana paused notifications · 11:40 PM their time", so
+ * you know before you send. Their time shows only when their clock differs from yours.
+ */
+function DmContextLine({ person }: { person: ChatPerson }) {
+  const presence = usePersonPresence(person.id);
+  const context = usePersonContext(person.id);
+  const [now] = useState(() => new Date());
+  const zone = context.data?.timeZone;
+  const time = (timeZone?: string) => now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone });
+  const theirs = zone ? time(zone) : null;
+  const first = personName(person).split(" ")[0];
+  const parts = [
+    presence.status?.pausesNotifications ? `${first} paused notifications` : null,
+    theirs && theirs !== time() ? `${theirs} their time` : null,
+  ].filter(Boolean);
+  if (!parts.length) return null;
+  return <p className="nb-meta border-t border-border px-4 pt-1.5">{parts.join(" · ")}</p>;
 }
 
 /** Next to a DM's name: their status (emoji + text), else when they were active. */

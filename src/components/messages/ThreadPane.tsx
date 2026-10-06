@@ -21,6 +21,7 @@ import { MessageRow } from "@/components/messages/MessageRow";
 import { DropOverlay, draftKeyOf, dropFilesTo, useFileDrop } from "@/components/messages/useFileDrop";
 import { seedCards, useChannelDetails, useChannelMembers, useSavedSeqs, useTyping } from "@/components/messages/useConversation";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
+import { useChatUi } from "@/components/messages/chat-ui-store";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -111,7 +112,15 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
   }, [typingNow]);
   const saved = useSavedSeqs(channelId, isMember);
   const key = useMemo(() => queryKeys.chat.thread(channelId, rootSeq), [channelId, rootSeq]);
-  const [editingSeq, setEditingSeq] = useState<number | null>(null);
+  // ↑ in an Inbox reply box sent you here to edit your last reply: start in edit mode.
+  const [editingSeq, setEditingSeq] = useState<number | null>(() => {
+    const pending = useChatUi.getState().pendingEdit;
+    return pending?.channelId === channelId ? pending.seq : null;
+  });
+  // Used once: cleared after mount (not in the initializer, which may run twice).
+  useEffect(() => {
+    if (useChatUi.getState().pendingEdit?.channelId === channelId) useChatUi.getState().setPendingEdit(null);
+  }, [channelId]);
   const [shareSeq, setShareSeq] = useState<number | null>(null);
 
   const thread = useQuery({
@@ -167,6 +176,8 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
           : prev));
       } else if (seq !== null && event === "message.edit") {
         patch((m) => ({ ...m, body: String(payload.body ?? m.body), edited_at: String(payload.edited_at) }), seq);
+      } else if (seq !== null && event === "message.preview_hidden") {
+        patch((m) => ({ ...m, link_preview_hidden: true }), seq);
       } else if (seq !== null && event === "message.delete") {
         patch((m) => ({ ...m, body: "", attachments: [], deleted_at: new Date().toISOString() }), seq);
       } else if (seq !== null && (event === "reaction.add" || event === "reaction.remove")) {

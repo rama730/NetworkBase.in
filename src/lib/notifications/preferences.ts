@@ -96,7 +96,16 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
     mutedScopes: [],
     quietHours: { ...DEFAULT_QUIET_HOURS },
     delivery: { ...DEFAULT_DELIVERY },
+    chat: { threadReplies: true, showPreview: true },
 };
+
+function normalizeChat(value: unknown) {
+    const candidate = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+    return {
+        threadReplies: asBoolean(candidate.threadReplies, true),
+        showPreview: asBoolean(candidate.showPreview, true),
+    };
+}
 
 function asBoolean(value: unknown, fallback: boolean) {
     return typeof value === "boolean" ? value : fallback;
@@ -146,7 +155,7 @@ function normalizeMuteScopes(value: unknown): NotificationMuteScope[] {
 
 export function normalizeNotificationPreferences(value: unknown): NotificationPreferences {
     if (!value || typeof value !== "object") {
-        return { ...DEFAULT_NOTIFICATION_PREFERENCES };
+        return { ...DEFAULT_NOTIFICATION_PREFERENCES, chat: { ...DEFAULT_NOTIFICATION_PREFERENCES.chat } };
     }
 
     const candidate = value as Partial<Record<keyof NotificationPreferences, unknown>>;
@@ -161,6 +170,7 @@ export function normalizeNotificationPreferences(value: unknown): NotificationPr
         mutedScopes: normalizeMuteScopes(candidate.mutedScopes),
         quietHours: normalizeQuietHours(candidate.quietHours),
         delivery: normalizeDelivery(candidate.delivery),
+        chat: normalizeChat(candidate.chat),
     };
 }
 

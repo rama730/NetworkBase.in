@@ -62,7 +62,7 @@ function PickerForm({ initial, label, confirmLabel, onPick, onClose }: {
         <Input type="datetime-local" required min={min} value={value} onChange={(e) => setValue(e.target.value)} className="mt-1" aria-describedby="time-picker-zone" />
       </label>
       <p id="time-picker-zone" className="text-[13px] text-muted-foreground">Your time zone: {zone}</p>
-      <DialogFooter>
+      <DialogFooter paper>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
         <Button type="submit">{confirmLabel}</Button>
       </DialogFooter>

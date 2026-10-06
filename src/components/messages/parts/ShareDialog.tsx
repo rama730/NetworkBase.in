@@ -87,7 +87,7 @@ export function ShareDialog({ channelId, seq, onClose }: { channelId: string; se
           {!options.length ? <li className="px-2 py-3 text-[13px] text-muted-foreground">No conversations match.</li> : null}
         </ul>
         <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={2} placeholder="Add a note (optional)" aria-label="Note" className="w-full rounded-md border border-input bg-card px-3 py-2 text-[15px] outline-none focus:border-ring" />
-        <DialogFooter>
+        <DialogFooter paper>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="button" disabled={!target || sending} onClick={() => void send()}>{sending ? "Sharing…" : "Share"}</Button>
         </DialogFooter>

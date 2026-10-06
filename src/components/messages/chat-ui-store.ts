@@ -14,6 +14,9 @@ type ChatUiState = {
   /** Project ids whose Create channel / Invite people dialogs are open. */
   createChannelFor: string | null;
   inviteFor: string | null;
+  /** ↑ in an Inbox reply box: the thread opens with this reply already in edit mode. */
+  pendingEdit: { channelId: string; seq: number } | null;
+  setPendingEdit: (edit: { channelId: string; seq: number } | null) => void;
   setProject: (projectId: string | null) => void;
   setSwitcherOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
@@ -27,6 +30,8 @@ export const useChatUi = create<ChatUiState>()((set) => ({
   shortcutsOpen: false,
   createChannelFor: null,
   inviteFor: null,
+  pendingEdit: null,
+  setPendingEdit: (pendingEdit) => set({ pendingEdit }),
   setProject: (projectId) => {
     set({ projectId });
     try {

@@ -155,7 +155,7 @@ export function EditTabsDialog({ open, onOpenChange, tabs, onSaveTabs }: Props) 
         </div>
 
         {blankTitle ? <p role="alert" className="text-[13px] text-destructive">Every tab needs a name.</p> : null}
-        <DialogFooter className="pt-2">
+        <DialogFooter paper>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button type="button" onClick={handleSave} disabled={blankTitle}>Save changes</Button>
         </DialogFooter>

@@ -9,7 +9,7 @@ import { AlarmClock, AtSign, BellOff, Bookmark, CalendarClock, Check, CheckCheck
 import { toast } from "sonner";
 
 import { listInbox, listThreads, markInboxRead, markInboxUnread, type InboxFilter, type InboxItem, type ThreadItem } from "@/app/actions/chat/activity";
-import { setThreadFollow } from "@/app/actions/chat/messages";
+import { listThread, setThreadFollow } from "@/app/actions/chat/messages";
 import { markThreadRead } from "@/app/actions/chat/read";
 import { browseChannels, joinChannel } from "@/app/actions/chat/channels";
 import { cancelScheduled, listSaved, listScheduled, rescheduleScheduled, saveMessage, sendScheduledNow, type SavedItem } from "@/app/actions/chat/later";
@@ -174,6 +174,25 @@ function InlineReply({ channelId, rootSeq, label, alsoSendTo, onDone, onSent }: 
   const members = useChannelMembers(channelId, true);
   const people = members.data ?? [];
   const typing = useTyping(channelId, { rootSeq, people, memberCount: people.length, enabled: true });
+  const { user } = useAuth();
+  // ↑ in the empty box, as in a conversation: the thread opens with your last reply ready to edit
+  // (the Inbox has no message list to edit it in place).
+  const editLast = async () => {
+    const thread = await queryClient.fetchQuery({
+      queryKey: queryKeys.chat.thread(channelId, rootSeq),
+      queryFn: async () => {
+        const result = await listThread({ channelId, rootSeq });
+        if (!result.success) throw new Error(result.error);
+        return { root: result.root, replies: result.replies, following: result.following, lastReadSeq: result.lastReadSeq, hasOlder: result.hasOlder };
+      },
+      staleTime: 30_000,
+    }).catch(() => null);
+    const mine = thread?.replies.findLast((m) => m.author_id === user?.id && m.seq > 0 && !m.deleted_at && !m.card && m.kind === "user");
+    if (!mine) return;
+    useChatUi.getState().setPendingEdit({ channelId, seq: mine.seq });
+    if (win) win.open(channelId, rootSeq, mine.seq);
+    else router.push(messageHref(channelId, mine.seq, rootSeq));
+  };
   return (
     <div
       onKeyDown={(event) => {
@@ -195,6 +214,7 @@ function InlineReply({ channelId, rootSeq, label, alsoSendTo, onDone, onSent }: 
         onTyping={typing.notify}
         typingNames={typing.names}
         alsoSendTo={alsoSendTo}
+        onEditLast={() => void editLast()}
         onSent={() => {
           onDone();
           onSent?.();

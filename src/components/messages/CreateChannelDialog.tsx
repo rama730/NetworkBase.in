@@ -96,7 +96,7 @@ export function CreateChannelDialog({ projectId: initialProjectId, open, onOpenC
             </span>
             <SettingsSwitch aria-labelledby="create-channel-private" checked={isPrivate} onCheckedChange={setPrivate} />
           </div>
-          <DialogFooter>
+          <DialogFooter paper>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={!valid || saving}>{saving ? "Creating…" : "Create"}</Button>
           </DialogFooter>

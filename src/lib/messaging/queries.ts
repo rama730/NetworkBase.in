@@ -13,7 +13,7 @@ import type { ChatMessageView } from "@/lib/messaging/types";
 export function selectMessages(viewerId: string, channelId: string, filter: SQL, order: SQL, limit: number) {
   return chatRows<ChatMessageView>(sql`
     SELECT m.channel_id, m.channel_seq::int AS seq, m.author_id, m.kind, m.body, m.thread_root_seq::int AS thread_root_seq,
-           m.reply_count, m.last_reply_seq::int AS last_reply_seq, m.last_reply_at, m.edited_at, m.deleted_at,
+           m.reply_count, m.last_reply_seq::int AS last_reply_seq, m.last_reply_at, m.edited_at, m.deleted_at, m.link_preview_hidden,
            m.created_at, m.client_message_id,
            CASE WHEN pr.id IS NULL THEN NULL ELSE jsonb_build_object(
              'id', pr.id, 'username', pr.username, 'full_name', pr.full_name, 'avatar_url', pr.avatar_url
