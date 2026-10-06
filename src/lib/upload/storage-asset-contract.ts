@@ -12,7 +12,8 @@ export type StorageAssetState = (typeof STORAGE_ASSET_STATES)[number];
 const TRANSITIONS: Readonly<Record<StorageAssetState, readonly StorageAssetState[]>> = {
   pending: ["verified", "delete_pending", "missing"],
   verified: ["delete_pending", "missing"],
-  delete_pending: ["deleting"],
+  // A still-referenced pending deletion is restored, never deleted (COR-045).
+  delete_pending: ["deleting", "verified"],
   deleting: ["deleted", "delete_pending"],
   deleted: [],
   missing: ["delete_pending"],

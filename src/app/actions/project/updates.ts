@@ -19,6 +19,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
 import { db } from "@/lib/db";
+import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import { projectContentNodeSql } from "@/lib/files/internal-helpers";
 import { toIsoString } from "@/lib/utils/date";
 import { parsePositiveInteger } from "@/lib/utils/number";
@@ -186,18 +187,8 @@ async function replaceUpdateMediaAssetRefs(params: {
     const removed = previous
         .map((row) => row.assetId)
         .filter((assetId) => !attachedAssetIds.has(assetId));
-    if (removed.length > 0) {
-        await params.tx.update(storageAssets)
-            .set({
-                state: "delete_pending",
-                deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
-                updatedAt: new Date(),
-            })
-            .where(and(
-                inArray(storageAssets.id, removed),
-                eq(storageAssets.state, "verified"),
-            ));
-    }
+    // Shared media stays verified while another update or draft uses it (COR-045).
+    await scheduleAssetDeletionIfUnreferenced(params.tx, removed);
 }
 
 async function replaceDraftMediaAssetRefs(params: {
@@ -265,18 +256,8 @@ async function replaceDraftMediaAssetRefs(params: {
     const removed = previous
         .map((row) => row.assetId)
         .filter((assetId) => !attachedAssetIds.has(assetId));
-    if (removed.length > 0) {
-        await params.tx.update(storageAssets)
-            .set({
-                state: "delete_pending",
-                deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
-                updatedAt: new Date(),
-            })
-            .where(and(
-                inArray(storageAssets.id, removed),
-                eq(storageAssets.state, "verified"),
-            ));
-    }
+    // Shared media stays verified while another update or draft uses it (COR-045).
+    await scheduleAssetDeletionIfUnreferenced(params.tx, removed);
 }
 
 type ProjectUpdateCursor = {

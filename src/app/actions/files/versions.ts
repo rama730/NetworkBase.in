@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
   fileVersions,
   profiles,
@@ -273,11 +274,13 @@ export async function applyUploadedFileRevision(input: {
   );
 
   const normalizedHash = sanitizeHash(input.contentHash);
+  if (!finalizedIntent.assetId) throw new Error("Verified file asset is unavailable");
   const result = await applyFileRevision({
     projectId: input.projectId,
     nodeId: input.nodeId,
     actorUserId: user.id,
     storageKey: canonicalS3Key,
+    assetId: finalizedIntent.assetId,
     size: normalizedSize,
     mimeType: normalizedMimeType,
     contentHash: normalizedHash,
@@ -399,6 +402,7 @@ export async function restoreFileVersion(
         nodeId,
         actorUserId: user.id,
         storageKey: source.s3Key,
+        assetId: source.assetId ?? null,
         size: source.size,
         mimeType: source.mimeType,
         contentHash: source.contentHash,
@@ -534,25 +538,7 @@ export async function deleteFileVersionAction(
           .where(eq(projectNodes.id, nodeId))
           .returning();
       }
-      await tx.update(storageAssets)
-        .set({
-          state: "delete_pending",
-          deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
-          lastErrorCode: "FILE_VERSION_DETACHED",
-          updatedAt: new Date(),
-        })
-        .where(and(
-          eq(storageAssets.id, target.assetId),
-          eq(storageAssets.state, "verified"),
-          sql`NOT EXISTS (
-            SELECT 1 FROM ${fileVersions}
-            WHERE ${fileVersions.assetId} = ${target.assetId}
-          )`,
-          sql`NOT EXISTS (
-            SELECT 1 FROM ${projectNodes}
-            WHERE ${projectNodes.assetId} = ${target.assetId}
-          )`,
-        ));
+      await scheduleAssetDeletionIfUnreferenced(tx, [target.assetId], { lastErrorCode: "FILE_VERSION_DETACHED" });
       return { target, nextActiveVersion, updatedNode };
     }),
   );

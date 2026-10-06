@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, eq, isNull, isNotNull, inArray, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
   projects,
   projectNodes,
@@ -925,19 +926,8 @@ export async function cleanupReviewedSyncSnapshots() {
         const ownedSnapshotIds = registeredRefs
           .filter((ref) => ref.purpose === "sync_snapshot:snapshot")
           .map((ref) => ref.assetId);
-        if (ownedSnapshotIds.length > 0) {
-          await tx.update(storageAssets)
-            .set({
-              state: "delete_pending",
-              deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
-              lastErrorCode: "SYNC_SNAPSHOT_EXPIRED",
-              updatedAt: new Date(),
-            })
-            .where(and(
-              inArray(storageAssets.id, ownedSnapshotIds),
-              eq(storageAssets.state, "verified"),
-            ));
-        }
+        // Snapshot bytes a node or version still points at stay verified (COR-045).
+        await scheduleAssetDeletionIfUnreferenced(tx, ownedSnapshotIds, { lastErrorCode: "SYNC_SNAPSHOT_EXPIRED" });
       }
       await tx
         .update(githubSyncRuns)

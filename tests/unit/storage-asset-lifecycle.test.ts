@@ -40,7 +40,9 @@ describe("storage asset lifecycle", () => {
     assert.equal(storageAssetCanTransition("verified", "delete_pending"), true);
     assert.equal(storageAssetCanTransition("delete_pending", "deleting"), true);
     assert.equal(storageAssetCanTransition("deleting", "deleted"), true);
-    assert.equal(storageAssetCanTransition("delete_pending", "verified"), false);
+    // Bytes are untouched until "deleting": a referenced pending deletion is restored (COR-045).
+    assert.equal(storageAssetCanTransition("delete_pending", "verified"), true);
+    assert.equal(storageAssetCanTransition("deleting", "verified"), false);
     assert.equal(storageAssetCanTransition("deleted", "pending"), false);
     assert.equal(storageAssetCanTransition("missing", "verified"), false);
   });

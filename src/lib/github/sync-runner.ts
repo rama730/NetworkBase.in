@@ -12,6 +12,8 @@ import {
   githubSyncConnections,
   githubSyncFiles,
   githubContributorIdentities,
+  githubSyncSnapshotAssets,
+  storageAssets,
 } from "@/lib/db/schema";
 import {
   resolveSyncContext,
@@ -228,6 +230,21 @@ async function remoteAuthors(
     if (!file.baseCommit) break; // Initial import records latest attributable author, not fabricated complete history.
   }
   return result;
+}
+
+/** Verified asset registered for a reviewed snapshot key; null for legacy unregistered snapshots (COR-004). */
+async function snapshotAssetId(runId: string, snapshotKey: string): Promise<string | null> {
+  const [row] = await db
+    .select({ assetId: githubSyncSnapshotAssets.assetId })
+    .from(githubSyncSnapshotAssets)
+    .innerJoin(storageAssets, eq(storageAssets.id, githubSyncSnapshotAssets.assetId))
+    .where(and(
+      eq(githubSyncSnapshotAssets.runId, runId),
+      eq(storageAssets.storageKey, snapshotKey),
+      eq(storageAssets.state, "verified"),
+    ))
+    .limit(1);
+  return row?.assetId ?? null;
 }
 
 export async function runReviewedGitHubSync(
@@ -620,6 +637,7 @@ export async function runReviewedGitHubSync(
                     : actorId,
                   attribution,
                   storageKey: file.snapshotKey,
+                  assetId: await snapshotAssetId(runId, file.snapshotKey),
                   size: file.size,
                   mimeType: file.mimeType,
                   contentHash: file.resultHash || null,
@@ -676,6 +694,7 @@ export async function runReviewedGitHubSync(
             },
           );
         } else if (file.snapshotKey) {
+          const incomingAssetId = await snapshotAssetId(runId, file.snapshotKey);
           await db.transaction(async (tx) => {
             await assertProjectWriteAccessTx(tx, projectId, actorId);
             const collision = await tx.query.projectNodes.findFirst({
@@ -705,6 +724,7 @@ export async function runReviewedGitHubSync(
                 name: parts.at(-1)!,
                 createdBy: isRemote ? authors[0]?.userId || null : actorId,
                 s3Key: file.snapshotKey,
+                assetId: incomingAssetId,
                 size: file.size,
                 mimeType: file.mimeType,
               })
@@ -714,6 +734,7 @@ export async function runReviewedGitHubSync(
               nodeId: node.id,
               version: 1,
               s3Key: file.snapshotKey!,
+              assetId: incomingAssetId,
               size: file.size,
               mimeType: file.mimeType,
               contentHash: file.resultHash,
