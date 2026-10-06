@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import { rolePreferenceLabel, weeklyCapacityLabel, experienceLevelLabel } from '@/lib/profile/role-preferences';
 import { getAuthUser } from '@/lib/supabase/auth-user';
 import { getProjectAccessById } from '@/lib/data/project-access';
+import { resolvePrivacyRelationship } from '@/lib/privacy/resolver';
 
 export interface AttributeAlignment {
   skillsMatch: { matched: string[]; missing: string[] };
@@ -46,7 +47,10 @@ export async function getProfileToRoleAlignmentAction(
     throw new Error('You can only inspect candidate alignment for projects you manage');
   }
 
-  const profile = await db.query.profiles.findFirst({
+  // Managing the role does not authorize reading the person: the candidate's
+  // attributes follow their profile privacy and blocks (COR-029).
+  const relationship = await resolvePrivacyRelationship(viewer.id, profileId);
+  const profile = relationship?.canViewProfile ? await db.query.profiles.findFirst({
     where: eq(profiles.id, profileId),
     columns: {
       skills: true,
@@ -54,7 +58,7 @@ export async function getProfileToRoleAlignmentAction(
       hoursPerWeek: true,
       openTo: true,
     },
-  });
+  }) : null;
   if (!profile) {
     return {
       skillsMatch: { matched: [], missing: [] },

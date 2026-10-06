@@ -113,3 +113,15 @@ test("AUTH-013: profile project projections carry public links only; cached summ
   assert.doesNotMatch(collaboration, /externalLinks: row\.external_links/);
   assert.match(collaboration, /const SUMMARY_VERSION = 7;/);
 });
+
+test("COR-029: request feeds and role alignment project people through profile privacy", () => {
+  const connections = read("src/app/actions/connections.ts");
+  const requestBranch = connections.slice(connections.indexOf("if (tab === 'requests_incoming' || tab === 'requests_sent')"));
+  assert.match(requestBranch.slice(0, requestBranch.indexOf("let suggestionCursor")), /resolvePrivacyRelationships\(user\.id, dedupedItems\.map/);
+  const accepted = fnBody(connections, "export async function getAcceptedConnections(");
+  assert.match(accepted, /resolvePrivacyRelationship\(user\?\.id \?\? null, targetUserId\)/);
+  assert.match(accepted, /buildViewerScopedProfileView\(/);
+  assert.doesNotMatch(accepted, /visibility === 'private'/);
+  const resolver = read("src/app/actions/matchmaking/resolver.ts");
+  assert.ok(resolver.indexOf("relationship?.canViewProfile") < resolver.indexOf("db.query.profiles.findFirst"));
+});
