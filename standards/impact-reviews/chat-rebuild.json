@@ -64,9 +64,9 @@
   },
   "evidence": {
     "commands": [
-      "scripts/chat-db/local-db.sh",
+      "npm run db:disposable",
       "npm run check:chat:db",
-      "scripts/chat-load/run.sh postgresql://postgres@localhost:54329/nb_chat_load 60",
+      "scripts/chat-load/run.sh \"$(npm run -s db:disposable)\" 60",
       "npm run check:chat:actions"
     ],
     "reports": [

@@ -208,14 +208,14 @@
     "0079_job_heartbeats"
   ],
   "allowedUtilitySqlFiles": [
-    "scripts/chat-db/local-app-stubs.sql",
-    "scripts/chat-db/supabase-shim.sql",
+    "scripts/db/supabase-shim.sql",
     "scripts/chat-load/baseline.sql",
     "scripts/chat-load/bootstrap-full.sql",
     "scripts/chat-load/bootstrap.sql",
     "scripts/chat-load/seed.sql",
     "scripts/chat-load/send.sql",
-    "scripts/chat-load/timeline.sql"
+    "scripts/chat-load/timeline.sql",
+    "scripts/db/baseline/schema.sql"
   ],
   "breakGlassExceptions": []
 }

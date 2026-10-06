@@ -62,17 +62,20 @@ jobs:
           npm run check:rls-contract
           npm run check:authz-contract
 
-      # Throwaway Postgres from the runner's preinstalled binaries: Supabase shim,
-      # schema push, then the chat migrations (same script as local runs).
+      # Throwaway Postgres 17 (production's major) built from the schema
+      # baseline plus every newer migration: same script as local runs.
       - name: Disposable database
         run: |
           set -o pipefail
-          export PATH="$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1):$PATH"
-          url=$(scripts/chat-db/local-db.sh "$RUNNER_TEMP/pg" | tail -1) || { cat "$RUNNER_TEMP/pg/server.log"; exit 1; }
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-17 >/dev/null
+          url=$(PG_BIN=/usr/lib/postgresql/17/bin scripts/db/disposable-db.sh "$RUNNER_TEMP/pg" | tail -1) || { cat "$RUNNER_TEMP/pg/server.log"; exit 1; }
           echo "DATABASE_URL_FRESH=$url" >> "$GITHUB_ENV"
 
-      - name: Chat database and action checks
+      - name: Database tests and checks
         run: |
+          npm run test:db
           npm run check:chat:db
           npm run check:chat:actions
           npm run check:discover
+          npm run check:profile-contributions:db

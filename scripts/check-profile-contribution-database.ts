@@ -17,14 +17,10 @@ function requireContract(label: string, passed: boolean) {
 }
 
 async function main() {
-  const [profile] = await sql<{ id: string }[]>`
-    SELECT id
-    FROM profiles
-    WHERE deleted_at IS NULL
-    ORDER BY created_at ASC
-    LIMIT 1
-  `;
-  requireContract("disposable database has a profile fixture", Boolean(profile?.id));
+  // Own fixture: a fresh disposable database has no profiles.
+  const profile = { id: randomUUID() };
+  await sql`INSERT INTO auth.users (id, email) VALUES (${profile.id}, ${`${profile.id}@example.test`})`;
+  await sql`INSERT INTO profiles (id, email, username, full_name) VALUES (${profile.id}, ${`${profile.id}@example.test`}, ${`pc${profile.id.replace(/-/g, "").slice(0, 12)}`}, 'Contribution Fixture')`;
 
   const contributionId = randomUUID();
   const externalKey = `integration:${randomUUID()}`;
@@ -90,19 +86,22 @@ async function main() {
   `;
   requireContract("all normalized uniqueness indexes are installed", indexes.length === 3);
 
-  const policies = await sql<{ tablename: string; policyname: string; qual: string | null }[]>`
-    SELECT tablename, policyname, qual
+  // Policies are matched by table and command, not by (renamable) policy name.
+  const policies = await sql<{ tablename: string; qual: string | null }[]>`
+    SELECT tablename, string_agg(qual, ' OR ') AS qual
     FROM pg_policies
     WHERE schemaname = 'public'
+      AND cmd IN ('SELECT', 'ALL')
       AND tablename IN (
         'profile_project_contributions',
         'profile_project_contribution_stages',
         'profile_contribution_skills'
       )
+    GROUP BY tablename
   `;
-  const publicContribution = policies.find((row) => row.policyname === "Public profile contributions are viewable");
-  const publicStage = policies.find((row) => row.policyname === "Public profile contribution stages are viewable");
-  const visibleSkill = policies.find((row) => row.policyname === "Visible contribution skills are readable");
+  const publicContribution = policies.find((row) => row.tablename === "profile_project_contributions");
+  const publicStage = policies.find((row) => row.tablename === "profile_project_contribution_stages");
+  const visibleSkill = policies.find((row) => row.tablename === "profile_contribution_skills");
   requireContract("public contribution RLS uses visibility", Boolean(publicContribution?.qual?.includes("visibility")));
   requireContract("stage RLS derives from the parent contribution", Boolean(publicStage?.qual?.includes("profile_project_contributions")));
   requireContract("skill RLS derives from the parent contribution", Boolean(visibleSkill?.qual?.includes("profile_project_contributions")));

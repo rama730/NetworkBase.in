@@ -32,7 +32,7 @@ async function main() {
     source("drizzle/0127_profile_contribution_authority.sql"),
     source("src/app/actions/profile-contributions.ts"),
     source("src/app/actions/profile.ts"),
-    source("src/app/actions/account.ts"),
+    source("src/lib/account/export-stream.ts"),
     source("src/lib/data/profile.ts"),
     source("src/lib/profile/browser-profile.ts"),
     source("src/lib/profile/collaboration.ts"),
@@ -62,7 +62,7 @@ async function main() {
   requireContract("dedicated command checks expected versions", command.includes("profileProjectContributions.version, mutation.expectedVersion"));
   requireContract("dedicated command audits idempotency", command.includes("profile_audit_events_contribution_batch_key_unique") || command.includes("profile_contribution_batch_saved"));
   requireContract("general profile command cannot write contribution JSON", !/patch\.experience\b/.test(generalProfileCommand));
-  requireContract("account export uses normalized contributions", !accountCommand.includes("experience: profiles.experience") && accountCommand.includes("projectContributions: contributionExport"));
+  requireContract("account export uses normalized contributions", !accountCommand.includes("experience: profiles.experience") && accountCommand.includes('"projectContributions":') && accountCommand.includes("from(profileProjectContributions)"));
   requireContract("profile detail query does not load retired contribution JSON", !/PROFILE_DETAIL_COLUMNS[\s\S]*?experience:\s*true/.test(profileData));
   requireContract("browser hydration does not depend on retired contribution JSON", !browserProfile.includes("profile.experience ?? profile.experience_data"));
   requireContract("legacy JSON synchronizer is removed", !readModel.includes("syncProfileProjectContributionOverrides"));
