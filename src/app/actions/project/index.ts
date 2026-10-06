@@ -2742,6 +2742,22 @@ export async function updateProject(projectId: string, data: any) {
           (id: string) => id !== "lead-role",
         );
 
+        // Every client-supplied role id must belong to this project before any
+        // write in this command (COR-001).
+        const suppliedRoleIds = Array.from(new Set([
+          ...cleanDeletedIds,
+          ...cleanRoles.map((role) => role.id).filter((id): id is string => Boolean(id)),
+        ]));
+        if (suppliedRoleIds.length > 0) {
+          const ownedRoles = await tx
+            .select({ id: projectOpenRoles.id })
+            .from(projectOpenRoles)
+            .where(and(eq(projectOpenRoles.projectId, projectId), inArray(projectOpenRoles.id, suppliedRoleIds)));
+          if (ownedRoles.length !== suppliedRoleIds.length) {
+            throw new Error("Role not found in this project");
+          }
+        }
+
         if (cleanDeletedIds.length > 0) {
           await tx
             .delete(projectOpenRoles)
@@ -2757,6 +2773,7 @@ export async function updateProject(projectId: string, data: any) {
           if (role.id) {
             const resolvedRoleSkills = await syncRoleSkills(
               tx,
+              projectId,
               role.id,
               role.skills || [],
               user.id,
@@ -2790,6 +2807,7 @@ export async function updateProject(projectId: string, data: any) {
             if (insertedRole) {
               const resolvedRoleSkills = await syncRoleSkills(
                 tx,
+                projectId,
                 insertedRole.id,
                 role.skills || [],
                 user.id,
@@ -9502,7 +9520,8 @@ export async function deleteTaskAction(taskId: string, projectId: string) {
                   path = ${nextPath} || SUBSTRING(path FROM ${node.path.length + 1}),
                   updated_at = NOW()
               WHERE project_id = ${projectId}
-                AND path LIKE ${`${node.path}/%`}
+                AND task_id = ${taskId}
+                AND starts_with(path, ${`${node.path}/`})
             `);
           }
         }

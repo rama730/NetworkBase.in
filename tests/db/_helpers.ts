@@ -12,7 +12,8 @@ import { requireDisposableDatabaseUrl } from "../../scripts/lib/disposable-db";
 
 dotenv.config({ path: ".env.local", quiet: true });
 
-export const sql = postgres(requireDisposableDatabaseUrl("test:db"), { max: 4, prepare: false, onnotice: () => undefined });
+const DISPOSABLE_URL = requireDisposableDatabaseUrl("test:db");
+export const sql = postgres(DISPOSABLE_URL, { max: 4, prepare: false, onnotice: () => undefined });
 export type Tx = postgres.TransactionSql;
 
 const ROLLBACK = Symbol("rollback");
@@ -79,4 +80,21 @@ export async function projectWithPeople(tx: Tx, options: Parameters<typeof creat
   const projectId = await createProject(tx, owner, options);
   await addMember(tx, projectId, member);
   return { owner, member, outsider, projectId };
+}
+
+/**
+ * Loads app modules (which import "@/lib/db") bound to the disposable
+ * database. Call inside a test or hook; returns the dynamic import.
+ */
+export async function loadAppModule<T>(load: () => Promise<T>): Promise<T> {
+  process.env.DATABASE_URL = DISPOSABLE_URL;
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??= "https://test.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??= "test-anon";
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-service-role";
+  return load();
+}
+
+/** Closes the app's shared postgres.js client (src/lib/db keeps it on globalThis). */
+export async function closeAppDb() {
+  await (globalThis as { conn?: { end: () => Promise<void> } }).conn?.end();
 }

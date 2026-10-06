@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import {
     profileContributionSkills,
     profileSkills,
+    projectOpenRoles,
     projectSkills,
     roleSkills,
     skillAliases,
@@ -326,12 +327,25 @@ export async function syncProjectSkills(
     return resolved
 }
 
+/**
+ * Replaces a role's skills. The role must belong to `projectId`: callers pass
+ * client-supplied role ids, so tenancy is checked (and the role locked) here,
+ * before any write (COR-001).
+ */
 export async function syncRoleSkills(
     executor: SkillDbExecutor,
+    projectId: string,
     roleId: string,
     labels: readonly string[],
     submittedBy?: string | null,
 ): Promise<ResolvedSkill[]> {
+    const [role] = await executor
+        .select({ id: projectOpenRoles.id })
+        .from(projectOpenRoles)
+        .where(and(eq(projectOpenRoles.id, roleId), eq(projectOpenRoles.projectId, projectId)))
+        .for('update')
+        .limit(1)
+    if (!role) throw new Error('Role not found in this project')
     const resolved = await resolveSkillsForWrite(executor, labels, submittedBy)
     await executor.delete(roleSkills).where(eq(roleSkills.roleId, roleId))
     if (resolved.length > 0) {
