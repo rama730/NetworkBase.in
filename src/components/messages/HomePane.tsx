@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlarmClock, Compass, Dot, Inbox, SquarePen } from "lucide-react";
+import { AlarmClock, CheckCheck, Compass, Dot, Inbox, SquarePen } from "lucide-react";
 
 import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
 import { useWide } from "@/components/messages/useWide";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { ListScreen } from "@/components/messages/ListScreen";
@@ -76,6 +77,8 @@ export function HomePane() {
   const firstRun = Boolean(data) && visible.length <= 1;
   const browseProject = project ?? projectsByActivity(data)[0] ?? null;
   const savedDue = data?.saved_due ?? 0;
+  // Nothing new, no Inbox or reminder banner: one centred empty state instead of a stray line.
+  const caughtUp = Boolean(data) && !loadError && !firstRun && !needing.length && !inboxUnread && !savedDue;
 
   // The same frame as every other Messages screen: a 56px header bar on the card surface.
   return (
@@ -89,12 +92,26 @@ export function HomePane() {
         <Button asChild size="sm"><Link href="/messages/new" prefetch={true}><SquarePen size={16} aria-hidden="true" /> New message</Link></Button>
       </header>
       <div className="app-scroll app-scroll-y min-h-0 flex-1">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
-        {loadError || !data ? null : (
-          <p className="text-[13px] text-muted-foreground">
-            {needing.length ? `${needing.length} conversation${needing.length === 1 ? "" : "s"} with something new` : "You're all caught up."}
-          </p>
-        )}
+      {caughtUp ? (
+        <div className="grid min-h-full place-items-center p-6">
+          <EmptyState
+            icon={CheckCheck}
+            title="You're all caught up"
+            description="New messages, mentions and thread replies show up here."
+            className="w-full max-w-md"
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button asChild size="sm"><Link href="/messages/new"><SquarePen size={16} aria-hidden="true" /> New message</Link></Button>
+                {browseProject ? <Button asChild variant="outline" size="sm"><Link href={`/messages/p/${browseProject.id}/browse`}><Compass size={16} aria-hidden="true" /> Browse channels</Link></Button> : null}
+              </div>
+            }
+          />
+        </div>
+      ) : (
+      <div className="flex max-w-3xl flex-col gap-4 px-4 py-6">
+        {needing.length > 0 && !loadError ? (
+          <p className="nb-compact text-muted-foreground">{`${needing.length} conversation${needing.length === 1 ? "" : "s"} with something new`}</p>
+        ) : null}
 
         {/* One failure, one message. */}
         {loadError ? (
@@ -145,6 +162,7 @@ export function HomePane() {
           </>
         )}
       </div>
+      )}
       </div>
       {markAllRead.dialog}
     </section>

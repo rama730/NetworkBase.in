@@ -438,7 +438,8 @@ export function ThreadPane({ channelId, rootSeq, headerSlot = null, focusSeq = n
                 if (row.type === "summary") {
                   return (
                     <div className="space-y-1.5 px-4 py-2">
-                      {participants.length ? (
+                      {/* Who replied: nothing to list until someone has. */}
+                      {replyCount > 0 && participants.length ? (
                         <span className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
                           <span className="inline-flex -space-x-1.5">
                             {participants.slice(0, 4).map((p) => <span key={p.id} className="inline-block rounded-sm ring-2 ring-card"><UserAvatar identity={p} size={20} /></span>)}

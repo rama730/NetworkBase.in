@@ -156,7 +156,7 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
     );
     assert.match(
         drawerSource,
-        /lg:relative lg:inset-auto lg:z-10 lg:w-\[320px\][^"]*lg:border-l lg:border-border/,
+        /lg:relative lg:inset-auto lg:z-10 lg:w-\[clamp\(320px,32vw,480px\)\][^"]*lg:border-l lg:border-border/,
         "ChatDrawer must dock as desktop sidecar panel adjacent to channel timeline",
     );
 
@@ -715,15 +715,15 @@ test("Section 7 (Header Ergonomics & Message Action Menu Fixes) contracts", () =
     );
     assert.match(
         conversationViewSource,
-        /channel\.project_title \? \(\s*<span[^>]*>\{channel\.project_title\}<\/span>/,
-        "Project title must appear inline after channel name",
+        /channel\.project_title \? <span[^>]*>\{channel\.project_title\}<\/span>/,
+        "Project title must appear on the quiet line under the channel name",
     );
 
-    // 7.4 Star: after the title, revealed on hover (always shown when starred), amber when on
+    // 7.4 Star: after the title only when starred (no empty hover slot), in the accent colour
     assert.match(
         conversationViewSource,
-        /group-hover\/header:opacity-100[\s\S]*?<Star size=\{16\} className=\{channel\.starred \? "text-primary"/,
-        "Star sits after the title, hover-revealed, in the accent colour (status colours mean status, round 3 #131)",
+        /channel\.starred \? \([\s\S]*?<Star size=\{14\} className="text-primary" fill="currentColor"/,
+        "Star sits after the title only when starred, in the accent colour (status colours mean status, round 3 #131)",
     );
 
     // 7.5 Drawer header: title and "#channel · Project" inline; Thread and Details become tabs when both open

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, ArrowLeft, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Hash, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowLeft, Bell, BellDot, BellOff, Bookmark, CheckCheck, ExternalLink, FileText, Hash, Link2, Lock, LogOut, MoreHorizontal, PanelRight, Pencil, Pin, Search, Star, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteCanvas } from "@/app/actions/chat/canvas";
@@ -514,7 +514,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
   return (
     <ConversationContext.Provider value={ctx}>
       <section className="flex h-full min-h-0 flex-col bg-card" aria-label={title} data-chat-pane="conversation">
-        <header className="group/header flex h-14 flex-none items-center gap-1 border-b border-border px-2 sm:px-3">
+        <header className="flex h-14 flex-none items-center gap-1 border-b border-border px-2 sm:px-3">
           {backButton}
           {channel.kind === "dm" ? (
             <button type="button" onClick={() => openDetails("about")} className="inline-flex flex-none rounded-md" aria-label={`About ${title}`}>
@@ -522,7 +522,7 @@ export function ConversationView({ channelId, around = null, surface = "page", o
             </button>
           ) : null}
           <div className="min-w-0 flex-1 pl-1">
-            <div className="flex min-w-0 items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1">
               <button
                 type="button"
                 onClick={() => openDetails("about")}
@@ -532,27 +532,25 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 {channel.kind !== "dm" ? <ConversationIcon channel={channel} size={16} aria-hidden="true" className="shrink-0" /> : null}
                 <h1 className="nb-card-title truncate text-foreground group-hover/title:underline">{title}</h1>
               </button>
-              {isMember ? (
-                <button
-                  type="button"
-                  onClick={() => void setState({ starred: !channel.starred })}
-                  className={`nb-icon-button nb-touch-target hidden shrink-0 sm:inline-flex ${channel.starred ? "" : "opacity-0 focus-visible:opacity-100 group-hover/header:opacity-100 pointer-coarse:opacity-100"}`}
-                  aria-label={starLabel}
-                  aria-pressed={channel.starred}
-                >
-                  <Star size={16} className={channel.starred ? "text-primary" : "text-muted-foreground"} fill={channel.starred ? "currentColor" : "none"} />
+              {/* Only a starred conversation shows its star (click to unstar); starring lives in ⋯ and Details, so no empty slot. */}
+              {isMember && channel.starred ? (
+                <button type="button" onClick={() => void setState({ starred: false })} className="nb-icon-button nb-touch-target size-7 shrink-0" aria-label={starLabel} title={starLabel}>
+                  <Star size={14} className="text-primary" fill="currentColor" />
                 </button>
               ) : null}
               {channel.kind === "dm" && channel.dm_user ? (
                 <DmHeaderStatus userId={channel.dm_user.id} live={channel.dm_user.id === meId || dmOnline} />
-              ) : channel.project_title ? (
-                <span className="hidden truncate text-[13px] text-muted-foreground sm:inline">{channel.project_title}</span>
               ) : null}
             </div>
-            {channel.topic ? (
-              <button type="button" onClick={() => openDetails("about")} className="block max-w-full truncate text-left text-[12px] text-muted-foreground hover:text-foreground">{channel.topic}</button>
-            ) : isMember && isChannel && channel.can_admin && !archived ? (
-              <button type="button" onClick={() => openDetails("about")} className="block text-left text-[12px] text-muted-foreground hover:text-foreground">Add a topic</button>
+            {/* One quiet line under the name: the project and the topic, when there are any. */}
+            {channel.kind !== "dm" && (channel.project_title || channel.topic) ? (
+              <p className="flex min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground">
+                {channel.project_title ? <span className="hidden flex-none truncate sm:inline">{channel.project_title}</span> : null}
+                {channel.project_title && channel.topic ? <span aria-hidden="true" className="hidden sm:inline">·</span> : null}
+                {channel.topic ? (
+                  <button type="button" onClick={() => openDetails("about")} className="min-w-0 truncate text-left hover:text-foreground" title={channel.topic}>{channel.topic}</button>
+                ) : null}
+              </p>
             ) : null}
           </div>
           {surface === "window" ? (
@@ -564,6 +562,8 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                 <DropdownMenuContent align="end" className="w-56">
                   {isMember ? (
                     <>
+                      <DropdownMenuItem onSelect={() => void setState({ starred: !channel.starred })}><Star /> {starLabel}</DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuLabel>Notifications</DropdownMenuLabel>
                       {notifyMenu}
                       <DropdownMenuSeparator />
@@ -631,10 +631,11 @@ export function ConversationView({ channelId, around = null, surface = "page", o
                   <DropdownMenuContent align="end" className="w-60">
                     {isMember ? <DropdownMenuItem onSelect={() => openDetails("about")}><PanelRight /> Conversation details <kbd className="nb-meta ml-auto">{detailsShortcut}</kbd></DropdownMenuItem> : null}
                     {canAddPeople(channel) ? <DropdownMenuItem onSelect={() => setDialog("people")}><UserPlus /> Add people</DropdownMenuItem> : null}
-                    {/* On phones the header keeps only the essentials; star, search and notifications live here. */}
+                    {/* Star and topic live here at every width; on phones search and notifications do too. */}
                     {isMember ? (
                       <>
-                        <DropdownMenuItem className="sm:hidden" onSelect={() => void setState({ starred: !channel.starred })}><Star /> {starLabel}</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => void setState({ starred: !channel.starred })}><Star /> {starLabel}</DropdownMenuItem>
+                        {isChannel && channel.can_admin && !archived ? <DropdownMenuItem onSelect={() => openDetails("about")}><Pencil /> {channel.topic ? "Edit topic" : "Add a topic"}</DropdownMenuItem> : null}
                         <DropdownMenuItem className="sm:hidden" onSelect={() => router.push(`/messages/search?in=${channelId}`)}><Search /> Search in {displayName}</DropdownMenuItem>
                         <DropdownMenuSeparator className="sm:hidden" />
                         <DropdownMenuLabel className="sm:hidden">Notifications</DropdownMenuLabel>
