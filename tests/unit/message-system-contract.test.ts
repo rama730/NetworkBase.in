@@ -156,7 +156,7 @@ test("Section 1 (Slack-Parity Core Experience) contracts", () => {
     );
     assert.match(
         drawerSource,
-        /lg:relative lg:inset-auto lg:z-10 lg:w-\[clamp\(320px,32vw,480px\)\][^"]*lg:border-l lg:border-border/,
+        /lg:relative lg:inset-auto lg:z-10 lg:w-\[clamp\(340px,34vw,560px\)\][^"]*lg:border-l lg:border-border/,
         "ChatDrawer must dock as desktop sidecar panel adjacent to channel timeline",
     );
 

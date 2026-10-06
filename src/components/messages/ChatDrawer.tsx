@@ -21,8 +21,8 @@ const DetailsPane = dynamic(() => import("@/components/messages/DetailsPane").th
 type View = "thread" | "details";
 
 /**
- * Thread and Details in one drawer: a column beside the timeline at 1024px+ (320px, growing with the
- * window to 480px so replies have room), a full screen with Back below. With both open they are tabs, and both
+ * Thread and Details in one drawer: a column beside the timeline at 1024px+ (340px, growing with the
+ * window to 560px so replies have room), a full screen with Back below. With both open they are tabs, and both
  * stay mounted, so checking members never loses the thread's scroll, count or focus.
  */
 export function ChatDrawer({ channelId }: { channelId: string }) {
@@ -120,7 +120,7 @@ export function ChatDrawer({ channelId }: { channelId: string }) {
       aria-modal={modal || undefined}
       onKeyDown={trapTab}
       // Below 1024px it covers the screen at the visible height, so the reply box sits above the phone's keyboard.
-      className="fixed inset-x-0 top-0 z-40 flex h-[var(--chat-vvh,100dvh)] flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[clamp(320px,32vw,480px)] lg:flex-none lg:border-l lg:border-border lg:h-auto"
+      className="fixed inset-x-0 top-0 z-40 flex h-[var(--chat-vvh,100dvh)] flex-col bg-card lg:relative lg:inset-auto lg:z-10 lg:w-[clamp(340px,34vw,560px)] lg:flex-none lg:border-l lg:border-border lg:h-auto"
     >
       <header className="flex min-h-14 flex-none items-center gap-1 border-b border-border px-2">
         <span className="contents lg:hidden">
