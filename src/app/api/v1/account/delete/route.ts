@@ -163,8 +163,11 @@ export async function DELETE(request: Request) {
         const stepUp = await resolveSecurityStepUp(user.id);
         if (!stepUp.ok) {
             const { availableMethods, primaryTotpFactorId } = await resolveStepUpCapabilities({ supabase: auth.supabase, user });
-            const signedInAt = user.last_sign_in_at ? Date.parse(user.last_sign_in_at) : NaN;
-            const freshSignIn = availableMethods.length === 0 && Number.isFinite(signedInAt) && Date.now() - signedInAt <= RECENT_SIGN_IN_MS;
+            // The sign-in time of *this* session (verified JWT amr), not the account's last sign-in anywhere.
+            const { data: claimsData } = await auth.supabase.auth.getClaims();
+            const amr = (claimsData?.claims?.amr ?? []) as Array<string | { timestamp?: number }>;
+            const signedInAtMs = Math.max(0, ...amr.map((entry) => (typeof entry === "object" && entry.timestamp ? entry.timestamp * 1000 : 0)));
+            const freshSignIn = availableMethods.length === 0 && signedInAtMs > 0 && Date.now() - signedInAtMs <= RECENT_SIGN_IN_MS;
             if (!freshSignIn) {
                 return fail(
                     availableMethods.length ? 'Verify your identity to delete your account' : 'Sign in again, then delete your account within 10 minutes',
@@ -187,8 +190,8 @@ export async function DELETE(request: Request) {
             await queueCounterRefreshBestEffort(result.affectedUserIds).catch((error: unknown) =>
                 logger.warn('account.counter-refresh.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) }));
         }
-        // The worker is retry-safe and the daily finalizer only advances a
-        // deletion whose storage phase completed, so a lost dispatch delays, never skips.
+        // The worker's claim is conditional and the daily cron re-dispatches any
+        // storage phase stalled for an hour, so a lost dispatch delays, never skips.
         await inngest.send({
             name: 'account/cleanup',
             data: {

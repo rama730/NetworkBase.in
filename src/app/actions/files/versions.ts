@@ -265,6 +265,8 @@ export async function applyUploadedFileRevision(input: {
   }
   const normalizedRelativePath = normalizeAndValidateUploadRelativePath(parsedKey.relativePath);
   const canonicalS3Key = buildProjectFileKey(input.projectId, normalizedRelativePath);
+  // The node must point at the object that was actually uploaded and verified.
+  if (canonicalS3Key !== finalizedIntent.storageKey) throw new Error("Invalid file storage key");
   const normalizedSize = normalizeAndValidateFileSize(
     finalizedIntent.finalizedSize ?? input.size,
     PROJECT_UPLOAD_MAX_FILE_BYTES,

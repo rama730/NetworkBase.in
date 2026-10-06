@@ -20,3 +20,10 @@ test("outsiders still read published docs of an active public project; owners re
   assert.equal(resolveProjectDocPermission({ ...outsider, projectStatus: "active" }).canReadPublished, true);
   assert.equal(resolveProjectDocPermission({ ...outsider, projectStatus: "draft", isOwner: true }).canReadPublished, true);
 });
+
+test("a public override never publishes a doc out of a private project or a hidden Readme tab", () => {
+  const base = { ...outsider, projectStatus: "active", settings: { visibilityOverride: "public" } };
+  assert.equal(resolveProjectDocPermission({ ...base, projectVisibility: "private" }).canReadPublished, false);
+  assert.equal(resolveProjectDocPermission({ ...base, publicTabVisibility: { readme: false } }).canReadPublished, false);
+  assert.equal(resolveProjectDocPermission(base).canReadPublished, true);
+});

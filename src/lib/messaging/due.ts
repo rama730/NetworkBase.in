@@ -82,6 +82,8 @@ export async function fireDueReminders(limit = 500) {
   const done = (row: DueReminder) => chatRows(sql`
     UPDATE chat_saved SET reminded_at = now(), reminder_claim_expires_at = NULL
     WHERE user_id = ${row.user_id}::uuid AND channel_id = ${row.channel_id}::uuid AND message_seq = ${row.seq}
+      -- A reminder rescheduled while this one fired stays pending.
+      AND remind_at = ${row.remind_at}::timestamptz
   `);
   let fired = 0;
   for (const row of due) {

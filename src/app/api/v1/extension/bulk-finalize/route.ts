@@ -132,6 +132,18 @@ export async function POST(request: Request) {
       if (resolved.response || !resolved.node) {
         return resolved.response || jsonError(`File node not found for ${item.path}`, 404, "NOT_FOUND");
       }
+      // A retried batch reports files it already applied instead of re-checking
+      // their (now advanced) base version.
+      if (intent.status === "finalized" && intent.assetId && resolved.node.assetId === intent.assetId) {
+        finalizedResults.push({
+          path: item.path,
+          nodeId: resolved.node.id,
+          version: resolved.node.currentVersion ?? 1,
+          size: resolved.node.size ?? intent.expectedSize,
+          contentHash,
+        });
+        continue;
+      }
 
       const baseVersion = typeof metadata.baseVersion === "number" ? metadata.baseVersion : null;
       const baseHash = typeof metadata.baseHash === "string" ? metadata.baseHash : null;
@@ -141,7 +153,7 @@ export async function POST(request: Request) {
         baseHash,
       });
       if (conflict) {
-        await markIntentFailed(intent.id, "Write conflict during finalize");
+        if (intent.status === "pending") await markIntentFailed(intent.id, "Write conflict during finalize");
         return conflict;
       }
 
@@ -156,7 +168,7 @@ export async function POST(request: Request) {
         expectedScope: "project_file",
         expectedKind: "file",
       }).catch(async (error: unknown) => {
-        await markIntentFailed(intent.id, error instanceof Error ? error.message : "Upload verification failed");
+        if (intent.status === "pending") await markIntentFailed(intent.id, error instanceof Error ? error.message : "Upload verification failed");
         return null;
       });
       if (!verifiedIntent?.assetId) {

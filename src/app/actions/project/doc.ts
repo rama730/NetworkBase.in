@@ -541,7 +541,7 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
                     // The doc permission above authorizes this exact linked file; the
                     // reader still hides task-owned files from viewers without Tasks.
                     const access = await getProjectAccessById(projectId, actorUserId);
-                    if (!access.project) throw new Error("Project not found");
+                    if (!access.project || !access.canRead) throw new Error("Project not readable");
                     const content = await readProjectFileText({ ...access, project: access.project }, projectId, node.id);
                     const metadata = getOrBuildProjectDocPublishMetadata(content);
                     versionRow = {

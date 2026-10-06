@@ -256,13 +256,14 @@ export function resolveProjectDocPermission(input: {
     let isPublishedPublic = false;
     if (isDraftProject) {
         isPublishedPublic = false;
-    } else if (override === "public") {
-        isPublishedPublic = Boolean(input.hasPublishedReadme);
     } else if (override === "members_only") {
         isPublishedPublic = false;
     } else if (override === "leaders_only") {
         isPublishedPublic = false;
     } else {
+        // "public" and "inherit_project" both need a publicly readable project with
+        // the Readme tab, exactly like the project_docs RLS policy; an override never
+        // publishes a doc out of a private project.
         isPublishedPublic = visibility === "public" && publicTabs.readme && Boolean(input.hasPublishedReadme);
     }
 

@@ -1,7 +1,7 @@
 import { inngest } from "../client";
 import { db } from "@/lib/db";
 import { accountDeletions } from "@/lib/db/schema";
-import { and, asc, lte, isNull } from "drizzle-orm";
+import { and, asc, inArray, lte, isNull, sql } from "drizzle-orm";
 import {
     ACCOUNT_HARD_DELETE_JOB_KIND,
     executeHardDelete,
@@ -41,14 +41,44 @@ export const accountHardDelete = inngest.createFunction(
                         lte(accountDeletions.hardDeleteAt, now),
                         isNull(accountDeletions.cancelledAt),
                         isNull(accountDeletions.completedAt),
+                        // Only finalizable phases, so stalled storage phases cannot starve the batch.
+                        inArray(accountDeletions.cleanupStatus, ["storage_scheduled", "db_deleted"]),
                     ),
                 )
                 .orderBy(asc(accountDeletions.hardDeleteAt), asc(accountDeletions.id))
                 .limit(100);
         });
 
+        // A storage phase that never started (lost dispatch), was blocked by
+        // unregistered storage, or crashed is re-dispatched; the worker's claim is
+        // conditional, so a duplicate event is harmless (COR-053).
+        const redispatched = await step.run("redispatch-stalled-storage-phase", async () => {
+            const stalled = await db
+                .select({ id: accountDeletions.id, userId: accountDeletions.userId })
+                .from(accountDeletions)
+                .where(and(
+                    isNull(accountDeletions.cancelledAt),
+                    isNull(accountDeletions.completedAt),
+                    inArray(accountDeletions.cleanupStatus, ["pending", "failed", "storage_running"]),
+                    sql`${accountDeletions.scheduledAt} < now() - interval '1 hour'`,
+                ))
+                .orderBy(asc(accountDeletions.scheduledAt))
+                .limit(100);
+            if (stalled.length > 0) {
+                await inngest.send(stalled.map((deletion) => ({
+                    name: "account/cleanup" as const,
+                    data: {
+                        userId: deletion.userId,
+                        deletionId: deletion.id,
+                        jobSignature: createSignedJobRequestToken({ kind: "account/cleanup", actorId: deletion.userId, subjectId: deletion.id }),
+                    },
+                })));
+            }
+            return stalled.length;
+        });
+
         if (eligibleDeletions.length === 0) {
-            return { processed: 0, skipped: 'no_eligible_deletions' };
+            return { processed: 0, redispatched, skipped: 'no_eligible_deletions' };
         }
 
         const results = {

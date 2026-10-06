@@ -270,6 +270,8 @@ export async function createFileNode(projectId: string, parentId: string | null,
     }
     const normalizedRelativePath = normalizeAndValidateUploadRelativePath(parsedKey.relativePath);
     const canonicalS3Key = buildProjectFileKey(projectId, normalizedRelativePath);
+    // The node must point at the object that was actually uploaded and verified.
+    if (canonicalS3Key !== finalizedIntent.storageKey) throw new Error("Invalid file storage key");
     const normalizedSize = normalizeAndValidateFileSize(finalizedIntent.finalizedSize ?? file.size, PROJECT_UPLOAD_MAX_FILE_BYTES);
     const normalizedMimeType = normalizeAndValidateMimeType(finalizedIntent.finalizedMimeType ?? file.mimeType);
     if (!finalizedIntent.assetId) throw new Error("Verified file asset is unavailable");
