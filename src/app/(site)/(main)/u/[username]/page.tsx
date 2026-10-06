@@ -81,13 +81,13 @@ async function ResolvedPublicProfile({
         permanentRedirect(`/u/${encodeURIComponent(route.currentUsername)}`);
     }
 
-    const { data, viewerAuth } = route;
+    const { data } = route;
 
     if (data.privacyStatus === 'not_found' || !data.profile) {
         notFound();
     }
 
-    const openRolesProjects = await getProfileProjectsWithOpenRolesAction(data.profile.id, viewerAuth.user?.id ?? null);
+    const openRolesProjects = await getProfileProjectsWithOpenRolesAction(data.profile.id);
 
     return (
         <ProfileV2Client

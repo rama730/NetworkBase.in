@@ -70,3 +70,23 @@ test("COR-042: exported project readers derive the actor from the session", () =
   assert.match(fnBody(project, "export async function readProjectSprintDetail("), /getViewerAuthContext\(\)/);
   assert.doesNotMatch(project, /export async function getProjectDetailShellAction/);
 });
+
+test("COR-044: profile role picker is session-scoped and lists only publicly readable non-draft projects", () => {
+  const picker = fnBody(read("src/app/actions/project/index.ts"), "export async function getProfileProjectsWithOpenRolesAction(");
+  assert.match(picker, /\(\s*targetProfileId: string,\s*input:/);
+  assert.match(picker, /getViewerAuthContext\(\)/);
+  assert.match(picker, /relationship\?\.canViewProfile/);
+  assert.match(picker, /inArray\(projects\.visibility, \["public", "unlisted"\]\)/);
+  assert.match(picker, /<> 'draft'/);
+});
+
+test("COR-038: update references hydrate only from visible tabs; sync task list needs Tasks", () => {
+  const updates = read("src/app/actions/project/updates.ts");
+  const summaries = fnBody(updates, "async function contextSummariesForRows(");
+  assert.match(summaries, /canReadTasks && taskIds\.size > 0/);
+  assert.match(summaries, /canReadSprints && sprintIds\.size > 0/);
+  assert.match(summaries, /canReadFiles && fileIds\.size > 0/);
+  assert.match(summaries, /canReadTasks \? undefined : projectContentNodeSql/);
+  assert.match(fnBody(updates, "export async function resolveProjectUpdateMentionTargetAction("), /canReadProjectUpdateTargetTab\(access, "task"\) \? undefined : projectContentNodeSql/);
+  assert.match(fnBody(read("src/app/actions/github-sync.ts"), "export async function getProjectSyncTasks("), /assertProjectTabReadAccess\(projectId, user\.id, "tasks"\)/);
+});

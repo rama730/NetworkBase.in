@@ -9871,13 +9871,23 @@ export async function updateProjectLifecycleAction(
   }
 }
 
+/**
+ * Projects with open roles that the target leads, as seen by the session
+ * viewer: only when the viewer may see the target's profile, only publicly
+ * readable non-draft projects, and never projects the viewer already belongs
+ * to (COR-044).
+ */
 export async function getProfileProjectsWithOpenRolesAction(
   targetProfileId: string,
-  excludeMemberUserId?: string | null,
   input: { search?: string; cursor?: string; limit?: number } = {},
 ) {
   try {
-    if (!targetProfileId) return { items: [], nextCursor: null };
+    if (!targetProfileId || !isLooseUuid(targetProfileId)) return { items: [], nextCursor: null };
+    const { userId: excludeMemberUserId } = await getViewerAuthContext();
+    if (excludeMemberUserId !== targetProfileId) {
+      const relationship = await resolvePrivacyRelationship(excludeMemberUserId, targetProfileId);
+      if (!relationship?.canViewProfile) return { items: [], nextCursor: null };
+    }
     const requestedLimit = Number(input.limit ?? 20);
     const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(Math.trunc(requestedLimit), 50)) : 20;
     const search = normalizeSearchQuery(input.search, 100);
@@ -9891,6 +9901,9 @@ export async function getProfileProjectsWithOpenRolesAction(
     const selectionFilters = [
       gt(projects.openRolesCount, 0),
       isNull(projects.deletedAt),
+      // Same rule as computeProjectReadAccess for a non-member viewer.
+      inArray(projects.visibility, ["public", "unlisted"]),
+      sql`${projects.status} IS NOT NULL AND ${projects.status} <> 'draft'`,
       excludeMemberUserId ? sql`${projects.ownerId} <> ${excludeMemberUserId}::uuid` : undefined,
       excludeMemberUserId ? sql`NOT EXISTS (
         SELECT 1
