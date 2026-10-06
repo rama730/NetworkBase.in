@@ -145,7 +145,7 @@ if (!DATABASE_URL) {
 
 const sql = postgres(DATABASE_URL, {
   prepare: false,
-  // Local disposable databases (scripts/chat-db/local-db.sh) run without TLS.
+  // Local disposable databases (npm run db:disposable) run without TLS.
   ssl: /@(localhost|127\.0\.0\.1)[:/]/.test(DATABASE_URL) ? false : "require",
   max: 1,
 });

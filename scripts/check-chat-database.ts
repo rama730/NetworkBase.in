@@ -2,8 +2,8 @@
  * Chat database contract (report sections 7.1-7.3, plan Phase 0/1).
  *
  * Runs against a disposable database only (local Postgres built by
- * scripts/chat-db/local-db.sh, or any E2E/fresh URL). Never DATABASE_URL.
- *   DATABASE_URL_FRESH=postgresql://postgres@localhost:54329/nb_chat_test npm run check:chat:db
+ * npm run db:disposable, or any E2E/fresh URL). Never DATABASE_URL.
+ *   DATABASE_URL_FRESH=$(npm run -s db:disposable) npm run check:chat:db
  */
 import { randomUUID } from "node:crypto";
 
@@ -92,9 +92,10 @@ async function main() {
   const invitationId = randomUUID();
 
   try {
+    await sql`INSERT INTO auth.users (id, email) SELECT u, 'chat-' || u || '@example.test' FROM unnest(${users}::uuid[]) AS t(u)`;
     await sql`
       INSERT INTO profiles (id, email, username, full_name, message_privacy)
-      SELECT u, 'chat-' || u || '@example.test', 'chat_' || replace(u::text, '-', ''), 'User ' || left(u::text, 4), p
+      SELECT u, 'chat-' || u || '@example.test', 'chat_' || left(replace(u::text, '-', ''), 12), 'User ' || left(u::text, 4), p
       FROM unnest(${users}::uuid[], ${["connections", "connections", "connections", "connections", "everyone", "connections"]}::text[]) AS t(u, p)
     `;
     await sql`
@@ -459,9 +460,9 @@ async function main() {
     // --- 0182 shared canvases
     const [ownAsset, foreignAsset] = [randomUUID(), randomUUID()];
     await sql`
-      INSERT INTO storage_assets (id, owner_user_id, bucket, storage_key, purpose, state, declared_mime_type, declared_size, expires_at)
-      VALUES (${ownAsset}, ${owner}, 'chat-attachments', ${`chat/${ownAsset}`}, 'chat_attachment:file', 'verified', 'image/png', 10, now() + interval '1 day'),
-             (${foreignAsset}, ${stranger}, 'chat-attachments', ${`chat/${foreignAsset}`}, 'chat_attachment:file', 'verified', 'image/png', 10, now() + interval '1 day')
+      INSERT INTO storage_assets (id, owner_user_id, bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, verified_at, expires_at)
+      VALUES (${ownAsset}, ${owner}, 'chat-attachments', ${`chat/${ownAsset}`}, 'chat_attachment:file', 'verified', 'image/png', 10, 'image/png', 10, now(), now() + interval '1 day'),
+             (${foreignAsset}, ${stranger}, 'chat-attachments', ${`chat/${foreignAsset}`}, 'chat_attachment:file', 'verified', 'image/png', 10, 'image/png', 10, now(), now() + interval '1 day')
     `;
     const saveCanvas = (user: string, base: number, assets: string[] = []) =>
       sql`SELECT app_private.chat_save_canvas(${general}::uuid, ${user}::uuid, 'Plan', '# Hi', ${assets}::uuid[], ${base}) AS v`;

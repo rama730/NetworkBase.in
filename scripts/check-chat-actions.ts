@@ -2,7 +2,7 @@
  * Runs every chat server action against a disposable database with the real
  * SQL (plan Phase 2 gate). Only sign-in, Next's after(), the Realtime REST call
  * and Redis are stubbed.
- *   DATABASE_URL_FRESH=postgresql://postgres@localhost:54329/nb_chat_test npm run check:chat:actions
+ *   DATABASE_URL_FRESH=$(npm run -s db:disposable) npm run check:chat:actions
  */
 import { randomUUID } from "node:crypto";
 import Module from "node:module";
@@ -68,6 +68,7 @@ async function main() {
   const flush = async () => { await Promise.all(pending.splice(0)); };
 
   try {
+    await sql`INSERT INTO auth.users (id, email) SELECT u, u || '@example.test' FROM unnest(${[owner, member, outsider]}::uuid[]) AS t(u)`;
     await sql`
       INSERT INTO profiles (id, email, username, full_name, message_privacy) VALUES
         (${owner}, ${`a-${owner}@example.test`}, ${`ownerx${owner.slice(0, 8)}`}, 'Olivia Owner', 'connections'),
@@ -333,8 +334,8 @@ async function main() {
     await check("shareMessage quotes an attachment-only message as (attachment)", async () => {
       as(member, "Mason");
       const [asset] = await sql`
-        INSERT INTO storage_assets (bucket, storage_key, purpose, declared_mime_type, declared_size, expires_at, owner_user_id, state, metadata)
-        VALUES ('chat-attachments', ${`${general}/${member}/share-${Date.now()}.png`}, 'chat_attachment:file', 'image/png', 10, now() + interval '1 day', ${member}, 'verified', '{"filename":"pic.png"}'::jsonb)
+        INSERT INTO storage_assets (bucket, storage_key, purpose, declared_mime_type, declared_size, verified_mime_type, verified_size, verified_at, expires_at, owner_user_id, state, metadata)
+        VALUES ('chat-attachments', ${`${general}/${member}/share-${Date.now()}.png`}, 'chat_attachment:file', 'image/png', 10, 'image/png', 10, now(), now() + interval '1 day', ${member}, 'verified', '{"filename":"pic.png"}'::jsonb)
         RETURNING id`;
       const sent = await messages.sendMessage({ channelId: general, body: "", assetIds: [String(asset?.id)] });
       if (!sent.success) return false;
@@ -661,8 +662,8 @@ async function main() {
     await check("#33 Also send to the channel carries the files", async () => {
       if (!threadRoot.success) return false;
       const [asset] = await sql`
-        INSERT INTO storage_assets (bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, owner_user_id, expires_at)
-        VALUES ('chat-attachments', ${`${launch}/${member}/round2-${Date.now()}.png`}, 'chat_attachment:file', 'verified', 'image/png', 10, 'image/png', 10, ${member}, now() + interval '1 day')
+        INSERT INTO storage_assets (bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, verified_at, owner_user_id, expires_at)
+        VALUES ('chat-attachments', ${`${launch}/${member}/round2-${Date.now()}.png`}, 'chat_attachment:file', 'verified', 'image/png', 10, 'image/png', 10, now(), ${member}, now() + interval '1 day')
         RETURNING id`;
       const assetId = String(asset?.id);
       const sentBoth = await messages.sendMessage({ channelId: launch, body: "", threadRootSeq: threadRoot.message.seq, assetIds: [assetId], alsoToChannel: true });
@@ -738,8 +739,8 @@ async function main() {
     });
     await check("#22 an edit can remove a file's caption", async () => {
       const [asset] = await sql`
-        INSERT INTO storage_assets (bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, owner_user_id, expires_at)
-        VALUES ('chat-attachments', ${`${launch}/${member}/round3-${Date.now()}.png`}, 'chat_attachment:file', 'verified', 'image/png', 10, 'image/png', 10, ${member}, now() + interval '1 day')
+        INSERT INTO storage_assets (bucket, storage_key, purpose, state, declared_mime_type, declared_size, verified_mime_type, verified_size, verified_at, owner_user_id, expires_at)
+        VALUES ('chat-attachments', ${`${launch}/${member}/round3-${Date.now()}.png`}, 'chat_attachment:file', 'verified', 'image/png', 10, 'image/png', 10, now(), ${member}, now() + interval '1 day')
         RETURNING id`;
       const sent = await messages.sendMessage({ channelId: launch, body: "a caption", assetIds: [String(asset?.id)] });
       if (!sent.success) return false;

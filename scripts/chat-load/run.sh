@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Phase 0 latency gates (report 8.2 / plan Phase 0). Runs each script at its
 # target rate and prints p50/p95/p99 in ms, minus the SELECT 1 round trip.
-#   scripts/chat-load/run.sh postgresql://postgres@localhost:54329/nb_chat_load [seconds]
+#   scripts/chat-load/run.sh "$(npm run -s db:disposable)" [seconds]
 set -euo pipefail
 URL="$1"; SECS="${2:-60}"; DIR="$(cd "$(dirname "$0")" && pwd)"
 # Load runs write rows: refuse anything that resolves to the primary database.

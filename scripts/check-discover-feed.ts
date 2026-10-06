@@ -2,7 +2,7 @@
  * Runs the Discover feed queries against a disposable database with the real SQL: privacy (masked
  * owners, members-only links, private/deleted members, blocks), cursors (no repeats or gaps on any
  * sort), the skills filter, and the People rail's request. Redis and sign-in are stubbed out.
- *   DATABASE_URL_FRESH=postgresql://postgres@localhost:54329/nb_chat_test npm run check:discover
+ *   DATABASE_URL_FRESH=$(npm run -s db:disposable) npm run check:discover
  */
 import { randomUUID } from "node:crypto";
 import Module from "node:module";
@@ -81,8 +81,9 @@ async function main() {
 
   try {
     for (const [id, name, visibility] of profileRows) {
+      await sql`INSERT INTO auth.users (id, email) VALUES (${id}, ${`${id}@example.test`})`;
       await sql`INSERT INTO profiles (id, email, username, full_name, visibility, onboarding_status)
-        VALUES (${id}, ${`${id}@example.test`}, ${`u${id.slice(0, 12)}`}, ${name}, ${visibility}, 'completed')`;
+        VALUES (${id}, ${`${id}@example.test`}, ${`u${id.replace(/-/g, "").slice(0, 12)}`}, ${name}, ${visibility}, 'completed')`;
     }
     await sql`UPDATE profiles SET deleted_at = now() WHERE id = ${deletedOwner}`;
     await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${viewer}, ${blockedOwner}, 'blocked', ${viewer}, now())`;

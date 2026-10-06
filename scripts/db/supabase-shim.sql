@@ -1,15 +1,16 @@
--- Minimal stand-ins for the Supabase-managed schemas, so the repo's migrations
--- replay on a plain local Postgres for the chat database tests and load runs.
--- ponytail: covers only what drizzle/*.sql references (roles, auth.uid/role/jwt,
--- storage buckets/objects/foldername, realtime.messages/topic/send). ceiling: no
--- real JWT signing, no Realtime server. upgrade: Supabase CLI local stack when
--- end-to-end Realtime delivery has to be tested off the hosted project.
+-- Minimal stand-ins for the Supabase-managed schemas (auth, storage, realtime,
+-- extensions, roles) so scripts/db/baseline/schema.sql and newer migrations load
+-- on a plain local Postgres 17 (scripts/db/disposable-db.sh).
+-- ponytail: covers only what the app schema references. ceiling: no real JWT
+-- signing, no Realtime server, no Storage API. upgrade: Supabase CLI local stack
+-- when end-to-end Auth/Realtime/Storage has to be tested off the hosted project.
 
 DO $roles$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role NOLOGIN BYPASSRLS; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin') THEN CREATE ROLE supabase_admin NOLOGIN BYPASSRLS; END IF;
 END
 $roles$;
 
@@ -30,7 +31,10 @@ CREATE TABLE IF NOT EXISTS auth.mfa_factors (
   status text
 );
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-  SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+  SELECT coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
+  )::uuid
 $$;
 CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
   SELECT coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), current_user::text)
@@ -101,9 +105,6 @@ END
 $pub$;
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
 
 -- Supabase puts extension objects (gin_trgm_ops, gen_random_bytes) on the search path.
 DO $search_path$
