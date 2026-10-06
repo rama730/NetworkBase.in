@@ -1,7 +1,8 @@
 import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { projectNodes, taskNodeLinks, tasks } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/project-access";
+import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
+import { projectContentNodeSql } from "@/lib/files/internal-helpers";
 import { eq, and, inArray, isNull, gt, or } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
@@ -61,7 +62,8 @@ export async function GET(request: Request) {
     if (!access.project) {
       return jsonError("Project not found", 404, "NOT_FOUND");
     }
-    if (!access.canRead) {
+    // Files visibility for the listing; task-owned and /.system nodes also need Tasks (AUTH-002).
+    if (!canReadProjectTab(access, "files")) {
       return jsonError("Forbidden", 403, "FORBIDDEN");
     }
 
@@ -71,6 +73,7 @@ export async function GET(request: Request) {
         eq(projectNodes.projectId, projectId),
         parentId ? eq(projectNodes.parentId, parentId) : isNull(projectNodes.parentId),
         isNull(projectNodes.deletedAt),
+        canReadProjectTab(access, "tasks") ? undefined : projectContentNodeSql,
         cursor
           ? or(
               gt(projectNodes.type, cursor.type),

@@ -5,7 +5,7 @@ import {
 } from "@/app/api/v1/_shared";
 import { db } from "@/lib/db";
 import { tasks } from "@/lib/db/schema";
-import { getProjectAccessById } from "@/lib/data/project-access";
+import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
 import { and, eq, isNull } from "drizzle-orm";
 import { logger } from "@/lib/logger";
 import { z } from "zod";
@@ -35,7 +35,8 @@ export async function GET(request: Request) {
     const access = await getProjectAccessById(projectId, user.id);
     if (!access.project)
       return jsonError("Project not found", 404, "NOT_FOUND");
-    if (!access.canRead) return jsonError("Forbidden", 403, "FORBIDDEN");
+    // Task data follows the project's Tasks visibility (AUTH-002).
+    if (!canReadProjectTab(access, "tasks")) return jsonError("Forbidden", 403, "FORBIDDEN");
 
     const summary = await getProjectTaskSummary(projectId);
     const taskCount = summary.taskCount;

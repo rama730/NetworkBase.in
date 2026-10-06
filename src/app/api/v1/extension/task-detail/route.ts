@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { profiles, projectNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { logger } from "@/lib/logger";
+import { canReadProjectTab, getProjectAccessById } from "@/lib/data/project-access";
+import { projectContentNodeSql } from "@/lib/files/internal-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,38 +21,20 @@ export async function GET(request: Request) {
     if (!taskId) return jsonError("Missing taskId", 400, "BAD_REQUEST");
 
     const rows = (await db.execute(sql`
-      SELECT 
-        t.id,
-        t.project_id AS "projectId",
-        t.title,
-        t.task_number AS "taskNumber",
-        p.owner_id AS "ownerId",
-        p.visibility,
-        p.status AS "projectStatus",
-        pm.id AS "memberId"
+      SELECT t.id, t.project_id AS "projectId", t.title, t.task_number AS "taskNumber"
       FROM tasks t
-      JOIN projects p ON p.id = t.project_id AND p.deleted_at IS NULL
-      LEFT JOIN project_members pm ON pm.project_id = t.project_id AND pm.user_id = ${user.id}::uuid
       WHERE t.id = ${taskId}::uuid AND t.deleted_at IS NULL
       LIMIT 1
-    `)) as unknown as Array<{
-      id: string;
-      projectId: string;
-      title: string;
-      taskNumber: number | null;
-      ownerId: string;
-      visibility: string;
-      projectStatus: string;
-      memberId: string | null;
-    }>;
+    `)) as unknown as Array<{ id: string; projectId: string; title: string; taskNumber: number | null }>;
 
     const row = rows[0];
     if (!row) return jsonError("Task not found", 404, "NOT_FOUND");
 
-    const isOwner = row.ownerId === user.id;
-    const isMember = Boolean(row.memberId);
-    const canRead = isOwner || isMember || row.visibility === "public";
-    if (!canRead) return jsonError("Forbidden", 403, "FORBIDDEN");
+    // Canonical rule: drafts/private for owners+members only, task data needs
+    // Tasks visibility, linked project files also need Files (AUTH-002).
+    const access = await getProjectAccessById(row.projectId, user.id);
+    if (!canReadProjectTab(access, "tasks")) return jsonError("Forbidden", 403, "FORBIDDEN");
+    const canReadFiles = canReadProjectTab(access, "files");
 
     const task = {
       id: row.id,
@@ -71,6 +55,7 @@ export async function GET(request: Request) {
             eq(taskNodeLinks.taskId, taskId),
             eq(projectNodes.projectId, task.projectId),
             isNull(projectNodes.deletedAt),
+            canReadFiles ? undefined : sql`NOT (${projectContentNodeSql})`,
           ),
         )
         .orderBy(taskNodeLinks.order, projectNodes.name),
