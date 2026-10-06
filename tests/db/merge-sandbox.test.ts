@@ -43,12 +43,14 @@ async function node(tx: Tx, input: {
 const paths = async (projectId: string) =>
   (await sql`SELECT path FROM public.project_nodes WHERE project_id = ${projectId} AND task_id IS NULL AND deleted_at IS NULL ORDER BY path`).map((r) => r.path);
 
-test("COR-057: a staged node bound to another project's file aborts the merge without touching it", async () => {
+test("COR-057: a staged node cannot bind to another project's file (merge guard + DB-001 composite FK)", async () => {
   const a = await setup();
   const b = await setup();
   const foreign = await sql.begin((tx) => node(tx, { projectId: b.projectId, path: "/victim.txt", s3: "b/victim" }));
-  await sql.begin((tx) => node(tx, { projectId: a.projectId, path: "/victim.txt", taskId: a.taskId, canonical: foreign, s3: "a/evil" }));
-  await assert.rejects(merge(a.owner, a.projectId, a.taskId, randomUUID()), /canonical/i);
+  await assert.rejects(
+    sql.begin((tx) => node(tx, { projectId: a.projectId, path: "/victim.txt", taskId: a.taskId, canonical: foreign, s3: "a/evil" })),
+    /project_nodes_project_id_canonical_node_id_fkey/,
+  );
   const [victim] = await sql`SELECT path, s3_key, project_id FROM public.project_nodes WHERE id = ${foreign}`;
   assert.deepEqual({ ...victim }, { path: "/victim.txt", s3_key: "b/victim", project_id: b.projectId });
 });

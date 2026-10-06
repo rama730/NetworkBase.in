@@ -1387,6 +1387,13 @@
       "when": 1791322029893,
       "tag": "0200_project_tab_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 198,
+      "version": "7",
+      "when": 1791322170830,
+      "tag": "0201_tenant_composite_fks",
+      "breakpoints": true
     }
   ]
 }

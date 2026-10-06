@@ -201,7 +201,8 @@
     "drizzle/0197_chat_due_work_leases.sql",
     "drizzle/0198_account_deletion_phases.sql",
     "drizzle/0199_browser_roles_read_only.sql",
-    "drizzle/0200_project_tab_rls.sql"
+    "drizzle/0200_project_tab_rls.sql",
+    "drizzle/0201_tenant_composite_fks.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
