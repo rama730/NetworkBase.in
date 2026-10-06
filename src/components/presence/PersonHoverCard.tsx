@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 
 import { messageUserInWindow } from "@/components/messages/message-user";
+import { usePersonContext } from "@/components/messages/useConversation";
 import { PresenceAvatar } from "@/components/presence/PersonPresence";
 import { PresenceBadge } from "@/components/presence/PresenceBadge";
 import { StatusInline } from "@/components/presence/StatusInline";
@@ -16,40 +17,52 @@ import { cn } from "@/lib/utils";
 
 type Person = { id: string; username: string | null; full_name: string | null; avatar_url: string | null };
 
+/**
+ * The person card (spec §12): 48px square avatar, 14px gap, 15px semibold name, one line under it
+ * (location, else headline, else @username), then status, presence and their local time, and two
+ * compact actions. A plain card: no inner wells.
+ */
 function CardBody({ person }: { person: Person }) {
   const { user } = useAuth();
   const presence = usePersonPresence(person.id);
+  const context = usePersonContext(person.id);
+  const [now] = useState(() => new Date());
   const name = person.full_name || person.username || "Someone";
   const identity = { id: person.id, username: person.username, fullName: person.full_name, avatarUrl: person.avatar_url };
+  const { headline, location, timeZone } = context.data ?? {};
+  const clock = (zone?: string) => now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: zone });
+  // Their time only when their clock differs from yours.
+  const theirTime = timeZone && clock(timeZone) !== clock() ? `${clock(timeZone)} local time` : null;
   return (
-    <div className="flex w-[300px] flex-col gap-3.5 p-4">
+    <div className="flex w-[320px] max-w-[calc(100vw-24px)] flex-col gap-4 p-5">
       <div className="flex items-center gap-3.5">
         <PresenceAvatar userId={person.id} identity={identity} size={48} />
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="nb-card-title truncate">{name}</span>
-          {person.username ? <span className="nb-meta truncate">@{person.username}</span> : null}
+          <span className="truncate text-[15px] font-semibold leading-tight text-foreground">{name}</span>
+          {location ? <span className="nb-meta truncate">{location}</span>
+            : headline ? <span className="nb-compact line-clamp-2 text-muted-foreground">{headline}</span>
+            : person.username ? <span className="nb-meta truncate">@{person.username}</span> : null}
         </div>
       </div>
-      <div className="flex flex-col gap-2 rounded-md bg-muted p-3">
+      {location && headline ? <p className="nb-compact -mt-2 line-clamp-2 text-muted-foreground">{headline}</p> : null}
+      <div className="flex flex-col gap-1.5">
         {presence.status ? (
-          <>
-            <StatusInline emoji={presence.status.emoji} text={presence.statusText} className="truncate text-[14px] font-semibold" />
-            {presence.status.pausesNotifications ? <span className="text-[13px] text-muted-foreground">Notifications paused</span> : null}
-          </>
+          <StatusInline emoji={presence.status.emoji} text={presence.statusText} className="nb-compact line-clamp-2 text-foreground" />
         ) : null}
-        <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
-          <PresenceBadge availability={presence.availability} size={10} style={{ ["--presence-cut" as string]: "var(--muted)" }} />
+        {presence.status?.pausesNotifications ? <span className="nb-meta">Notifications paused</span> : null}
+        <span className="nb-meta flex min-w-0 items-center gap-1.5">
+          <PresenceBadge availability={presence.availability} size={8} style={{ ["--presence-cut" as string]: "var(--popover)" }} />
           {/* No "Offline" guess before presence has loaded. */}
-          {presence.loaded ? presence.availabilityText : "\u00a0"}
+          <span className="truncate">{presence.loaded ? [presence.availabilityText, theirTime].filter(Boolean).join(" · ") : "\u00a0"}</span>
         </span>
       </div>
       <div className="flex gap-2">
         {user?.id !== person.id ? (
-          <Button asChild className="flex-1 pointer-coarse:h-11">
+          <Button asChild size="sm" className="flex-1 pointer-coarse:h-11">
             <Link href={`/messages?userId=${person.id}`} onClick={(event) => messageUserInWindow(person.id, event)}>Message</Link>
           </Button>
         ) : null}
-        <Button asChild variant="outline" className="flex-1 pointer-coarse:h-11">
+        <Button asChild variant="outline" size="sm" className="flex-1 pointer-coarse:h-11">
           <Link href={profileHref({ id: person.id, username: person.username })}>View profile</Link>
         </Button>
       </div>

@@ -421,6 +421,7 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
   // Only with a project open: in All projects every project's count is already on screen.
   const otherUnread = open ? projects.reduce((sum, project) => sum + (project.id === open.id ? 0 : badges.get(project.id) ?? 0), 0) : 0;
   const projectHref = open ? `/projects/${open.slug ?? open.id}` : "";
+  const shortcutHint = useSyncExternalStore(noSubscribe, () => modKeyHint().replace("K", "/"), () => "⌘/");
 
   return (
     <div className="flex items-center gap-0.5">
@@ -470,19 +471,24 @@ function ProjectSwitcher({ inPage, unreadsOnly, onToggleUnreads }: { inPage: boo
       >
         <ListFilter size={16} />
       </button>
-      {open && inPage && canManage ? (
+      {/* One ⋯ for the page: the project's options (by role) and the keyboard shortcuts. */}
+      {inPage ? (
         <DropdownMenu>
-          <DropdownMenuTrigger className="nb-icon-button size-7 flex-none pointer-coarse:size-11" aria-label={`Options for ${open.title}`}>
+          <DropdownMenuTrigger className={`nb-icon-button size-7 flex-none pointer-coarse:size-11 ${open ? "" : "pointer-coarse:hidden"}`} aria-label={open ? `Options for ${open.title}` : "Messages options"}>
             <MoreHorizontal size={16} />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onSelect={() => setInviteFor(open.id)}><UserPlus /> Invite people</DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href={projectHref}><FolderOpen /> View project</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link href={`${projectHref}?tab=settings`}><Settings /> Project settings</Link></DropdownMenuItem>
+          <DropdownMenuContent align="end" className="w-56">
+            {open && canManage ? <DropdownMenuItem onSelect={() => setInviteFor(open.id)}><UserPlus /> Invite people</DropdownMenuItem> : null}
+            {open ? <DropdownMenuItem asChild><Link href={projectHref}><FolderOpen /> View project</Link></DropdownMenuItem> : null}
+            {open && canManage ? <DropdownMenuItem asChild><Link href={`${projectHref}?tab=settings`}><Settings /> Project settings</Link></DropdownMenuItem> : null}
+            {open ? <DropdownMenuSeparator className="pointer-coarse:hidden" /> : null}
+            <DropdownMenuItem className="pointer-coarse:hidden" onSelect={() => useChatUi.getState().setShortcutsOpen(true)}>
+              <Keyboard /> Keyboard shortcuts <kbd className="nb-meta ml-auto">{shortcutHint}</kbd>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ) : open ? (
-        // One action only: a plain link, not a menu with one item.
+        // The window: one action only, a plain link, not a menu with one item.
         <Link href={projectHref} className="nb-icon-button size-7 flex-none pointer-coarse:size-11" aria-label={`View ${open.title}`} title="View project">
           <FolderOpen size={16} />
         </Link>
@@ -521,7 +527,6 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
   const inPage = !onSelect;
   const markAll = useMarkAllRead();
   const searchHint = useSyncExternalStore(noSubscribe, modKeyHint, () => "⌘K");
-  const shortcutHint = useSyncExternalStore(noSubscribe, () => modKeyHint().replace("K", "/"), () => "⌘/");
   const drafts = useDrafts();
   const scheduled = useQuery({
     queryKey: queryKeys.chat.scheduled(),
@@ -688,16 +693,7 @@ export function ChatSections({ variant, onSelect, onNewMessage, onInbox }: Props
           <Link href={open ? `/messages/p/${open.id}` : "/messages"} className="nb-chat-row max-lg:hidden" aria-current={here(open ? `/messages/p/${open.id}` : "/messages")}>
             <House size={16} aria-hidden="true" /><span className="flex-1">Home</span>
           </Link>
-          <div className="flex items-center gap-0.5">
-            {/* It jumps to a conversation or person; message search is its last row. */}
-            <button type="button" className="nb-chat-row min-w-0 flex-1" onClick={() => setSwitcherOpen(true)} aria-keyshortcuts="Meta+K Control+K">
-              <Search size={16} aria-hidden="true" /><span className="flex-1">Jump to…</span>
-              <kbd className="nb-meta font-normal pointer-coarse:hidden">{searchHint}</kbd>
-            </button>
-            <button type="button" onClick={() => useChatUi.getState().setShortcutsOpen(true)} className="nb-icon-button size-7 flex-none pointer-coarse:hidden" aria-label="Keyboard shortcuts" title={`Keyboard shortcuts (${shortcutHint})`}>
-              <Keyboard size={16} />
-            </button>
-          </div>
+          {/* No Jump to… here: the top bar's search finds conversations on this page (same ⌘K). */}
           <Link href="/messages/inbox" className="nb-chat-row" aria-current={here("/messages/inbox")} data-unread={inboxUnread ? "true" : undefined}>
             <Inbox size={16} aria-hidden="true" /><span className="flex-1">Inbox</span><Count value={inboxUnread} />
           </Link>

@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { ChevronDown, X } from "lucide-react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 
 import { MessageRow } from "@/components/messages/MessageRow";
 import { Button } from "@/components/ui/button";
+import { LatestBar } from "@/components/messages/parts/LatestBar";
 import { formatChatTime } from "@/lib/messaging/channel-view";
 import { buildTimeline, newFromOthers, type TimelineItem } from "@/lib/messaging/timeline";
 import type { ChatMessageView } from "@/lib/messaging/types";
@@ -347,6 +348,7 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
   }, [highlight, pickDate, tabSeq]);
 
   return (
+    <>
     <div
       className="relative min-h-0 flex-1"
       role="log"
@@ -407,13 +409,8 @@ export function Timeline({ messages, lastReadSeq, meId, hasOlder, loadingOlder, 
         components={COMPONENTS}
       />
       <p className="sr-only" aria-live="polite">{announcement}</p>
-      {!atBottom || behindLatest ? (
-        <Button type="button" variant="outline" size="sm" onClick={toLatest} aria-label={unseen ? `Jump to latest, ${unseen} new` : "Jump to latest"} className="absolute bottom-3 right-4 z-10 shadow-md pointer-coarse:h-11">
-          <ChevronDown size={16} />
-          Latest
-          {unseen ? <span className="nb-tab-count">{unseen > 99 ? "99+" : unseen}</span> : null}
-        </Button>
-      ) : null}
     </div>
+    {!atBottom || behindLatest ? <LatestBar onClick={toLatest} unseen={unseen} label="Jump to latest" /> : null}
+    </>
   );
 }

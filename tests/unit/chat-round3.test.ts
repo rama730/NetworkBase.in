@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import { chatDraftToHtmlish } from "@/components/messages/ChatEditor";
@@ -95,4 +96,23 @@ test("#262 chat push choices default on and survive older saved preferences", as
   const { normalizeNotificationPreferences } = await import("@/lib/notifications/preferences");
   assert.deepEqual(normalizeNotificationPreferences({}).chat, { threadReplies: true, showPreview: true });
   assert.deepEqual(normalizeNotificationPreferences({ chat: { threadReplies: false } }).chat, { threadReplies: false, showPreview: true });
+});
+
+const src = (path: string) => fs.readFileSync(path, "utf8");
+
+test("round 4: Latest sits between list and composer, statuses beside names, spec person card", () => {
+  // The jump-to-latest control is a bar in the layout, never floating over messages.
+  for (const file of ["src/components/messages/Timeline.tsx", "src/components/messages/ThreadPane.tsx"]) {
+    assert.match(src(file), /<LatestBar /, file);
+    assert.doesNotMatch(src(file), /absolute bottom-3 right-4/, file);
+  }
+  const row = src("src/components/messages/MessageRow.tsx");
+  assert.match(row, /usePersonPresence\(grouped \? null : message\.author\?\.id\)/);
+  assert.match(row, /authorPresence\.status\?\.emoji \|\| "💬"/);
+  const card = src("src/components/presence/PersonHoverCard.tsx");
+  assert.match(card, /size=\{48\}/);
+  assert.match(card, /text-\[15px\] font-semibold/);
+  assert.doesNotMatch(card, /rounded-md bg-muted/);
+  // Headline and location only for public profiles, yourself, or a shared project.
+  assert.match(src("src/app/actions/chat/members.ts"), /profile\?\.visibility === "public" \|\| input\.userId === user\.id \|\| sharedProjects\.length > 0/);
 });

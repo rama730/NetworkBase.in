@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PersonHoverCard } from "@/components/presence/PersonHoverCard";
+import { usePersonPresence } from "@/components/presence/usePresence";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useLinkPreview } from "@/hooks/useLinkPreview";
 import { formatChatTime, personName } from "@/lib/messaging/channel-view";
@@ -185,6 +186,9 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
   const canDelete = own || ctx.canAdmin;
   const saved = ctx.savedSeqs?.has(message.seq) ?? false;
   const authorName = personName(message.author);
+  // Like Slack: the author's status emoji after their name (💬 when the status is text only).
+  const authorPresence = usePersonPresence(grouped ? null : message.author?.id);
+  const authorStatus = authorPresence.status ? authorPresence.statusText || "Status" : null;
   const mentioned = !own && message.kind === "user" && (() => {
     const { userIds, broadcast } = parseMentions(message.body);
     return Boolean(broadcast) || (ctx.meId ? userIds.includes(ctx.meId) : false);
@@ -414,7 +418,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       onTouchEnd={() => pressTimer.current && clearTimeout(pressTimer.current)}
       onTouchMove={() => pressTimer.current && clearTimeout(pressTimer.current)}
     >
-      <span id={`${rowId}-who`} className="sr-only">{authorName}, {fullTime}{pending && !message.failed ? ", sending" : ""}</span>
+      <span id={`${rowId}-who`} className="sr-only">{authorName}{authorStatus ? ` (${authorStatus})` : ""}, {fullTime}{pending && !message.failed ? ", sending" : ""}</span>
       {message.pinned || saved ? (
         <p className="flex items-center gap-3 pb-0.5 pl-11 text-[12px] text-muted-foreground">
           {message.pinned ? <span className="inline-flex items-center gap-1"><Pin size={14} aria-hidden="true" /> Pinned</span> : null}
@@ -437,6 +441,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
               <PersonHoverCard person={message.author}>
                 <span className="text-[13px] font-medium hover:underline">{authorName}</span>
               </PersonHoverCard>
+              {authorStatus ? <span title={authorStatus} className="font-[system-ui] text-[13px] leading-none">{authorPresence.status?.emoji || "💬"}</span> : null}
               <button type="button" tabIndex={-1} onClick={pending ? undefined : copyLink} title={`${fullTime}${pending ? "" : " · click to copy link"}`} className="nb-meta hover:underline">{formatChatTime(message.created_at, "clock")}</button>
               {pending && !message.failed ? <span className="nb-meta" aria-hidden="true">Sending…</span> : null}
             </div>

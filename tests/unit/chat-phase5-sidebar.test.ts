@@ -66,8 +66,10 @@ test("in-app Back: a deep link has nothing behind it; browser back steps down", 
 
 test("sidebar: Search row, Unreads toggle, one-click +, focus-visible controls", () => {
   const sections = read("src/components/messages/ChatSections.tsx");
-  // Round 2 #40: the row opens the switcher, so it says "Jump to…"; message search is the switcher's last row.
-  assert.match(sections, /onClick=\{\(\) => setSwitcherOpen\(true\)\}[\s\S]*<span className="flex-1">Jump to…<\/span>/);
+  // The floating window keeps "Jump to…"; the page drops it (the top bar's search is the same ⌘K finder),
+  // and Keyboard shortcuts moves into the sidebar's ⋯.
+  assert.equal(sections.match(/<span className="flex-1">Jump to…<\/span>/g)?.length, 1);
+  assert.match(sections, /setShortcutsOpen\(true\)\}>\s*<Keyboard \/> Keyboard shortcuts/);
   assert.match(read("src/components/messages/QuickSwitcher.tsx"), /"Search messages…"/);
   assert.match(sections, /label="Create channel" onClick=\{\(\) => setCreateFor\(id\)\}/);
   assert.match(sections, /Browse channels/);
