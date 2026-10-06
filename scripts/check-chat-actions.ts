@@ -388,6 +388,20 @@ async function main() {
       return !past.success && list.success && list.items.some((i) => i.id === queued.id) && first.sent === 1 && second.due === 0
         && row?.n === 1 && cancelled.success && remaining.success && remaining.items.length === 0;
     });
+    await check("COR-010: a crashed claim is retried once; a live claim is left alone", async () => {
+      const crashed = await later.scheduleMessage({ channelId: general, body: "after crash", sendAt: new Date(Date.now() + 3_600_000).toISOString() });
+      const busy = await later.scheduleMessage({ channelId: general, body: "being sent", sendAt: new Date(Date.now() + 3_600_000).toISOString() });
+      if (!crashed.success || !busy.success) return false;
+      // A worker claimed both and died; only the expired claim is reclaimable.
+      await sql`UPDATE chat_scheduled_messages SET send_at = now() - interval '1 second', claim_expires_at = now() - interval '1 second' WHERE id = ${crashed.id}`;
+      await sql`UPDATE chat_scheduled_messages SET send_at = now() - interval '1 second', claim_expires_at = now() + interval '5 minutes' WHERE id = ${busy.id}`;
+      const run = await due.sendDueScheduledMessages();
+      const [row] = await sql`SELECT count(*)::int AS n FROM chat_messages WHERE channel_id = ${general} AND body = 'after crash'`;
+      const [state] = await sql`SELECT sent_at IS NOT NULL AS sent, claim_expires_at IS NULL AS released FROM chat_scheduled_messages WHERE id = ${crashed.id}`;
+      const [busyRow] = await sql`SELECT sent_at FROM chat_scheduled_messages WHERE id = ${busy.id}`;
+      await later.cancelScheduled({ id: busy.id });
+      return run.sent === 1 && row?.n === 1 && state?.sent === true && state?.released === true && busyRow?.sent_at === null;
+    });
     await check("searchChannels finds unjoined public channels across all your projects", async () => {
       as(owner, "Olivia");
       const open = await channels.createChannel({ projectId: otherProjectId, name: "zeta-plan" });

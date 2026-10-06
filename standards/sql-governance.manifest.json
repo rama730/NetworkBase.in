@@ -197,7 +197,8 @@
     "drizzle/0193_chat_round3_counts.sql",
     "drizzle/0194_chat_link_preview_hidden.sql",
     "drizzle/0195_discover_feed_indexes.sql",
-    "drizzle/0196_rls_p0_visibility.sql"
+    "drizzle/0196_rls_p0_visibility.sql",
+    "drizzle/0197_chat_due_work_leases.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
