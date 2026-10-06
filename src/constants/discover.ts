@@ -28,11 +28,6 @@ export const SORT_OPTIONS = {
     TRENDING: 'trending',
 } as const;
 
-export const VIEW_MODES = {
-    GRID: 'grid',
-    LIST: 'list',
-} as const;
-
 // Type exports
 export type FilterView = 'all' | 'trending' | 'recommendations' | 'following';
 export type ProjectStatus = typeof PROJECT_STATUS[keyof typeof PROJECT_STATUS];

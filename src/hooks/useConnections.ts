@@ -376,9 +376,6 @@ export function useSuggestedPeople(
     return useConnectionsFeed('discover', { limit, search, filters, initialPage, includeMeta });
 }
 
-/** Discover's rail: 3 people you can see and connect with; no stats. Same filters as the server render. */
-export const DISCOVER_RAIL_FILTERS: DiscoverFilters = { openProfilesOnly: true };
-
 function mapIncomingRequest(item: RequestConnectionItem): PendingIncomingRequest {
     return {
         id: item.id,

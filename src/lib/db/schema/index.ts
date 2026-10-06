@@ -753,7 +753,7 @@ export const projects = pgTable(
       { onDelete: "set null" },
     ),
     category: text("category"),
-    viewCount: integer("view_count").default(0),
+    viewCount: integer("view_count").default(0).notNull(),
     followersCount: integer("followers_count").default(0).notNull(),
     savesCount: integer("saves_count").default(0).notNull(),
 
@@ -893,6 +893,16 @@ export const projects = pgTable(
 
     // 3. "My Projects": Filter by Owner -> Sort by CreatedAt
     myProjectsIdx: index("projects_my_projects_idx").on(t.ownerId, t.createdAt),
+    // Discover's feed (0195): the predicate is exactly the feed's filter, so each sort reads in order.
+    discoverNewestIdx: index("projects_discover_newest_idx")
+      .on(t.createdAt.desc(), t.id.desc())
+      .where(sql`${t.deletedAt} IS NULL AND ${t.visibility} IN ('public', 'unlisted') AND ${t.status} <> 'draft'`),
+    discoverMostViewedIdx: index("projects_discover_most_viewed_idx")
+      .on(t.viewCount.desc(), t.createdAt.desc(), t.id.desc())
+      .where(sql`${t.deletedAt} IS NULL AND ${t.visibility} IN ('public', 'unlisted') AND ${t.status} <> 'draft'`),
+    discoverMostFollowedIdx: index("projects_discover_most_followed_idx")
+      .on(t.followersCount.desc(), t.createdAt.desc(), t.id.desc())
+      .where(sql`${t.deletedAt} IS NULL AND ${t.visibility} IN ('public', 'unlisted') AND ${t.status} <> 'draft'`),
     publicFeedNewestActiveIdx: index("projects_public_feed_newest_active_idx")
       .on(t.visibility, t.status, t.createdAt.desc(), t.id.desc())
       .where(sql`${t.deletedAt} IS NULL`),

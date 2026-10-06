@@ -195,7 +195,8 @@
     "drizzle/0191_chat_channel_privacy.sql",
     "drizzle/0192_chat_inbox_mute_rule.sql",
     "drizzle/0193_chat_round3_counts.sql",
-    "drizzle/0194_chat_link_preview_hidden.sql"
+    "drizzle/0194_chat_link_preview_hidden.sql",
+    "drizzle/0195_discover_feed_indexes.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

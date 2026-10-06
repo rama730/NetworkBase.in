@@ -54,10 +54,8 @@ type PublicProjectRoleRow = {
     projectId: string
     role: string
     title: string | null
-    description: string | null
     count: number
     filled: number
-    skills: string[] | null
 }
 
 export type PublicProjectsFeedPage = {
@@ -93,15 +91,16 @@ function mapProjectRow(row: PublicProjectRow, openRoles: PublicProjectRoleRow[],
         github_repo_url: row.githubRepoUrl,
         created_at: row.createdAt.toISOString(),
         updated_at: row.updatedAt.toISOString(),
+        // The card counts open seats; role text and skills live on the project page.
         open_roles: openRoles.map((role) => ({
             id: role.id,
             project_id: role.projectId,
             role: role.role,
             title: role.title,
-            description: role.description,
+            description: null,
             count: role.count,
             filled: role.filled,
-            skills: role.skills ?? [],
+            skills: [],
         })),
         collaborators: members.map((m) => ({
             user_id: m.userId,
@@ -134,7 +133,8 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
             id: projects.id,
             slug: projects.slug,
             title: projects.title,
-            description: projects.description,
+            // The card shows two lines: no need to ship whole READMEs in a shared feed.
+            description: sql<string | null>`left(${projects.description}, 280)`,
             shortDescription: projects.shortDescription,
             category: projects.category,
             skills: projects.skills,
@@ -163,11 +163,10 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
         .innerJoin(profiles, eq(projects.ownerId, profiles.id))
         .where(
             and(
-                or(eq(projects.visibility, 'public'), eq(projects.visibility, 'unlisted')),
-                isNull(projects.deletedAt),
+                // Literal values, written exactly like the 0195 partial index's predicate, so the planner uses it.
+                sql<boolean>`${projects.deletedAt} IS NULL AND ${projects.visibility} IN ('public', 'unlisted') AND ${projects.status} <> 'draft'`,
                 // A deleted account's projects leave the feed with it.
                 isNull(profiles.deletedAt),
-                ne(projects.status, 'draft'),
                 // Microsecond-exact: a millisecond cursor would skip rows created in the same millisecond.
                 cursor
                     ? sql<boolean>`(${projects.createdAt}, ${projects.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
@@ -188,10 +187,8 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
                 projectId: projectOpenRoles.projectId,
                 role: projectOpenRoles.role,
                 title: projectOpenRoles.title,
-                description: projectOpenRoles.description,
                 count: projectOpenRoles.count,
                 filled: projectOpenRoles.filled,
-                skills: projectOpenRoles.skills,
             })
             .from(projectOpenRoles)
             .where(inArray(projectOpenRoles.projectId, projectIds))

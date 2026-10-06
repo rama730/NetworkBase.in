@@ -567,6 +567,21 @@ async function hasProjectSprintDescriptionColumn() {
   return sprintDescriptionColumnSupport;
 }
 
+/**
+ * A follow only changes a count: refresh the project's own page. The Discover feed keeps its cache
+ * (the client patches the count it shows; the shared feed catches up within a minute).
+ */
+const revalidateProjectFollowers = async (projectId: string) => {
+  revalidatePath(`/projects/${projectId}`);
+  revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
+  try {
+    const [project] = await db.select({ slug: projects.slug }).from(projects).where(eq(projects.id, projectId)).limit(1);
+    if (project?.slug) revalidatePath(`/projects/${project.slug}`);
+  } catch {
+    // Ignore slug revalidation errors on legacy schemas.
+  }
+};
+
 const revalidateProjectPaths = async (projectId: string) => {
   try {
     await invalidatePublicProjectsFeedCache(projectId);
@@ -599,6 +614,7 @@ export async function invalidateProjectPublicCaches(projectId: string) {
   const feed = await invalidatePublicProjectsFeedCache(projectId);
   revalidatePath("/discover");
   revalidatePath("/my-profile");
+  revalidateTag(DISCOVER_ANON_CACHE_TAG, "max");
   revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
   revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, "max");
   return feed;
@@ -6281,7 +6297,7 @@ export async function toggleProjectFollowAction(
       return row?.followersCount ?? 0;
     });
 
-    await revalidateProjectPaths(projectId);
+    await revalidateProjectFollowers(projectId);
     return { success: true, followersCount };
   } catch (error) {
     if (!isMissingCounterColumn(error, "followers_count")) {
@@ -6320,7 +6336,7 @@ export async function toggleProjectFollowAction(
         .select({ count: sql<number>`count(*)` })
         .from(projectFollows)
         .where(eq(projectFollows.projectId, projectId));
-      await revalidateProjectPaths(projectId);
+      await revalidateProjectFollowers(projectId);
       return { success: true, followersCount: Number(countRow?.count || 0) };
     } catch (fallbackError) {
       console.error("Error toggling follow (fallback):", fallbackError);
