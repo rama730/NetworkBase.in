@@ -9,7 +9,10 @@ import {
     PUBLIC_PROJECTS_FEED_DEFAULT_LIMIT,
     PUBLIC_PROJECTS_FEED_MAX_LIMIT,
     readPublicProjectsFeedCache,
+    withoutBlockedUsers,
 } from '@/lib/projects/public-feed-service'
+import type { PublicProjectsFeedItem } from '@/lib/projects/public-feed'
+import { getViewerAuthContext } from '@/lib/server/viewer-context'
 import { logger } from '@/lib/logger'
 import { getTrustedRequestIp } from '@/lib/security/request-ip'
 
@@ -47,18 +50,28 @@ function getRequestIp(request: Request) {
     return `missing-ip:${fingerprint}`
 }
 
-function cacheHeaders(state: 'fresh' | 'stale') {
+// A project made private must leave shared caches quickly: a minute fresh, a minute stale at most.
+// A signed-in response is filtered for that viewer (blocks), so it is never shared.
+function cacheHeaders(state: 'fresh' | 'stale', viewerId: string | null) {
+    if (viewerId) {
+        return { 'Cache-Control': 'private, no-store', 'X-Cache-State': state }
+    }
     if (state === 'stale') {
         return {
-            'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=300',
+            'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
             'X-Cache-State': 'stale',
         }
     }
 
     return {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60',
         'X-Cache-State': 'fresh',
     }
+}
+
+/** The ETag covers the whole body, so any change to any project (or the cursor) is a new tag. */
+function feedETag(body: { projects: PublicProjectsFeedItem[]; nextCursor: string | null }) {
+    return `W/"feed-${createHash('sha1').update(JSON.stringify(body)).digest('hex').slice(0, 20)}"`
 }
 
 function logProjectsRequest(
@@ -119,80 +132,42 @@ export async function GET(request: Request) {
     }
 
     const limit = queryParse.data.limit
-    const cursor = decodePublicProjectsCursor(queryParse.data.cursor ?? null)
-    const cached = await readPublicProjectsFeedCache(limit, cursor)
-    const freshCache = cached.fresh
-    const staleCache = cached.stale
-    if (freshCache) {
-        const firstProject = freshCache.value.projects[0];
-        const feedETag = firstProject
-            ? `W/"feed-${firstProject.id}-${firstProject.updated_at || '0'}-${freshCache.value.projects.length}"`
-            : `W/"feed-empty"`;
-        const ifNoneMatch = request.headers.get("if-none-match");
-        if (ifNoneMatch && (ifNoneMatch === feedETag || ifNoneMatch.includes(feedETag))) {
-            return new Response(null, {
-                status: 304,
-                headers: {
-                    ETag: feedETag,
-                    ...cacheHeaders('fresh'),
-                    'X-Request-Id': requestId,
-                },
-            });
-        }
-
-        logProjectsRequest(request, {
-            requestId,
-            startedAt,
-            status: 200,
-            success: true,
-            source: 'redis',
-            cacheState: 'fresh',
-        })
-        return jsonSuccess(
-            {
-                projects: freshCache.value.projects,
-                nextCursor: freshCache.value.nextCursor,
-                source: 'redis',
-            },
-            undefined,
-            {
-                headers: {
-                    ETag: feedETag,
-                    ...cacheHeaders('fresh'),
-                    'X-Request-Id': requestId,
-                },
-            },
-        )
+    const rawCursor = queryParse.data.cursor ?? null
+    const cursor = decodePublicProjectsCursor(rawCursor)
+    // A cursor that doesn't decode is a bad request, not page 1 again (that would repeat the feed).
+    if (rawCursor && !cursor) {
+        logProjectsRequest(request, { requestId, startedAt, status: 400, success: false, source: 'request', errorCode: 'BAD_REQUEST' })
+        return jsonError('Invalid pagination cursor', 400, 'BAD_REQUEST')
     }
+
+    const viewerId = (await getViewerAuthContext().catch(() => null))?.userId ?? null
+
+    const respond = async (
+        page: { projects: PublicProjectsFeedItem[]; nextCursor: string | null },
+        state: 'fresh' | 'stale',
+        source: 'redis' | 'redis-stale' | 'database',
+        cacheState: 'fresh' | 'stale' | 'miss',
+    ) => {
+        const body = { projects: await withoutBlockedUsers(page.projects, viewerId), nextCursor: page.nextCursor }
+        const etag = feedETag(body)
+        const headers = { ETag: etag, ...cacheHeaders(state, viewerId), 'X-Request-Id': requestId }
+        const ifNoneMatch = request.headers.get('if-none-match')
+        if (ifNoneMatch && ifNoneMatch.split(',').map((tag) => tag.trim()).includes(etag)) {
+            return new Response(null, { status: 304, headers })
+        }
+        logProjectsRequest(request, { requestId, startedAt, status: 200, success: true, source, cacheState })
+        return jsonSuccess({ ...body, source }, undefined, { headers })
+    }
+
+    const cached = await readPublicProjectsFeedCache(limit, cursor)
+    if (cached.fresh) return respond(cached.fresh.value, 'fresh', 'redis', 'fresh')
+    const staleCache = cached.stale
 
     const rateLimitKey = `api:v1:projects:get:${getRequestIp(request)}`
     const rateLimit = await consumeRateLimitForRoute('publicRead', rateLimitKey, 180, 60)
 
     if (!rateLimit.allowed) {
-        if (rateLimit.degraded && staleCache) {
-            logProjectsRequest(request, {
-                requestId,
-                startedAt,
-                status: 200,
-                success: true,
-                source: 'redis',
-                cacheState: 'stale',
-            })
-            return jsonSuccess(
-                {
-                    projects: staleCache.value.projects,
-                    nextCursor: staleCache.value.nextCursor,
-                    source: 'redis-stale',
-                },
-                undefined,
-                {
-                    headers: {
-                        ...cacheHeaders('stale'),
-                        'X-Request-Id': requestId,
-                    },
-                },
-            )
-        }
+        if (rateLimit.degraded && staleCache) return respond(staleCache.value, 'stale', 'redis-stale', 'stale')
 
         const status = rateLimit.degraded ? 503 : 429
         logProjectsRequest(request, {
@@ -213,46 +188,7 @@ export async function GET(request: Request) {
 
     try {
         const payload = await getPublicProjectsFeedPage(limit, cursor)
-
-        const firstProject = payload.projects[0];
-        const feedETag = firstProject
-            ? `W/"feed-${firstProject.id}-${firstProject.updated_at || '0'}-${payload.projects.length}"`
-            : `W/"feed-empty"`;
-        const ifNoneMatch = request.headers.get("if-none-match");
-        if (ifNoneMatch && (ifNoneMatch === feedETag || ifNoneMatch.includes(feedETag))) {
-            return new Response(null, {
-                status: 304,
-                headers: {
-                    ETag: feedETag,
-                    ...cacheHeaders(payload.cacheState === 'stale' ? 'stale' : 'fresh'),
-                    'X-Request-Id': requestId,
-                },
-            });
-        }
-
-        logProjectsRequest(request, {
-            requestId,
-            startedAt,
-            status: 200,
-            success: true,
-            source: payload.source,
-            cacheState: payload.cacheState,
-        })
-        return jsonSuccess(
-            {
-                projects: payload.projects,
-                nextCursor: payload.nextCursor,
-                source: payload.source,
-            },
-            undefined,
-            {
-                headers: {
-                    ETag: feedETag,
-                    ...cacheHeaders(payload.cacheState === 'stale' ? 'stale' : 'fresh'),
-                    'X-Request-Id': requestId,
-                },
-            },
-        )
+        return respond(payload, payload.cacheState === 'stale' ? 'stale' : 'fresh', payload.source, payload.cacheState)
     } catch (error) {
         if (staleCache) {
             logger.warn('api.v1.projects.origin_failed_serving_stale', {
@@ -260,28 +196,7 @@ export async function GET(request: Request) {
                 route: getRequestPath(request),
                 error: error instanceof Error ? error.message : String(error),
             })
-            logProjectsRequest(request, {
-                requestId,
-                startedAt,
-                status: 200,
-                success: true,
-                source: 'redis',
-                cacheState: 'stale',
-            })
-            return jsonSuccess(
-                {
-                    projects: staleCache.value.projects,
-                    nextCursor: staleCache.value.nextCursor,
-                    source: 'redis-stale',
-                },
-                undefined,
-                {
-                    headers: {
-                        ...cacheHeaders('stale'),
-                        'X-Request-Id': requestId,
-                    },
-                },
-            )
+            return respond(staleCache.value, 'stale', 'redis-stale', 'stale')
         }
 
         logger.error('api.v1.projects.error', {

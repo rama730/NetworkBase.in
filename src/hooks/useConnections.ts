@@ -314,6 +314,8 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
         historyFilters?: HistoryFilters;
         requestSortBy?: 'recent' | 'mutual' | 'oldest';
         initialPage?: FeedPage<FeedItemByTab[TTab]>;
+        /** false skips connection stats and owned-project ids (a rail needs neither). */
+        includeMeta?: boolean;
     },
 ) {
     const limit = options?.limit ?? 20;
@@ -324,6 +326,7 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
     const historyFilters = options?.historyFilters;
     const requestSortBy = options?.requestSortBy;
     const initialPage = options?.initialPage;
+    const includeMeta = options?.includeMeta;
 
     // 2J: Include filters and requestSortBy in queryKey for cache separation
     const filtersKey = filters ? JSON.stringify(filters) : '';
@@ -341,6 +344,7 @@ export function useConnectionsFeed<TTab extends ConnectionsFeedTab>(
                 filters,
                 historyFilters,
                 requestSortBy,
+                includeMeta,
             } satisfies ConnectionsFeedInput);
 
             return normalizeFeedResult(result as FeedPage<FeedItemByTab[TTab]> | FeedErrorPage);
@@ -367,9 +371,13 @@ export function useSuggestedPeople(
     search?: string,
     filters?: DiscoverFilters,
     initialPage?: FeedPage<DiscoverConnectionItem>,
+    includeMeta?: boolean,
 ) {
-    return useConnectionsFeed('discover', { limit, search, filters, initialPage });
+    return useConnectionsFeed('discover', { limit, search, filters, initialPage, includeMeta });
 }
+
+/** Discover's rail: 3 people you can see and connect with; no stats. Same filters as the server render. */
+export const DISCOVER_RAIL_FILTERS: DiscoverFilters = { openProfilesOnly: true };
 
 function mapIncomingRequest(item: RequestConnectionItem): PendingIncomingRequest {
     return {

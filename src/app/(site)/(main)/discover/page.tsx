@@ -1,12 +1,11 @@
-import { Suspense } from "react";
-import { DiscoverRouteSkeleton } from "@/components/discover/DiscoverRouteSkeleton";
 import DiscoverClient from "@/components/discover/DiscoverClient";
-import { PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS } from "@/constants/discover";
 import { getViewerAuthContext, toClientViewer } from "@/lib/server/viewer-context";
-import { getPublicProjectsFeedPage } from "@/lib/projects/public-feed-service";
+import { getPublicProjectsFeedPage, withoutBlockedUsers } from "@/lib/projects/public-feed-service";
 import { mapPublicProjectToDiscoverProject } from "@/lib/projects/public-feed";
 import { getConnectionsFeed } from "@/app/actions/connections";
-import type { ConnectionFeedPage, DiscoverConnectionItem } from "@/hooks/useConnections";
+import { DISCOVER_RAIL_FILTERS, type ConnectionFeedPage, type DiscoverConnectionItem } from "@/hooks/useConnections";
+import { isDefaultDiscoverQuery, parseDiscoverQuery } from "@/lib/discover/query";
+import { logger } from "@/lib/logger";
 
 import { buildRouteMetadata } from "@/lib/metadata/route-metadata";
 
@@ -21,39 +20,42 @@ export function generateMetadata() {
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
-async function ResolvedHub({ searchParams }: { searchParams?: SearchParams }) {
+const INITIAL_PAGE_SIZE = 18;
+
+/** The route's loading.tsx shows the skeleton while this resolves. */
+export default async function DiscoverPage({ searchParams }: { searchParams?: SearchParams }) {
     const viewer = await getViewerAuthContext();
     const { user } = viewer;
-    const initialPageSize = 18;
     // Use the exact suggestion feed that powers /people. A separate “rail-only”
     // filter made the Discovery sidebar empty even when the Network page had
     // eligible people to recommend.
     const peopleSuggestionsPromise = user
-        ? getConnectionsFeed({ tab: 'discover', limit: 3, includeMeta: false })
+        ? getConnectionsFeed({ tab: 'discover', limit: 3, includeMeta: false, filters: DISCOVER_RAIL_FILTERS }).catch((error) => {
+            // The rail is extra: without it the page still renders (the rail fetches on its own).
+            logger.warn('discover.people_rail_ssr_failed', { error: error instanceof Error ? error.message : String(error) });
+            return null;
+        })
         : Promise.resolve(null);
-    
-    let resolvedSearchParams: Record<string, any> = {};
-    if (searchParams) {
-        resolvedSearchParams = await searchParams;
-    }
-    
-    const first = (value: unknown) => Array.isArray(value) ? value[0] : value;
-    const hasFilters =
-        (first(resolvedSearchParams.view) && first(resolvedSearchParams.view) !== "all") ||
-        (first(resolvedSearchParams.status) && first(resolvedSearchParams.status) !== PROJECT_STATUS.ALL) ||
-        (first(resolvedSearchParams.type) && first(resolvedSearchParams.type) !== PROJECT_TYPE.ALL) ||
-        (first(resolvedSearchParams.sort) && first(resolvedSearchParams.sort) !== SORT_OPTIONS.NEWEST) ||
-        Boolean(first(resolvedSearchParams.tech) || first(resolvedSearchParams.q));
-    
+
+    const params = (await searchParams) ?? {};
+    const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
+    const query = parseDiscoverQuery((key) => first(params[key]));
+
     let initialData = null;
     // ponytail: SSR initial feed page gives 0 CSR waterfall for canonical /discover. ceiling: default unfiltered feed. upgrade: SSR top filter combinations if SEO/traffic demands.
-    if (!hasFilters) {
-        const initialFeedPage = await getPublicProjectsFeedPage(initialPageSize, null);
-        initialData = {
-            projects: initialFeedPage.projects.map(mapPublicProjectToDiscoverProject),
-            nextCursor: initialFeedPage.nextCursor || undefined,
-            hasMore: Boolean(initialFeedPage.nextCursor),
-        };
+    if (isDefaultDiscoverQuery(query)) {
+        try {
+            const initialFeedPage = await getPublicProjectsFeedPage(INITIAL_PAGE_SIZE, null);
+            const visible = await withoutBlockedUsers(initialFeedPage.projects, user?.id ?? null);
+            initialData = {
+                projects: visible.map(mapPublicProjectToDiscoverProject),
+                nextCursor: initialFeedPage.nextCursor || undefined,
+                hasMore: Boolean(initialFeedPage.nextCursor),
+            };
+        } catch (error) {
+            // The feed loads in the browser instead (with its own error and Retry).
+            logger.warn('discover.feed_ssr_failed', { error: error instanceof Error ? error.message : String(error) });
+        }
     }
 
     const peopleSuggestionsResult = await peopleSuggestionsPromise;
@@ -76,19 +78,13 @@ async function ResolvedHub({ searchParams }: { searchParams?: SearchParams }) {
         avatarUrl: clientViewer.avatarUrl || undefined,
     } : null;
 
-    return <DiscoverClient
-        returnUserData={hubUser}
-        initialProjectsPage={initialData || undefined}
-        initialPeopleSuggestions={initialPeopleSuggestions}
-    />;
-}
-
-export default function HubPage({ searchParams }: { searchParams?: SearchParams }) {
     return (
-        <div className="h-full min-h-0 overflow-hidden bg-zinc-50 dark:bg-zinc-950 flex flex-col flex-1">
-            <Suspense fallback={<DiscoverRouteSkeleton />}>
-                <ResolvedHub searchParams={searchParams} />
-            </Suspense>
+        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+            <DiscoverClient
+                returnUserData={hubUser}
+                initialProjectsPage={initialData || undefined}
+                initialPeopleSuggestions={initialPeopleSuggestions}
+            />
         </div>
     );
 }

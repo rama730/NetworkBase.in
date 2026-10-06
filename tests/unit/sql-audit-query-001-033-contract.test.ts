@@ -10,7 +10,7 @@ test("QRY-001..006 hub pagination keeps filters, rejects cursors, and has no dea
   const action = source("src/app/actions/discover.ts");
   const hub = source("src/lib/data/discover.ts");
 
-  assert.match(action, /includedIds:\s*filters\.includedIds/);
+  assert.match(action, /sort: z\.enum\(/);
   assert.match(hub, /throw new InvalidDiscoverCursorError\(\)/);
   assert.match(hub, /\.limit\(pageSize \+ 1\)/);
   assert.match(hub, /while \(pageRows\.length < pageSize/);

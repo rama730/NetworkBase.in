@@ -1,7 +1,7 @@
 'use server';
 
-import { FILTER_VIEWS, type FilterView } from '@/constants/discover';
-import { consumeRateLimit } from '@/lib/security/rate-limit';
+import { DISCOVER_ANON_CACHE_TAG, FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS, type FilterView } from '@/constants/discover';
+import { consumeRateLimit, consumeRateLimitForRoute } from '@/lib/security/rate-limit';
 import { getDiscoverProjects, InvalidDiscoverCursorError } from '@/lib/data/discover';
 import { getCachedData, cacheData } from '@/lib/redis';
 import { DISCOVER_RANKING_SCHEMA_VERSION } from '@/lib/discover/ranking-config';
@@ -14,21 +14,21 @@ import { runInFlightDeduped } from '@/lib/utils/inflight-dedupe';
 import { getTrustedHeadersIp } from '@/lib/security/request-ip';
 import { normalizeSearchQuery, tokenizeSearchQuery } from '@/lib/search/query';
 import { recordGlobalSearchMetric } from '@/lib/search/observability';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 const hubSearchInputSchema = z.object({
     filters: z.object({
-        status: z.string().trim().min(1).max(40),
-        type: z.string().trim().min(1).max(60),
+        // Only values Discover offers: anything else would reach a Postgres enum and fail there.
+        status: z.enum([PROJECT_STATUS.ALL, PROJECT_STATUS.IN_PROGRESS, PROJECT_STATUS.LAUNCHED]),
+        type: z.enum(Object.values(PROJECT_TYPE) as [string, ...string[]]),
         tech: z.array(z.string().trim().min(1).max(100)).max(20),
-        sort: z.string().trim().min(1).max(40),
+        sort: z.enum(Object.values(SORT_OPTIONS) as [string, ...string[]]),
         search: z.string().max(200).optional(),
-        includedIds: z.array(z.string().trim().min(1).max(100)).max(200).optional(),
-        hideOpened: z.boolean().optional(),
     }).strict(),
     cursor: z.string().max(1_000).optional(),
     limit: z.number().int().min(1).max(60),
-    view: z.enum(['all', 'trending', 'recommendations', 'my_projects', 'following']),
+    view: z.enum([FILTER_VIEWS.ALL, FILTER_VIEWS.TRENDING, FILTER_VIEWS.RECOMMENDATIONS, FILTER_VIEWS.FOLLOWING]),
     surface: z.enum(['full', 'preview']),
 }).strict();
 
@@ -69,8 +69,24 @@ export async function fetchDiscoverProjectsAction(
     try {
         const { user } = await getViewerAuthContext();
         const headerStore = await headers();
-        const ipAddress = getTrustedHeadersIp(headerStore) ?? 'unknown';
+        // No trusted IP: a browser fingerprint, so anonymous visitors don't all share one bucket.
+        const ipAddress = getTrustedHeadersIp(headerStore)
+            ?? `fp:${createHash('sha1').update(`${headerStore.get('user-agent') ?? ''}|${headerStore.get('accept-language') ?? ''}`).digest('hex').slice(0, 16)}`;
         const viewerKey = user?.id || `anon:${ipAddress}`;
+
+        const readLimit = await consumeRateLimitForRoute('publicRead', `discover:${viewerKey}`, 180, 60);
+        if (!readLimit.allowed) {
+            recordPreview('rate-limited', 0);
+            return {
+                success: false as const,
+                projects: [],
+                hasMore: false,
+                schemaVersion: DISCOVER_RANKING_SCHEMA_VERSION,
+                code: 'RATE_LIMITED' as const,
+                retryAfterMs: 5_000,
+                error: 'Too many requests. Please wait a moment and try again.',
+            };
+        }
 
         if (normalizedSearch.length > 0) {
             const searchLimit = await consumeRateLimit(`discover-search:${viewerKey}`, 90, 60);
@@ -97,10 +113,6 @@ export async function fetchDiscoverProjectsAction(
             tech: Array.isArray(filters.tech) ? Array.from(new Set(filters.tech)).sort() : [],
             sort: filters.sort || 'newest',
             search: normalizedSearch || undefined,
-            includedIds: filters.includedIds?.length
-                ? Array.from(new Set(filters.includedIds)).sort()
-                : undefined,
-            hideOpened: filters.hideOpened || false,
         };
 
         const shouldUseAnonEdgeCache = !user && !normalizedCursor;
@@ -113,7 +125,7 @@ export async function fetchDiscoverProjectsAction(
                     surface,
                 }),
                 ['discover-anon', JSON.stringify({ normalizedFilters, normalizedLimit, normalizedView, surface })],
-                { revalidate: 45 },
+                { revalidate: 45, tags: [DISCOVER_ANON_CACHE_TAG] },
             );
 
             const result = await getCachedAnonymousDiscoverPage();
@@ -169,7 +181,8 @@ export async function fetchDiscoverProjectsAction(
             };
 
             if (cacheKey && result && result.projects.length > 0) {
-                await cacheData(cacheKey, response, 180);
+                // Short: a project made private shouldn't linger in someone's search preview.
+                await cacheData(cacheKey, response, 60);
             }
 
             return {

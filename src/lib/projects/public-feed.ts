@@ -54,11 +54,17 @@ export type PublicProjectsFeedItem = {
     }
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Only a real timestamp and a project id: anything else would mint cache keys or fail in SQL. */
 function isValidCursor(value: unknown): value is PublicProjectsCursor {
-    return !!value
-        && typeof value === 'object'
-        && typeof (value as PublicProjectsCursor).createdAt === 'string'
-        && typeof (value as PublicProjectsCursor).id === 'string'
+    if (!value || typeof value !== 'object') return false
+    const { createdAt, id } = value as PublicProjectsCursor
+    return typeof createdAt === 'string'
+        && createdAt.length <= 40
+        && Number.isFinite(Date.parse(createdAt))
+        && typeof id === 'string'
+        && UUID.test(id)
 }
 
 export function encodePublicProjectsCursor(cursor: PublicProjectsCursor | null): string | null {
@@ -80,7 +86,8 @@ export function decodePublicProjectsCursor(cursor: string | null | undefined): P
 
 export function buildPublicProjectsCacheKey(limit: number, cursor: PublicProjectsCursor | null) {
     const suffix = cursor ? `${cursor.createdAt}:${cursor.id}` : 'origin'
-    return `projects:public:v4:limit:${limit}:cursor:${suffix}`
+    // v5: owners masked and members-only links removed on the server.
+    return `projects:public:v5:limit:${limit}:cursor:${suffix}`
 }
 
 function normalizeProjectStatus(status: string | null): Project['status'] {

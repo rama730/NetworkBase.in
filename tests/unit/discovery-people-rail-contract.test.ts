@@ -38,7 +38,9 @@ test("rail recommendations use the same privacy-safe source as the connection li
   const profile = source("src/app/actions/profile.ts");
   const hubPage = source("src/app/(site)/(main)/discover/page.tsx");
 
-  assert.match(hubPage, /getConnectionsFeed\(\{ tab: 'discover', limit: 3, includeMeta: false \}\)/);
+  assert.match(hubPage, /getConnectionsFeed\(\{ tab: 'discover', limit: 3, includeMeta: false, filters: DISCOVER_RAIL_FILTERS \}\)/);
+  // The rail shows only people you can see and connect with.
+  assert.match(connections, /openProfilesOnly/);
   assert.doesNotMatch(connections, /recommendationMode/);
   assert.match(connections, /applySuggestedProfilePrivacy\(user\.id, items\)/);
   assert.match(connections, /NOT EXISTS \(\s*SELECT 1 FROM \$\{connections\} existing/);

@@ -116,9 +116,8 @@ const DiscoverClient = memo(function DiscoverClient({ returnUserData, initialPro
             tech: selectedTech,
             sort: effectiveSort,
             search, // Connected Global Search
-            hideOpened,
         };
-    }, [filterView, hideOpened, search, selectedTech, sortBy, statusFilter, typeFilter]);
+    }, [filterView, search, selectedTech, sortBy, statusFilter, typeFilter]);
 
     // --- Data Fetching ---
     const {

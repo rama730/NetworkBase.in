@@ -27,7 +27,6 @@ function canUsePublicProjectsFeed(filters: DiscoverFilters, view: FilterView) {
         && (!filters.sort || filters.sort === SORT_OPTIONS.NEWEST)
         && (!filters.tech || filters.tech.length === 0)
         && !filters.search
-        && !filters.includedIds
 }
 
 async function fetchPublicProjectsPage(cursor: string | undefined) {
@@ -130,8 +129,5 @@ export function useDiscoverProjects(
 
 function isDefaultFilters(filters: DiscoverFilters) {
     // Check if filters match the default fetched server-side
-    return (
-        canUsePublicProjectsFeed(filters, FILTER_VIEWS.ALL) &&
-        !filters.hideOpened
-    );
+    return canUsePublicProjectsFeed(filters, FILTER_VIEWS.ALL);
 }

@@ -1,9 +1,10 @@
-import { and, desc, eq, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
 import { isMissingRelationError } from '@/lib/db/errors'
-import { profiles, projectOpenRoles, projects, projectMembers } from '@/lib/db/schema'
+import { connections, profiles, projectOpenRoles, projects, projectMembers } from '@/lib/db/schema'
 import { logger } from '@/lib/logger'
+import { filterProjectLinksForAudience } from '@/lib/projects/social-links'
 import { getCacheEnvelope, cacheStaleableData, isCacheStale, redis } from '@/lib/redis'
 import {
     buildPublicProjectsCacheKey,
@@ -36,6 +37,8 @@ type PublicProjectRow = {
     externalLinks: any | null
     githubRepoUrl: string | null
     createdAt: Date
+    /** created_at as text with microseconds, for the cursor. */
+    cursorAt: string
     updatedAt: Date
     profiles: {
         id: string
@@ -64,7 +67,12 @@ export type PublicProjectsFeedPage = {
     cacheState: 'fresh' | 'stale' | 'miss'
 }
 
+/**
+ * The shared feed is one cached payload for every viewer, so it is shaped for the most restricted one
+ * (signed out): a non-public owner is masked here, on the server, and members-only links never leave it.
+ */
 function mapProjectRow(row: PublicProjectRow, openRoles: PublicProjectRoleRow[], members: any[]): PublicProjectsFeedItem {
+    const ownerIsPublic = (row.profiles.visibility || 'public') === 'public'
     return {
         id: row.id,
         slug: row.slug,
@@ -81,7 +89,7 @@ function mapProjectRow(row: PublicProjectRow, openRoles: PublicProjectRoleRow[],
         followers_count: row.followersCount ?? 0,
         saves_count: row.savesCount ?? 0,
         cover_image: row.coverImage,
-        external_links: row.externalLinks,
+        external_links: filterProjectLinksForAudience(row.externalLinks, false),
         github_repo_url: row.githubRepoUrl,
         created_at: row.createdAt.toISOString(),
         updated_at: row.updatedAt.toISOString(),
@@ -100,7 +108,9 @@ function mapProjectRow(row: PublicProjectRow, openRoles: PublicProjectRoleRow[],
             membership_role: m.role,
             profiles: m.profiles,
         })),
-        profiles: row.profiles,
+        profiles: ownerIsPublic
+            ? row.profiles
+            : { id: row.profiles.id, username: null, full_name: null, avatar_url: null, visibility: row.profiles.visibility },
     }
 }
 
@@ -139,6 +149,7 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
             externalLinks: projects.externalLinks,
             githubRepoUrl: projects.githubRepoUrl,
             createdAt: projects.createdAt,
+            cursorAt: sql<string>`to_char(${projects.createdAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
             updatedAt: projects.updatedAt,
             profiles: {
                 id: profiles.id,
@@ -154,15 +165,12 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
             and(
                 or(eq(projects.visibility, 'public'), eq(projects.visibility, 'unlisted')),
                 isNull(projects.deletedAt),
+                // A deleted account's projects leave the feed with it.
+                isNull(profiles.deletedAt),
                 ne(projects.status, 'draft'),
+                // Microsecond-exact: a millisecond cursor would skip rows created in the same millisecond.
                 cursor
-                    ? or(
-                        lt(projects.createdAt, new Date(cursor.createdAt)),
-                        and(
-                            eq(projects.createdAt, new Date(cursor.createdAt)),
-                            sql<boolean>`${projects.id} < ${cursor.id}`,
-                        ),
-                    )
+                    ? sql<boolean>`(${projects.createdAt}, ${projects.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
                     : undefined,
             ),
         )
@@ -223,7 +231,8 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
             })
             .from(projectMembers)
             .innerJoin(profiles, eq(projectMembers.userId, profiles.id))
-            .where(inArray(projectMembers.projectId, projectIds))
+            // Only members anyone may see: public profiles that still exist.
+            .where(and(inArray(projectMembers.projectId, projectIds), eq(profiles.visibility, 'public'), isNull(profiles.deletedAt)))
             .catch(() => [])
 
     const membersByProjectId = new Map<string, any[]>()
@@ -239,7 +248,7 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
     const lastRow = pageRows.at(-1) ?? null
     const nextCursor = hasMore && lastRow
         ? encodePublicProjectsCursor({
-            createdAt: lastRow.createdAt.toISOString(),
+            createdAt: lastRow.cursorAt,
             id: lastRow.id,
         })
         : null
@@ -301,6 +310,23 @@ export async function invalidatePublicProjectsFeedCache(projectId?: string | nul
     }
 
     return { redisDeleted }
+}
+
+/**
+ * The shared feed minus anyone the viewer blocked or is blocked by (owner or collaborator). Runs after
+ * the cache, so the cached payload stays one for everyone.
+ */
+export async function withoutBlockedUsers(feed: PublicProjectsFeedItem[], viewerId: string | null): Promise<PublicProjectsFeedItem[]> {
+    if (!viewerId || feed.length === 0) return feed
+    const rows = await db
+        .select({ requesterId: connections.requesterId, addresseeId: connections.addresseeId })
+        .from(connections)
+        .where(and(eq(connections.status, 'blocked'), or(eq(connections.requesterId, viewerId), eq(connections.addresseeId, viewerId))))
+    if (rows.length === 0) return feed
+    const blocked = new Set(rows.map((row) => (row.requesterId === viewerId ? row.addresseeId : row.requesterId)))
+    return feed
+        .filter((project) => !blocked.has(project.owner_id))
+        .map((project) => ({ ...project, collaborators: project.collaborators.filter((member) => !blocked.has(member.user_id)) }))
 }
 
 export async function getPublicProjectsFeedPage(limit: number, cursor: PublicProjectsCursor | null): Promise<PublicProjectsFeedPage> {

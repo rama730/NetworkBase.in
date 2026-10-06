@@ -27,6 +27,7 @@
     "check:db-catalog-drift": "tsx scripts/check-db-catalog-drift.ts",
     "check:chat:db": "tsx scripts/check-chat-database.ts",
     "check:chat:actions": "tsx scripts/check-chat-actions.ts",
+    "check:discover": "tsx scripts/check-discover-feed.ts",
     "skills:generate": "tsx scripts/generate-skill-catalog.ts",
     "skills:backfill": "node --env-file=.env.local --import tsx scripts/backfill-market-skills.ts",
     "check:skills:catalog": "tsx scripts/check-skill-catalog.ts",

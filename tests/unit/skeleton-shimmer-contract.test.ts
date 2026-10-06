@@ -37,7 +37,7 @@ test("shared skeleton shimmer contract", async (t) => {
   });
 
   await t.test("keeps the Discovery route fallback aligned with its feed and people rail", () => {
-    const hubPage = read("src/app/(site)/(main)/discover/page.tsx");
+    const hubPage = read("src/app/(site)/(main)/discover/loading.tsx");
     const hubSkeleton = read("src/components/discover/DiscoverRouteSkeleton.tsx");
 
     assert.match(hubPage, /DiscoverRouteSkeleton/);
