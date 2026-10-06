@@ -12,6 +12,8 @@ import {
     canReadProjectTaskFiles,
     assertTaskFileNodeVisible,
     ensureSystemRootFolder,
+    projectContentNodeSql,
+    visibleFileNodesSql,
 } from "@/lib/files/internal-helpers";
 import {
     normalizeSearchQuery,
@@ -210,12 +212,12 @@ export async function getProjectNodes(
         : undefined;
     // ponytail: exact parentId scopes directory reads, allowing managed task subtrees while root reads stay public. ceiling: directory parentId scoping. upgrade: granular ACL evaluation per node if custom per-node ACLs introduced.
     const scopeCondition = !canReadProjectTaskFiles(readAccess)
-        ? sql`${projectNodes.taskId} IS NULL AND ${projectNodes.path} NOT LIKE '/.system%'`
+        ? projectContentNodeSql
         : options?.taskId
         ? sql`(${projectNodes.taskId} IS NULL OR ${projectNodes.taskId} = ${options.taskId})`
         : normalizedQuery || parentId
             ? sql`true`
-        : sql`${projectNodes.taskId} IS NULL AND ${projectNodes.path} NOT LIKE '/.system%'`;
+        : projectContentNodeSql;
     const finishPage = async (rawNodes: ProjectNodeWithAttribution[]) => {
         const nodes = await enrichNodesWithLatestVersionAttribution(rawNodes);
         let nextCursor: string | null = null;
@@ -325,7 +327,7 @@ export async function getNodesByIds(projectId: string, nodeIds: string[]) {
             where: and(
                 eq(projectNodes.projectId, projectId),
                 isNull(projectNodes.deletedAt),
-                canReadProjectTaskFiles(access) ? sql`true` : sql`${projectNodes.taskId} IS NULL AND ${projectNodes.path} NOT LIKE '/.system%'`,
+                visibleFileNodesSql(access),
                 inArray(projectNodes.id, unique.slice(0, 200)),
             ),
             limit: 200,

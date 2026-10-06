@@ -5,6 +5,7 @@ import {
     isProjectPubliclyReadableVisibility,
     type ProjectVisibilityInput,
 } from "@/lib/projects/project-visibility";
+import { isProjectTabVisibleToViewer, type ProjectPublicTabId } from "@/lib/projects/settings-policies";
 import { and, eq, isNull, inArray, or, sql, type SQL } from "drizzle-orm";
 
 // `projects.visibility` has a database default but is not declared NOT NULL,
@@ -47,6 +48,35 @@ export function computeProjectReadAccess(
 
     if (isDraft) return false;
     return Boolean(isPublic);
+}
+
+/**
+ * The one answer to "may this viewer read this project's <tab> data?":
+ * project readable (not deleted, draft only for owner/members) AND the tab is
+ * public or the viewer is an owner/member. Every loader of tab-scoped data
+ * (tasks, sprints, files, readme/docs, updates, dashboard) gates on this.
+ */
+export function canReadProjectTab(access: ProjectAccess, tab: ProjectPublicTabId): boolean {
+    if (!access.project || !access.canRead) return false;
+    return isProjectTabVisibleToViewer({
+        tabId: tab,
+        isOwnerOrMember: access.isOwner || access.isMember,
+        publicTabVisibility: access.project.publicTabVisibility,
+    });
+}
+
+export class ProjectTabForbiddenError extends Error {
+    constructor(readonly tab: ProjectPublicTabId) {
+        super(`This project's ${tab} are not available to this viewer.`);
+        this.name = "ProjectTabForbiddenError";
+    }
+}
+
+/** Loads access and throws unless the viewer may read `tab` (see canReadProjectTab). */
+export async function assertProjectTabReadAccess(projectId: string, userId: string | null, tab: ProjectPublicTabId) {
+    const access = await getProjectAccessById(projectId, userId);
+    if (!canReadProjectTab(access, tab)) throw new ProjectTabForbiddenError(tab);
+    return access as ProjectAccess & { project: NonNullable<ProjectAccess["project"]> };
 }
 
 export function computeProjectWriteAccess(isOwner: boolean, memberRole: MemberRole) {
