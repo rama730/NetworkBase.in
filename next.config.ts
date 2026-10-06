@@ -131,9 +131,10 @@ const nextConfig: NextConfig = {
   },
 
   compiler: {
+    // The logger and metrics write through console.error/warn/info; strip only stray debug output.
     removeConsole:
       process.env.NODE_ENV === 'production'
-        ? true
+        ? { exclude: ['error', 'warn', 'info'] }
         : false,
   },
 
