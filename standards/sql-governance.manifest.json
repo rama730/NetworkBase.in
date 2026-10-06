@@ -199,7 +199,8 @@
     "drizzle/0195_discover_feed_indexes.sql",
     "drizzle/0196_rls_p0_visibility.sql",
     "drizzle/0197_chat_due_work_leases.sql",
-    "drizzle/0198_account_deletion_phases.sql"
+    "drizzle/0198_account_deletion_phases.sql",
+    "drizzle/0199_browser_roles_read_only.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

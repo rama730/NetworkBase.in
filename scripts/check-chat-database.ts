@@ -55,6 +55,30 @@ async function asUser<T>(userId: string, run: (tx: typeof sql) => Promise<T>, to
   }) as Promise<T>;
 }
 
+const ROLLBACK = Symbol("rollback");
+
+/**
+ * Chat tables are not browser-readable (0199): the UI reads through the chat
+ * RPCs and private broadcasts. The row policies stay as a second layer, so
+ * these checks grant SELECT inside a transaction that is always rolled back.
+ */
+async function asPolicyReader<T>(tables: string[], userId: string, run: (tx: typeof sql) => Promise<T>) {
+  let result: T | undefined;
+  try {
+    await sql.begin(async (connection) => {
+      const tx = connection as unknown as typeof sql;
+      await tx.unsafe(`GRANT SELECT ON ${tables.join(", ")} TO authenticated`);
+      await tx.unsafe("SET LOCAL ROLE authenticated");
+      await tx`SELECT set_config('request.jwt.claim.sub', ${userId}, true)`;
+      result = await run(tx);
+      throw ROLLBACK;
+    });
+  } catch (error) {
+    if (error !== ROLLBACK) throw error;
+  }
+  return result as T;
+}
+
 type SendResult = { channel_seq: number; deduped: boolean; notify?: string[] };
 
 async function send(channel: string, author: string, body: string, options: {
@@ -406,7 +430,7 @@ async function main() {
 
     // --- RLS and grants
     await check("non-member sees no messages, members, or channel rows", async () => {
-      const counts = await asUser(stranger, async (tx) => {
+      const counts = await asPolicyReader(["chat_messages", "chat_channels", "chat_channel_members", "chat_canvases"], stranger, async (tx) => {
         const [m] = await tx`SELECT count(*)::int AS n FROM chat_messages WHERE channel_id = ${general}`;
         const [mem] = await tx`SELECT count(*)::int AS n FROM chat_channel_members WHERE channel_id = ${general}`;
         const [ch] = await tx`SELECT count(*)::int AS n FROM chat_channels WHERE id = ${secret}`;
@@ -415,11 +439,11 @@ async function main() {
       return counts === 0;
     });
     await check("member sees messages", async () => {
-      const n = await asUser(owner, async (tx) => (await tx`SELECT count(*)::int AS n FROM chat_messages WHERE channel_id = ${general}`)[0].n);
+      const n = await asPolicyReader(["chat_messages", "chat_channels", "chat_channel_members", "chat_canvases"], owner, async (tx) => (await tx`SELECT count(*)::int AS n FROM chat_messages WHERE channel_id = ${general}`)[0].n);
       return n > 0;
     });
     await check("project member can see (browse) public channels without joining", async () => {
-      const n = await asUser(admin, async (tx) => (await tx`SELECT count(*)::int AS n FROM chat_channels WHERE id = ${design}`)[0].n);
+      const n = await asPolicyReader(["chat_messages", "chat_channels", "chat_channel_members", "chat_canvases"], admin, async (tx) => (await tx`SELECT count(*)::int AS n FROM chat_channels WHERE id = ${design}`)[0].n);
       return n === 1;
     });
     await check("direct partition access is denied", () =>
@@ -481,8 +505,8 @@ async function main() {
       return row.asset_ids.length === 1 && row.asset_ids[0] === ownAsset && kept.asset_ids[0] === ownAsset;
     });
     await check("canvas: members read it, outsiders do not", async () => {
-      const mine = await asUser(member, async (tx) => (await tx`SELECT count(*)::int AS n FROM chat_canvases WHERE channel_id = ${general}`)[0].n);
-      const theirs = await asUser(stranger, async (tx) => (await tx`SELECT count(*)::int AS n FROM chat_canvases WHERE channel_id = ${general}`)[0].n);
+      const mine = await asPolicyReader(["chat_messages", "chat_channels", "chat_channel_members", "chat_canvases"], member, async (tx) => (await tx`SELECT count(*)::int AS n FROM chat_canvases WHERE channel_id = ${general}`)[0].n);
+      const theirs = await asPolicyReader(["chat_messages", "chat_channels", "chat_channel_members", "chat_canvases"], stranger, async (tx) => (await tx`SELECT count(*)::int AS n FROM chat_canvases WHERE channel_id = ${general}`)[0].n);
       return mine === 1 && theirs === 0;
     });
     await check("canvas: authenticated cannot write it directly", () =>

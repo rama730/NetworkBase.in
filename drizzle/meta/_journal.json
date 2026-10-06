@@ -1373,6 +1373,13 @@
       "when": 1791306191405,
       "tag": "0198_account_deletion_phases",
       "breakpoints": true
+    },
+    {
+      "idx": 196,
+      "version": "7",
+      "when": 1791321838729,
+      "tag": "0199_browser_roles_read_only",
+      "breakpoints": true
     }
   ]
 }
