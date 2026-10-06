@@ -17,7 +17,8 @@ dotenv.config({ path: ".env.local", quiet: true });
 type Loader = (request: string, parent: unknown, isMain: boolean) => unknown;
 const moduleWithLoad = Module as unknown as { _load: Loader };
 const originalLoad = moduleWithLoad._load;
-moduleWithLoad._load = (request, parent, isMain) => (request === "server-only" ? {} : originalLoad(request, parent, isMain));
+export const moduleStubs = new Map<string, unknown>([["server-only", {}]]);
+moduleWithLoad._load = (request, parent, isMain) => (moduleStubs.has(request) ? moduleStubs.get(request) : originalLoad(request, parent, isMain));
 
 const DISPOSABLE_URL = requireDisposableDatabaseUrl("test:db");
 export const sql = postgres(DISPOSABLE_URL, { max: 4, prepare: false, onnotice: () => undefined });

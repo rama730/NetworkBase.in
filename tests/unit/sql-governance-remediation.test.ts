@@ -50,7 +50,9 @@ test("hard-delete retries Auth finalization and retention anonymizes the kept id
   const hardDelete = source("src/lib/account/hard-delete.ts");
   const accountAction = source("src/app/actions/account.ts");
 
-  assert.match(hardDelete, /cleanupStatus !== "completed"[\s\S]*cleanupStatus !== "in_progress"/);
+  // Destructive phase only from storage_scheduled; a failed Auth call keeps db_deleted for retry (COR-053).
+  assert.match(hardDelete, /deletion\.phase !== "storage_scheduled"/);
+  assert.match(hardDelete, /eq\(accountDeletions\.cleanupStatus, "db_deleted"\)/);
   assert.match(hardDelete, /minimalRegistrationRecordRetained: true/);
   const retention = source("src/inngest/functions/data-lifecycle-retention.ts");
   assert.match(retention, /legal_retention_until < now\(\)/);

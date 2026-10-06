@@ -6,6 +6,7 @@ import { Download, Loader2, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { formatCalendarDate } from "@/lib/ui/date-formatting";
+import SecurityStepUpDialog from "@/components/settings/SecurityStepUpDialog";
 import {
     Dialog,
     DialogContent,
@@ -24,6 +25,7 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
     const [confirmText, setConfirmText] = useState("");
     const [reason, setReason] = useState("");
     const [deleting, setDeleting] = useState(false);
+    const [stepUp, setStepUp] = useState<{ methods: Array<"totp" | "recovery_code" | "password">; factorId?: string } | null>(null);
 
     const handleDelete = async () => {
         if (confirmText !== "DELETE") return;
@@ -35,6 +37,11 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
                 body: JSON.stringify({ confirmationText: confirmText, reason: reason || undefined }),
             });
             const payload = await response.json();
+            // The server requires a fresh identity check before deleting.
+            if (response.status === 403 && payload?.errorCode === "STEP_UP_REQUIRED" && payload?.details?.availableMethods?.length) {
+                setStepUp({ methods: payload.details.availableMethods, factorId: payload.details.factorId ?? undefined });
+                return;
+            }
             if (!response.ok || payload?.success === false) {
                 throw new Error(payload?.message || "Failed to delete account");
             }
@@ -49,6 +56,18 @@ export default function AccountDeletionWizard({ onClose, onDeleted }: Props) {
             setDeleting(false);
         }
     };
+
+    if (stepUp) {
+        return <SecurityStepUpDialog
+            open
+            onOpenChange={(open) => { if (!open) setStepUp(null); }}
+            title="Confirm it's you"
+            description="Verify your identity to schedule your account for deletion."
+            availableMethods={stepUp.methods}
+            factorId={stepUp.factorId}
+            onVerified={async () => { setStepUp(null); await handleDelete(); }}
+        />;
+    }
 
     return <Dialog open onOpenChange={(open) => { if (!open && !deleting) onClose(); }}>
         <DialogContent>

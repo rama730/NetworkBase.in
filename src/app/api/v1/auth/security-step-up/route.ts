@@ -14,7 +14,8 @@ import {
 import { logger } from "@/lib/logger";
 import { getProtectedRecoveryCodes } from "@/lib/services/profile-service";
 import { issueSecurityStepUpCookie } from "@/lib/security/step-up";
-import { buildSecurityStepUpMethods, type SecurityStepUpMethod } from "@/lib/security/step-up-methods";
+import { type SecurityStepUpMethod } from "@/lib/security/step-up-methods";
+import { resolveStepUpCapabilities } from "@/lib/security/step-up-capabilities";
 import {
   consumeRecoveryCode,
   countRemainingRecoveryCodes,
@@ -31,27 +32,6 @@ type SecurityStepUpBody = {
   password?: string;
 };
 
-async function resolveStepUpCapabilities(input: {
-  supabase: Awaited<ReturnType<typeof requireAuthenticatedUser>>["supabase"];
-  user: NonNullable<Awaited<ReturnType<typeof requireAuthenticatedUser>>["user"]>;
-}) {
-  const factors = await listSecurityMfaFactors(input.supabase);
-  const verifiedTotpFactor = getVerifiedTotpFactors(factors)[0];
-  const remainingRecoveryCodes = countRemainingRecoveryCodes(
-    (await getProtectedRecoveryCodes(input.user.id, { authorized: true }))?.securityRecoveryCodes ?? [],
-  );
-  const passwordLastChangedAt = await getLatestPasswordChangeAt(input.user.id);
-  const availableMethods = buildSecurityStepUpMethods({
-    hasTotp: Boolean(verifiedTotpFactor?.id),
-    hasRecoveryCodes: remainingRecoveryCodes > 0,
-    hasPassword: Boolean(input.user.email && resolvePasswordCredentialState(input.user, passwordLastChangedAt)),
-  });
-
-  return {
-    availableMethods,
-    primaryTotpFactorId: verifiedTotpFactor?.id,
-  };
-}
 
 export async function GET(request: Request) {
   const startedAt = Date.now();

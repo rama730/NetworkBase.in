@@ -47,3 +47,14 @@ test("COR-048: project, draft and sprint deletes recheck their preconditions und
   const sprint = body("export async function deleteSprintAction(");
   assert.match(sprint, /\.for\("update"\)[\s\S]*has_history[\s\S]*eq\(projectSprints\.status, "planning"\)/);
 });
+
+test("AUTH-006: account deletion requires a server-verified step-up and is not a server action", () => {
+  const route = read("src/app/api/v1/account/delete/route.ts");
+  assert.match(route, /resolveSecurityStepUp\(user\.id\)/);
+  assert.match(route, /'STEP_UP_REQUIRED'/);
+  assert.match(route, /auth\.extensionSessionId/);
+  const action = read("src/app/actions/account.ts");
+  assert.doesNotMatch(action, /export async function scheduleAccountDeletion/);
+  assert.doesNotMatch(action, /reauthenticate\(\)/);
+  assert.doesNotMatch(read("src/lib/account/deletion.ts"), /^["']use server["']/m);
+});

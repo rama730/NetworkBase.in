@@ -22,259 +22,28 @@ import { consumeRateLimit } from '@/lib/security/rate-limit';
 import { resolveSecurityStepUp } from '@/lib/security/step-up';
 import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
 import { z } from 'zod';
+import { cancelAccountDeletionForUser } from '@/lib/account/deletion';
 
-const ACCOUNT_DELETE_CONFIRM_TEXT = 'DELETE';
-const GRACE_PERIOD_DAYS = 30;
-const LEGAL_REGISTRATION_RETENTION_DAYS = 180;
 // ============================================================================
-// SCHEDULE ACCOUNT DELETION (Soft-Delete with Grace Period)
+// ACCOUNT DELETION
 // ============================================================================
+// Scheduling lives behind /api/v1/account/delete (fresh step-up required) and
+// src/lib/account/deletion.ts; it is deliberately not a server action (AUTH-006).
 
 /**
- * Schedule the current user's account for deletion with a 30-day grace period.
- * The account is soft-deleted immediately (hidden from pub), and hard-deleted
- * by a background cron job after the grace period expires.
- */
-const scheduleAccountDeletionSchema = z.object({
-    confirmationText: z.string().max(50).optional(),
-    reason: z.string().max(1000).optional(),
-});
-
-export async function scheduleAccountDeletion(
-    confirmationText?: string,
-    reason?: string,
-): Promise<{ success: boolean; error?: string; deletionId?: string; hardDeleteAt?: string }> {
-    try {
-        const parsed = scheduleAccountDeletionSchema.safeParse({ confirmationText, reason });
-        if (!parsed.success) {
-            return { success: false, error: 'Invalid input: ' + parsed.error.issues.map(i => i.message).join(', ') };
-        }
-
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return { success: false, error: 'Not authenticated' };
-        }
-
-        const normalizedConfirmation = (parsed.data.confirmationText || '').trim().toUpperCase();
-        if (normalizedConfirmation !== ACCOUNT_DELETE_CONFIRM_TEXT) {
-            return { success: false, error: 'Confirmation required' };
-        }
-
-        const { error: reauthError } = await supabase.auth.reauthenticate();
-        if (reauthError) {
-            return { success: false, error: 'Please re-authenticate and retry account deletion' };
-        }
-
-        const userId = user.id;
-        const userEmail = user.email || '';
-        const now = new Date();
-        const hardDeleteAt = new Date(now.getTime() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
-        const legalRetentionUntil = new Date(now.getTime() + LEGAL_REGISTRATION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-
-        // Check for existing pending deletion
-        const existingDeletion = await db
-            .select({ id: accountDeletions.id })
-            .from(accountDeletions)
-            .where(
-                and(
-                    eq(accountDeletions.userId, userId),
-                    isNull(accountDeletions.cancelledAt),
-                    isNull(accountDeletions.completedAt),
-                )
-            )
-            .limit(1);
-
-        if (existingDeletion.length > 0) {
-            return { success: false, error: 'Account deletion is already scheduled' };
-        }
-
-        // Efficiency: Gather all necessary IDs in one round of parallel requests or optimized queries
-        const [affectedConnectionRows, userOwnedProjects] = await Promise.all([
-            db
-                .select({
-                    requesterId: connections.requesterId,
-                    addresseeId: connections.addresseeId,
-                })
-                .from(connections)
-                .where(
-                    or(
-                        eq(connections.requesterId, userId),
-                        eq(connections.addresseeId, userId)
-                    )
-                ),
-            db
-                .select({ id: projects.id })
-                .from(projects)
-                .where(eq(projects.ownerId, userId)),
-        ]);
-
-        const affectedUserIds = affectedConnectionRows
-            .flatMap((row) => [
-                row.requesterId === userId ? null : row.requesterId,
-                row.addresseeId === userId ? null : row.addresseeId,
-            ])
-            .filter((id): id is string => id !== null);
-
-        // Run all DB mutations in a single transaction
-        const deletionId = await db.transaction(async (tx) => {
-            // 1. Soft-delete the profile
-            await tx
-                .update(profiles)
-                .set({
-                    deletedAt: now,
-                    visibility: 'private',
-                    updatedAt: now,
-                })
-                .where(eq(profiles.id, userId));
-
-            // 2. Create immutable audit record
-            const [deletion] = await tx
-                .insert(accountDeletions)
-                .values({
-                    userId,
-                    email: userEmail,
-                    username: user.user_metadata?.username || null,
-                    reason: reason || null,
-                    scheduledAt: now,
-                    hardDeleteAt,
-                    legalRetentionUntil,
-                    cleanupStatus: 'pending',
-                    metadata: {
-                        userAgent: '',
-                        projectCount: userOwnedProjects.length,
-                        connectionCount: affectedConnectionRows.length,
-                    },
-                })
-                .returning({ id: accountDeletions.id });
-
-            // 3. Delete connections (both sent and received)
-            await tx.delete(connections).where(
-                or(
-                    eq(connections.requesterId, userId),
-                    eq(connections.addresseeId, userId)
-                )
-            );
-
-            // 4. Decrement followersCount on projects the user follows in a single set-based query
-            await tx.execute(sql`
-                UPDATE projects
-                SET followers_count = GREATEST(0, followers_count - 1)
-                WHERE id IN (
-                    SELECT project_id FROM project_follows WHERE user_id = ${userId}::uuid
-                )
-            `);
-
-            // 5. Delete project follows by user
-            await tx.delete(projectFollows).where(eq(projectFollows.userId, userId));
-
-            // 6. Delete user's collections
-            await tx.delete(collections).where(eq(collections.ownerId, userId));
-
-            // 7. Delete user's profile audit events
-            await tx.delete(profileAuditEvents).where(eq(profileAuditEvents.userId, userId));
-
-            return deletion!.id;
-        });
-
-        // Counter refresh (outside transaction — non-critical for consistency)
-        try {
-            if (affectedUserIds.length > 0) {
-                await queueCounterRefreshBestEffort(affectedUserIds);
-            }
-        } catch (counterErr) {
-            logger.warn('account.counter-refresh.failed', { module: 'account', error: counterErr instanceof Error ? counterErr.message : String(counterErr) });
-        }
-
-        // Dispatch async S3 cleanup via Inngest
-        try {
-            const { inngest } = await import('@/inngest/client');
-            await inngest.send({
-                name: 'account/cleanup',
-                data: {
-                    userId,
-                    deletionId,
-                    jobSignature: createSignedJobRequestToken({
-                        kind: 'account/cleanup',
-                        actorId: userId,
-                        subjectId: deletionId,
-                    }),
-                },
-            });
-        } catch (inngestErr) {
-            logger.warn('account.inngest-dispatch.failed', { module: 'account', error: inngestErr instanceof Error ? inngestErr.message : String(inngestErr) });
-        }
-
-        // Sign out the user
-        await supabase.auth.signOut();
-
-        revalidatePath('/');
-        return {
-            success: true,
-            deletionId,
-            hardDeleteAt: hardDeleteAt.toISOString(),
-        };
-    } catch (error) {
-        logger.error('account.deletion.scheduling.failed', { module: 'account', error: error instanceof Error ? error.message : String(error) });
-        return { success: false, error: 'Failed to schedule account deletion' };
-    }
-}
-
-// ============================================================================
-// CANCEL ACCOUNT DELETION (Reactivation during Grace Period)
-// ============================================================================
-
-/**
- * Cancel a pending account deletion and reactivate the profile.
+ * Cancel a pending account deletion and reactivate the profile with the
+ * visibility it had before (SEC-002). Too late once the destructive phase ran.
  */
 export async function cancelAccountDeletion(): Promise<{ success: boolean; error?: string }> {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
-
         if (!user) {
             return { success: false, error: 'Not authenticated' };
         }
-
-        const userId = user.id;
-        const now = new Date();
-
-        // Find the active deletion record
-        const [activeDeletion] = await db
-            .select({ id: accountDeletions.id })
-            .from(accountDeletions)
-            .where(
-                and(
-                    eq(accountDeletions.userId, userId),
-                    isNull(accountDeletions.cancelledAt),
-                    isNull(accountDeletions.completedAt),
-                )
-            )
-            .limit(1);
-
-        if (!activeDeletion) {
-            return { success: false, error: 'No pending deletion found' };
-        }
-
-        await db.transaction(async (tx) => {
-            // 1. Cancel the deletion record
-            await tx
-                .update(accountDeletions)
-                .set({ cancelledAt: now })
-                .where(eq(accountDeletions.id, activeDeletion.id));
-
-            // 2. Restore the profile
-            await tx
-                .update(profiles)
-                .set({
-                    deletedAt: null,
-                    visibility: 'public',
-                    updatedAt: now,
-                })
-                .where(eq(profiles.id, userId));
-        });
-
+        const outcome = await cancelAccountDeletionForUser(user.id);
+        if (outcome === 'not_found') return { success: false, error: 'No pending deletion found' };
+        if (outcome === 'too_late') return { success: false, error: 'Account deletion is already being finalized' };
         revalidatePath('/');
         return { success: true };
     } catch (error) {

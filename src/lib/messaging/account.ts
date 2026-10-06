@@ -11,9 +11,9 @@ const ANONYMIZE_BATCH = 5_000;
  */
 // ponytail: runs inline in the account cleanup job. ceiling: ~10⁶ messages per
 // user within the job timeout. upgrade: a dedicated chat-account-anonymize job.
-export async function anonymizeChatAuthor(userId: string) {
+export async function anonymizeChatAuthor(userId: string, executor: Pick<typeof db, "execute"> = db) {
   for (;;) {
-    const rows = await db.execute(sql`
+    const rows = await executor.execute(sql`
       WITH batch AS (
         SELECT channel_id, channel_seq FROM chat_messages WHERE author_id = ${userId}::uuid LIMIT ${ANONYMIZE_BATCH}
       )
