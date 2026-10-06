@@ -65,7 +65,9 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                 className="nb-portfolio-grid flex flex-col gap-4 w-full"
                 style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}
                 aria-busy="true"
+                role="status"
             >
+                <span className="sr-only">Loading projects…</span>
                 {[1,2,3,4].map(key => <ProjectCardSkeleton key={key} />)}
             </div>
         ) : projects.length ? (

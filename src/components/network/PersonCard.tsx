@@ -288,7 +288,7 @@ function PersonCard({
             }
             head={
                 <Link href={profileHref(profile)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <h3 className="nb-card-title min-w-0 truncate text-foreground" title={displayName}>{displayName}</h3>
+                    <h3 className="nb-person-name min-w-0 truncate text-foreground" title={displayName}>{displayName}</h3>
                 </Link>
             }
             location={!isLocked && profile.location ? (

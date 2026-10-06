@@ -20,7 +20,10 @@ test("Discovery people rail is a compact, shared-avatar recommendation surface",
   assert.doesNotMatch(rail, /Suggested for your network/);
   assert.match(rail, /nb-discover-person-avatar/);
   assert.match(rail, /PersonPresenceDot/);
-  assert.match(rail, /nb-person-connect--compact/);
+  // Spec §12 rail variant: stacked card, 48px avatar, a small secondary action (the shared Button).
+  assert.match(rail, /<UserAvatar identity=\{profile\} size=\{48\}/);
+  assert.match(rail, /variant="outline" size="sm"/);
+  assert.match(rail, /\.unwrap\(\)/);
   assert.match(networkCard, /nb-person-connect/);
   assert.match(networkCard, /PersonPresenceDot/);
   assert.match(hub, /<DiscoverPeopleRail initialPage=\{initialPeopleSuggestions\} variant="desktop"/);

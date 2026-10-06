@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { memo, useEffect, useRef, useState } from "react";
-import { Users, UserPlus, UserCheck, BarChart2, ExternalLink, Globe } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { Users, Bell, BellRing, BarChart2, ExternalLink, Globe } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { ROUTES } from "@/constants/routes";
 import type { Project } from "@/types/discover";
 import type { ProjectCardViewModel } from "@/lib/view-models/project-card";
 import { useToggleProjectFollow } from "@/hooks/mutations/useProjectMutations";
@@ -29,11 +30,12 @@ interface ProjectCardProps {
 
 export default memo(function ProjectCard({ project, viewModel, fromTab = "projects", viewMode = "grid", previewMode = false, isFollowing = false, followersCount: initialFollowers = 0, onOpenProject }: ProjectCardProps) {
     useSkillCatalog();
+    const { user } = useAuth();
     const { mutateAsync } = useToggleProjectFollow();
     const [following, setFollowing] = useState(isFollowing);
     const [followers, setFollowers] = useState(initialFollowers);
     const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState<"signed-out" | "failed" | null>(null);
     const followLock = useRef(false);
     useEffect(() => { setFollowing(isFollowing); }, [isFollowing]);
     useEffect(() => { setFollowers(initialFollowers); }, [initialFollowers]);
@@ -53,8 +55,8 @@ export default memo(function ProjectCard({ project, viewModel, fromTab = "projec
         const previous = following;
         const previousCount = followers;
         try {
-            const { data: { user } } = await createClient().auth.getUser();
-            if (!user) { setError("Sign in to follow this project."); return; }
+            // The signed-in user is already known: no round trip before the button responds.
+            if (!user) { setError("signed-out"); return; }
             setFollowing(!previous);
             setFollowers(Math.max(0, previousCount + (previous ? -1 : 1)));
             const result = await mutateAsync({ projectId: project.id, currentStatus: previous, userId: user.id });
@@ -62,7 +64,7 @@ export default memo(function ProjectCard({ project, viewModel, fromTab = "projec
         } catch {
             setFollowing(previous);
             setFollowers(previousCount);
-            setError("Could not update follow status. Try again.");
+            setError("failed");
         } finally {
             followLock.current = false;
             setBusy(false);
@@ -93,36 +95,45 @@ export default memo(function ProjectCard({ project, viewModel, fromTab = "projec
                         {previewMode ? project.title : <Link href={href} onClick={() => onOpenProject?.(project.id)} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none">{project.title}</Link>}
                     </h3>
                 </div>
-                <p className={`text-sm leading-normal text-muted-foreground ${compact ? "line-clamp-1" : "line-clamp-2"}`}>
-                    {project.shortDescription || project.description || "No description provided."}
-                </p>
+                {project.shortDescription || project.description ? (
+                    <p className={`text-sm leading-normal text-muted-foreground ${compact ? "line-clamp-1" : "line-clamp-2"}`}>
+                        {project.shortDescription || project.description}
+                    </p>
+                ) : null}
             </>
         )}
-        {!compact && project.shortDescription && project.description && project.description !== project.shortDescription && <p className="text-sm leading-normal text-muted-foreground line-clamp-2">{project.description}</p>}
-        {(project.rankingReasons?.length ?? 0) > 0 && <div className="flex flex-wrap gap-1.5">{project.rankingReasons?.map(reason => <span className="nb-tag" key={reason}>{reason}</span>)}</div>}
-        {!compact && techStack.length > 0 && <div className="flex flex-wrap gap-1.5" aria-label="Project skills">
+        {(project.rankingReasons?.length ?? 0) > 0 && <p className="nb-meta">{project.rankingReasons!.join(" · ")}</p>}
+        {!compact && techStack.length > 0 && <div className="flex flex-wrap gap-1.5" role="group" aria-label="Project skills">
             {techStack.slice(0, MAX_PROJECT_CARD_SKILL_ICONS).map(name => { const skill = resolveClientSkill(name); return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>; })}
-            {hiddenTechStackCount > 0 && <span className="nb-tag" title={techStack.slice(MAX_PROJECT_CARD_SKILL_ICONS).join(", ")}>+{hiddenTechStackCount}</span>}
+            {/* Above the card's stretched link, so its tooltip shows; the names are read out too. */}
+            {hiddenTechStackCount > 0 && <span className="nb-tag relative z-10" title={techStack.slice(MAX_PROJECT_CARD_SKILL_ICONS).join(", ")}>+{hiddenTechStackCount}<span className="sr-only">: {techStack.slice(MAX_PROJECT_CARD_SKILL_ICONS).join(", ")}</span></span>}
         </div>}
-        {totalOpenRoles > 0 && <span className="text-sm text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
         <div className="nb-project-card-footer">
-            <div className="flex items-center gap-2">
-                <div className="flex -space-x-1.5" aria-label={`${collaborators.length} collaborators`}>
+            <div className="flex min-w-0 items-center gap-3">
+                <div className="flex -space-x-1.5" role="group" aria-label={`${collaborators.length} ${collaborators.length === 1 ? "collaborator" : "collaborators"}`}>
                     {collaborators.slice(0, 4).map((person, index) => <UserAvatar key={person.username || index} identity={person} size={26} className="border-2 border-card" fallbackClassName="text-[11px]" />)}
                     {collaborators.length > 4 && <span className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary font-mono text-[11px]">+{collaborators.length - 4}</span>}
                     {collaborators.length === 0 && <Users size={16} className="text-muted-foreground" aria-hidden="true" />}
                 </div>
+                {totalOpenRoles > 0 && <span className="nb-meta text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
             </div>
             <div className="relative z-10 flex flex-wrap items-center gap-1">
-                {!previewMode && visibleLinks.map(link => <a key={link.id || link.canonicalKey} href={`/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`} target="_blank" rel="noopener noreferrer" className="nb-icon-button" aria-label={`Open ${link.customLabel || link.platformLabel}: ${link.accountLabel}`}>
-                    {link.iconKey ? <SocialPresenceIcon iconKey={link.iconKey} className="size-3.5" /> : link.platform === "website" ? <Globe size={14} /> : <ExternalLink size={14} />}
+                {!previewMode && visibleLinks.map(link => <a key={link.id || link.canonicalKey} href={`/go/project/${encodeURIComponent(project.id)}/${encodeURIComponent(link.id || link.canonicalKey)}`} target="_blank" rel="noopener noreferrer" className="nb-icon-button" aria-label={`Open ${link.customLabel || link.platformLabel}: ${link.accountLabel} (opens in new tab)`}>
+                    {link.iconKey ? <SocialPresenceIcon iconKey={link.iconKey} className="size-4" /> : link.platform === "website" ? <Globe size={16} /> : <ExternalLink size={16} />}
                 </a>)}
                 <span className="nb-meta flex items-center gap-1 px-1" title="Views" data-testid={`project-card-views-${project.id}`}><BarChart2 size={14} aria-hidden="true" />{project.viewCount || 0}<span className="sr-only"> views</span></span>
-                <button type="button" disabled={busy || previewMode} aria-busy={busy} aria-pressed={following} aria-label={`${following ? "Unfollow" : "Follow"} ${project.title}, ${followers} followers`} className="nb-icon-button gap-1 px-1 font-mono text-xs disabled:opacity-45" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
-                    {following ? <UserCheck size={14} aria-hidden="true" /> : <UserPlus size={14} aria-hidden="true" />}{followers}
+                {/* A project follow is a bell (its updates), not a person icon; pressed reads in clay, not only by icon. */}
+                <button type="button" disabled={busy || previewMode} aria-busy={busy} aria-pressed={following} aria-label={`Follow ${project.title}, ${followers} ${followers === 1 ? "follower" : "followers"}`} title={following ? "Following" : "Follow"} className="nb-icon-button gap-1 px-1.5 font-mono text-xs aria-pressed:bg-accent aria-pressed:text-primary disabled:opacity-45" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
+                    {following ? <BellRing size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}{followers}
                 </button>
             </div>
         </div>
-        {error && <p role="alert" className="relative z-10 text-sm text-destructive">{error}</p>}
+        {error === "signed-out" ? (
+            <p role="alert" className="relative z-10 nb-compact text-muted-foreground">
+                <Link href={`${ROUTES.LOGIN}?redirect=${encodeURIComponent(href)}`} className="font-medium text-primary hover:underline">Sign in</Link> to follow this project.
+            </p>
+        ) : error === "failed" ? (
+            <p role="alert" className="relative z-10 nb-compact text-[var(--status-danger)]">Couldn&apos;t update. Try again.</p>
+        ) : null}
     </article>;
 });
