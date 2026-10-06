@@ -67,7 +67,7 @@ test("doc versions: outsiders read only the published version; overrides and dra
         VALUES (${project}, ${slug}, ${slug + ".md"}, ${tx.json({ version: 1, editPolicy: "leaders", visibilityOverride: override })}) RETURNING id`;
       const versions = [];
       for (const n of [1, 2]) {
-        const [v] = await tx`INSERT INTO public.project_doc_versions (project_id, markdown_id, version_number, content, content_hash)
+        const [v] = await tx`INSERT INTO public.project_doc_versions (project_id, doc_id, version_number, content, content_hash)
           VALUES (${project}, ${d!.id}, ${n}, ${"v" + n}, ${"h" + n}) RETURNING id`;
         versions.push(v!.id);
       }

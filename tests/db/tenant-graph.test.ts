@@ -26,7 +26,7 @@ test("cross-project parent, canonical, task, sprint, doc and reply edges are rej
     const [sprintB] = await tx`INSERT INTO public.project_sprints (project_id, name, start_date, end_date) VALUES (${b}, 'sb', now(), now() + interval '7 days') RETURNING id`;
     const [docB] = await tx`INSERT INTO public.project_docs (project_id, slug) VALUES (${b}, 'readme') RETURNING id`;
     const [docA] = await tx`INSERT INTO public.project_docs (project_id, slug) VALUES (${a}, 'readme') RETURNING id`;
-    const [versionB] = await tx`INSERT INTO public.project_doc_versions (project_id, markdown_id, version_number, content, content_hash) VALUES (${b}, ${docB!.id}, 1, 'x', 'h') RETURNING id`;
+    const [versionB] = await tx`INSERT INTO public.project_doc_versions (project_id, doc_id, version_number, content, content_hash) VALUES (${b}, ${docB!.id}, 1, 'x', 'h') RETURNING id`;
     const [updA] = await tx`INSERT INTO public.project_updates (project_id, author_id, content) VALUES (${a}, ${owner}, 'u') RETURNING id`;
     const [updA2] = await tx`INSERT INTO public.project_updates (project_id, author_id, content) VALUES (${a}, ${owner}, 'u2') RETURNING id`;
     const [comment] = await tx`INSERT INTO public.project_update_comments (update_id, project_id, user_id, content) VALUES (${updA2!.id}, ${a}, ${owner}, 'c') RETURNING id`;
