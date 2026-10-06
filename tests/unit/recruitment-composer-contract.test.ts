@@ -47,8 +47,9 @@ test("application entry points exclude existing project members", () => {
     const projectAction = source("src/app/actions/project/index.ts");
     const dashboard = source("src/components/projects/dashboard/ProjectDashboardClient.tsx");
 
-    assert.match(profilePage, /getProfileProjectsWithOpenRolesAction\(data\.profile\.id, viewerAuth\.user\?\.id \?\? null\)/);
-    assert.match(projectAction, /excludeMemberUserId/);
+    // The viewer to exclude comes from the session, never from the caller (COR-044).
+    assert.match(profilePage, /getProfileProjectsWithOpenRolesAction\(data\.profile\.id\)/);
+    assert.match(projectAction, /const \{ userId: excludeMemberUserId \} = await getViewerAuthContext\(\)/);
     assert.match(projectAction, /NOT EXISTS \([\s\S]*project_members AS excluded_member/);
     assert.match(dashboard, /Project members cannot apply for an additional role/);
 });
