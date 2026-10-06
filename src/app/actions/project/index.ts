@@ -5901,9 +5901,7 @@ export async function archiveProjectAction(
   }
 }
 
-type ProjectWriteExecutor = Pick<typeof db, "execute">;
-
-async function countUnregisteredProjectStorage(projectId: string, executor: ProjectWriteExecutor = db) {
+async function countUnregisteredProjectStorage(projectId: string, executor: Pick<typeof db, "execute"> = db) {
   const rows = await executor.execute<{ legacy_count: number }>(sql`
     SELECT (
       (SELECT count(*) FROM public.projects project

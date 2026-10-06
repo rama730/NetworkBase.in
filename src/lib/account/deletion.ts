@@ -22,14 +22,14 @@ import {
  * never interleave with the destructive phase, and phases before db_deleted
  * stay cancellable.
  */
-export const CANCELLABLE_DELETION_PHASES = ["pending", "storage_running", "storage_scheduled", "failed"] as const;
+const CANCELLABLE_DELETION_PHASES = ["pending", "storage_running", "storage_scheduled", "failed"] as const;
 
-export const ACCOUNT_DELETION_GRACE_DAYS = 30;
+const ACCOUNT_DELETION_GRACE_DAYS = 30;
 const LEGAL_REGISTRATION_RETENTION_DAYS = 180;
 type ProfileVisibility = "public" | "connections" | "private";
 const PROFILE_VISIBILITIES = new Set<string>(["public", "connections", "private"]);
 
-export type ScheduleAccountDeletionResult =
+type ScheduleAccountDeletionResult =
   | { ok: true; deletionId: string; hardDeleteAt: Date; affectedUserIds: string[] }
   | { ok: false; code: "ALREADY_SCHEDULED" };
 

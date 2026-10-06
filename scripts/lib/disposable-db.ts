@@ -27,7 +27,7 @@ function identityOrNull(url: string | undefined) {
 }
 
 /** Identities of the deployed environment, as captured before any E2E rebinding. */
-export function primaryIdentities(env: NodeJS.ProcessEnv = process.env): Set<string> {
+function primaryIdentities(env: NodeJS.ProcessEnv = process.env): Set<string> {
   const database = env.E2E_PRIMARY_DATABASE_URL !== undefined ? env.E2E_PRIMARY_DATABASE_URL : env.DATABASE_URL;
   const supabase = env.E2E_PRIMARY_SUPABASE_URL !== undefined ? env.E2E_PRIMARY_SUPABASE_URL : env.NEXT_PUBLIC_SUPABASE_URL;
   return new Set([identityOrNull(database), identityOrNull(supabase)].filter((id): id is string => Boolean(id)));

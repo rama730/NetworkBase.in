@@ -89,13 +89,6 @@ export const getViewerAuthContext = cache(async (): Promise<ViewerAuthContext> =
   };
 });
 
-/** The verified caller's id, or "Unauthorized". Never accept an actor id from a client. */
-export async function requireViewerId(): Promise<string> {
-  const { userId } = await getViewerAuthContext();
-  if (!userId) throw new Error("Unauthorized");
-  return userId;
-}
-
 export const getViewerProfileContext = cache(async (): Promise<ViewerProfileContext> => {
   const auth = await getViewerAuthContext();
   const profile = auth.userId ? await getUserProfile(auth.userId) : null;
