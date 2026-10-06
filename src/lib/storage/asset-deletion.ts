@@ -102,6 +102,37 @@ export function hasNoLiveReference() {
   );
 }
 
+type AssetExecutor = Pick<typeof db, "update">;
+
+/**
+ * The one way to retire a detached verified asset: it moves to delete_pending
+ * only when nothing else still references it (another update, a version, a
+ * canvas, ...). Call it in the same transaction that removed the reference
+ * (COR-045). Returns the ids actually scheduled.
+ */
+export async function scheduleAssetDeletionIfUnreferenced(
+  executor: AssetExecutor,
+  assetIds: ReadonlyArray<string | null | undefined>,
+  options: { lastErrorCode?: string; deleteAfter?: Date } = {},
+): Promise<string[]> {
+  const ids = Array.from(new Set(assetIds.filter((id): id is string => Boolean(id))));
+  if (ids.length === 0) return [];
+  const scheduled = await executor.update(storageAssets)
+    .set({
+      state: "delete_pending",
+      deleteAfter: options.deleteAfter ?? sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
+      ...(options.lastErrorCode ? { lastErrorCode: options.lastErrorCode } : {}),
+      updatedAt: new Date(),
+    })
+    .where(and(
+      inArray(storageAssets.id, ids),
+      eq(storageAssets.state, "verified"),
+      hasNoLiveReference(),
+    ))
+    .returning({ id: storageAssets.id });
+  return scheduled.map((row) => row.id);
+}
+
 export async function scheduleAbandonedStorageAssets() {
   const graceCutoff = new Date(Date.now() - 5 * 60 * 1000);
   return db.transaction(async (tx) => {
@@ -188,6 +219,19 @@ export async function deleteEligibleStorageAssets() {
           eq(storageAssets.state, "deleting"),
           lt(storageAssets.deletionLeaseExpiresAt, now),
         ));
+    }
+    // A pending deletion that something references again (or was scheduled
+    // before the reference check existed) becomes servable again (COR-045).
+    const restorable = await tx
+      .select({ id: storageAssets.id })
+      .from(storageAssets)
+      .where(and(eq(storageAssets.state, "delete_pending"), sql`NOT (${hasNoLiveReference()})`))
+      .limit(DELETE_BATCH_SIZE)
+      .for("update", { skipLocked: true });
+    if (restorable.length > 0) {
+      await tx.update(storageAssets)
+        .set({ state: "verified", deleteAfter: null, lastErrorCode: "LIVE_REFERENCE_RESTORED", updatedAt: now })
+        .where(and(inArray(storageAssets.id, restorable.map((asset) => asset.id)), eq(storageAssets.state, "delete_pending")));
     }
     const candidates = await tx
       .select({ id: storageAssets.id })

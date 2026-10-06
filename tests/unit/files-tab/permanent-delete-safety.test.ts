@@ -136,6 +136,12 @@ function fixture(
       },
     },
     "@/lib/storage/project-file-key": { parseProjectFileKey },
+    "@/lib/storage/asset-deletion": {
+      scheduleAssetDeletionIfUnreferenced: async (_tx: unknown, ids: string[]) => {
+        events.push("schedule");
+        return ids;
+      },
+    },
     "./internal-helpers": {
       recordNodeEvent: async (_p: unknown, _actor: unknown, id: unknown) => {
         assert.equal(id, null, "audit survives target deletion");

@@ -4,6 +4,7 @@
  *   export DATABASE_URL_FRESH=$(npm run -s db:disposable)
  */
 import { randomUUID } from "node:crypto";
+import Module from "node:module";
 
 import dotenv from "dotenv";
 import postgres from "postgres";
@@ -11,6 +12,12 @@ import postgres from "postgres";
 import { requireDisposableDatabaseUrl } from "../../scripts/lib/disposable-db";
 
 dotenv.config({ path: ".env.local", quiet: true });
+
+// App modules import "server-only"; outside Next's react-server build it is a no-op.
+type Loader = (request: string, parent: unknown, isMain: boolean) => unknown;
+const moduleWithLoad = Module as unknown as { _load: Loader };
+const originalLoad = moduleWithLoad._load;
+moduleWithLoad._load = (request, parent, isMain) => (request === "server-only" ? {} : originalLoad(request, parent, isMain));
 
 const DISPOSABLE_URL = requireDisposableDatabaseUrl("test:db");
 export const sql = postgres(DISPOSABLE_URL, { max: 4, prepare: false, onnotice: () => undefined });

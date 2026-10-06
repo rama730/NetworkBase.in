@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
   projects,
   projectFollows,
@@ -3084,16 +3085,7 @@ export async function finalizeProjectCoverImageUploadAction(input: {
       if (!row) return null;
 
       if (project.coverImageAssetId && project.coverImageAssetId !== assetId) {
-        await tx.update(storageAssets)
-          .set({
-            state: "delete_pending",
-            deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
-            updatedAt: new Date(),
-          })
-          .where(and(
-            eq(storageAssets.id, project.coverImageAssetId),
-            eq(storageAssets.state, "verified"),
-          ));
+        await scheduleAssetDeletionIfUnreferenced(tx, [project.coverImageAssetId]);
       }
       return row;
     });
@@ -3159,16 +3151,7 @@ export async function clearProjectCoverImageAction(
         .where(and(eq(projects.id, projectId), eq(projects.ownerId, user.id)))
         .returning({ id: projects.id });
       if (project.coverImageAssetId) {
-        await tx.update(storageAssets)
-          .set({
-            state: "delete_pending",
-            deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
-            updatedAt: new Date(),
-          })
-          .where(and(
-            eq(storageAssets.id, project.coverImageAssetId),
-            eq(storageAssets.state, "verified"),
-          ));
+        await scheduleAssetDeletionIfUnreferenced(tx, [project.coverImageAssetId]);
       }
       return rows;
     });
@@ -3955,17 +3938,7 @@ export async function updateProjectVisibilityAction(
     });
 
     if (imageMigration?.migrated && imageMigration.previousAssetId) {
-      await db.update(storageAssets)
-        .set({
-          state: "delete_pending",
-          deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
-          lastErrorCode: "LEGACY_COVER_REPLACED",
-          updatedAt: new Date(),
-        })
-        .where(and(
-          eq(storageAssets.id, imageMigration.previousAssetId),
-          eq(storageAssets.state, "verified"),
-        ));
+      await scheduleAssetDeletionIfUnreferenced(db, [imageMigration.previousAssetId], { lastErrorCode: "LEGACY_COVER_REPLACED" });
     }
 
     await revalidateProjectPaths(projectId);

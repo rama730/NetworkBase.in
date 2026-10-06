@@ -1,5 +1,6 @@
 import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
   fileVersions,
   projectDocs,
@@ -179,30 +180,7 @@ export async function finishPermanentDelete(projectId: string, nodeId: string) {
         ),
       );
     if (plan.assetIds.length > 0) {
-      await tx.update(storageAssets)
-        .set({
-          state: "delete_pending",
-          deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
-          lastErrorCode: "PERMANENT_DELETE_DETACHED",
-          updatedAt: new Date(),
-        })
-        .where(and(
-          inArray(storageAssets.id, plan.assetIds),
-          eq(storageAssets.state, "verified"),
-          sql`NOT EXISTS (
-            SELECT 1 FROM ${projectNodes}
-            WHERE ${projectNodes.assetId} = ${storageAssets.id}
-          )`,
-          sql`NOT EXISTS (
-            SELECT 1 FROM ${fileVersions}
-            WHERE ${fileVersions.assetId} = ${storageAssets.id}
-          )`,
-          sql`NOT EXISTS (
-            SELECT 1 FROM ${storageAssets} derivative
-            WHERE derivative.source_asset_id = ${storageAssets.id}
-              AND derivative.state NOT IN ('deleted', 'missing')
-          )`,
-        ));
+      await scheduleAssetDeletionIfUnreferenced(tx, plan.assetIds, { lastErrorCode: "PERMANENT_DELETE_DETACHED" });
     }
     return { deletedIds: plan.ids };
   });

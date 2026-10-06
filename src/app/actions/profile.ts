@@ -3,6 +3,7 @@
 import { randomUUID } from 'crypto'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
+import { scheduleAssetDeletionIfUnreferenced } from '@/lib/storage/asset-deletion'
 import { profileAuditEvents, profiles, storageAssets, storageQuotaScopes, usernameAliases } from '@/lib/db/schema'
 import { eq, and, desc, inArray, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
@@ -335,13 +336,7 @@ export async function finalizeProfileImageUploadAction(input: {
                 .where(eq(profiles.id, user.id))
             const previousAssetId = isBanner ? current.bannerAssetId : current.avatarAssetId
             if (previousAssetId && previousAssetId !== assetId) {
-                await tx.update(storageAssets)
-                    .set({
-                        state: 'delete_pending',
-                        deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
-                        updatedAt: new Date(),
-                    })
-                    .where(and(eq(storageAssets.id, previousAssetId), eq(storageAssets.state, 'verified')))
+                await scheduleAssetDeletionIfUnreferenced(tx, [previousAssetId])
             }
         })
         return {

@@ -3,6 +3,7 @@ import "server-only";
 import { and, eq, max, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
+import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import { fileVersions, projectNodes, storageAssets, type FileVersion } from "@/lib/db/schema";
 import {
   assertProjectUploadAccessTx,
@@ -26,7 +27,8 @@ export interface ApplyFileRevisionInput {
   contentAuthorId?: string | null;
   attribution?: Record<string, unknown>;
   storageKey: string;
-  assetId?: string | null;
+  /** Verified asset behind storageKey; null only for legacy/unregistered bytes. Required so no writer drops it (COR-004). */
+  assetId: string | null;
   size: number;
   mimeType: string;
   contentHash: string | null;
@@ -91,15 +93,29 @@ export async function applyFileRevision(
     });
     if (!current || current.deletedAt) throw new Error("File not found");
     if (current.type !== "file") throw new Error("Only file nodes support revisions");
+    // The asset must be this project's verified object for exactly this key;
+    // its server-computed digest is authoritative (COR-004).
+    let contentHash = input.contentHash;
     if (input.assetId) {
       const [publishableAsset] = await tx.update(storageAssets)
         .set({
           backupState: sql`CASE WHEN ${storageAssets.backupState} = 'verified' THEN 'verified' ELSE 'pending' END`,
           updatedAt: new Date(),
         })
-        .where(and(eq(storageAssets.id, input.assetId), eq(storageAssets.state, "verified")))
-        .returning({ id: storageAssets.id });
+        .where(and(
+          eq(storageAssets.id, input.assetId),
+          eq(storageAssets.state, "verified"),
+          eq(storageAssets.projectId, input.projectId),
+          eq(storageAssets.storageKey, input.storageKey),
+        ))
+        .returning({ id: storageAssets.id, contentHash: storageAssets.contentHash });
       if (!publishableAsset) throw new Error("File asset is no longer publishable");
+      if (publishableAsset.contentHash) {
+        if (input.contentHash && input.contentHash !== publishableAsset.contentHash) {
+          throw new Error("File content does not match the verified upload");
+        }
+        contentHash = publishableAsset.contentHash;
+      }
     }
     if ((input.baseStorageKey !== undefined && current.s3Key !== input.baseStorageKey) ||
         (input.basePath !== undefined && current.path !== input.basePath)) {
@@ -147,7 +163,7 @@ export async function applyFileRevision(
           assetId: input.assetId ?? null,
           size: input.size,
           mimeType: input.mimeType,
-          contentHash: input.contentHash,
+          contentHash,
           uploadedBy: input.contentAuthorId === undefined ? input.actorUserId : input.contentAuthorId,
           attribution: input.attribution ?? {},
           comment,
@@ -164,7 +180,7 @@ export async function applyFileRevision(
           assetId: input.assetId ?? null,
           size: input.size,
           mimeType: input.mimeType,
-          contentHash: input.contentHash,
+          contentHash,
           uploadedBy: input.contentAuthorId === undefined ? input.actorUserId : input.contentAuthorId,
           attribution: input.attribution ?? {},
           uploadedAt: now,
@@ -184,7 +200,7 @@ export async function applyFileRevision(
           assetId: input.assetId ?? null,
           size: input.size,
           mimeType: input.mimeType,
-          contentHash: input.contentHash,
+          contentHash,
           uploadedBy: input.contentAuthorId === undefined ? input.actorUserId : input.contentAuthorId,
           attribution: input.attribution ?? {},
           comment,
@@ -220,13 +236,7 @@ export async function applyFileRevision(
       current.assetId &&
       current.assetId !== input.assetId
     ) {
-      await tx.update(storageAssets)
-        .set({
-          state: "delete_pending",
-          deleteAfter: sql`GREATEST(${storageAssets.expiresAt} + interval '5 minutes', now())`,
-          updatedAt: now,
-        })
-        .where(and(eq(storageAssets.id, current.assetId), eq(storageAssets.state, "verified")));
+      await scheduleAssetDeletionIfUnreferenced(tx, [current.assetId]);
     }
 
     await input.afterMutationTx?.(tx);

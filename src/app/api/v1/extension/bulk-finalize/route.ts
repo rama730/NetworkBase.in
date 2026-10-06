@@ -12,6 +12,7 @@ import { uploadIntents } from "@/lib/db/schema";
 import { getProjectAccessById } from "@/lib/data/project-access";
 import { createAdminClient } from "@/lib/supabase/server";
 import { applyFileRevision } from "@/lib/files/apply-file-revision";
+import { finalizeUploadIntent } from "@/lib/upload/upload-intents";
 import { FILE_REVISION_MODES, normalizeRevisionComment, parseFileRevisionMode } from "@/lib/files/revision-policy";
 import { validateCsrf } from "@/lib/security/csrf";
 import { recordExtensionMetric } from "@/lib/extension/observability";
@@ -112,22 +113,11 @@ export async function POST(request: Request) {
         return jsonError(`Upload intent metadata mismatch for ${item.path}`, 400, "BAD_REQUEST");
       }
 
-      if (intent.status === "finalized") {
-        finalizedResults.push({
-          path: item.path,
-          nodeId,
-          version: typeof metadata.baseVersion === "number" ? metadata.baseVersion : 1,
-          size: intent.finalizedSize ?? intent.expectedSize ?? 0,
-          contentHash,
-        });
-        continue;
-      }
-
-      if (intent.status !== "pending") {
+      if (intent.status !== "pending" && intent.status !== "finalized") {
         return jsonError(`Upload intent is not pending for ${item.path}`, 409, "CONFLICT");
       }
 
-      if (intent.expiresAt.getTime() <= Date.now()) {
+      if (intent.status === "pending" && intent.expiresAt.getTime() <= Date.now()) {
         await markIntentFailed(intent.id, "Upload intent expired");
         return jsonError(`Upload intent expired for ${item.path}`, 409, "CONFLICT");
       }
@@ -155,18 +145,33 @@ export async function POST(request: Request) {
         return conflict;
       }
 
-      const { data: info, error: infoError } = await adminClient.storage
-        .from(intent.bucket)
-        .info(intent.storageKey);
-
-      if (infoError || !info) {
-        await markIntentFailed(intent.id, infoError?.message || "Uploaded object missing");
-        return jsonError(`Uploaded object not found in storage for ${item.path}`, 404, "NOT_FOUND");
+      // Server-side verification registers the verified asset and its digest
+      // (idempotent for an already finalized intent) (COR-004).
+      const verifiedIntent = await finalizeUploadIntent({
+        intentId: intent.id,
+        bucket: intent.bucket,
+        storageKey: intent.storageKey,
+        userId: user.id,
+        projectId,
+        expectedScope: "project_file",
+        expectedKind: "file",
+      }).catch(async (error: unknown) => {
+        await markIntentFailed(intent.id, error instanceof Error ? error.message : "Upload verification failed");
+        return null;
+      });
+      if (!verifiedIntent?.assetId) {
+        return jsonError(`Uploaded file could not be verified for ${item.path}`, 409, "CONFLICT");
       }
-
-      if (info.size !== intent.expectedSize) {
-        await markIntentFailed(intent.id, "Uploaded object size mismatch");
-        return jsonError(`File size mismatch for ${item.path}`, 400, "BAD_REQUEST");
+      // A retry after a successful revision reports it instead of re-applying.
+      if (resolved.node.assetId === verifiedIntent.assetId) {
+        finalizedResults.push({
+          path: item.path,
+          nodeId: resolved.node.id,
+          version: resolved.node.currentVersion ?? 1,
+          size: resolved.node.size ?? intent.expectedSize,
+          contentHash,
+        });
+        continue;
       }
 
       const revisionMode = parseFileRevisionMode(item.revisionMode || (metadata.revisionMode as any));
@@ -177,8 +182,9 @@ export async function POST(request: Request) {
         nodeId,
         actorUserId: user.id,
         storageKey: intent.storageKey,
-        size: intent.expectedSize,
-        mimeType: intent.expectedMimeType,
+        assetId: verifiedIntent.assetId,
+        size: verifiedIntent.finalizedSize ?? intent.expectedSize,
+        mimeType: verifiedIntent.finalizedMimeType ?? intent.expectedMimeType,
         contentHash,
         mode: revisionMode,
         comment,
@@ -192,19 +198,6 @@ export async function POST(request: Request) {
           transfer: "bulk_signed_upload",
         },
         syncStatus: "merged",
-        afterMutationTx: async (tx) => {
-          await tx
-            .update(uploadIntents)
-            .set({
-              status: "finalized",
-              finalizedMimeType: intent.expectedMimeType,
-              finalizedSize: intent.expectedSize,
-              finalizedAt: new Date(),
-              failureReason: null,
-              updatedAt: new Date(),
-            })
-            .where(eq(uploadIntents.id, intent.id));
-        },
       });
 
       finalizedResults.push({
