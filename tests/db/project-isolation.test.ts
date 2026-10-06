@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
-import { actAs, actAsOwner, createProject, createUser, inRollback, projectWithPeople, sql } from "./_helpers";
+import { actAs, actAsOwner, createProject, createUser, grantBrowserRead, inRollback, projectWithPeople, sql } from "./_helpers";
 
 after(() => sql.end());
 
@@ -9,6 +9,7 @@ after(() => sql.end());
 // assertion, but on its own fixtures in a disposable database, always rolled back.
 test("a member of one project cannot read another private project's rows", async () => {
   const visible = await inRollback(async (tx) => {
+    await grantBrowserRead(tx, ["project_nodes", "project_file_index", "project_node_events"]);
     const { member } = await projectWithPeople(tx);
     const otherOwner = await createUser(tx);
     const denied = await createProject(tx, otherOwner, { visibility: "private" });

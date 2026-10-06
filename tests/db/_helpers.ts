@@ -47,6 +47,15 @@ export async function actAs(tx: Tx, userId: string | null) {
   await tx`SELECT set_config('request.jwt.claims', ${claims}, true), set_config('request.jwt.claim.sub', ${userId ?? ""}, true)`;
 }
 
+/**
+ * Most tables are not browser-readable at all (0199). Policy tests still pin the
+ * row rules on them as a second layer by granting SELECT inside the rolled-back
+ * transaction.
+ */
+export async function grantBrowserRead(tx: Tx, tables: string[]) {
+  await tx.unsafe(`GRANT SELECT ON ${tables.map((t) => `public.${t}`).join(", ")} TO anon, authenticated`);
+}
+
 /** Back to the owner role (bypasses RLS) for setup or assertions. */
 export async function actAsOwner(tx: Tx) {
   await tx.unsafe("RESET ROLE");

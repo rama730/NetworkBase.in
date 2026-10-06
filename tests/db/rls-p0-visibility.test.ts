@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 
-import { actAs, actAsOwner, addMember, createProject, createUser, inRollback, projectWithPeople, sql, type Tx } from "./_helpers";
+import { actAs, actAsOwner, createProject, createUser, grantBrowserRead, inRollback, projectWithPeople, sql, type Tx } from "./_helpers";
 
 after(() => sql.end());
 
@@ -30,6 +30,7 @@ async function visibleCounts(tx: Tx, viewer: string | null, projectId: string) {
 // widen node visibility beyond nb_project_node_can_read.
 test("outsiders see only public project content files; trash, task files, drafts and hidden Files stay hidden", async () => {
   const result = await inRollback(async (tx) => {
+    await grantBrowserRead(tx, ["project_nodes", "file_versions", "project_file_index"]);
     const { owner, outsider, projectId } = await projectWithPeople(tx);
     const [task] = await tx`INSERT INTO public.tasks (project_id, title) VALUES (${projectId}, 't') RETURNING id`;
     await node(tx, projectId, "/readme.md");
@@ -59,6 +60,7 @@ test("outsiders see only public project content files; trash, task files, drafts
 // visible doc is readable by outsiders; overrides apply.
 test("doc versions: outsiders read only the published version; overrides and drafts apply", async () => {
   const result = await inRollback(async (tx) => {
+    await grantBrowserRead(tx, ["project_docs", "project_doc_versions"]);
     const { owner, member, outsider, projectId } = await projectWithPeople(tx);
     async function doc(project: string, slug: string, override: string) {
       const [d] = await tx`INSERT INTO public.project_docs (project_id, slug, filename, settings)
