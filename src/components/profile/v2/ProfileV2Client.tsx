@@ -138,6 +138,17 @@ function connectionStateFromRelationship(relationship: ProfilePrivacyRelationshi
     return 'none';
 }
 
+/**
+ * These actions report failure as `{ success: false }`; a toast.promise needs a rejection to show the
+ * error (and the caller's catch to roll the button back).
+ */
+function failed<T extends { success: boolean; error?: string }>(request: Promise<T>): Promise<T> {
+    return request.then((result) => {
+        if (!result.success) throw new Error(result.error || "Something went wrong. Try again.");
+        return result;
+    });
+}
+
 function connectionRequestKey() {
     return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? `profile:${crypto.randomUUID()}`
@@ -405,21 +416,21 @@ export function ProfileV2Client({
             if (status === 'none' || status === 'rejected') {
                 setStatus('pending_outgoing');
                 const { sendConnectionRequest } = await import('@/app/actions/connections');
-                await toast.promise(sendConnectionRequest(profile.id, connectionRequestKey()), {
+                await toast.promise(failed(sendConnectionRequest(profile.id, connectionRequestKey())), {
                     loading: 'Sending request...',
                     success: 'Connection request sent',
                     error: (err) => err instanceof Error ? err.message : 'Failed to send request'
-                });
+                }).unwrap();
                 await refreshViewerOverlay();
             } else if (status === 'pending_incoming') {
                 setStatus('accepted');
                 const connectionId = await resolveConnectionId();
                 const { acceptConnectionRequest } = await import('@/app/actions/connections');
-                await toast.promise(acceptConnectionRequest(connectionId, { idempotencyKey: connectionId }), {
+                await toast.promise(failed(acceptConnectionRequest(connectionId, { idempotencyKey: connectionId })), {
                     loading: 'Accepting request...',
                     success: 'Connection accepted',
                     error: (err) => err instanceof Error ? err.message : 'Failed to accept request'
-                });
+                }).unwrap();
                 await refreshViewerOverlay();
             }
         } catch (e) {
@@ -445,31 +456,31 @@ export function ProfileV2Client({
                 setStatus('none');
                 const connectionId = await resolveConnectionId();
                 const { cancelConnectionRequest } = await import('@/app/actions/connections');
-                await toast.promise(cancelConnectionRequest(connectionId), {
+                await toast.promise(failed(cancelConnectionRequest(connectionId)), {
                     loading: 'Cancelling request...',
                     success: 'Request cancelled',
                     error: (err) => err instanceof Error ? err.message : 'Failed to cancel request'
-                });
+                }).unwrap();
                 await refreshViewerOverlay();
             } else if (status === 'pending_incoming') {
                 setStatus('none');
                 const connectionId = await resolveConnectionId();
                 const { rejectConnectionRequest } = await import('@/app/actions/connections');
-                await toast.promise(rejectConnectionRequest(connectionId), {
+                await toast.promise(failed(rejectConnectionRequest(connectionId)), {
                     loading: 'Declining request...',
                     success: 'Request declined',
                     error: (err) => err instanceof Error ? err.message : 'Failed to decline request'
-                });
+                }).unwrap();
                 await refreshViewerOverlay();
             } else if (status === 'accepted') {
                 setStatus('none');
                 const connectionId = await resolveConnectionId();
                 const { removeConnection } = await import('@/app/actions/connections');
-                await toast.promise(removeConnection(connectionId), {
+                await toast.promise(failed(removeConnection(connectionId)), {
                     loading: 'Disconnecting...',
                     success: 'Disconnected',
                     error: (err) => err instanceof Error ? err.message : 'Failed to disconnect'
-                });
+                }).unwrap();
                 await refreshViewerOverlay();
             }
         } catch (e) {

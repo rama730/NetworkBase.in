@@ -52,7 +52,7 @@ function SuggestedPersonCard({
                 loading: "Sending request…",
                 success: (result) => getConnectionRequestSuccessMessage(result.status),
                 error: (error) => error instanceof Error ? error.message : "Failed to send request",
-            });
+            }).unwrap();
         } catch {
             setRequestSent(false);
         }

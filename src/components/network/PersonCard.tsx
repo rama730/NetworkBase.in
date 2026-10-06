@@ -181,7 +181,7 @@ function PersonCard({
                 loading: "Cancelling request...",
                 success: "Connection request cancelled",
                 error: (err) => err instanceof Error ? err.message : "Failed to cancel request",
-            });
+            }).unwrap();
         } catch {
             setLocalStatus("pending_sent");
         } finally {
@@ -197,7 +197,9 @@ function PersonCard({
                 loading: "Blocking account...",
                 success: `Blocked ${displayName}`,
                 error: (err) => err instanceof Error ? err.message : "Failed to block account",
-            });
+            }).unwrap();
+        } catch {
+            // The toast already says what went wrong.
         } finally {
             setBlocking(false);
         }
