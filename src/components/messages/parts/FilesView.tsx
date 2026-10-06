@@ -6,7 +6,7 @@ import { FileText, Image as ImageIcon, Paperclip, Video } from "lucide-react";
 
 import { listFiles } from "@/app/actions/chat/messages";
 import { RowsSkeleton } from "@/components/messages/parts/RowsSkeleton";
-import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatChatTime, formatFileSize, fullTime } from "@/lib/messaging/channel-view";
 import { messageHref } from "@/lib/messaging/routes";

@@ -2,45 +2,39 @@ import ProjectCardSkeleton from "@/components/projects/ProjectCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * Route-level Discovery fallback. It mirrors the signed-in Discovery page:
- * heading and filter, a single-column project feed, and the desktop people rail.
+ * Route-level Discover fallback: the same frame as the page (insets, columns, header rows, controls),
+ * so nothing moves when the real page replaces it.
  */
 export function DiscoverRouteSkeleton() {
   return (
-    <div role="status" aria-live="polite" aria-label="Loading discovery" className="h-full min-h-0 overflow-hidden">
-      <span className="sr-only">Loading discovery…</span>
-      <div aria-hidden="true" className="mx-auto h-full max-w-[1240px] px-4 py-8 sm:px-6 lg:px-8">
+    <div role="status" className="app-scroll app-scroll-y h-full min-h-0 flex-1 overflow-hidden px-4 sm:px-6">
+      <span className="sr-only">Loading Discover…</span>
+      <div aria-hidden="true" className="mx-auto w-full max-w-[1240px] pb-8 pt-6">
         <div className="nb-discover-columns">
           <section className="min-w-0">
-            <header className="mb-[34px] flex min-w-0 flex-col gap-4 py-2 sm:flex-row sm:items-end sm:justify-between">
-              <div className="space-y-3">
-                <Skeleton className="h-10 w-44 rounded" />
-                <Skeleton className="h-5 w-80 max-w-full rounded" />
+            <div className="mb-[18px] flex flex-col gap-4">
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-40 rounded-md" />
+                <Skeleton className="h-5 w-80 max-w-full rounded-md" />
               </div>
-              <Skeleton className="h-[var(--ui-control-height-lg)] w-full rounded-md sm:w-[168px]" />
-            </header>
-            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Skeleton className="h-[var(--ui-control-height)] w-[136px] rounded-md" />
+                <Skeleton className="h-[var(--ui-control-height)] flex-1 rounded-md sm:w-64 sm:flex-none" />
+                <Skeleton className="h-[var(--ui-control-height)] w-[132px] rounded-md" />
+                <Skeleton className="h-[var(--ui-control-height)] w-24 rounded-md" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-4">
               {[1, 2, 3].map((item) => <ProjectCardSkeleton key={item} />)}
             </div>
           </section>
-
-          <aside className="nb-discover-rail pt-2" aria-label="Loading people you should meet">
+          <aside className="nb-discover-rail">
             <div className="mb-3 flex items-center gap-3">
-              <Skeleton className="h-4 w-44 rounded" />
+              <Skeleton className="h-4 w-40 rounded-sm" />
               <div className="h-px flex-1 bg-border" />
             </div>
             <div className="space-y-3">
-              {[1, 2, 3].map((item) => (
-                <article key={item} className="nb-discover-person-card">
-                  <Skeleton className="size-14 shrink-0 rounded-md" />
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <Skeleton className="h-5 w-36 max-w-full rounded" />
-                    <Skeleton className="h-4 w-full rounded" />
-                    <Skeleton className="h-5 w-20 rounded-full" />
-                  </div>
-                  <Skeleton className="h-8 w-20 shrink-0 rounded-md" />
-                </article>
-              ))}
+              {[1, 2, 3].map((item) => <Skeleton key={item} className="h-[136px] w-full rounded-lg" />)}
             </div>
           </aside>
         </div>

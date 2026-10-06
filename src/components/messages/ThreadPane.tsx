@@ -10,7 +10,7 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { Check, Link2, MoreHorizontal, SquareArrowOutUpRight } from "lucide-react";
 import { LatestBar } from "@/components/messages/parts/LatestBar";
 import { Button } from "@/components/ui/button";
-import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { REVEAL_EVENT, type RevealEvent } from "@/components/messages/Timeline";
 import { toast } from "sonner";
 

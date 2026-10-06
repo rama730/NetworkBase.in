@@ -19,7 +19,8 @@ describe('Hub pagination', () => {
         assert.match(data, /\.limit\(pageSize \+ 1\)/);
         assert.match(data, /const hasMore = rawProjects\.length > pageSize/);
         assert.match(data, /while \(pageRows\.length < pageSize/);
-        assert.match(follows, /\.in\('project_id', visibleProjectIds\)/);
+        // One follow lookup per feed page: bounded, and loaded pages never refetch.
+        assert.match(follows, /\.in\('project_id', pageIds\)/);
         assert.doesNotMatch(follows, /\.eq\('user_id', userId\);/);
     });
 });

@@ -67,6 +67,7 @@ test("Empty state architectural contract: Discover, People, and Skills surfaces"
     const hubClient = readFileSync(resolve(ROOT, "src/components/discover/DiscoverClient.tsx"), "utf-8");
     const skillPicker = readFileSync(resolve(ROOT, "src/components/skills/SkillPicker.tsx"), "utf-8");
 
-    assert.match(hubClient, /className=["'][^"']*nb-empty-state nb-grid-ground/);
+    // Discover's empty states are the shared EmptyState (which renders .nb-empty-state.nb-grid-ground).
+    assert.match(hubClient, /<EmptyState\b/);
     assert.match(skillPicker, /className=["'][^"']*nb-empty-state nb-grid-ground/);
 });

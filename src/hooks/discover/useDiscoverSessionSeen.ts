@@ -4,30 +4,29 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'discover-session-seen-projects';
 
+/** Projects opened in this tab's session, for "Hide projects I've opened". */
 export function useDiscoverSessionSeen() {
     const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
-    const [hideSeen, setHideSeen] = useState(false);
-    const initializedRef = useRef(false);
+    const loaded = useRef(false);
 
     useEffect(() => {
         try {
             const raw = sessionStorage.getItem(STORAGE_KEY);
-            if (!raw) return;
-            const parsed = JSON.parse(raw) as string[];
-            setSeenIds(new Set(parsed));
+            if (raw) setSeenIds(new Set(JSON.parse(raw) as string[]));
         } catch {
-            // no-op
+            // Storage blocked or bad data: start empty.
+        } finally {
+            // Always, so the first project opened in a fresh session is saved too.
+            loaded.current = true;
         }
-        initializedRef.current = true;
     }, []);
 
-    // Persist seenIds to sessionStorage whenever they change (after initialization)
     useEffect(() => {
-        if (!initializedRef.current) return;
+        if (!loaded.current) return;
         try {
             sessionStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(seenIds).slice(-500)));
         } catch {
-            // no-op
+            // Storage blocked: the list lasts as long as the page.
         }
     }, [seenIds]);
 
@@ -40,20 +39,5 @@ export function useDiscoverSessionSeen() {
         });
     }, []);
 
-    const clearSeen = useCallback(() => {
-        setSeenIds(new Set());
-        try {
-            sessionStorage.removeItem(STORAGE_KEY);
-        } catch {
-            // no-op
-        }
-    }, []);
-
-    return useMemo(() => ({
-        seenIds,
-        hideSeen,
-        setHideSeen,
-        markSeen,
-        clearSeen,
-    }), [seenIds, hideSeen, markSeen, clearSeen]);
+    return useMemo(() => ({ seenIds, markSeen }), [seenIds, markSeen]);
 }

@@ -857,6 +857,8 @@ export default function OnboardingPage() {
                 window.localStorage.setItem(
                     'onboarding:profile-strength:v1',
                     JSON.stringify({
+                        // Discover shows it only to this account (a shared browser has more than one).
+                        userId: bootstrap.userId,
                         createdAt: Date.now(),
                         items: checklistItems,
                     })

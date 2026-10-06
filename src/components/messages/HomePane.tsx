@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlarmClock, CheckCheck, Compass, Dot, Inbox, SquarePen } from "lucide-react";
 
-import { ErrorNotice } from "@/components/messages/parts/ErrorNotice";
+import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { useWide } from "@/components/messages/useWide";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";

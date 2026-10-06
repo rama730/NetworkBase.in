@@ -1,91 +1,64 @@
 'use client';
 
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
-import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS, FilterView, ProjectStatus, ProjectType, SortOption } from '@/constants/discover';
 
-interface UrlFilters {
-    q: string;
-    view: FilterView;
-    status: ProjectStatus;
-    type: ProjectType;
-    sort: SortOption;
-    tech: string[];
-    hideOpened: boolean;
-}
+import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS } from '@/constants/discover';
+import { activeFilterCount, isDefaultDiscoverQuery, parseDiscoverQuery, type DiscoverQuery } from '@/lib/discover/query';
 
-function parseDiscoveryView(value: string | null): FilterView {
-    if (
-        value === FILTER_VIEWS.TRENDING ||
-        value === FILTER_VIEWS.RECOMMENDATIONS ||
-        value === FILTER_VIEWS.FOLLOWING
-    ) {
-        return value;
-    }
-    return FILTER_VIEWS.ALL;
-}
+const DEFAULTS: DiscoverQuery = {
+    q: '',
+    view: FILTER_VIEWS.ALL,
+    status: PROJECT_STATUS.ALL,
+    type: PROJECT_TYPE.ALL,
+    sort: SORT_OPTIONS.NEWEST,
+    tech: [],
+    hideOpened: false,
+};
 
+/**
+ * Discover's filters live in the URL (shareable, Back/Forward work). Changes use history.pushState:
+ * Next keeps useSearchParams in sync without re-running the server page, so a control never snaps back
+ * while the server answers. The feed query refetches on the new key by itself.
+ */
 export function useDiscoverUrlFilters() {
     const searchParams = useSearchParams();
-    const router = useRouter();
     const pathname = usePathname();
 
-    const urlFilters: UrlFilters = useMemo(() => ({
-        q: searchParams.get('q') || '',
-        view: parseDiscoveryView(searchParams.get('view')),
-        status: (searchParams.get('status') as ProjectStatus) || PROJECT_STATUS.ALL,
-        type: (searchParams.get('type') as ProjectType) || PROJECT_TYPE.ALL,
-        sort: (searchParams.get('sort') as SortOption) || SORT_OPTIONS.NEWEST,
-        tech: searchParams.get('tech')?.split(',').filter(Boolean) || [],
-        hideOpened: searchParams.get('hideOpened') === 'true',
-    }), [searchParams]);
+    const urlFilters = useMemo(() => parseDiscoverQuery((key) => searchParams.get(key)), [searchParams]);
 
-    const updateUrlFilters = useCallback((newFilters: Partial<UrlFilters>) => {
+    const updateUrlFilters = useCallback((patch: Partial<DiscoverQuery>, options: { replace?: boolean } = {}) => {
         const params = new URLSearchParams(searchParams.toString());
+        for (const [key, value] of Object.entries(patch) as Array<[keyof DiscoverQuery, DiscoverQuery[keyof DiscoverQuery]]>) {
+            const isDefault = Array.isArray(value)
+                ? value.length === 0
+                : value === DEFAULTS[key] || value === '' || value === undefined;
+            if (isDefault) params.delete(key);
+            else params.set(key, Array.isArray(value) ? value.join(',') : String(value));
+        }
+        const query = params.toString();
+        const url = `${pathname}${query ? `?${query}` : ''}`;
+        // Typing in the search box replaces (one Back step per search, not per letter).
+        if (options.replace) window.history.replaceState(null, '', url);
+        else window.history.pushState(null, '', url);
+    }, [pathname, searchParams]);
 
-        Object.entries(newFilters).forEach(([key, value]) => {
-            if (
-                value === undefined ||
-                value === '' ||
-                value === FILTER_VIEWS.ALL ||
-                value === PROJECT_STATUS.ALL ||
-                value === PROJECT_TYPE.ALL ||
-                value === SORT_OPTIONS.NEWEST ||
-                (Array.isArray(value) && value.length === 0) ||
-                (key === 'hideOpened' && value === false)
-            ) {
-                params.delete(key);
-            } else if (Array.isArray(value)) {
-                params.set(key, value.join(','));
-            } else {
-                params.set(key, String(value));
-            }
+    /** Clears the filter tags, and the search too unless `keepSearch`. Scope and sort stay. */
+    const clearFilters = useCallback((options: { keepSearch?: boolean } = {}) => {
+        updateUrlFilters({
+            ...(options.keepSearch ? {} : { q: '' }),
+            status: PROJECT_STATUS.ALL,
+            type: PROJECT_TYPE.ALL,
+            tech: [],
+            hideOpened: false,
         });
-
-        const queryString = params.toString();
-        router.push(`${pathname}${queryString ? `?${queryString}` : ''}`, { scroll: false });
-    }, [searchParams, router, pathname]);
-
-    const clearFilters = useCallback(() => {
-        router.push(pathname, { scroll: false });
-    }, [router, pathname]);
-
-    const hasActiveFilters = useMemo(() => {
-        return !!(
-            urlFilters.q ||
-            urlFilters.view !== FILTER_VIEWS.ALL ||
-            urlFilters.status !== PROJECT_STATUS.ALL ||
-            urlFilters.type !== PROJECT_TYPE.ALL ||
-            urlFilters.sort !== SORT_OPTIONS.NEWEST ||
-            urlFilters.tech.length > 0 ||
-            urlFilters.hideOpened
-        );
-    }, [urlFilters]);
+    }, [updateUrlFilters]);
 
     return {
         urlFilters,
         updateUrlFilters,
         clearFilters,
-        hasActiveFilters,
+        activeFilters: activeFilterCount(urlFilters),
+        isDefault: isDefaultDiscoverQuery(urlFilters),
     };
 }

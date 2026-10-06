@@ -1,6 +1,6 @@
 'use client';
 
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import { Project, DiscoverFilters } from '@/types/discover';
 import { fetchDiscoverProjectsAction } from '@/app/actions/discover';
 import { FILTER_VIEWS, SORT_OPTIONS, type FilterView } from '@/constants/discover';
@@ -8,6 +8,18 @@ import { queryKeys } from '@/lib/query-keys';
 import { mapPublicProjectToDiscoverProject, type PublicProjectsFeedItem } from '@/lib/projects/public-feed';
 
 const PAGE_SIZE = 24;
+
+/** A feed failure people can act on: the message is ours (never a server body), `code` says if a retry helps. */
+export class DiscoverFeedError extends Error {
+    constructor(readonly code: 'TRANSIENT' | 'RATE_LIMITED' | 'VALIDATION') {
+        super(code === 'RATE_LIMITED'
+            ? 'Too many requests. Wait a moment, then try again.'
+            : code === 'VALIDATION'
+                ? "That link's filters aren't valid. Clear filters to start over."
+                : "Projects didn't load. Check your connection and try again.");
+        this.name = 'DiscoverFeedError';
+    }
+}
 
 type PublicProjectsApiResponse = {
     success: true
@@ -20,61 +32,40 @@ type PublicProjectsApiResponse = {
     message?: string
 }
 
-function canUsePublicProjectsFeed(filters: DiscoverFilters, view: FilterView) {
+/** The unfiltered newest feed comes from the shared, cached API; everything else from the server action. */
+function isDefaultFeed(filters: DiscoverFilters, view: FilterView) {
     return view === FILTER_VIEWS.ALL
         && (!filters.status || filters.status === 'all')
         && (!filters.type || filters.type === 'all')
         && (!filters.sort || filters.sort === SORT_OPTIONS.NEWEST)
         && (!filters.tech || filters.tech.length === 0)
-        && !filters.search
+        && !filters.search;
 }
 
 async function fetchPublicProjectsPage(cursor: string | undefined) {
-    const searchParams = new URLSearchParams({
-        limit: String(PAGE_SIZE),
-    })
-    if (cursor) {
-        searchParams.set('cursor', cursor)
-    }
+    const searchParams = new URLSearchParams({ limit: String(PAGE_SIZE) });
+    if (cursor) searchParams.set('cursor', cursor);
 
     const response = await fetch(`/api/v1/projects?${searchParams.toString()}`, {
         method: 'GET',
         credentials: 'same-origin',
-        headers: {
-            'Accept': 'application/json',
-        },
-    })
-    const fallbackResponse = response.clone()
-    let payload: PublicProjectsApiResponse
-
-    try {
-        payload = await response.json() as PublicProjectsApiResponse
-    } catch {
-        const responseText = (await fallbackResponse.text().catch(() => '')).trim()
-        const statusMessage = `Failed to fetch projects (${response.status})`
-        throw new Error(
-            responseText
-                ? `${statusMessage}: ${responseText}`
-                : `${statusMessage}: Invalid server response`,
-        )
-    }
-
-    if (!response.ok || !payload.success) {
-        const errorMessage =
-            'message' in payload && typeof payload.message === 'string'
-                ? payload.message
-                : 'Failed to fetch projects'
-        throw new Error(errorMessage)
-    }
+        headers: { Accept: 'application/json' },
+    }).catch(() => null);
+    if (!response) throw new DiscoverFeedError('TRANSIENT');
+    if (response.status === 429) throw new DiscoverFeedError('RATE_LIMITED');
+    if (response.status === 400) throw new DiscoverFeedError('VALIDATION');
+    const payload = await response.json().catch(() => null) as PublicProjectsApiResponse | null;
+    if (!response.ok || !payload?.success) throw new DiscoverFeedError('TRANSIENT');
 
     return {
         projects: payload.data.projects.map(mapPublicProjectToDiscoverProject),
         nextCursor: payload.data.nextCursor || undefined,
         hasMore: Boolean(payload.data.nextCursor),
-    }
+    };
 }
 
 export function useDiscoverProjects(
+    viewerId: string | null,
     filters: DiscoverFilters,
     view: FilterView,
     initialProjectsPage?: {
@@ -84,50 +75,34 @@ export function useDiscoverProjects(
     } | null,
 ) {
     return useInfiniteQuery({
-        queryKey: queryKeys.discover.projectsSimple(view, filters),
+        queryKey: queryKeys.discover.projectsSimple(viewerId, view, filters),
         queryFn: async ({ pageParam = undefined as string | undefined }) => {
-            if (canUsePublicProjectsFeed(filters, view)) {
-                return fetchPublicProjectsPage(pageParam)
-            }
+            if (isDefaultFeed(filters, view)) return fetchPublicProjectsPage(pageParam);
 
             const result = await fetchDiscoverProjectsAction(filters, pageParam, PAGE_SIZE, view);
-
-            if (!result.success) {
-                throw new Error(result.error);
-            }
-
-            // Explicitly cast to the success shape
-            const successResult = result as {
-                success: true;
-                projects: Project[];
-                nextCursor?: string;
-                hasMore: boolean;
-            };
-
+            if (!result.success) throw new DiscoverFeedError(result.code);
             return {
-                projects: successResult.projects || [],
-                nextCursor: successResult.nextCursor,
-                hasMore: successResult.hasMore,
+                projects: result.projects || [],
+                nextCursor: result.nextCursor,
+                hasMore: result.hasMore,
             };
         },
         initialPageParam: undefined as string | undefined,
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
         staleTime: 120_000,
         refetchOnWindowFocus: false,
-        // Use initial data if provided and filters match default (empty/all)
-        // Note: infinite query initialData structure needs { pages: [...], pageParams: [...] }
-        initialData: (initialProjectsPage && view === 'all' && isDefaultFilters(filters)) ? {
+        // The last results stay on screen (dimmed) while a new scope or filter loads.
+        placeholderData: keepPreviousData,
+        // Only a network hiccup is worth retrying; a rate limit or a bad link would fail again.
+        retry: (count, error) => count < 2 && !(error instanceof DiscoverFeedError && error.code !== 'TRANSIENT'),
+        // The server renders the default feed; use it rather than fetching it again.
+        initialData: initialProjectsPage && isDefaultFeed(filters, view) ? {
             pages: [{
                 projects: initialProjectsPage.projects || [],
                 nextCursor: initialProjectsPage.nextCursor,
-                hasMore: initialProjectsPage.hasMore
+                hasMore: Boolean(initialProjectsPage.hasMore),
             }],
-            pageParams: [undefined]
+            pageParams: [undefined],
         } : undefined,
     });
-}
-
-function isDefaultFilters(filters: DiscoverFilters) {
-    // Check if filters match the default fetched server-side
-    return canUsePublicProjectsFeed(filters, FILTER_VIEWS.ALL);
 }

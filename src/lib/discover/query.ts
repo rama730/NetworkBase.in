@@ -8,6 +8,7 @@ import {
     type ProjectType,
     type SortOption,
 } from '@/constants/discover';
+import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
 
 /** What a Discover URL asks for. One parser for the server page, the URL hook and the feed hook. */
 export type DiscoverQuery = {
@@ -24,7 +25,7 @@ const VIEWS: readonly string[] = [FILTER_VIEWS.ALL, FILTER_VIEWS.TRENDING, FILTE
 // Discover never lists drafts, so "Idea" isn't a filter here.
 export const DISCOVER_STATUSES: readonly ProjectStatus[] = [PROJECT_STATUS.IN_PROGRESS, PROJECT_STATUS.LAUNCHED];
 export const DISCOVER_SORTS: readonly SortOption[] = [SORT_OPTIONS.NEWEST, SORT_OPTIONS.OLDEST, SORT_OPTIONS.MOST_VIEWED, SORT_OPTIONS.MOST_FOLLOWED];
-const TYPES: readonly string[] = Object.values(PROJECT_TYPE);
+const TYPES: readonly string[] = PROJECT_TYPE_OPTIONS.map((type) => type.id);
 
 const pick = <T extends string>(value: string | null, allowed: readonly string[], fallback: T): T =>
     value && allowed.includes(value) ? (value as T) : fallback;
@@ -53,12 +54,10 @@ export function isDefaultDiscoverQuery(query: DiscoverQuery): boolean {
         && !query.q;
 }
 
-/** Filters a person set (search, status, type, skills, sort, hide opened): what "Clear all" clears. */
+/** The filters shown as tags (status, type, skills, hide opened): the Filters button's count. */
 export function activeFilterCount(query: DiscoverQuery): number {
-    return (query.q ? 1 : 0)
-        + (query.status !== PROJECT_STATUS.ALL ? 1 : 0)
+    return (query.status !== PROJECT_STATUS.ALL ? 1 : 0)
         + (query.type !== PROJECT_TYPE.ALL ? 1 : 0)
         + query.tech.length
-        + (query.sort !== SORT_OPTIONS.NEWEST ? 1 : 0)
         + (query.hideOpened ? 1 : 0);
 }

@@ -7,19 +7,12 @@ type ProjectTaskScope = "all" | "backlog" | "sprint";
 export const queryKeys = {
   discover: {
     root: () => ["discover"] as const,
-    projectsRoot: () => ["discover", "projects"] as const,
     projectsSimpleRoot: () => ["discover", "projects-simple"] as const,
-    projectsSimple: (view: FilterView, filters: DiscoverFilters) =>
-      ["discover", "projects-simple", view, filters] as const,
-    projects: (view: FilterView, filters: DiscoverFilters) =>
-      ["discover", "projects", view, filters] as const,
-    trending: () => ["discover", "trending"] as const,
+    /** Per viewer: For you and Following differ by account. */
+    projectsSimple: (viewerId: string | null, view: FilterView, filters: DiscoverFilters) =>
+      ["discover", "projects-simple", asNullable(viewerId), view, filters] as const,
     userFollowedProjects: (userId: string | null | undefined) =>
       ["discover", "user-followed-projects", asNullable(userId)] as const,
-    userProjectIds: (userId: string | null) =>
-      ["discover", "user-project-ids", asNullable(userId)] as const,
-    projectPrefetch: (projectId: string) =>
-      ["discover", "project-prefetch", projectId] as const,
   },
   /** Presence and status (people and projects). */
   presence: {
