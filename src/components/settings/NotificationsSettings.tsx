@@ -122,6 +122,8 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
   const isSaving = updateMutation.isPending;
   const pauseActive = isNotificationPauseActive(preferences);
   const pausedByStatus = pauseActive && Boolean(presence.data?.status?.pausesNotifications);
+  // A copy cached before this setting existed has no chat part yet: the defaults.
+  const chat = preferences.chat ?? { threadReplies: true, showPreview: true };
   const enabledCategoryCount = NOTIFICATION_PREFERENCE_CATEGORIES.filter(({ key }) => preferences[key]).length;
   const allCategoriesEnabled = enabledCategoryCount === NOTIFICATION_PREFERENCE_CATEGORIES.length;
   const deliveryDescriptions = {
@@ -168,6 +170,13 @@ export default function NotificationsPage({ embedded = false }: { embedded?: boo
       <div className="divide-y divide-border">
         <PreferenceSwitch id="delivery-browser" title="Desktop notifications" description={deliveryDescriptions.browser} checked={preferences.delivery.browser && permissionState === "granted"} disabled={isSaving || permissionState === "unsupported" || permissionState === "denied"} onToggle={() => void toggleBrowser()} />
         <PreferenceSwitch id="delivery-push" title="Push notifications" description={deliveryDescriptions.push} checked={preferences.delivery.push && pushStatus === "subscribed"} disabled={isSaving || pushBusy || pushStatus === "unsupported" || pushStatus === "denied"} onToggle={() => void togglePush()} />
+      </div>
+    </SettingsSectionCard>
+
+    <SettingsSectionCard title="Messages" description="How chat messages reach you as push notifications.">
+      <div className="divide-y divide-border">
+        <PreferenceSwitch id="chat-thread-replies" title="Replies in threads you follow" description="Push a notification for each new reply. Off: replies still show in your Inbox; @mentions always notify." checked={chat.threadReplies} disabled={isSaving} onToggle={() => save({ ...preferences, chat: { ...chat, threadReplies: !chat.threadReplies } })} />
+        <PreferenceSwitch id="chat-show-preview" title="Show message text in notifications" description="Off: notifications say who and where, but only “New message”, so the text never shows on a locked screen." checked={chat.showPreview} disabled={isSaving} onToggle={() => save({ ...preferences, chat: { ...chat, showPreview: !chat.showPreview } })} />
       </div>
     </SettingsSectionCard>
   </div>;

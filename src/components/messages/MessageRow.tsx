@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { createTaskFromMessage, deleteMessage, editMessage, listReactors, markUnread, pinMessage, react, reportMessage } from "@/app/actions/chat/messages";
+import { createTaskFromMessage, deleteMessage, editMessage, hideLinkPreview, listReactors, markUnread, pinMessage, react, reportMessage } from "@/app/actions/chat/messages";
 import { useConversationContext } from "@/components/messages/conversation-context";
 import { MessageBody, firstLink } from "@/components/messages/MessageBody";
 import { MessageCard } from "@/components/messages/cards/MessageCard";
@@ -57,14 +57,14 @@ function toViewerAttachment(attachment: ChatAttachmentView): ChatAttachmentV2 {
 
 const EditBox = dynamic(() => import("@/components/messages/MessageEditBox").then((m) => m.EditBox), { ssr: false });
 
-function LinkPreview({ body }: { body: string }) {
+function LinkPreview({ body, onRemove }: { body: string; onRemove?: () => void }) {
   const url = firstLink(body);
   const preview = useLinkPreview(url);
   if (!url) return null;
   // While it loads, a placeholder holds the card's space so the message doesn't jump.
   if (preview.isLoading) return <LinkPreviewCard preview={{ url, domain: new URL(url).hostname.replace(/^www\./, ""), title: null, description: null, image: null }} loading />;
   if (!preview.data) return null;
-  return <LinkPreviewCard preview={preview.data} />;
+  return <LinkPreviewCard preview={preview.data} onRemove={onRemove} />;
 }
 
 type Action = { id: string; label: string; icon: LucideIcon; run: () => void; shortcut?: string; destructive?: boolean; group: 1 | 2 | 3 };
@@ -276,6 +276,14 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
       },
     });
   };
+  // The author's × on the link card: gone for everyone (the link stays in the text).
+  const removePreview = async () => {
+    update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, link_preview_hidden: true })));
+    const result = await hideLinkPreview({ channelId: ctx.channelId, seq: message.seq });
+    if (result.success) return;
+    update((pages) => patchPages(pages, message.seq, (m) => ({ ...m, link_preview_hidden: false })));
+    toast.error(chatErrorMessage(result.error));
+  };
   const togglePin = async () => {
     const nextPinned = !message.pinned;
     const result = await pinMessage({ channelId: ctx.channelId, seq: message.seq, on: nextPinned });
@@ -459,7 +467,7 @@ export const MessageRow = memo(function MessageRow({ message, grouped, highlight
                 <div className="mt-1 max-w-[480px]"><MessageAttachmentsV2 attachments={message.attachments.map(toViewerAttachment)} /></div>
               ) : null}
               {message.card ? <MessageCard card={message.card} /> : null}
-              {message.body ? <LinkPreview body={message.body} /> : null}
+              {message.body && !message.link_preview_hidden ? <LinkPreview body={message.body} onRemove={own && actions ? () => void removePreview() : undefined} /> : null}
             </>
           )}
           {/* A deleted message keeps no reactions (like Slack). */}

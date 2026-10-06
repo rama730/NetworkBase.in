@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
@@ -9,10 +9,10 @@ import { Bell, Copy, Link2, Lock, MessageSquare, MoreHorizontal, Search, ShieldC
 import { toast } from "sonner";
 
 import { joinChannel, renameGroup, setChannelPrivacy, updateChannel, type ChannelDetails } from "@/app/actions/chat/channels";
-import { addMembers, getOrCreateDm, getPersonContext, removeMember, setMemberRole, setMemberState } from "@/app/actions/chat/members";
+import { addMembers, getOrCreateDm, removeMember, setMemberRole, setMemberState } from "@/app/actions/chat/members";
 import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { AddPeopleDialog } from "@/components/messages/parts/AddPeople";
-import { useChannelDetails, useChannelMembers } from "@/components/messages/useConversation";
+import { useChannelDetails, useChannelMembers, usePersonContext } from "@/components/messages/useConversation";
 import { PresenceAvatar } from "@/components/presence/PersonPresence";
 import { PresenceBadge } from "@/components/presence/PresenceBadge";
 import { StatusInline } from "@/components/presence/StatusInline";
@@ -332,15 +332,7 @@ function PersonDetails({ channel, meId, setState, onClose }: { channel: ChannelD
   const person = channel.dm_user;
   const self = person?.id === meId;
   const presence = usePersonPresence(person?.id);
-  const context = useQuery({
-    queryKey: ["chat-v3", "person-context", person?.id ?? ""],
-    enabled: Boolean(person && !self),
-    queryFn: async () => {
-      const result = await getPersonContext({ userId: person!.id });
-      return result.success ? result.context : null;
-    },
-    staleTime: 5 * 60_000,
-  });
+  const context = usePersonContext(person?.id, !self);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60_000);

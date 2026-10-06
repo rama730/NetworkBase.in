@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { EditorContent, type Editor } from "@tiptap/react";
 import { EditorState } from "@tiptap/pm/state";
-import { ALargeSmall, BarChart3, Camera, ChevronDown, Code2, FileText, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "lucide-react";
+import { ALargeSmall, BarChart3, Camera, ChevronDown, Code2, FileText, Hash, Image as ImageIcon, Paperclip, Plus, SendHorizontal, Slash, Smile, SquareCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { scheduleMessage } from "@/app/actions/chat/later";
@@ -15,6 +15,7 @@ import { useChatShell } from "@/components/messages/ChatShellProvider";
 import { readChatUi, readDraft, writeChatUi, writeDraft } from "@/components/messages/chat-ui-store";
 import { ComposerMenu, type ComposerMenuItem } from "@/components/messages/parts/ComposerMenu";
 import { matchMentions, MentionDropdown, openCombobox } from "@/components/messages/parts/MentionDropdown";
+import { SuggestList, type Suggestion } from "@/components/messages/parts/SuggestList";
 import { ReactionQuickBar } from "@/components/messages/parts/ReactionQuickBar";
 import { TimePickerDialog } from "@/components/messages/parts/TimePickerDialog";
 import { LOAD_DRAFT_EVENT, failSend, type LoadDraftDetail } from "@/components/messages/failed-sends";
@@ -31,6 +32,8 @@ import { formatChatTime } from "@/lib/messaging/channel-view";
 import { chatErrorMessage } from "@/lib/messaging/errors";
 import { readMediaDimensions } from "@/lib/messaging/media-metadata";
 import { pollBody } from "@/lib/messaging/poll";
+import { emojiForShortcode, searchEmoji } from "@/lib/messaging/emoji";
+import { isVisible } from "@/lib/messaging/channel-view";
 import { laterTimes } from "@/lib/messaging/reminders";
 import { keepLocalPreviews, upsertMessage } from "@/lib/messaging/timeline";
 import { queryKeys } from "@/lib/query-keys";
@@ -157,11 +160,15 @@ function personLabel(person: ChatPerson) {
   return person.full_name || person.username || "";
 }
 
-/** "@ann" before the caret in this paragraph (a line break or a mention counts as a word gap). */
-function mentionQuery(editor: Editor) {
+/** The text before the caret in this paragraph (a line break or a token counts as a word gap). */
+function textBeforeCaret(editor: Editor) {
   const { $head } = editor.state.selection;
-  const before = $head.parent.textBetween(0, $head.parentOffset, undefined, "\n");
-  const match = before.match(/(^|\s)@([^\s@]{0,30})$/);
+  return $head.parent.textBetween(0, $head.parentOffset, undefined, "\n");
+}
+
+/** "@ann" before the caret. */
+function mentionQuery(editor: Editor) {
+  const match = textBeforeCaret(editor).match(/(^|\s)@([^\s@]{0,30})$/);
   return match ? match[2]! : null;
 }
 
@@ -194,6 +201,10 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
   const [formatting, setFormatting] = useState(() => (typeof window === "undefined" ? false : Boolean(readChatUi().formatting)));
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [mention, setMention] = useState<{ query: string } | null>(null);
+  // "#des" suggests channels, ":tad" suggests emoji (round 3 #258, #259).
+  const [suggest, setSuggest] = useState<{ kind: "channel" | "emoji"; query: string } | null>(null);
+  const [suggestIndex, setSuggestIndex] = useState(0);
+  const suggestOpenRef = useRef(false);
   const [sending, setSending] = useState(false);
   // Send pressed while files upload: it goes out by itself when they finish (like Slack).
   const [queued, setQueued] = useState(false);
@@ -240,6 +251,20 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     if (typed && slashForced) setSlashForced(false);
     const query = mentionQuery(editor);
     setMention(query === null ? null : { query });
+    const before = textBeforeCaret(editor);
+    // A full ":tada:" just typed becomes the emoji (next frame, outside this update).
+    const shortcode = typed ? before.match(/(^|\s):([a-z0-9_+-]{1,30}):$/i) : null;
+    const emoji = shortcode ? emojiForShortcode(shortcode[2]!) : null;
+    if (emoji) {
+      const to = editor.state.selection.from;
+      const from = to - shortcode![2]!.length - 2;
+      requestAnimationFrame(() => editor.chain().deleteRange({ from, to }).insertContent(emoji).run());
+      return setSuggest(null);
+    }
+    const channel = before.match(/(^|\s)#([\w-]{0,40})$/);
+    const partial = before.match(/(^|\s):([a-z0-9_+-]{2,30})$/i);
+    setSuggest(channel ? { kind: "channel", query: channel[2]! } : partial ? { kind: "emoji", query: partial[2]! } : null);
+    setSuggestIndex(0);
   };
 
   const editor = useChatEditor({
@@ -255,6 +280,10 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       },
       onMenuKey: (key) => menuKey.current(key),
       onEscape: () => {
+        if (suggestOpenRef.current) {
+          setSuggest(null);
+          return true;
+        }
         if (!slashOpenRef.current) return false;
         setSlashForced(false);
         if (editor?.getText() === "/") editor.commands.clearContent(true);
@@ -406,6 +435,34 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
       .insertContent(broadcast
         ? `@${participant.id} `
         : [{ type: "chatToken", attrs: { raw: `<@${participant.id}>`, label: `@${participant.fullName || participant.username || "someone"}` } }, { type: "text", text: " " }])
+      .run();
+  };
+
+  // Channels you're in whose name matches (prefix first); emoji by name.
+  const suggestions = useMemo<Suggestion[]>(() => {
+    if (!suggest) return [];
+    if (suggest.kind === "emoji") return searchEmoji(suggest.query, 6).map((e) => ({ id: e.emoji, label: `:${e.name}:`, icon: e.emoji }));
+    const q = suggest.query.toLowerCase();
+    return (shell.data?.channels ?? [])
+      .filter((c) => c.name && isVisible(c) && c.name.includes(q))
+      .sort((a, b) => Number(!a.name!.startsWith(q)) - Number(!b.name!.startsWith(q)) || a.name!.localeCompare(b.name!))
+      .slice(0, 6)
+      .map((c) => ({ id: c.id, label: `#${c.name}`, icon: <Hash size={14} /> }));
+  }, [shell.data?.channels, suggest]);
+  const activeSuggest = Math.min(suggestIndex, Math.max(0, suggestions.length - 1));
+
+  const pickSuggestion = (item: Suggestion) => {
+    if (!editor || !suggest) return;
+    const caret = editor.state.selection.from;
+    // Matched again at pick time: the caret may have moved since the list opened.
+    const match = textBeforeCaret(editor).match(suggest.kind === "channel" ? /#([\w-]{0,40})$/ : /:([a-z0-9_+-]{2,30})$/i);
+    setSuggest(null);
+    if (!match) return;
+    const from = caret - match[0].length;
+    editor.chain().focus().deleteRange({ from, to: caret })
+      .insertContent(suggest.kind === "channel"
+        ? [{ type: "chatToken", attrs: { raw: `<#${item.id}>`, label: item.label } }, { type: "text", text: " " }]
+        : `${item.id} `)
       .run();
   };
 
@@ -675,13 +732,25 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
     return openCombobox(input, `${draftKey}-slash`, `${draftKey}-slash-${activeSlash}`);
   }, [activeSlash, draftKey, editor, matchingSlash.length]);
   useEffect(() => {
+    const input = editor && !editor.isDestroyed ? editor.view.dom : null;
+    if (!input || !suggestions.length) return;
+    return openCombobox(input, `${draftKey}-suggest`, `${draftKey}-suggest-${activeSuggest}`);
+  }, [activeSuggest, draftKey, editor, suggestions.length]);
+  useEffect(() => {
     submitRef.current = () => {
       if (matchingSlash.length) pickSlash(matchingSlash[activeSlash]!.command);
+      else if (suggestions.length) pickSuggestion(suggestions[activeSuggest]!);
       else void submit();
     };
     menuOpen.current = Boolean(mention && matchMentions(mentionable, mention.query).length);
     slashOpenRef.current = matchingSlash.length > 0;
+    suggestOpenRef.current = suggestions.length > 0;
     menuKey.current = (key) => {
+      if (!matchingSlash.length && suggestions.length) {
+        if (key === "tab") pickSuggestion(suggestions[activeSuggest]!);
+        else setSuggestIndex((activeSuggest + (key === "down" ? 1 : suggestions.length - 1)) % suggestions.length);
+        return true;
+      }
       if (!matchingSlash.length) return false;
       if (key === "tab") pickSlash(matchingSlash[activeSlash]!.command);
       else setSlashIndex((activeSlash + (key === "down" ? 1 : matchingSlash.length - 1)) % matchingSlash.length);
@@ -831,6 +900,14 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
           </div>
         ) : null}
         {formatting && editor ? <FormatToolbar editor={editor} onLink={openLink} /> : null}
+        <SuggestList
+          id={`${draftKey}-suggest`}
+          label={suggest?.kind === "channel" ? "Channels" : "Emoji"}
+          items={suggestions}
+          active={activeSuggest}
+          onPick={pickSuggestion}
+          onHover={setSuggestIndex}
+        />
         {mention ? (
           <MentionDropdown query={mention.query} participants={mentionable} onSelect={pickMention} onClose={() => setMention(null)} getInput={() => (editor && !editor.isDestroyed ? editor.view.dom : null)} />
         ) : null}
@@ -995,7 +1072,7 @@ export function Composer({ channelId, placeholder, people, threadRootSeq = null,
               />
             </label>
             {link?.error ? <p id={`${draftKey}-link-error`} role="alert" className="text-[13px] text-destructive">{link.error}</p> : null}
-            <DialogFooter>
+            <DialogFooter paper>
               {editor?.isActive("link") ? (
                 <Button type="button" variant="ghost" onClick={() => { editor.chain().focus().extendMarkRange("link").unsetLink().run(); setLink(null); }} className="mr-auto text-destructive">Remove link</Button>
               ) : null}

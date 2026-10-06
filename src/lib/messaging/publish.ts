@@ -104,6 +104,8 @@ export function publishSentMessage(input: {
           ? await getRedisClient()?.get<string>(`presence:tz:${recipient.id}`).catch(() => null) ?? null
           : null;
         if (isQuietHoursActive(prefs, now, zone)) return;
+        // A thread reply (not a mention) pushes only if they want thread replies.
+        if (message.thread_root_seq && !isMention && !prefs.chat.threadReplies) return;
         // Channel notify settings already shaped `notify`; the global switch left is mentions.
         if (isMention && !prefs.mentions) return;
         // One push per conversation per 30 s, but an @mention always gets through.
@@ -111,7 +113,8 @@ export function publishSentMessage(input: {
         await sendPushToUser(recipient.id, {
           id: `${message.channel_id}:${message.seq}`,
           title,
-          body,
+          // Lock-screen privacy: who and where, without what.
+          body: prefs.chat.showPreview ? body : "New message",
           href: messageHref(message.channel_id, message.seq, message.thread_root_seq),
           icon: message.author?.avatar_url ?? null,
           tag: `chat:${message.channel_id}`,

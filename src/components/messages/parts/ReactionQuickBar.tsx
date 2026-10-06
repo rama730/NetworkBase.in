@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuickReactions } from '@/components/messages/useQuickReactions';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { searchEmoji } from '@/lib/messaging/emoji';
 import { cn } from '@/lib/utils';
 
 const EXTENDED_REACTIONS = [
@@ -38,6 +40,28 @@ function moveFocus(event: React.KeyboardEvent<HTMLDivElement>) {
 export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = [], onReact, onClose, verb = 'React with', returnFocus }: ReactionQuickBarProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [showExtended, setShowExtended] = useState(false);
+    // Search by name ("tada", "thumbsup"); empty shows the usual set.
+    const [query, setQuery] = useState('');
+    const found = query.trim() ? searchEmoji(query).map((e) => e.emoji) : null;
+    const search = (
+        <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' && found?.[0]) {
+                    event.preventDefault();
+                    onReact(found[0]);
+                    onClose();
+                }
+            }}
+            // Opening "+" with a mouse or keyboard goes straight to search (never on touch, where it would pop the keyboard).
+            autoFocus={showExtended}
+            placeholder="Search emoji"
+            aria-label="Search emoji"
+            className="h-8 w-full rounded-md border border-input bg-card px-2 text-[13px] outline-none focus:border-ring pointer-coarse:h-11 pointer-coarse:text-[17px]"
+        />
+    );
     const quick = useQuickReactions();
 
     // Focus lands in the picker once; Esc closes it and returns focus to what opened it.
@@ -107,6 +131,38 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
 
     if (typeof document === 'undefined') return null;
 
+    // Touch: a bottom sheet with every emoji at 44px (spec: pickers on phones are sheets).
+    if (window.matchMedia('(pointer: coarse)').matches) {
+        const all = found ?? [...new Set([...quick, ...EXTENDED_REACTIONS])];
+        const close = () => {
+            onClose();
+            if (returnFocus) returnFocus();
+        };
+        return (
+            <Dialog open onOpenChange={(open) => !open && close()}>
+                <DialogContent presentation="bottom-sheet" className="px-3 pb-3">
+                    <DialogTitle className="nb-micro px-1 pb-1 pt-4">{verb === 'Insert' ? 'Emoji' : 'Add reaction'}</DialogTitle>
+                    <div className="pb-2">{search}</div>
+                    {found && !found.length ? <p className="px-1 py-3 text-[13px] text-muted-foreground">No emoji match.</p> : null}
+                    <div className="grid grid-cols-6 gap-1" role="group" aria-label={verb === 'Insert' ? 'Emoji' : 'Reactions'}>
+                        {all.map((emoji) => (
+                            <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => { onReact(emoji); onClose(); }}
+                                className={cn('grid min-h-11 place-items-center rounded-md text-2xl hover:bg-muted', selectedReactions.includes(emoji) && 'bg-accent')}
+                                aria-label={`${verb} ${emoji}`}
+                                aria-pressed={verb === 'Insert' ? undefined : selectedReactions.includes(emoji)}
+                            >
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
+        );
+    }
+
     return createPortal(
         <div
             ref={ref}
@@ -148,9 +204,11 @@ export function ReactionQuickBar({ align = 'start', anchor, selectedReactions = 
                     </button>
                 )}
             </div>
+            {showExtended ? <div className="mt-1.5 border-t border-border px-1 pt-1.5">{search}</div> : null}
+            {showExtended && found && !found.length ? <p className="px-2 py-2 text-[13px] text-muted-foreground">No emoji match.</p> : null}
             {showExtended && (
-                <div className="grid grid-cols-6 gap-1 p-1 border-t border-border mt-1.5 animate-in fade-in slide-in-from-top-1 duration-[180ms]">
-                    {EXTENDED_REACTIONS.map((emoji) => (
+                <div className="grid max-h-56 grid-cols-6 gap-1 overflow-y-auto p-1 animate-in fade-in slide-in-from-top-1 duration-[180ms]">
+                    {(found ?? EXTENDED_REACTIONS).map((emoji) => (
                         <button
                             key={emoji}
                             type="button"

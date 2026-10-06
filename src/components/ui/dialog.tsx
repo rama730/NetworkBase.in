@@ -101,12 +101,18 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * `paper`: the spec's footer (white body, paper footer): full width under the 24px-padded body,
+ * a top border and the paper fill. Use it as the dialog's last child.
+ */
+function DialogFooter({ className, paper = false, ...props }: React.ComponentProps<"div"> & { paper?: boolean }) {
   return (
     <div
       data-slot="dialog-footer"
+      data-paper={paper || undefined}
       className={cn(
         "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        paper && "-mx-6 -mb-6 mt-2 rounded-b-xl border-t border-border bg-muted px-6 py-4",
         className
       )}
       {...props}

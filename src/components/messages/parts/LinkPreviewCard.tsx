@@ -1,19 +1,22 @@
 'use client';
 
 import Image from 'next/image';
+import { X } from 'lucide-react';
 import type { LinkPreview } from '@/hooks/useLinkPreview';
 
 interface LinkPreviewCardProps {
     preview: LinkPreview;
     loading?: boolean;
     onContentLoad?: () => void;
+    /** The author's × (removes the preview for everyone). */
+    onRemove?: () => void;
 }
 
 /** A link's card under its message (theme tokens only); `loading` holds its place so nothing jumps. */
-export function LinkPreviewCard({ preview, loading = false, onContentLoad }: LinkPreviewCardProps) {
+export function LinkPreviewCard({ preview, loading = false, onContentLoad, onRemove }: LinkPreviewCardProps) {
     if (!loading && !preview.title && !preview.description && !preview.image) return null;
 
-    return (
+    const card = (
         <a
             href={preview.url}
             target="_blank"
@@ -58,5 +61,20 @@ export function LinkPreviewCard({ preview, loading = false, onContentLoad }: Lin
                 ) : null}
             </div>
         </a>
+    );
+    if (!onRemove) return card;
+    return (
+        <div className="group/preview relative max-w-[480px]">
+            {card}
+            <button
+                type="button"
+                onClick={onRemove}
+                aria-label="Remove link preview"
+                title="Remove preview"
+                className="nb-icon-button absolute right-1.5 top-3.5 size-7 bg-card pointer-fine:opacity-0 pointer-fine:group-hover/preview:opacity-100 focus-visible:opacity-100 pointer-coarse:size-11"
+            >
+                <X size={14} />
+            </button>
+        </div>
     );
 }

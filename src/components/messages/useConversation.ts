@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { getCanvas } from "@/app/actions/chat/canvas";
 import { getChannel, listChannelTabs, listMembers } from "@/app/actions/chat/channels";
+import { getPersonContext } from "@/app/actions/chat/members";
 import { listSavedSeqs, saveMessage } from "@/app/actions/chat/later";
 import { listMessages } from "@/app/actions/chat/messages";
 import { markRead } from "@/app/actions/chat/read";
@@ -193,6 +194,9 @@ export function useChannelMessages(channelId: string, options: { around?: number
             }));
             break;
           }
+          case "message.preview_hidden":
+            if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, link_preview_hidden: true })));
+            break;
           case "pin.changed":
             if (seq !== null) update((pages) => patchPages(pages, seq, (m) => ({ ...m, pinned: Boolean(payload.pinned) })));
             void queryClient.invalidateQueries({ queryKey: queryKeys.chat.pins(channelId) });
@@ -397,5 +401,18 @@ export function useChannelTabs(channelId: string, enabled: boolean) {
       return result.success ? result.tabs : [];
     },
     staleTime: 60_000,
+  });
+}
+
+/** A DM partner's context (their time zone, what you share), for Details and the line above the composer. */
+export function usePersonContext(userId: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ["chat-v3", "person-context", userId ?? ""],
+    enabled: enabled && Boolean(userId),
+    queryFn: async () => {
+      const result = await getPersonContext({ userId: userId! });
+      return result.success ? result.context : null;
+    },
+    staleTime: 5 * 60_000,
   });
 }

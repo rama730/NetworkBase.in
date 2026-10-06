@@ -156,7 +156,7 @@ export function ConfirmDialog({
             ) : null}
           </div>
         ) : null}
-        <DialogFooter className="shrink-0 flex-col gap-2 border-t bg-background px-6 py-4 sm:flex-row sm:gap-2">
+        <DialogFooter className="shrink-0 flex-col gap-2 border-t bg-muted px-6 py-4 sm:flex-row sm:gap-2">
           <Button
             ref={cancelButtonRef}
             type="button"

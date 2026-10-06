@@ -749,6 +749,21 @@ async function main() {
       const refused = textOnly.success ? await messages.editMessage({ channelId: launch, seq: textOnly.message.seq, body: "" }) : { success: true };
       return edited.success && row?.body === "" && !refused.success;
     });
+    await check("#260 only the author can remove a link preview, and it stays removed", async () => {
+      const sent = await messages.sendMessage({ channelId: launch, body: "see https://example.com/page" });
+      if (!sent.success) return false;
+      as(owner, "Olivia");
+      const notMine = await messages.hideLinkPreview({ channelId: launch, seq: sent.message.seq });
+      as(member, "Mason");
+      await flush();
+      broadcasts.length = 0;
+      const hidden = await messages.hideLinkPreview({ channelId: launch, seq: sent.message.seq });
+      await flush();
+      const page = await messages.listMessages({ channelId: launch });
+      const row = page.success ? page.messages.find((m) => m.seq === sent.message.seq) : undefined;
+      return !notMine.success && hidden.success && row?.link_preview_hidden === true
+        && broadcasts.some((b) => b.event === "message.preview_hidden");
+    });
     await check("leaveChannel works for non-default channels only", async () => {
       const left = await channels.leaveChannel({ channelId: launch });
       const refused = await channels.leaveChannel({ channelId: general });
