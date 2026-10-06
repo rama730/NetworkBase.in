@@ -3,19 +3,18 @@
  * Starts the dev server, waits for readiness, runs E2E tests, then stops the server.
  * Use when Playwright's built-in webServer has issues (e.g. Next.js compile delays).
  *
- * Usage: pnpm run test:e2e:with-server
- *        E2E_SCOPE=full pnpm run test:e2e:with-server
+ * Usage: npm run test:e2e:full
+ *        E2E_SCOPE=full npm run test:e2e:full
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { execSync } from "node:child_process";
 import { config as loadDotenv } from "dotenv";
+import { bindE2EEnvironment } from "./lib/disposable-db";
 
 loadDotenv({ path: ".env.local", quiet: true });
 loadDotenv({ quiet: true });
 
-if (process.env.E2E_DATABASE_URL?.trim()) {
-  process.env.DATABASE_URL = process.env.E2E_DATABASE_URL;
-}
+bindE2EEnvironment();
 
 const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
 const readyURL = `${baseURL}/api/v1/ready`;
@@ -63,9 +62,9 @@ async function main() {
   const devCommand =
     devServerMode === "turbo"
       ? ["run", "dev"]
-      : ["exec", "next", "dev", "--webpack", "-H", "0.0.0.0"];
+      : ["next", "dev", "--webpack", "-H", "0.0.0.0"];
 
-  devProcess = spawn("pnpm", devCommand, {
+  devProcess = spawn(devServerMode === "turbo" ? "npm" : "npx", devCommand, {
     stdio: "ignore",
     detached: true,
     cwd: process.cwd(),
@@ -87,7 +86,7 @@ async function main() {
   }
 
   const playwrightArgs = process.argv.slice(2).join(" ");
-  const cmd = `pnpm exec playwright test${playwrightArgs ? ` ${playwrightArgs}` : ""}`;
+  const cmd = `npx playwright test${playwrightArgs ? ` ${playwrightArgs}` : ""}`;
   try {
     execSync(cmd, {
       stdio: "inherit",

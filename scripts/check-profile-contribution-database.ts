@@ -3,17 +3,11 @@ import { randomUUID } from "node:crypto";
 import dotenv from "dotenv";
 import postgres from "postgres";
 
+import { requireDisposableDatabaseUrl } from "./lib/disposable-db";
+
 dotenv.config({ path: ".env.local" });
 
-const disposableUrl = process.env.E2E_DATABASE_URL || process.env.DATABASE_URL_FRESH || process.env.DATABASE_URL_REPLAY_FRESH;
-if (!disposableUrl) {
-  throw new Error(
-    "Profile contribution database integration requires E2E_DATABASE_URL, DATABASE_URL_FRESH, or DATABASE_URL_REPLAY_FRESH. The primary database is never used.",
-  );
-}
-if (process.env.DATABASE_URL && disposableUrl === process.env.DATABASE_URL) {
-  throw new Error("Refusing to run profile contribution integration checks against DATABASE_URL.");
-}
+const disposableUrl = requireDisposableDatabaseUrl("check:profile-contributions:db");
 
 const sql = postgres(disposableUrl, { max: 1, prepare: false });
 const ROLLBACK = Symbol("profile-contribution-integration-rollback");

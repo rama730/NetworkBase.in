@@ -50,8 +50,7 @@ Copy production values from the local environment into Railway through the
 encrypted Variables interface. Never commit values to this repository. The web
 and worker services use the same values except for `INNGEST_EXECUTION_ROLE`.
 
-Keep `E2E_AUTH_FALLBACK`, `NEXT_PUBLIC_E2E_AUTH_FALLBACK`, and
-`E2E_ALLOW_PRIMARY_DATABASE` unset or false in production.
+Keep `E2E_AUTH_FALLBACK` and `NEXT_PUBLIC_E2E_AUTH_FALLBACK` unset or false in production.
 
 ## Supabase Auth
 

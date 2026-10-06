@@ -4,6 +4,8 @@
 #   scripts/chat-load/run.sh postgresql://postgres@localhost:54329/nb_chat_load [seconds]
 set -euo pipefail
 URL="$1"; SECS="${2:-60}"; DIR="$(cd "$(dirname "$0")" && pwd)"
+# Load runs write rows: refuse anything that resolves to the primary database.
+(cd "$DIR/../.." && npx tsx -e 'import("./scripts/lib/disposable-db").then(m => (m.default ?? m).assertDisposableDatabaseUrl(process.argv[1], "chat-load"))' "$URL")
 OUT="${TMPDIR:-/tmp}/chat-load-$$"; mkdir -p "$OUT"
 
 measure() { # name script rate clients

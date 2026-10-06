@@ -79,10 +79,3 @@ test("background writers defer instead of overwriting active editors", () => {
   assert.match(sandboxMerge, /Task merge deferred because a collaborator is editing an affected file/);
   assert.doesNotMatch(sandboxMerge, /DELETE FROM project_node_locks/);
 });
-
-test("maintenance deduplication refuses to remove active editing leases", () => {
-  const deduplicate = read("scripts/deduplicate_nodes.ts");
-  assert.match(deduplicate, /expires_at > NOW\(\)/);
-  assert.match(deduplicate, /Deduplication aborted:[\s\S]*active editing leases/);
-  assert.match(deduplicate, /DELETE FROM project_node_locks[\s\S]*expires_at <= NOW\(\)/);
-});

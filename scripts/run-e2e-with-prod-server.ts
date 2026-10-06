@@ -10,13 +10,12 @@ import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { spawnSync } from "node:child_process";
 import { config as loadDotenv } from "dotenv";
+import { bindE2EEnvironment } from "./lib/disposable-db";
 
 loadDotenv({ path: ".env.local", quiet: true });
 loadDotenv({ quiet: true });
 
-if (process.env.E2E_DATABASE_URL?.trim()) {
-  process.env.DATABASE_URL = process.env.E2E_DATABASE_URL;
-}
+bindE2EEnvironment();
 
 function resolveServerTarget() {
   const explicitPort = process.env.E2E_PORT;
@@ -136,7 +135,7 @@ async function main() {
     process.exit(143);
   });
 
-  serverProcess = spawn("pnpm", ["exec", "next", "start", "-H", "0.0.0.0", "-p", port], {
+  serverProcess = spawn("npx", ["next", "start", "-H", "0.0.0.0", "-p", port], {
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
     cwd: process.cwd(),
@@ -162,7 +161,7 @@ async function main() {
     fs.mkdirSync(path.dirname(perfRunIdFile), { recursive: true });
     fs.writeFileSync(perfRunIdFile, `${perfRunId}\n`, "utf8");
 
-    const run = spawnSync("pnpm", ["exec", "playwright", "test", ...playwrightArgs], {
+    const run = spawnSync("npx", ["playwright", "test", ...playwrightArgs], {
       stdio: "inherit",
       env: {
         ...process.env,

@@ -15,7 +15,8 @@
  *     while failed rows remain NULL and are retried on the next run.
  *
  * Usage
- *   pnpm tsx scripts/backfill-file-hashes.ts
+ *   npm run repair:file-hashes            # dry run: counts candidates, writes nothing
+ *   npm run repair:file-hashes -- --apply
  */
 
 import { config } from "dotenv";
@@ -247,8 +248,15 @@ async function hashBlob(admin: Awaited<ReturnType<typeof createAdminClient>>, ro
   }
 }
 
+const APPLY = process.argv.includes("--apply");
+
 async function main() {
   ({ db } = await import("../src/lib/db"));
+  if (!APPLY) {
+    const firstBatch = await fetchBatch(null);
+    console.log(`[backfill-file-hashes] dry run: ${firstBatch.length}${firstBatch.length === BATCH_SIZE ? "+" : ""} version(s) need hashing. Re-run with --apply to write.`);
+    return;
+  }
   console.log("[backfill-file-hashes] starting…");
   const admin = await createAdminClient();
 
@@ -273,7 +281,10 @@ async function main() {
           const isCurrentRevision = row.version === row.currentVersion && row.s3Key === row.currentS3Key;
           const metadataChanged = row.size !== verified.size
             || (row.contentHash != null && row.contentHash !== verified.digest);
-          if (!isCurrentRevision && metadataChanged) {
+          // A historical revision stored under the node's current (mutable) key
+          // with no prior digest may now hold newer bytes: never certify it (COR-064).
+          const sharesMutableKey = row.s3Key === row.currentS3Key && row.contentHash == null;
+          if (!isCurrentRevision && (metadataChanged || sharesMutableKey)) {
             throw new Error(
               `HISTORICAL_VERSION_BYTES_UNAVAILABLE:stored=${verified.size}:recorded=${row.size}`,
             );

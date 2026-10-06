@@ -78,14 +78,6 @@ test("QRY-032 obsolete task-file migration is retired", () => {
   );
 });
 
-test("QRY-033 validates concurrent replacement indexes before an atomic name swap", () => {
-  const dedupe = source("scripts/deduplicate_nodes.ts");
-  const firstCreate = dedupe.indexOf("CREATE UNIQUE INDEX CONCURRENTLY");
-  const firstOldDrop = dedupe.indexOf("DROP INDEX IF EXISTS project_nodes_active_parent_name_unique");
-
-  assert.ok(firstCreate >= 0 && firstCreate < firstOldDrop);
-  assert.match(dedupe, /i\.indisvalid/);
-  assert.match(dedupe, /i\.indisunique/);
-  assert.match(dedupe, /valid_count !== 2/);
-  assert.match(dedupe, /sql\.begin\(async \(tx\)/);
+test("QRY-033 node deduplication script is gone; unique active-path/name indexes prevent duplicates (COR-063)", () => {
+  assert.equal(fs.existsSync(path.join(root, "scripts/deduplicate_nodes.ts")), false);
 });
