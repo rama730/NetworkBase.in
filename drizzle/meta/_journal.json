@@ -1345,6 +1345,13 @@
       "when": 1790908171000,
       "tag": "0194_chat_link_preview_hidden",
       "breakpoints": true
+    },
+    {
+      "idx": 192,
+      "version": "7",
+      "when": 1790994571000,
+      "tag": "0195_discover_feed_indexes",
+      "breakpoints": true
     }
   ]
 }

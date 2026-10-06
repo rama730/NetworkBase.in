@@ -75,3 +75,4 @@ jobs:
         run: |
           npm run check:chat:db
           npm run check:chat:actions
+          npm run check:discover

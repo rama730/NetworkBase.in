@@ -292,9 +292,8 @@ const buildBaseConditions = (
 ): SQL<unknown>[] => {
     const conditions: SQL<unknown>[] = [
         // CRITICAL: Always exclude soft-deleted projects from every hub query
-        isNull(projects.deletedAt),
-        or(eq(projects.visibility, 'public'), eq(projects.visibility, 'unlisted'))!,
-        ne(projects.status, 'draft'),
+        // Literal values, written exactly like the 0195 partial indexes' predicate, so the planner uses them.
+        sql<boolean>`${projects.deletedAt} IS NULL AND ${projects.visibility} IN ('public', 'unlisted') AND ${projects.status} <> 'draft'`,
         // A deleted account's projects leave Discover with it.
         sql<boolean>`EXISTS (SELECT 1 FROM ${profiles} owner WHERE owner.id = ${projects.ownerId} AND owner.deleted_at IS NULL)`,
     ];
@@ -1037,6 +1036,8 @@ export const getDiscoverProjects = async (
     const now = parsedCursor?.kind === 'score' ? parsedCursor.now : Date.now();
 
     let scoreExpr: SQL<number> | null = null;
+    // Count sorts order by the plain integer column (index order); the cursor compares it as an integer.
+    let scoreType: 'float8' | 'integer' = 'float8';
     let isOldestSort = false;
 
     if (activeSearchTerms.length > 0 && normalizedSort === SORT_OPTIONS.NEWEST) {
@@ -1044,9 +1045,11 @@ export const getDiscoverProjects = async (
     } else if (normalizedSort === SORT_OPTIONS.TRENDING) {
         scoreExpr = trendingScoreSql(now);
     } else if (normalizedSort === SORT_OPTIONS.MOST_VIEWED) {
-        scoreExpr = sql<number>`coalesce(${projects.viewCount}, 0)::float`;
+        scoreExpr = sql<number>`${projects.viewCount}`;
+        scoreType = 'integer';
     } else if (normalizedSort === SORT_OPTIONS.MOST_FOLLOWED) {
-        scoreExpr = sql<number>`coalesce(${projects.followersCount}, 0)::float`;
+        scoreExpr = sql<number>`${projects.followersCount}`;
+        scoreType = 'integer';
     } else if (normalizedSort === SORT_OPTIONS.OLDEST) {
         isOldestSort = true;
     }
@@ -1058,7 +1061,7 @@ export const getDiscoverProjects = async (
     if (scoreExpr && parsedCursor?.kind === 'score') {
         conditions.push(sql<boolean>`(
             (${scoreExpr}, ${projects.createdAt}, ${projects.id})
-            < (${parsedCursor.score}::float8, ${parsedCursor.createdAt}::timestamptz, ${parsedCursor.id}::uuid)
+            < (${parsedCursor.score}::${sql.raw(scoreType)}, ${parsedCursor.createdAt}::timestamptz, ${parsedCursor.id}::uuid)
         )`);
     } else if (!scoreExpr && parsedCursor?.kind === 'time') {
         const operator = isOldestSort ? sql`>` : sql`<`;

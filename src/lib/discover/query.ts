@@ -9,6 +9,10 @@ import {
     type SortOption,
 } from '@/constants/discover';
 import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
+import type { DiscoverFilters as PeopleFilters } from '@/app/actions/connections';
+
+/** Discover's people rail: people you can see and connect with. The server render and the rail use the same filters. */
+export const DISCOVER_RAIL_FILTERS: PeopleFilters = { openProfilesOnly: true };
 
 /** What a Discover URL asks for. One parser for the server page, the URL hook and the feed hook. */
 export type DiscoverQuery = {

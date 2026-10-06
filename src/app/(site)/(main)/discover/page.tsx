@@ -3,8 +3,8 @@ import { getViewerAuthContext, toClientViewer } from "@/lib/server/viewer-contex
 import { getPublicProjectsFeedPage, withoutBlockedUsers } from "@/lib/projects/public-feed-service";
 import { mapPublicProjectToDiscoverProject } from "@/lib/projects/public-feed";
 import { getConnectionsFeed } from "@/app/actions/connections";
-import { DISCOVER_RAIL_FILTERS, type ConnectionFeedPage, type DiscoverConnectionItem } from "@/hooks/useConnections";
-import { isDefaultDiscoverQuery, parseDiscoverQuery } from "@/lib/discover/query";
+import type { ConnectionFeedPage, DiscoverConnectionItem } from "@/hooks/useConnections";
+import { DISCOVER_RAIL_FILTERS, isDefaultDiscoverQuery, parseDiscoverQuery } from "@/lib/discover/query";
 import { logger } from "@/lib/logger";
 
 import { buildRouteMetadata } from "@/lib/metadata/route-metadata";

@@ -39,6 +39,7 @@ const NON_TRANSACTIONAL_MIGRATIONS = new Set([
   "0087_non_transactional_indexes",
   "0092_project_updates_performance_indexes",
   "0099_schema_lineage_and_fk_indexes",
+  "0195_discover_feed_indexes",
 ]);
 
 if (!DATABASE_URL && !DRY_RUN) {

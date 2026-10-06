@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { ErrorNotice } from "@/components/ui/ErrorNotice";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DISCOVER_RAIL_FILTERS } from "@/lib/discover/query";
 import {
-    DISCOVER_RAIL_FILTERS,
     getConnectionRequestSuccessMessage,
     type ConnectionFeedPage,
     type DiscoverConnectionItem,
