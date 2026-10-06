@@ -137,7 +137,6 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
             if (!targetId) return;
             const coverImage = detail.update?.coverImage;
             if (coverImage !== undefined) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- one patch for every cached filter variant
                 queryClient.setQueriesData<any>({ queryKey: queryKeys.discover.projectsSimpleRoot() }, (old: InfiniteData<FeedPage> | undefined) => old && ({
                     ...old,
                     pages: old.pages.map((page) => ({

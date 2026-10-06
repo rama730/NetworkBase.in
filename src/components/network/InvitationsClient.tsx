@@ -412,7 +412,7 @@ const INVITATION_GRID = "grid grid-cols-1 gap-[14px] sm:grid-cols-2";
 function InvitationName({ href, name }: { href: string; name: string }) {
     return (
         <Link href={href} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <h3 className="nb-card-title min-w-0 truncate text-foreground" title={name}>{name}</h3>
+            <h3 className="nb-person-name min-w-0 truncate text-foreground" title={name}>{name}</h3>
         </Link>
     );
 }

@@ -109,7 +109,7 @@ function ConnectionCard({
             }
             head={
                 <Link href={profileHref(user)} className="block min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <h3 className="nb-card-title truncate text-foreground" title={displayName}>{displayName}</h3>
+                    <h3 className="nb-person-name truncate text-foreground" title={displayName}>{displayName}</h3>
                 </Link>
             }
             location={user.location ? <p className="nb-meta mt-1 flex min-w-0 items-center gap-1" title={user.location}><MapPin className="size-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{user.location}</span></p> : null}
