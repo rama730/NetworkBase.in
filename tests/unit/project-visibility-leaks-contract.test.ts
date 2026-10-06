@@ -90,3 +90,19 @@ test("COR-038: update references hydrate only from visible tabs; sync task list 
   assert.match(fnBody(updates, "export async function resolveProjectUpdateMentionTargetAction("), /canReadProjectUpdateTargetTab\(access, "task"\) \? undefined : projectContentNodeSql/);
   assert.match(fnBody(read("src/app/actions/github-sync.ts"), "export async function getProjectSyncTasks("), /assertProjectTabReadAccess\(projectId, user\.id, "tasks"\)/);
 });
+
+test("AUTH-002/AUTH-004/VALID-001: extension readers and heartbeat use the canonical tab rules", () => {
+  for (const route of ["project-summary", "project-tasks"]) {
+    assert.match(read(`src/app/api/v1/extension/${route}/route.ts`), /canReadProjectTab\(access, "tasks"\)/, route);
+  }
+  const folder = read("src/app/api/v1/extension/folder/route.ts");
+  assert.match(folder, /canReadProjectTab\(access, "files"\)/);
+  assert.match(folder, /canReadProjectTab\(access, "tasks"\) \? undefined : projectContentNodeSql/);
+  const detail = read("src/app/api/v1/extension/task-detail/route.ts");
+  assert.match(detail, /canReadProjectTab\(access, "tasks"\)/);
+  assert.doesNotMatch(detail, /row\.visibility === "public"/);
+  const heartbeat = read("src/app/api/v1/extension/heartbeat/route.ts");
+  assert.match(heartbeat, /getProjectAccessByIds\(Object\.keys\(parsed\.data\.projectWatermarks\), user\.id\)/);
+  assert.match(heartbeat, /\.record\(z\.string\(\)\.uuid\(\), z\.string\(\)\.max\(64\)\)/);
+  assert.match(heartbeat, /consumeRateLimit\(`extension-heartbeat:/);
+});
