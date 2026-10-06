@@ -92,6 +92,8 @@ test("Architectural enhancements: native single tooltip, default cursor, zero-pr
 
 test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel sync, locale-aware caching, and WCAG accessibility", () => {
     const avatarSource = readFileSync(resolve(ROOT, "src/components/projects/ProjectAvatar.tsx"), "utf-8");
+    const globalStyles = readFileSync(resolve(ROOT, "src/app/globals.css"), "utf-8");
+    const presenceBadgeSource = readFileSync(resolve(ROOT, "src/components/presence/PresenceBadge.tsx"), "utf-8");
 
     // Idea 1: Fine-grained recency for active states
     assert.match(avatarSource, /export function formatProjectActivePresenceLabel/);
@@ -107,9 +109,14 @@ test("Presence dot enhancements: fine-grained recency, in-tab BroadcastChannel s
     assert.match(avatarSource, /navigator\.language/);
 
     // Idea 4: Color-vision accessibility (WCAG 2.2 Compliant)
-    assert.match(readFileSync(resolve(process.cwd(), "src/components/presence/PresenceBadge.tsx"), "utf8"), /role=\{label \? "img" : undefined\}/);
+    assert.match(presenceBadgeSource, /role=\{label \? "img" : undefined\}/);
     // The Node badge separates from any photo with a 2 px cut-out in the surface color.
-    assert.match(readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8"), /\.nb-presence \{[^}]*box-shadow:0 0 0 2px var\(--presence-cut\)/);
+    assert.match(globalStyles, /\.nb-presence \{[^}]*box-shadow:0 0 0 2px var\(--presence-cut\)/);
+    // Offline mirrors the weekly badge's cutout geometry, using grey instead of amber.
+    assert.match(globalStyles, /\.nb-presence\[data-availability="offline"\] \{ background:var\(--presence-off\); \}/);
+    assert.match(globalStyles, /\.nb-presence\[data-availability="week"\] > \.nb-presence-cutout, \.nb-presence\[data-availability="offline"\] > \.nb-presence-cutout \{ inset:27%; \}/);
+    assert.match(presenceBadgeSource, /availability === "week" \|\| availability === "offline"/);
+    assert.match(presenceBadgeSource, /<span aria-hidden="true" className="nb-presence-cutout"/);
 });
 
 test("Projects without a profile picture render standalone presence dot beside the project title and keep Line 3 cleanly separated", () => {

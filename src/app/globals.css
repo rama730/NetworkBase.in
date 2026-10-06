@@ -873,10 +873,10 @@ svg.lucide { stroke-width:1.75; }
 .nb-presence[data-availability="now"] { background:var(--presence-active); }
 .nb-presence[data-availability="today"] { background:var(--presence-off); }
 .nb-presence[data-availability="week"] { background:var(--presence-week); }
-.nb-presence[data-availability="offline"] { background:var(--presence-cut); box-shadow:0 0 0 2px var(--presence-cut), inset 0 0 0 1.5px var(--presence-off); }
-.nb-presence[data-availability="today"]::after, .nb-presence[data-availability="week"]::after { content:""; position:absolute; border-radius:32%; background:var(--presence-cut); }
-.nb-presence[data-availability="today"]::after { inset:33%; }
-.nb-presence[data-availability="week"]::after { inset:27%; }
+.nb-presence[data-availability="offline"] { background:var(--presence-off); }
+.nb-presence-cutout { position:absolute; border-radius:32%; background:var(--presence-cut); pointer-events:none; }
+.nb-presence[data-availability="today"] > .nb-presence-cutout { inset:33%; }
+.nb-presence[data-availability="week"] > .nb-presence-cutout, .nb-presence[data-availability="offline"] > .nb-presence-cutout { inset:27%; }
 /* Corner placement on an avatar (people cards, search, discover). */
 .nb-person-presence-dot { position:absolute; z-index:1; right:-3px; bottom:-3px; }
 .nb-person-connect { display:inline-flex; min-height:var(--ui-control-height); align-items:center; justify-content:center; gap:8px; border:1px solid var(--primary); border-radius:var(--radius-md); background:var(--primary); padding:8px 12px; color:var(--primary-foreground); font-size:14px; font-weight:500; line-height:1.25; transition:background-color 150ms ease-in-out,border-color 150ms ease-in-out,color 150ms ease-in-out; }

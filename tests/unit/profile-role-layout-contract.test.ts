@@ -50,6 +50,9 @@ test('profile summary follows the supplied NetworkBase card and tab pattern', ()
 
   assert.match(header, /<PersonPresenceBadge userId=\{profile\?\.id \?\? null\} lastActiveAt=\{vm\.lastActiveAt\}/)
   assert.match(header, /size=\{22\} className=\"absolute -bottom-1\.5 -right-1\.5 max-md:-right-3\.5 max-md:bottom-0\"/)
+  assert.match(header, /const showAvailability = presence\.availability !== 'now'/)
+  assert.match(header, /\{showAvailability \? \(/)
+  assert.match(header, /'Update your status'/)
   assert.match(header, /className="size-\[72px\] border border-border bg-secondary"/)
   assert.doesNotMatch(header, /hover:scale|group-hover:scale|hover:translate/)
   assert.match(header, /Open to collaborate/)
@@ -143,4 +146,3 @@ test('portfolio project cards reuse Discovery and versioned local image URLs rem
   assert.match(collaboration, /p\.external_links/)
   assert.match(collaboration, /p\.open_roles_count/)
 })
-
