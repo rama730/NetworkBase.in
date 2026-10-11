@@ -1050,6 +1050,7 @@ export const projectInvitations = pgTable(
       t.resolvedBy,
     ),
     expiresIdx: index("project_invitations_expires_idx").on(t.expiresAt),
+    inviterIdx: index("project_invitations_inviter_idx").on(t.inviterId),
     idempotencyUnique: uniqueIndex("project_invitations_idempotency_unique")
       .on(t.inviterId, t.idempotencyKey)
       .where(sql`${t.idempotencyKey} IS NOT NULL`),
@@ -1124,6 +1125,7 @@ export const projectGuidanceAppointments = pgTable(
     projectGuideIdx: index(
       "project_guidance_appointments_project_guide_idx",
     ).on(t.projectId, t.guideUserId, t.status),
+    guideIdx: index("project_guidance_appointments_guide_idx").on(t.guideUserId),
     guideActiveIdx: index("project_guidance_appointments_guide_active_idx")
       .on(t.guideUserId, t.acceptedAt)
       .where(sql`${t.status} = 'active'`),
@@ -1209,6 +1211,8 @@ export const profileProjectContributions = pgTable(
     )
       .on(t.profileId, t.visibility, t.updatedAt.desc())
       .where(sql`${t.deletedAt} IS NULL`),
+    profileIdx: index("profile_project_contributions_profile_idx").on(t.profileId),
+    projectRefIdx: index("profile_project_contributions_project_ref_idx").on(t.projectId).where(sql`${t.projectId} IS NOT NULL`),
     projectIdx: index("profile_project_contributions_project_idx")
       .on(t.projectId, t.updatedAt.desc())
       .where(sql`${t.deletedAt} IS NULL`),
@@ -1288,6 +1292,8 @@ export const profileProjectContributionStages = pgTable(
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
+    contributionRefIdx: index("profile_project_contribution_stages_contribution_ref_idx").on(t.contributionId),
+    profileRefIdx: index("profile_project_contribution_stages_profile_ref_idx").on(t.profileId),
     contributionIdx: index(
       "profile_project_contribution_stages_contribution_idx",
     )
@@ -1926,7 +1932,7 @@ export const projectUpdateComments = pgTable(
       .on(t.updateId, t.createdAt)
       .where(sql`${t.deletedAt} IS NULL`),
     parentIdx: index("project_update_comments_parent_idx")
-      .on(t.parentId)
+      .on(t.parentId, t.updateId)
       .where(sql`${t.parentId} IS NOT NULL`),
     projectCreatedIdx: index("project_update_comments_project_created_idx").on(
       t.projectId,
