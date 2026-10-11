@@ -34,8 +34,8 @@ import {
   projectNodes,
   storageAssets,
   storageRepairFailures,
-} from "../src/lib/db/schema";
-import { createAdminClient } from "../src/lib/supabase/server";
+} from "../../../src/lib/db/schema";
+import { createAdminClient } from "../../../src/lib/supabase/server";
 
 const BUCKET = "project-files";
 const BATCH_SIZE = 25;
@@ -60,7 +60,7 @@ type Row = {
   currentS3Key: string | null;
 };
 
-let db: (typeof import("../src/lib/db"))["db"];
+let db: (typeof import("../../../src/lib/db"))["db"];
 
 async function fetchBatch(afterId: string | null): Promise<Row[]> {
   const rows = await db
@@ -251,7 +251,7 @@ async function hashBlob(admin: Awaited<ReturnType<typeof createAdminClient>>, ro
 const APPLY = process.argv.includes("--apply");
 
 async function main() {
-  ({ db } = await import("../src/lib/db"));
+  ({ db } = await import("../../../src/lib/db"));
   if (!APPLY) {
     const firstBatch = await fetchBatch(null);
     console.log(`[backfill-file-hashes] dry run: ${firstBatch.length}${firstBatch.length === BATCH_SIZE ? "+" : ""} version(s) need hashing. Re-run with --apply to write.`);

@@ -25,7 +25,7 @@ fi
 
 echo "Checking for risky console format-string patterns (template first arg + extra args)..."
 if rg -n 'console\.(log|info|warn|error|debug)\s*\(\s*`[^`]*\$\{[^`]+\}[^`]*`\s*,' \
-  scripts/backfill.ts \
+  scripts/db/repair/backfill.ts \
   scripts/check-project.ts \
   src/components/profile/edit/EditProfileTabs.tsx \
   src/components/projects/TabErrorBoundary.tsx \
