@@ -207,7 +207,8 @@
     "drizzle/0203_trigger_metadata_completeness.sql",
     "drizzle/0204_retired_objects_cleanup.sql",
     "drizzle/0205_transactional_email_outbox.sql",
-    "drizzle/0206_foreign_key_indexes.sql"
+    "drizzle/0206_foreign_key_indexes.sql",
+    "drizzle/0207_catalog_parity.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

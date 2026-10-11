@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import { isPrivateRealtimeAuthorizationEnabled } from "../../src/lib/realtime/authorization";
@@ -112,13 +112,10 @@ test("presence subscriptions stay in authorized messaging owners", () => {
   assert.match(presenceClient, /entry\.roomType !== "user" \|\| entry\.roomId === userId/);
 });
 
-test("migration generation is replay-gated and production verifies the runtime database role", () => {
+test("migrations are hand-written; ORM generation cannot emit native chat DDL (MIG-005)", () => {
   const packageJson = read("package.json");
-  const generationGate = read("scripts/generate-db-migration.ts");
 
-  assert.match(packageJson, /"db:generate": "tsx scripts\/generate-db-migration\.ts"/);
-  assert.match(generationGate, /DATABASE_URL_FRESH/);
-  assert.match(generationGate, /check:db:remigration-replay/);
-  assert.match(generationGate, /disposable replay\/catalog parity failed/);
+  assert.doesNotMatch(packageJson, /"db:generate"/);
+  assert.equal(existsSync(new URL("../../scripts/generate-db-migration.ts", import.meta.url)), false);
   assert.match(packageJson, /npm run check:db:runtime-role/);
 });

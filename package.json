@@ -37,7 +37,6 @@
     "check:skills:assignments": "node --env-file=.env.local --import tsx scripts/check-skill-assignment-parity.ts",
     "check:project-updates-schema": "tsx scripts/check-project-updates-schema.ts",
     "check:db:remigration-replay": "tsx scripts/check-db-remigration-replay.ts",
-    "db:generate": "tsx scripts/generate-db-migration.ts",
     "repair:file-versions": "node --env-file=.env.local --import tsx scripts/repair-missing-file-versions.ts",
     "repair:file-hashes": "node --env-file=.env.local --import tsx scripts/backfill-file-hashes.ts",
     "repair:current-file-drift": "node --env-file=.env.local --import tsx scripts/repair-current-file-reference-drift.ts",

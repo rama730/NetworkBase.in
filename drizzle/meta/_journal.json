@@ -1429,6 +1429,13 @@
       "when": 1791460800000,
       "tag": "0206_foreign_key_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "7",
+      "when": 1791547200000,
+      "tag": "0207_catalog_parity",
+      "breakpoints": true
     }
   ]
 }
