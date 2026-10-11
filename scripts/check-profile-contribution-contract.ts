@@ -27,6 +27,7 @@ async function main() {
     projectUpdates,
     databaseCheck,
     runbook,
+    nativeAuthMigration,
   ] = await Promise.all([
     source("src/lib/db/schema/index.ts"),
     source("drizzle/0127_profile_contribution_authority.sql"),
@@ -44,6 +45,7 @@ async function main() {
     source("src/app/actions/project/updates.ts"),
     source("scripts/check-profile-contribution-database.ts"),
     source("docs/runbooks/profile-contributions.md"),
+    source("drizzle/0208_native_auth_uid.sql"),
   ]);
 
   requireContract("schema has platform-or-external authority constraint", schema.includes("profile_project_contributions_authority_shape_check"));
@@ -55,7 +57,7 @@ async function main() {
   requireContract("migration relationally backfills skills", migration.includes('INSERT INTO "profile_contribution_skills"'));
   requireContract("migration repairs duplicated idempotency history", migration.includes("row_number() OVER"));
   requireContract("migration scopes public reads to parent visibility", migration.includes("contribution.visibility = 'public'"));
-  requireContract("migration uses hardened auth helper", migration.includes("app_private.get_auth_uid()") && !migration.includes("public.get_auth_uid()"));
+  requireContract("contribution policies resolve the caller with native auth.uid()", nativeAuthMigration.includes("contribution.profile_id = (SELECT auth.uid())") && nativeAuthMigration.includes("DROP FUNCTION IF EXISTS app_private.get_auth_uid()"));
 
   requireContract("dedicated command validates strict batch", command.includes("profileContributionBatchSchema.safeParse"));
   requireContract("dedicated command is transactional", command.includes("db.transaction"));
@@ -75,7 +77,7 @@ async function main() {
   requireContract("stage presentation has no second visibility authority", !readModel.includes("stage.visibility"));
   requireContract("project update role reads use parent visibility", !projectUpdates.includes('eq(profileProjectContributionStages.visibility, "public")') && projectUpdates.includes('eq(profileProjectContributions.visibility, "public")'));
   requireContract("role history is bounded", readModel.includes("LIMIT ${stageLimit}"));
-  requireContract("summary cache version is current", readModel.includes("const SUMMARY_VERSION = 6"));
+  requireContract("summary cache version is current", readModel.includes("const SUMMARY_VERSION = 7"));
   requireContract("read requests are deduplicated", readModel.includes("runInFlightDeduped"));
   requireContract("stale cache writes are generation guarded", readModel.includes("newer_invalidation") && readModel.includes("generationStartedAt"));
   requireContract("read metrics exist", readModel.includes("profile.collaboration.contributions"));

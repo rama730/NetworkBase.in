@@ -208,7 +208,8 @@
     "drizzle/0204_retired_objects_cleanup.sql",
     "drizzle/0205_transactional_email_outbox.sql",
     "drizzle/0206_foreign_key_indexes.sql",
-    "drizzle/0207_catalog_parity.sql"
+    "drizzle/0207_catalog_parity.sql",
+    "drizzle/0208_native_auth_uid.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",
