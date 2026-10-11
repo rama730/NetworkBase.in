@@ -1,103 +1,122 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" dir="ltr" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <meta name="supported-color-schemes" content="light">
-  <title>Confirm your signup</title>
+  <title>Confirm your NetworkBase account</title>
+  <!--[if mso]>
+  <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
+  <![endif]-->
+  <style>
+    @media only screen and (max-width: 520px) {
+      .container-cell { padding: 20px 16px !important; }
+      .action-btn { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box !important; padding: 11px 16px !important; }
+    }
+  </style>
 </head>
-<body style="margin: 0; padding: 32px 16px; background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; color: #202124;">
-  <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="table-layout: fixed;">
+<body style="margin:0;padding:0;background-color:#FAF8F4;color:#141A1E;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;text-align:left;">
+  <!-- Ghost preheader snippet & whitespace padding -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#FAF8F4;opacity:0;" aria-hidden="true">
+    Confirm your email address to activate your NetworkBase collaborative workspace.
+    &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAF8F4;width:100%;table-layout:fixed;text-align:left;">
     <tr>
-      <td align="center">
-        <!-- Main Card Container -->
-        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 512px; background-color: #ffffff; border: 1px solid #dadce0; border-radius: 8px; padding: 40px 32px; text-align: center; box-sizing: border-box;">
+      <td class="container-cell" align="left" style="padding:28px 20px;text-align:left;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="left" style="max-width:560px;width:100%;margin:0 auto;text-align:left;">
 
-          <!-- Brand Logo -->
+          <!-- Top Brand Bar -->
           <tr>
-            <td align="center" style="padding-bottom: 24px;">
-              <span style="font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: #111827; text-decoration: none;">NetworkBase</span>
+            <td style="padding-bottom:16px;border-bottom:1px solid #E5E7EB;text-align:left;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="left" style="border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;">
+                <tr>
+                  <td style="width:7px;height:7px;vertical-align:middle;padding:0;line-height:0;font-size:0;">
+                    <div style="width:7px;height:7px;border-radius:2px;background-color:#C24720;font-size:0;line-height:0;display:block;"></div>
+                  </td>
+                  <td style="vertical-align:middle;padding:0 0 0 4px;line-height:1;">
+                    <span style="font-size:15px;font-weight:600;letter-spacing:-0.01em;color:#141A1E;vertical-align:middle;line-height:1;display:inline-block;">NetworkBase</span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
-          <!-- Action Headline -->
+          <!-- Recipient Identity Badge -->
           <tr>
-            <td align="center" style="padding-bottom: 12px;">
-              <h1 style="margin: 0; font-size: 22px; font-weight: 600; color: #202124; line-height: 1.3;">Confirm your NetworkBase account</h1>
+            <td style="padding:24px 0 16px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;padding:7px 14px;font-size:13px;line-height:1.4;color:#4B5563;">
+                    <span style="font-size:11px;font-weight:700;letter-spacing:0.05em;color:#6B7280;text-transform:uppercase;margin-right:6px;">ACCOUNT</span>
+                    <strong style="color:#111827;font-weight:600;">{{ .Email }}</strong>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
-          <!-- Recipient Identity Pill (Clean Name & Email Only - No Unnecessary Avatar) -->
+          <!-- Headline & Description -->
           <tr>
-            <td align="center" style="padding-bottom: 24px;">
-              <div style="display: inline-block; background-color: #f1f3f4; border-radius: 20px; padding: 6px 18px; font-size: 13px; line-height: 18px; color: #5f6368; text-align: center;">
-                <strong style="color: #202124; font-weight: 600;">{{ .Data.full_name }}</strong>
-                <span style="color: #80868b; margin: 0 4px;">&bull;</span>
-                <span>{{ .Email }}</span>
+            <td style="padding:0 0 20px 0;">
+              <h1 style="font-size:21px;line-height:1.35;font-weight:700;color:#111827;margin:0 0 12px 0;word-break:break-word;">
+                Confirm your NetworkBase account
+              </h1>
+              <p style="margin:0;font-size:14px;line-height:1.6;color:#4B5563;">
+                Welcome to NetworkBase. Follow the link below to confirm your email address and activate your collaborative workspace.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Primary CTA Button -->
+          <tr>
+            <td style="padding:4px 0 24px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="left">
+                <tr>
+                  <td style="padding:0;vertical-align:middle;">
+                    <a href="{{ .ConfirmationURL }}" class="action-btn" style="display:inline-block;padding:10px 22px;font-size:13px;font-weight:600;color:#FFFFFF;background-color:#C24720;text-decoration:none;border-radius:6px;line-height:1.4;white-space:nowrap;text-align:center;">
+                      Confirm Email Address&nbsp;&rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Expiry Notice & Fallback Direct Link -->
+          <tr>
+            <td style="padding:0 0 24px 0;font-size:12px;line-height:1.6;color:#6B7280;">
+              <p style="margin:0 0 8px 0;">
+                This single-use link will expire in 24 hours. If you did not create a NetworkBase account, you can safely ignore this email.
+              </p>
+              <p style="margin:0;word-break:break-all;">
+                Button not working? Copy and paste this URL into your browser:<br>
+                <a href="{{ .ConfirmationURL }}" style="color:#C24720;text-decoration:none;font-weight:500;">{{ .ConfirmationURL }}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer & Compliance -->
+          <tr>
+            <td style="padding-top:20px;border-top:1px solid #E5E7EB;font-size:12px;line-height:1.6;color:#6B7280;text-align:left;">
+              <p style="margin:0 0 10px 0;color:#6B7280;">
+                Security notification sent to {{ .Email }} &bull; NetworkBase
+              </p>
+              <div style="margin:0;font-size:12px;color:#6B7280;line-height:1.6;">
+                <a href="https://networkbase.in/support" style="color:#6B7280;text-decoration:none;">Contact Support</a>
+                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
+                <a href="https://networkbase.in/privacy" style="color:#6B7280;text-decoration:none;">Privacy</a>
+                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
+                <a href="https://networkbase.in/security-reporting" style="color:#6B7280;text-decoration:none;">Security</a>
+                <span style="color:#D1D5DB;margin:0 6px;" aria-hidden="true">&bull;</span>
+                <a href="https://networkbase.in/terms" style="color:#6B7280;text-decoration:none;">Terms and Conditions</a>
               </div>
+              <div style="margin-top:8px;font-size:11px;color:#9CA3AF;">&copy; NetworkBase&trade; &bull; All rights reserved &bull; <a href="https://networkbase.in" style="color:#9CA3AF;text-decoration:none;">networkbase.in</a></div>
             </td>
           </tr>
 
-          <!-- Subtle Divider -->
-          <tr>
-            <td style="border-top: 1px solid #dadce0; padding-bottom: 24px;"></td>
-          </tr>
-
-          <!-- Body Description -->
-          <tr>
-            <td align="center" style="padding-bottom: 28px; font-size: 14px; line-height: 1.6; color: #3c4043;">
-              Welcome to NetworkBase. Follow this link to confirm your email address and activate your collaborative workspace.
-            </td>
-          </tr>
-
-          <!-- Primary CTA Button (Pill Button) -->
-          <tr>
-            <td align="center" style="padding-bottom: 24px;">
-              <!--[if mso]>
-              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ .ConfirmationURL }}" style="height:42px;v-text-anchor:middle;width:200px;" arcsize="50%" fillcolor="#1a73e8" stroke="f">
-                <w:anchorlock/>
-                <center style="color:#ffffff;font-family:sans-serif;font-size:14px;font-weight:bold;">Confirm email address</center>
-              </v:roundrect>
-              <![endif]-->
-              <!--[if !mso]><!-->
-              <a href="{{ .ConfirmationURL }}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #1a73e8; color: #ffffff; font-size: 14px; font-weight: 500; text-decoration: none; padding: 12px 32px; border-radius: 24px; text-align: center; mso-hide: all;">
-                Confirm email address
-              </a>
-              <!--<![endif]-->
-            </td>
-          </tr>
-
-          <!-- Single-Use Expiry Notice with Inline Direct Confirmation Link -->
-          <tr>
-            <td align="center" style="font-size: 12px; line-height: 1.6; color: #5f6368; padding-bottom: 24px;">
-              This single-use link will expire in 24 hours. If you did not create a NetworkBase account, you can safely ignore this email. You can also use the <a href="{{ .ConfirmationURL }}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none; font-weight: 500;">direct confirmation link</a> if the button above does not work.
-            </td>
-          </tr>
-
-          <!-- Single Row of Links: Security, Policies, Terms of Service, Privacy Policy -->
-          <tr>
-            <td align="center" style="border-top: 1px solid #f1f3f4; padding-top: 20px; font-size: 12px; line-height: 1.6; color: #5f6368;">
-              <a href="https://networkbase.in/security-reporting" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none; font-weight: 500;">Security</a>
-              <span style="color: #dadce0; margin: 0 8px;">&bull;</span>
-              <a href="https://networkbase.in/acceptable-use" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none; font-weight: 500;">Policies</a>
-              <span style="color: #dadce0; margin: 0 8px;">&bull;</span>
-              <a href="https://networkbase.in/terms" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none; font-weight: 500;">Terms of Service</a>
-              <span style="color: #dadce0; margin: 0 8px;">&bull;</span>
-              <a href="https://networkbase.in/privacy" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none; font-weight: 500;">Privacy Policy</a>
-            </td>
-          </tr>
-
-        </table>
-
-        <!-- External Footer -->
-        <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 512px; margin-top: 16px; text-align: center;">
-          <tr>
-            <td style="font-size: 11px; color: #70757a; line-height: 1.5;">
-              Security notification sent to {{ .Email }} &bull; NetworkBase<br>
-              <a href="https://networkbase.in" target="_blank" rel="noopener noreferrer" style="color: #70757a; text-decoration: underline;">networkbase.in</a>
-            </td>
-          </tr>
         </table>
       </td>
     </tr>

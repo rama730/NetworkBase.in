@@ -60,11 +60,26 @@ const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionContr
 
 // Dynamic import keeps `@uiw/react-codemirror` (and its `@codemirror/*`
 // transitive tree) out of the Files-tab initial chunk. The import only
-// fires when the user actually switches into Edit mode, preserving the
+// fires when the user opens View or Edit mode, preserving the
 // Req 16.1–16.3 performance budget. `ssr: false` is required because the
 // editor touches `window` and `document` during construction.
 const CodeMirrorEditor = dynamic(
-  () => import("@uiw/react-codemirror").then((mod) => mod.default),
+  async () => {
+    const [{ default: CodeMirror }, { Decoration, EditorView }] = await Promise.all([
+      import("@uiw/react-codemirror"),
+      import("@codemirror/view"),
+    ]);
+    const selectedText = Decoration.mark({ class: "nb-selected-text" });
+    const selectionForeground = EditorView.decorations.compute(["doc", "selection"], state =>
+      Decoration.set(state.selection.ranges
+        .filter(range => !range.empty)
+        .map(range => selectedText.range(range.from, range.to)), true),
+    );
+    return function SelectionStyledEditor({ extensions, ...props }: React.ComponentProps<typeof CodeMirror>) {
+      const editorExtensions = React.useMemo(() => [selectionForeground, ...(extensions ?? [])], [extensions]);
+      return <CodeMirror {...props} extensions={editorExtensions} />;
+    };
+  },
   {
     ssr: false,
     loading: () => <EditorLoading />,

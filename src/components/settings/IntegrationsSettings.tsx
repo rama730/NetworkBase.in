@@ -86,7 +86,7 @@ function ExtensionAppCard() {
     <div className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-3">
         <Image
-          src="/icon-ink-192.png"
+          src="/icon-paper-192.png"
           alt=""
           width={48}
           height={48}

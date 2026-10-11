@@ -91,6 +91,7 @@ test('every user-visible project notification preference has a concrete source t
         'src/app/actions/applications/internal.ts',
         'src/lib/notifications/task-file.ts',
         'src/lib/notifications/task-comment-mention.ts',
+        'src/lib/projects/task-assignment.ts',
     ].map(readProjectFile).join('\n');
     const visibleEntries = Array.from(policy.matchAll(/^    "([^"]+)": E\(\{[\s\S]*?\n    \}\),/gm))
         .filter((entry) => /visible: true/.test(entry[0]));
@@ -102,3 +103,17 @@ test('every user-visible project notification preference has a concrete source t
     }
 });
 
+test('normal and collaborator-removal assignments use the canonical activity and notification flow', () => {
+    const actions = readProjectFile('src/app/actions/task.ts');
+    const lifecycle = readProjectFile('src/lib/projects/collaborator-lifecycle.ts');
+    const projectActions = readProjectFile('src/app/actions/project/index.ts');
+    const assignment = readProjectFile('src/lib/projects/task-assignment.ts');
+    for (const source of [actions, lifecycle]) {
+        assert.match(source, /await recordTaskAssignment\(/);
+        assert.match(source, /taskAssignmentNotification\(/);
+    }
+    assert.match(assignment, /eventKey: "tasks.assigned"/);
+    assert.match(assignment, /sourceEventId: input\.eventId/);
+    assert.match(projectActions, /await enqueueProjectNotificationEvents\(txResult\.lifecycle\.assignmentNotifications\)/);
+    assert.match(projectActions, /return \{ ok: true as const, lifecycle \};\s*\}\)\.catch\(/);
+});

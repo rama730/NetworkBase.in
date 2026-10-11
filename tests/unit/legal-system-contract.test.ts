@@ -36,6 +36,21 @@ test("public legal documents are discoverable and security reports have a standa
   assert.match(security, /Policy:/);
 });
 
+test("security reporting and privacy policies publish all four official email channels", () => {
+  const securityReporting = read("src/app/(legal)/security-reporting/page.tsx");
+  const privacy = read("src/app/(legal)/privacy/page.tsx");
+
+  for (const address of [
+    "welcome@networkbase.in",
+    "notifications@networkbase.in",
+    "support@networkbase.in",
+    "privacy@networkbase.in",
+  ]) {
+    assert.match(securityReporting, new RegExp(address));
+    assert.match(privacy, new RegExp(address));
+  }
+});
+
 test("signup requires affirmative age, terms, EULA, and privacy acknowledgement", () => {
   const signup = read("src/components/auth/SignupForm.tsx");
   const route = read("src/app/api/v1/auth/signup/route.ts");

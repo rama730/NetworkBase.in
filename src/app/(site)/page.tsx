@@ -34,6 +34,16 @@ export default function HomePage() {
       <section className="nb-site-process nb-grid-ground"><div className="nb-site-section grid md:grid-cols-2 gap-12"><div className="space-y-5"><p className="nb-micro text-[#A9B4B9]">A practical way to get going</p><h2 className="text-4xl font-semibold leading-tight">Make room for<br />your next idea.</h2><p className="text-[#B6C0C5] max-w-[36ch]">Start small, find the people who care about the same problem, and build your way forward.</p></div><ol className="space-y-6">{["Set up your profile and add your skills.","Find a project or create one of your own.","Invite collaborators and agree on the next steps.","Share your progress as the work takes shape."].map((text,index) => <li key={text} className="flex gap-4 border-b border-white/15 pb-5"><span className="font-mono text-sm text-[#F3A17E]">0{index+1}</span><span>{text}</span></li>)}</ol></div></section>
       <section className="nb-site-section text-center"><p className="font-serif text-4xl sm:text-5xl leading-tight max-w-[26ch] mx-auto">Your work says more<br />when you build it together.</p><div className="mt-7 flex justify-center"><Button asChild size="lg"><Link href="/signup">Join NetworkBase <Check size={16} aria-hidden="true" /></Link></Button></div></section>
     </main>
-    <footer className="border-t border-border bg-card"><div className="nb-site-section !py-8 flex flex-wrap items-center justify-between gap-5"><Logo /><p className="nb-meta">© {new Date().getFullYear()} NetworkBase</p><LegalLinks className="max-w-xl" /></div></footer>
+    <footer className="border-t border-border bg-card">
+      <div className="nb-site-section !py-8 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
+          <Logo />
+          <p className="nb-meta text-xs text-muted-foreground">
+            © {new Date().getFullYear()} NetworkBase™. All rights reserved.
+          </p>
+        </div>
+        <LegalLinks className="max-w-2xl md:justify-end" />
+      </div>
+    </footer>
   </div>;
 }

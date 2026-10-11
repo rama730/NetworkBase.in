@@ -17,6 +17,8 @@ import {
     projectInvitations,
 } from "@/lib/db/schema";
 import { syncProjectChat } from "@/lib/messaging/integrations";
+import { recordTaskAssignment, taskAssignmentNotification } from "@/lib/projects/task-assignment";
+import type { EnqueueProjectNotificationEventInput } from "@/lib/notifications/project-events";
 import {
     isEligibleProjectMember,
     normalizeProjectMemberRole,
@@ -80,9 +82,10 @@ async function readProjectForUpdate(executor: ProjectCollaboratorExecutor, proje
         owner_id: string;
         title: string | null;
         slug: string | null;
+        key: string | null;
         member_file_upload_default: boolean | null;
     }>(sql`
-        SELECT id, owner_id, title, slug, member_file_upload_default
+        SELECT id, owner_id, title, slug, member_file_upload_default, key
         FROM ${projects}
         WHERE id = ${projectId} AND deleted_at IS NULL
         FOR UPDATE
@@ -94,6 +97,7 @@ async function readProjectForUpdate(executor: ProjectCollaboratorExecutor, proje
         ownerId: row.owner_id,
         title: row.title,
         slug: row.slug,
+        key: row.key,
         memberFileUploadDefault: row.member_file_upload_default !== false,
     };
 }
@@ -564,7 +568,7 @@ export async function removeProjectMemberInternal(
         mode: "preserve_history" | "unassign_active_tasks" | "reassign_active_tasks";
         reassignToUserId?: string | null;
     },
-): Promise<ProjectCollaboratorLifecycleResult> {
+): Promise<ProjectCollaboratorLifecycleResult & { assignmentNotifications: EnqueueProjectNotificationEventInput[] }> {
     const project = await readProjectForUpdate(executor, params.projectId);
     if (!project) throw new Error("Project not found");
     const actorRole = await readMembershipRole(executor, params.projectId, params.actorId, project.ownerId, true);
@@ -575,6 +579,7 @@ export async function removeProjectMemberInternal(
     const target = await readProfileSnapshot(executor, params.targetUserId);
     const impact = await readProjectMemberRemovalImpact(executor, params.projectId, params.targetUserId);
     const impactCounts = await readProjectMemberRemovalImpactCounts(executor, params.projectId, params.targetUserId);
+    const assignmentNotifications: EnqueueProjectNotificationEventInput[] = [];
 
     if (params.mode === "unassign_active_tasks") {
         await executor
@@ -588,10 +593,29 @@ export async function removeProjectMemberInternal(
         if (!replacementRole || !isEligibleProjectMember(replacementRole, "assign")) {
             throw new Error("Replacement assignee must be an assignable project member");
         }
-        await executor
+        const actor = await readProfileSnapshot(executor, params.actorId);
+        const replacement = await readProfileSnapshot(executor, replacementId);
+        const reassignedTasks = await executor
             .update(tasks)
             .set({ assigneeId: replacementId, updatedAt: new Date() })
-            .where(and(eq(tasks.projectId, params.projectId), eq(tasks.assigneeId, params.targetUserId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`));
+            .where(and(eq(tasks.projectId, params.projectId), eq(tasks.assigneeId, params.targetUserId), isNull(tasks.deletedAt), sql`${tasks.status} <> 'done'`))
+            .returning({ id: tasks.id, title: tasks.title, taskNumber: tasks.taskNumber, status: tasks.status, sprintId: tasks.sprintId });
+        for (const task of reassignedTasks) {
+            const actorName = actor?.fullName || actor?.username || null;
+            const actorAvatarUrl = actor?.avatarUrl ?? null;
+            const eventId = await recordTaskAssignment(executor, {
+                taskId: task.id, projectId: params.projectId, sprintId: task.sprintId,
+                title: task.title, taskNumber: task.taskNumber, status: task.status,
+                actorId: params.actorId, actorName, actorAvatarUrl,
+                previousAssigneeId: params.targetUserId, previousAssignee: target,
+                assigneeId: replacementId, assignee: replacement,
+            });
+            if (replacementId !== params.actorId) assignmentNotifications.push(taskAssignmentNotification({
+                taskId: task.id, projectId: params.projectId, projectSlug: project.slug,
+                projectKey: project.key, taskNumber: task.taskNumber, title: task.title,
+                actorId: params.actorId, actorName, actorAvatarUrl, assigneeId: replacementId, eventId,
+            }));
+        }
     }
 
     await syncProjectChat(executor, params.projectId, params.targetUserId, "remove");
@@ -643,5 +667,5 @@ export async function removeProjectMemberInternal(
     });
     await markProfileCollaborationSummaryStale(project.ownerId, executor);
 
-    return { eventId: event?.id ?? null, changed: true, project, target, previousRole, nextRole: null };
+    return { eventId: event?.id ?? null, changed: true, project, target, previousRole, nextRole: null, assignmentNotifications };
 }

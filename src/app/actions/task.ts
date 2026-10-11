@@ -4,6 +4,8 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { wakeEmailWorker } from "@/lib/email/outbox";
+import { recordTaskAssignment, taskAssignmentNotification } from "@/lib/projects/task-assignment";
 import {
   fileVersions,
   profiles,
@@ -907,38 +909,23 @@ export async function assignTaskAction(
         })
         .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
 
+      let assignmentEventId: string | null = null;
       if (locked.previousAssigneeId !== assigneeId) {
-        await tx.insert(taskActivityEvents).values({
-          taskId,
-          projectId: locked.projectId,
-          sprintId: locked.previousSprintId,
+        assignmentEventId = await recordTaskAssignment(tx, {
+          taskId, projectId: locked.projectId, sprintId: locked.previousSprintId,
+          title: locked.title, taskNumber: locked.taskNumber, status: locked.currentStatus,
           actorId: user.id,
-          eventType: "assigned",
-          payload: {
-            version: 2,
-            taskTitle: locked.title,
-            taskNumber: locked.taskNumber,
-            taskStatus: locked.currentStatus,
-            sprintId: locked.previousSprintId,
-            actorName:
-              actorSnapshot?.fullName ?? taskActorSnapshot(user).actorName,
-            actorAvatarUrl:
-              actorSnapshot?.avatarUrl ??
-              taskActorSnapshot(user).actorAvatarUrl,
-            previousAssigneeId: locked.previousAssigneeId,
-            previousAssigneeName: previousAssigneeSnapshot?.fullName ?? null,
-            previousAssigneeAvatarUrl:
-              previousAssigneeSnapshot?.avatarUrl ?? null,
-            assigneeId,
-            assigneeName: assigneeSnapshot?.fullName ?? null,
-            assigneeAvatarUrl: assigneeSnapshot?.avatarUrl ?? null,
-          },
+          actorName: actorSnapshot?.fullName ?? taskActorSnapshot(user).actorName,
+          actorAvatarUrl: actorSnapshot?.avatarUrl ?? taskActorSnapshot(user).actorAvatarUrl,
+          previousAssigneeId: locked.previousAssigneeId, previousAssignee: previousAssigneeSnapshot,
+          assigneeId, assignee: assigneeSnapshot,
         });
       }
 
-      return locked;
+      return { ...locked, assignmentEventId };
     });
 
+    await wakeEmailWorker();
     await queueCounterRefreshBestEffort([
       result.previousAssigneeId,
       assigneeId,
@@ -950,32 +937,12 @@ export async function assignTaskAction(
     ) {
       try {
         const actor = taskActorSnapshot(user);
-        await enqueueProjectNotificationEvent({
-          projectId: result.projectId,
-          actorUserId: user.id,
-          ...actor,
-          eventKey: "tasks.assigned",
-          assigneeId,
-          title: `${actor.actorName || "Someone"} assigned you a task`,
-          body: result.title,
-          href: taskHref(result.projectSlug || result.projectId, taskId),
-          entityRefs: {
-            projectId: result.projectId,
-            projectSlug: result.projectSlug ?? null,
-            taskId,
-          },
-          preview: {
-            actorName: actor.actorName,
-            actorAvatarUrl: actor.actorAvatarUrl,
-            contextLabel: taskContextLabel(
-              result.projectKey,
-              result.taskNumber,
-            ),
-            contextKind: "task",
-            secondaryText: result.title,
-          },
-          sourceEventId: `${taskId}:assigned`,
-        });
+        await enqueueProjectNotificationEvent(taskAssignmentNotification({
+          taskId, projectId: result.projectId, projectSlug: result.projectSlug ?? null,
+          projectKey: result.projectKey ?? null, taskNumber: result.taskNumber,
+          title: result.title, actorId: user.id, ...actor,
+          assigneeId, eventId: result.assignmentEventId!,
+        }));
       } catch (notificationError) {
         logger.error("tasks.assignment_notification_failed", {
           module: "tasks",

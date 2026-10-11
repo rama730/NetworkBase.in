@@ -92,6 +92,7 @@ export const schemas = new EventSchemas().fromRecord<{
     "workspace/connections.sync_suggestions": ConnectionsSyncSuggestionsEvent;
     "workspace/connections.refresh_suggestions_for_candidate": ConnectionsRefreshSuggestionCandidateEvent;
     "notification/fanout": NotificationFanoutInngestEvent;
+    "email/outbox.wake": { data: Record<string, never> };
     "project/updates.cleanup": ProjectUpdateCleanupEvent;
     "storage/profile-image.cleanup": ProfileImageCleanupEvent;
 }>();

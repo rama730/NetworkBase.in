@@ -21,6 +21,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import type { SyncManifest, SyncResult, SyncStatus } from "@/lib/github/sync-contract";
+import type { EmailKind, EmailPayload, EmailDeliveryState } from "@/lib/email/contracts";
 const tsvector = customType<{ data: string }>({
   dataType: () => "tsvector",
 });
@@ -2617,6 +2618,55 @@ export const notificationDeliveries = pgTable(
     ).on(t.userId, t.status, t.attemptedAt.desc()),
   }),
 );
+
+// Server-only transactional mail. No browser/Data API grants or realtime publication.
+export const emailOutbox = pgTable("email_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventKey: text("event_key").notNull(),
+  kind: text("kind").$type<EmailKind>().notNull(),
+  userId: uuid("user_id").notNull().references(() => profiles.id, { onDelete: "cascade" }),
+  actorId: uuid("actor_id"),
+  projectId: uuid("project_id"),
+  taskId: uuid("task_id"),
+  status: text("status").$type<"pending" | "processing" | "accepted" | "dropped" | "failed" | "needs_review">().default("pending").notNull(),
+  dueAt: timestamp("due_at", { withTimezone: true }).defaultNow().notNull(),
+  leaseId: uuid("lease_id"),
+  leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+  attempts: integer("attempts").default(0).notNull(),
+  firstAttemptAt: timestamp("first_attempt_at", { withTimezone: true }),
+  payload: jsonb("payload").$type<EmailPayload>(),
+  providerId: uuid("provider_id"),
+  deliveryState: text("delivery_state").$type<EmailDeliveryState>(),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  eventIdx: uniqueIndex("email_outbox_event_idx").on(t.eventKey),
+  providerIdx: uniqueIndex("email_outbox_provider_idx").on(t.providerId),
+  dueIdx: index("email_outbox_due_idx").on(t.dueAt).where(sql`${t.status} = 'pending'`),
+  leaseIdx: index("email_outbox_lease_idx").on(t.leaseExpiresAt).where(sql`${t.status} = 'processing'`),
+  kindCheck: check("email_outbox_kind_check", sql`${t.kind} IN ('welcome', 'task_assignment')`),
+  statusCheck: check("email_outbox_status_check", sql`${t.status} IN ('pending', 'processing', 'accepted', 'dropped', 'failed', 'needs_review')`),
+  attemptsCheck: check("email_outbox_attempts_check", sql`${t.attempts} >= 0`),
+  deliveryCheck: check("email_outbox_delivery_check", sql`${t.deliveryState} IN ('accepted', 'delivered', 'failed', 'bounced', 'complained')`),
+}));
+
+export const emailWebhookEvents = pgTable("email_webhook_events", {
+  id: text("id").primaryKey(),
+  providerId: uuid("provider_id").notNull(),
+  state: text("state").$type<EmailDeliveryState>().notNull(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  providerIdx: index("email_webhook_events_provider_idx").on(t.providerId),
+  stateCheck: check("email_webhook_events_state_check", sql`${t.state} IN ('accepted', 'delivered', 'failed', 'bounced', 'complained')`),
+}));
+
+export const emailSuppressions = pgTable("email_suppressions", {
+  email: text("email").primaryKey(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({ reasonCheck: check("email_suppressions_reason_check", sql`${t.reason} IN ('hard_bounce', 'complaint')`) }));
 
 export const notificationDeliveriesRelations = relations(
   notificationDeliveries,

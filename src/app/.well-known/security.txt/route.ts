@@ -7,6 +7,7 @@ export function GET() {
   const identity = getLegalIdentity();
   const body = [
     `Contact: mailto:${identity.supportEmail}`,
+    `Contact: mailto:${identity.privacyEmail}`,
     "Expires: 2027-09-04T23:59:59.000Z",
     "Preferred-Languages: en",
     `Canonical: ${SITE_ORIGIN}/.well-known/security.txt`,
