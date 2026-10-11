@@ -1,0 +1,25 @@
+{
+  "id": "impact-2026-10-07-transactional-email",
+  "title": "Durable onboarding and task-assignment emails",
+  "summary": "Reuse final onboarding/task transactions and notification policy with an additive private outbox, worker-only Resend fetch delivery, signed durable webhook receipts and default-on task email preference. Both queue creation and delivery default disabled; rollout and real-recipient verification remain separately authorized.",
+  "riskLevel": "high",
+  "runtimePlanes": ["request", "worker", "database", "ops"],
+  "routeClasses": ["user_shell", "active_surface"],
+  "dataSourcesChanged": ["profiles.onboarding_status", "profiles.notification_preferences", "task_activity_events", "user_notifications.dedupe_key", "email_outbox", "email_webhook_events", "email_suppressions"],
+  "canonicalLogicDomains": ["identity_avatar", "status_lifecycle", "relationship_actions"],
+  "concurrencyRisk": "Onboarding transaction/event uniqueness dedupes parallel/replayed completion. Normal and collaborator-removal bulk assignments share transactional activity/mail persistence; errors escape the transaction before mapping to action results. Persisted IDs distinguish A-B-A and suppress obsolete queued events. Deleted tasks are checked before each send/retry; completed/deleted tasks are excluded from bulk reassignment. Admin recipient lookups reuse abortable eight-second Auth fetches. Atomic SKIP LOCKED claims, owned leases, frozen request bytes and stable provider keys handle restarts/timeouts. Advisory transaction locks reconcile early/duplicate/out-of-order receipts. Ambiguous retries stop at eight attempts or 23 hours for operator review.",
+  "observability": {
+    "metrics": ["email.accepted", "email.dropped", "email.webhook", "email-outbox-delivery heartbeat and overdue queue age"],
+    "logs": ["email.wake_failed", "email.lookup_failed", "email.send_failed", "email.needs_review"],
+    "alerts": []
+  },
+  "rollback": {
+    "strategy": "Disable RESEND_EMAIL_ENABLED on web and worker; retain additive tables, frozen payloads, provider IDs, receipts and suppression state. Keep Supabase Auth SMTP unchanged. Do not reset ambiguous deliveries or create new keys without provider-history reconciliation. In-flight requests may still complete.",
+    "validation": ["Confirm no new outbox creation/draining while disabled", "Recheck onboarding profile/avatar/navigation and task/in-app notification saves", "Check webhook ingestion and existing suppression history remain intact"]
+  },
+  "evidence": {
+    "commands": ["npm run typecheck", "npx eslint src tests scripts '*.js' '*.mjs' '*.cjs' '*.ts' --no-error-on-unmatched-pattern", "node --import tsx --test 'tests/unit/**/*.test.ts'", "node --import tsx --test --test-concurrency=1 'tests/db/**/*.test.ts' (isolated DATABASE_URL_FRESH only)", "node --import tsx scripts/check-migration-journal.ts", "node --import tsx scripts/setup-database.ts --dry-run", "node --import tsx scripts/check-sql-governance.ts", "node --import tsx scripts/check-impact-review.ts --strict", "npm run build (build-only credentials; sending disabled)"],
+    "reports": ["docs/deployment/transactional-email.md", "tests/unit/inngest-registry.test.ts", "scripts/check-db-catalog-drift.ts"]
+  },
+  "paths": [".env.local.example", "package.json", "package-lock.json", "drizzle/0205_transactional_email_outbox.sql", "drizzle/meta/_journal.json", "src/app/actions/onboarding.ts", "src/app/actions/project/index.ts", "src/app/actions/task.ts", "src/app/api/v1/webhooks/resend", "src/lib/email", "src/lib/projects/task-assignment.ts", "src/lib/projects/collaborator-lifecycle.ts", "src/lib/supabase/server.ts", "src/lib/db/schema/index.ts", "src/lib/notifications/preferences.ts", "src/lib/notifications/types.ts", "src/components/settings/NotificationsSettings.tsx", "src/inngest/types.ts", "src/inngest/registry.ts", "src/inngest/functions/email-delivery.ts", "tests/db/transactional-email.test.ts", "tests/unit/supabase-admin-timeout.test.ts", "tests/unit/transactional-email.test.ts", "tests/unit/notification-preferences.test.ts", "tests/unit/csrf-route-coverage.test.ts", "tests/e2e/onboarding-smoke.spec.ts", "standards/sql-governance.manifest.json", "docs/deployment/transactional-email.md"]
+}

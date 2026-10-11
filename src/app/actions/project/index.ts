@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { queueEmail, wakeEmailWorker } from "@/lib/email/outbox";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
 import {
   projects,
@@ -120,7 +121,7 @@ import {
 } from "@/lib/profile/collaboration";
 import { buildProjectOwnerPresentation } from "@/lib/privacy/presentation";
 import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
-import { enqueueProjectNotificationEvent } from "@/lib/notifications/project-events";
+import { enqueueProjectNotificationEvent, enqueueProjectNotificationEvents } from "@/lib/notifications/project-events";
 import {
   buildCreateProjectNotificationPolicy,
   buildDefaultProjectNotificationPolicy,
@@ -5614,7 +5615,6 @@ export async function removeProjectMemberAction(
       };
 
     const txResult = await db.transaction(async (tx) => {
-      try {
         const lifecycle = await removeProjectMemberInternal(tx, {
           projectId,
           actorId: user.id,
@@ -5623,7 +5623,7 @@ export async function removeProjectMemberAction(
           reassignToUserId: parsed.data.reassignToUserId ?? null,
         });
         return { ok: true as const, lifecycle };
-      } catch (error) {
+    }).catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         if (message.includes("Project not found")) {
           return {
@@ -5654,7 +5654,6 @@ export async function removeProjectMemberAction(
           errorCode: "INTERNAL_ERROR" as const,
           message: "Failed to remove collaborator.",
         };
-      }
     });
 
     if (!txResult.ok) {
@@ -5665,7 +5664,18 @@ export async function removeProjectMemberAction(
       };
     }
     await revalidateProjectPaths(projectId);
-    await queueCounterRefreshBestEffort([memberUserId]);
+    await queueCounterRefreshBestEffort([memberUserId, parsed.data.reassignToUserId ?? null]);
+    if (txResult.lifecycle.assignmentNotifications.length) {
+      await wakeEmailWorker();
+      try {
+        await enqueueProjectNotificationEvents(txResult.lifecycle.assignmentNotifications);
+      } catch (error) {
+        logger.warn("project.notification_policy_enqueue_failed", {
+          module: "projects", projectId, action: "member_removal_task_reassignment",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
     const actor = actorNotificationSnapshot(user);
     await enqueueProjectNotificationBestEffort(
       {
@@ -8529,6 +8539,14 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
 
       if (!newTask) throw new Error("Failed to create task");
 
+      if (validated.assigneeId && validated.assigneeId !== user.id) {
+        await queueEmail(tx, {
+          kind: "task_assignment", eventId: `${newTask.id}-created`,
+          userId: validated.assigneeId, actorId: user.id,
+          taskId: newTask.id, projectId: validated.projectId,
+        });
+      }
+
       if (validated.sprintId) {
         await tx.insert(sprintTaskMemberships).values({
           projectId: validated.projectId,
@@ -8627,6 +8645,7 @@ export async function createTaskAction(data: z.infer<typeof createTaskSchema>) {
       return newTask;
     });
 
+    await wakeEmailWorker();
     await queueCounterRefreshBestEffort([validated.assigneeId ?? null]);
 
     const hydratedTask = await db.query.tasks.findFirst({

@@ -45,9 +45,9 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/(favicon.ico|favicon.svg|networkbase-mark.svg|manifest.webmanifest|robots.txt|apple-touch-icon.png)',
+        source: '/(favicon.ico|favicon.svg|manifest.webmanifest|robots.txt|apple-touch-icon.png)',
         headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
         ],
       },
       {

@@ -98,6 +98,10 @@ const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
   "import_job_files",
   "import_jobs",
   "job_heartbeats",
+  // 0205: server-only email queue, delivery receipts and suppression history.
+  "email_outbox",
+  "email_webhook_events",
+  "email_suppressions",
   "github_contributor_identities",
   "github_sync_connections",
   "github_sync_files",

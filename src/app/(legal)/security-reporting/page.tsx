@@ -13,5 +13,15 @@ export default function SecurityReportingPage() {
     { id: "response", title: "3. Our response", content: <p>We aim to acknowledge a sufficiently detailed report, triage severity, coordinate validation and remediation, and keep the reporter informed when practical. We do not promise a bounty or a specific resolution date. Duplicate, theoretical, out-of-scope, or policy-only reports may be closed without action.</p> },
     { id: "safe-harbour", title: "4. Good-faith safe harbour", content: <p>Where legally permitted, {i.operatorName} will not pursue a claim solely for accidental, limited access that occurs during research complying with this policy, provided the researcher promptly stops, reports privately, avoids harm, and deletes any inadvertently obtained data. This does not authorise conduct prohibited by law or a third party.</p> },
     { id: "incidents", title: "5. Account incidents", content: <p>If you believe your account is compromised, change or reset credentials, revoke suspicious sessions and integrations in Settings, preserve relevant evidence, and contact support. A vulnerability report is not a substitute for law-enforcement or emergency reporting.</p> },
+    { id: "official-communications", title: "6. Official communications & anti-phishing verification", content: <>
+      <p>To protect members and collaborators against phishing, spoofing, and domain impersonation, NetworkBase sends all official, transactional, and administrative emails exclusively from the verified <strong>@networkbase.in</strong> domain across strictly four designated mailboxes:</p>
+      <LegalList>
+        <li><strong>welcome@networkbase.in</strong>: Account activation, member registration, and onboarding completion messages.</li>
+        <li><strong>notifications@networkbase.in</strong>: Task assignments, workflow updates, mentions, and project activity alerts.</li>
+        <li><strong>support@networkbase.in</strong>: Member assistance, technical helpdesk, customer care, and operational inquiries.</li>
+        <li><strong>privacy@networkbase.in</strong>: Legal correspondence, privacy notices, and formal data-rights requests.</li>
+      </LegalList>
+      <p>NetworkBase <strong>never</strong> dispatches official communications, requests sensitive credentials, or conducts operational business from personal email addresses (such as @gmail.com), third-party domains, or unlisted subdomains. If you receive a communication claiming to represent NetworkBase from any other address, treat it as fraudulent and report it immediately to <a className="underline" href={`mailto:${i.supportEmail}`}>{i.supportEmail}</a>.</p>
+    </> },
   ]} />;
 }
