@@ -26,6 +26,7 @@ type AppliedMigration = {
   tag: string;
   checksum: string | null;
   status: "applying" | "completed" | "failed";
+  journalIndex: number | null;
 };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -74,6 +75,7 @@ async function readJournal(): Promise<JournalFile> {
   return JSON.parse(source) as JournalFile;
 }
 
+/** First install only; an existing journal is verified, never reshaped (MIG-004). */
 async function ensureJournalTable() {
   await sql.unsafe(`
     CREATE TABLE IF NOT EXISTS public.${JOURNAL_TABLE} (
@@ -81,71 +83,15 @@ async function ensureJournalTable() {
       applied_at timestamptz NOT NULL DEFAULT now(),
       checksum text,
       journal_index integer,
-      status text NOT NULL DEFAULT 'completed',
+      status text NOT NULL DEFAULT 'completed'
+        CONSTRAINT app_migration_journal_status_check CHECK (status IN ('applying', 'completed', 'failed')),
       started_at timestamptz,
       completed_at timestamptz,
       error_message text
     );
-
-    ALTER TABLE public.${JOURNAL_TABLE}
-      ADD COLUMN IF NOT EXISTS checksum text,
-      ADD COLUMN IF NOT EXISTS journal_index integer,
-      ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'completed',
-      ADD COLUMN IF NOT EXISTS started_at timestamptz,
-      ADD COLUMN IF NOT EXISTS completed_at timestamptz,
-      ADD COLUMN IF NOT EXISTS error_message text;
-
-    UPDATE public.${JOURNAL_TABLE}
-    SET status = 'completed',
-        completed_at = COALESCE(completed_at, applied_at)
-    WHERE status IS NULL OR status NOT IN ('applying', 'completed', 'failed');
-
-    DO $journal_constraint$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conrelid = 'public.${JOURNAL_TABLE}'::regclass
-          AND conname = 'app_migration_journal_status_check'
-      ) THEN
-        ALTER TABLE public.${JOURNAL_TABLE}
-          ADD CONSTRAINT app_migration_journal_status_check
-          CHECK (status IN ('applying', 'completed', 'failed'));
-      END IF;
-    END
-    $journal_constraint$;
-
     CREATE UNIQUE INDEX IF NOT EXISTS app_migration_journal_index_unique
       ON public.${JOURNAL_TABLE} (journal_index)
       WHERE journal_index IS NOT NULL;
-  `);
-}
-
-async function reconcileJournalIndexes(entries: JournalEntry[]) {
-  const tags = entries.map((entry) => entry.tag);
-  const indexes = entries.map((entry) => entry.idx);
-  await sql`
-    UPDATE public.app_migration_journal AS applied
-    SET journal_index = expected.journal_index
-    FROM unnest(${tags}::text[], ${indexes}::integer[]) AS expected(tag, journal_index)
-    WHERE applied.tag = expected.tag
-      AND applied.journal_index IS DISTINCT FROM expected.journal_index
-  `;
-}
-
-async function ensureAuthUidHelper() {
-  const [hardeningRow] = await sql<{ hardened: boolean }[]>`
-    SELECT to_regprocedure('app_private.get_auth_uid()') IS NOT NULL AS hardened
-  `;
-  const schema = hardeningRow?.hardened ? "app_private" : "public";
-  await sql.unsafe(`
-    CREATE OR REPLACE FUNCTION ${schema}.get_auth_uid()
-    RETURNS uuid
-    LANGUAGE sql STABLE
-    SET search_path = ''
-    AS $$
-      SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
-    $$;
   `);
 }
 
@@ -160,7 +106,7 @@ async function releaseMigrationLock() {
 
 async function readAppliedMigrations() {
   const rows = await sql<AppliedMigration[]>`
-    SELECT tag, checksum, status
+    SELECT tag, checksum, status, journal_index AS "journalIndex"
     FROM public.app_migration_journal
     ORDER BY applied_at ASC, tag ASC
   `;
@@ -212,124 +158,6 @@ async function databaseHasExistingApplicationSchema() {
       AND table_name NOT IN (${JOURNAL_TABLE})
   `;
   return (rows[0]?.count ?? 0) > 0;
-}
-
-type ExistingSchemaSignals = {
-  hasLegacyCoreSchema: boolean;
-  hasProfileSecurityState: boolean;
-  hasPrivacyAwareProfilePolicy: boolean;
-  hasUploadIntentTables: boolean;
-  hasAuthorityBackfillPolicies: boolean;
-};
-
-async function readExistingSchemaSignals(): Promise<ExistingSchemaSignals> {
-  const [tablesRow] = await sql<{ count: number }[]>`
-    SELECT COUNT(*)::int AS count
-    FROM information_schema.tables
-    WHERE table_schema = 'public'
-      AND table_name IN (
-        'profiles',
-        'projects',
-        'connections',
-        'project_members',
-        'project_nodes',
-        'project_file_index',
-        'project_node_locks',
-        'project_node_events',
-        'onboarding_drafts',
-        'onboarding_submissions',
-        'onboarding_events',
-        'profile_audit_events',
-        'profile_audit_events'
-      )
-  `;
-  const [viewRow] = await sql<{ exists: boolean }[]>`
-    SELECT to_regclass('public.onboarding_slo_daily') IS NOT NULL AS exists
-  `;
-  const policyRows = await sql<{ polname: string }[]>`
-    SELECT DISTINCT polname
-    FROM pg_policy
-    WHERE polname IN (
-      'Profiles are viewable by allowed users',
-      'Users can insert own profile',
-      'Users can update own profile',
-      'Users can view own connections',
-      'Users can create connection requests',
-      'Users can update own connections',
-      'Public projects are viewable by everyone',
-      'Users can create own projects',
-      'Users can update own projects',
-      'Project members are viewable',
-      'project_nodes_write',
-      'project_file_index_write',
-      'project_node_locks_write',
-      'project_node_events_write',
-      'project_files_write',
-      'Users can manage own onboarding drafts',
-      'Users can view own onboarding submissions',
-      'Users can update own onboarding submissions',
-      'Users can view own profile audit events',
-      'project_files_write'
-    )
-  `;
-  const [profileSecurityStateRow] = await sql<{ exists: boolean }[]>`
-    SELECT to_regclass('public.profile_security_states') IS NOT NULL AS exists
-  `;
-  const [uploadIntentRow] = await sql<{ exists: boolean }[]>`
-    SELECT to_regclass('public.upload_intents') IS NOT NULL AS exists
-  `;
-  const [recoveryRedemptionRow] = await sql<{ exists: boolean }[]>`
-    SELECT to_regclass('public.recovery_code_redemptions') IS NOT NULL AS exists
-  `;
-  const policyNames = new Set(policyRows.map((row) => row.polname));
-
-  return {
-    hasLegacyCoreSchema: (tablesRow?.count ?? 0) >= 12 && viewRow?.exists === true,
-    hasProfileSecurityState: profileSecurityStateRow?.exists === true,
-    hasPrivacyAwareProfilePolicy: policyNames.has("Profiles are viewable by allowed users"),
-    hasUploadIntentTables: uploadIntentRow?.exists === true && recoveryRedemptionRow?.exists === true,
-    hasAuthorityBackfillPolicies:
-      policyNames.has("Users can view own connections") && policyNames.has("project_files_write"),
-  };
-}
-
-function inferBootstrapEntries(entries: JournalEntry[], signals: ExistingSchemaSignals) {
-  return entries.filter((entry) => {
-    if (entry.idx <= 61) {
-      return signals.hasLegacyCoreSchema;
-    }
-
-    if (entry.tag === "0061_profile_security_state_privacy_rls") {
-      return signals.hasProfileSecurityState && signals.hasPrivacyAwareProfilePolicy;
-    }
-
-    if (entry.tag === "0062_upload_intents_and_recovery_redemptions") {
-      return signals.hasUploadIntentTables;
-    }
-
-    if (entry.tag === "0063_database_setup_authority_backfill") {
-      return signals.hasAuthorityBackfillPolicies;
-    }
-
-    return false;
-  });
-}
-
-async function bootstrapAppliedTags(entries: JournalEntry[]) {
-  for (const entry of entries) {
-    const { checksum } = await readMigration(entry.tag);
-    await sql`
-      INSERT INTO public.app_migration_journal (
-        tag,
-        checksum,
-        status,
-        started_at,
-        completed_at
-      )
-      VALUES (${entry.tag}, ${checksum}, 'completed', now(), now())
-      ON CONFLICT (tag) DO NOTHING
-    `;
-  }
 }
 
 async function applyMigration(entry: JournalEntry) {
@@ -410,32 +238,23 @@ async function applyMigration(entry: JournalEntry) {
   }
 }
 
-async function validateAndBackfillChecksums(
-  entries: JournalEntry[],
-  appliedMigrations: Map<string, AppliedMigration>,
-) {
+/**
+ * Applied rows must match the journal exactly. A missing or different checksum
+ * or index is reported, never rewritten: lineage repair is a separate, reviewed
+ * operation (scripts/db/adopt-baseline.ts for fresh databases), not routine setup.
+ */
+async function verifyAppliedLineage(entries: JournalEntry[], appliedMigrations: Map<string, AppliedMigration>) {
+  const problems: string[] = [];
   for (const entry of entries) {
     const applied = appliedMigrations.get(entry.tag);
     if (!applied || applied.status !== "completed") continue;
-
     const { checksum } = await readMigration(entry.tag);
-    if (applied.checksum && applied.checksum !== checksum) {
-      throw new Error(
-        `Checksum mismatch for applied migration ${entry.tag}. Applied migrations are immutable; create a new migration instead.`,
-      );
+    if (applied.checksum !== checksum) {
+      problems.push(applied.checksum ? `${entry.tag}: checksum differs (applied migrations are immutable; add a new migration)` : `${entry.tag}: checksum missing`);
     }
-
-    if (!applied.checksum) {
-      await sql`
-        UPDATE public.app_migration_journal
-        SET checksum = ${checksum},
-            completed_at = COALESCE(completed_at, applied_at),
-            status = 'completed'
-        WHERE tag = ${entry.tag}
-      `;
-      appliedMigrations.set(entry.tag, { ...applied, checksum });
-    }
+    if (applied.journalIndex !== entry.idx) problems.push(`${entry.tag}: journal_index ${applied.journalIndex ?? "missing"}, expected ${entry.idx}`);
   }
+  if (problems.length > 0) throw new Error(`Applied migration lineage does not match the journal:\n${problems.join("\n")}`);
 }
 
 async function setupDatabase() {
@@ -452,35 +271,14 @@ async function setupDatabase() {
   await acquireMigrationLock();
   try {
     await ensureJournalTable();
-    await ensureAuthUidHelper();
-    await reconcileJournalIndexes(journal.entries);
-    let appliedMigrations = await readAppliedMigrations();
-    const hasExistingSchema = await databaseHasExistingApplicationSchema();
-
-    if (appliedMigrations.size === 0 && hasExistingSchema) {
-      if (process.env.ALLOW_MIGRATION_JOURNAL_BOOTSTRAP !== "1") {
-        throw new Error(
-          "Database contains application tables without migration lineage. " +
-          "Refusing to infer applied migrations; set ALLOW_MIGRATION_JOURNAL_BOOTSTRAP=1 only for an approved one-time legacy adoption.",
-        );
-      }
-      const schemaSignals = await readExistingSchemaSignals();
-      if (!schemaSignals.hasLegacyCoreSchema) {
-        throw new Error(
-          "Database already contains application tables but does not match the migration baseline. " +
-          "Refuse to infer migration state automatically. Repair the database or apply the missing migrations explicitly.",
-        );
-      }
-
-      const inferredEntries = inferBootstrapEntries(journal.entries, schemaSignals);
-      console.log(
-        `🔁 Existing schema detected without migration journal; backfilling ${inferredEntries.length} inferred migration tag(s).`,
+    const appliedMigrations = await readAppliedMigrations();
+    if (appliedMigrations.size === 0 && await databaseHasExistingApplicationSchema()) {
+      throw new Error(
+        "Database contains application tables without migration lineage. Routine setup never infers it; " +
+        "adopt a database built from the schema baseline with scripts/db/adopt-baseline.ts.",
       );
-      await bootstrapAppliedTags(inferredEntries);
-      appliedMigrations = await readAppliedMigrations();
     }
-
-    await validateAndBackfillChecksums(journal.entries, appliedMigrations);
+    await verifyAppliedLineage(journal.entries, appliedMigrations);
 
     let appliedCount = 0;
     for (const entry of journal.entries.sort((a, b) => a.idx - b.idx)) {
@@ -494,6 +292,7 @@ async function setupDatabase() {
         tag: entry.tag,
         checksum: (await readMigration(entry.tag)).checksum,
         status: "completed",
+        journalIndex: entry.idx,
       });
     }
 

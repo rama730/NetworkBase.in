@@ -1436,6 +1436,13 @@
       "when": 1791547200000,
       "tag": "0207_catalog_parity",
       "breakpoints": true
+    },
+    {
+      "idx": 205,
+      "version": "7",
+      "when": 1791633600000,
+      "tag": "0208_native_auth_uid",
+      "breakpoints": true
     }
   ]
 }
