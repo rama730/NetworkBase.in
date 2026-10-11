@@ -7,6 +7,8 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import postgres from "postgres";
+
+import { databaseSsl } from "./lib/disposable-db";
 import * as dotenv from "dotenv";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -47,15 +49,6 @@ if (!DATABASE_URL && !DRY_RUN) {
   process.exit(1);
 }
 
-function requiresDatabaseTls(connectionString: string | undefined) {
-  if (!connectionString) return true;
-  try {
-    const hostname = new URL(connectionString).hostname;
-    return hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "::1";
-  } catch {
-    return true;
-  }
-}
 
 // Session-level advisory locks need a session: Supavisor's transaction pooler
 // (port 6543) hands each statement to a different backend.
@@ -69,7 +62,7 @@ if (DATABASE_URL && !DRY_RUN && new URL(DATABASE_URL).port === "6543") {
 const sql = postgres(DATABASE_URL || "postgres://dry-run.invalid/unused", {
   max: 1,
   prepare: false,
-  ssl: requiresDatabaseTls(DATABASE_URL) ? "require" : false,
+  ssl: databaseSsl(DATABASE_URL),
 });
 
 function resolveWorkspacePath(...parts: string[]) {

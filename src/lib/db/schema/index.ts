@@ -843,6 +843,7 @@ export const projects = pgTable(
   },
   (t) => ({
     ownerIdx: index("projects_owner_idx").on(t.ownerId),
+    statusSetByIdx: index("projects_status_set_by_idx").on(t.statusSetBy),
     coverImageAssetIdx: index("projects_cover_image_asset_idx").on(
       t.coverImageAssetId,
     ),
@@ -2642,6 +2643,7 @@ export const emailOutbox = pgTable("email_outbox", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   eventIdx: uniqueIndex("email_outbox_event_idx").on(t.eventKey),
+  userIdx: index("email_outbox_user_idx").on(t.userId),
   providerIdx: uniqueIndex("email_outbox_provider_idx").on(t.providerId),
   dueIdx: index("email_outbox_due_idx").on(t.dueAt).where(sql`${t.status} = 'pending'`),
   leaseIdx: index("email_outbox_lease_idx").on(t.leaseExpiresAt).where(sql`${t.status} = 'processing'`),

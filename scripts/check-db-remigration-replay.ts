@@ -4,6 +4,8 @@ import path from "node:path";
 import { config } from "dotenv";
 import postgres from "postgres";
 
+import { databaseSsl } from "./lib/disposable-db";
+
 config({ path: ".env.local" });
 
 const PRIMARY_DATABASE_URL = process.env.DATABASE_URL;
@@ -153,7 +155,7 @@ async function validateDatabase(
   label: string,
   options: { strict: boolean },
 ) {
-  const sql = postgres(databaseUrl, { ssl: "require", prepare: false, max: 1 });
+  const sql = postgres(databaseUrl, { ssl: databaseSsl(databaseUrl), prepare: false, max: 1 });
   try {
     const tableRows = await sql<{ tableName: string }[]>`
       SELECT table_name AS "tableName"

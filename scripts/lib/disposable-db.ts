@@ -21,6 +21,15 @@ export function databaseIdentity(url: string): string {
   return `pg:${localHost}:${parsed.port || "5432"}/${parsed.pathname.replace(/^\//, "") || "postgres"}`;
 }
 
+/** TLS for every remote database; local disposable Postgres runs without it. */
+export function databaseSsl(url: string | undefined): "require" | false {
+  try {
+    return ["localhost", "127.0.0.1", "[::1]", "::1"].includes(new URL(url ?? "").hostname) ? false : "require";
+  } catch {
+    return "require";
+  }
+}
+
 function identityOrNull(url: string | undefined) {
   if (!url?.trim()) return null;
   try { return databaseIdentity(url); } catch { return null; }

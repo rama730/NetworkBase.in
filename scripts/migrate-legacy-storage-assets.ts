@@ -8,6 +8,8 @@ import { createHash } from "node:crypto";
 import { config } from "dotenv";
 import postgres from "postgres";
 
+import { databaseSsl } from "./lib/disposable-db";
+
 import { createAdminClient } from "../src/lib/supabase/server";
 
 config({ path: ".env.local" });
@@ -62,14 +64,6 @@ type VerifiedObject = {
   contentHash: string;
 };
 
-function requiresDatabaseTls(connectionString: string) {
-  try {
-    const hostname = new URL(connectionString).hostname;
-    return hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "::1";
-  } catch {
-    return true;
-  }
-}
 
 function profileStorageKey(value: string | null, userId: string) {
   if (!value) return null;
@@ -543,7 +537,7 @@ async function quarantineMissingReference(sql: postgres.Sql, reference: LegacyRe
 async function main() {
   const sql = postgres(resolvedDatabaseUrl, {
     prepare: false,
-    ssl: requiresDatabaseTls(resolvedDatabaseUrl) ? "require" : false,
+    ssl: databaseSsl(resolvedDatabaseUrl),
     max: 6,
   });
   try {

@@ -5,6 +5,8 @@ import path from "node:path";
 import { config } from "dotenv";
 import postgres from "postgres";
 
+import { databaseSsl } from "./lib/disposable-db";
+
 import { parseSqlGovernanceManifest } from "../src/lib/standards/sql-governance";
 
 config({ path: ".env.local" });
@@ -32,7 +34,7 @@ function migrationChecksum(tag: string) {
 }
 
 async function main() {
-  const sql = postgres(resolvedDatabaseUrl, { ssl: "require", prepare: false, max: 1 });
+  const sql = postgres(resolvedDatabaseUrl, { ssl: databaseSsl(resolvedDatabaseUrl), prepare: false, max: 1 });
   try {
     const journalColumns = await sql<{ columnName: string }[]>`
       SELECT column_name AS "columnName"
@@ -87,6 +89,8 @@ async function main() {
       FROM pg_constraint c
       WHERE c.contype = 'f'
         AND c.connamespace = 'public'::regnamespace
+        -- A FK to a partitioned table gets one internal clone per partition (conparentid set).
+        AND c.conparentid = 0
       GROUP BY c.conrelid, c.conkey
       HAVING count(*) > 1
       ORDER BY 1, 2
@@ -99,12 +103,25 @@ async function main() {
       FROM pg_constraint c
       WHERE c.contype = 'f'
         AND c.connamespace = 'public'::regnamespace
+        AND c.conparentid = 0
         AND NOT EXISTS (
           SELECT 1
           FROM pg_index i
           WHERE i.indrelid = c.conrelid
             AND i.indisvalid
-            AND (i.indkey::smallint[])[0:cardinality(c.conkey) - 1] = c.conkey
+            AND (
+              -- Leading columns are the FK columns, in any order.
+              (i.indkey::smallint[])[0:cardinality(c.conkey) - 1] @> c.conkey
+              -- A unique index on a subset already pins one row.
+              OR (i.indisunique AND c.conkey @> (i.indkey::smallint[])[0:i.indnkeyatts - 1])
+              -- Composite tenant FK (project_id, x): an index leading on x finds the rows;
+              -- project_id only filters them.
+              OR (
+                cardinality(c.conkey) > 1
+                AND (i.indkey::smallint[])[0] = ANY (c.conkey)
+                AND (SELECT a.attname FROM pg_attribute a WHERE a.attrelid = c.conrelid AND a.attnum = (i.indkey::smallint[])[0]) <> 'project_id'
+              )
+            )
         )
       ORDER BY 1, 2
     `;
