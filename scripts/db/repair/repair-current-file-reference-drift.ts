@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { config } from "dotenv";
 import postgres from "postgres";
 
-import { createAdminClient } from "../src/lib/supabase/server";
+import { createAdminClient } from "../../../src/lib/supabase/server";
 
 config({ path: ".env.local" });
 config();

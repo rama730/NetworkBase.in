@@ -138,7 +138,7 @@ describe('skills ecosystem contract', () => {
     })
 
     it('ships an idempotent, batched legacy backfill and an integrity release gate', () => {
-        const backfill = source('scripts/backfill-market-skills.ts')
+        const backfill = source('scripts/db/repair/backfill-market-skills.ts')
         const gate = source('scripts/check-skill-catalog.ts')
         const packageJson = source('package.json')
 
