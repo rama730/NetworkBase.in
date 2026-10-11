@@ -36,28 +36,11 @@ function migrationChecksum(tag: string) {
 async function main() {
   const sql = postgres(resolvedDatabaseUrl, { ssl: databaseSsl(resolvedDatabaseUrl), prepare: false, max: 1 });
   try {
-    const journalColumns = await sql<{ columnName: string }[]>`
-      SELECT column_name AS "columnName"
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = 'app_migration_journal'
+    const rows = await sql<{ tag: string; checksum: string | null; status: string; appliedAt: Date; journalIndex: number | null }[]>`
+      SELECT tag, checksum, status, applied_at AS "appliedAt", journal_index AS "journalIndex"
+      FROM public.app_migration_journal
+      ORDER BY journal_index NULLS FIRST, applied_at, tag
     `;
-    const columnSet = new Set(journalColumns.map((column) => column.columnName));
-    const hasChecksum = columnSet.has("checksum");
-    const hasStatus = columnSet.has("status");
-    const hasJournalIndex = columnSet.has("journal_index");
-
-    const rows = hasChecksum && hasStatus && hasJournalIndex
-      ? await sql<{ tag: string; checksum: string | null; status: string; appliedAt: Date; journalIndex: number | null }[]>`
-          SELECT tag, checksum, status, applied_at AS "appliedAt", journal_index AS "journalIndex"
-          FROM public.app_migration_journal
-          ORDER BY journal_index NULLS FIRST, applied_at, tag
-        `
-      : await sql<{ tag: string; checksum: string | null; status: string; appliedAt: Date; journalIndex: number | null }[]>`
-          SELECT tag, NULL::text AS checksum, 'completed'::text AS status, applied_at AS "appliedAt", NULL::integer AS "journalIndex"
-          FROM public.app_migration_journal
-          ORDER BY applied_at, tag
-        `;
 
     const liveTags = new Set(rows.map((row) => row.tag));
     const missing = expectedTags.filter((tag) => !liveTags.has(tag));
@@ -127,9 +110,6 @@ async function main() {
     `;
 
     const errors: string[] = [];
-    if (!hasChecksum || !hasStatus || !hasJournalIndex) {
-      errors.push("app_migration_journal is missing checksum/status/journal_index columns; run the migration setup in an approved deployment.");
-    }
     if (missing.length > 0) errors.push(`missing applied migrations: ${missing.join(", ")}`);
     if (unexpected.length > 0) errors.push(`unexpected live migration tags: ${unexpected.join(", ")}`);
     if (incomplete.length > 0) {

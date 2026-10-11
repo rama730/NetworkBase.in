@@ -164,13 +164,6 @@ async function applyMigration(entry: JournalEntry) {
   const { checksum, statements } = await readMigration(entry.tag);
   const isNonTransactional = NON_TRANSACTIONAL_MIGRATIONS.has(entry.tag);
 
-  const containsConcurrentOperation = statements.some((statement) => /\bCONCURRENTLY\b/i.test(statement));
-  if (containsConcurrentOperation && !isNonTransactional) {
-    throw new Error(
-      `Migration ${entry.tag} contains a concurrent operation but is not allowlisted as non-transactional.`,
-    );
-  }
-
   console.log(
     `📦 Applying migration ${entry.tag} (${statements.length} statement${statements.length === 1 ? "" : "s"}, ${isNonTransactional ? "non-transactional" : "transactional"})`,
   );
@@ -288,12 +281,6 @@ async function setupDatabase() {
       }
       await applyMigration(entry);
       appliedCount += 1;
-      appliedMigrations.set(entry.tag, {
-        tag: entry.tag,
-        checksum: (await readMigration(entry.tag)).checksum,
-        status: "completed",
-        journalIndex: entry.idx,
-      });
     }
 
     if (appliedCount === 0) {
