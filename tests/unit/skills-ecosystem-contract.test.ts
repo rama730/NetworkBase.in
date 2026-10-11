@@ -24,6 +24,11 @@ describe('skills ecosystem contract', () => {
         const generator = source('scripts/generate-skill-catalog.ts')
         assert.equal(generator.includes(`skill_${'catalog'}_releases`), false)
         assert.equal(generator.includes(`skill_${'relationships'}`), false)
+        // MIG-006: a release is a new journalled delta migration; applied files are never rewritten.
+        assert.doesNotMatch(generator, /SKILL_CATALOG_MIGRATION_TAG|seedMigrationPath/)
+        assert.match(generator, /if \(files\.some\(\(file\) => file\.endsWith\(`\$\{suffix\}\.sql`\)\)\) return null/)
+        assert.match(generator, /manifest\.existingMigrationFiles\.push/)
+        assert.match(source('drizzle/0209_skill_catalog_1_3_7.sql'), /Catalog release 1\.3\.7/)
         assert.match(source('drizzle/0109_skill_catalog_fk_indexes.sql'), /skills_replacement_skill_id_idx/)
         assert.match(source('drizzle/0109_skill_catalog_fk_indexes.sql'), /profile_contribution_skills_verified_by_idx/)
     })
