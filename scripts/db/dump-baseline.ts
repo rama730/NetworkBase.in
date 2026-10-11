@@ -16,6 +16,8 @@ import path from "node:path";
 import dotenv from "dotenv";
 import postgres from "postgres";
 
+import { databaseSsl } from "../lib/disposable-db";
+
 dotenv.config({ path: ".env.local", quiet: true });
 
 const url = process.env.DATABASE_URL;
@@ -32,7 +34,7 @@ const lastTag = [...journal.entries].sort((a, b) => a.idx - b.idx).at(-1)!.tag;
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
 async function managedObjects() {
-  const sql = postgres(url!, { max: 1, prepare: false, ssl: "require" });
+  const sql = postgres(url!, { max: 1, prepare: false, ssl: databaseSsl(url) });
   try {
     return await sql.begin("read only", async (transaction) => {
       const tx = transaction as unknown as typeof sql;
