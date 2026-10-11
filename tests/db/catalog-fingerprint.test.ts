@@ -21,6 +21,12 @@ const CHANGES: Record<string, string> = {
   "RLS disabled": `ALTER TABLE public.tasks DISABLE ROW LEVEL SECURITY`,
   "default privileges": `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT DELETE ON TABLES TO anon`,
   "check constraint": `ALTER TABLE public.tasks ADD CONSTRAINT probe_check CHECK (title <> '') NOT VALID`,
+  "view security_invoker": `ALTER VIEW public.onboarding_slo_daily SET (security_invoker = false)`,
+  "bucket made public": `UPDATE storage.buckets SET public = NOT public WHERE id = (SELECT min(id) FROM storage.buckets)`,
+  "partition grant": `GRANT SELECT ON public.chat_messages_p00 TO anon`,
+  "partition RLS": `ALTER TABLE public.chat_messages_p00 DISABLE ROW LEVEL SECURITY`,
+  "sequence grant": `GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon`,
+  "security definer owner": `ALTER FUNCTION app_private.chat_is_member(uuid, uuid) OWNER TO service_role`,
 };
 
 let baseline: string[] = [];

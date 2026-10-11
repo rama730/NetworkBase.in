@@ -92,16 +92,25 @@ async function main() {
           FROM pg_index i
           WHERE i.indrelid = c.conrelid
             AND i.indisvalid
+            -- FK lookups cannot use a partial index unless its predicate is "<fk column> IS NOT NULL".
+            AND (
+              i.indpred IS NULL
+              OR EXISTS (
+                SELECT 1 FROM unnest(c.conkey) AS fk(attnum)
+                JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = fk.attnum
+                WHERE pg_get_expr(i.indpred, i.indrelid) = '(' || quote_ident(a.attname) || ' IS NOT NULL)'
+              )
+            )
             AND (
               -- Leading columns are the FK columns, in any order.
               (i.indkey::smallint[])[0:cardinality(c.conkey) - 1] @> c.conkey
               -- A unique index on a subset already pins one row.
               OR (i.indisunique AND c.conkey @> (i.indkey::smallint[])[0:i.indnkeyatts - 1])
-              -- Composite tenant FK (project_id, x): an index leading on x finds the rows;
-              -- project_id only filters them.
+              -- Tenant FK (project_id, x): an index leading on x finds the rows; project_id only filters them.
               OR (
-                cardinality(c.conkey) > 1
+                cardinality(c.conkey) = 2
                 AND (i.indkey::smallint[])[0] = ANY (c.conkey)
+                AND 'project_id' = ANY (ARRAY(SELECT a.attname FROM pg_attribute a WHERE a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)))
                 AND (SELECT a.attname FROM pg_attribute a WHERE a.attrelid = c.conrelid AND a.attnum = (i.indkey::smallint[])[0]) <> 'project_id'
               )
             )

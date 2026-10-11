@@ -7,7 +7,9 @@
  *
  * Partitions are a family rule: they inherit columns, constraints, indexes
  * and triggers from their parent, and time partitions differ between
- * databases by creation date, so only the parent and its partition key count.
+ * databases by creation date, so only the parent and its partition key count,
+ * plus any partition whose RLS flags or grants deviate from its parent's
+ * (PostgREST can address a partition directly).
  * Extension members are not app-owned and are skipped.
  */
 import type postgres from "postgres";
@@ -26,17 +28,39 @@ export async function catalogFingerprint(sql: postgres.Sql): Promise<string[]> {
       SELECT objid FROM pg_depend WHERE deptype = 'e'
     ),
     rels AS (
-      SELECT c.oid, n.nspname || '.' || c.relname AS name, c.relkind, c.relrowsecurity, c.relforcerowsecurity, c.relacl, c.relowner
+      SELECT c.oid, n.nspname || '.' || c.relname AS name, c.relkind, c.relrowsecurity, c.relforcerowsecurity, c.relacl, c.relowner, c.reloptions
       FROM pg_class c JOIN app_ns n ON n.oid = c.relnamespace
       WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND NOT c.relispartition AND c.oid NOT IN (SELECT objid FROM ext)
+    ),
+    seqs AS (
+      SELECT c.oid, n.nspname || '.' || c.relname AS name, c.relacl, c.relowner
+      FROM pg_class c JOIN app_ns n ON n.oid = c.relnamespace
+      WHERE c.relkind = 'S' AND c.oid NOT IN (SELECT objid FROM ext)
     ),
     grantee AS (
       SELECT oid, rolname FROM pg_roles UNION ALL SELECT 0, '-'
     )
     SELECT 'relation ' || name || ' kind=' || relkind::text || ' rls=' || relrowsecurity || '/' || relforcerowsecurity
       || CASE WHEN relkind = 'p' THEN ' partition=' || pg_get_partkeydef(oid) ELSE '' END
-      || CASE WHEN relkind IN ('v', 'm') THEN ' def=' || md5(pg_get_viewdef(oid)) ELSE '' END AS line
+      || CASE WHEN relkind IN ('v', 'm') THEN ' def=' || md5(pg_get_viewdef(oid)) || ' owner=' || pg_get_userbyid(relowner) ELSE '' END
+      || coalesce(' options=' || array_to_string(reloptions, ','), '') AS line
     FROM rels
+    UNION ALL
+    SELECT 'partition-deviation ' || n.nspname || '.' || c.relname || ' rls=' || c.relrowsecurity || '/' || c.relforcerowsecurity || ' acl=' || coalesce(c.relacl::text, 'default')
+    FROM pg_class c
+    JOIN app_ns n ON n.oid = c.relnamespace
+    JOIN pg_inherits h ON h.inhrelid = c.oid
+    JOIN pg_class parent ON parent.oid = h.inhparent
+    WHERE c.relispartition
+      AND (c.relrowsecurity, c.relforcerowsecurity, coalesce(c.relacl::text, ''))
+        IS DISTINCT FROM (parent.relrowsecurity, parent.relforcerowsecurity, coalesce(parent.relacl::text, ''))
+    UNION ALL
+    SELECT 'grant ' || g.rolname || ' ' || x.privilege_type || ' on sequence ' || q.name
+    FROM seqs q, aclexplode(coalesce(q.relacl, acldefault('s', q.relowner))) x JOIN grantee g ON g.oid = x.grantee
+    WHERE g.rolname = ANY(${TRACKED_ROLES})
+    UNION ALL
+    SELECT 'bucket ' || id || ' public=' || public || ' size=' || coalesce(file_size_limit::text, '-') || ' mimes=' || coalesce(array_to_string(allowed_mime_types, ','), '-')
+    FROM storage.buckets
     UNION ALL
     SELECT 'column ' || r.name || '.' || a.attname || ' ' || format_type(a.atttypid, a.atttypmod)
       || CASE WHEN a.attnotnull THEN ' not-null' ELSE '' END
@@ -79,6 +103,7 @@ export async function catalogFingerprint(sql: postgres.Sql): Promise<string[]> {
     WHERE n.nspname = ANY(${APP_SCHEMAS}) AND g.rolname = ANY(${TRACKED_ROLES})
     UNION ALL
     SELECT 'function ' || n.nspname || '.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ') def=' || md5(pg_get_functiondef(p.oid))
+      || CASE WHEN p.prosecdef THEN ' owner=' || pg_get_userbyid(p.proowner) ELSE '' END
     FROM pg_proc p JOIN app_ns n ON n.oid = p.pronamespace
     WHERE p.prokind IN ('f', 'p') AND p.oid NOT IN (SELECT objid FROM ext)
     UNION ALL
