@@ -57,8 +57,8 @@ async function main() {
   const connectionsActions = await import("@/app/actions/connections");
   const { DISCOVER_RAIL_FILTERS } = await import("@/lib/discover/query");
 
-  const [viewer, owner, privateOwner, deletedOwner, blockedOwner, privateMember, publicMember] =
-    [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()] as const;
+  const [viewer, owner, privateOwner, deletedOwner, blockedOwner, privateMember, publicMember, blocker] =
+    [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()] as const;
   const profileRows = [
     [viewer, "Vera Viewer", "public"],
     [owner, "Olga Owner", "public"],
@@ -67,12 +67,15 @@ async function main() {
     [blockedOwner, "Bert Blocked", "public"],
     [privateMember, "Mia Private", "private"],
     [publicMember, "Quinn Public", "public"],
+    // Blocks the viewer (the other direction from blockedOwner).
+    [blocker, "Bea Blocker", "public"],
   ] as const;
   // Every seeded project shares one tag in its title, so checks can ignore other rows in the database.
   const run = randomUUID().slice(0, 8);
   const ids = {
     open: randomUUID(), privateOwned: randomUUID(), deletedOwned: randomUUID(), blockedOwned: randomUUID(),
     draft: randomUUID(), cLang: randomUUID(), javascript: randomUUID(),
+    blockerOwned: randomUUID(), privateProject: randomUUID(),
   };
   // Twelve projects inside one millisecond: a millisecond cursor would skip or repeat some of them.
   const sameMillisecond = Array.from({ length: 12 }, () => randomUUID());
@@ -87,14 +90,15 @@ async function main() {
     }
     await sql`UPDATE profiles SET deleted_at = now() WHERE id = ${deletedOwner}`;
     await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${viewer}, ${blockedOwner}, 'blocked', ${viewer}, now())`;
+    await sql`INSERT INTO connections (requester_id, addressee_id, status, blocked_by, blocked_at) VALUES (${blocker}, ${viewer}, 'blocked', ${blocker}, now())`;
 
     const links = JSON.stringify([
       { id: "pub", platform: "website", url: "https://public.example.test", audience: "public" },
       { id: "mem", platform: "website", url: "https://members.example.test", audience: "members" },
     ]);
-    const project = (id: string, ownerId: string, title: string, extra: { status?: string; createdAt?: string; views?: number } = {}) => sql`
+    const project = (id: string, ownerId: string, title: string, extra: { status?: string; createdAt?: string; views?: number; visibility?: string } = {}) => sql`
       INSERT INTO projects (id, owner_id, title, status, visibility, external_links, view_count, created_at, updated_at)
-      VALUES (${id}, ${ownerId}, ${`${run} ${title}`}, ${extra.status ?? "active"}, 'public', ${links}::jsonb,
+      VALUES (${id}, ${ownerId}, ${`${run} ${title}`}, ${extra.status ?? "active"}, ${extra.visibility ?? "public"}, ${links}::jsonb,
               ${extra.views ?? 0}, ${extra.createdAt ?? new Date().toISOString()}::timestamptz, now())`;
     await project(ids.open, owner, "Open", { views: 50 });
     await project(ids.privateOwned, privateOwner, "Private owner", { views: 40 });
@@ -103,6 +107,9 @@ async function main() {
     await project(ids.draft, owner, "Draft", { status: "draft" });
     await project(ids.cLang, owner, "C project", { views: 10 });
     await project(ids.javascript, owner, "JavaScript project", { views: 10 });
+    await project(ids.blockerOwned, blocker, "Blocker owner", { views: 15 });
+    await project(ids.privateProject, owner, "Private project", { views: 60, visibility: "private" });
+    await sql`UPDATE projects SET cover_image = 'https://cdn.example.test/open.png' WHERE id = ${ids.open}`;
     for (const [index, id] of sameMillisecond.entries()) {
       // .123000 to .123011: one millisecond, twelve microseconds. Equal view counts tie the score sorts too.
       await project(id, owner, `Tie ${index}`, { createdAt: `2020-01-01T00:00:00.${String(123000 + index).padStart(6, "0")}Z`, views: 5 });
@@ -135,7 +142,7 @@ async function main() {
     });
     await check("public feed drops deleted accounts' projects and drafts", async () => !byId.has(ids.deletedOwned) && !byId.has(ids.draft));
     await check("a viewer never gets a project of someone they blocked", async () => {
-      const visible = await feed.withoutBlockedUsers(fullPublic.projects, viewer);
+      const visible = await feed.forViewer(fullPublic.projects, viewer);
       return !visible.some((item) => item.id === ids.blockedOwned) && visible.some((item) => item.id === ids.open);
     });
 
@@ -216,6 +223,71 @@ async function main() {
       return !ids.includes(privateOwner) && !ids.includes(privateMember) && !ids.includes(blockedOwner) && !ids.includes(deletedOwner);
     });
 
+    // ---- Round 2.
+    await check("public feed hides a masked creator's id (no linking their projects)", async () => {
+      const item = (await feed.forViewer(fullPublic.projects, null)).find((project) => project.id === ids.privateOwned);
+      return Boolean(item) && item!.owner_id === "" && item!.profiles.id === "";
+    });
+    await check("filtered feed hides a masked creator's id", async () => {
+      const item = (await everything(base, "all", viewer)).find((project) => project.id === ids.privateOwned);
+      return Boolean(item) && item!.ownerId === "" && item!.owner?.id === "";
+    });
+    await check("someone who blocked the viewer is hidden in both feeds", async () => {
+      const shared = await feed.forViewer(fullPublic.projects, viewer);
+      const filtered = (await everything(base, "all", viewer)).map((project) => project.id);
+      return !shared.some((project) => project.id === ids.blockerOwned) && !filtered.includes(ids.blockerOwned)
+        && fullPublic.projects.some((project) => project.id === ids.blockerOwned);
+    });
+    await check("a private project is in neither feed", async () =>
+      !byId.has(ids.privateProject) && !(await everything(base, "all", viewer)).some((project) => project.id === ids.privateProject));
+    await check("the search preview keeps a project's stage and cover", async () => {
+      const result = await data.getDiscoverProjects({ ...base, search: `${run} Open` }, undefined, 8, { view: "all", viewerId: viewer, surface: "preview" });
+      const item = result.projects.find((project) => project.id === ids.open);
+      return item?.status === "active" && item.coverImage === "https://cdn.example.test/open.png";
+    });
+    await check("a ranked cursor from the far future is a cursor error", async () => {
+      const first = await data.getDiscoverProjects(base, undefined, 4, { view: "trending", viewerId: viewer });
+      const parts = (first.nextCursor ?? "").split("|");
+      if (parts.length < 3) return false;
+      parts[1] = "1e20";
+      try {
+        await data.getDiscoverProjects(base, parts.join("|"), 4, { view: "trending", viewerId: viewer });
+        return false;
+      } catch (error) {
+        return error instanceof data.InvalidDiscoverCursorError;
+      }
+    });
+    await check("a ranked list keeps going when the project at its cursor left the feed", async () => {
+      const first = await data.getDiscoverProjects(base, undefined, 4, { view: "trending", viewerId: viewer });
+      const lastId = first.projects.at(-1)?.id;
+      if (!first.nextCursor || !lastId || !seeded.has(lastId)) return false;
+      await sql`UPDATE projects SET visibility = 'private' WHERE id = ${lastId}`;
+      try {
+        const next = await data.getDiscoverProjects(base, first.nextCursor, 4, { view: "trending", viewerId: viewer });
+        return next.projects.length > 0 && !next.projects.some((project) => first.projects.some((seen) => seen.id === project.id));
+      } finally {
+        await sql`UPDATE projects SET visibility = 'public' WHERE id = ${lastId}`;
+      }
+    });
+    await check("the feed's newest, most viewed and most followed sorts read the 0195 indexes", async () => {
+      // One connection (a transaction), so the planner setting applies to the EXPLAINs.
+      const plans = await sql.begin(async (transaction) => {
+        // postgres.js types drop the tagged-template call on TransactionSql; it is callable at runtime.
+        const tx = transaction as unknown as typeof sql;
+        // A tiny table makes any plan cheap; forbidding scans-plus-sort proves the index can serve the order itself.
+        await tx`SET LOCAL enable_seqscan = off`;
+        await tx`SET LOCAL enable_bitmapscan = off`;
+        await tx`SET LOCAL enable_sort = off`;
+        return [
+          await tx`EXPLAIN SELECT id FROM projects WHERE deleted_at IS NULL AND visibility IN ('public', 'unlisted') AND status <> 'draft' ORDER BY created_at DESC, id DESC LIMIT 25`,
+          await tx`EXPLAIN SELECT id FROM projects WHERE deleted_at IS NULL AND visibility IN ('public', 'unlisted') AND status <> 'draft' ORDER BY view_count DESC, created_at DESC, id DESC LIMIT 25`,
+          await tx`EXPLAIN SELECT id FROM projects WHERE deleted_at IS NULL AND visibility IN ('public', 'unlisted') AND status <> 'draft' ORDER BY followers_count DESC, created_at DESC, id DESC LIMIT 25`,
+        ];
+      });
+      const text = plans.map((rows) => rows.map((row) => Object.values(row)[0]).join("\n"));
+      return text[0]!.includes("projects_discover_newest_idx") && text[1]!.includes("projects_discover_most_viewed_idx") && text[2]!.includes("projects_discover_most_followed_idx");
+    });
+
     await check("a garbage cursor is a cursor error, not page 1", async () => {
       try {
         await data.getDiscoverProjects(base, "t:abc|not-a-date|1", 4, { view: "all", viewerId: viewer });
@@ -229,7 +301,7 @@ async function main() {
     await sql`DELETE FROM skills WHERE id IN ${sql(Object.values(skillIds))}`;
     await sql`DELETE FROM project_members WHERE project_id IN ${sql([...seeded])}`;
     await sql`DELETE FROM projects WHERE id IN ${sql([...seeded])}`;
-    await sql`DELETE FROM connections WHERE requester_id = ${viewer}`;
+    await sql`DELETE FROM connections WHERE requester_id IN ${sql([viewer, blocker])}`;
     await sql`DELETE FROM profiles WHERE id IN ${sql(profileRows.map(([id]) => id))}`;
     await sql.end();
   }

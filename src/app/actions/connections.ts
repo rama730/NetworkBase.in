@@ -1050,8 +1050,9 @@ async function getConnectionsFeedImpl(
     if (input.filters?.seniorPlus) discoverConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
     if (input.filters?.hasMutuals) discoverConditions.push(sql`${connectionSuggestions.mutualConnectionsCount} > 0`);
     if (input.filters?.openProfilesOnly) {
-        discoverConditions.push(eq(profiles.visibility, 'public'));
-        discoverConditions.push(sql`${profiles.connectionPrivacy} <> 'nobody'`);
+        // Null settings mean the defaults (public, everyone), as the privacy resolver reads them.
+        discoverConditions.push(sql`coalesce(${profiles.visibility}, 'public') = 'public'`);
+        discoverConditions.push(sql`coalesce(${profiles.connectionPrivacy}, 'everyone') <> 'nobody'`);
     }
     if (input.filters?.hasSharedProjects) {
         discoverConditions.push(sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.ownerId} = ${profiles.id})`);
@@ -1157,8 +1158,8 @@ async function getConnectionsFeedImpl(
         }
         if (input.filters?.seniorPlus) fallbackConditions.push(sql`${profiles.experienceLevel} IN ('senior', 'lead', 'founder')`);
         if (input.filters?.openProfilesOnly) {
-            fallbackConditions.push(eq(profiles.visibility, 'public'));
-            fallbackConditions.push(sql`${profiles.connectionPrivacy} <> 'nobody'`);
+            fallbackConditions.push(sql`coalesce(${profiles.visibility}, 'public') = 'public'`);
+            fallbackConditions.push(sql`coalesce(${profiles.connectionPrivacy}, 'everyone') <> 'nobody'`);
         }
         if (input.filters?.hasSharedProjects) {
             fallbackConditions.push(sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.ownerId} = ${profiles.id})`);
@@ -1242,7 +1243,11 @@ async function getConnectionsFeedImpl(
         });
     }
     const privacyStartedAt = performance.now();
-    const visibleItems = await applySuggestedProfilePrivacy(user.id, items);
+    const privateAware = await applySuggestedProfilePrivacy(user.id, items);
+    // The Discover rail suggests people you can actually connect with (not "mutuals only" strangers).
+    const visibleItems = input.filters?.openProfilesOnly
+        ? privateAware.filter((item) => item.connectionStatus !== 'none' || item.canConnect !== false)
+        : privateAware;
     const privacyMs = Math.round(performance.now() - privacyStartedAt);
     const metadataStartedAt = performance.now();
     const [viewerProjects, viewerProfiles] = await metadataPromise;

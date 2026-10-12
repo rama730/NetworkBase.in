@@ -39,12 +39,13 @@ interface DiscoverClientProps {
         projects?: Project[];
         nextCursor?: string;
         hasMore?: boolean;
+        renderedAt?: number;
     } | null;
     initialPeopleSuggestions?: ConnectionFeedPage<DiscoverConnectionItem>;
 }
 
 type FeedPage = { projects: Project[]; nextCursor?: string; hasMore: boolean };
-type FeedContext = { loadingMore: boolean; hasMore: boolean; failed: boolean; stale: boolean; retry: () => void; restart: () => void; count: number };
+type FeedContext = { loadingMore: boolean; hasMore: boolean; failed: boolean; stale: boolean; ranked: boolean; retry: () => void; restart: () => void; count: number };
 
 const VIRTUOSO_CONTAINER_STYLE = { width: "100%" } as const;
 const VIRTUOSO_INCREASE_VIEWPORT_BY = { top: 1200, bottom: 800 } as const;
@@ -81,7 +82,8 @@ const FeedFooter: Components<Project, FeedContext>['Footer'] = ({ context }) => 
             ) : context.loadingMore ? (
                 <span role="status" className="nb-meta">Loading more…</span>
             ) : !context.hasMore ? (
-                <span role="status" className="nb-meta">You&apos;ve seen every project here.</span>
+                // Trending and For you are a ranked top list, not every project.
+                <span role="status" className="nb-meta">{context.ranked ? "That's the top of this list for now." : "You've seen every project here."}</span>
             ) : null}
         </div>
     );
@@ -246,10 +248,11 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         hasMore: Boolean(hasNextPage),
         failed: isFetchNextPageError,
         stale: staleFeed,
+        ranked: view === FILTER_VIEWS.TRENDING || view === FILTER_VIEWS.RECOMMENDATIONS,
         retry: () => void fetchNextPage(),
         restart: restartFeed,
         count: visibleProjects.length,
-    }), [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage, restartFeed, staleFeed, visibleProjects.length]);
+    }), [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage, restartFeed, staleFeed, view, visibleProjects.length]);
 
     const following = view === FILTER_VIEWS.FOLLOWING;
     const renderProjectItem = useCallback((_: number, project: Project) => (

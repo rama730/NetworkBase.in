@@ -6,7 +6,9 @@ import { db } from '@/lib/db'
 import { scheduleAssetDeletionIfUnreferenced } from '@/lib/storage/asset-deletion'
 import { profileAuditEvents, profiles, storageAssets, storageQuotaScopes, usernameAliases } from '@/lib/db/schema'
 import { eq, and, desc, inArray, sql } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
+import { DISCOVER_ANON_CACHE_TAG } from '@/constants/discover'
+import { invalidatePublicProjectsFeedCache } from '@/lib/projects/public-feed-service'
 import { consumeRateLimit } from '@/lib/security/rate-limit'
 import {
     normalizeProfileUpdateInput,
@@ -779,6 +781,11 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
                     error: syncError instanceof Error ? syncError.message : String(syncError),
                 })
             })
+        }
+        // Discover shows creators' names and avatars, masked when private: drop its caches when any of that changes.
+        if (patch.visibility !== undefined || patch.fullName !== undefined || patch.username !== undefined || patch.avatarUrl !== undefined) {
+            await invalidatePublicProjectsFeedCache().catch(() => undefined)
+            revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 })
         }
         revalidatePath('/my-profile')
         if (current.username) revalidatePath(`/u/${current.username}`)

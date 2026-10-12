@@ -69,6 +69,7 @@ export function useDiscoverProjects(
         projects?: Project[];
         nextCursor?: string;
         hasMore?: boolean;
+        renderedAt?: number;
     } | null,
 ) {
     return useInfiniteQuery({
@@ -101,5 +102,7 @@ export function useDiscoverProjects(
             }],
             pageParams: [undefined],
         } : undefined,
+        // Its age is when the server read it, not when this hook ran (a garbage-collected query re-seeds from it).
+        initialDataUpdatedAt: initialProjectsPage?.renderedAt,
     });
 }

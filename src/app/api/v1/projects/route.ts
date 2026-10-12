@@ -5,11 +5,11 @@ import { jsonError, jsonSuccess } from '@/app/api/v1/_envelope'
 import { consumeRateLimitForRoute } from '@/lib/security/rate-limit'
 import { decodePublicProjectsCursor } from '@/lib/projects/public-feed'
 import {
-    getPublicProjectsFeedPage,
     PUBLIC_PROJECTS_FEED_DEFAULT_LIMIT,
     PUBLIC_PROJECTS_FEED_MAX_LIMIT,
+    queryAndCachePublicProjectsFeed,
     readPublicProjectsFeedCache,
-    withoutBlockedUsers,
+    forViewer,
 } from '@/lib/projects/public-feed-service'
 import type { PublicProjectsFeedItem } from '@/lib/projects/public-feed'
 import { getViewerAuthContext } from '@/lib/server/viewer-context'
@@ -140,7 +140,28 @@ export async function GET(request: Request) {
         return jsonError('Invalid pagination cursor', 400, 'BAD_REQUEST')
     }
 
-    const viewerId = (await getViewerAuthContext().catch(() => null))?.userId ?? null
+    const unavailable = (errorCode: string, error?: unknown) => {
+        if (error) {
+            logger.error('api.v1.projects.error', {
+                requestId,
+                route: getRequestPath(request),
+                errorMessage: error instanceof Error ? error.message : String(error),
+            })
+        }
+        logProjectsRequest(request, { requestId, startedAt, status: 503, success: false, source: 'database', cacheState: 'miss', errorCode })
+        const response = jsonError('Feed temporarily unavailable', 503, 'INTERNAL_ERROR')
+        response.headers.set('Cache-Control', 'private, no-store')
+        return response
+    }
+
+    // No session means anonymous. Failing to read one is an error, never "anonymous": that would skip the
+    // block filter and hand a signed-in viewer a publicly cacheable body.
+    let viewerId: string | null
+    try {
+        viewerId = (await getViewerAuthContext()).userId ?? null
+    } catch (error) {
+        return unavailable('AUTH_UNAVAILABLE', error)
+    }
 
     const respond = async (
         page: { projects: PublicProjectsFeedItem[]; nextCursor: string | null },
@@ -148,9 +169,10 @@ export async function GET(request: Request) {
         source: 'redis' | 'redis-stale' | 'database',
         cacheState: 'fresh' | 'stale' | 'miss',
     ) => {
-        const body = { projects: await withoutBlockedUsers(page.projects, viewerId), nextCursor: page.nextCursor }
+        const body = { projects: await forViewer(page.projects, viewerId), nextCursor: page.nextCursor }
         const etag = feedETag(body)
-        const headers = { ETag: etag, ...cacheHeaders(state, viewerId), 'X-Request-Id': requestId }
+        // The body depends on who's asking (blocks): shared caches must key on the session.
+        const headers = { ETag: etag, ...cacheHeaders(state, viewerId), Vary: 'Cookie, Authorization', 'X-Request-Id': requestId }
         const ifNoneMatch = request.headers.get('if-none-match')
         if (ifNoneMatch && ifNoneMatch.split(',').map((tag) => tag.trim()).includes(etag)) {
             return new Response(null, { status: 304, headers })
@@ -159,36 +181,40 @@ export async function GET(request: Request) {
         return jsonSuccess({ ...body, source }, undefined, { headers })
     }
 
-    const cached = await readPublicProjectsFeedCache(limit, cursor)
-    if (cached.fresh) return respond(cached.fresh.value, 'fresh', 'redis', 'fresh')
-    const staleCache = cached.stale
-
-    const rateLimitKey = `api:v1:projects:get:${getRequestIp(request)}`
-    const rateLimit = await consumeRateLimitForRoute('publicRead', rateLimitKey, 180, 60)
-
-    if (!rateLimit.allowed) {
-        if (rateLimit.degraded && staleCache) return respond(staleCache.value, 'stale', 'redis-stale', 'stale')
-
-        const status = rateLimit.degraded ? 503 : 429
-        logProjectsRequest(request, {
-            requestId,
-            startedAt,
-            status,
-            success: false,
-            source: 'rate-limit',
-            cacheState: 'miss',
-            errorCode: rateLimit.degraded ? 'SERVICE_UNAVAILABLE' : 'RATE_LIMITED',
-        })
-        return jsonError(
-            rateLimit.degraded ? 'Feed temporarily unavailable' : 'Rate limit exceeded',
-            status,
-            rateLimit.degraded ? 'INTERNAL_ERROR' : 'RATE_LIMITED',
-        )
-    }
-
+    // One try for every path, and every respond() awaited, so a failure anywhere (cache, block lookup,
+    // database) reaches the stale fallback or the 503 below.
+    let staleCache: Awaited<ReturnType<typeof readPublicProjectsFeedCache>>['stale'] = null
     try {
-        const payload = await getPublicProjectsFeedPage(limit, cursor)
-        return respond(payload, payload.cacheState === 'stale' ? 'stale' : 'fresh', payload.source, payload.cacheState)
+        const cached = await readPublicProjectsFeedCache(limit, cursor)
+        if (cached.fresh) return await respond(cached.fresh.value, 'fresh', 'redis', 'fresh')
+        staleCache = cached.stale
+
+        const rateLimitKey = `api:v1:projects:get:${getRequestIp(request)}`
+        const rateLimit = await consumeRateLimitForRoute('publicRead', rateLimitKey, 180, 60)
+
+        if (!rateLimit.allowed) {
+            if (rateLimit.degraded && staleCache) return await respond(staleCache.value, 'stale', 'redis-stale', 'stale')
+
+            const status = rateLimit.degraded ? 503 : 429
+            logProjectsRequest(request, {
+                requestId,
+                startedAt,
+                status,
+                success: false,
+                source: 'rate-limit',
+                cacheState: 'miss',
+                errorCode: rateLimit.degraded ? 'SERVICE_UNAVAILABLE' : 'RATE_LIMITED',
+            })
+            return jsonError(
+                rateLimit.degraded ? 'Feed temporarily unavailable' : 'Rate limit exceeded',
+                status,
+                rateLimit.degraded ? 'INTERNAL_ERROR' : 'RATE_LIMITED',
+            )
+        }
+
+        // The cache was just read and missed: go straight to the database (no second Redis read).
+        const payload = await queryAndCachePublicProjectsFeed(limit, cursor)
+        return await respond(payload, 'fresh', 'database', 'miss')
     } catch (error) {
         if (staleCache) {
             logger.warn('api.v1.projects.origin_failed_serving_stale', {
@@ -196,23 +222,12 @@ export async function GET(request: Request) {
                 route: getRequestPath(request),
                 error: error instanceof Error ? error.message : String(error),
             })
-            return respond(staleCache.value, 'stale', 'redis-stale', 'stale')
+            try {
+                return await respond(staleCache.value, 'stale', 'redis-stale', 'stale')
+            } catch (staleError) {
+                return unavailable('INTERNAL_ERROR', staleError)
+            }
         }
-
-        logger.error('api.v1.projects.error', {
-            requestId,
-            route: getRequestPath(request),
-            errorMessage: error instanceof Error ? error.message : String(error),
-        })
-        logProjectsRequest(request, {
-            requestId,
-            startedAt,
-            status: 503,
-            success: false,
-            source: 'database',
-            cacheState: 'miss',
-            errorCode: 'INTERNAL_ERROR',
-        })
-        return jsonError('Feed temporarily unavailable', 503, 'INTERNAL_ERROR')
+        return unavailable('INTERNAL_ERROR', error)
     }
 }

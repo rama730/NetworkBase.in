@@ -1,6 +1,6 @@
 import DiscoverClient from "@/components/discover/DiscoverClient";
 import { getViewerAuthContext, toClientViewer } from "@/lib/server/viewer-context";
-import { getPublicProjectsFeedPage, withoutBlockedUsers } from "@/lib/projects/public-feed-service";
+import { getPublicProjectsFeedPage, forViewer } from "@/lib/projects/public-feed-service";
 import { mapPublicProjectToDiscoverProject } from "@/lib/projects/public-feed";
 import { getConnectionsFeed } from "@/app/actions/connections";
 import type { ConnectionFeedPage, DiscoverConnectionItem } from "@/hooks/useConnections";
@@ -46,11 +46,13 @@ export default async function DiscoverPage({ searchParams }: { searchParams?: Se
     if (isDefaultDiscoverQuery(query)) {
         try {
             const initialFeedPage = await getPublicProjectsFeedPage(INITIAL_PAGE_SIZE, null);
-            const visible = await withoutBlockedUsers(initialFeedPage.projects, user?.id ?? null);
+            const visible = await forViewer(initialFeedPage.projects, user?.id ?? null);
             initialData = {
                 projects: visible.map(mapPublicProjectToDiscoverProject),
                 nextCursor: initialFeedPage.nextCursor || undefined,
                 hasMore: Boolean(initialFeedPage.nextCursor),
+                // When this page was read: a later visit can't treat it as fresh.
+                renderedAt: Date.now(),
             };
         } catch (error) {
             // The feed loads in the browser instead (with its own error and Retry).

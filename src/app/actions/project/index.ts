@@ -597,7 +597,8 @@ const revalidateProjectPaths = async (projectId: string) => {
   revalidatePath("/discover");
   revalidatePath("/my-profile");
   // The anonymous Discover page cache (actions/discover.ts) drops a hidden project at once.
-  revalidateTag(DISCOVER_ANON_CACHE_TAG, "max");
+  // Expire now: "max" would keep serving the stale page (with a project gone private) while it refreshes.
+  revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 });
   revalidatePath(`/projects/${projectId}`);
   // Next.js 16's cache API requires an explicit cache-life profile for tag revalidation.
   revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
@@ -620,7 +621,8 @@ export async function invalidateProjectPublicCaches(projectId: string) {
   const feed = await invalidatePublicProjectsFeedCache(projectId);
   revalidatePath("/discover");
   revalidatePath("/my-profile");
-  revalidateTag(DISCOVER_ANON_CACHE_TAG, "max");
+  // Expire now: "max" would keep serving the stale page (with a project gone private) while it refreshes.
+  revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 });
   revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
   revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, "max");
   return feed;
@@ -6198,6 +6200,13 @@ export async function toggleProjectFollowAction(
     const access = await getProjectAccessById(projectId, user.id);
     if (!access.project || !access.canRead) {
       return { success: false, error: "Project not found or private." };
+    }
+    // Across a block (either way) there's no following: the blocked side can't reach the other's projects.
+    if (shouldFollow && access.project.ownerId !== user.id) {
+      const relationship = await resolvePrivacyRelationship(user.id, access.project.ownerId);
+      if (relationship?.blockedByViewer || relationship?.blockedByTarget) {
+        return { success: false, error: "Project not found or private." };
+      }
     }
 
     const followersCount = await db.transaction(async (tx) => {

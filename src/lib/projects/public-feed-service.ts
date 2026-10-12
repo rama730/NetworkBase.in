@@ -229,7 +229,7 @@ export async function queryAndCachePublicProjectsFeed(limit: number, cursor: Pub
             .from(projectMembers)
             .innerJoin(profiles, eq(projectMembers.userId, profiles.id))
             // Only members anyone may see: public profiles that still exist.
-            .where(and(inArray(projectMembers.projectId, projectIds), eq(profiles.visibility, 'public'), isNull(profiles.deletedAt)))
+            .where(and(inArray(projectMembers.projectId, projectIds), sql`coalesce(${profiles.visibility}, 'public') = 'public'`, isNull(profiles.deletedAt)))
             .catch(() => [])
 
     const membersByProjectId = new Map<string, any[]>()
@@ -310,20 +310,27 @@ export async function invalidatePublicProjectsFeedCache(projectId?: string | nul
 }
 
 /**
- * The shared feed minus anyone the viewer blocked or is blocked by (owner or collaborator). Runs after
- * the cache, so the cached payload stays one for everyone.
+ * The shared feed as one viewer may see it. The cached payload keeps real ids (blocks need them); this is
+ * the last step before anything leaves the server: drop projects and collaborators across a block (either
+ * direction), then blank a masked creator's id so their "Private creator" projects can't be linked.
  */
-export async function withoutBlockedUsers(feed: PublicProjectsFeedItem[], viewerId: string | null): Promise<PublicProjectsFeedItem[]> {
-    if (!viewerId || feed.length === 0) return feed
-    const rows = await db
-        .select({ requesterId: connections.requesterId, addresseeId: connections.addresseeId })
-        .from(connections)
-        .where(and(eq(connections.status, 'blocked'), or(eq(connections.requesterId, viewerId), eq(connections.addresseeId, viewerId))))
-    if (rows.length === 0) return feed
-    const blocked = new Set(rows.map((row) => (row.requesterId === viewerId ? row.addresseeId : row.requesterId)))
-    return feed
-        .filter((project) => !blocked.has(project.owner_id))
-        .map((project) => ({ ...project, collaborators: project.collaborators.filter((member) => !blocked.has(member.user_id)) }))
+export async function forViewer(feed: PublicProjectsFeedItem[], viewerId: string | null): Promise<PublicProjectsFeedItem[]> {
+    let visible = feed
+    if (viewerId && feed.length > 0) {
+        const rows = await db
+            .select({ requesterId: connections.requesterId, addresseeId: connections.addresseeId })
+            .from(connections)
+            .where(and(eq(connections.status, 'blocked'), or(eq(connections.requesterId, viewerId), eq(connections.addresseeId, viewerId))))
+        if (rows.length > 0) {
+            const blocked = new Set(rows.map((row) => (row.requesterId === viewerId ? row.addresseeId : row.requesterId)))
+            visible = feed
+                .filter((project) => !blocked.has(project.owner_id))
+                .map((project) => ({ ...project, collaborators: project.collaborators.filter((member) => !blocked.has(member.user_id)) }))
+        }
+    }
+    return visible.map((project) => (project.profiles.visibility || 'public') === 'public'
+        ? project
+        : { ...project, owner_id: '', profiles: { ...project.profiles, id: '' } })
 }
 
 export async function getPublicProjectsFeedPage(limit: number, cursor: PublicProjectsCursor | null): Promise<PublicProjectsFeedPage> {
