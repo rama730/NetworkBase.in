@@ -222,7 +222,7 @@ export async function runGithubProjectImport(input: {
 
         
         const treeData = await fetchGithubTree(repoUrl, nextBranch, accessToken);
-        const { nodes, commitSha: latestSha } = treeData;
+        const { nodes, commitSha: latestSha, truncated: treeTruncated } = treeData;
 
         let fileCount = 0;
         let totalBytes = 0;
@@ -385,7 +385,8 @@ export async function runGithubProjectImport(input: {
 
         // 3. Handle remote deletions
         const nodeIdsToDelete: string[] = [];
-        for (const local of localNodes) {
+        // Absence from an incomplete (truncated) tree is not evidence of a remote deletion (COR-005).
+        for (const local of treeTruncated ? [] : localNodes) {
           if (!remotePaths.has(local.path)) {
             // Check if local was modified and user chose to keep it
             const relativePath = local.path.replace(/^\//, "");
@@ -467,6 +468,7 @@ export async function runGithubProjectImport(input: {
                   ...sourceMetadata,
                   syncPhase: "ready",
                   syncProgress: null,
+                  treeTruncated,
                 },
               } as any,
             })
