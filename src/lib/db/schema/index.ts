@@ -2951,6 +2951,16 @@ export const storageAssets = pgTable(
   }),
 );
 
+/** Durable lease with a rising fence for long-running work (ARCH-001). Server-only. */
+export const workLeases = pgTable("work_leases", {
+  scope: text("scope").primaryKey(),
+  leaseId: uuid("lease_id").notNull(),
+  fence: bigint("fence", { mode: "number" }).default(1).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const storageAssetOperations = pgTable(
   "storage_asset_operations",
   {
