@@ -24,6 +24,13 @@ async function patchPrivacy(url: string, body: Record<string, unknown>) {
   return json?.data;
 }
 
+async function fetchBlockedPage(cursor: string) {
+  const res = await fetch(`/api/v1/privacy/blocks?cursor=${encodeURIComponent(cursor)}`);
+  const json = await res.json().catch(() => null);
+  if (!res.ok || json?.success === false) throw new Error("Failed to load more blocked accounts");
+  return json.data as { accounts: PrivacyBlockedAccount[]; nextCursor: string | null };
+}
+
 async function unblockAccount(userId: string) {
   const res = await fetch(`/api/v1/privacy/blocks/${userId}`, { method: "DELETE" });
   const json = await res.json().catch(() => null);
@@ -64,6 +71,9 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
   const queryClient = useQueryClient();
   const { data, isLoading } = usePrivacySettings();
   const [blockedSearch, setBlockedSearch] = useState("");
+  // Pages after the first one; dropped whenever the first page is refetched (unblock, refresh).
+  const [more, setMore] = useState<{ base: PrivacyBlockedAccount[] | undefined; accounts: PrivacyBlockedAccount[]; cursor: string | null } | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const refreshPrivacy = async () => { await invalidatePrivacyDependents(queryClient); };
   const updateMutation = useMutation({
     mutationFn: (update: { url: string; body: Record<string, unknown>; successMessage: string }) => patchPrivacy(update.url, update.body),
@@ -78,7 +88,22 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
 
   const settings = data?.settings;
   const blockedQuery = blockedSearch.trim().toLowerCase();
-  const filteredBlockedAccounts = (data?.blockedAccounts ?? []).filter((account) => !blockedQuery || [account.fullName, account.username, account.headline].filter(Boolean).join(" ").toLowerCase().includes(blockedQuery));
+  const extra = more && more.base === data?.blockedAccounts ? more : null;
+  const blockedAccounts = [...(data?.blockedAccounts ?? []), ...(extra?.accounts ?? [])];
+  const nextBlockedCursor = extra ? extra.cursor : (data?.blockedAccountsNextCursor ?? null);
+  const loadMoreBlocked = async () => {
+    if (!nextBlockedCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const page = await fetchBlockedPage(nextBlockedCursor);
+      setMore({ base: data?.blockedAccounts, accounts: [...(extra?.accounts ?? []), ...page.accounts], cursor: page.nextCursor });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to load more blocked accounts");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+  const filteredBlockedAccounts = blockedAccounts.filter((account) => !blockedQuery || [account.fullName, account.username, account.headline].filter(Boolean).join(" ").toLowerCase().includes(blockedQuery));
   const recentPrivacyActivity = (data?.privacyActivity ?? []).slice(0, 4);
   const change = (url: string, body: Record<string, unknown>, successMessage: string) => updateMutation.mutate({ url, body, successMessage });
   const handleProfileVisibilityChange = (visibility: ProfileVisibilitySetting) => {
@@ -131,6 +156,7 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
     <SettingsSectionCard title="Blocked accounts and activity" description="Manage blocked people and review recent privacy changes.">
       {data && data.blockedAccounts.length > 0 ? <div className="relative mb-3"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.75} /><input type="search" value={blockedSearch} onChange={(event) => setBlockedSearch(event.target.value)} placeholder="Search blocked accounts" className="h-10 w-full rounded-md border border-border bg-background pl-10 pr-3 nb-compact text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" /></div> : null}
       {!data || data.blockedAccounts.length === 0 ? <div className="flex min-h-24 items-center gap-3 rounded-md border border-dashed border-border bg-card nb-grid-ground px-4"><ShieldBan className="size-5 text-muted-foreground" strokeWidth={1.75} /><div><p className="nb-ui-label text-foreground">No blocked accounts</p><p className="nb-compact mt-1 text-muted-foreground">Blocked people will appear here.</p></div></div> : filteredBlockedAccounts.length === 0 ? <p className="py-6 text-center nb-compact text-muted-foreground">No blocked accounts match your search.</p> : <div>{filteredBlockedAccounts.map((account) => <BlockedAccountRow key={account.id} account={account} isPending={unblockMutation.isPending && unblockMutation.variables === account.id} onUnblock={handleUnblock} />)}</div>}
+      {nextBlockedCursor ? <div className="mt-3 flex justify-center"><Button type="button" variant="outline" size="sm" disabled={loadingMore} onClick={loadMoreBlocked}>{loadingMore ? "Loading…" : "Load more"}</Button></div> : null}
 
       <div className="my-6 border-t border-border" />
       <GroupHeading title="Recent changes" description="A record of changes to visibility, interactions, and blocks." />
