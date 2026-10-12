@@ -44,7 +44,8 @@ test("global-search preserves unrelated filters and only resets task pagination"
       searchParams: new URLSearchParams("q=react&tech=GitHub&type=startup&sort=popular"),
       context: "discover",
     }),
-    "/discover?type=startup&sort=popular",
+    // Discover's skills are filters with their own tags: clearing the search keeps them.
+    "/discover?tech=GitHub&type=startup&sort=popular",
   );
   assert.equal(
     buildGlobalSearchClearHref({
@@ -101,15 +102,15 @@ test("global-search preserves unrelated filters and only resets task pagination"
   );
 });
 
-test("global-search exposes and clears selected Hub technologies", () => {
-  assert.equal(getGlobalSearchQuery(new URLSearchParams("tech=GitHub"), "discover"), "GitHub");
-  assert.equal(getGlobalSearchQuery(new URLSearchParams("tech=GitHub,React"), "discover"), "GitHub, React");
+test("global-search shows only the text search on Discover (skills are filter tags there)", () => {
+  assert.equal(getGlobalSearchQuery(new URLSearchParams("tech=GitHub"), "discover"), "");
+  assert.equal(getGlobalSearchQuery(new URLSearchParams("tech=GitHub,React"), "default"), "GitHub, React");
   assert.equal(getGlobalSearchQuery(new URLSearchParams("q=pony&tech=GitHub"), "discover"), "pony");
   assert.equal(
     buildGlobalSearchClearHref({
       pathname: "/discover",
       searchParams: new URLSearchParams("tech=GitHub&type=startup"),
-      context: "discover",
+      context: "default",
     }),
     "/discover?type=startup",
   );

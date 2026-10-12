@@ -265,7 +265,8 @@ export function getGlobalSearchQuery(searchParams: URLSearchParams, context: Glo
     if (context === "project") return normalizeGlobalSearchQuery(searchParams.get("search") || "");
     const query = searchParams.get("q");
     const tag = searchParams.get("tag");
-    const technologies = context === "discover" || context === "default"
+    // Discover shows its skill filters as tags of its own; the top bar shows only the text search there.
+    const technologies = context === "default"
         ? searchParams.get("tech")?.split(",").map((item) => item.trim()).filter(Boolean) ?? []
         : [];
     return normalizeGlobalSearchQuery(query || (tag ? `#${tag}` : technologies.join(", ")));
@@ -341,7 +342,8 @@ export function buildGlobalSearchClearHref({
     } else {
         params.delete("q");
         params.delete("tag");
-        params.delete("tech");
+        // On Discover, skills are filters with their own tags and Clear all; clearing the search keeps them.
+        if (context !== "discover") params.delete("tech");
     }
     const serialized = params.toString();
     return serialized ? `${pathname}?${serialized}` : pathname;

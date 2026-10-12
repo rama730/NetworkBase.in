@@ -33,6 +33,7 @@ export function SkillPicker({
     label = 'Skills & expertise',
     description = 'Search the market catalog or add a custom skill.',
     compact = false,
+    dense = false,
     progressive = false,
     controlSize = 'default',
     placeholder = 'Search React, Figma, leadership…',
@@ -45,6 +46,8 @@ export function SkillPicker({
     label?: string
     description?: string
     compact?: boolean
+    /** Inside a drawer or sheet: no popular shelf, and a short result list (about five rows) instead of a tall one. */
+    dense?: boolean
     progressive?: boolean
     controlSize?: 'default' | 'large'
     placeholder?: string
@@ -256,12 +259,11 @@ export function SkillPicker({
             {showCatalogControls ? <div
                 className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
                 aria-label="Filter skills by category"
-                role="tablist"
+                role="group"
             >
                 <button
                     type="button"
-                    role="tab"
-                    aria-selected={category === 'all'}
+                    aria-pressed={category === 'all'}
                     onClick={() => handleCategoryClick('all')}
                     className={cn(
                         'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
@@ -276,8 +278,7 @@ export function SkillPicker({
                     <button
                         key={item.key}
                         type="button"
-                        role="tab"
-                        aria-selected={category === item.key}
+                        aria-pressed={category === item.key}
                         onClick={() => handleCategoryClick(item.key)}
                         className={cn(
                             'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
@@ -292,14 +293,11 @@ export function SkillPicker({
             </div> : null}
 
             {/* "All" Category Horizontal Shelf: Curated popular skills with quick-add */}
-            {category === 'all' && !query.trim() && popularShelfSkills.length > 0 ? (
+            {!dense && category === 'all' && !query.trim() && popularShelfSkills.length > 0 ? (
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <span className="nb-meta text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                            Popular & Recommended
-                        </span>
-                        <span className="nb-meta text-xs text-muted-foreground">
-                            Scroll horizontally
+                            Popular skills
                         </span>
                     </div>
                     <div
@@ -340,7 +338,7 @@ export function SkillPicker({
                     role="listbox"
                     aria-busy={loading}
                     aria-label="Available skills"
-                    className="min-h-40 max-h-72 overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-none divide-y divide-border/30"
+                    className={cn("overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-none divide-y divide-border/30", dense ? "max-h-[232px]" : "min-h-40 max-h-72")}
                 >
                     {displayedResults.map((skill, index) => (
                         <button
@@ -348,6 +346,7 @@ export function SkillPicker({
                             key={skill.canonicalKey}
                             type="button"
                             role="option"
+                            tabIndex={-1}
                             aria-selected={index === activeIndex}
                             onMouseEnter={() => setActiveIndex(index)}
                             onMouseDown={(event) => event.preventDefault()}
@@ -376,6 +375,7 @@ export function SkillPicker({
                             id={`${listboxId}-option-${displayedResults.length}`}
                             type="button"
                             role="option"
+                            tabIndex={-1}
                             aria-selected={activeIndex === displayedResults.length}
                             onMouseEnter={() => setActiveIndex(displayedResults.length)}
                             onMouseDown={(event) => event.preventDefault()}

@@ -11274,7 +11274,7 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
               </thead>
               <tbody>
                 <tr>
-                  <td>All / Trending / For you / My projects / Following</td>
+                  <td>All / Trending / For you / Following</td>
                   <td>
                     Compact local scope selector above filters or contextual
                     sidebar group; current selection paper well.
@@ -11282,14 +11282,17 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
                   <td>
                     Retain exact query values and authentication gates; changing
                     scope preserves relevant filters and resets pagination
-                    appropriately.
+                    appropriately. My projects lives on the Projects page, not
+                    as a Discover scope (2026-10 decision).
                   </td>
                 </tr>
                 <tr>
                   <td>Search</td>
                   <td>
                     Input with 16px search icon, visible clear action, query
-                    reflected near count.
+                    reflected near count. The count is the number loaded so far
+                    ("24+ projects"), announced once results settle; the top
+                    bar's search focuses this box on Discover.
                   </td>
                   <td>
                     Debounced/loading state does not erase current results;
@@ -11323,13 +11326,14 @@ body{margin:0;padding:16px;background:var(--surface-page);font:var(--type-body);
                 <tr>
                   <td>Grid/list</td>
                   <td>
-                    Two named icon controls with selected state; default
-                    reference feed is wide stacked cards.
+                    One layout: wide stacked cards (2026-10 decision; no
+                    grid/list toggle).
                   </td>
                   <td>
-                    Retain saved view preference and existing card modes.
-                    Available width determines columns, not an arbitrary
-                    permanent 3-up grid.
+                    Available width determines the column; the supporting rail
+                    is sticky beside the feed at 1200px+ and appears only with
+                    content (people or the profile checklist); otherwise the
+                    feed takes the width.
                   </td>
                 </tr>
                 <tr>

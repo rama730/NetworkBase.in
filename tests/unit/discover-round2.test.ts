@@ -78,3 +78,27 @@ test("round 2: follow state stays true everywhere", () => {
   assert.match(read("src/components/profile/v2/sections/ProjectsGridCard.tsx"), /isFollowing=\{followed\.has\(cardProject\.id\)\}/);
   assert.match(read("src/hooks/mutations/useProjectMutations.ts"), /query\.queryKey\[3\] === 'following'/);
 });
+
+test("round 2: keyboard focus shows everywhere (a tone, never a ring)", () => {
+  const css = read("src/app/globals.css");
+  assert.match(css, /:where\(a, button, summary, \[role="tab"\], \[role="option"\], \[role="menuitem"\], \[role="radio"\], \[role="switch"\]\):focus-visible \{\s*background-color: color-mix/);
+  assert.match(css, /\[data-slot="button"\]:focus-visible \{\s*background-image:/);
+  assert.match(css, /\.nb-person-connect:focus-visible \{ border-color:var\(--primary-active\)/);
+  const picker = read("src/components/skills/SkillPicker.tsx");
+  assert.doesNotMatch(picker, /role="tab"/);
+  assert.equal(picker.match(/role="option"\s*\n\s*tabIndex=\{-1\}/g)?.length, 2);
+});
+
+test("round 2: one search field for Discover and Network; the top bar defers to it on Discover", () => {
+  assert.match(read("src/components/discover/DiscoverHeader.tsx"), /<SearchField[\s\S]*?pageSearch/);
+  assert.match(read("src/components/network/NetworkClient.tsx"), /<SearchField/);
+  assert.match(read("src/components/layout/header/GlobalSearch.tsx"), /\[data-page-search\] input/);
+});
+
+test("round 2: legal links and the card avatar read cleanly", () => {
+  const legal = read("src/components/legal/LegalLinks.tsx");
+  assert.match(legal, /!showCopyright && className/);
+  assert.match(legal, /suppressHydrationWarning/);
+  assert.doesNotMatch(legal, /muted-foreground\/80/);
+  assert.match(read("src/components/projects/ProjectAvatar.tsx"), /alt=\{size === "card" \? ""/);
+});

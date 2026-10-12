@@ -231,7 +231,8 @@ export function ProjectAvatar({
             >
                 <Image
                     src={avatarUrl}
-                    alt={`${project.title || "Project"} avatar`}
+                    // On a card the title sits right beside it: a decorative image, not a second title.
+                    alt={size === "card" ? "" : `${project.title || "Project"} avatar`}
                     fill
                     sizes={imageSize}
                     priority={priority ?? isDetail}

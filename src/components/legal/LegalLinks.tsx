@@ -13,17 +13,15 @@ import { CookieSettingsButton } from "@/components/privacy/CookieSettingsButton"
 import { cn } from "@/lib/utils";
 
 const LINK_CLASS =
-  "inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm max-sm:min-h-11 max-sm:items-center";
+  "inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline transition-colors focus-visible:underline rounded-sm pointer-coarse:min-h-11 pointer-coarse:items-center";
 
 export function LegalLinks({
   className,
   showCopyright = false,
-  showTradeMarkNotice = false,
   align = "center",
 }: {
   className?: string;
   showCopyright?: boolean;
-  showTradeMarkNotice?: boolean;
   align?: "center" | "start" | "end";
 }) {
   const isStart = align === "start";
@@ -41,7 +39,7 @@ export function LegalLinks({
       className={cn(
         "flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-xs text-muted-foreground max-sm:gap-x-3 max-sm:gap-y-0",
         alignClass,
-        className
+        !showCopyright && className
       )}
     >
       {/* 1. Contact */}
@@ -146,7 +144,7 @@ export function LegalLinks({
     </nav>
   );
 
-  if (!showCopyright && !showTradeMarkNotice) {
+  if (!showCopyright) {
     return nav;
   }
 
@@ -154,7 +152,8 @@ export function LegalLinks({
     <div className={cn("space-y-1.5", alignClass, className)}>
       {nav}
       {showCopyright && (
-        <p className="text-[11px] text-muted-foreground/80">
+        // The year can differ between server and browser at New Year; either is right.
+        <p className="text-[11px] text-muted-foreground" suppressHydrationWarning>
           © {new Date().getFullYear()} NetworkBase™. All rights reserved.
         </p>
       )}
