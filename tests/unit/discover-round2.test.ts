@@ -129,3 +129,11 @@ test("round 2: following clears only its own project page, and the index migrati
   assert.match(migration, /DROP INDEX CONCURRENTLY IF EXISTS public\.projects_feed_newest_idx;/);
   assert.match(read("scripts/setup-database.ts"), /"0211_discover_index_hygiene"/);
 });
+
+test("discover card hydration reads a bounded team preview and summed open seats (PERF-012)", () => {
+  const discover = readFileSync("src/lib/data/discover.ts", "utf8");
+  assert.match(discover, /lte\(ranked\.memberRank, 8\)/);
+  assert.match(discover, /count\(\*\) over \(partition by \$\{projectMembers\.projectId\}\)/);
+  assert.match(discover, /sum\(greatest\(\$\{projectOpenRoles\.count\} - \$\{projectOpenRoles\.filled\}, 0\)\)/);
+  assert.match(discover, /lte\(rankedConnectedMembers\.connectionRank, 3\)/);
+});
