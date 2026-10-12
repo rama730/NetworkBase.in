@@ -5,7 +5,8 @@ import {
     requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
 import { getProjectAccessById } from "@/lib/data/project-access";
-import { projectMemberCan } from "@/lib/projects/settings-policies";
+import { createHash } from "node:crypto";
+import { buildFileCapabilities } from "@/lib/projects/file-capabilities";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
 export const runtime = "nodejs";
@@ -38,25 +39,10 @@ export async function GET(
         return jsonError("Forbidden", 403, "FORBIDDEN");
     }
 
-    // Resolve project role
-    let role = "viewer";
-    if (access.isOwner) {
-        role = "owner";
-    } else if (access.isMember) {
-        role = access.memberRole || "member";
-    }
+    const capabilities = buildFileCapabilities(access);
 
-    const capabilities = {
-        canReadFiles: access.canRead,
-        canCreateFiles: projectMemberCan(role, "upload_files"),
-        canEditFiles: projectMemberCan(role, "upload_files"),
-        canAcquireLock: projectMemberCan(role, "upload_files"),
-        canStageToTask: projectMemberCan(role, "create_tasks"),
-        canMergeTask: projectMemberCan(role, "merge_task"),
-        canManageSettings: projectMemberCan(role, "manage_settings"),
-    };
-
-    const etag = `W/"caps-${role}"`;
+    // The validator is the representation itself, so a 304 can only stand for exactly these values.
+    const etag = `W/"caps-${createHash("sha1").update(JSON.stringify(capabilities)).digest("base64url")}"`;
     const ifNoneMatch = request.headers.get("if-none-match");
     if (ifNoneMatch && (ifNoneMatch === etag || ifNoneMatch.includes(etag))) {
         return new Response(null, {
