@@ -965,8 +965,10 @@ export default function ProjectSettingsTab({
                 }
                 return m;
             });
-            const enabledMemberCount = nextMembers.filter((m) => !m.uploadPermissionLocked && m.fileUploadEnabled).length;
-            const disabledMemberCount = nextMembers.filter((m) => !m.uploadPermissionLocked && !m.fileUploadEnabled).length;
+            // Adjust the server's totals by this one change: the member list may hold only the first page.
+            const changed = member.fileUploadEnabled !== enabled;
+            const enabledMemberCount = previousData.summary.enabledMemberCount + (changed ? (enabled ? 1 : -1) : 0);
+            const disabledMemberCount = previousData.summary.disabledMemberCount + (changed ? (enabled ? -1 : 1) : 0);
             setFileWorkspaceData({
                 ...previousData,
                 members: nextMembers,
@@ -1004,8 +1006,9 @@ export default function ProjectSettingsTab({
                 }
                 return m;
             });
-            const enabledMemberCount = enabled ? nextMembers.filter((m) => !m.uploadPermissionLocked).length : 0;
-            const disabledMemberCount = enabled ? 0 : nextMembers.filter((m) => !m.uploadPermissionLocked).length;
+            const configurableTotal = previousData.summary.enabledMemberCount + previousData.summary.disabledMemberCount;
+            const enabledMemberCount = enabled ? configurableTotal : 0;
+            const disabledMemberCount = enabled ? 0 : configurableTotal;
             setFileWorkspaceData({
                 ...previousData,
                 members: nextMembers,

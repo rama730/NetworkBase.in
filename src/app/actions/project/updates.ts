@@ -1149,7 +1149,8 @@ function updateCursorCondition(cursor: ProjectUpdateCursor | null) {
             eq(projectUpdates.isPinned, false),
         );
     }
-    return and(eq(projectUpdates.isPinned, false), afterWithinBucket);
+    // Row comparison lets the member-feed index seek to the cursor instead of filtering every newer row.
+    return and(eq(projectUpdates.isPinned, false), sql`(${projectUpdates.createdAt}, ${projectUpdates.id}) < (${cursorDate}, ${cursor.id}::uuid)`);
 }
 
 export async function readProjectUpdatesAction(projectId: string, params?: {

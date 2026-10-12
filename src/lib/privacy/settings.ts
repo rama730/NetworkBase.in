@@ -132,7 +132,7 @@ function decodeBlockedCursor(cursor: string | null | undefined): { sortAt: Date;
   try {
     const [iso, edgeId] = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as [string, string];
     const sortAt = new Date(iso);
-    return Number.isNaN(sortAt.getTime()) || typeof edgeId !== "string" ? null : { sortAt, edgeId };
+    return Number.isNaN(sortAt.getTime()) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(edgeId)) ? null : { sortAt, edgeId };
   } catch {
     return null;
   }

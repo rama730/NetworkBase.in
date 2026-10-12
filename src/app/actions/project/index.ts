@@ -1,6 +1,5 @@
 "use server";
 
-import { cache } from "react";
 import { db } from "@/lib/db";
 import { queueEmail, wakeEmailWorker } from "@/lib/email/outbox";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
@@ -179,7 +178,6 @@ import {
   canProjectMemberUploadFiles,
   isProjectTabVisibleToViewer,
   normalizeProjectPublicTabVisibility,
-  type ProjectMemberCapability,
   type ProjectPublicTabVisibility,
 } from "@/lib/projects/settings-policies";
 import { syncProjectSkills, syncRoleSkills, syncRoleSkillsBatch } from "@/lib/skills/service";
@@ -3456,12 +3454,6 @@ async function enqueueProjectNotificationBestEffort(
   }
 }
 
-// Read-only settings loaders run together in readProjectSettingsBootstrapAction; these resolve
-// each project/viewer decision once per request instead of once per loader (PERF-011).
-const readProjectCapabilityOnce = cache((projectId: string, userId: string, capability: ProjectMemberCapability) =>
-  requireProjectCapability(projectId, userId, capability));
-const loadOwnedProjectForSettingsOnce = cache((projectId: string, userId: string) => loadOwnedProjectForSettings(projectId, userId));
-
 async function loadOwnedProjectForSettings(projectId: string, userId: string) {
   const [project] = await db
     .select({
@@ -4021,7 +4013,7 @@ export async function getProjectAccessImpactAction(
       };
     }
 
-    const owned = await loadOwnedProjectForSettingsOnce(projectId, user.id);
+    const owned = await loadOwnedProjectForSettings(projectId, user.id);
     if (!owned.ok)
       return {
         success: false,
@@ -4380,7 +4372,7 @@ export async function getProjectCollaboratorSettingsAction(
         message: "You must be signed in.",
       };
 
-    const capability = await readProjectCapabilityOnce(
+    const capability = await requireProjectCapability(
       projectId,
       user.id,
       "manage_collaborators",
@@ -4613,7 +4605,7 @@ export async function getProjectFileWorkspaceSettingsAction(
         errorCode: "UNAUTHORIZED",
         message: "You must be signed in.",
       };
-    const capability = await readProjectCapabilityOnce(
+    const capability = await requireProjectCapability(
       projectId,
       user.id,
       "manage_files",
@@ -4996,7 +4988,7 @@ export async function readProjectNotificationSettingsAction(
         errorCode: "UNAUTHORIZED",
         message: "You must be signed in.",
       };
-    await readProjectCapabilityOnce(projectId, user.id, "manage_notifications");
+    await requireProjectCapability(projectId, user.id, "manage_notifications");
 
     const [project] = await db
       .select({ notificationPreferences: projects.notificationPreferences })
@@ -5770,7 +5762,7 @@ export async function getProjectDangerZonePreflightAction(
       };
     }
 
-    const owned = await loadOwnedProjectForSettingsOnce(projectId, user.id);
+    const owned = await loadOwnedProjectForSettings(projectId, user.id);
     if (!owned.ok)
       return {
         success: false,
