@@ -2696,6 +2696,8 @@ export const projectNodes = pgTable(
     name: text("name").notNull(),
 
     // File specifics
+    /** Git object id of the blob this file was imported from; hydration checks bytes against it. */
+    gitBlobHash: text("git_blob_hash"),
     s3Key: text("s3_key"),
     assetId: uuid("asset_id").references(
       (): AnyPgColumn => storageAssets.id,
