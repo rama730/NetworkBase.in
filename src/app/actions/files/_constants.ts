@@ -5,6 +5,8 @@ export const MAX_NODE_NAME_LENGTH = 255;
 export const MAX_SEARCH_QUERY_CHARS = 120;
 export const MAX_TREE_PAGE_SIZE = 200;
 export const MAX_BULK_NODE_OPS = 200;
+/** Links one task may hold; also the most a single attachment read returns. */
+export const MAX_TASK_ATTACHMENTS = 200;
 export { UUID_RE } from "@/lib/validations/uuid";
 
 export const FILES_ERROR_CODES = {
