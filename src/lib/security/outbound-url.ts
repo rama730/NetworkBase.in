@@ -161,6 +161,8 @@ export async function fetchPublicUrlWithRedirectValidation(
     init?: RequestInit;
     timeoutMs?: number;
     maxRedirects?: number;
+    /** Exact hostnames every hop (the first request and each redirect) must stay within. */
+    allowedHosts?: readonly string[];
     fetchImpl?: typeof fetch;
     resolveAddresses?: ResolveAddresses;
   },
@@ -191,9 +193,14 @@ export async function fetchPublicUrlWithRedirectValidation(
   };
 
   try {
-    let currentUrl = await assertPublicNetworkUrl(input.url, {
-      resolveAddresses: input.resolveAddresses,
-    });
+    const assertHop = async (target: string | URL) => {
+      const checked = await assertPublicNetworkUrl(target, { resolveAddresses: input.resolveAddresses });
+      if (input.allowedHosts && !input.allowedHosts.includes(checked.hostname.toLowerCase())) {
+        throw new UnsafeOutboundUrlError("Host is not allowed for this provider");
+      }
+      return checked;
+    };
+    let currentUrl = await assertHop(input.url);
 
     for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
       const response = await fetchImpl(currentUrl, {
@@ -212,9 +219,7 @@ export async function fetchPublicUrlWithRedirectValidation(
         throw new UnsafeOutboundUrlError("Too many redirects");
       }
 
-      currentUrl = await assertPublicNetworkUrl(new URL(location!, currentUrl), {
-        resolveAddresses: input.resolveAddresses,
-      });
+      currentUrl = await assertHop(new URL(location!, currentUrl));
     }
 
     throw new UnsafeOutboundUrlError("Too many redirects");
@@ -222,4 +227,17 @@ export async function fetchPublicUrlWithRedirectValidation(
     release();
     throw error;
   }
+}
+
+export const GITHUB_API_HOSTS = ["api.github.com"] as const;
+
+/** Fixed-host provider call: public-address checks, redirect revalidation, a total deadline, and a host allowlist per hop. */
+export async function fetchProviderUrl(
+  url: string | URL,
+  allowedHosts: readonly string[],
+  init?: RequestInit,
+  timeoutMs = 15_000,
+) {
+  const { response } = await fetchPublicUrlWithRedirectValidation({ url, init, allowedHosts, timeoutMs, maxRedirects: 3 });
+  return response;
 }
