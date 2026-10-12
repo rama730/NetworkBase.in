@@ -47,6 +47,13 @@ function cacheControlForProfile(profile: SignedUploadOptions["cacheProfile"]) {
   return "3600";
 }
 
+type TusModule = typeof import("tus-js-client");
+let loadTusClient = (): Promise<TusModule> => import("tus-js-client");
+/** Test seam: replaces the resumable transport so cancellation races can be scripted. */
+export function setTusClientLoaderForTests(loader: (() => Promise<TusModule>) | null) {
+  loadTusClient = loader ?? (() => import("tus-js-client"));
+}
+
 async function acquireResumableSlot(signal?: AbortSignal) {
   if (activeResumableTransfers < MAX_RESUMABLE_TRANSFERS) {
     activeResumableTransfers += 1;
@@ -246,29 +253,38 @@ async function uploadResumable(
 ) {
   await acquireResumableSlot(options.signal);
   try {
-    const tus = await import("tus-js-client");
+    const tus = await loadTusClient();
     await new Promise<void>((resolve, reject) => {
+      // One settle point (API-017): once the attempt has finished or been cancelled, nothing the
+      // transport, a timer or the resume lookup does afterwards may start, resume or report anything.
+      let settled = false;
       let idleTimer: ReturnType<typeof setTimeout> | undefined;
-      const maxTimer = setTimeout(() => {
-        void upload.abort();
-        reject(new Error("Upload exceeded the 30 minute attempt limit"));
-      }, TRANSFER_MAX_DURATION_MS);
-      const resetIdleTimer = () => {
-        if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => {
-          void upload.abort();
-          reject(new Error("Upload stalled for 30 seconds"));
-        }, TRANSFER_IDLE_TIMEOUT_MS);
-      };
-      const cleanup = () => {
+      const stopTimers = () => {
         if (idleTimer) clearTimeout(idleTimer);
         clearTimeout(maxTimer);
         options.signal?.removeEventListener("abort", onAbort);
       };
+      // The slot is held until the transport has really stopped.
+      const finish = async (outcome: { error?: unknown }, abortTransport: boolean) => {
+        if (settled) return;
+        settled = true;
+        stopTimers();
+        if (abortTransport) await upload.abort().catch(() => undefined);
+        if (outcome.error !== undefined) reject(outcome.error);
+        else resolve();
+      };
+      const maxTimer = setTimeout(() => {
+        void finish({ error: new Error("Upload exceeded the 30 minute attempt limit") }, true);
+      }, TRANSFER_MAX_DURATION_MS);
+      const resetIdleTimer = () => {
+        if (settled) return;
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          void finish({ error: new Error("Upload stalled for 30 seconds") }, true);
+        }, TRANSFER_IDLE_TIMEOUT_MS);
+      };
       const onAbort = () => {
-        void upload.abort();
-        cleanup();
-        reject(new DOMException("Upload cancelled", "AbortError"));
+        void finish({ error: new DOMException("Upload cancelled", "AbortError") }, true);
       };
       const fingerprintScope = session.accountScope || session.storagePath.split("/")[0] || "anonymous";
       const upload = new tus.Upload(file, {
@@ -295,18 +311,18 @@ async function uploadResumable(
           session.contentType,
         ].join(":"),
         onProgress: (uploadedBytes, totalBytes) => {
+          if (settled) return;
           resetIdleTimer();
           options.onProgress?.(uploadedBytes, totalBytes);
         },
         onError: (error) => {
-          cleanup();
-          reject(error);
+          void finish({ error }, false);
         },
         onSuccess: () => {
-          cleanup();
+          if (settled) return;
           options.onProgress?.(file.size, file.size);
           options.onPhase?.("complete");
-          resolve();
+          void finish({}, false);
         },
       });
 
@@ -317,6 +333,8 @@ async function uploadResumable(
       }
       resetIdleTimer();
       void upload.findPreviousUploads().then((previousUploads) => {
+        // The lookup is asynchronous: a cancellation (or timeout) that landed meanwhile must win.
+        if (settled || options.signal?.aborted) return;
         if (previousUploads[0]) {
           options.onPhase?.("resuming");
           upload.resumeFromPreviousUpload(previousUploads[0]);
@@ -325,8 +343,7 @@ async function uploadResumable(
         }
         upload.start();
       }).catch((error) => {
-        cleanup();
-        reject(error);
+        void finish({ error }, false);
       });
     });
   } finally {
