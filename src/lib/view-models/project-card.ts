@@ -14,9 +14,11 @@ export interface ProjectCardViewModel {
 export function toProjectCardViewModel(project: Project): ProjectCardViewModel {
     const extendedProject = project as any; // Handle flexible types
 
-    // The owner first (unless masked), then members, once each.
+    // The owner first (a masked one as a neutral "Private creator" avatar), then members, once each.
     const collaborators: ProjectCardViewModel['collaborators'] = [];
-    if (extendedProject.owner && !extendedProject.owner.isMasked) {
+    if (extendedProject.owner?.isMasked) {
+        collaborators.push({ full_name: 'Private creator', avatar_url: null, username: null });
+    } else if (extendedProject.owner) {
         collaborators.push({
             full_name: extendedProject.owner.displayName || extendedProject.owner.fullName,
             avatar_url: extendedProject.owner.avatarUrl,

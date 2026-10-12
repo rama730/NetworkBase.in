@@ -1,5 +1,6 @@
 "use client";
 
+import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { History, RotateCcw, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -249,9 +250,9 @@ export default function CommandPalette({ isOpen, onClose, initialQuery = "", con
     const connectProfile = async (result: Extract<GlobalSearchPreview, { kind: "profile" }>) => {
         try {
             await toast.promise(sendRequest.mutateAsync({ userId: result.userId }), {
-                loading: "Sending request...",
+                loading: CONNECTION_COPY.sending,
                 success: (response) => getConnectionRequestSuccessMessage(response.status),
-                error: (error) => error instanceof Error ? error.message : "Failed to send request",
+                error: (error) => error instanceof Error ? error.message : CONNECTION_COPY.sendFailed,
             }).unwrap();
         } catch {
             // The shared mutation and toast already restore and report the failed state.

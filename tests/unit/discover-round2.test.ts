@@ -49,3 +49,32 @@ test("round 2: caches drop a project or creator that goes private at once", () =
 test("round 2: Escape in an open combobox closes its list, not the dialog", () => {
   assert.match(read("src/components/ui/dialog.tsx"), /getAttribute\("aria-expanded"\) === "true"\) event\.preventDefault\(\)/);
 });
+
+test("round 2: one set of words for connection states, with correct plurals", async () => {
+  const { CONNECTION_COPY } = await import("../../src/lib/connections/copy");
+  assert.equal(CONNECTION_COPY.shared(1), "1 shared connection");
+  assert.equal(CONNECTION_COPY.shared(3), "3 shared connections");
+  for (const file of ["src/components/discover/DiscoverPeopleRail.tsx", "src/components/network/PersonCard.tsx"]) {
+    assert.match(read(file), /CONNECTION_COPY\.(review|notAccepting)/, file);
+  }
+});
+
+test("round 2: Connect sends once per click and a failure puts the row back at once", () => {
+  const hook = read("src/hooks/useConnections.ts");
+  const action = read("src/app/actions/connections.ts");
+  assert.match(hook, /requestKeyFor\(variables\)/);
+  assert.match(hook, /for \(const \[key, data\] of context\?\.previous \?\? \[\]\) queryClient\.setQueryData\(key, data\)/);
+  assert.match(action, /namespace: 'connection-request'/);
+  assert.match(action, /IdempotencyConflictError\) return \{ success: false/);
+  assert.doesNotMatch(action, /Idempotency lock hit/);
+  // People search preview: full key, validated first, first page only (COR-031); metadata only on discover (PERF-008).
+  assert.match(action, /search:preview:people:v2:\$\{user\.id\}:\$\{requestShape\}/);
+  assert.match(action, /const metadataPromise = tab !== 'discover' \? null/);
+});
+
+test("round 2: follow state stays true everywhere", () => {
+  assert.match(read("src/app/actions/project/index.ts"), /relationship\?\.blockedByViewer \|\| relationship\?\.blockedByTarget/);
+  assert.match(read("src/components/projects/dashboard/ProjectDashboardClient.tsx"), /queryKeys\.discover\.userFollowedProjects\(currentUserId\)/);
+  assert.match(read("src/components/profile/v2/sections/ProjectsGridCard.tsx"), /isFollowing=\{followed\.has\(cardProject\.id\)\}/);
+  assert.match(read("src/hooks/mutations/useProjectMutations.ts"), /query\.queryKey\[3\] === 'following'/);
+});

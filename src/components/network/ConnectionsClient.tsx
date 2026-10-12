@@ -1,5 +1,6 @@
 "use client";
 
+import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Ban, Check, ChevronDown, MapPin, MessageSquare, UserMinus, Users } from "lucide-react";
@@ -38,9 +39,9 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
 
     const handleBlock = useCallback(async (userId: string) => {
         await toast.promise(blockProfile.mutateAsync(userId), {
-            loading: "Blocking profile...",
-            success: "Profile blocked",
-            error: (error) => error instanceof Error ? error.message : "Failed to block profile",
+            loading: CONNECTION_COPY.blocking,
+            success: "Blocked",
+            error: (error) => error instanceof Error ? error.message : CONNECTION_COPY.blockFailed,
         }).unwrap().catch(() => undefined);
     }, [blockProfile]);
 

@@ -308,14 +308,15 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   assert.match(connectionsAction, /blocked_connection\.status = 'blocked'/);
   assert.match(connectionsAction, /applySuggestedProfilePrivacy\(user\.id, items\)/);
   assert.doesNotMatch(personCard, /onDismiss/);
-  assert.match(personCard, /shared connections/);
+  // Shared wording (lib/connections/copy): "1 shared connection", "3 shared connections".
+  assert.match(personCard, /CONNECTION_COPY\.shared\(/);
   // Cards size to content: one line under the name is the location, else the real headline; no filler.
   for (const card of [personCard, networkPeople]) {
     assert.doesNotMatch(card, /h-\[168px\]|min-h-\[158px\]|VirtuosoGrid/);
     assert.doesNotMatch(card, /\|\| "NetworkBase member"<\/p>/);
   }
   assert.match(personCard, /\{location \?\? \(headline \?/);
-  assert.match(personCard, /title=\{displayName\}>\{displayName\}<\/h3>/);
+  assert.match(personCard, /title=\{displayName\}>\{displayName\}<PersonPresenceText [^>]*\/><\/h3>/);
   assert.match(personCard, /title=\{profile\.location\}/);
   assert.match(personCard, /<span className="min-w-0 truncate">\{profile\.location\}<\/span>/);
   assert.doesNotMatch(personCard, /profile\.location \? <span className="nb-meta shrink-0/);
