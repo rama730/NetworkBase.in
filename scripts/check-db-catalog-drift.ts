@@ -102,6 +102,8 @@ const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
   "email_outbox",
   "email_webhook_events",
   "email_suppressions",
+  // 0213: durable leases for long-running server work.
+  "work_leases",
   "github_contributor_identities",
   "github_sync_connections",
   "github_sync_files",
