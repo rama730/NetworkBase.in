@@ -78,6 +78,7 @@ export function DiscoverFiltersPanel({ open, onOpenChange, query, onChange, onCl
                         maxSkills={MAX_SKILLS}
                         allowCustom={false}
                         compact
+                        dense
                         progressive
                         label="Skills"
                         description="Projects that use any of these skills."

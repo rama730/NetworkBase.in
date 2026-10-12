@@ -1029,6 +1029,19 @@ svg.lucide { stroke-width:1.75; }
 
 .nb-message-composer { padding-bottom:max(8px,env(safe-area-inset-bottom)); }
 
+/* App-wide keyboard focus (WCAG 2.4.7). The guard above removes every ring (no outer keylines, by
+   design), so focus is a tone instead: a clay tint on links and plain controls (zero specificity, so a
+   component's own background still wins), and on shared Buttons a light ink overlay plus a clay border,
+   which shows on any fill (outline, ghost or solid) and never looks like hover. */
+:where(a, button, summary, [role="tab"], [role="option"], [role="menuitem"], [role="radio"], [role="switch"]):focus-visible {
+  background-color: color-mix(in srgb, var(--primary) 14%, transparent);
+}
+[data-slot="button"]:focus-visible {
+  background-image: linear-gradient(color-mix(in srgb, var(--foreground) 10%, transparent), color-mix(in srgb, var(--foreground) 10%, transparent));
+  border-color: var(--primary);
+}
+[data-slot="checkbox"]:focus-visible { border-color: var(--primary); background-color: color-mix(in srgb, var(--primary) 14%, transparent); }
+
 /* Messages keyboard focus (report §7.13, WCAG 2.4.7). The app's guard above removes every ring,
    so focus here is a tone of its own: a clay tint (spec: focus is clay), never the hover grey,
    and never an outer halo. Shared Buttons and fields keep their own focus look. */

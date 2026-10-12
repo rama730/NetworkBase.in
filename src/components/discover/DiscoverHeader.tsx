@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { Search, SlidersHorizontal, Users, X } from 'lucide-react';
+import { SlidersHorizontal, Users, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { SearchField } from '@/components/ui/SearchField';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,7 +22,6 @@ const SCOPES: Array<{ id: FilterView; label: string; subtitle: string }> = [
 ];
 
 const SORT_LABELS: Record<string, string> = { newest: 'Newest', oldest: 'Oldest', most_viewed: 'Most viewed', most_followed: 'Most followed' };
-const SEARCH_MAX = 200;
 
 const typeLabel = (id: string) => PROJECT_TYPE_OPTIONS.find((type) => type.id === id)?.label ?? id;
 
@@ -37,35 +37,25 @@ function SearchBox({ value, onSearch }: { value: string; onSearch: (q: string) =
     }
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-    const change = (next: string, delay = 250) => {
+    // The same pause as Network's search.
+    const change = (next: string, delay = 300) => {
         setText(next);
         if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => onSearch(next.trim()), delay);
     };
     return (
-        <div role="search" className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <input
-                type="search"
-                value={text}
-                maxLength={SEARCH_MAX}
-                onChange={(event) => change(event.target.value)}
-                onKeyDown={(event) => {
-                    if (event.key !== 'Enter') return;
-                    change(text, 0);
-                    // On a phone, put the keyboard away so the results show.
-                    if (window.matchMedia('(pointer: coarse)').matches) event.currentTarget.blur();
-                }}
-                placeholder="Search projects"
-                aria-label="Search projects"
-                className="h-[var(--ui-control-height)] w-full rounded-md border border-input bg-card pl-9 pr-9 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 md:text-sm pointer-coarse:h-11 [&::-webkit-search-cancel-button]:hidden"
-            />
-            {text ? (
-                <button type="button" onClick={() => change('', 0)} className="nb-icon-button absolute right-1 top-1/2 -translate-y-1/2" aria-label="Clear search">
-                    <X className="size-4" aria-hidden="true" />
-                </button>
-            ) : null}
-        </div>
+        <SearchField
+            value={text}
+            onChange={(next) => change(next, next ? 300 : 0)}
+            onEnter={(input) => {
+                change(text, 0);
+                // On a phone, put the keyboard away so the results show.
+                if (window.matchMedia('(pointer: coarse)').matches) input.blur();
+            }}
+            label="Search projects"
+            pageSearch
+            className="flex-1 sm:w-64 sm:flex-none"
+        />
     );
 }
 
