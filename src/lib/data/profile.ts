@@ -302,7 +302,7 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
     // Resolve authorization before any contribution/member aggregation. A
     // locked profile must not pay for, cache, or briefly materialize private
     // collaboration data in the request process.
-    const privacyRelationship = await resolvePrivacyRelationship(viewerUser?.id ?? null, profileData.id);
+    const privacyRelationship = await resolvePrivacyRelationship(viewerUser?.id ?? null, profileData.id, { target: profileData });
 
     if (!privacyRelationship) {
         return {
