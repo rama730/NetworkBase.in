@@ -19,6 +19,7 @@ import {
 } from '@/lib/onboarding/contracts'
 import { sanitizeOnboardingTelemetryBatch, type OnboardingEventInput } from '@/lib/onboarding/events'
 import { onboardingError, type OnboardingError } from '@/lib/onboarding/errors'
+import { beginOnboardingSubmission, finalizeOnboardingSubmission, type OnboardingAttempt } from '@/lib/onboarding/submissions'
 import { UsernamePersistenceError, findUnavailableUsernames, generateDeterministicUsernameCandidates, getUsernameAvailability, mapUsernamePersistenceError } from '@/lib/usernames/service'
 import { consumeRateLimit } from '@/lib/security/rate-limit'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
@@ -49,7 +50,6 @@ const ONBOARDING_COMPLETE_IP_LIMIT = 30
 const ONBOARDING_COMPLETE_FINGERPRINT_LIMIT = 20
 const ONBOARDING_IDEMPOTENCY_MIN_CHARS = 12
 const ONBOARDING_IDEMPOTENCY_MAX_CHARS = 80
-const ONBOARDING_PROCESSING_STALE_MS = 60_000
 const ONBOARDING_STEP_MIN = 1
 const ONBOARDING_STEP_MAX = ONBOARDING_TOTAL_STEPS
 const MAX_DRAFT_TAG_ITEMS = 25
@@ -396,107 +396,6 @@ function generateCandidateUsernames(fullName: string): string[] {
     return generateDeterministicUsernameCandidates(fullName)
 }
 
-async function beginOnboardingSubmission(params: {
-    userId: string
-    idempotencyKey: string
-}): Promise<
-    | { mode: 'process'; submissionId: string }
-    | { mode: 'replay'; response: { success: boolean; needsMetadataSync?: boolean; error?: OnboardingError } }
-    | { mode: 'in-progress' }
-> {
-    const now = new Date()
-    const inserted = await db
-        .insert(onboardingSubmissions)
-        .values({
-            userId: params.userId,
-            idempotencyKey: params.idempotencyKey,
-            status: 'processing',
-            response: {},
-            createdAt: now,
-            updatedAt: now,
-        })
-        .onConflictDoNothing()
-        .returning({ id: onboardingSubmissions.id })
-
-    if (inserted.length > 0) {
-        return { mode: 'process', submissionId: inserted[0]!.id }
-    }
-
-    const existing = await db.query.onboardingSubmissions.findFirst({
-        where: and(
-            eq(onboardingSubmissions.userId, params.userId),
-            eq(onboardingSubmissions.idempotencyKey, params.idempotencyKey)
-        ),
-        columns: {
-            id: true,
-            status: true,
-            response: true,
-            updatedAt: true,
-        },
-    })
-
-    if (!existing) {
-        return { mode: 'in-progress' }
-    }
-
-    if (existing.status === 'completed') {
-        const response = (existing.response || {}) as {
-            success?: boolean
-            needsMetadataSync?: boolean
-            error?: OnboardingError
-        }
-        return {
-            mode: 'replay',
-            response: {
-                success: response.success === true,
-                needsMetadataSync: response.needsMetadataSync === true,
-                error: response.error,
-            },
-        }
-    }
-
-    const stale = now.getTime() - existing.updatedAt.getTime() > ONBOARDING_PROCESSING_STALE_MS
-    if (!stale) {
-        return { mode: 'in-progress' }
-    }
-
-    const reacquired = await db
-        .update(onboardingSubmissions)
-        .set({
-            status: 'processing',
-            response: {},
-            updatedAt: now,
-        })
-        .where(
-            and(
-                eq(onboardingSubmissions.id, existing.id),
-                eq(onboardingSubmissions.status, 'processing')
-            )
-        )
-        .returning({ id: onboardingSubmissions.id })
-
-    if (reacquired.length === 0) {
-        return { mode: 'in-progress' }
-    }
-
-    return { mode: 'process', submissionId: reacquired[0]!.id }
-}
-
-async function finalizeOnboardingSubmission(params: {
-    submissionId: string
-    status: 'completed' | 'failed'
-    response: Record<string, unknown>
-}) {
-    await db
-        .update(onboardingSubmissions)
-        .set({
-            status: params.status,
-            response: params.response,
-            updatedAt: new Date(),
-        })
-        .where(eq(onboardingSubmissions.id, params.submissionId))
-}
-
 export async function completeOnboarding(
     data: OnboardingPayloadInput & { idempotencyKey?: string; telemetry?: OnboardingEventInput[] }
 ): Promise<{
@@ -505,7 +404,7 @@ export async function completeOnboarding(
     errorDetails?: OnboardingError
     needsMetadataSync?: boolean
 }> {
-    let submissionId: string | null = null
+    let attempt: OnboardingAttempt | null = null
     try {
         const normalizedUsername = normalizeUsername(data.username)
         const usernameValidation = validateUsername(normalizedUsername)
@@ -598,16 +497,16 @@ export async function completeOnboarding(
             const error = onboardingError('SUBMISSION_IN_PROGRESS', 'Your onboarding request is already processing.', true)
             return { success: false, error: error.message, errorDetails: error }
         }
-        submissionId = submission.submissionId
+        attempt = { submissionId: submission.submissionId, attemptToken: submission.attemptToken }
 
         const availability = await ensureUsernameIsAvailable({
             username: payload.username,
             userId: user.id,
         })
         if (!availability.ok) {
-            if (submissionId) {
+            if (attempt) {
                 await finalizeOnboardingSubmission({
-                    submissionId,
+                    ...attempt,
                     status: 'failed',
                     response: { success: false, error: availability.error },
                 })
@@ -776,9 +675,9 @@ export async function completeOnboarding(
             },
         })
 
-        if (submissionId) {
+        if (attempt) {
             await finalizeOnboardingSubmission({
-                submissionId,
+                ...attempt,
                 status: 'completed',
                 response: { success: true, needsMetadataSync: !metadataSynced },
             })
@@ -788,9 +687,9 @@ export async function completeOnboarding(
     } catch (error) {
         console.error('Error completing onboarding:', error)
         const details = mapOnboardingPersistenceError(error)
-        if (submissionId) {
+        if (attempt) {
             await finalizeOnboardingSubmission({
-                submissionId,
+                ...attempt,
                 status: 'failed',
                 response: { success: false, error: details },
             })
