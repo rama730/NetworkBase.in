@@ -8,6 +8,32 @@ import { chatFailure, chatRows, chatValue, invalidInput, isUuid, requireChatUser
 import type { ChatNotify, ChatPerson } from "@/lib/messaging/types";
 import { getRedisClient, rateLimit } from "@/lib/redis";
 
+/**
+ * Read-only lookup of the viewer's existing DM with one person (API-016): it never creates a
+ * channel or changes membership state, so a link or prefetch can call it safely. The person's
+ * display name rides along for the "start a conversation" prompt when no DM exists yet.
+ */
+export async function findDm(input: { userId: string }) {
+  const user = await requireChatUser();
+  if (!user) return unauthorized;
+  if (!isUuid(input?.userId)) return invalidInput;
+  try {
+    const [row] = await chatRows<{ channel_id: string | null; display_name: string | null }>(sql`
+      SELECT
+        (SELECT c.id FROM public.chat_channels c
+           JOIN public.chat_channel_members m ON m.channel_id = c.id AND m.user_id = ${user.id}::uuid
+          WHERE c.dm_key = least(${user.id}::text, ${input.userId}::text) || ':' || greatest(${user.id}::text, ${input.userId}::text)
+            AND NOT app_private.chat_is_blocked(${user.id}::uuid, ${input.userId}::uuid)
+          LIMIT 1) AS channel_id,
+        (SELECT coalesce(nullif(p.full_name, ''), p.username) FROM public.profiles p
+          WHERE p.id = ${input.userId}::uuid AND p.deleted_at IS NULL) AS display_name
+    `);
+    return { success: true as const, channelId: row?.channel_id ?? null, displayName: row?.display_name ?? null };
+  } catch (error) {
+    return chatFailure(error, "find_dm");
+  }
+}
+
 /** Open (or create) the DM with one person. Privacy and blocks are enforced in SQL. */
 export async function getOrCreateDm(input: { userId: string }) {
   const user = await requireChatUser();
