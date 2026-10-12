@@ -2,8 +2,7 @@
 
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query';
 import { Project, DiscoverFilters } from '@/types/discover';
-import { fetchDiscoverProjectsAction } from '@/app/actions/discover';
-import type { FilterView } from '@/constants/discover';
+import { SORT_OPTIONS, type FilterView } from '@/constants/discover';
 import { queryKeys } from '@/lib/query-keys';
 import { mapPublicProjectToDiscoverProject, type PublicProjectsFeedItem } from '@/lib/projects/public-feed';
 
@@ -60,6 +59,41 @@ async function fetchPublicProjectsPage(cursor: string | undefined) {
  * `isDefault` (the unfiltered newest feed, lib/discover/query) reads the shared, cached API and can
  * start from the server-rendered page; everything else goes through the server action.
  */
+/**
+ * Filtered, searched and ranked pages: a GET to the Discover route, so the browser can cancel a superseded
+ * search (the query's abort signal) and a follow isn't queued behind it.
+ */
+async function fetchDiscoverPage(filters: DiscoverFilters, view: FilterView, cursor: string | undefined, signal: AbortSignal | undefined) {
+    const params = new URLSearchParams({
+        view,
+        status: filters.status || 'all',
+        type: filters.type || 'all',
+        sort: filters.sort || SORT_OPTIONS.NEWEST,
+        limit: String(PAGE_SIZE),
+    });
+    if (filters.tech?.length) params.set('tech', filters.tech.join(','));
+    if (filters.search) params.set('q', filters.search);
+    if (cursor) params.set('cursor', cursor);
+
+    const response = await fetch(`/api/v1/discover/projects?${params.toString()}`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+        signal,
+    });
+    const body = await response.json().catch(() => null) as {
+        success?: boolean;
+        data?: { projects: Project[]; nextCursor: string | null; hasMore: boolean };
+        details?: { code?: string };
+    } | null;
+    if (response.ok && body?.success && body.data) {
+        return { projects: body.data.projects, nextCursor: body.data.nextCursor ?? undefined, hasMore: body.data.hasMore };
+    }
+    const code = body?.details?.code;
+    if (response.status === 429) throw new DiscoverFeedError('RATE_LIMITED');
+    if (response.status === 400) throw new DiscoverFeedError(code === 'STALE_FEED' ? 'STALE_FEED' : 'VALIDATION');
+    throw new DiscoverFeedError('TRANSIENT');
+}
+
 export function useDiscoverProjects(
     viewerId: string | null,
     filters: DiscoverFilters,
@@ -74,16 +108,9 @@ export function useDiscoverProjects(
 ) {
     return useInfiniteQuery({
         queryKey: queryKeys.discover.projectsSimple(viewerId, view, filters),
-        queryFn: async ({ pageParam = undefined as string | undefined }) => {
+        queryFn: async ({ pageParam = undefined as string | undefined, signal }) => {
             if (isDefault) return fetchPublicProjectsPage(pageParam);
-
-            const result = await fetchDiscoverProjectsAction(filters, pageParam, PAGE_SIZE, view);
-            if (!result.success) throw new DiscoverFeedError(result.code);
-            return {
-                projects: result.projects || [],
-                nextCursor: result.nextCursor,
-                hasMore: result.hasMore,
-            };
+            return fetchDiscoverPage(filters, view, pageParam, signal);
         },
         initialPageParam: undefined as string | undefined,
         getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,

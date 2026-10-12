@@ -9,6 +9,8 @@ export interface ProjectCardViewModel {
         username?: string | null;
     }>;
     totalOpenRoles: number;
+    /** Everyone on the team (the stack shows a few; "+N" counts the rest). */
+    teamSize: number;
 }
 
 export function toProjectCardViewModel(project: Project): ProjectCardViewModel {
@@ -50,5 +52,6 @@ export function toProjectCardViewModel(project: Project): ProjectCardViewModel {
         techStack: extendedProject.skills || [],
         collaborators,
         totalOpenRoles,
+        teamSize: Math.max(collaborators.length, Number(extendedProject.collaboratorsCount) || 0),
     };
 }

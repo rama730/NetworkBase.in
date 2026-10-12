@@ -102,3 +102,30 @@ test("round 2: legal links and the card avatar read cleanly", () => {
   assert.doesNotMatch(legal, /muted-foreground\/80/);
   assert.match(read("src/components/projects/ProjectAvatar.tsx"), /alt=\{size === "card" \? ""/);
 });
+
+test("round 2: cards get counts, not every role or member; filtered reads go through a cancellable GET", () => {
+  const pub = read("src/lib/projects/public-feed-service.ts");
+  assert.match(pub, /sum\(greatest\(\$\{projectOpenRoles\.count\} - \$\{projectOpenRoles\.filled\}, 0\)\)/);
+  assert.match(pub, /lte\(rankedSub\.memberRank, 8\)/);
+  assert.doesNotMatch(pub, /const roleRows = projectIds/);
+  const data = read("src/lib/data/discover.ts");
+  assert.match(data, /lte\(ranked\.memberRank, 8\)/);
+  assert.match(data, /coalesce\(\$\{profiles\.visibility\}, 'public'\) = 'public' OR \$\{projectMembers\.userId\} = \$\{viewerId\}/);
+  const route = read("src/app/api/v1/discover/projects/route.ts");
+  assert.match(route, /jsonSuccess\(\{ projects: result\.projects/);
+  assert.match(route, /status = result\.code === "RATE_LIMITED" \? 429/);
+  assert.doesNotMatch(route, /export const /);
+  const hook = read("src/hooks/discover/useDiscoverProjects.ts");
+  assert.match(hook, /\/api\/v1\/discover\/projects\?/);
+  assert.match(hook, /queryFn: async \(\{ pageParam = undefined as string \| undefined, signal \}\)/);
+});
+
+test("round 2: following clears only its own project page, and the index migration fails loudly on an invalid index", () => {
+  const project = read("src/app/actions/project/index.ts");
+  const follow = project.slice(project.indexOf("const revalidateProjectFollowers"), project.indexOf("const revalidateProjectPaths"));
+  assert.doesNotMatch(follow, /PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG/);
+  const migration = read("drizzle/0211_discover_index_hygiene.sql");
+  assert.match(migration, /RAISE EXCEPTION 'A projects_discover_\* index is invalid/);
+  assert.match(migration, /DROP INDEX CONCURRENTLY IF EXISTS public\.projects_feed_newest_idx;/);
+  assert.match(read("scripts/setup-database.ts"), /"0211_discover_index_hygiene"/);
+});

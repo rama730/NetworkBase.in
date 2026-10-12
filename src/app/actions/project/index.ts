@@ -578,8 +578,8 @@ async function hasProjectSprintDescriptionColumn() {
  * (the client patches the count it shows; the shared feed catches up within a minute).
  */
 const revalidateProjectFollowers = async (projectId: string) => {
+  // Only this project's page: the shared detail tags cover every project, so a follow must not expire them all.
   revalidatePath(`/projects/${projectId}`);
-  revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
   try {
     const [project] = await db.select({ slug: projects.slug }).from(projects).where(eq(projects.id, projectId)).limit(1);
     if (project?.slug) revalidatePath(`/projects/${project.slug}`);
