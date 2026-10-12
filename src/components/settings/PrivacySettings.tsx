@@ -82,7 +82,7 @@ export default function PrivacySettings({ embedded = false }: { embedded?: boole
   });
   const unblockMutation = useMutation({
     mutationFn: unblockAccount,
-    onSuccess: async () => { toast.success("Account unblocked"); await refreshPrivacy(); },
+    onSuccess: async () => { toast.success("Account unblocked"); setMore(null); await refreshPrivacy(); },
     onError: (error) => toast.error(error instanceof Error ? error.message : "Failed to unblock account"),
   });
 

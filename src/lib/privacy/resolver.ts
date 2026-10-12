@@ -19,8 +19,8 @@ const DEFAULT_MESSAGE_PRIVACY: MessagePrivacySetting = "connections";
 const DEFAULT_CONNECTION_PRIVACY: ConnectionPrivacySetting = "everyone";
 
 /**
- * Accepted mutual connections between the viewer and each target, computed in SQL: the viewer's peers
- * are never loaded into the process, so cost follows the targets, not the viewer's network size.
+ * Accepted mutual connections between the viewer and each target, computed in SQL: the peers are
+ * never loaded into the process, and the two peer sets meet in one hash join.
  */
 async function countMutualAcceptedConnectionsBatch(viewerId: string, targetUserIds: string[]) {
   const normalizedTargetIds = Array.from(new Set(targetUserIds.filter((value) => value && value !== viewerId)));
@@ -28,21 +28,23 @@ async function countMutualAcceptedConnectionsBatch(viewerId: string, targetUserI
 
   // postgres.js expands JS arrays into tuples, so the ids travel as one JSON array.
   const rows = await db.execute<{ target_id: string; mutual: number }>(sql`
-    WITH targets AS (
+    WITH viewer_peers AS (
+      SELECT addressee_id AS id FROM connections WHERE status = 'accepted' AND requester_id = ${viewerId}::uuid
+      UNION
+      SELECT requester_id FROM connections WHERE status = 'accepted' AND addressee_id = ${viewerId}::uuid
+    ),
+    targets AS (
       SELECT jsonb_array_elements_text(${JSON.stringify(normalizedTargetIds)}::jsonb)::uuid AS id
+    ),
+    target_peers AS (
+      SELECT t.id AS target_id, e.addressee_id AS peer_id FROM targets t JOIN connections e ON e.status = 'accepted' AND e.requester_id = t.id
+      UNION
+      SELECT t.id, e.requester_id FROM targets t JOIN connections e ON e.status = 'accepted' AND e.addressee_id = t.id
     )
-    SELECT t.id AS target_id, count(DISTINCT target_peer.id)::int AS mutual
-    FROM targets t
-    CROSS JOIN LATERAL (
-      SELECT CASE WHEN e.requester_id = t.id THEN e.addressee_id ELSE e.requester_id END AS id
-      FROM connections e
-      WHERE e.status = 'accepted' AND (e.requester_id = t.id OR e.addressee_id = t.id)
-    ) AS target_peer
-    JOIN connections viewer_edge
-      ON viewer_edge.status = 'accepted'
-     AND ((viewer_edge.requester_id = ${viewerId}::uuid AND viewer_edge.addressee_id = target_peer.id)
-       OR (viewer_edge.addressee_id = ${viewerId}::uuid AND viewer_edge.requester_id = target_peer.id))
-    GROUP BY t.id
+    SELECT tp.target_id, count(*)::int AS mutual
+    FROM target_peers tp
+    JOIN viewer_peers vp ON vp.id = tp.peer_id
+    GROUP BY tp.target_id
   `);
   return new Map(Array.from(rows, (row) => [row.target_id, Number(row.mutual)] as const));
 }
