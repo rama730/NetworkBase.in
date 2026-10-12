@@ -39,6 +39,7 @@ export const DEFAULT_PRIVACY_SETTINGS: PrivacyData = {
     blockedCount: 0,
   },
   blockedAccounts: [],
+  blockedAccountsNextCursor: null,
   overview: {
     profileVisibility: "public",
     messagePrivacy: "connections",

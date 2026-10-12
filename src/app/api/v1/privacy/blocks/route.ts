@@ -9,6 +9,7 @@ import {
 } from "@/app/api/v1/_shared";
 import { logger } from "@/lib/logger";
 import { setUserBlocked } from "@/lib/privacy/blocks";
+import { listBlockedAccounts } from "@/lib/privacy/settings";
 import { validateCsrf } from "@/lib/security/csrf";
 
 const blockUserSchema = z.object({
@@ -72,5 +73,26 @@ export async function POST(request: Request) {
       errorCode: "INTERNAL_ERROR",
     });
     return jsonError("Failed to block account", 500, "INTERNAL_ERROR");
+  }
+}
+
+/** GET /api/v1/privacy/blocks?cursor=... : the next page of the caller's blocked accounts. */
+export async function GET(request: Request) {
+  const limitResponse = await enforceRouteLimit(request, "api:v1:privacy:blocks:get", 120, 60);
+  if (limitResponse) return limitResponse;
+
+  const auth = await requireAuthenticatedUser();
+  if (auth.response || !auth.user) {
+    return auth.response ?? jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  }
+
+  try {
+    const cursor = new URL(request.url).searchParams.get("cursor");
+    return jsonSuccess(await listBlockedAccounts(auth.user.id, { cursor }), undefined, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  } catch (error) {
+    logger.error("[api/v1/privacy/blocks] list failed", { error });
+    return jsonError("Failed to load blocked accounts", 500, "INTERNAL_ERROR");
   }
 }
