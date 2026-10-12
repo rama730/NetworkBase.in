@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, DEV_CSRF_SECRET_FALLBACK, MINIMUM_CSRF_SECRET_LENGTH } from "./csrf-constants";
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, CSRF_REJECTED_HEADER, DEV_CSRF_SECRET_FALLBACK, MINIMUM_CSRF_SECRET_LENGTH } from "./csrf-constants";
 
 // SEC-C2: In production we require CSRF_TOKEN_SECRET; in dev we fall back to a
 // shared constant so the edge middleware (which signs the cookie) and the node
@@ -89,7 +89,8 @@ function resolveTrustedOrigin(request: Request) {
 function buildCsrfError(message: string) {
   return NextResponse.json(
     { success: false as const, message, errorCode: "FORBIDDEN" },
-    { status: 403 },
+    // The marker lets a long-lived page tell "my CSRF token is stale" from any other 403 (API-012).
+    { status: 403, headers: { [CSRF_REJECTED_HEADER]: "1" } },
   );
 }
 
