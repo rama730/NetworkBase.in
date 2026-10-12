@@ -6263,48 +6263,8 @@ export async function toggleProjectFollowAction(
     await revalidateProjectFollowers(projectId);
     return { success: true, followersCount };
   } catch (error) {
-    if (!isMissingCounterColumn(error, "followers_count")) {
-      console.error("Error toggling follow:", error);
-      return { success: false, error: "Failed to update follow status" };
-    }
-    // Only the exact pre-counter schema needs the compatibility path.
-    try {
-      if (shouldFollow) {
-        const [existing] = await db
-          .select({ id: projectFollows.id })
-          .from(projectFollows)
-          .where(
-            and(
-              eq(projectFollows.userId, user.id),
-              eq(projectFollows.projectId, projectId),
-            ),
-          )
-          .limit(1);
-        if (!existing) {
-          await db
-            .insert(projectFollows)
-            .values({ userId: user.id, projectId });
-        }
-      } else {
-        await db
-          .delete(projectFollows)
-          .where(
-            and(
-              eq(projectFollows.userId, user.id),
-              eq(projectFollows.projectId, projectId),
-            ),
-          );
-      }
-      const [countRow] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(projectFollows)
-        .where(eq(projectFollows.projectId, projectId));
-      await revalidateProjectFollowers(projectId);
-      return { success: true, followersCount: Number(countRow?.count || 0) };
-    } catch (fallbackError) {
-      console.error("Error toggling follow (fallback):", fallbackError);
-      return { success: false, error: "Failed to update follow status" };
-    }
+    console.error("Error toggling follow:", error);
+    return { success: false, error: "Failed to update follow status" };
   }
 }
 
