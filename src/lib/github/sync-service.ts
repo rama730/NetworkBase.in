@@ -1,4 +1,5 @@
 import "server-only";
+import { reusableBlobSha } from "@/lib/github/blob-reuse";
 import { randomUUID } from "node:crypto";
 import { and, eq, isNull, isNotNull, inArray, desc, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -460,15 +461,15 @@ export async function compareSync(
       let cachedMeta: CachedBlobMeta | undefined;
       if (row && !row.node.s3Key) blocked = "File content is not available";
       if (row?.node.s3Key && !blocked) {
-        // Fast path 1: baseline for this branch already has localBlobSha and node has not changed
-        if (
-          previous?.localBlobSha &&
-          (previous.nodeId === row.node.id || previous.path === path) &&
-          (row.node.currentVersion === 1 || !localHash || localHash === previous.localHash)
-        ) {
-          localBlobSha = previous.localBlobSha;
-          if (!localHash && previous.localHash) localHash = previous.localHash;
-          if (localHash) cacheBlobMeta(localHash, { blobSha: localBlobSha, isSafe: true });
+        // Fast path 1: the baseline for this branch recorded this exact content (identity is the hash, never the node or version).
+        const crossBranchBlobSha =
+          reusableBlobSha(knownByNodeId.get(row.node.id), localHash) ?? reusableBlobSha(knownByPath.get(path), localHash);
+        const baselineBlobSha = previous && (previous.nodeId === row.node.id || previous.path === path)
+          ? reusableBlobSha(previous, localHash)
+          : null;
+        if (baselineBlobSha) {
+          localBlobSha = baselineBlobSha;
+          cacheBlobMeta(localHash!, { blobSha: localBlobSha, isSafe: true });
         }
         // Fast path 2: node already has gitHash (git_blob_hash) on projectNodes (e.g. from GitHub import)
         else if (
@@ -480,19 +481,10 @@ export async function compareSync(
           if (!localHash && previous?.localHash) localHash = previous.localHash;
           if (localHash) cacheBlobMeta(localHash, { blobSha: localBlobSha, isSafe: true });
         }
-        // Fast path 3: known by nodeId across any branch in this project
-        else if (knownByNodeId.has(row.node.id) && row.node.currentVersion === 1) {
-          const known = knownByNodeId.get(row.node.id)!;
-          localBlobSha = known.localBlobSha;
-          if (!localHash && known.localHash) localHash = known.localHash;
-          if (localHash) cacheBlobMeta(localHash, { blobSha: localBlobSha, isSafe: true });
-        }
-        // Fast path 4: known by exact relative path from previous sync in this project
-        else if (knownByPath.has(path) && row.node.currentVersion === 1) {
-          const known = knownByPath.get(path)!;
-          localBlobSha = known.localBlobSha;
-          if (!localHash && known.localHash) localHash = known.localHash;
-          if (localHash) cacheBlobMeta(localHash, { blobSha: localBlobSha, isSafe: true });
+        // Fast paths 3 and 4: another branch's record for this node or path, reused only when its content hash matches.
+        else if (crossBranchBlobSha) {
+          localBlobSha = crossBranchBlobSha;
+          cacheBlobMeta(localHash!, { blobSha: localBlobSha, isSafe: true });
         }
         // Fast path 5: in-memory Git blob SHA cache (by contentHash)
         else if (localHash && (cachedMeta = getCachedBlobMeta(localHash))) {
