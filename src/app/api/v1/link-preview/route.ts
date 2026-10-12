@@ -4,6 +4,7 @@ import { jsonSuccess, jsonError } from '@/app/api/v1/_envelope';
 import { enforceRouteLimit, requireAuthenticatedUser } from '@/app/api/v1/_shared';
 import {
     fetchPublicUrlWithRedirectValidation,
+    readBoundedBody,
     UnsafeOutboundUrlError,
 } from '@/lib/security/outbound-url';
 import { isSafeHttpUrl } from '@/lib/security/urls';
@@ -98,8 +99,9 @@ async function fetchYouTubeOEmbed(url: string): Promise<LinkPreviewData | null> 
     endpoint.searchParams.set('format', 'json');
     endpoint.searchParams.set('url', url);
 
+    let release: (() => void) | null = null;
     try {
-        const { response } = await fetchPublicUrlWithRedirectValidation({
+        const fetched = await fetchPublicUrlWithRedirectValidation({
             url: endpoint,
             timeoutMs: FETCH_TIMEOUT_MS,
             maxRedirects: 2,
@@ -110,12 +112,12 @@ async function fetchYouTubeOEmbed(url: string): Promise<LinkPreviewData | null> 
                 },
             },
         });
+        const { response } = fetched;
+        release = fetched.release;
         if (!response.ok) return null;
-        const contentLength = Number(response.headers.get('content-length') || 0);
-        if (contentLength > MAX_META_CONTENT_LENGTH * 4) return null;
-        const body = await response.text();
-        if (body.length > MAX_META_CONTENT_LENGTH * 4) return null;
-        const payload = JSON.parse(body) as Record<string, unknown>;
+        const { bytes, truncated } = await readBoundedBody(response, MAX_META_CONTENT_LENGTH * 4);
+        if (truncated) return null;
+        const payload = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
         const title = normalizeLinkDestinationTitle(payload.title, 'youtube');
         if (!title) return null;
         const thumbnail = typeof payload.thumbnail_url === 'string' && isSafeHttpUrl(payload.thumbnail_url)
@@ -135,6 +137,8 @@ async function fetchYouTubeOEmbed(url: string): Promise<LinkPreviewData | null> 
         };
     } catch {
         return null;
+    } finally {
+        release?.();
     }
 }
 
@@ -190,8 +194,9 @@ export async function GET(request: NextRequest) {
         }
 
         let html: string;
+        let releaseFetch: (() => void) | null = null;
         try {
-            const { response: res, resolvedUrl } = await fetchPublicUrlWithRedirectValidation({
+            const { response: res, resolvedUrl, release } = await fetchPublicUrlWithRedirectValidation({
                 url,
                 timeoutMs: FETCH_TIMEOUT_MS,
                 maxRedirects: 3,
@@ -202,6 +207,7 @@ export async function GET(request: NextRequest) {
                     },
                 },
             });
+            releaseFetch = release;
             parsedUrl = resolvedUrl;
 
             if (!res.ok) {
@@ -236,9 +242,8 @@ export async function GET(request: NextRequest) {
                 }, undefined, { headers: PUBLIC_PREVIEW_CACHE_HEADERS });
             }
 
-            // Read limited amount of HTML
-            const reader = res.body?.getReader();
-            if (!reader) {
+            // Read a bounded amount of HTML under the same deadline as the request.
+            if (!res.body) {
                 return jsonSuccess<LinkPreviewData>({
                     title: null,
                     description: null,
@@ -252,17 +257,7 @@ export async function GET(request: NextRequest) {
                     contentType,
                 }, undefined, { headers: PUBLIC_PREVIEW_CACHE_HEADERS });
             }
-
-            const chunks: Uint8Array[] = [];
-            let totalSize = 0;
-            while (totalSize < MAX_FETCH_SIZE) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                chunks.push(value);
-                totalSize += value.length;
-            }
-            reader.cancel().catch(() => {});
-            html = new TextDecoder().decode(Buffer.concat(chunks).slice(0, MAX_FETCH_SIZE));
+            html = new TextDecoder().decode((await readBoundedBody(res, MAX_FETCH_SIZE)).bytes);
         } catch (error) {
             if (error instanceof UnsafeOutboundUrlError) {
                 logger.warn('link-preview.outbound_url_blocked', {
@@ -286,6 +281,8 @@ export async function GET(request: NextRequest) {
                 resolvedHost: parsedUrl.hostname,
                 contentType: null,
             }, undefined, { headers: FALLBACK_PREVIEW_CACHE_HEADERS });
+        } finally {
+            releaseFetch?.();
         }
 
         // Parse OG tags
