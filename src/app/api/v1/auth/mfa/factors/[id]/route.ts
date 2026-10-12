@@ -14,7 +14,8 @@ import { recordSecurityEvent } from "@/lib/security/audit";
 import { getVerifiedTotpFactors, listSecurityMfaFactors } from "@/lib/security/mfa";
 import { countRemainingRecoveryCodes, parseStoredRecoveryCodes } from "@/lib/security/recovery-codes";
 import { resolveSecurityStepUp } from "@/lib/security/step-up";
-import { checkIdempotencyKey, saveIdempotencyResult } from "@/lib/security/idempotency";
+import { withIdempotentRoute } from "@/lib/security/idempotency";
+import { mapAuthProviderError } from "@/lib/security/auth-provider-error";
 import { logger } from "@/lib/logger";
 
 export async function DELETE(
@@ -66,20 +67,9 @@ export async function DELETE(
     return jsonError("Not authenticated", 401, "UNAUTHORIZED");
   }
 
-  // Idempotency — prevent duplicate MFA factor deletions
-  const idempotencyCheck = await checkIdempotencyKey(request, 'auth.mfa.deleteFactor', user.id);
-  if (idempotencyCheck.isDuplicate) {
-    if (idempotencyCheck.cachedResponse) {
-      return new Response(idempotencyCheck.cachedResponse, {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    return jsonError('Request is already being processed', 409, 'CONFLICT');
-  }
-
   const { id } = await context.params;
 
+  return withIdempotentRoute(request, { namespace: 'auth.mfa.deleteFactor', scopeId: user.id }, async () => {
   try {
     const factors = await listSecurityMfaFactors(auth.supabase);
     const factorToRemove = factors.find((factor) => factor.id === id) ?? null;
@@ -106,89 +96,19 @@ export async function DELETE(
       }
     }
 
-    const mfaApi = (auth.supabase.auth as any)?.mfa;
-    if (!mfaApi?.unenroll) {
+    const result = await auth.supabase.auth.mfa.unenroll({ factorId: id });
+    if (result.error) {
+      const mapped = mapAuthProviderError(result.error, "Failed to remove MFA factor");
       logApiRoute(request, {
         requestId,
         action: "auth.mfaFactor.delete",
         userId: auth.user?.id ?? null,
         startedAt,
         success: false,
-        status: 501,
-        errorCode: "NOT_SUPPORTED",
+        status: mapped.status,
+        errorCode: mapped.errorCode,
       });
-      return jsonError("MFA factors are not available for this project", 501, "NOT_SUPPORTED");
-    }
-
-    let result = await mfaApi.unenroll(id);
-    if (result?.error && typeof result?.error?.message === "string" && /argument|factor/i.test(result.error.message)) {
-      result = await mfaApi.unenroll({ factorId: id });
-    }
-
-    if (result?.error) {
-      const message = result.error.message || "Failed to remove MFA factor";
-      const rawStatus = Number((result.error as { status?: unknown })?.status);
-      const status = Number.isFinite(rawStatus) ? rawStatus : undefined;
-      const rawCode = String((result.error as { code?: unknown; type?: unknown })?.code ?? (result.error as { type?: unknown })?.type ?? "").toLowerCase();
-
-      if (status === 404 || rawCode.includes("not_found")) {
-        logApiRoute(request, {
-          requestId,
-          action: "auth.mfaFactor.delete",
-          userId: auth.user?.id ?? null,
-          startedAt,
-          success: false,
-          status: 404,
-          errorCode: "NOT_FOUND",
-        });
-        return jsonError(message, 404, "NOT_FOUND");
-      }
-      if (status === 401) {
-        logApiRoute(request, {
-          requestId,
-          action: "auth.mfaFactor.delete",
-          userId: auth.user?.id ?? null,
-          startedAt,
-          success: false,
-          status: 401,
-          errorCode: "UNAUTHORIZED",
-        });
-        return jsonError(message, 401, "UNAUTHORIZED");
-      }
-      if (status === 403) {
-        logApiRoute(request, {
-          requestId,
-          action: "auth.mfaFactor.delete",
-          userId: auth.user?.id ?? null,
-          startedAt,
-          success: false,
-          status: 403,
-          errorCode: "FORBIDDEN",
-        });
-        return jsonError(message, 403, "FORBIDDEN");
-      }
-      if (status && status >= 400 && status < 500) {
-        logApiRoute(request, {
-          requestId,
-          action: "auth.mfaFactor.delete",
-          userId: auth.user?.id ?? null,
-          startedAt,
-          success: false,
-          status,
-          errorCode: "BAD_REQUEST",
-        });
-        return jsonError(message, status, "BAD_REQUEST");
-      }
-      logApiRoute(request, {
-        requestId,
-        action: "auth.mfaFactor.delete",
-        userId: auth.user?.id ?? null,
-        startedAt,
-        success: false,
-        status: 500,
-        errorCode: "INTERNAL_ERROR",
-      });
-      return jsonError(message, 500, "INTERNAL_ERROR");
+      return jsonError(mapped.message, mapped.status, mapped.errorCode);
     }
 
     try {
@@ -273,8 +193,6 @@ export async function DELETE(
       success: true,
       status: 200,
     });
-    const successBody = JSON.stringify({ ok: true, message: "MFA factor removed" });
-    await saveIdempotencyResult(request, 'auth.mfa.deleteFactor', successBody, idempotencyCheck.lockToken, user.id);
     return jsonSuccess(undefined, "MFA factor removed");
   } catch (error) {
     logger.error("[api/v1/auth/mfa/factors/:id] failed", { module: 'api', error: error instanceof Error ? error.message : String(error) });
@@ -289,4 +207,5 @@ export async function DELETE(
     });
     return jsonError("Failed to remove MFA factor", 500, "INTERNAL_ERROR");
   }
+  });
 }

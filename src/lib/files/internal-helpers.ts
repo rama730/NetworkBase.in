@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors/domain";
 import { projectEventCounters, projectMembers, projectNodeEvents, projectNodeLocks, projectNodes, projects, tasks } from "@/lib/db/schema";
 import { assertProjectTabReadAccess, canReadProjectTab, getProjectAccessById, type ProjectAccess } from "@/lib/data/project-access";
 import { eq, and, isNull, sql, ne, gt, type SQL } from "drizzle-orm";
@@ -11,13 +12,13 @@ type ExistingProjectAccess = ProjectAccess & { project: NonNullable<ProjectAcces
 
 async function getProjectAccess(projectId: string, userId: string | null): Promise<ExistingProjectAccess> {
     const access = await getProjectAccessById(projectId, userId);
-    if (!access.project) throw new Error("Project not found");
+    if (!access.project) throw new NotFoundError("Project not found");
     return access as ExistingProjectAccess;
 }
 
 export async function assertProjectReadAccess(projectId: string, userId: string | null) {
     const access = await getProjectAccess(projectId, userId);
-    if (!access.canRead) throw new Error("Forbidden");
+    if (!access.canRead) throw new ForbiddenError("Forbidden");
     return access;
 }
 
@@ -39,22 +40,22 @@ export function visibleFileNodesSql(access: ExistingProjectAccess): SQL | undefi
 }
 
 export function assertTaskFileNodeVisible(access: ExistingProjectAccess, node: { taskId?: string | null; path?: string | null; deletedAt?: unknown }) {
-    if (node.deletedAt) throw new Error("File not found");
+    if (node.deletedAt) throw new NotFoundError("File not found");
     if ((node.taskId || node.path?.startsWith("/.system/")) && !canReadProjectTaskFiles(access)) {
-        throw new Error("Task files are not available to this viewer.");
+        throw new ForbiddenError("Task files are not available to this viewer.");
     }
 }
 
 export async function assertProjectWriteAccess(projectId: string, userId: string) {
     const access = await getProjectAccess(projectId, userId);
-    if (!access.canWrite) throw new Error("Forbidden");
+    if (!access.canWrite) throw new ForbiddenError("Forbidden");
     await requireProjectCapability(projectId, userId, "upload_files");
     return { ...access, canWrite: true };
 }
 
 export async function assertProjectManageFilesAccess(projectId: string, userId: string) {
     const access = await getProjectAccess(projectId, userId);
-    if (!access.canWrite) throw new Error("Forbidden");
+    if (!access.canWrite) throw new ForbiddenError("Forbidden");
     await requireProjectCapability(projectId, userId, "manage_files");
     return { ...access, canManageFiles: true };
 }
@@ -70,7 +71,7 @@ export async function assertProjectUploadAccess(projectId: string, userId: strin
             .limit(1)
         : [];
     if (!canProjectMemberUploadFiles({ role: access.memberRole, fileUploadEnabled: member?.fileUploadEnabled ?? null })) {
-        throw new Error("File uploads are disabled for this project member.");
+        throw new ForbiddenError("File uploads are disabled for this project member.");
     }
     return { ...access, canUpload: true };
 }
@@ -93,7 +94,7 @@ export async function assertProjectWriteAccessTx(
     `);
     const project = Array.from(projectResult)[0];
     if (!project || project.deleted_at) {
-        throw new Error("Forbidden");
+        throw new ForbiddenError("Forbidden");
     }
 
     const isOwner = project.owner_id === userId;
@@ -113,10 +114,10 @@ export async function assertProjectWriteAccessTx(
     `);
     const member = Array.from(memberResult)[0];
     if (!member) {
-        throw new Error("Forbidden");
+        throw new ForbiddenError("Forbidden");
     }
     if (!projectMemberCan(member.role, "upload_files")) {
-        throw new Error("Forbidden");
+        throw new ForbiddenError("Forbidden");
     }
 
     return {
@@ -142,7 +143,7 @@ export async function assertProjectManageFilesAccessTx(
         FOR UPDATE
     `);
     const project = Array.from(projectResult)[0];
-    if (!project || project.deleted_at) throw new Error("Forbidden");
+    if (!project || project.deleted_at) throw new ForbiddenError("Forbidden");
     if (project.owner_id === userId) {
         return {
             project: { id: project.id, ownerId: project.owner_id, visibility: project.visibility },
@@ -158,7 +159,7 @@ export async function assertProjectManageFilesAccessTx(
         FOR UPDATE
     `);
     const member = Array.from(memberResult)[0];
-    if (!member || !projectMemberCan(member.role, "manage_files")) throw new Error("Forbidden");
+    if (!member || !projectMemberCan(member.role, "manage_files")) throw new ForbiddenError("Forbidden");
     return {
         project: { id: project.id, ownerId: project.owner_id, visibility: project.visibility },
         isOwner: false,
@@ -183,7 +184,7 @@ export async function assertProjectUploadAccessTx(
     `);
     const project = Array.from(projectResult)[0];
     if (!project || project.deleted_at) {
-        throw new Error("Forbidden");
+        throw new ForbiddenError("Forbidden");
     }
 
     const isOwner = project.owner_id === userId;
@@ -203,7 +204,7 @@ export async function assertProjectUploadAccessTx(
     `);
     const member = Array.from(memberResult)[0];
     if (!member || !canProjectMemberUploadFiles({ role: member.role, fileUploadEnabled: member.file_upload_enabled })) {
-        throw new Error("File uploads are disabled for this project member.");
+        throw new ForbiddenError("File uploads are disabled for this project member.");
     }
 
     return {
@@ -220,7 +221,7 @@ export async function getTaskProjectId(taskId: string): Promise<string> {
         .limit(1);
 
     const projectId = rows[0]?.projectId;
-    if (!projectId) throw new Error("Task not found");
+    if (!projectId) throw new NotFoundError("Task not found");
     return projectId;
 }
 
@@ -274,7 +275,7 @@ export async function assertNodeNotLockedByAnotherUser(
     });
 
     if (lock) {
-        throw new Error("File has an active editing lease");
+        throw new ConflictError("File has an active editing lease");
     }
 }
 
@@ -288,7 +289,7 @@ export async function assertValidParentFolder(projectId: string, parentId: strin
         ),
         columns: { id: true, type: true, parentId: true, path: true, taskId: true, metadata: true }
     });
-    if (!parent) throw new Error("Destination folder not found");
+    if (!parent) throw new NotFoundError("Destination folder not found");
     if (parent.type !== 'folder') throw new Error("Destination must be a folder");
     return parent;
 }
@@ -337,7 +338,7 @@ export async function assertUniqueSiblingName(
     });
 
     if (duplicate) {
-        throw new Error("A file/folder with this name already exists in this location");
+        throw new ConflictError("A file/folder with this name already exists in this location");
     }
 }
 
@@ -373,7 +374,7 @@ export async function assertNotMovingIntoDescendant(
 
     const ancestry = Array.from(result);
     if (ancestry.length === 0) {
-        throw new Error("Destination folder not found");
+        throw new NotFoundError("Destination folder not found");
     }
 
     const visited = new Set<string>();
