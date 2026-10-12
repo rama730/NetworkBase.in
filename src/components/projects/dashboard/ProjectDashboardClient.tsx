@@ -748,7 +748,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const handleFollow = useCallback(async () => {
         if (followLoading || followInFlightRef.current) return;
         if (!currentUserId) {
-            toast.error('Please log in to follow projects');
+            toast.error('Sign in to follow projects.');
             return;
         }
         // Optimistic update
@@ -775,6 +775,10 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 });
                 void queryClient.invalidateQueries({
                     queryKey: queryKeys.globalSearch.discoverRoot(),
+                });
+                // Discover's follow bells read this: back on Discover they match what you just did.
+                void queryClient.invalidateQueries({
+                    queryKey: queryKeys.discover.userFollowedProjects(currentUserId),
                 });
             }
             toast.success(newIsFollowing ? 'Following project' : 'Unfollowed project');

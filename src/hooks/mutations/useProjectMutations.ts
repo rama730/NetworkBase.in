@@ -42,6 +42,11 @@ export function useToggleProjectFollow() {
                 }));
             }
             queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() });
+            // The Following view's list itself changed: refresh only that view (key: discover, projects-simple, viewer, view).
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.discover.projectsSimpleRoot(),
+                predicate: (query) => query.queryKey[3] === 'following',
+            });
         },
     });
 }

@@ -837,11 +837,13 @@ html[data-reduce-motion="true"] .nb-skeleton {
   width: 100% !important;
   height: 100% !important;
 }
-.nb-project-card:hover { border-color:var(--input); }
 .nb-project-card:focus-within { border-color:var(--border); }
+/* After :focus-within, so hover still shows once Follow has focus. */
+.nb-project-card:hover { border-color:var(--input); }
 /* The guard below removes every ring, so keyboard focus shows as clay instead: the card's border for its
    stretched title link, a clay tint on icon buttons and on links and buttons inside person cards. */
-.nb-project-card:has(a:focus-visible) { border-color:var(--primary); }
+/* Only the stretched title link lights the card; the icon links inside show their own focus. */
+.nb-project-card:has(.nb-project-card-title a:focus-visible) { border-color:var(--primary); }
 .nb-icon-button:focus-visible,
 .nb-discover-person-card :is(a, button):not([data-slot="button"]):focus-visible { background-color:color-mix(in srgb, var(--primary) 14%, transparent); color:var(--foreground); }
 .nb-project-card-title { font-size:17px; line-height:1.28; font-weight:600; letter-spacing:-.015em; overflow-wrap:anywhere; }
@@ -913,12 +915,13 @@ svg.lucide { stroke-width:1.75; }
 .nb-presence[data-availability="week"] > .nb-presence-cutout, .nb-presence[data-availability="offline"] > .nb-presence-cutout { inset:27%; }
 /* Corner placement on an avatar (people cards, search, discover). */
 .nb-person-presence-dot { position:absolute; z-index:1; right:-3px; bottom:-3px; }
-.nb-person-connect { display:inline-flex; min-height:var(--ui-control-height); align-items:center; justify-content:center; gap:8px; border:1px solid var(--primary); border-radius:var(--radius-md); background:var(--primary); padding:8px 12px; color:var(--primary-foreground); font-size:14px; font-weight:500; line-height:1.25; transition:background-color 150ms ease-in-out,border-color 150ms ease-in-out,color 150ms ease-in-out; }
+.nb-person-connect { display:inline-flex; min-height:var(--ui-control-height); align-items:center; justify-content:center; gap:8px; border:1px solid var(--primary); border-radius:var(--radius-md); background:var(--primary); padding:0 var(--ui-control-px, 12px); color:var(--primary-foreground); font-size:13px; font-weight:500; line-height:1.25; transition:background-color 150ms ease-in-out,border-color 150ms ease-in-out,color 150ms ease-in-out; }
 .nb-person-connect:hover { border-color:var(--primary-hover); background:var(--primary-hover); }
 .nb-person-connect:active { border-color:var(--primary-active); background:var(--primary-active); }
-.nb-person-connect:focus,
-.nb-person-connect:focus-visible { outline: none !important; }
-.nb-person-connect:disabled { cursor:not-allowed; border-color:var(--muted); background:var(--muted); color:var(--muted-foreground); opacity:.6; }
+/* One disabled look across buttons (spec: 45%); aria-disabled keeps focus where it is. */
+.nb-person-connect:disabled, .nb-person-connect[aria-disabled="true"] { cursor:not-allowed; opacity:.45; }
+/* The guard strips rings: keyboard focus is a darker clay fill instead. */
+.nb-person-connect:focus-visible { border-color:var(--primary-active); background:var(--primary-active); }
 .nb-discover-people-state { border:1px solid var(--border); border-radius:8px; background:var(--card); padding:16px; }
 @media (min-width:1200px) {
   .nb-discover-columns { grid-template-columns:minmax(0,1fr) 320px; }

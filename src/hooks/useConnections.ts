@@ -466,6 +466,26 @@ function connectionMutationTargetId(variables: unknown) {
     return undefined;
 }
 
+// One idempotency key per Connect click: the mutation's automatic retry reuses the same variables object,
+// so it reuses the key and the server replays the first answer instead of sending twice.
+const requestKeys = new WeakMap<object, string>();
+const requestKeyFor = (variables: object) => {
+    let key = requestKeys.get(variables);
+    if (!key) {
+        key = crypto.randomUUID();
+        requestKeys.set(variables, key);
+    }
+    return key;
+};
+
+/** What a Connect changes in the cache, kept so a failure can put it back exactly (not wait for a refetch). */
+type ConnectSnapshot = Array<[readonly unknown[], unknown]>;
+const snapshotConnect = (queryClient: ReturnType<typeof useQueryClient>): ConnectSnapshot => [
+    ...queryClient.getQueriesData({ queryKey: ['connections', 'feed', 'discover'] }),
+    ...queryClient.getQueriesData({ queryKey: ['connections', 'stats'] }),
+    ...queryClient.getQueriesData({ queryKey: queryKeys.globalSearch.networkRoot() }),
+];
+
 export function useConnectionMutations() {
     const queryClient = useQueryClient();
 
@@ -500,14 +520,14 @@ export function useConnectionMutations() {
     }, []);
 
     const sendRequest = useMutation({
-        mutationFn: async ({ userId, message }: { userId: string; message?: string }) => {
-            const idempotencyKey = crypto.randomUUID();
-            const result = await sendConnectionRequest(userId, idempotencyKey, message);
+        mutationFn: async (variables: { userId: string; message?: string }) => {
+            const result = await sendConnectionRequest(variables.userId, requestKeyFor(variables), variables.message);
             if (!result.success) throw new Error(result.error || 'Failed to send request');
-            return { ...result, userId };
+            return { ...result, userId: variables.userId };
         },
         onMutate: async ({ userId }) => {
             await cancelConnectionsScoped(queryClient);
+            const previous = snapshotConnect(queryClient);
 
             patchDiscoverAndSuggestionStatus(queryClient, {
                 userIds: [userId],
@@ -519,8 +539,13 @@ export function useConnectionMutations() {
                 ...stats,
                 pendingSent: stats.pendingSent + 1,
             }));
+            return { previous };
         },
-        onError: (_err, vars) => invalidateAll(connectionMutationTargetId(vars)),
+        // Put the row back to Connect at once (offline too), then check with the server.
+        onError: (_err, vars, context) => {
+            for (const [key, data] of context?.previous ?? []) queryClient.setQueryData(key, data);
+            invalidateAll(connectionMutationTargetId(vars));
+        },
         onSuccess: (result) => {
             if (result.status !== 'created') {
                 updateStatsQueries(queryClient, (stats) => ({
