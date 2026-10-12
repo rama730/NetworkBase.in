@@ -2,7 +2,7 @@
 
 import { DISCOVER_ANON_CACHE_TAG, FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS, type FilterView } from '@/constants/discover';
 import { consumeRateLimit, consumeRateLimitForRoute } from '@/lib/security/rate-limit';
-import { getDiscoverProjects, InvalidDiscoverCursorError } from '@/lib/data/discover';
+import { getDiscoverProjects, InvalidDiscoverCursorError, StaleDiscoverFeedError } from '@/lib/data/discover';
 import { getCachedData, cacheData } from '@/lib/redis';
 import { DISCOVER_RANKING_SCHEMA_VERSION } from '@/lib/discover/ranking-config';
 import { buildDiscoverSnapshotKey } from '@/lib/discover/snapshot-cache';
@@ -31,7 +31,9 @@ const hubSearchInputSchema = z.object({
     limit: z.number().int().min(1).max(60),
     view: z.enum([FILTER_VIEWS.ALL, FILTER_VIEWS.TRENDING, FILTER_VIEWS.RECOMMENDATIONS, FILTER_VIEWS.FOLLOWING]),
     surface: z.enum(['full', 'preview']),
-}).strict();
+}).strict()
+    // The trending order belongs to the Trending view (a ranked list); elsewhere it would be an unindexed full sort.
+    .refine((input) => input.filters.sort !== SORT_OPTIONS.TRENDING || input.view === FILTER_VIEWS.TRENDING);
 
 export async function fetchDiscoverProjectsAction(
     filters: DiscoverFilters,
@@ -76,7 +78,8 @@ export async function fetchDiscoverProjectsAction(
         const viewerKey = user?.id || `anon:${ipAddress}`;
 
         const readLimit = await consumeRateLimitForRoute('publicRead', `discover:${viewerKey}`, 180, 60);
-        if (!readLimit.allowed) {
+        // A limiter outage (Redis down) is not the viewer's fault: let the read through rather than say "too many".
+        if (!readLimit.allowed && !readLimit.degraded) {
             recordPreview('rate-limited', 0);
             return {
                 success: false as const,
@@ -91,7 +94,7 @@ export async function fetchDiscoverProjectsAction(
 
         if (normalizedSearch.length > 0) {
             const searchLimit = await consumeRateLimit(`discover-search:${viewerKey}`, 90, 60);
-            if (!searchLimit.allowed) {
+            if (!searchLimit.allowed && !searchLimit.degraded) {
                 recordPreview('rate-limited', 0);
                 return {
                     success: false as const,
@@ -105,18 +108,18 @@ export async function fetchDiscoverProjectsAction(
             }
         }
 
-        const normalizedLimit = Math.max(1, Math.min(limit, 60));
+        // zod already checked every value; only order-insensitive bits are normalized (one cache entry per filter set).
+        const normalizedLimit = limit;
         const normalizedCursor = cursor || undefined;
-        const normalizedView = view || FILTER_VIEWS.ALL;
+        const normalizedView = view;
         const normalizedFilters: DiscoverFilters = {
-            status: filters.status || 'all',
-            type: filters.type || 'all',
-            tech: Array.isArray(filters.tech) ? Array.from(new Set(filters.tech)).sort() : [],
-            sort: filters.sort || 'newest',
+            ...filters,
+            tech: Array.from(new Set(filters.tech)).sort(),
             search: normalizedSearch || undefined,
         };
 
-        const shouldUseAnonEdgeCache = !user && !normalizedCursor;
+        // Signed-out first pages without a search share a short cache; a search would make one entry per query.
+        const shouldUseAnonEdgeCache = !user && !normalizedCursor && !normalizedSearch;
 
         if (shouldUseAnonEdgeCache) {
             const getCachedAnonymousDiscoverPage = unstable_cache(
@@ -193,6 +196,16 @@ export async function fetchDiscoverProjectsAction(
         });
     } catch (error) {
         recordPreview('error', 0);
+        if (error instanceof StaleDiscoverFeedError) {
+            return {
+                success: false as const,
+                schemaVersion: DISCOVER_RANKING_SCHEMA_VERSION,
+                projects: [],
+                hasMore: false,
+                code: 'STALE_FEED' as const,
+                error: error.message,
+            };
+        }
         if (error instanceof InvalidDiscoverCursorError) {
             return {
                 success: false as const,

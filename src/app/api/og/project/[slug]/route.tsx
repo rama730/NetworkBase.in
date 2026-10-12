@@ -28,7 +28,8 @@ export async function GET(
   }
 
   const cacheControlHeader = isPublic
-    ? "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=86400"
+    // An hour: a project made private must not keep its social card for a month (SEC-009).
+    ? "public, max-age=3600, s-maxage=3600, stale-while-revalidate=600"
     : "private, no-store, no-cache, must-revalidate";
 
   return new ImageResponse(
