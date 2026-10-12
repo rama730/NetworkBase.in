@@ -2,7 +2,7 @@
  * Replay gate (MIG-001, MIG-002). History cannot replay from 0000, so the
  * fresh database starts from scripts/db/baseline/schema.sql:
  *   export DATABASE_URL_FRESH=$(npm run -s db:disposable)
- * 1. Setup applies the journal twice; the second pass must change nothing.
+ * 1. Setup applies the journal to the fresh database.
  * 2. Ownership: every public relation is declared in the ORM schema or is
  *    listed as SQL-owned below.
  * 3. Parity: the fresh effective catalog (policies with expressions, grants,
@@ -71,13 +71,10 @@ function fail(label: string, lines: string[]) {
 async function main() {
   run(["scripts/check-migration-journal.ts"], {});
 
-  console.log("[db-remigration] applying the journal to the fresh database (pass 1)...");
+  // Setup skips tags already in the journal, so a second pass would prove nothing.
+  console.log("[db-remigration] applying the journal to the fresh database...");
   run(["scripts/setup-database.ts"], { DATABASE_URL: freshUrl });
   const afterFirst = await fingerprint(freshUrl);
-  console.log("[db-remigration] applying the journal again (pass 2 must be a no-op)...");
-  run(["scripts/setup-database.ts"], { DATABASE_URL: freshUrl });
-  const rerun = diffFingerprints(afterFirst, await fingerprint(freshUrl));
-  if (rerun.length > 0) fail("second setup pass changed the catalog", rerun);
 
   const declared = ormTables();
   const relations = afterFirst
@@ -89,9 +86,14 @@ async function main() {
     fail("ownership mismatch", [...unowned.map((name) => `not declared in ORM or SQL_OWNED_RELATIONS: ${name}`), ...missing.map((name) => `declared in ORM but absent: ${name}`)]);
   }
 
+  // Parity needs the primary at the journal head. Until a rollout has applied the newest
+  // migrations the comparison would be vacuous, so it fails unless explicitly allowed.
   const pending = await pendingMigrations(primaryUrl!);
+  if (pending.length > 0 && process.env.REPLAY_ALLOW_PENDING !== "1") {
+    throw new Error(`parity not checked: the primary has not applied ${pending.join(", ")}. Roll out first, or set REPLAY_ALLOW_PENDING=1 to skip parity.`);
+  }
   if (pending.length > 0) {
-    console.warn(`[db-remigration] parity skipped: the primary has not applied ${pending.join(", ")}. check:db:live-lineage fails until it does.`);
+    console.warn(`[db-remigration] parity skipped (REPLAY_ALLOW_PENDING=1): primary lacks ${pending.join(", ")}.`);
   } else {
     const drift = diffFingerprints(await fingerprint(primaryUrl!), afterFirst);
     if (drift.length > 0) fail("catalog drift (- primary only, + replay only)", drift);
