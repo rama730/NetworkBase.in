@@ -318,6 +318,7 @@ export function BreadcrumbBar({
             taskId: null,
             canonicalNodeId: null,
             lastSyncedCommitSha: null,
+            gitBlobHash: null,
           };
         });
         upsertNodes(projectId, hydrated);

@@ -15,13 +15,13 @@ export interface TarballFile {
  */
 export async function* fetchAndParseTarball(
     repoUrl: string, 
-    branch: string, 
+    ref: string, // a commit SHA for reproducible reads; a branch name reads whatever it points to now
     token?: string
 ): AsyncGenerator<TarballFile, void, unknown> {
     const urlParts = repoUrl.replace(/\/$/, '').split('/');
     const repoName = urlParts.pop();
     const ownerName = urlParts.pop();
-    const apiUrl = `https://api.github.com/repos/${ownerName}/${repoName}/tarball/${branch}`;
+    const apiUrl = `https://api.github.com/repos/${ownerName}/${repoName}/tarball/${ref}`;
 
     const headers: Record<string, string> = {
         'Accept': 'application/vnd.github.v3+json',

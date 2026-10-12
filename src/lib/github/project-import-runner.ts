@@ -430,16 +430,19 @@ export async function runGithubProjectImport(input: {
         // Schedule background hydration
         // We trigger an Inngest event for Phase 2 Tarball Stream
         const { inngest } = await import("@/inngest/client");
+        let hydrationDispatchError: string | null = null;
         await inngest.send({
             name: "project/import.hydrate",
             // Events never carry credentials; the worker resolves access itself (COR-006).
-            data: { projectId, userId, importSource: clearSealedGithubTokenFromImportSource(project.importSource) as any }
+            data: { projectId, userId, commitSha: latestSha, importSource: clearSealedGithubTokenFromImportSource(project.importSource) as any }
         }).catch(err => {
             if (err?.message?.includes('401') || err?.message?.includes('Event key not found')) {
                 // Ignore in development if Inngest is not configured
                 console.warn("[Hydration] Skipped Inngest hydration: Inngest event key not configured. Virtual FS is ready.");
             } else {
-                console.error("Failed to enqueue hydration, but virtual fs is ready", err);
+                // Without a queued hydration the files would stay virtual forever behind a "ready" status (COR-008).
+                console.error("Failed to enqueue hydration", err);
+                hydrationDispatchError = "Repository files could not be scheduled for download. Try the import again.";
             }
         });
 
@@ -453,7 +456,7 @@ export async function runGithubProjectImport(input: {
           await tx
             .update(projects)
             .set({
-              syncStatus: "ready",
+              syncStatus: hydrationDispatchError ? "failed" : "ready",
               githubLastSyncAt: new Date(),
               githubLastCommitSha: latestSha,
               updatedAt: new Date(),
@@ -461,8 +464,9 @@ export async function runGithubProjectImport(input: {
                 ...existingSource,
                 metadata: {
                   ...sourceMetadata,
-                  syncPhase: "ready",
+                  syncPhase: hydrationDispatchError ? "failed" : "ready",
                   syncProgress: null,
+                  lastError: hydrationDispatchError,
                   treeTruncated,
                 },
               } as any,

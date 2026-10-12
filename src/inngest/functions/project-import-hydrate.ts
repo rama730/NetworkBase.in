@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { gitBlobSha } from "@/lib/github/git-blob";
+
 import { inngest } from "../client";
 import { db } from "@/lib/db";
 import { fileVersions, projectNodes, projects, storageAssets } from "@/lib/db/schema";
@@ -14,7 +16,29 @@ import { PROJECT_UPLOAD_MAX_FILE_BYTES } from "@/lib/upload/security";
 const UPLOAD_CONCURRENCY = 5;
 
 export const projectImportHydrate = inngest.createFunction(
-    { id: "project-import-hydrate", concurrency: 2, retries: 3 },
+    {
+        id: "project-import-hydrate",
+        concurrency: 2,
+        retries: 3,
+        // Retries exhausted with files still unhydrated: say so instead of leaving a "ready" project (COR-008).
+        onFailure: async ({ event, error }) => {
+            const projectId = event.data.event.data.projectId as string;
+            const project = await db.query.projects.findFirst({ where: eq(projects.id, projectId), columns: { importSource: true } });
+            const source = (project?.importSource ?? {}) as { metadata?: Record<string, unknown> };
+            await db.update(projects).set({
+                syncStatus: "failed",
+                importSource: {
+                    ...source,
+                    metadata: {
+                        ...source.metadata,
+                        lastError: error?.message ?? "Repository files could not be downloaded",
+                        hydration: { ...(source.metadata?.hydration as object | undefined), status: "failed" },
+                    },
+                } as never,
+                updatedAt: new Date(),
+            }).where(eq(projects.id, projectId));
+        },
+    },
     { event: "project/import.hydrate" },
     async ({ event, step }) => {
         const { projectId, importSource, userId } = event.data;
@@ -27,7 +51,7 @@ export const projectImportHydrate = inngest.createFunction(
             // Get all virtual nodes for this project
             const nodes = await db.query.projectNodes.findMany({
                 where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, 'file')),
-                columns: { id: true, path: true, mimeType: true, s3Key: true }
+                columns: { id: true, path: true, mimeType: true, s3Key: true, gitBlobHash: true }
             });
 
             const project = await db.query.projects.findFirst({
@@ -71,7 +95,10 @@ export const projectImportHydrate = inngest.createFunction(
                 nodeMap.set(normalizedPath, n);
             }
 
-            const stream = fetchAndParseTarball(importSource.repoUrl, branch, token);
+            // Read the exact commit that was imported, never whatever the branch points to now (COR-007).
+            const commitSha = (event.data.commitSha as string | undefined) || null;
+            const ref = commitSha ?? branch;
+            const stream = fetchAndParseTarball(importSource.repoUrl, ref, token);
             let inFlight: Promise<void>[] = [];
             let uploaded = 0;
             let failed = 0;
@@ -85,6 +112,10 @@ export const projectImportHydrate = inngest.createFunction(
                 const uploadTask = async () => {
                     try {
                         const size = file.content.byteLength;
+                        // The bytes must be the blob the manifest recorded for this path.
+                        if (node.gitBlobHash && gitBlobSha(file.content) !== node.gitBlobHash) {
+                            throw new Error(`Content for ${file.path} does not match the imported Git blob`);
+                        }
                         if (size > PROJECT_UPLOAD_MAX_FILE_BYTES) {
                             throw new Error(`File exceeds ${PROJECT_UPLOAD_MAX_FILE_BYTES} byte import limit`);
                         }
@@ -234,18 +265,27 @@ export const projectImportHydrate = inngest.createFunction(
                 await Promise.all(inFlight);
             }
 
-            // Mark project as fully synced and hydration done
             const finalProj = await db.query.projects.findFirst({
                 where: eq(projects.id, projectId),
                 columns: { importSource: true }
             });
             const finalImportSource = finalProj?.importSource as any;
             if (finalImportSource?.metadata?.hydration) {
-                finalImportSource.metadata.hydration.status = failed > 0 ? "partial" : "done";
+                finalImportSource.metadata.hydration.status = failed > 0 ? "retrying" : "done";
                 finalImportSource.metadata.hydration.completed = uploaded;
                 finalImportSource.metadata.hydration.failed = failed;
             }
 
+            if (failed > 0) {
+                // Published files are skipped on the retry (their node already has bytes), so each
+                // attempt only redoes what failed. Exhausted retries land in onFailure.
+                await db.update(projects)
+                    .set({ importSource: finalImportSource, updatedAt: new Date() })
+                    .where(eq(projects.id, projectId));
+                throw new Error(`Hydration incomplete: ${failed} file(s) failed to publish`);
+            }
+
+            // Mark project as fully synced and hydration done
             await db.update(projects)
                 .set({ 
                     syncStatus: "ready", 
