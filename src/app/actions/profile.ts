@@ -556,6 +556,8 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
         if (patch.visibility !== undefined) updateData.visibility = patch.visibility
         if (patch.messagePrivacy !== undefined) updateData.messagePrivacy = patch.messagePrivacy
         if (patch.openTo !== undefined) updateData.openTo = patch.openTo
+        if (patch.openToCustomRoles !== undefined) updateData.openToCustomRoles = patch.openToCustomRoles
+        if (patch.preferredCategories !== undefined) updateData.preferredCategories = patch.preferredCategories
         if (patch.experienceLevel !== undefined) updateData.experienceLevel = patch.experienceLevel
         if (patch.hoursPerWeek !== undefined) updateData.hoursPerWeek = patch.hoursPerWeek
         if (patch.genderIdentity !== undefined) updateData.genderIdentity = patch.genderIdentity

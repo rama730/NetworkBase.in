@@ -15,6 +15,9 @@ export function normalizeProfile(p: any) {
         (p.social_links && typeof p.social_links === 'object' ? p.social_links : null) ||
         {};
     const openTo = Array.isArray(p.openTo) ? p.openTo : (Array.isArray(p.open_to) ? p.open_to : []);
+    const stringList = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []);
+    const openToCustomRoles = stringList(p.openToCustomRoles ?? p.open_to_custom_roles);
+    const preferredCategories = stringList(p.preferredCategories ?? p.preferred_categories);
     const bio = trimOptionalDisplayText(p.bio);
     const headline = trimOptionalDisplayText(p.headline);
     const location = trimOptionalDisplayText(p.location);
@@ -43,6 +46,8 @@ export function normalizeProfile(p: any) {
         bannerUrl: trimOptionalDisplayText(p.bannerUrl ?? p.banner_url),
         socialLinks,
         openTo,
+        openToCustomRoles,
+        preferredCategories,
         experienceLevel: p.experienceLevel ?? p.experience_level ?? null,
         hoursPerWeek: p.hoursPerWeek ?? p.hours_per_week ?? null,
         genderIdentity: p.genderIdentity ?? p.gender_identity ?? null,
