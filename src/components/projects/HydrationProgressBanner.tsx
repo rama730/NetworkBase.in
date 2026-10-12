@@ -69,6 +69,7 @@ export function HydrationProgressBanner({ projectId }: HydrationProgressBannerPr
       supabase,
       resourceType: "project_hydration",
       resourceId: projectId,
+      subscriberId: "hydration-banner",
       bindings: [
         {
           event: "UPDATE",
