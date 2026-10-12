@@ -161,7 +161,7 @@ test("Discovery page ProjectCard and detail page ProjectStatsBar: last updated d
 
     // 2. ProjectCard views icon uses BarChart2 (X-platform analytics bars)
     assert.match(cardSource, /import\s*\{[^}]*BarChart2[^}]*\}\s*from\s*"lucide-react"/);
-    assert.match(cardSource, /<BarChart2\s+size=\{14\}\s+aria-hidden="true"\s*\/>\s*\{project\.viewCount \|\| 0\}/);
+    assert.match(cardSource, /<BarChart2\s+size=\{14\}\s+aria-hidden="true"\s*\/>\s*\{typeof project\.viewCount === "number" \? project\.viewCount : "—"\}/);
 
     // 3. ProjectStatsBar on detail page also uses BarChart2 (unified with card)
     assert.match(statsSource, /import\s*\{[^}]*BarChart2[^}]*\}\s*from\s*"lucide-react"/);

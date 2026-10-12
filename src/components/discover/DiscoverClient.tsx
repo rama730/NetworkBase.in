@@ -107,7 +107,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
 
     const { urlFilters, updateUrlFilters, clearFilters, activeFilters, isDefault } = useDiscoverUrlFilters();
     const { view, q, status, type, sort, tech, hideOpened } = urlFilters;
-    const { seenIds, markSeen } = useDiscoverSessionSeen();
+    const { hiddenIds, markSeen } = useDiscoverSessionSeen();
     const [filtersOpen, setFiltersOpen] = useState(false);
     const filtersButton = useRef<HTMLButtonElement>(null);
     const feedHeading = useRef<HTMLHeadingElement>(null);
@@ -149,8 +149,8 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         return (data?.pages ?? []).flatMap((page) => page.projects).filter((project) => !seen.has(project.id) && Boolean(seen.add(project.id)));
     }, [data]);
     const visibleProjects = useMemo(
-        () => (hideOpened ? allProjects.filter((project) => !seenIds.has(project.id)) : allProjects),
-        [allProjects, hideOpened, seenIds],
+        () => (hideOpened ? allProjects.filter((project) => !hiddenIds.has(project.id)) : allProjects),
+        [allProjects, hideOpened, hiddenIds],
     );
     const pageIds = useMemo(() => (data?.pages ?? []).map((page) => page.projects.map((project) => project.id)), [data]);
     const followed = useUserFollowedProjects(viewerId, pageIds);
@@ -333,10 +333,11 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
     );
 
     // Below 1200px people open from a button, and only when there are some to show.
-    const people = hasPeople && wide === false
-        ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="compact" />
-        : null;
     const legal = <LegalLinks align="start" showCopyright className="text-[11px]" />;
+    // The drawer's footer carries the legal links too (phones have no rail to put them in).
+    const people = hasPeople && wide === false
+        ? <><DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="compact" /><div className="pt-4">{legal}</div></>
+        : null;
 
     return (
         <AppScrollArea
