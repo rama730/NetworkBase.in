@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Users, Bell, BellRing, BarChart2, ExternalLink, Globe } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ROUTES } from "@/constants/routes";
 import type { Project } from "@/types/discover";
-import type { ProjectCardViewModel } from "@/lib/view-models/project-card";
+import { toProjectCardViewModel, type ProjectCardViewModel } from "@/lib/view-models/project-card";
 import { useToggleProjectFollow } from "@/hooks/mutations/useProjectMutations";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { SkillIcon } from "@/components/skills/SkillIcon";
@@ -19,7 +19,8 @@ const MAX_PROJECT_CARD_SKILL_ICONS = 6;
 
 interface ProjectCardProps {
     project: Project;
-    viewModel: ProjectCardViewModel;
+    /** Built from `project` when not given, so the card memoizes on the project itself. */
+    viewModel?: ProjectCardViewModel;
     fromTab?: string;
     isFollowing?: boolean;
     followersCount?: number;
@@ -37,7 +38,7 @@ export default memo(function ProjectCard({ project, viewModel, fromTab = "projec
     const followLock = useRef(false);
     useEffect(() => { setFollowing(isFollowing); }, [isFollowing]);
     useEffect(() => { setFollowers(initialFollowers); }, [initialFollowers]);
-    const { techStack, collaborators, totalOpenRoles } = viewModel;
+    const { techStack, collaborators, totalOpenRoles } = useMemo(() => viewModel ?? toProjectCardViewModel(project), [viewModel, project]);
     const hiddenTechStackCount = Math.max(0, techStack.length - MAX_PROJECT_CARD_SKILL_ICONS);
     const links = resolveProjectSocialLinks(project.externalLinks, project.githubRepoUrl);
     const primaryProjectLink = links.find(link => !link.managed) ?? links[0] ?? null;
@@ -120,7 +121,7 @@ export default memo(function ProjectCard({ project, viewModel, fromTab = "projec
                 </a>)}
                 <span className="nb-meta flex items-center gap-1 px-1" title="Views" data-testid={`project-card-views-${project.id}`}><BarChart2 size={14} aria-hidden="true" />{project.viewCount || 0}<span className="sr-only"> views</span></span>
                 {/* A project follow is a bell (its updates), not a person icon; pressed reads in clay, not only by icon. */}
-                <button type="button" disabled={busy} aria-busy={busy} aria-pressed={following} aria-label={`Follow ${project.title}, ${followers} ${followers === 1 ? "follower" : "followers"}`} title={following ? "Following" : "Follow"} className="nb-icon-button gap-1 px-1.5 font-mono text-xs aria-pressed:bg-accent aria-pressed:text-primary disabled:opacity-45" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
+                <button type="button" disabled={busy} aria-busy={busy} aria-pressed={following} aria-label={`Follow ${project.title}, ${followers} ${followers === 1 ? "follower" : "followers"}`} title={following ? "Following" : "Follow"} className="nb-icon-button gap-1 px-1.5 font-mono text-xs disabled:opacity-45" onClick={toggleFollow} data-testid={`project-card-follow-${project.id}`}>
                     {following ? <BellRing size={16} aria-hidden="true" /> : <Bell size={16} aria-hidden="true" />}{followers}
                 </button>
             </div>

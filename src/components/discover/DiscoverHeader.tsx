@@ -1,47 +1,46 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Search, SlidersHorizontal, Users, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, type FilterView, type SortOption } from '@/constants/discover';
+import { FILTER_VIEWS, PROJECT_STATUS, PROJECT_TYPE, SORT_OPTIONS, type FilterView, type SortOption } from '@/constants/discover';
 import { DISCOVER_SORTS, type DiscoverQuery } from '@/lib/discover/query';
 import { projectStageLabel } from '@/lib/projects/status-presentation';
 import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
 import { resolveClientSkill } from '@/lib/skills/client';
 
 const SCOPES: Array<{ id: FilterView; label: string; subtitle: string }> = [
-    { id: FILTER_VIEWS.ALL, label: 'All projects', subtitle: 'Projects looking for people with your skills.' },
+    { id: FILTER_VIEWS.ALL, label: 'All projects', subtitle: 'Every open project, newest first.' },
     { id: FILTER_VIEWS.TRENDING, label: 'Trending', subtitle: 'Projects getting the most attention right now.' },
     { id: FILTER_VIEWS.RECOMMENDATIONS, label: 'For you', subtitle: 'Projects that match your skills and interests.' },
     { id: FILTER_VIEWS.FOLLOWING, label: 'Following', subtitle: 'Projects you follow.' },
 ];
 
 const SORT_LABELS: Record<string, string> = { newest: 'Newest', oldest: 'Oldest', most_viewed: 'Most viewed', most_followed: 'Most followed' };
+const SEARCH_MAX = 200;
 
-export const typeLabel = (id: string) => PROJECT_TYPE_OPTIONS.find((type) => type.id === id)?.label ?? id;
+const typeLabel = (id: string) => PROJECT_TYPE_OPTIONS.find((type) => type.id === id)?.label ?? id;
 
 /** Discover's search box: the URL follows the text after a short pause; the text follows the URL (Back, global search). */
 function SearchBox({ value, onSearch }: { value: string; onSearch: (q: string) => void }) {
     const [text, setText] = useState(value);
-    const [synced, setSynced] = useState(value);
-    // The URL changed elsewhere (Back, the top bar's search): show it.
-    if (value !== synced) {
-        setSynced(value);
-        setText(value);
+    const [shown, setShown] = useState(value);
+    // The URL changed elsewhere (Back, the top bar's search): show it, unless it's what's typed already
+    // (so a pause never trims a space you're about to type past).
+    if (value !== shown) {
+        setShown(value);
+        if (value !== text.trim()) setText(value);
     }
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
     const change = (next: string, delay = 250) => {
         setText(next);
         if (timer.current) clearTimeout(timer.current);
-        timer.current = setTimeout(() => {
-            setSynced(next.trim());
-            onSearch(next.trim());
-        }, delay);
+        timer.current = setTimeout(() => onSearch(next.trim()), delay);
     };
     return (
         <div role="search" className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
@@ -49,8 +48,14 @@ function SearchBox({ value, onSearch }: { value: string; onSearch: (q: string) =
             <input
                 type="search"
                 value={text}
+                maxLength={SEARCH_MAX}
                 onChange={(event) => change(event.target.value)}
-                onKeyDown={(event) => { if (event.key === 'Enter') change(text, 0); }}
+                onKeyDown={(event) => {
+                    if (event.key !== 'Enter') return;
+                    change(text, 0);
+                    // On a phone, put the keyboard away so the results show.
+                    if (window.matchMedia('(pointer: coarse)').matches) event.currentTarget.blur();
+                }}
                 placeholder="Search projects"
                 aria-label="Search projects"
                 className="h-[var(--ui-control-height)] w-full rounded-md border border-input bg-card pl-9 pr-9 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 md:text-sm pointer-coarse:h-11 [&::-webkit-search-cancel-button]:hidden"
@@ -69,7 +74,7 @@ function FilterTag({ children, onRemove, label }: { children: ReactNode; onRemov
     return (
         <span className="nb-tag gap-1 pr-0.5">
             {children}
-            <button type="button" onClick={onRemove} aria-label={`Remove ${label}`} className="nb-touch-target -my-1 inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+            <button type="button" data-filter-remove="" onClick={onRemove} aria-label={`Remove ${label}`} className="nb-touch-target -my-1 inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground">
                 <X className="size-3.5" aria-hidden="true" />
             </button>
         </span>
@@ -79,37 +84,51 @@ function FilterTag({ children, onRemove, label }: { children: ReactNode; onRemov
 interface DiscoverHeaderProps {
     query: DiscoverQuery;
     activeFilters: number;
+    /** Read out when results settle: "12 projects", "No projects match". */
+    announcement: string;
     onChange: (patch: Partial<DiscoverQuery>, options?: { replace?: boolean }) => void;
     onClearFilters: () => void;
     onOpenFilters: () => void;
-    filtersButtonRef: React.Ref<HTMLButtonElement>;
-    /** Below 1200px the People rail opens from a button (spec §09 R5); at 1200px+ it sits beside the feed. */
+    filtersButtonRef: RefObject<HTMLButtonElement | null>;
+    /** Below 1200px, when there are people to suggest, they open from a button (spec §09 R5). */
     people?: ReactNode;
 }
 
 /** Title, scope and search, sort and filters (spec §15), and the selected filters as tags. */
-export default function DiscoverHeader({ query, activeFilters, onChange, onClearFilters, onOpenFilters, filtersButtonRef, people }: DiscoverHeaderProps) {
+export default function DiscoverHeader({ query, activeFilters, announcement, onChange, onClearFilters, onOpenFilters, filtersButtonRef, people }: DiscoverHeaderProps) {
     const [peopleOpen, setPeopleOpen] = useState(false);
-    // The drawer is for narrow screens: once the rail sits beside the feed, it's closed.
     const railShown = useMediaQuery('(min-width: 1200px)');
+    const phone = useMediaQuery('(max-width: 767px)');
+    // Once the rail sits beside the feed the drawer is closed for good (it doesn't reopen on narrowing).
+    if (railShown && peopleOpen) setPeopleOpen(false);
+    const tags = useRef<HTMLDivElement>(null);
     const scope = SCOPES.find((item) => item.id === query.view) ?? SCOPES[0]!;
     // Trending and For you rank by their own score: a sort wouldn't apply.
     const sortable = query.view === FILTER_VIEWS.ALL || query.view === FILTER_VIEWS.FOLLOWING;
+    // A search ranks by relevance unless another order is picked.
+    const sortLabel = (value: string) => (value === SORT_OPTIONS.NEWEST && query.q ? 'Best match' : SORT_LABELS[value]);
 
-    const resultLine = [
-        query.q ? `Results for “${query.q}”` : null,
-        activeFilters ? `${activeFilters} ${activeFilters === 1 ? 'filter' : 'filters'}` : null,
-    ].filter(Boolean).join(' · ');
+    // Removing a tag moves focus to the next tag, or to Filters when it was the last.
+    const remove = (patch: Partial<DiscoverQuery>) => {
+        const buttons = Array.from(tags.current?.querySelectorAll<HTMLButtonElement>('[data-filter-remove]') ?? []);
+        const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        onChange(patch);
+        requestAnimationFrame(() => {
+            const next = Array.from(tags.current?.querySelectorAll<HTMLButtonElement>('[data-filter-remove]') ?? []);
+            (next[Math.min(Math.max(at, 0), next.length - 1)] ?? filtersButtonRef.current)?.focus();
+        });
+    };
+
+    const searchLine = query.q ? `Results for “${query.q}”` : '';
 
     return (
         <div className="flex min-w-0 flex-col gap-4">
             <div className="min-w-0">
                 <h1 className="nb-page-title">Discover</h1>
-                <p className="nb-body mt-1 text-muted-foreground">
-                    {scope.subtitle}
-                    {/* Read out when a search or filter changes the feed. */}
-                    <span aria-live="polite" className="nb-meta ml-2 whitespace-nowrap">{resultLine}</span>
-                </p>
+                <p className="nb-body mt-1 text-muted-foreground">{scope.subtitle}</p>
+                {searchLine ? <p className="nb-meta mt-1 truncate" title={searchLine}>{searchLine}</p> : null}
+                {/* Said once results settle, not on every keystroke. */}
+                <p aria-live="polite" className="sr-only">{announcement}</p>
             </div>
 
             <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -129,7 +148,7 @@ export default function DiscoverHeader({ query, activeFilters, onChange, onClear
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {DISCOVER_SORTS.map((value) => <SelectItem key={value} value={value}>{SORT_LABELS[value]}</SelectItem>)}
+                                {DISCOVER_SORTS.map((value) => <SelectItem key={value} value={value}>{sortLabel(value)}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     ) : null}
@@ -139,7 +158,7 @@ export default function DiscoverHeader({ query, activeFilters, onChange, onClear
                         {activeFilters ? <span className="nb-tab-count">{activeFilters}<span className="sr-only"> active</span></span> : null}
                     </Button>
                     {people ? (
-                        <Button type="button" variant="outline" onClick={() => setPeopleOpen(true)} className="bg-card min-[1200px]:hidden max-sm:flex-1 pointer-coarse:h-11">
+                        <Button type="button" variant="outline" onClick={() => setPeopleOpen(true)} aria-haspopup="dialog" className="bg-card max-sm:flex-1 pointer-coarse:h-11">
                             <Users className="size-4" aria-hidden="true" />
                             People
                         </Button>
@@ -148,32 +167,43 @@ export default function DiscoverHeader({ query, activeFilters, onChange, onClear
             </div>
 
             {activeFilters ? (
-                <div className="flex flex-wrap items-center gap-1.5" aria-label="Selected filters" role="group">
+                <div ref={tags} className="flex flex-wrap items-center gap-1.5" aria-label="Selected filters" role="group">
                     {query.status !== PROJECT_STATUS.ALL ? (
-                        <FilterTag label={`status ${projectStageLabel(query.status)}`} onRemove={() => onChange({ status: PROJECT_STATUS.ALL })}>
-                            Status: {projectStageLabel(query.status)}
+                        <FilterTag label={`stage ${projectStageLabel(query.status)}`} onRemove={() => remove({ status: PROJECT_STATUS.ALL })}>
+                            Stage: {projectStageLabel(query.status)}
                         </FilterTag>
                     ) : null}
                     {query.type !== PROJECT_TYPE.ALL ? (
-                        <FilterTag label={`type ${typeLabel(query.type)}`} onRemove={() => onChange({ type: PROJECT_TYPE.ALL })}>
+                        <FilterTag label={`type ${typeLabel(query.type)}`} onRemove={() => remove({ type: PROJECT_TYPE.ALL })}>
                             Type: {typeLabel(query.type)}
                         </FilterTag>
                     ) : null}
                     {query.tech.map((skill) => (
-                        <FilterTag key={skill} label={`skill ${resolveClientSkill(skill).name}`} onRemove={() => onChange({ tech: query.tech.filter((value) => value !== skill) })}>
+                        <FilterTag key={skill} label={`skill ${resolveClientSkill(skill).name}`} onRemove={() => remove({ tech: query.tech.filter((value) => value !== skill) })}>
                             {resolveClientSkill(skill).name}
                         </FilterTag>
                     ))}
                     {query.hideOpened ? (
-                        <FilterTag label="hide opened projects" onRemove={() => onChange({ hideOpened: false })}>Hiding opened</FilterTag>
+                        <FilterTag label="hiding projects you opened" onRemove={() => remove({ hideOpened: false })}>Hiding projects you opened</FilterTag>
                     ) : null}
-                    <Button type="button" variant="ghost" size="sm" onClick={onClearFilters} className="text-primary pointer-coarse:h-11">Clear all</Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            onClearFilters();
+                            requestAnimationFrame(() => filtersButtonRef.current?.focus());
+                        }}
+                        className="text-primary pointer-coarse:h-11"
+                    >
+                        Clear all
+                    </Button>
                 </div>
             ) : null}
 
             {people ? (
-                <Dialog open={peopleOpen && !railShown} onOpenChange={setPeopleOpen}>
-                    <DialogContent presentation="right-drawer" className="overflow-y-auto p-4 sm:max-w-[400px]">
+                <Dialog open={peopleOpen} onOpenChange={setPeopleOpen}>
+                    <DialogContent presentation={phone ? 'bottom-sheet' : 'right-drawer'} className={phone ? 'overflow-y-auto p-4' : 'overflow-y-auto p-4 sm:max-w-[400px]'}>
                         <DialogTitle className="nb-card-title">People you should meet</DialogTitle>
                         {people}
                     </DialogContent>

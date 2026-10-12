@@ -11,12 +11,14 @@ const PAGE_SIZE = 24;
 
 /** A feed failure people can act on: the message is ours (never a server body), `code` says if a retry helps. */
 export class DiscoverFeedError extends Error {
-    constructor(readonly code: 'TRANSIENT' | 'RATE_LIMITED' | 'VALIDATION') {
+    constructor(readonly code: 'TRANSIENT' | 'RATE_LIMITED' | 'VALIDATION' | 'STALE_FEED') {
         super(code === 'RATE_LIMITED'
             ? 'Too many requests. Wait a moment, then try again.'
             : code === 'VALIDATION'
                 ? "That link's filters aren't valid. Clear filters to start over."
-                : "Projects didn't load. Check your connection and try again.");
+                : code === 'STALE_FEED'
+                    ? 'This list changed since you opened it.'
+                    : "Projects didn't load. Check your connection and try again.");
         this.name = 'DiscoverFeedError';
     }
 }

@@ -11,13 +11,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDiscoverSessionSeen } from '@/hooks/discover/useDiscoverSessionSeen';
 import { useUserFollowedProjects } from '@/hooks/projects/useUserInteractions';
 import { useDiscoverUrlFilters } from '@/hooks/discover/useDiscoverUrlFilters';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useSuggestedPeople } from '@/hooks/useConnections';
 
 import ProjectCard from '@/components/projects/ProjectCard';
 import ProjectCardSkeleton from '@/components/projects/ProjectCardSkeleton';
 import DiscoverHeader from '@/components/discover/DiscoverHeader';
 import { DiscoverFiltersPanel } from '@/components/discover/DiscoverFiltersPanel';
 import { DiscoverPeopleRail } from '@/components/discover/DiscoverPeopleRail';
-import { ProfileChecklist } from '@/components/discover/ProfileChecklist';
+import { ProfileChecklist, useProfileChecklistItems } from '@/components/discover/ProfileChecklist';
 import { LegalLinks } from '@/components/legal/LegalLinks';
 import { AppScrollArea } from '@/components/ui/AppScrollArea';
 import { Button } from '@/components/ui/button';
@@ -25,8 +27,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorNotice } from '@/components/ui/ErrorNotice';
 import { FILTER_VIEWS, SORT_OPTIONS } from '@/constants/discover';
 import { ROUTES } from '@/constants/routes';
+import { DISCOVER_RAIL_FILTERS, type DiscoverQuery } from '@/lib/discover/query';
 import type { User, Project } from '@/types/discover';
-import { toProjectCardViewModel } from '@/lib/view-models/project-card';
 import { queryKeys } from '@/lib/query-keys';
 import type { ConnectionFeedPage, DiscoverConnectionItem } from '@/hooks/useConnections';
 import { toDiscoverUser } from '@/lib/view-models/discover-user';
@@ -42,29 +44,44 @@ interface DiscoverClientProps {
 }
 
 type FeedPage = { projects: Project[]; nextCursor?: string; hasMore: boolean };
-type FeedContext = { loadingMore: boolean; hasMore: boolean; failed: boolean; retry: () => void; count: number };
+type FeedContext = { loadingMore: boolean; hasMore: boolean; failed: boolean; stale: boolean; retry: () => void; restart: () => void; count: number };
 
 const VIRTUOSO_CONTAINER_STYLE = { width: "100%" } as const;
 const VIRTUOSO_INCREASE_VIEWPORT_BY = { top: 1200, bottom: 800 } as const;
 // Rendered before the scroll container exists (server HTML, first paint), then handed to Virtuoso.
+// ponytail: the 6 first-paint cards remount once when Virtuoso takes over; mount Virtuoso at first render if that ever shows.
 const FIRST_PAINT_ITEMS = 6;
 const SCROLL_KEY = 'discover-scroll:';
 const computeProjectItemKey = (_: number, project: Project) => project.id;
 
-/** The end of the feed: loading, the end, or a retry for a page that failed. Read out as a status. */
+// Back/Forward (a history traverse) restores where you were; any other arrival starts at the top.
+let lastTraverseAt = 0;
+if (typeof window !== 'undefined') window.addEventListener('popstate', () => { lastTraverseAt = Date.now(); });
+const cameBackByHistory = () => {
+    if (Date.now() - lastTraverseAt < 1500) return true;
+    const entry = performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined;
+    return entry?.type === 'back_forward' && performance.now() < 5000;
+};
+
+/** The end of the feed: loading, the end, or a way on when a page failed. */
 const FeedFooter: Components<Project, FeedContext>['Footer'] = ({ context }) => {
     if (!context || context.count === 0) return null;
     return (
-        <div role="status" className="flex min-h-12 items-center justify-center gap-3 pb-8 pt-2">
-            {context.failed ? (
+        <div className="flex min-h-12 items-center justify-center gap-3 pb-8 pt-2">
+            {context.stale ? (
                 <>
-                    <span className="nb-meta">More projects didn&apos;t load.</span>
+                    <span role="status" className="nb-meta">This list changed since you opened it.</span>
+                    <Button type="button" variant="outline" size="sm" onClick={context.restart} className="pointer-coarse:h-11">Refresh feed</Button>
+                </>
+            ) : context.failed ? (
+                <>
+                    <span role="status" className="nb-meta">More projects didn&apos;t load.</span>
                     <Button type="button" variant="outline" size="sm" onClick={context.retry} className="pointer-coarse:h-11">Retry</Button>
                 </>
             ) : context.loadingMore ? (
-                <span className="nb-meta">Loading more…</span>
+                <span role="status" className="nb-meta">Loading more…</span>
             ) : !context.hasMore ? (
-                <span className="nb-meta">You&apos;ve seen every project here.</span>
+                <span role="status" className="nb-meta">You&apos;ve seen every project here.</span>
             ) : null}
         </div>
     );
@@ -92,6 +109,16 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
     const [filtersOpen, setFiltersOpen] = useState(false);
     const filtersButton = useRef<HTMLButtonElement>(null);
     const feedHeading = useRef<HTMLHeadingElement>(null);
+    // One history entry per visit to the Filters drawer: its first change pushes, the rest replace.
+    const drawerPushed = useRef(false);
+
+    // ---- The rail: shown only at 1200px+ and only with something in it (people or the checklist).
+    const wide = useMediaQuery('(min-width: 1200px)');
+    const suggestions = useSuggestedPeople(3, undefined, DISCOVER_RAIL_FILTERS, initialPeopleSuggestions, false);
+    const hasPeople = Boolean(viewerId) && (suggestions.isLoading || (suggestions.data?.pages[0]?.items.length ?? 0) > 0 || suggestions.isError);
+    const checklist = useProfileChecklistItems(viewerId);
+    // Before hydration knows the width, CSS decides (the rail column is hidden below 1200px).
+    const showRail = wide !== false && (hasPeople || checklist.length > 0);
 
     const filters = useMemo(() => ({
         status,
@@ -106,6 +133,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         error,
         fetchNextPage,
         hasNextPage,
+        isFetching,
         isFetchingNextPage,
         isFetchNextPageError,
         isLoading,
@@ -125,11 +153,11 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
     const pageIds = useMemo(() => (data?.pages ?? []).map((page) => page.projects.map((project) => project.id)), [data]);
     const followed = useUserFollowedProjects(viewerId, pageIds);
 
-    // Everything loaded is already opened: keep loading until there's something to show.
+    // Everything loaded is already opened: keep loading until there's something to show (never on a failing page).
     useEffect(() => {
-        if (!hideOpened || visibleProjects.length > 0 || !hasNextPage || isFetchingNextPage || allProjects.length === 0) return;
+        if (!hideOpened || visibleProjects.length > 0 || !hasNextPage || isFetchingNextPage || isFetchNextPageError || allProjects.length === 0) return;
         void fetchNextPage();
-    }, [hideOpened, visibleProjects.length, hasNextPage, isFetchingNextPage, allProjects.length, fetchNextPage]);
+    }, [hideOpened, visibleProjects.length, hasNextPage, isFetchingNextPage, isFetchNextPageError, allProjects.length, fetchNextPage]);
 
     // Another tab or the project settings changed a project: patch what's on screen; refetch only when next shown.
     useEffect(() => {
@@ -163,7 +191,7 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         };
     }, [queryClient]);
 
-    // ---- Scroll: back from a project returns to the same place; a new scope or filter starts at the top.
+    // ---- Scroll: Back/Forward returns to the same place; a new scope or filter starts at the top.
     const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
     const scrollContainerRef = useCallback((node: HTMLDivElement | null) => setScrollContainer((prev) => (prev === node ? prev : node)), []);
     const feedKey = JSON.stringify([view, filters, hideOpened]);
@@ -171,15 +199,17 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
     useEffect(() => {
         if (!scrollContainer) return;
         const storageKey = `${SCROLL_KEY}${window.location.search}`;
-        if (lastFeedKey.current === null) {
-            try {
-                const saved = Number(sessionStorage.getItem(storageKey));
-                if (saved > 0) requestAnimationFrame(() => scrollContainer.scrollTo({ top: saved }));
-            } catch {
-                // Storage blocked: start at the top.
+        if (lastFeedKey.current !== feedKey) {
+            let saved = 0;
+            if (cameBackByHistory()) {
+                try {
+                    saved = Number(sessionStorage.getItem(storageKey)) || 0;
+                } catch {
+                    // Storage blocked: start at the top.
+                }
             }
-        } else if (lastFeedKey.current !== feedKey) {
-            scrollContainer.scrollTo({ top: 0 });
+            if (saved > 0) requestAnimationFrame(() => scrollContainer.scrollTo({ top: saved }));
+            else if (lastFeedKey.current !== null) scrollContainer.scrollTo({ top: 0 });
         }
         lastFeedKey.current = feedKey;
         let frame = 0;
@@ -204,38 +234,57 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) void fetchNextPage();
     }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
 
+    // A ranked list that moved on (its snapshot expired): start it again rather than retry the same page.
+    const staleFeed = isFetchNextPageError && error instanceof DiscoverFeedError && error.code === 'STALE_FEED';
+    const restartFeed = useCallback(() => {
+        scrollContainer?.scrollTo({ top: 0 });
+        void queryClient.resetQueries({ queryKey: queryKeys.discover.projectsSimple(viewerId, view, filters) });
+    }, [filters, queryClient, scrollContainer, view, viewerId]);
+
     const feedContext = useMemo<FeedContext>(() => ({
         loadingMore: isFetchingNextPage,
         hasMore: Boolean(hasNextPage),
         failed: isFetchNextPageError,
+        stale: staleFeed,
         retry: () => void fetchNextPage(),
+        restart: restartFeed,
         count: visibleProjects.length,
-    }), [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage, visibleProjects.length]);
+    }), [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage, restartFeed, staleFeed, visibleProjects.length]);
 
+    const following = view === FILTER_VIEWS.FOLLOWING;
     const renderProjectItem = useCallback((_: number, project: Project) => (
         <div className="pb-4">
             <ProjectCard
                 project={project}
-                viewModel={toProjectCardViewModel(project)}
-                isFollowing={followed.has(project.id)}
+                // In Following every card is followed; no flash of "not following" while that loads.
+                isFollowing={following || followed.has(project.id)}
                 followersCount={project.followersCount}
                 onOpenProject={markSeen}
             />
         </div>
-    ), [followed, markSeen]);
+    ), [followed, following, markSeen]);
 
     // Clearing moves focus to the feed's heading, so it never drops to the page body.
+    const focusFeed = useCallback(() => requestAnimationFrame(() => feedHeading.current?.focus()), []);
     const clearAll = useCallback(() => {
         clearFilters();
-        feedHeading.current?.focus();
-    }, [clearFilters]);
+        focusFeed();
+    }, [clearFilters, focusFeed]);
+
+    // Said once results settle after a search, scope or filter change: "12 projects", "No projects match".
+    const settled = !isFetching && !isPlaceholderData && !error;
+    const announcement = settled && (!isDefault || hideOpened)
+        ? visibleProjects.length
+            ? `${visibleProjects.length}${hasNextPage ? '+' : ''} ${visibleProjects.length === 1 && !hasNextPage ? 'project' : 'projects'}`
+            : 'No projects match'
+        : '';
 
     const emptyState = (() => {
         if (q || activeFilters) {
-            return <EmptyState icon={Search} title="No projects match" description="Try other words or fewer filters." action={<Button type="button" variant="outline" onClick={clearAll}>Clear filters</Button>} />;
+            return <EmptyState icon={Search} title="No projects match" description="Try other words or fewer filters." action={<Button type="button" variant="outline" onClick={clearAll}>{q ? 'Clear search and filters' : 'Clear filters'}</Button>} />;
         }
         if (view === FILTER_VIEWS.FOLLOWING) {
-            return <EmptyState icon={Bell} title="Projects you follow show up here" description="Follow a project to get its updates in this view." action={<Button type="button" variant="outline" onClick={() => updateUrlFilters({ view: FILTER_VIEWS.ALL })}>Browse all projects</Button>} />;
+            return <EmptyState icon={Bell} title="Projects you follow show up here" description="Follow a project to get its updates in this view." action={<Button type="button" variant="outline" onClick={() => { updateUrlFilters({ view: FILTER_VIEWS.ALL }); focusFeed(); }}>Browse all projects</Button>} />;
         }
         if (view === FILTER_VIEWS.RECOMMENDATIONS) {
             return <EmptyState icon={Sparkles} title="No matches yet" description="Add skills and interests to your profile to get projects that fit you." action={<Button asChild variant="outline"><Link href={ROUTES.MY_PROFILE}>Edit your profile</Link></Button>} />;
@@ -243,13 +292,19 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         return <EmptyState icon={Compass} title={isDefault ? 'No projects yet' : 'No projects here yet'} description="Start one and invite people to build it with you." action={<Button asChild><Link href="/projects/new"><Plus className="size-4" aria-hidden="true" /> New project</Link></Button>} />;
     })();
 
+    const firstPageError = error && visibleProjects.length === 0;
     const feed = isLoading && !data ? (
         <FeedSkeleton />
-    ) : error && visibleProjects.length === 0 ? (
-        <ErrorNotice
-            message={error instanceof DiscoverFeedError ? error.message : "Projects didn't load. Check your connection and try again."}
-            onRetry={() => void refetch()}
-        />
+    ) : firstPageError ? (
+        error instanceof DiscoverFeedError && error.code === 'VALIDATION' ? (
+            // A link whose filters can't work: retrying won't help, clearing will.
+            <ErrorNotice message={error.message} onRetry={clearAll} actionLabel="Clear filters" />
+        ) : (
+            <ErrorNotice
+                message={error instanceof DiscoverFeedError ? error.message : "Projects didn't load. Check your connection and try again."}
+                onRetry={() => void refetch()}
+            />
+        )
     ) : visibleProjects.length === 0 ? (
         emptyState
     ) : (
@@ -274,7 +329,11 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
         </div>
     );
 
-    const people = viewerId ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="compact" /> : null;
+    // Below 1200px people open from a button, and only when there are some to show.
+    const people = hasPeople && wide === false
+        ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="compact" />
+        : null;
+    const legal = <LegalLinks align="start" showCopyright className="text-[11px]" />;
 
     return (
         <AppScrollArea
@@ -285,34 +344,34 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
             className="h-full min-h-0 flex-1 px-4 sm:px-6"
         >
             <div className="mx-auto w-full max-w-[1240px] pb-8 pt-6">
-                <div className={viewerId ? 'nb-discover-columns' : 'nb-discover-columns nb-discover-columns--single'}>
+                <div className={showRail ? 'nb-discover-columns' : 'nb-discover-columns nb-discover-columns--single'}>
                     <div className="min-w-0">
                         <div data-testid="discover-header-shell" className="mb-[18px]">
                             <DiscoverHeader
                                 query={urlFilters}
                                 activeFilters={activeFilters}
+                                announcement={announcement}
                                 onChange={updateUrlFilters}
                                 onClearFilters={() => clearFilters({ keepSearch: true })}
-                                onOpenFilters={() => setFiltersOpen(true)}
+                                onOpenFilters={() => {
+                                    drawerPushed.current = false;
+                                    setFiltersOpen(true);
+                                }}
                                 filtersButtonRef={filtersButton}
                                 people={people}
                             />
                         </div>
-                        {viewerId ? <ProfileChecklist userId={viewerId} className="mb-4 min-[1200px]:hidden" /> : null}
+                        {wide === false ? <ProfileChecklist items={checklist} className="mb-4" /> : null}
                         <h2 ref={feedHeading} id="discover-feed" tabIndex={-1} className="sr-only">Projects</h2>
                         {feed}
+                        {/* With no rail beside the feed, the legal links close the page instead. */}
+                        {showRail ? null : <div className="pt-6">{legal}</div>}
                     </div>
-                    {viewerId ? (
-                        <aside className="nb-discover-rail space-y-4">
-                            <ProfileChecklist userId={viewerId} />
-                            <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" />
-                            <div className="pt-2">
-                                <LegalLinks
-                                    align="start"
-                                    showCopyright
-                                    className="text-[11px]"
-                                />
-                            </div>
+                    {showRail ? (
+                        <aside aria-label="People and profile" className="nb-discover-rail sticky top-6 space-y-4 self-start">
+                            <ProfileChecklist items={checklist} />
+                            {hasPeople ? <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" /> : null}
+                            <div className="pt-2">{legal}</div>
                         </aside>
                     ) : null}
                 </div>
@@ -324,8 +383,15 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                     if (!open) requestAnimationFrame(() => filtersButton.current?.focus());
                 }}
                 query={urlFilters}
-                onChange={updateUrlFilters}
-                onClear={() => clearFilters({ keepSearch: true })}
+                activeFilters={activeFilters}
+                onChange={(patch: Partial<DiscoverQuery>) => {
+                    updateUrlFilters(patch, { replace: drawerPushed.current });
+                    drawerPushed.current = true;
+                }}
+                onClear={() => {
+                    clearFilters({ keepSearch: true });
+                    drawerPushed.current = true;
+                }}
             />
         </AppScrollArea>
     );
