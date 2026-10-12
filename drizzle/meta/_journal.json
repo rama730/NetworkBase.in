@@ -1450,6 +1450,13 @@
       "when": 1791746959750,
       "tag": "0209_skill_catalog_1_3_7",
       "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "7",
+      "when": 1791791695271,
+      "tag": "0210_index_cleanup",
+      "breakpoints": true
     }
   ]
 }
