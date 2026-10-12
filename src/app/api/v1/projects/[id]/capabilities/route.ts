@@ -1,11 +1,10 @@
 import { NextRequest } from "next/server";
 import {
     jsonError,
-    jsonSuccess,
     requireAuthenticatedUser,
 } from "@/app/api/v1/_shared";
 import { getProjectAccessById } from "@/lib/data/project-access";
-import { createHash } from "node:crypto";
+import { jsonSuccessConditional } from "@/app/api/v1/_conditional";
 import { buildFileCapabilities } from "@/lib/projects/file-capabilities";
 import { isLooseUuid } from "@/lib/validations/uuid";
 
@@ -41,23 +40,7 @@ export async function GET(
 
     const capabilities = buildFileCapabilities(access);
 
-    // The validator is the representation itself, so a 304 can only stand for exactly these values.
-    const etag = `W/"caps-${createHash("sha1").update(JSON.stringify(capabilities)).digest("base64url")}"`;
-    const ifNoneMatch = request.headers.get("if-none-match");
-    if (ifNoneMatch && (ifNoneMatch === etag || ifNoneMatch.includes(etag))) {
-        return new Response(null, {
-            status: 304,
-            headers: {
-                ETag: etag,
-                "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
-            },
-        });
-    }
-
-    return jsonSuccess(capabilities, undefined, {
-        headers: {
-            ETag: etag,
-            "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
-        },
+    return jsonSuccessConditional(request, capabilities, {
+        "Cache-Control": "private, max-age=30, stale-while-revalidate=120",
     });
 }
