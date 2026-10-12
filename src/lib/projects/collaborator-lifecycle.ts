@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
+import { ForbiddenError, NotFoundError } from "@/lib/errors/domain";
 import { db } from "@/lib/db";
 import {
     applicationEvents,
@@ -172,10 +173,10 @@ export async function requireProjectCapability(
         .from(projects)
         .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
         .limit(1);
-    if (!project) throw new Error("Project not found");
+    if (!project) throw new NotFoundError("Project not found");
     const role = await readMembershipRole(executor, projectId, userId, project.ownerId, false);
     if (!role || !projectMemberCan(role, capability)) {
-        throw new Error("You do not have permission to perform this project action");
+        throw new ForbiddenError("You do not have permission to perform this project action");
     }
     return { project, role };
 }
@@ -194,7 +195,7 @@ export async function addProjectMemberInternal(
     },
 ): Promise<ProjectCollaboratorLifecycleResult> {
     const project = await readProjectForUpdate(executor, params.projectId);
-    if (!project) throw new Error("Project not found");
+    if (!project) throw new NotFoundError("Project not found");
     const target = await readProfileSnapshot(executor, params.userId);
     const previousRole = await readMembershipRole(executor, params.projectId, params.userId, project.ownerId, true);
     const nextRole = params.userId === project.ownerId ? "owner" : normalizeProjectMemberRole(params.role ?? "member", "member");
@@ -371,11 +372,11 @@ export async function changeProjectMemberRoleInternal(
     },
 ): Promise<ProjectCollaboratorLifecycleResult> {
     const project = await readProjectForUpdate(executor, params.projectId);
-    if (!project) throw new Error("Project not found");
+    if (!project) throw new NotFoundError("Project not found");
     const actorRole = await readMembershipRole(executor, params.projectId, params.actorId, project.ownerId, true);
     const previousRole = await readMembershipRole(executor, params.projectId, params.targetUserId, project.ownerId, true);
     if (!canProjectRoleManageTarget({ actorRole, targetRole: previousRole, nextRole: params.nextRole })) {
-        throw new Error("You do not have permission to manage this collaborator");
+        throw new ForbiddenError("You do not have permission to manage this collaborator");
     }
     if (previousRole === params.nextRole) {
         return { eventId: null, changed: false, project, target: await readProfileSnapshot(executor, params.targetUserId), previousRole, nextRole: params.nextRole };
@@ -570,11 +571,11 @@ export async function removeProjectMemberInternal(
     },
 ): Promise<ProjectCollaboratorLifecycleResult & { assignmentNotifications: EnqueueProjectNotificationEventInput[] }> {
     const project = await readProjectForUpdate(executor, params.projectId);
-    if (!project) throw new Error("Project not found");
+    if (!project) throw new NotFoundError("Project not found");
     const actorRole = await readMembershipRole(executor, params.projectId, params.actorId, project.ownerId, true);
     const previousRole = await readMembershipRole(executor, params.projectId, params.targetUserId, project.ownerId, true);
     if (!canProjectRoleManageTarget({ actorRole, targetRole: previousRole })) {
-        throw new Error("You do not have permission to remove this collaborator");
+        throw new ForbiddenError("You do not have permission to remove this collaborator");
     }
     const target = await readProfileSnapshot(executor, params.targetUserId);
     const impact = await readProjectMemberRemovalImpact(executor, params.projectId, params.targetUserId);

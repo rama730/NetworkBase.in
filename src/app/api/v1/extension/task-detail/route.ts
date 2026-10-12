@@ -1,4 +1,5 @@
-import { requireAuthenticatedUser, jsonSuccess, jsonError } from "@/app/api/v1/_shared";
+import { requireAuthenticatedUser, jsonSuccess, jsonError, getRequestId } from "@/app/api/v1/_shared";
+import { routeErrorResponse } from "@/app/api/v1/_error";
 import { db } from "@/lib/db";
 import { profiles, projectNodes, taskNodeLinks, taskPushes, } from "@/lib/db/schema";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
@@ -106,13 +107,6 @@ export async function GET(request: Request) {
       })),
     });
   } catch (error) {
-    logger.error("[api/v1/extension/task-detail] Failed to get task detail", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return jsonError(
-      error instanceof Error ? error.message : "Failed to get task detail",
-      500,
-      "INTERNAL_ERROR",
-    );
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/task-detail", fallback: "Failed to get task detail" });
   }
 }

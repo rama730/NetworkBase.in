@@ -14,7 +14,7 @@ import { parseProjectFileKey } from "@/lib/storage/project-file-key";
 import { logger } from "@/lib/logger";
 import { streamPrivateObject } from "@/lib/storage/private-object-response";
 import { readBoundedStorageBytes } from "@/lib/storage/bounded-object-read";
-import { checkIdempotencyKey, saveIdempotencyResult } from "@/lib/security/idempotency";
+import { withIdempotentRoute } from "@/lib/security/idempotency";
 import { recordExtensionMetric } from "@/lib/extension/observability";
 import { assertProjectFileReadAccess, assertTaskFileNodeVisible } from "@/lib/files/internal-helpers";
 import { validateCsrf } from "@/lib/security/csrf";
@@ -246,18 +246,7 @@ export async function PUT(request: Request) {
       return jsonError("Missing projectId or path", 400, "BAD_REQUEST");
     }
 
-    const idempotencyScope = `${user.id}:${projectId}:${path}`;
-    const idempotencyCheck = await checkIdempotencyKey(request, "extension.file.put", idempotencyScope);
-    if (idempotencyCheck.isDuplicate) {
-      if (idempotencyCheck.cachedResponse) {
-        return new Response(idempotencyCheck.cachedResponse, {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
-      }
-      return jsonError("Request is already being processed", 409, "CONFLICT");
-    }
-
+    return withIdempotentRoute(request, { namespace: "extension.file.put", scopeId: `${user.id}:${projectId}:${path}` }, async () => {
     const directStorageKey = request.headers.get("x-nb-storage-key")?.trim();
     if (directStorageKey) {
       return jsonError(
@@ -353,14 +342,6 @@ export async function PUT(request: Request) {
           versionIncremented: revisionMode === "new_revision",
           updatedAt: node.updatedAt?.toISOString?.() ?? node.updatedAt,
         };
-        const recoveredBody = JSON.stringify({ success: true, data: recoveredData });
-        await saveIdempotencyResult(
-          request,
-          "extension.file.put",
-          recoveredBody,
-          idempotencyCheck.lockToken,
-          idempotencyScope,
-        );
         return jsonSuccess(recoveredData);
       }
     }
@@ -450,8 +431,6 @@ export async function PUT(request: Request) {
     }
 
     const successData = { success: true, ...extensionRevisionData(result, contentHash) };
-    const successBody = JSON.stringify({ success: true, data: successData });
-    await saveIdempotencyResult(request, "extension.file.put", successBody, idempotencyCheck.lockToken, idempotencyScope);
 
     recordExtensionMetric("extension.file.save", {
       action: "save",
@@ -466,6 +445,7 @@ export async function PUT(request: Request) {
     });
 
     return jsonSuccess(successData);
+    });
   } catch (error) {
     logger.error("[api/v1/extension/file] Failed to save file content", {
       error: error instanceof Error ? error.message : String(error)

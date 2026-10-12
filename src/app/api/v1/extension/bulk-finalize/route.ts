@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { routeErrorResponse } from "@/app/api/v1/_error";
 import { and, eq, inArray } from "drizzle-orm";
-import { jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
+import { getRequestId, jsonError, jsonSuccess, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import {
   checksumSchema,
   parseExtensionLeaseMetadata,
@@ -237,7 +238,7 @@ export async function POST(request: Request) {
       finalizedCount: finalizedResults.length,
       files: finalizedResults,
     });
-  } catch (error: any) {
-    return jsonError(error?.message || "Failed to finalize bulk uploads", 500, "INTERNAL_ERROR");
+  } catch (error) {
+    return routeErrorResponse(error, { requestId: getRequestId(request), scope: "api/v1/extension/bulk-finalize", fallback: "Failed to finalize bulk uploads" });
   }
 }
