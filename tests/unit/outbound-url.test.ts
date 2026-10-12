@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import {
@@ -151,5 +152,50 @@ describe("outbound URL safeguards", () => {
     assert.equal(cancelled, true);
     const small = await readBoundedBody(new Response("hello"), 3_000);
     assert.deepEqual([new TextDecoder().decode(small.bytes), small.truncated], ["hello", false]);
+  });
+
+  // API-013: fixed-host providers share the one validated transport.
+  it("keeps every hop of a provider call inside its host allowlist", async () => {
+    const calls: string[] = [];
+    await assert.rejects(
+      fetchPublicUrlWithRedirectValidation({
+        url: "https://api.github.com/repos/a/b",
+        allowedHosts: ["api.github.com"],
+        resolveAddresses: async () => ["140.82.112.5"],
+        fetchImpl: async (url) => {
+          calls.push(String(url));
+          return new Response(null, { status: 302, headers: { location: "https://evil.example.com/steal" } });
+        },
+      }),
+      UnsafeOutboundUrlError,
+    );
+    assert.deepEqual(calls, ["https://api.github.com/repos/a/b"]);
+
+    await assert.rejects(
+      fetchPublicUrlWithRedirectValidation({
+        url: "https://example.com/x",
+        allowedHosts: ["api.github.com"],
+        resolveAddresses: async () => ["93.184.216.34"],
+        fetchImpl: async () => { throw new Error("must not fetch"); },
+      }),
+      UnsafeOutboundUrlError,
+    );
+
+    const ok = await fetchPublicUrlWithRedirectValidation({
+      url: "https://api.github.com/repos/a/b",
+      allowedHosts: ["api.github.com"],
+      resolveAddresses: async () => ["140.82.112.5"],
+      fetchImpl: async (url) => String(url).endsWith("/b")
+        ? new Response(null, { status: 301, headers: { location: "https://api.github.com/repositories/1" } })
+        : new Response("{}", { status: 200 }),
+    });
+    assert.equal(ok.response.status, 200);
+    ok.release();
+  });
+
+  it("github actions no longer use the retired safeFetch guard", () => {
+    const source = readFileSync("src/app/actions/github.ts", "utf8");
+    assert.doesNotMatch(source, /safeFetch|ssrf-guard/);
+    assert.equal(existsSync("src/lib/security/ssrf-guard.ts"), false);
   });
 });
