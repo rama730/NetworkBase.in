@@ -536,6 +536,8 @@ export const onboardingSubmissions = pgTable(
       .default({})
       .notNull(),
     claimsRepairedAt: timestamp("claims_repaired_at", { withTimezone: true }),
+    /** Owner of the row: takeover and finalization compare-and-swap on it. */
+    attemptToken: uuid("attempt_token").defaultRandom().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
