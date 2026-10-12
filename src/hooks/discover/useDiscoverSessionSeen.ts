@@ -4,15 +4,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'discover-session-seen-projects';
 
-/** Projects opened in this tab's session, for "Hide projects I've opened". */
+/**
+ * Projects opened in this tab's session, for "Hide projects I've opened". `seenIds` is what's saved;
+ * `hiddenIds` is what was opened before this visit: a project you open stays in the list until you come
+ * back, so a click never makes the list jump under the cursor.
+ */
 export function useDiscoverSessionSeen() {
     const [seenIds, setSeenIds] = useState<Set<string>>(new Set());
+    const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
     const loaded = useRef(false);
 
     useEffect(() => {
         try {
             const raw = sessionStorage.getItem(STORAGE_KEY);
-            if (raw) setSeenIds(new Set(JSON.parse(raw) as string[]));
+            if (raw) {
+                const saved = new Set(JSON.parse(raw) as string[]);
+                setSeenIds(saved);
+                setHiddenIds(saved);
+            }
         } catch {
             // Storage blocked or bad data: start empty.
         } finally {
@@ -39,5 +48,5 @@ export function useDiscoverSessionSeen() {
         });
     }, []);
 
-    return useMemo(() => ({ seenIds, markSeen }), [seenIds, markSeen]);
+    return useMemo(() => ({ seenIds, hiddenIds, markSeen }), [seenIds, hiddenIds, markSeen]);
 }
