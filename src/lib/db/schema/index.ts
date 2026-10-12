@@ -861,13 +861,6 @@ export const projects = pgTable(
     ),
 
     // Pure Optimization: Composite Indices for Sorted Feeds (Avoids Sorting after Filtering)
-    // 1. "Newest Projects": Filter by Public Visibility + Status -> Sort by CreatedAt
-    feedNewestIdx: index("projects_feed_newest_idx").on(
-      t.visibility,
-      t.status,
-      t.createdAt,
-    ),
-
     // 2. "Most Viewed Projects": Filter by Public Visibility + Status -> Sort by ViewCount
     feedMostViewedIdx: index("projects_feed_most_viewed_idx").on(
       t.visibility,
@@ -887,20 +880,6 @@ export const projects = pgTable(
     discoverMostFollowedIdx: index("projects_discover_most_followed_idx")
       .on(t.followersCount.desc(), t.createdAt.desc(), t.id.desc())
       .where(sql`${t.deletedAt} IS NULL AND ${t.visibility} IN ('public', 'unlisted') AND ${t.status} <> 'draft'`),
-    publicFeedNewestActiveIdx: index("projects_public_feed_newest_active_idx")
-      .on(t.visibility, t.status, t.createdAt.desc(), t.id.desc())
-      .where(sql`${t.deletedAt} IS NULL`),
-    publicFeedMostViewedActiveIdx: index(
-      "projects_public_feed_most_viewed_active_idx",
-    )
-      .on(
-        t.visibility,
-        t.status,
-        t.viewCount.desc(),
-        t.createdAt.desc(),
-        t.id.desc(),
-      )
-      .where(sql`${t.deletedAt} IS NULL`),
     publicFeedMostFollowedActiveIdx: index(
       "projects_public_feed_most_followed_active_idx",
     )

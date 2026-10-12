@@ -1457,6 +1457,13 @@
       "when": 1791791695271,
       "tag": "0210_index_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 208,
+      "version": "7",
+      "when": 1791791804996,
+      "tag": "0211_discover_index_hygiene",
+      "breakpoints": true
     }
   ]
 }

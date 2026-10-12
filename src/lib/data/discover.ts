@@ -72,9 +72,8 @@ type RawProjectRow = {
     visibility: string | null;
     status: string | null;
     lifecycleStages: string[] | null;
-    importSource: {
-        metadata?: Record<string, unknown>;
-    } | null;
+    /** import_source.metadata.leadFocus, the only part a card reads. */
+    leadFocus: string | null;
     externalLinks: import('@/lib/profile/normalization').SocialLinkStorage | null;
     githubRepoUrl: string | null;
     createdAt: Date;
@@ -625,7 +624,8 @@ const projectSelectFields = {
     ownerId: projects.ownerId,
     title: projects.title,
     slug: projects.slug,
-    description: projects.description,
+    // A card shows two lines: no whole READMEs in a feed (the shared feed does the same).
+    description: sql<string | null>`left(${projects.description}, 280)`,
     shortDescription: projects.shortDescription,
     coverImage: projects.coverImage,
     category: projects.category,
@@ -636,7 +636,7 @@ const projectSelectFields = {
     visibility: projects.visibility,
     status: projects.status,
     lifecycleStages: projects.lifecycleStages,
-    importSource: projects.importSource,
+    leadFocus: sql<string | null>`${projects.importSource}->'metadata'->>'leadFocus'`,
     externalLinks: projects.externalLinks,
     githubRepoUrl: projects.githubRepoUrl,
     createdAt: projects.createdAt,
@@ -666,7 +666,7 @@ const hydrateProjects = async (
     const projectIds = rawProjects.map((project) => project.id);
     const ownerIds = Array.from(new Set(rawProjects.map((project) => project.ownerId)));
 
-    const [owners, roles, members, connectedMembers, ownerRelationshipMap] = await Promise.all([
+    const [owners, roles, members, connectedMembers, viewerMemberships] = await Promise.all([
         db.select({
                 id: profiles.id,
                 username: profiles.username,
@@ -675,19 +675,15 @@ const hydrateProjects = async (
             })
             .from(profiles)
             .where(inArray(profiles.id, ownerIds)),
+        // A card shows open seats, not the roles themselves: one summed row per project.
         db
             .select({
-                id: projectOpenRoles.id,
                 projectId: projectOpenRoles.projectId,
-                role: projectOpenRoles.role,
-                title: projectOpenRoles.title,
-                description: projectOpenRoles.description,
-                skills: projectOpenRoles.skills,
-                count: projectOpenRoles.count,
-                filled: projectOpenRoles.filled,
+                open: sql<number>`coalesce(sum(greatest(${projectOpenRoles.count} - ${projectOpenRoles.filled}, 0)), 0)`.mapWith(Number),
             })
             .from(projectOpenRoles)
             .where(inArray(projectOpenRoles.projectId, projectIds))
+            .groupBy(projectOpenRoles.projectId)
             .catch((error) => {
                 const message = error instanceof Error ? error.message : String(error);
                 if (message.toLowerCase().includes('project_open_roles') && message.toLowerCase().includes('does not exist')) {
@@ -695,36 +691,38 @@ const hydrateProjects = async (
                 }
                 throw error;
             }),
+        // ponytail: a card shows 4 avatars + "+N": read at most 8 members per project (the visible ones fill
+        // the stack) and the team size from SQL, not every member of every project.
         surface === 'preview'
             ? Promise.resolve([])
-            : db.select({
-                member: {
+            : (() => {
+                const ranked = db.select({
                     id: projectMembers.id,
                     projectId: projectMembers.projectId,
                     userId: projectMembers.userId,
                     role: projectMembers.role,
                     joinedAt: projectMembers.joinedAt,
-                },
-                user: {
-                    id: profiles.id,
                     username: profiles.username,
                     fullName: profiles.fullName,
                     avatarUrl: profiles.avatarUrl,
-                },
-            })
-            .from(projectMembers)
-            .innerJoin(profiles, and(eq(projectMembers.userId, profiles.id), isNull(profiles.deletedAt)))
-            .where(inArray(projectMembers.projectId, projectIds))
-            .catch((error) => {
-                const message = error instanceof Error ? error.message : String(error);
-                if (
-                    message.toLowerCase().includes('project_members') &&
-                    message.toLowerCase().includes('does not exist')
-                ) {
-                    return [];
-                }
-                throw error;
-            }),
+                    memberRank: sql<number>`row_number() over (partition by ${projectMembers.projectId} order by ${projectMembers.joinedAt}, ${projectMembers.userId})`.mapWith(Number).as('member_rank'),
+                    teamSize: sql<number>`count(*) over (partition by ${projectMembers.projectId})`.mapWith(Number).as('team_size'),
+                })
+                    .from(projectMembers)
+                    .innerJoin(profiles, and(eq(projectMembers.userId, profiles.id), isNull(profiles.deletedAt)))
+                    // The team size counts only members a stranger may see (as the shared feed does), so a private
+                    // member's existence isn't revealed by the number; a viewer always counts themselves.
+                    .where(and(
+                        inArray(projectMembers.projectId, projectIds),
+                        sql`(coalesce(${profiles.visibility}, 'public') = 'public' OR ${projectMembers.userId} = ${viewerId})`,
+                    ))
+                    .as('ranked_members');
+                return db.select().from(ranked).where(lte(ranked.memberRank, 8)).catch((error) => {
+                    const message = error instanceof Error ? error.message : String(error);
+                    if (message.toLowerCase().includes('project_members') && message.toLowerCase().includes('does not exist')) return [];
+                    throw error;
+                });
+            })(),
         surface === 'preview' && viewerId
             ? (() => {
                 const rankedConnectedMembers = db.select({
@@ -783,21 +781,24 @@ const hydrateProjects = async (
                 return db.select().from(rankedConnectedMembers).where(lte(rankedConnectedMembers.connectionRank, 3));
             })()
             : Promise.resolve([]),
-        resolvePrivacyRelationships(viewerId, ownerIds),
+        // Members-only links show to the viewer's own projects (any size of team, not just the 8 read above).
+        viewerId
+            ? db.select({ projectId: projectMembers.projectId }).from(projectMembers)
+                .where(and(eq(projectMembers.userId, viewerId), inArray(projectMembers.projectId, projectIds)))
+            : Promise.resolve([] as Array<{ projectId: string }>),
     ]);
 
     const ownerMap = new Map(owners.map((owner) => [owner.id, owner]));
     // Collaborators show only to people allowed to see them (public, or connected for
-    // connections-only), never across a block.
-    const memberIds = Array.from(new Set(members.map((member) => member.member.userId).filter((id) => !ownerRelationshipMap.has(id))));
-    const memberRelationshipMap = new Map([...ownerRelationshipMap, ...(await resolvePrivacyRelationships(viewerId, memberIds))]);
+    // connections-only), never across a block. One privacy lookup for owners and members together.
+    const memberRelationshipMap = await resolvePrivacyRelationships(viewerId, [...ownerIds, ...members.map((member) => member.userId)]);
+    const ownerRelationshipMap = memberRelationshipMap;
     const canShowMember = (userId: string) => {
         const relationship = memberRelationshipMap.get(userId);
         return Boolean(relationship && relationship.canViewProfile && !relationship.blockedByViewer && !relationship.blockedByTarget);
     };
     const leadFocusByProject = new Map(rawProjects.map((project) => {
-        const rawLeadFocus = project.importSource?.metadata?.leadFocus;
-        return [project.id, typeof rawLeadFocus === 'string' ? rawLeadFocus.trim() : ''] as const;
+        return [project.id, project.leadFocus?.trim() ?? ''] as const;
     }));
     const connectedMemberMap = new Map<string, {
         friends: Array<{ userId: string; name: string; role: string }>;
@@ -826,15 +827,9 @@ const hydrateProjects = async (
     });
 
 
-    type OpenRoleRow = Pick<
-        typeof projectOpenRoles.$inferSelect,
-        'id' | 'projectId' | 'role' | 'title' | 'description' | 'skills' | 'count' | 'filled'
-    >;
-    const rolesMap = new Map<string, OpenRoleRow[]>();
-    (roles as OpenRoleRow[]).forEach((role) => {
-        if (!rolesMap.has(role.projectId)) rolesMap.set(role.projectId, []);
-        rolesMap.get(role.projectId)!.push(role);
-    });
+    const viewerProjects = new Set(viewerMemberships.map((row) => row.projectId));
+    const openSeats = new Map((roles as Array<{ projectId: string; open: number }>).map((row) => [row.projectId, row.open]));
+    const teamSizes = new Map(members.map((member) => [member.projectId, member.teamSize]));
 
     const membersMap = new Map<
         string,
@@ -843,10 +838,13 @@ const hydrateProjects = async (
             user: { id: string; username: string | null; fullName: string | null; avatarUrl: string | null };
         }>
     >();
-    members.forEach((member) => {
-        if (!canShowMember(member.member.userId)) return;
-        if (!membersMap.has(member.member.projectId)) membersMap.set(member.member.projectId, []);
-        membersMap.get(member.member.projectId)!.push(member);
+    members.forEach((row) => {
+        if (!canShowMember(row.userId)) return;
+        if (!membersMap.has(row.projectId)) membersMap.set(row.projectId, []);
+        membersMap.get(row.projectId)!.push({
+            member: { id: row.id, projectId: row.projectId, userId: row.userId, role: row.role, joinedAt: row.joinedAt },
+            user: { id: row.userId, username: row.username, fullName: row.fullName, avatarUrl: row.avatarUrl },
+        });
     });
 
     return rawProjects.map((project) => {
@@ -886,7 +884,6 @@ const hydrateProjects = async (
                 projectId: project.id,
             });
         }
-        const projectRoles = rolesMap.get(project.id) || [];
         const projectMembersRows = membersMap.get(project.id) || [];
 
         const followersCount = project.followersCount || 0;
@@ -914,7 +911,7 @@ const hydrateProjects = async (
             visibility: project.visibility || 'public',
             externalLinks: filterProjectLinksForAudience(
                 project.externalLinks,
-                project.ownerId === viewerId || members.some((member) => member.member.projectId === project.id && member.member.userId === viewerId),
+                project.ownerId === viewerId || viewerProjects.has(project.id),
             ),
             githubRepoUrl: project.githubRepoUrl,
             viewCount: project.viewCount || 0,
@@ -936,16 +933,10 @@ const hydrateProjects = async (
                     avatarUrl: member.user.avatarUrl,
                 },
             })) as Project['collaborators'],
-            openRoles: projectRoles.map((role) => ({
-                id: role.id,
-                role: role.role,
-                count: role.count,
-                filled: role.filled,
-                projectId: role.projectId,
-                title: role.title || undefined,
-                description: role.description || undefined,
-                skills: role.skills || [],
-            })),
+            // Seats and team size as numbers: the card needs counts, not every role and member.
+            openRoles: [],
+            openRolesCount: openSeats.get(project.id) ?? 0,
+            collaboratorsCount: teamSizes.get(project.id) ?? projectMembersRows.length,
             followers: [],
             createdAt: project.createdAt.toISOString(),
             updatedAt: project.updatedAt.toISOString(),
@@ -1112,7 +1103,7 @@ export const getDiscoverProjects = async (
             tags: sql<string[] | null>`null`,
             visibility: sql<string | null>`null`,
             lifecycleStages: sql<string[] | null>`null`,
-            importSource: sql<RawProjectRow['importSource']>`null`,
+            leadFocus: sql<string | null>`null`,
             feedScore: scoreExpr ?? sql<number>`0`,
         }
         : { ...projectSelectFields, feedScore: scoreExpr ?? sql<number>`0` };

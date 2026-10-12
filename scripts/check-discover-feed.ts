@@ -121,6 +121,8 @@ async function main() {
       (${skillIds.javascript}, ${`JavaScript${run}`}, ${`javascript-${run}`}, ${`lang.javascript${run}`}),
       (${skillIds.java}, ${`Java${run}`}, ${`java-${run}`}, ${`lang.java${run}`})`;
     await sql`INSERT INTO project_skills (project_id, skill_id) VALUES (${ids.cLang}, ${skillIds.c}), (${ids.javascript}, ${skillIds.javascript})`;
+    // Four seats, one filled: the card counts three open, and the team size comes from SQL, not a member list.
+    await sql`INSERT INTO project_open_roles (project_id, role, count, filled) VALUES (${ids.open}, 'Designer', 4, 1), (${ids.open}, 'Writer', 2, 2)`;
 
     // ---- Shared (public) feed: one payload for everyone, shaped for a signed-out viewer.
     const fullPublic = await feed.queryAndCachePublicProjectsFeed(100, null);
@@ -224,6 +226,13 @@ async function main() {
     });
 
     // ---- Round 2.
+    await check("cards get open seats and visible team size as counts, not every role", async () => {
+      const shared = byId.get(ids.open);
+      const filtered = (await everything(base, "all", viewer)).find((project) => project.id === ids.open);
+      // Team size counts only members a stranger may see (the private one is not counted), in both feeds.
+      return shared?.open_seats === 3 && shared?.team_size === 2 && shared?.open_roles.length === 0
+        && filtered?.openRolesCount === 3 && filtered?.collaboratorsCount === 2 && (filtered?.openRoles?.length ?? 0) === 0;
+    });
     await check("public feed hides a masked creator's id (no linking their projects)", async () => {
       const item = (await feed.forViewer(fullPublic.projects, null)).find((project) => project.id === ids.privateOwned);
       return Boolean(item) && item!.owner_id === "" && item!.profiles.id === "";
@@ -299,6 +308,7 @@ async function main() {
   } finally {
     await sql`DELETE FROM project_skills WHERE project_id IN ${sql([...seeded])}`;
     await sql`DELETE FROM skills WHERE id IN ${sql(Object.values(skillIds))}`;
+    await sql`DELETE FROM project_open_roles WHERE project_id IN ${sql([...seeded])}`;
     await sql`DELETE FROM project_members WHERE project_id IN ${sql([...seeded])}`;
     await sql`DELETE FROM projects WHERE id IN ${sql([...seeded])}`;
     await sql`DELETE FROM connections WHERE requester_id IN ${sql([viewer, blocker])}`;

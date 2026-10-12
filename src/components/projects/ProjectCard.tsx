@@ -39,7 +39,7 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
     const followLock = useRef(false);
     useEffect(() => { setFollowing(isFollowing); }, [isFollowing]);
     useEffect(() => { setFollowers(initialFollowers); }, [initialFollowers]);
-    const { techStack, collaborators, totalOpenRoles } = useMemo(() => viewModel ?? toProjectCardViewModel(project), [viewModel, project]);
+    const { techStack, collaborators, totalOpenRoles, teamSize } = useMemo(() => viewModel ?? toProjectCardViewModel(project), [viewModel, project]);
     const hiddenTechStackCount = Math.max(0, techStack.length - MAX_PROJECT_CARD_SKILL_ICONS);
     const links = resolveProjectSocialLinks(project.externalLinks, project.githubRepoUrl);
     const primaryProjectLink = links.find(link => !link.managed) ?? links[0] ?? null;
@@ -114,9 +114,9 @@ export default memo(function ProjectCard({ project, viewModel, isFollowing = fal
         </div>}
         <div className="nb-project-card-footer">
             <div className="flex min-w-0 items-center gap-3">
-                <div className="flex -space-x-1.5" role="group" aria-label={`${collaborators.length} ${collaborators.length === 1 ? "collaborator" : "collaborators"}`}>
+                <div className="flex -space-x-1.5" role="group" aria-label={`${teamSize} ${teamSize === 1 ? "collaborator" : "collaborators"}`}>
                     {collaborators.slice(0, 4).map((person, index) => <UserAvatar key={person.username || index} identity={person} size={26} className="border-2 border-card" fallbackClassName="text-[11px]" />)}
-                    {collaborators.length > 4 && <span className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary font-mono text-[11px]">+{collaborators.length - 4}</span>}
+                    {teamSize > 4 && <span className="flex size-[26px] items-center justify-center rounded-md border-2 border-card bg-secondary font-mono text-[11px]">+{teamSize - 4}</span>}
                 </div>
                 {collaborators.length === 0 && <span className="nb-meta inline-flex items-center gap-1"><Users size={14} aria-hidden="true" />No team yet</span>}
                 {totalOpenRoles > 0 && <span className="nb-meta text-primary">{totalOpenRoles} open {totalOpenRoles === 1 ? "role" : "roles"}</span>}
