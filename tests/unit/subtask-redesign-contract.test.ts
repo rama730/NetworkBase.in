@@ -67,3 +67,21 @@ test("subtask upserts preserve concurrent rows and stable order", () => {
   assert.equal(merged[1]?.title, "Second, updated remotely");
   assert.equal(merged[1]?.completed, true);
 });
+
+// API-019: a bounded page never decides the totals, and rows past the first page stay reachable.
+import { readFileSync as readSource } from "node:fs";
+import { test as contractTest } from "node:test";
+import assertStrict from "node:assert/strict";
+
+contractTest("subtask pages expose hasMore, keyset load-more and aggregate totals", () => {
+  const hook = readSource("src/hooks/useTaskPanelResource.ts", "utf8");
+  assertStrict.match(hook, /\.range\(0, SUBTASK_PAGE_SIZE\)/);
+  assertStrict.match(hook, /hasMore = rows\.length > SUBTASK_PAGE_SIZE/);
+  assertStrict.match(hook, /count: "exact", head: true/);
+  // List length may only stand in for the total when the list is complete.
+  assertStrict.match(hook, /loaded\.hasMore\s*\? \{ \.\.\.current, \.\.\.\(loaded\.totals \?\? \{\}\) \}/);
+  assertStrict.match(hook, /if \(subtasksHasMoreRef\.current\) \{[^}]*refreshSubtaskTotals/s);
+  assertStrict.match(hook, /position\.gt\.\$\{last\.position\},and\(position\.eq\.\$\{last\.position\},id\.gt\.\$\{last\.id\}\)/);
+  const tab = readSource("src/components/projects/v2/tasks/TaskDetailTabs/SubtasksTab.tsx", "utf8");
+  assertStrict.match(tab, /Load more subtasks/);
+});

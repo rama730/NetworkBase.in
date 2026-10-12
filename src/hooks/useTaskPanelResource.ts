@@ -100,6 +100,8 @@ function mergeFileWarnings(...warningSets: TaskFileReadinessWarning[][]) {
   return merged;
 }
 
+const SUBTASK_PAGE_SIZE = 200;
+
 function toPanelSubtask(value: Record<string, unknown> | null) {
   if (!value) return null;
   const toIsoDate = (raw: unknown) => {
@@ -186,6 +188,12 @@ export function useTaskPanelResource(params: {
     countsFromTask(normalizeTaskSurfaceRecord(initialTask)),
   );
   const [subtasks, setSubtasks] = useState<TaskPanelSubtask[]>([]);
+  // More rows exist beyond the loaded page. While true, totals come from aggregate reads, never from the list length (API-019).
+  const [subtasksHasMore, setSubtasksHasMore] = useState(false);
+  const subtasksRef = useRef<TaskPanelSubtask[]>([]);
+  const subtasksHasMoreRef = useRef(false);
+  subtasksHasMoreRef.current = subtasksHasMore;
+  subtasksRef.current = subtasks;
   const [attachments, setAttachments] = useState<ProjectNode[]>([]);
   const [fileWarningState, setFileWarningState] = useState<FileWarningState>({
     warnings: [],
@@ -315,19 +323,39 @@ export function useTaskPanelResource(params: {
     setErrors((current) => ({ ...current, [section]: null }));
   }, []);
 
+  const readSubtaskTotals = useCallback(async () => {
+    const [total, completed] = await Promise.all([
+      supabase.from("task_subtasks").select("id", { count: "exact", head: true }).eq("task_id", task.id),
+      supabase.from("task_subtasks").select("id", { count: "exact", head: true }).eq("task_id", task.id).eq("completed", true),
+    ]);
+    if (total.error || completed.error) return null;
+    return { subtasks: total.count ?? 0, completedSubtasks: completed.count ?? 0 };
+  }, [supabase, task.id]);
+
+  const refreshSubtaskTotals = useCallback(async () => {
+    const requestedTaskId = task.id;
+    const totals = await readSubtaskTotals();
+    if (totals && taskIdRef.current === requestedTaskId) setCounts((current) => ({ ...current, ...totals }));
+  }, [readSubtaskTotals, task.id]);
+
   const replaceSubtasks = useCallback(
     (updater: (current: TaskPanelSubtask[]) => TaskPanelSubtask[]) => {
       setSubtasks((current) => {
         const next = updater(current);
-        setCounts((counts) => ({
-          ...counts,
-          subtasks: next.length,
-          completedSubtasks: next.filter((subtask) => subtask.completed).length,
-        }));
+        if (subtasksHasMoreRef.current) {
+          // The list is only a page: the aggregate decides the totals.
+          void refreshSubtaskTotals();
+        } else {
+          setCounts((counts) => ({
+            ...counts,
+            subtasks: next.length,
+            completedSubtasks: next.filter((subtask) => subtask.completed).length,
+          }));
+        }
         return next;
       });
     },
-    [],
+    [refreshSubtaskTotals],
   );
 
   const loadSubtasks = useCallback(async () => {
@@ -337,7 +365,7 @@ export function useTaskPanelResource(params: {
     clearError("subtasks");
 
     try {
-      const mapped = await queryClient.fetchQuery({
+      const loaded = await queryClient.fetchQuery({
         queryKey: queryKeys.project.detail.taskPanel(
           projectId,
           task.id,
@@ -345,29 +373,40 @@ export function useTaskPanelResource(params: {
         ),
         staleTime: PANEL_STALE_TIME_MS,
         queryFn: async () => {
+          // One extra row tells whether another page exists.
           const { data, error } = await supabase
             .from("task_subtasks")
             .select("id, task_id, title, completed, position, created_at, updated_at")
             .eq("task_id", task.id)
             .order("position", { ascending: true })
             .order("id", { ascending: true })
-            .range(0, 199);
+            .range(0, SUBTASK_PAGE_SIZE);
           if (error) throw error;
           const rows = (data ?? []) as Record<string, unknown>[];
-          return sortTaskSubtasks(
+          const hasMore = rows.length > SUBTASK_PAGE_SIZE;
+          const page = sortTaskSubtasks(
             rows
+              .slice(0, SUBTASK_PAGE_SIZE)
               .map((subtask) => toPanelSubtask(subtask))
               .filter((subtask): subtask is TaskPanelSubtask => Boolean(subtask)),
           );
+          return { page, hasMore, totals: hasMore ? await readSubtaskTotals() : null };
         },
       });
       if (taskIdRef.current !== requestedTaskId) return [];
+      const mapped = loaded.page;
       setSubtasks(mapped);
-      setCounts((current) => ({
-        ...current,
-        subtasks: mapped.length,
-        completedSubtasks: mapped.filter((subtask) => subtask.completed).length,
-      }));
+      setSubtasksHasMore(loaded.hasMore);
+      subtasksHasMoreRef.current = loaded.hasMore;
+      setCounts((current) =>
+        loaded.hasMore
+          ? { ...current, ...(loaded.totals ?? {}) }
+          : {
+              ...current,
+              subtasks: mapped.length,
+              completedSubtasks: mapped.filter((subtask) => subtask.completed).length,
+            },
+      );
       recordSubtaskMetric({
         action: "load",
         status: "success",
@@ -395,7 +434,35 @@ export function useTaskPanelResource(params: {
         setLoading((current) => ({ ...current, subtasks: false }));
       }
     }
-  }, [clearError, projectId, queryClient, supabase, task.id]);
+  }, [clearError, projectId, queryClient, readSubtaskTotals, supabase, task.id]);
+
+  const loadMoreSubtasks = useCallback(async () => {
+    const requestedTaskId = task.id;
+    const last = subtasksRef.current.at(-1);
+    if (!last || !subtasksHasMoreRef.current) return;
+    const { data, error } = await supabase
+      .from("task_subtasks")
+      .select("id, task_id, title, completed, position, created_at, updated_at")
+      .eq("task_id", task.id)
+      .or(`position.gt.${last.position},and(position.eq.${last.position},id.gt.${last.id})`)
+      .order("position", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(SUBTASK_PAGE_SIZE + 1);
+    if (taskIdRef.current !== requestedTaskId) return;
+    if (error) {
+      setErrors((current) => ({ ...current, subtasks: error.message }));
+      return;
+    }
+    const rows = (data ?? []) as Record<string, unknown>[];
+    const next = rows
+      .slice(0, SUBTASK_PAGE_SIZE)
+      .map((subtask) => toPanelSubtask(subtask))
+      .filter((subtask): subtask is TaskPanelSubtask => Boolean(subtask));
+    setSubtasks((current) => sortTaskSubtasks([...current, ...next.filter((row) => !current.some((existing) => existing.id === row.id))]));
+    const more = rows.length > SUBTASK_PAGE_SIZE;
+    setSubtasksHasMore(more);
+    subtasksHasMoreRef.current = more;
+  }, [supabase, task.id]);
 
   const loadAttachments = useCallback(async () => {
     const requestedTaskId = task.id;
@@ -559,10 +626,17 @@ export function useTaskPanelResource(params: {
           if (loadedTabsRef.current.subtasks) {
             replaceSubtasks((current) => {
               let next = current;
+              // With more pages unloaded, a row sorting after the loaded window belongs to a later page.
+              const last = current.at(-1);
+              const beyondWindow = Boolean(
+                nextPayload && subtasksHasMoreRef.current && last &&
+                  !current.some((subtask) => subtask.id === nextPayload.id) &&
+                  nextPayload.position >= last.position,
+              );
               if (eventType === "INSERT" && nextPayload) {
-                next = upsertTaskSubtask(current, nextPayload);
+                next = beyondWindow ? current : upsertTaskSubtask(current, nextPayload);
               } else if (eventType === "UPDATE" && nextPayload) {
-                next = upsertTaskSubtask(current, nextPayload);
+                next = beyondWindow ? current : upsertTaskSubtask(current, nextPayload);
               } else if (eventType === "DELETE" && previousPayload?.id) {
                 next = current.filter(
                   (subtask) => subtask.id !== previousPayload.id,
@@ -1035,6 +1109,7 @@ export function useTaskPanelResource(params: {
       counts,
       comments: discussion.comments as TaskDiscussionComment[],
       subtasks,
+      subtasksHasMore,
       attachments,
       fileWarnings: fileWarningState.warnings,
       fileWarningSummary: fileWarningState.summary,
@@ -1060,6 +1135,7 @@ export function useTaskPanelResource(params: {
       loadOlderComments: discussion.loadOlderComments,
       sendCommentTyping: discussion.sendTyping,
       loadSubtasks,
+      loadMoreSubtasks,
       loadAttachments: refreshAttachments,
       refreshTask: loadTask,
       fileMutations,
@@ -1069,6 +1145,7 @@ export function useTaskPanelResource(params: {
       counts,
       discussion.comments,
       subtasks,
+      subtasksHasMore,
       attachments,
       fileWarningState.warnings,
       fileWarningState.summary,
@@ -1095,6 +1172,7 @@ export function useTaskPanelResource(params: {
       discussion.loadOlderComments,
       discussion.sendTyping,
       loadSubtasks,
+      loadMoreSubtasks,
       refreshAttachments,
       loadTask,
       fileMutations,

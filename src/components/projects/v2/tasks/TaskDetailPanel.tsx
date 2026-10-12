@@ -499,6 +499,10 @@ export default function TaskDetailPanel({
               >
                 <SubtasksTab
                   subtasks={resource.subtasks}
+                  totalCount={resource.counts.subtasks}
+                  completedTotal={resource.counts.completedSubtasks}
+                  hasMore={resource.subtasksHasMore}
+                  onLoadMore={resource.loadMoreSubtasks}
                   isLoading={resource.loading.subtasks}
                   error={resource.errors.subtasks}
                   canEdit={canEdit}
