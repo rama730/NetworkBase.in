@@ -1,4 +1,5 @@
 import { and, eq, sql, or, notInArray } from "drizzle-orm";
+import { replaceSuggestions } from "@/lib/connections/suggestions";
 import { inngest } from "../client";
 import { db } from "@/lib/db";
 import {
@@ -57,7 +58,7 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
 
             const myConnIds = myConnections.map(c => c.id);
             if (myConnIds.length === 0) {
-                await db.delete(connectionSuggestions).where(eq(connectionSuggestions.userId, userId));
+                await replaceSuggestions(userId, []);
                 return 0;
             }
 
@@ -101,7 +102,7 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
 
             const suggestions = Array.from(result);
             if (suggestions.length === 0) {
-                await db.delete(connectionSuggestions).where(eq(connectionSuggestions.userId, userId));
+                await replaceSuggestions(userId, []);
                 return 0;
             }
 
@@ -149,31 +150,11 @@ export const computeSocialGraphSuggestions = inngest.createFunction(
                 .slice(0, 50);
 
             if (topSuggestions.length === 0) {
-                await db.delete(connectionSuggestions).where(eq(connectionSuggestions.userId, userId));
+                await replaceSuggestions(userId, []);
                 return 0;
             }
 
-            await db
-                .insert(connectionSuggestions)
-                .values(topSuggestions)
-                .onConflictDoUpdate({
-                    target: [connectionSuggestions.userId, connectionSuggestions.suggestedUserId],
-                    set: {
-                        mutualConnectionsCount: sql`excluded.mutual_connections_count`,
-                        score: sql`excluded.score`,
-                        reason: sql`excluded.reason`,
-                        updatedAt: new Date(),
-                    }
-                });
-
-            // Keep this derived cache exact. Otherwise a removed mutual could
-            // remain visible until a later unrelated recommendation refresh.
-            await db
-                .delete(connectionSuggestions)
-                .where(and(
-                    eq(connectionSuggestions.userId, userId),
-                    notInArray(connectionSuggestions.suggestedUserId, topSuggestions.map((item) => item.suggestedUserId)),
-                ));
+            await replaceSuggestions(userId, topSuggestions);
 
             return topSuggestions.length;
         });
