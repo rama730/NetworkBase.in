@@ -8,17 +8,21 @@ import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+let stageIdSeq = 0;
+const newId = () => `stage-${stageIdSeq++}`;
+
 interface LifecycleEditorProps {
     stages: string[];
-    onChange: (stages: string[]) => void;
+    /** `currentStageName` follows the current stage through renames and reorders; null once it is removed. */
+    onChange: (stages: string[], currentStageName: string | null) => void;
     currentStageIndex?: number; // Optional visual indicator of current progress
     showCurrentStage?: boolean;
 }
 
-function SortableStage({ id, className, children }: { id: string; className: string; children: (handle: React.ReactNode) => React.ReactNode }) {
+function SortableStage({ id, label, className, children }: { id: string; label: string; className: string; children: (handle: React.ReactNode) => React.ReactNode }) {
     const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
     const handle = (
-        <button type="button" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Reorder ${id} stage`} className="inline-flex shrink-0 cursor-grab touch-none items-center text-muted-foreground/60 transition-colors hover:text-foreground active:cursor-grabbing">
+        <button type="button" ref={setActivatorNodeRef} {...attributes} {...listeners} aria-label={`Reorder ${label} stage`} className="inline-flex shrink-0 cursor-grab touch-none items-center text-muted-foreground/60 transition-colors hover:text-foreground active:cursor-grabbing">
             <GripVertical className="h-4 w-4" />
         </button>
     );
@@ -29,9 +33,25 @@ function SortableStage({ id, className, children }: { id: string; className: str
     );
 }
 
-export function LifecycleEditor({ stages, onChange, currentStageIndex = 0, showCurrentStage = true }: LifecycleEditorProps) {
+export function LifecycleEditor({ stages, onChange: emitChange, currentStageIndex = 0, showCurrentStage = true }: LifecycleEditorProps) {
     const [newStage, setNewStage] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
+    // Row identity is a parallel id list, never the stage text: renaming keeps focus and duplicates
+    // keep distinct keys. The current stage is tracked by id, so its index survives edits.
+    const [ids, setIds] = useState<string[]>(() => stages.map(newId));
+    const [currentId, setCurrentId] = useState<string | null>(() => ids[currentStageIndex] ?? null);
+    if (ids.length !== stages.length) {
+        // The parent replaced the list (cancel/reset): start a fresh identity.
+        const fresh = stages.map(newId);
+        setIds(fresh);
+        setCurrentId(fresh[currentStageIndex] ?? null);
+    }
+    const liveCurrentIndex = currentId ? ids.indexOf(currentId) : -1;
+    const onChange = (nextStages: string[], nextIds: string[]) => {
+        setIds(nextIds);
+        const currentAt = currentId ? nextIds.indexOf(currentId) : -1;
+        emitChange(nextStages, currentAt >= 0 ? nextStages[currentAt] ?? null : null);
+    };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
@@ -64,21 +84,22 @@ export function LifecycleEditor({ stages, onChange, currentStageIndex = 0, showC
             return;
         }
 
-        onChange([...stages, trimmed]);
+        onChange([...stages, trimmed], [...ids, newId()]);
         setNewStage("");
         setErrorMsg("");
     };
 
     const handleRemove = (index: number) => {
         if (stages.length <= 1) return;
-        const newStages = stages.filter((_, i) => i !== index);
-        onChange(newStages);
+        onChange(stages.filter((_, i) => i !== index), ids.filter((_, i) => i !== index));
     };
 
     const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
     const handleDragEnd = ({ active, over }: DragEndEvent) => {
         if (!over || active.id === over.id) return;
-        onChange(arrayMove(stages, stages.indexOf(String(active.id)), stages.indexOf(String(over.id))));
+        const from = ids.indexOf(String(active.id));
+        const to = ids.indexOf(String(over.id));
+        onChange(arrayMove(stages, from, to), arrayMove(ids, from, to));
     };
 
     const handleStageChange = (index: number, value: string) => {
@@ -91,7 +112,7 @@ export function LifecycleEditor({ stages, onChange, currentStageIndex = 0, showC
             msg = "Stage name already exists";
         }
         setErrorMsg(msg);
-        onChange(stages.map((stage, i) => (i === index ? cleaned : stage)));
+        onChange(stages.map((stage, i) => (i === index ? cleaned : stage)), ids);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -156,15 +177,16 @@ export function LifecycleEditor({ stages, onChange, currentStageIndex = 0, showC
                 </div>
 
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={stages} strategy={verticalListSortingStrategy}>
+                <SortableContext items={ids} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
                     {stages.map((stage, index) => (
                         <SortableStage
-                            key={stage}
-                            id={stage}
+                            key={ids[index]}
+                            id={ids[index]!}
+                            label={stage}
                             className={cn(
                                 "flex min-h-[44px] items-center gap-2.5 rounded-lg border bg-card px-3 py-2 shadow-none transition-colors",
-                                showCurrentStage && index === currentStageIndex
+                                showCurrentStage && index === liveCurrentIndex
                                     ? "border-primary/40 bg-primary/[0.03] ring-1 ring-primary/20"
                                     : "border-border hover:border-border/80"
                             )}
@@ -182,7 +204,7 @@ export function LifecycleEditor({ stages, onChange, currentStageIndex = 0, showC
                                 aria-label={`Stage ${index + 1} name`}
                             />
 
-                            {showCurrentStage && index === currentStageIndex && (
+                            {showCurrentStage && index === liveCurrentIndex && (
                                 <span className="inline-flex items-center h-5 px-[7px] rounded-[3px] border border-primary/20 bg-primary/10 font-mono text-[11px] font-medium uppercase tracking-[0.09em] text-primary leading-none shrink-0">
                                     Current
                                 </span>

@@ -30,12 +30,13 @@ function useDocRail(projectId: string, activeSlug: string) {
     const [addOpen, setAddOpen] = useState(false);
     const [removing, setRemoving] = useState<ProjectDocListItem | null>(null);
 
-    const navigate = (slug: string | null) => {
+    // Opening a doc is a history entry; leaving a removed doc replaces it.
+    const navigate = (slug: string | null, replace = false) => {
         const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
         params.set("tab", "docs");
         if (slug) params.set("doc", normalizeProjectDocSlug(slug));
         else params.delete("doc");
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+        router[replace ? "replace" : "push"](`${pathname}?${params.toString()}`, { scroll: false });
     };
 
     const confirmRemove = async () => {
@@ -47,7 +48,7 @@ function useDocRail(projectId: string, activeSlug: string) {
             queryClient.invalidateQueries({ queryKey: PROJECT_DOC_LIST_QUERY_KEY(projectId) }),
             queryClient.invalidateQueries({ queryKey: PROJECT_DOCS_QUERY_KEY(projectId) }),
         ]);
-        if (removing.slug === activeSlug) navigate(null);
+        if (removing.slug === activeSlug) navigate(null, true);
         toast.success("Removed from Docs");
     };
 

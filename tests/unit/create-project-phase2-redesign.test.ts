@@ -56,7 +56,7 @@ test('Phase 2 preserves draft safety; step 4 reuses the canonical Settings lifec
     assert.match(launch, /showCurrentStage=\{false\}/);
     assert.doesNotMatch(launch, /Where is the project now|current_stage_index/);
     assert.match(lifecycle, /showCurrentStage\?: boolean/);
-    assert.match(lifecycle, /showCurrentStage && index === currentStageIndex/);
+    assert.match(lifecycle, /showCurrentStage && index === liveCurrentIndex/);
     assert.doesNotMatch(lifecycle, /Earlier/);
     assert.doesNotMatch(lifecycle, /Later/);
     assert.match(lifecycle, /Drag stages using the grip handle to reorder the project roadmap timeline\./);

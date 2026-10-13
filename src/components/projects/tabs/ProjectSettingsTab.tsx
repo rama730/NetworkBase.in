@@ -324,7 +324,7 @@ export default function ProjectSettingsTab({
             const params = new URLSearchParams(window.location.search);
             params.set("tab", "settings");
             params.set("settings", sectionId);
-            router.replace(`?${params.toString()}`, { scroll: false });
+            router.push(`?${params.toString()}`, { scroll: false });
         }
 
         scrollToSection(sectionId, "smooth");

@@ -326,7 +326,7 @@ export default function ProjectLayout({
                                         <ProjectAvatar
                                             project={project}
                                             size="detail"
-                                            isOwner={canManageSettings ?? isOwner}
+                                            isOwner={isOwner}
                                             slugOrId={project.slug || project.id}
                                             className="max-md:size-12 max-md:rounded-[8px]"
                                         />
@@ -357,7 +357,8 @@ export default function ProjectLayout({
                                             standalone
                                             projectId={project.id || project.slug}
                                         />
-                                        {(canManageSettings ?? isOwner) && (project?.slug || project?.id) && (
+                                        {/* General (images) is owner-only; admins would land on a section they cannot open. */}
+                                        {isOwner && (project?.slug || project?.id) && (
                                             <Link
                                                 href={`/projects/${project.slug || project.id}?tab=settings#project-settings-general`}
                                                 className="nb-touch-target group/add-avatar inline-flex items-center justify-center gap-1.5 rounded-full border border-dashed border-border/80 px-2.5 py-0.5 text-xs text-muted-foreground transition-[color,border-color,background-color] duration-150 hover:border-foreground/40 hover:bg-muted/40 hover:text-foreground"
