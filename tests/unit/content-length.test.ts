@@ -21,3 +21,11 @@ test("backup, upload verification and bounded reads use it instead of Number(hea
     assert.doesNotMatch(source, /Number\([^)]*get\("content-length"\)\)/, file);
   }
 });
+
+// COR-018 (backup queue): failed assets rotate behind fresh ones and wait out a retry window.
+test("the backup selector puts never-failed assets first and stamps failures", () => {
+  const backup = readFileSync("src/lib/storage/asset-backup.ts", "utf8");
+  assert.match(backup, /BACKUP_RETRY_AFTER/);
+  assert.match(backup, /\(\$\{storageAssets\.lastErrorCode\} IS NOT NULL\)/);
+  assert.match(backup, /lastErrorCode: "backup_failed"/);
+});
