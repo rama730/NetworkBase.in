@@ -76,6 +76,7 @@ interface EditProfileTabsProps {
     contributionHasMore?: boolean;
     contributionTotal?: number;
     onLoadMoreContributions?: () => void;
+    onImageFinalized?: (avatarUrl: string, updatedAt?: string) => void;
 }
 
 const EDIT_SECTIONS: Array<{
@@ -102,6 +103,7 @@ export function EditProfileTabs({
     contributionHasMore = false,
     contributionTotal = 0,
     onLoadMoreContributions,
+    onImageFinalized,
 }: EditProfileTabsProps) {
     const [avatarUploading, setAvatarUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,13 +147,15 @@ export function EditProfileTabs({
 
             const finalized = await finalizeProfileImageUploadAction({
                 uploadIntentId: uploadSession.uploadIntentId,
+                commitToProfile: false,
             });
             if (!finalized.success) {
                 throw new Error(finalized.error || "Failed to finalize image upload");
             }
 
             updateForm("avatarUrl", finalized.publicUrl);
-            toast.success("Avatar updated");
+            onImageFinalized?.(finalized.publicUrl, finalized.updatedAt);
+            toast.success("Avatar ready to save");
         } catch (error: any) {
             updateForm("avatarUrl", previousAvatarUrl);
             const message = error?.message || "Unknown error";
