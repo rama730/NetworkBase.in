@@ -1,5 +1,6 @@
 import "server-only";
 
+import { reportedContentLength } from "@/lib/http/content-length";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export async function readBoundedStorageBytes(input: {
@@ -16,8 +17,8 @@ export async function readBoundedStorageBytes(input: {
   try {
     const response = await fetch(data.signedUrl, { cache: "no-store", signal: controller.signal });
     if (!response.ok || !response.body) throw new Error(`Storage read failed (${response.status})`);
-    const reportedLength = Number(response.headers.get("content-length"));
-    if (Number.isFinite(reportedLength) && reportedLength > input.maxBytes) {
+    const reportedLength = reportedContentLength(response.headers);
+    if (reportedLength !== null && reportedLength > input.maxBytes) {
       throw new Error("Stored object exceeds the inline read limit");
     }
     const reader = response.body.getReader();

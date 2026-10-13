@@ -1,5 +1,6 @@
 import "server-only";
 
+import { reportedContentLength } from "@/lib/http/content-length";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/lib/db";
@@ -74,8 +75,8 @@ export async function backupPendingStorageAssets() {
       if (error || !data?.signedUrl) throw new Error(error?.message || "Origin signing failed");
       const origin = await fetch(data.signedUrl, { signal: controller.signal, cache: "no-store" });
       if (!origin.ok || !origin.body) throw new Error(`Origin read failed with HTTP ${origin.status}`);
-      const contentLength = Number(origin.headers.get("content-length"));
-      if (Number.isFinite(contentLength) && contentLength !== asset.size) {
+      const contentLength = reportedContentLength(origin.headers);
+      if (contentLength !== null && contentLength !== asset.size) {
         throw new Error("Origin size changed before backup");
       }
       const key = await putS3Backup({
