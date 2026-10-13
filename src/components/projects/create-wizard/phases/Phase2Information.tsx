@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from 'react';
-import { Controller, useFormContext } from 'react-hook-form';
+import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { Plus, X } from 'lucide-react';
 import { SkillPicker } from '@/components/skills/SkillPicker';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,15 @@ function FieldError({ id, message }: { id: string; message?: string }) {
     if (!message) return null;
 
     return <p id={id} role="alert" className="mt-1.5 text-[13px] leading-[1.5] text-destructive">{message}</p>;
+}
+
+function CharacterCount({ name, maxLength }: { name: 'title' | 'short_description' | 'description'; maxLength: number }) {
+    const value = useWatch<CreateProjectInput>({ name }) as string | undefined;
+    return (
+        <span className="nb-meta mb-2 shrink-0 text-muted-foreground">
+            {(value || '').length}/{maxLength}
+        </span>
+    );
 }
 
 function FieldLabel({ htmlFor, children, required = false }: { htmlFor: string; children: ReactNode; required?: boolean }) {
@@ -50,9 +59,6 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
     const tags = watch('tags') || [];
     const technologies = watch('technologies_used') || [];
     const projectType = watch('project_type');
-    const title = watch('title') || '';
-    const tagline = watch('short_description') || '';
-    const description = watch('description') || '';
     const selectedProjectType = PROJECT_TYPE_OPTIONS.find((type) => type.id === projectType);
 
     const validationErrors = [
@@ -183,7 +189,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-title" required>Project title</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{title.length}/100</span>
+                            <CharacterCount name="title" maxLength={100} />
                         </div>
                         <Input
                             id="create-project-title"
@@ -202,7 +208,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-tagline">Tagline</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{tagline.length}/200</span>
+                            <CharacterCount name="short_description" maxLength={200} />
                         </div>
                         <Input
                             id="create-project-tagline"
@@ -229,7 +235,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-description" required>Description</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{description.length}/5000</span>
+                            <CharacterCount name="description" maxLength={5000} />
                         </div>
                         <textarea
                             id="create-project-description"

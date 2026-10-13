@@ -27,6 +27,7 @@ import { Phase1SourceMethodGroup, type ProjectSourceType } from '@/components/pr
 import { buildUploadManifest, type UploadManifest } from '@/components/projects/create-wizard/phase1/upload-manifest';
 import { clearGithubOAuthResume, getCreateProjectReturnPath, saveGithubOAuthResume } from '@/components/projects/create-wizard/github-oauth-resume';
 import { isGithubAccessRefreshError } from '@/components/projects/create-wizard/phase1/github-access';
+import { normalizeGithubRepoUrl } from '@/lib/github/repo-validation';
 
 const UploadManifestPreview = dynamic(() => import('@/components/projects/create-wizard/phase1/UploadManifestPreview').then((mod) => mod.UploadManifestPreview));
 const GithubImportDetails = dynamic(() => import('@/components/projects/create-wizard/phase1/GithubImportDetails').then((mod) => mod.GithubImportDetails));
@@ -176,18 +177,7 @@ export default function Phase1SourceSelection({
     }, [githubEntryMode, hasGithubRepoAccess]);
 
     const normalizeGitHubRepoUrl = useCallback((raw: string) => {
-        const value = (raw || '').trim();
-        if (!value) return '';
-        if (value.startsWith('http://') || value.startsWith('https://')) {
-            return value.replace(/^http:\/\//, 'https://').replace(/\/+$/, '');
-        }
-        if (value.startsWith('github.com/')) {
-            return `https://${value}`.replace(/\/+$/, '');
-        }
-        if (/^[^/\s]+\/[^/\s]+$/.test(value)) {
-            return `https://github.com/${value}`.replace(/\/+$/, '');
-        }
-        return value;
+        return normalizeGithubRepoUrl(raw) ?? (raw || '').trim();
     }, []);
 
     const importSourceMetadata = (watch('import_source.metadata') || {}) as ImportSourceMetadata;
