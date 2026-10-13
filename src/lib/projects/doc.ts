@@ -82,7 +82,7 @@ export type ProjectDocPublishedPayload = {
     version: ProjectDocVersion | null;
     smartBlocks: ProjectDocSmartBlock[];
     linkedNodeId?: string | null;
-    linkedNode?: { id: string; name: string; path: string; s3Key: string } | null;
+    linkedNode?: { id: string; name: string; path: string } | null;
 };
 
 export const PROJECT_DOC_MAX_CONTENT_BYTES = 500 * 1024;

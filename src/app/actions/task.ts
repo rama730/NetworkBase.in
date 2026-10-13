@@ -90,6 +90,7 @@ async function lockTaskForWrite(
 ): Promise<{
   projectId: string;
   isOwner: boolean;
+  isLeader: boolean;
   previousAssigneeId: string | null;
   previousSprintId: string | null;
   currentWorkflowColumnId: string | null;
@@ -157,6 +158,7 @@ async function lockTaskForWrite(
   return {
     projectId: row.project_id,
     isOwner,
+    isLeader: isOwner || (row.member_role ?? "").toLowerCase() === "admin",
     previousAssigneeId: row.assignee_id ?? null,
     previousSprintId: row.sprint_id ?? null,
     currentWorkflowColumnId: row.workflow_column_id ?? null,
@@ -683,7 +685,8 @@ export async function moveTaskToWorkflowColumnAction(
     if (
       !z.string().uuid().safeParse(taskId).success ||
       !z.string().uuid().safeParse(projectId).success ||
-      !z.string().uuid().safeParse(workflowColumnId).success
+      !z.string().uuid().safeParse(workflowColumnId).success ||
+      (position !== undefined && !z.number().finite().safeParse(position).success)
     ) {
       return { success: false as const, error: "Invalid task move" };
     }
@@ -707,6 +710,9 @@ export async function moveTaskToWorkflowColumnAction(
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId)
         throw new Error("Task does not belong to this project");
+      // Members move their own or unassigned tasks; leads move any (the board mirrors this).
+      if (!locked.isLeader && locked.previousAssigneeId && locked.previousAssigneeId !== user.id)
+        throw new Error("Only the assignee or a project lead can move this task.");
       if (
         expectedVersion &&
         locked.currentUpdatedAt.getTime() !== expectedVersion.getTime()

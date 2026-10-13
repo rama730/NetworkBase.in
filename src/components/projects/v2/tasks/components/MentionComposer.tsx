@@ -796,6 +796,13 @@ export const MentionComposer = React.forwardRef<MentionComposerHandle, MentionCo
                 onInput={handleInput}
                 onBeforeInput={handleBeforeInput}
                 onKeyDown={handleKeyDown}
+                onPaste={(event) => {
+                    // Plain text only: rich paste could carry remote images or forged mention chips.
+                    event.preventDefault();
+                    const text = event.clipboardData.getData("text/plain");
+                    if (text) document.execCommand("insertText", false, text);
+                }}
+                onDrop={(event) => event.preventDefault()}
                 onBlur={() => {
                     // Delay close so pointer-down inside the menu lands first.
                     if (blurTimeoutRef.current !== null) window.clearTimeout(blurTimeoutRef.current);

@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { updateProject } from "@/app/actions/project";
+import { updateProject, updateProjectLifecycleAction } from "@/app/actions/project";
 import { SkillPicker } from "@/components/skills/SkillPicker";
 import { ProjectLinkEditorFields, type ProjectLinkEditorHandle } from "@/components/projects/dashboard/ProjectSocialLinksCard";
 import { socialLinkItemsFromStorage } from "@/lib/profile/normalization";
@@ -41,7 +41,6 @@ const projectSchema = z.object({
     tags: z.array(z.string()),
     roles: z.array(roleSchema),
     lifecycleStages: z.array(z.string()),
-    currentStageIndex: z.number(),
     externalLinks: externalLinksSchema,
 });
 
@@ -117,6 +116,9 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
     const router = useRouter();
     const projectLinksRef = useRef<ProjectLinkEditorHandle>(null);
 
+    const initialStages: string[] = project.lifecycleStages ?? ["Concept", "Team Formation", "MVP", "Beta", "Launch"];
+    const currentStageIndex: number = project.currentStageIndex ?? 0;
+
     // Setup Form
     const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<ProjectFormValues>({
         resolver: zodResolver(projectSchema),
@@ -131,8 +133,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
             tags: project.tags || [],
             // Check camelCase (Drizzle default) then snake_case (Raw/Legacy)
             // Use defaults ONLY if both are null/undefined, effectively initializing new/legacy projects
-            lifecycleStages: project.lifecycleStages ?? ["Concept", "Team Formation", "MVP", "Beta", "Launch"],
-            currentStageIndex: project.currentStageIndex ?? 0,
+            lifecycleStages: initialStages,
             roles: normalizeProjectRoleFormValues(project.openRoles),
             externalLinks: socialLinkItemsFromStorage(project.externalLinks ?? project.external_links),
         }
@@ -181,9 +182,18 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
             try {
                 const preparedLinks = await projectLinksRef.current?.prepareForSave();
                 if (preparedLinks && !preparedLinks.success) return;
-                const dbPayload = { ...data, externalLinks: preparedLinks?.links ?? data.externalLinks, deletedRoleIds };
-
-                await updateProject(project.id, dbPayload);
+                const { lifecycleStages, status, ...rest } = data;
+                // Archive has its own guarded flow; the stage lives in the lifecycle action, which re-maps it by name.
+                await updateProject(project.id, {
+                    ...rest,
+                    ...(status === "archived" ? {} : { status }),
+                    externalLinks: preparedLinks?.links ?? data.externalLinks,
+                    deletedRoleIds,
+                });
+                if (lifecycleStages.join("\n") !== initialStages.join("\n")) {
+                    const lifecycle = await updateProjectLifecycleAction(project.id, lifecycleStages, initialStages[currentStageIndex] ?? "");
+                    if (!lifecycle.success) throw new Error(lifecycle.error);
+                }
                 toast.success("Project updated successfully");
                 if (onSaved) onSaved();
                 onClose();
@@ -402,7 +412,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                     <LifecycleEditor 
                                                         stages={watch('lifecycleStages')}
                                                         onChange={(stages) => setValue('lifecycleStages', stages)}
-                                                        currentStageIndex={watch('currentStageIndex')}
+                                                        currentStageIndex={currentStageIndex}
                                                     />
                                                 </div>
 

@@ -54,6 +54,8 @@ import { getViewerAuthContext, getViewerIdentityContext } from "@/lib/server/vie
 import {
   CreateProjectInput,
   validateAndSanitizeLifecycleStages,
+  updateProjectSchema,
+  type UpdateProjectInput,
 } from "@/lib/validations/project";
 import { z } from "zod";
 import { createHash, randomUUID } from "crypto";
@@ -96,6 +98,8 @@ import {
   type ProjectVisibility,
 } from "@/lib/projects/project-visibility";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
+import { getTrustedHeadersIp } from "@/lib/security/request-ip";
+import { headers } from "next/headers";
 import { runInFlightDeduped } from "@/lib/utils/inflight-dedupe";
 import { toDateValue, toIsoString } from "@/lib/utils/date";
 import { isLooseUuid } from "@/lib/validations/uuid";
@@ -600,9 +604,9 @@ const revalidateProjectPaths = async (projectId: string) => {
   // Expire now: "max" would keep serving the stale page (with a project gone private) while it refreshes.
   revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 });
   revalidatePath(`/projects/${projectId}`);
-  // Next.js 16's cache API requires an explicit cache-life profile for tag revalidation.
-  revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
-  revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, "max");
+  // Expire now, as above: a project gone private must not keep its public shell or preview metadata.
+  revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, { expire: 0 });
+  revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, { expire: 0 });
   try {
     const [project] = await db
       .select({ slug: projects.slug })
@@ -623,8 +627,8 @@ export async function invalidateProjectPublicCaches(projectId: string) {
   revalidatePath("/my-profile");
   // Expire now: "max" would keep serving the stale page (with a project gone private) while it refreshes.
   revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 });
-  revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, "max");
-  revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, "max");
+  revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, { expire: 0 });
+  revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, { expire: 0 });
   return feed;
 }
 
@@ -1948,15 +1952,19 @@ async function readProjectDetailShellForActor(input: {
           Object.entries(project.externalLinkMetadata ?? {}).filter(([id]) => id === "github-integration" || visibleExternalLinkIds.has(id)),
         );
 
+        // A hidden Dashboard hides its data too: visitors get no roles, team or overview text.
+        const hidesDashboard =
+          !isOwner && !isMember &&
+          !normalizeProjectPublicTabVisibility(project.publicTabVisibility).dashboard;
         const readModel = {
           id: project.id,
           ownerId: project.ownerId,
           title: project.title,
           slug: project.slug || undefined,
-          description: project.description || null,
+          description: hidesDashboard ? null : project.description || null,
           shortDescription: project.shortDescription || null,
-          problemStatement: project.problemStatement || null,
-          solutionStatement: project.solutionStatement || null,
+          problemStatement: hidesDashboard ? null : project.problemStatement || null,
+          solutionStatement: hidesDashboard ? null : project.solutionStatement || null,
           coverImage: project.coverImage || null,
           category: project.category || null,
           tags: Array.isArray(project.tags) ? project.tags : [],
@@ -1998,11 +2006,11 @@ async function readProjectDetailShellForActor(input: {
           isFollowed,
           sprints: [],
           tasks: [],
-          openRoles,
-          collaborators: shell.collaborators,
+          openRoles: hidesDashboard ? [] : openRoles,
+          collaborators: hidesDashboard ? [] : shell.collaborators,
           initialFileNodes: [],
           owner: shell.owner || null,
-          membersHasMore: shell.membersHasMore || false,
+          membersHasMore: hidesDashboard ? false : shell.membersHasMore || false,
           membersNextCursor: shell.membersNextCursor || null,
           // README data follows the doc's own permission: draft projects, the
           // Readme tab and the doc visibility override all apply (COR-043).
@@ -2480,13 +2488,16 @@ export async function createProjectAction(
 }
 
 // --- Update Action ---
-export async function updateProject(projectId: string, data: any) {
+export async function updateProject(projectId: string, input: UpdateProjectInput) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) throw new Error("Unauthorized");
+  const parsed = updateProjectSchema.safeParse(input);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Invalid project update");
+  const data = parsed.data;
 
   // Transaction to ensure atomicity of project update + role changes
   return await db
@@ -2497,12 +2508,8 @@ export async function updateProject(projectId: string, data: any) {
           id: projects.id,
           ownerId: projects.ownerId,
           externalLinkMetadata: projects.externalLinkMetadata,
-          lifecycleStages: projects.lifecycleStages,
-          currentStageIndex: projects.currentStageIndex,
-          stageCompletionDates: projects.stageCompletionDates,
           importSource: projects.importSource,
           slug: projects.slug,
-          coverImage: projects.coverImage,
         })
         .from(projects)
         .where(eq(projects.id, projectId))
@@ -2511,72 +2518,24 @@ export async function updateProject(projectId: string, data: any) {
       if (!project) throw new Error("Project not found");
       if (project.ownerId !== user.id) throw new Error("Unauthorized");
 
-      const { roles, deletedRoleIds, ...raw } = data || {};
+      const { roles, deletedRoleIds, ...raw } = data;
 
-      // Update Project (canonical camelCase payload; accepts snake_case for backward compatibility)
-      const updateValues: any = {
+      const updateValues: Partial<typeof projects.$inferInsert> = {
         updatedAt: new Date(),
       };
-
       if (raw.title !== undefined) updateValues.title = raw.title;
-      if (raw.description !== undefined)
-        updateValues.description = raw.description;
-      if (raw.visibility !== undefined) {
-        throw new Error(
-          "Project visibility must be changed from Access settings.",
-        );
-      }
+      if (raw.description !== undefined) updateValues.description = raw.description;
       if (raw.status !== undefined) updateValues.status = raw.status;
-      const nextCoverImage = raw.coverImage ?? raw.cover_image;
-      if (raw.coverImage !== undefined || raw.cover_image !== undefined) {
-        throw new Error("Project images must be changed through the verified image upload flow.");
-      }
-
-      // Tagline
-      if (raw.shortDescription !== undefined)
-        updateValues.shortDescription = raw.shortDescription;
-      else if (raw.short_description !== undefined)
-        updateValues.shortDescription = raw.short_description;
-
-      // Problem / Solution
-      if (raw.problemStatement !== undefined)
-        updateValues.problemStatement = raw.problemStatement;
-      else if (raw.problem_statement !== undefined)
-        updateValues.problemStatement = raw.problem_statement;
-
-      if (raw.solutionStatement !== undefined)
-        updateValues.solutionStatement = raw.solutionStatement;
-      else if (raw.solution_statement !== undefined)
-        updateValues.solutionStatement = raw.solution_statement;
-      else if (raw.solution_overview !== undefined)
-        updateValues.solutionStatement = raw.solution_overview; // legacy
-
-      // Category
+      if (raw.shortDescription !== undefined) updateValues.shortDescription = raw.shortDescription;
+      if (raw.problemStatement !== undefined) updateValues.problemStatement = raw.problemStatement;
+      if (raw.solutionStatement !== undefined) updateValues.solutionStatement = raw.solutionStatement;
       if (raw.category !== undefined) updateValues.category = raw.category;
-      else if (raw.project_type !== undefined)
-        updateValues.category = raw.project_type;
-      else if (raw.custom_project_type !== undefined)
-        updateValues.category = raw.custom_project_type;
 
-      // Tags / Skills parsing
-      let tagsArray: string[] = [];
-      let skillsArray: string[] = [];
-
-      if (raw.tags !== undefined)
-        tagsArray = Array.isArray(raw.tags) ? raw.tags : [];
-      if (raw.skills !== undefined)
-        skillsArray = Array.isArray(raw.skills) ? raw.skills : [];
-      else if (raw.technologies_used !== undefined)
-        skillsArray = Array.isArray(raw.technologies_used)
-          ? raw.technologies_used
-          : [];
-
+      const tagsArray = raw.tags ?? [];
       if (raw.tags !== undefined) updateValues.tags = tagsArray; // Keep JSONB arrays in sync for backward compat
-      if (raw.skills !== undefined || raw.technologies_used !== undefined)
-        updateValues.skills = skillsArray;
-      if (raw.externalLinks !== undefined || raw.external_links !== undefined) {
+      if (raw.externalLinks !== undefined) {
         const externalLinksSplit = splitProjectSocialLinks(
-          raw.externalLinks ?? raw.external_links,
+          raw.externalLinks,
           project.externalLinkMetadata ?? {},
         );
         if ("error" in externalLinksSplit)
@@ -2584,57 +2543,14 @@ export async function updateProject(projectId: string, data: any) {
         updateValues.externalLinks = externalLinksSplit.links;
         updateValues.externalLinkMetadata = externalLinksSplit.metadata;
       }
+      if (raw.memberUpdatesEnabled !== undefined) updateValues.memberUpdatesEnabled = raw.memberUpdatesEnabled;
+      if (raw.memberFileUploadDefault !== undefined) updateValues.memberFileUploadDefault = raw.memberFileUploadDefault;
 
-      // Lifecycle
-      if (raw.lifecycleStages !== undefined) {
-        updateValues.lifecycleStages = validateAndSanitizeLifecycleStages(
-          raw.lifecycleStages,
-        );
-      } else if (raw.lifecycle_stages !== undefined) {
-        updateValues.lifecycleStages = validateAndSanitizeLifecycleStages(
-          raw.lifecycle_stages,
-        );
+      // COR-014: resolve skills once, then write the canonical names to the scalar and the junctions together.
+      if (raw.skills !== undefined) {
+        const resolvedProjectSkills = await syncProjectSkills(tx, projectId, raw.skills, user.id);
+        updateValues.skills = resolvedProjectSkills.map((skill) => skill.name);
       }
-
-      const requestedStageIndex =
-        raw.currentStageIndex !== undefined
-          ? raw.currentStageIndex
-          : raw.current_stage_index;
-      if (requestedStageIndex !== undefined) {
-        const nextStageIndex = Number(requestedStageIndex);
-        const nextLifecycleStages = Array.isArray(updateValues.lifecycleStages)
-          ? updateValues.lifecycleStages
-          : Array.isArray(project.lifecycleStages)
-            ? project.lifecycleStages
-            : [];
-
-        if (
-          !Number.isInteger(nextStageIndex) ||
-          nextStageIndex < 0 ||
-          nextStageIndex >= nextLifecycleStages.length
-        ) {
-          throw new Error("Project lifecycle stage is out of range.");
-        }
-
-        const currentStageIndex = Math.min(
-          Math.max(0, project.currentStageIndex ?? 0),
-          Math.max(0, nextLifecycleStages.length - 1),
-        );
-        updateValues.currentStageIndex = nextStageIndex;
-        updateValues.stageCompletionDates = buildJourneyCompletionDates({
-          completionDates: project.stageCompletionDates,
-          previousStageIndex: currentStageIndex,
-          nextStageIndex,
-          transitionedAt: new Date().toISOString(),
-        });
-      }
-
-      if (raw.memberUpdatesEnabled !== undefined)
-        updateValues.memberUpdatesEnabled = raw.memberUpdatesEnabled;
-      else if (raw.member_updates_enabled !== undefined)
-        updateValues.memberUpdatesEnabled = raw.member_updates_enabled;
-      if (typeof raw.memberFileUploadDefault === "boolean")
-        updateValues.memberFileUploadDefault = raw.memberFileUploadDefault;
 
       await tx
         .update(projects)
@@ -2673,16 +2589,6 @@ export async function updateProject(projectId: string, data: any) {
             }
           }
         }
-      }
-
-      if (raw.skills !== undefined || raw.technologies_used !== undefined) {
-        const resolvedProjectSkills = await syncProjectSkills(
-          tx,
-          projectId,
-          skillsArray,
-          user.id,
-        );
-        updateValues.skills = resolvedProjectSkills.map((skill) => skill.name);
       }
 
       let openRoles;
@@ -2850,8 +2756,6 @@ export async function updateProject(projectId: string, data: any) {
         slug: project.slug,
         id: project.id,
         ownerId: project.ownerId,
-        previousCoverImage: project.coverImage,
-        nextCoverImage,
         openRoles,
       };
     })
@@ -2861,21 +2765,15 @@ export async function updateProject(projectId: string, data: any) {
         slug,
         id,
         ownerId,
-        previousCoverImage,
-        nextCoverImage,
         openRoles,
       }) => {
         revalidatePath(`/projects/${slug}`);
         revalidatePath(`/projects/${id}`);
         await invalidateProjectPublicCaches(id);
-        if (Array.isArray(data?.roles)) {
-          const createdCount = data.roles.filter(
-            (role: { id?: unknown }) => !role.id,
-          ).length;
+        if (data.roles) {
+          const createdCount = data.roles.filter((role) => !role.id).length;
           const updatedCount = data.roles.length - createdCount;
-          const deletedCount = Array.isArray(data.deletedRoleIds)
-            ? data.deletedRoleIds.length
-            : 0;
+          const deletedCount = data.deletedRoleIds?.length ?? 0;
           const eventKey =
             createdCount > 0 && updatedCount === 0 && deletedCount === 0
               ? "roles.created"
@@ -2900,7 +2798,7 @@ export async function updateProject(projectId: string, data: any) {
             },
           );
         }
-        if (Array.isArray(data?.roles) || data?.status !== undefined) {
+        if (data.roles || data.status !== undefined) {
           void inngest.send({
             name: "workspace/connections.sync_suggestions",
             data: { userId: ownerId },
@@ -6302,6 +6200,12 @@ export async function incrementProjectViewAction(
     if (!access.project || !access.canRead) {
       return { success: false, error: "Project not found" };
     }
+    // The team's own visits are not audience views.
+    if (access.isOwner || access.isMember) return { success: true };
+    // One counted view per viewer (or IP) per project per 30 minutes, enforced here, not by the client.
+    const viewerKey = user?.id ?? `ip:${getTrustedHeadersIp(await headers()) ?? "unknown"}`;
+    const viewWindow = await consumeRateLimit(`project-view:${projectId}:${viewerKey}`, 1, 30 * 60);
+    if (!viewWindow.allowed) return { success: true };
 
     if (!redis) {
       const [updated] = await db
@@ -6339,6 +6243,24 @@ export async function incrementProjectViewAction(
     console.error("Failed to increment view", e);
     return { success: false, error: "Failed to increment view" };
   }
+}
+
+/** Import hydration progress only: the browser never reads `projects.import_source` itself. */
+export async function getProjectHydrationProgressAction(
+  projectId: string,
+): Promise<{ status: string; completed: number; total: number } | null> {
+  if (!isLooseUuid(projectId)) return null;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const access = await getProjectAccessById(projectId, user?.id ?? null);
+  if (!access.project || !access.canRead) return null;
+  const hydration = access.project.importSource?.metadata?.hydration;
+  if (!hydration || typeof hydration.status !== "string") return null;
+  return {
+    status: hydration.status,
+    completed: Number(hydration.completed) || 0,
+    total: Number(hydration.total) || 0,
+  };
 }
 
 // Helper: Map wizard status to database status
@@ -6765,6 +6687,16 @@ export async function markTaskAsReadAction(taskId: string) {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Unauthorized" };
+    if (!isLooseUuid(taskId)) return { success: false, error: "Task not found" };
+    const [task] = await db
+      .select({ projectId: tasks.projectId })
+      .from(tasks)
+      .where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt)))
+      .limit(1);
+    if (!task) return { success: false, error: "Task not found" };
+    const access = await getProjectAccessById(task.projectId, user.id);
+    if (!access.project || !canReadProjectTab(access, "tasks"))
+      return { success: false, error: "Task not found" };
 
     await db
       .insert(taskReadReceipts)
