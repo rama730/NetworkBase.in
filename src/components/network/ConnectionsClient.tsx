@@ -19,9 +19,11 @@ import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
 import { PersonPresenceDot } from "@/components/network/PersonPresenceDot";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { messageUserInWindow } from "@/components/messages/message-user";
+import { cn } from "@/lib/utils";
 
 export default function ConnectionsClient({ searchQuery }: { searchQuery: string }) {
-    const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useConnections(50, searchQuery || undefined, "recent");
+    const [sortBy, setSortBy] = useState<"recent" | "name">("recent");
+    const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useConnections(50, searchQuery || undefined, sortBy);
     const { disconnect, blockProfile } = useConnectionMutations();
     const [pendingDisconnect, setPendingDisconnect] = useState<{ id: string; name: string } | null>(null);
     const [pendingBlock, setPendingBlock] = useState<{ userId: string; name: string } | null>(null);
@@ -82,6 +84,32 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
 
     return (
         <>
+            <div className="mb-3 flex items-center justify-between">
+                <span className="nb-micro text-muted-foreground">{connections.length} connections</span>
+                <div className="flex items-center gap-1 text-xs">
+                    <span className="text-muted-foreground">Sort:</span>
+                    <button
+                        type="button"
+                        onClick={() => setSortBy("recent")}
+                        className={cn(
+                            "rounded px-2 py-1 transition-colors",
+                            sortBy === "recent" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        Recent
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setSortBy("name")}
+                        className={cn(
+                            "rounded px-2 py-1 transition-colors",
+                            sortBy === "name" ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        Name
+                    </button>
+                </div>
+            </div>
             <PersonCardGrid
                 items={connections}
                 getKey={(connection) => connection.id}
@@ -156,7 +184,7 @@ function ConnectionCard({
             meta={[
                 <p key="connected" className="nb-meta mt-1 truncate">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>,
             ]}
-            headline={headline ? <p className="nb-body truncate text-muted-foreground" title={headline}>{headline}</p> : null}
+            headline={headline ? <p className="nb-compact truncate text-muted-foreground" title={headline}>{headline}</p> : null}
             body={skills.length ? <div className={PERSON_CARD_TAGS}>{skills.map((skillName) => {
                 const skill = resolveClientSkill(skillName);
                 return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;

@@ -174,7 +174,7 @@ export default function NetworkClient({
                     })}
                 </div>
 
-                <div id={`people-panel-${activeTab}`} role="tabpanel" aria-labelledby={`people-tab-${activeTab}`} className="pt-5">
+                <div id={`people-panel-${activeTab}`} role="tabpanel" aria-labelledby={`people-tab-${activeTab}`} className="pt-[18px]">
                     {!isAuthed && activeTab !== "suggested" ? (
                         <div className="max-w-[620px] rounded-lg border border-border bg-card p-8 text-center">
                             <h2 className="nb-card-title text-foreground">Sign in to view your {activeTab}</h2>
