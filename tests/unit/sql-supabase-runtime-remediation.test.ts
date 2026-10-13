@@ -51,7 +51,7 @@ test("hydration is Realtime-first with a bounded fallback", () => {
   assert.match(hydration, /FALLBACK_POLL_MS = 15_000/);
   assert.match(hydration, /status === "CHANNEL_ERROR" \|\| status === "TIMED_OUT" \|\| status === "CLOSED"/);
   assert.doesNotMatch(hydration, /setTimeout\(fetchProgress, 5000\)/);
-  assert.match(hydration, /if \(error\) \{[\s\S]*queuePoll\(FALLBACK_POLL_MS\)/);
+  assert.match(hydration, /if \(meta === undefined\) \{[\s\S]*queuePoll\(FALLBACK_POLL_MS\)/);
 });
 
 test("logout deletes the authenticated push record before local and Auth teardown", () => {

@@ -86,6 +86,33 @@ export const projectDocCreationIntentSchema = z.object({
 });
 
 // Main Project Schema
+// updateProject: owner edits from the modal and Settings. Archive and stage moves have their own
+// guarded actions, so neither `archived` nor `currentStageIndex` is accepted here.
+const boundedText = (max: number) => z.string().trim().max(max);
+export const updateProjectSchema = z.object({
+    title: boundedText(100).min(1, 'Title is required').optional(),
+    shortDescription: boundedText(200).nullable().optional(),
+    description: boundedText(5000).nullable().optional(),
+    problemStatement: boundedText(5000).nullable().optional(),
+    solutionStatement: boundedText(5000).nullable().optional(),
+    category: boundedText(100).nullable().optional(),
+    status: z.enum(['draft', 'active', 'completed']).optional(),
+    tags: z.array(boundedText(50)).max(20).optional(),
+    skills: z.array(boundedText(80)).max(30).optional(),
+    externalLinks: externalLinksSchema.optional(),
+    roles: z.array(z.object({
+        id: z.string().max(64).optional(),
+        role: boundedText(100).min(1, 'Role name is required'),
+        count: z.number().int().min(1).max(10),
+        description: boundedText(2000).nullable().optional(),
+        skills: z.array(boundedText(80)).max(30).optional(),
+    })).max(50).optional(),
+    deletedRoleIds: z.array(z.string().max(64)).max(50).optional(),
+    memberUpdatesEnabled: z.boolean().optional(),
+    memberFileUploadDefault: z.boolean().optional(),
+}).strict();
+export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+
 export const createProjectSchema = z.object({
     title: z.string().trim().min(3, 'Title must be at least 3 characters').max(100, 'Title must be less than 100 characters'),
     description: z.string().trim().min(20, 'Description must be at least 20 characters').max(5000).optional(),

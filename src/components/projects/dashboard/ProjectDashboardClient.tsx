@@ -826,12 +826,14 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 if (cancelled) return;
                 if (!isMountedRef.current) return;
                 const nextViewCount = result.viewCount;
-                if (result.success && typeof nextViewCount === 'number') {
+                if (result.success) {
                     try {
                         window.sessionStorage.setItem(sessionKey, '1');
                     } catch {
                         // Counting remains best-effort when storage is unavailable.
                     }
+                }
+                if (result.success && typeof nextViewCount === 'number') {
                     setViewCount((current: number) => Math.max(current, nextViewCount));
 
                     logger.metric('project.detail.view.increment', {

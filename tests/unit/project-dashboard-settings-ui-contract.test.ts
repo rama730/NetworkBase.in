@@ -128,8 +128,11 @@ test("journey stage transitions record all crossed stages and lifecycle edits re
   assert.match(actions, /normalizeJourneyCompletionDates/);
   assert.match(actions, /completionDatesByStage/);
   assert.match(actions, /stageCompletionDates: remappedCompletionDates/);
-  assert.match(actions, /Project lifecycle stage is out of range/);
-  assert.match(actions, /updateValues\.stageCompletionDates = buildJourneyCompletionDates/);
+  // Stage moves go through updateProjectStageAction only; the general update rejects the field.
+  const updateSchema = source("src/lib/validations/project.ts").match(/export const updateProjectSchema[\s\S]*?\.strict\(\)/)?.[0] ?? "";
+  assert.ok(updateSchema);
+  assert.doesNotMatch(updateSchema, /currentStageIndex:/);
+  assert.match(actions, /const updatedDates = buildJourneyCompletionDates\(/);
 });
 
 test("project links resolve and persist exact destination names", () => {
