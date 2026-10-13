@@ -37,7 +37,7 @@ function workspaceInvalidationDomains(kind: string): WorkspaceInvalidationDomain
 
 function workspaceNotificationKind(event: UserNotificationEvent) {
   if (event.kind !== "notification") return null;
-  const payload = event.payload.new as Record<string, unknown> | undefined;
+  const payload = (event.payload.new ?? event.payload.old) as Record<string, unknown> | undefined;
   const kind = typeof payload?.kind === "string" ? payload.kind : null;
   return kind && WORKSPACE_NOTIFICATION_KINDS.has(kind) ? kind : null;
 }
@@ -100,10 +100,11 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
         refreshTimerRef.current = null;
         const domains = pendingInvalidationDomainsRef.current;
         pendingInvalidationDomainsRef.current = new Set();
-        void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.root(), refetchType: "active" });
+        void query.refetch();
         if (domains.has("connections")) {
           void queryClient.invalidateQueries({ queryKey: queryKeys.connections.pending(), refetchType: "active" });
           void queryClient.invalidateQueries({ queryKey: ["connections", "pending-requests"], refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: ["connections", "feed"], refetchType: "active" });
         }
         if (domains.has("requests")) {
           void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.joinRequestsRoot(), refetchType: "active" });
