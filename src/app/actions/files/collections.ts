@@ -46,8 +46,8 @@ async function loadEntries(projectId: string, taskIds: string[], deliverables: b
     const nodeIds = rows.map(r => r.node_id);
     if (!nodeIds.length) return new Map(taskIds.map(taskId => [taskId, { entries: [], nextFileCursor: null }]));
     const nodes = await db.query.projectNodes.findMany({
+        // No cap here: the selection is already bounded per group (COR-011), and a cap dropped files.
         where: and(eq(projectNodes.projectId, projectId), isNull(projectNodes.deletedAt), inArray(projectNodes.id, nodeIds)),
-        limit: 100,
     });
     const attribution = await getFileAttributionByNodeId(nodes);
     const byId = new Map(nodes.map(node => [node.id, { ...node, ...attribution.get(node.id) } as ProjectNodeWithAttribution]));
@@ -75,36 +75,41 @@ async function loadEntries(projectId: string, taskIds: string[], deliverables: b
 
 export async function getTaskFileGroups(projectId: string, options: { deliverables?: boolean; cursor?: string; fileCursor?: string; query?: string; taskId?: string; role?: TaskCollectionRole } = {}) {
     await authorize(projectId);
-    if (options.cursor && !UUID_RE.test(options.cursor)) throw new Error("Invalid task cursor");
+    // Groups are newest activity first; the cursor is "<updated_at ISO>~<task id>".
+    const [cursorAt, cursorId] = options.cursor?.split("~") ?? [];
+    if (options.cursor && (!cursorId || !UUID_RE.test(cursorId) || !/^[0-9][0-9:. +\-]{9,39}$/.test(cursorAt ?? ""))) throw new Error("Invalid task cursor");
     if (options.taskId && !UUID_RE.test(options.taskId)) throw new Error("Invalid task");
     if (options.fileCursor && (!options.taskId || !UUID_RE.test(options.fileCursor))) throw new Error("Invalid file cursor");
     const query = options.query?.trim().slice(0, 200) ?? "";
-    const rows = await db.execute<{ id: string; title: string; status: string; review_status: "none" | "pending" | "rejected"; references: number; working: number; deliverables: number; updated_at: string | null }>(sql`
+    const rows = await db.execute<{ id: string; title: string; status: string; review_status: "none" | "pending" | "rejected"; references: number; working: number; deliverables: number; updated_at: string | null; cursor_at: string }>(sql`
         ${associations(projectId)}
         SELECT t.id, t.title, t.status, t.review_status,
             count(*) FILTER (WHERE a.role = 'reference')::int AS "references",
             count(*) FILTER (WHERE a.role = 'working')::int AS working,
             count(*) FILTER (WHERE a.role = 'deliverable')::int AS deliverables,
-            max(coalesce(fv.uploaded_at, n.updated_at)) AS updated_at
+            max(coalesce(fv.uploaded_at, n.updated_at)) AS updated_at,
+            max(coalesce(fv.uploaded_at, n.updated_at))::text AS cursor_at
         FROM tasks t JOIN attachments a ON a.task_id = t.id
         JOIN project_nodes n ON n.id = a.node_id
         LEFT JOIN file_versions fv ON fv.node_id = n.id AND fv.version = n.current_version
         WHERE ${options.deliverables ? sql`a.role = 'deliverable'` : sql`a.role IN ('deliverable', 'working', 'reference')`}
             ${options.role ? sql`AND a.role = ${options.role}` : sql``}
             ${options.taskId ? sql`AND t.id = ${options.taskId}::uuid` : sql``}
-            ${options.cursor ? sql`AND t.id > ${options.cursor}::uuid` : sql``}
             GROUP BY t.id, t.title, t.status, t.review_status
-        ${query && !options.taskId ? sql`HAVING bool_or(strpos(lower(t.title), lower(${query})) > 0 OR strpos(lower(n.name), lower(${query})) > 0 OR strpos(lower(coalesce(a.annotation, '')), lower(${query})) > 0)` : sql``}
-        ORDER BY t.id LIMIT 21
+        HAVING true
+        ${query && !options.taskId ? sql`AND bool_or(strpos(lower(t.title), lower(${query})) > 0 OR strpos(lower(n.name), lower(${query})) > 0 OR strpos(lower(coalesce(a.annotation, '')), lower(${query})) > 0)` : sql``}
+        ${options.cursor ? sql`AND (max(coalesce(fv.uploaded_at, n.updated_at)), t.id) < (${cursorAt}::timestamptz, ${cursorId}::uuid)` : sql``}
+        ORDER BY max(coalesce(fv.uploaded_at, n.updated_at)) DESC, t.id DESC LIMIT 21
     `);
     const page = rows.slice(0, 20);
     const files = await loadEntries(projectId, page.map(task => task.id), !!options.deliverables, options.fileCursor, options.taskId ? query : "", options.taskId ? options.role : undefined);
     return {
-        groups: page.map(task => ({
+        groups: page.map(({ cursor_at: _cursorAt, ...task }) => ({
             ...task, reviewStatus: task.review_status, updatedAt: task.updated_at,
             ...files.get(task.id)!,
         })) as TaskFileGroup[],
-        nextCursor: rows.length > 20 ? page.at(-1)!.id : null,
+        // Exact database text, not a JS Date: microseconds matter to the keyset.
+        nextCursor: rows.length > 20 ? `${page.at(-1)!.cursor_at}~${page.at(-1)!.id}` : null,
     };
 }
 

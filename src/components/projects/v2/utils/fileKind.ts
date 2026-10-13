@@ -2,7 +2,8 @@ import type { ProjectNode } from "@/lib/db/schema";
 
 export type FileKind = "folder" | "text" | "image" | "video" | "audio" | "pdf" | "doc" | "binary";
 
-function extOf(name: string) {
+/** Lower-case extension without the dot; "" when the name has none. */
+export function extOf(name: string) {
   const parts = name.split(".");
   return parts.length > 1 ? (parts[parts.length - 1]?.toLowerCase() || "") : "";
 }

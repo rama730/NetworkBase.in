@@ -10,6 +10,7 @@ import React, {
   useState,
 } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { isInternalTaskWorkingFilesNode } from "@/lib/files/task-working-files";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useShallow } from "zustand/react/shallow";
 
@@ -166,7 +167,9 @@ export function QuickOpenDialog({
   // Search results come only from the authorized server page, never stale cache hits.
   const results = useMemo(() => {
     const nodes = showRecents ? recentFiles.data ?? [] : rawQuery.length < 2 ? [] : search.data?.pages.flatMap(page => page.nodes) ?? [];
-    return nodes.filter(node => (includeFolders || node.type === "file") && !node.deletedAt);
+    // Internal `.system` / task-UUID folders are storage plumbing, never a destination.
+    return nodes.filter(node => (includeFolders || node.type === "file") && !node.deletedAt
+      && !(node.type === "folder" && isInternalTaskWorkingFilesNode(node)));
   }, [showRecents, recentFiles.data, search.data, rawQuery, includeFolders]);
   useEffect(() => {
     useFilesWorkspaceStore.getState().upsertNodes(projectId, results);

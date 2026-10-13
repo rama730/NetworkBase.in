@@ -218,7 +218,14 @@ describe("syncUrlToLocation (Task 2.4 — Req 10.4 ONLY replaceState)", () => {
     assert.equal(win.history.calls.length, 0);
   });
 
-  it("calls history.replaceState and NEVER history.pushState", () => {
+  it("pushes a history entry for user navigation so Back returns to the previous folder", () => {
+    const win = makeWindow({ search: "?path=src" });
+    assert.equal(syncUrlToLocation({ win, encodedPath: "src/App.tsx", push: true }), true);
+    assert.equal(win.history.calls[0]?.method, "pushState");
+    assert.equal(win.history.calls[0]?.url, "/projects/proj-1?path=src/App.tsx");
+  });
+
+  it("canonicalises with history.replaceState by default", () => {
     const win = makeWindow({ search: "" });
     const didWrite = syncUrlToLocation({ win, encodedPath: "src/App.tsx" });
 
@@ -227,7 +234,7 @@ describe("syncUrlToLocation (Task 2.4 — Req 10.4 ONLY replaceState)", () => {
     assert.equal(win.history.calls[0]?.method, "replaceState");
     assert.equal(win.history.calls[0]?.url, "/projects/proj-1?path=src/App.tsx");
     const pushStateCalls = win.history.calls.filter((c) => c.method === "pushState");
-    assert.equal(pushStateCalls.length, 0, "pushState must never be called (Req 10.4)");
+    assert.equal(pushStateCalls.length, 0, "canonicalising never adds a history entry");
   });
 
   it("writes an opaque task file identity instead of a private path", () => {

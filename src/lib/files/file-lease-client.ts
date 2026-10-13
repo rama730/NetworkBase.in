@@ -1,6 +1,5 @@
 "use client";
 
-import { isLooseUuid } from "@/lib/validations/uuid";
 
 export type FileLeaseClientKind = "web" | "vscode";
 
@@ -32,15 +31,13 @@ export class BrowserFileLeaseError extends Error {
   }
 }
 
-const SESSION_KEY = "nb:file-lease-session:v1";
+// One lease identity per loaded document, held in memory: sessionStorage is copied into a
+// duplicated tab, which would let two tabs believe they both own the same lease.
+let documentLeaseSessionId: string | null = null;
 
 export function getBrowserFileLeaseSessionId() {
-  if (typeof window === "undefined") return crypto.randomUUID();
-  const existing = window.sessionStorage.getItem(SESSION_KEY);
-  if (existing && isLooseUuid(existing)) return existing;
-  const created = crypto.randomUUID();
-  window.sessionStorage.setItem(SESSION_KEY, created);
-  return created;
+  documentLeaseSessionId ??= crypto.randomUUID();
+  return documentLeaseSessionId;
 }
 
 async function readEnvelope<T>(response: Response): Promise<T> {

@@ -5,7 +5,7 @@ import { readFileSubtree } from "@/lib/files/permanent-delete";
 import { permanentlyDeleteTrashedNode } from "./trash";
 import { fileVersions, profiles, projectFileIndex, projectNodeEvents, projectNodeLocks, projectNodes, storageAssets, taskActivityEvents, taskNodeLinks, tasks, uploadIntents } from "@/lib/db/schema";
 import type { ProjectNode } from "@/lib/db/schema";
-import { eq, and, or, isNull, isNotNull, ilike, inArray, sql, gt, ne, type SQL } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, ilike, inArray, sql, gt, ne, desc, type SQL } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { after } from "next/server";
@@ -24,6 +24,9 @@ import { replaceTaskFileRoleTag, type TaskFileRole } from "@/lib/projects/task-f
 import {
     assertProjectWriteAccess,
     assertProjectWriteAccessTx,
+    assertNodesNotLockedByAnotherUser,
+    assertNotMovingAnyIntoDescendant,
+    assertUniqueSiblingNames,
     assertProjectManageFilesAccess,
     assertProjectManageFilesAccessTx,
     assertProjectUploadAccess,
@@ -31,7 +34,6 @@ import {
     assertValidParentFolder,
     assertValidMoveDestination,
     assertUniqueSiblingName,
-    assertNotMovingIntoDescendant,
     assertNodeNotLockedByAnotherUser,
     recordNodeEvent,
     recordNodeEventsBatch,
@@ -146,25 +148,47 @@ function subtreePathPredicate(node: { id: string; path: string; type: string; ta
 async function updateFolderDescendantPaths(
     tx: any,
     projectId: string,
+    folderId: string,
     oldPath: string,
     newPath: string,
     taskId: string | null,
     options: { releaseTaskScope?: boolean } = {},
 ) {
     if (!oldPath) return;
-    // The offset is cast ::int: as an untyped parameter Postgres reads SUBSTRING(x FROM $n) as a regex
-    // pattern and returns NULL. Paths and task scope move in ONE statement matched on the old scope: clearing task_id first
-    // would make the path rewrite miss every descendant (COR-012).
+    // The subtree is walked by parent_id, trashed rows included: a trashed descendant moves with its
+    // folder (so restore lands at the current path), while an unrelated trashed folder that once had
+    // the same path does not. The offset is cast ::int: untyped, Postgres reads SUBSTRING(x FROM $n)
+    // as a regex. Paths and task scope move in ONE statement matched on the old scope (COR-012).
     await tx.execute(sql`
+        WITH RECURSIVE subtree AS (
+            SELECT id FROM project_nodes WHERE parent_id = ${folderId} AND project_id = ${projectId}
+            UNION ALL
+            SELECT child.id FROM project_nodes child JOIN subtree ON child.parent_id = subtree.id
+            WHERE child.project_id = ${projectId}
+        )
         UPDATE project_nodes
         SET path = ${newPath} || SUBSTRING(path FROM ${oldPath.length + 1}::int),
             ${options.releaseTaskScope ? sql`task_id = NULL,` : sql``}
             updated_at = NOW()
-        WHERE project_id = ${projectId}
+        WHERE id IN (SELECT id FROM subtree)
           AND task_id IS NOT DISTINCT FROM ${taskId}
-          AND deleted_at IS NULL
           AND path LIKE ${descendantLikePattern(oldPath)} ESCAPE '\\'
     `);
+}
+
+/** Restore puts a root back under its live parent's current path (and its subtree with it). */
+async function realignRestoredRoot(tx: any, projectId: string, nodeId: string) {
+    const [row] = Array.from(await tx.execute(sql`
+        SELECT n.path, n.type, n.task_id, n.name, p.path AS parent_path
+        FROM project_nodes n
+        LEFT JOIN project_nodes p ON p.id = n.parent_id
+        WHERE n.id = ${nodeId} AND n.project_id = ${projectId}
+    `)) as Array<{ path: string; type: string; task_id: string | null; name: string; parent_path: string | null }>;
+    if (!row) return;
+    const expected = `${row.parent_path ?? ""}/${row.name}`;
+    if (row.path === expected) return;
+    await tx.execute(sql`UPDATE project_nodes SET path = ${expected}, updated_at = NOW() WHERE id = ${nodeId}`);
+    if (row.type === "folder") await updateFolderDescendantPaths(tx, projectId, nodeId, row.path, expected, row.task_id);
 }
 
 async function assertSubtreeNotLockedByAnotherUser(
@@ -774,7 +798,7 @@ export async function renameNode(nodeId: string, newName: string, projectId: str
             .where(and(eq(projectNodes.id, nodeId), eq(projectNodes.projectId, projectId)))
             .returning();
 
-        await updateFolderDescendantPaths(tx, projectId, oldPath, newPath, current.taskId ?? null);
+        await updateFolderDescendantPaths(tx, projectId, nodeId, oldPath, newPath, current.taskId ?? null);
 
         return updated!;
     });
@@ -868,7 +892,6 @@ export async function moveProjectNodes(
 
         const targetNameSet = new Set<string>();
         for (const node of movers) {
-            await assertNodeNotLockedByAnotherUser(projectId, node.id, user.id, tx);
             const isSystemFolder =
                 !!node.metadata && (node.metadata as { isSystem?: unknown }).isSystem === true;
             if (isSystemFolder) throw new Error(`Cannot move system folder: ${node.name}`);
@@ -879,12 +902,10 @@ export async function moveProjectNodes(
                 throw new Error(`Duplicate name conflict in selection: ${node.name}`);
             }
             targetNameSet.add(lowName);
-
-            if (node.type === "folder") {
-                await assertNotMovingIntoDescendant(projectId, node.id, newParentId, tx);
-            }
-            await assertUniqueSiblingName(projectId, newParentId, node.name, tx, node.id);
         }
+        await assertNodesNotLockedByAnotherUser(projectId, movers.map((node) => node.id), user.id, tx);
+        await assertNotMovingAnyIntoDescendant(projectId, movers.filter((node) => node.type === "folder").map((node) => node.id), newParentId, tx);
+        await assertUniqueSiblingNames(projectId, movers.map((node) => ({ id: node.id, parentId: newParentId, name: node.name })), tx);
 
         const selectedFolders = movers.filter((node) => node.type === "folder");
         for (const node of movers) {
@@ -919,7 +940,7 @@ export async function moveProjectNodes(
         const updatedById = new Map(updatedRows.map((row) => [row.id, row]));
         for (const { node, oldPath, newPath } of moves) {
             if (node.type !== "folder") continue;
-            await updateFolderDescendantPaths(tx, projectId, oldPath, newPath, node.taskId ?? null, { releaseTaskScope: isPublishing });
+            await updateFolderDescendantPaths(tx, projectId, node.id, oldPath, newPath, node.taskId ?? null, { releaseTaskScope: isPublishing });
         }
         for (const { node } of moves) movedNodes.push(updatedById.get(node.id)!);
         await recordNodeEventsBatch(
@@ -1020,6 +1041,7 @@ export async function restoreNode(nodeId: string, projectId: string) {
         await tx.update(projectNodes)
             .set({ deletedAt: null, deletedBy: null, updatedAt: new Date() })
             .where(and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, restoreIds)));
+        await realignRestoredRoot(tx, projectId, nodeId);
         await recordNodeEvent(projectId, user.id, nodeId, "restore", { restoredIds: restoreIds }, tx);
     });
 
@@ -1162,10 +1184,8 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
         }
         const nodes = [...restoreScope.values()];
 
-        for (const node of nodes) {
-            if (node.metadata?.permanentDeleteRoot) throw new Error("Permanent deletion is pending. This item cannot be restored.");
-            await assertNodeNotLockedByAnotherUser(projectId, node.id, user.id, tx);
-        }
+        if (nodes.some((node) => node.metadata?.permanentDeleteRoot)) throw new Error("Permanent deletion is pending. This item cannot be restored.");
+        await assertNodesNotLockedByAnotherUser(projectId, nodes.map((node) => node.id), user.id, tx);
 
         const toRestoreIds = nodes.filter((n) => !!n.deletedAt).map((n) => n.id);
         const alreadyActiveIds = nodes.filter((n) => !n.deletedAt).map((n) => n.id);
@@ -1173,15 +1193,15 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
 
         if (toRestoreIds.length > 0) {
             const siblingNameKeys = new Set<string>();
-            for (const node of nodes.filter((n) => !!n.deletedAt)) {
-                const parentKey = node.parentId ?? "root";
-                const siblingKey = `${parentKey}:${node.name.toLowerCase()}`;
+            const restoring = nodes.filter((n) => !!n.deletedAt);
+            for (const node of restoring) {
+                const siblingKey = `${node.parentId ?? "root"}:${node.name.toLowerCase()}`;
                 if (siblingNameKeys.has(siblingKey)) {
                     throw new Error(`Duplicate name conflict in restore selection: ${node.name}`);
                 }
                 siblingNameKeys.add(siblingKey);
-                await assertUniqueSiblingName(projectId, node.parentId ?? null, node.name, tx, node.id);
             }
+            await assertUniqueSiblingNames(projectId, restoring.map((node) => ({ id: node.id, parentId: node.parentId ?? null, name: node.name })), tx);
 
             const parentIdsToCheck = Array.from(new Set(
                 nodes
@@ -1207,6 +1227,9 @@ export async function bulkRestoreNodes(nodeIds: string[], projectId: string, exp
             await tx.update(projectNodes)
                 .set({ deletedAt: null, deletedBy: null, updatedAt: now })
                 .where(and(eq(projectNodes.projectId, projectId), inArray(projectNodes.id, toRestoreIds)));
+            for (const node of nodes) {
+                if (node.deletedAt && !(node.parentId && toRestoreSet.has(node.parentId))) await realignRestoredRoot(tx, projectId, node.id);
+            }
 
             await tx.insert(projectNodeEvents).values(
                 toRestoreIds.map((nodeId) => ({
@@ -1266,10 +1289,14 @@ export async function getTrashPage(projectId: string, query = "", cursor?: strin
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
     await assertProjectWriteAccess(projectId, user.id);
-    if (cursor && !UUID_RE.test(cursor)) throw new Error("Invalid cursor");
+    // Newest deletion first; the cursor is "<deleted_at as database text>~<id>" (exact microseconds).
+    const [cursorAt, cursorId] = cursor?.split("~") ?? [];
+    if (cursor && (!cursorId || !UUID_RE.test(cursorId) || !/^[0-9][0-9:. +\-]{9,39}$/.test(cursorAt ?? ""))) throw new Error("Invalid cursor");
+    const search = query.trim();
     const rows = await db
         .select({
             node: projectNodes,
+            cursorAt: sql<string>`${projectNodes.deletedAt}::text`,
             deletedByName: sql<string | null>`coalesce(${profiles.fullName}, ${profiles.username}, case when ${projectNodes.deletedBy} is not null then 'Former member' else null end)`,
             deletedByUsername: profiles.username,
             deletedByAvatarUrl: profiles.avatarUrl,
@@ -1277,9 +1304,12 @@ export async function getTrashPage(projectId: string, query = "", cursor?: strin
         .from(projectNodes)
         .leftJoin(profiles, eq(profiles.id, projectNodes.deletedBy))
         .where(and(eq(projectNodes.projectId, projectId), isNotNull(projectNodes.deletedAt),
-            query.trim() ? ilike(projectNodes.name, `%${escapeLikePattern(query.trim().slice(0, 200))}%`) : undefined,
-            cursor ? gt(projectNodes.id, cursor) : undefined))
-        .orderBy(projectNodes.id)
+            search
+                ? ilike(projectNodes.name, `%${escapeLikePattern(search.slice(0, 200))}%`)
+                // Browsing lists what was trashed, not every descendant of a trashed folder.
+                : sql`NOT EXISTS (SELECT 1 FROM project_nodes parent WHERE parent.id = ${projectNodes.parentId} AND parent.deleted_at IS NOT NULL)`,
+            cursor ? sql`(${projectNodes.deletedAt}, ${projectNodes.id}) < (${cursorAt}::timestamptz, ${cursorId}::uuid)` : undefined))
+        .orderBy(desc(projectNodes.deletedAt), desc(projectNodes.id))
         .limit(101);
     const page = rows.slice(0, 100);
     return {
@@ -1289,7 +1319,7 @@ export async function getTrashPage(projectId: string, query = "", cursor?: strin
             deletedByUsername,
             deletedByAvatarUrl,
         })),
-        nextCursor: rows.length > 100 ? page.at(-1)!.node.id : null,
+        nextCursor: rows.length > 100 ? `${page.at(-1)!.cursorAt}~${page.at(-1)!.node.id}` : null,
     };
 }
 
@@ -1366,12 +1396,13 @@ export async function bulkCreateFolderTree(
                     eq(projectNodes.projectId, projectId),
                     eq(projectNodes.type, 'folder'),
                     isNull(projectNodes.deletedAt),
-                    inArray(projectNodes.path, allPossiblePaths)
+                    // Sibling names are unique case-insensitively, so `docs/` must land in an existing `Docs`.
+                    inArray(sql`lower(${projectNodes.path})`, allPossiblePaths.map((path) => path.toLowerCase()))
                 ),
                 columns: { id: true, name: true, parentId: true, path: true }
             });
             for (const f of found) {
-                existingFoldersByPath.set(f.path, f);
+                existingFoldersByPath.set(f.path.toLowerCase(), f);
             }
         }
 
@@ -1402,16 +1433,24 @@ export async function bulkCreateFolderTree(
 
             const newFolderInserts: (typeof projectNodes.$inferInsert)[] = [];
             const newFolderPaths: string[] = [];
+            const pendingByLowerPath = new Map<string, string>();
+            const sameFolderAs: [string, string][] = [];
 
             for (const node of nodesToFindOrCreate) {
                 const parentVirtualPath = node.path.split('/').slice(0, -1).join('/');
                 const parentNodePath = pathToNodePath.get(parentVirtualPath) || "";
                 const nodePath = `${parentNodePath}/${node.safeName}`;
-                const existing = existingFoldersByPath.get(nodePath);
+                const existing = existingFoldersByPath.get(nodePath.toLowerCase());
+                const pending = pendingByLowerPath.get(nodePath.toLowerCase());
                 if (existing) {
                     pathToId.set(node.path, existing.id);
                     pathToNodePath.set(node.path, existing.path || nodePath);
+                } else if (pending) {
+                    // `A/` and `a/` in one upload are one folder.
+                    sameFolderAs.push([node.path, pending]);
+                    pathToNodePath.set(node.path, pathToNodePath.get(pending)!);
                 } else {
+                    pendingByLowerPath.set(nodePath.toLowerCase(), node.path);
                     newFolderInserts.push({
                         projectId,
                         parentId: node.parentId,
@@ -1435,6 +1474,7 @@ export async function bulkCreateFolderTree(
                     }
                 }
             }
+            for (const [path, twin] of sameFolderAs) pathToId.set(path, pathToId.get(twin)!);
         }
 
         // Return publication targets only. File rows are created after their

@@ -166,7 +166,7 @@ export interface ExplorerSlice {
   ) => void;
   markChildrenLoaded: (projectId: string, parentId: string | null) => void;
   setFolderMeta: (projectId: string, folderId: string | null, meta: { nextCursor: string | null; hasMore: boolean }) => void;
-  removeNodeFromCaches: (projectId: string, nodeId: string) => void;
+  removeNodeFromCaches: (projectId: string, nodeId: string, options?: { keepFavorite?: boolean }) => void;
   setTaskLinkCounts: (projectId: string, counts: Record<string, number>) => void;
   patchNodeVersion: (projectId: string, nodeId: string, currentVersion: number) => void;
   setNodes: (projectId: string, nodes: ProjectNode[]) => void;
@@ -518,7 +518,7 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
       };
     }),
 
-  removeNodeFromCaches: (projectId, nodeId) =>
+  removeNodeFromCaches: (projectId, nodeId, options) =>
     set((state) => {
       const ws = state.byProjectId[projectId] ?? defaultWorkspace();
       const nextById = { ...ws.nodesById };
@@ -540,7 +540,8 @@ export const createExplorerSlice: StateCreator<FilesWorkspaceState, [], [], Expl
 
       const nextRecents = ws.recents.filter((id) => id !== nodeId);
       const nextFav = { ...ws.favorites };
-      delete nextFav[nodeId];
+      // Trash keeps the star so Undo restores the file exactly; permanent delete drops it.
+      if (!options?.keepFavorite) delete nextFav[nodeId];
       const nextPinned = { ...ws.pinnedByTabId };
       delete nextPinned[nodeId];
       const nextFileStates = { ...ws.fileStates };

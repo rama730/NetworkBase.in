@@ -94,19 +94,29 @@ export function useExplorerBoot(options: {
 
           setAccessError(null);
 
-          const payload = await getProjectNodesWithCounts(
-            projectId,
-            parentId,
-            undefined,
-            limit,
-            cursor
-          );
-          if (!payload.success) {
-            throw new Error(payload.message || "Failed to load files");
-          }
-          const newNodes: ProjectNode[] = payload.data.nodes;
-          const nextCursor: string | null = payload.data.nextCursor;
-          const taskCounts: Record<string, number> | null = payload.data.taskLinkCounts;
+          // A refresh re-reads as many rows as are already shown, so a background refetch
+          // (focus, reconnect, after a mutation) never collapses a paged folder back to page 1.
+          const loadedCount = currentWs?.childrenByParentId?.[parentKey]?.length ?? 0;
+          const wanted = mode === "refresh" ? Math.max(limit, loadedCount) : limit;
+          const newNodes: ProjectNode[] = [];
+          let nextCursor: string | null = null;
+          let taskCounts: Record<string, number> | null = null;
+          do {
+            const payload = await getProjectNodesWithCounts(
+              projectId,
+              parentId,
+              undefined,
+              Math.min(200, wanted - newNodes.length),
+              nextCursor ?? cursor,
+            );
+            if (!payload.success) {
+              throw new Error(payload.message || "Failed to load files");
+            }
+            newNodes.push(...payload.data.nodes);
+            nextCursor = payload.data.nextCursor;
+            const pageCounts = payload.data.taskLinkCounts as Record<string, number> | null;
+            if (pageCounts) taskCounts = { ...(taskCounts ?? {}), ...pageCounts };
+          } while (nextCursor && newNodes.length < wanted && isActiveRef.current);
 
           if (!isActiveRef.current) return;
 

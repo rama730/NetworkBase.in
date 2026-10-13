@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { extOf } from "@/components/projects/v2/utils/fileKind";
 
 import type { FileVersion, ProjectNode } from "@/lib/db/schema";
 import { applyUploadedFileRevision, listFileVersionsPage, restoreFileVersion, deleteFileVersionAction } from "@/app/actions/files/versions";
@@ -57,10 +58,6 @@ export interface UseFileVersionsReturn {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function extOf(name: string) {
-  const parts = name.split(".");
-  return parts.length > 1 ? (parts[parts.length - 1]?.toLowerCase() || "") : "";
-}
 
 /**
  * Parse a lock-conflict error from the server action. The server currently
