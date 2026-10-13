@@ -61,6 +61,17 @@ export function safeContentDisposition(filename: string, disposition: "inline" |
   return `${disposition}; filename="${cleaned}"; filename*=UTF-8''${encodeURIComponent(cleaned)}`;
 }
 
+// Only types a browser renders without running script may be served inline from the app origin.
+// Everything else (HTML, XML, SVG, unknown) downloads as opaque bytes so uploads can never execute here.
+const INLINE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp"]);
+
+export function inlineSafeMimeType(mimeType: string | null | undefined): string | null {
+  const base = mimeType?.split(";")[0]?.trim().toLowerCase() ?? "";
+  if (INLINE_IMAGE_TYPES.has(base) || base === "application/pdf" || base === "text/plain") return base;
+  if (/^(video|audio)\/[a-z0-9][a-z0-9.+-]*$/.test(base)) return base;
+  return null;
+}
+
 export async function streamPrivateObject(input: {
   request: Request;
   signedUrl: string;
@@ -71,15 +82,19 @@ export async function streamPrivateObject(input: {
   etag: string;
   cacheControl?: string;
 }) {
+  const safeType = inlineSafeMimeType(input.mimeType);
+  const disposition = safeType ? input.disposition : "attachment";
   const baseHeaders = new Headers({
     "Accept-Ranges": "bytes",
     "Cache-Control": input.cacheControl ?? "private, no-store",
-    "Content-Disposition": safeContentDisposition(input.filename, input.disposition),
-    "Content-Type": input.mimeType?.trim() || "application/octet-stream",
+    "Content-Disposition": safeContentDisposition(input.filename, disposition),
+    "Content-Type": safeType ?? "application/octet-stream",
     ETag: input.etag,
     "X-Content-Type-Options": "nosniff",
     Vary: "Cookie, Authorization",
   });
+  // Chromium's PDF viewer refuses to render under a sandbox CSP; PDFs are inert data otherwise.
+  if (safeType !== "application/pdf") baseHeaders.set("Content-Security-Policy", "sandbox; default-src 'none'");
 
   if (input.request.headers.get("if-none-match") === input.etag) {
     return new Response(null, { status: 304, headers: baseHeaders });
