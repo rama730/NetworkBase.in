@@ -66,6 +66,14 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
     const headingRef = useRef<HTMLHeadingElement>(null);
     const restoredGithubOAuthResumeRef = useRef<string | null>(null);
     const [isResumingGithubOAuth] = useState(Boolean(githubOAuthResume));
+    const [draftBannerDismissed, setDraftBannerDismissed] = useState(false);
+
+    useEffect(() => {
+        if (methods.formState.isDirty) {
+            setDraftBannerDismissed(true);
+        }
+    }, [methods.formState.isDirty]);
+
     const handleReviewReady = useCallback(() => setIsReviewReady(true), [setIsReviewReady]);
     // Subscribe, don't watch(): Phase 1 replaces the whole import_source object, which react-hook-form
     // does not re-render this component for. A stale type kept Continue greyed out after GitHub -> Scratch.
@@ -170,7 +178,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                         />
 
                         {/* Draft recovery: a choice to make before starting, so it sits above the form, not above the footer. */}
-                        {draftInfo?.exists && (
+                        {draftInfo?.exists && !draftBannerDismissed && (
                             <div className="flex-shrink-0 border-b border-border bg-secondary/45">
                                 <div className={`${WIZARD_COLUMN} flex items-center justify-between gap-4 px-4 py-4 md:px-6 max-sm:flex-col max-sm:items-stretch max-sm:gap-3`}>
                                     <div className="flex items-center gap-3 min-w-0">
@@ -186,7 +194,14 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex flex-shrink-0 items-center gap-2 max-sm:grid max-sm:grid-cols-2">
+                                    <div className="flex flex-shrink-0 items-center gap-2 max-sm:grid max-sm:grid-cols-3">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={() => setDraftBannerDismissed(true)}
+                                        >
+                                            Start fresh
+                                        </Button>
                                         <Button
                                             type="button"
                                             variant="ghost"
@@ -198,7 +213,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                                             type="button"
                                             onClick={restoreDraft}
                                         >
-                                            Continue with the draft
+                                            Continue draft
                                         </Button>
                                     </div>
                                 </div>
