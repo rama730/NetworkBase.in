@@ -29,7 +29,7 @@ export function ProfileTabs({
             <div
                 role="tablist"
                 aria-label="Profile sections"
-                className="flex min-h-11 w-full items-end gap-5 border-b border-border bg-background"
+                className="flex min-h-11 w-full items-end gap-5 overflow-x-auto border-b border-border bg-background scrollbar-none"
             >
                     {TABS.map((t) => {
                         const active = t.key === value;

@@ -28,9 +28,9 @@ export function ProfileShell({
                                 {tabs}
                             </div>
                             <div className="order-2">{main}</div>
-                            {mainBottom ? <div className="order-4">{mainBottom}</div> : null}
+                            {mainBottom ? <div className="order-4" role="region" aria-label="Project contributions">{mainBottom}</div> : null}
                         </div>
-                        <aside className="contents lg:min-w-0 lg:block" aria-label="Profile details">
+                        <aside role="complementary" className="contents lg:min-w-0 lg:block" aria-label="Profile details">
                             <div
                                 className="contents lg:sticky lg:block lg:space-y-6"
                                 style={{

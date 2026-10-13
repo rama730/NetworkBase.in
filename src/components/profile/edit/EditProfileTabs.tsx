@@ -23,11 +23,13 @@ import {
     Globe,
     UserCheck,
     Wrench,
+    ArrowUp,
+    ArrowDown,
 } from "lucide-react";
 import { createProfileImageUploadUrlAction, finalizeProfileImageUploadAction } from "@/app/actions/profile";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { sanitizeUsernameInput } from "@/lib/validations/username";
 import { useUsernameAvailability } from "@/hooks/useUsernameAvailability";
@@ -183,32 +185,27 @@ export function EditProfileTabs({
             className="w-full h-full flex flex-col md:flex-row"
             orientation="vertical"
         >
-            <aside aria-label="Profile edit sections" className="w-full md:w-[220px] shrink-0 border-r border-border bg-card p-3 flex flex-col gap-1 overflow-y-auto">
+            <aside aria-label="Profile edit sections" className="w-full md:w-[200px] shrink-0 border-r border-border bg-card p-3 flex flex-col gap-1 overflow-y-auto">
                 <div className="px-2.5 py-1.5 font-mono text-[10px] max-md:text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Profile Sections
                 </div>
-                {EDIT_SECTIONS.map((tab) => {
-                    const Icon = tab.icon;
-                    const active = section === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            role="tab"
-                            aria-selected={active}
-                            onClick={() => onSectionChange(tab.id)}
-                            className={cn(
-                                "group flex min-h-[38px] w-full items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors duration-[130ms] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                                active
-                                    ? "bg-muted font-medium text-foreground shadow-none"
-                                    : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
-                            )}
-                        >
-                            <Icon className={cn("size-4 shrink-0 transition-colors", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                            <span className="nb-ui-label block truncate">{tab.label}</span>
-                        </button>
-                    );
-                })}
+                <TabsList className="flex flex-col h-auto w-full bg-transparent p-0 border-none gap-1 items-stretch">
+                    {EDIT_SECTIONS.map((tab) => {
+                        const Icon = tab.icon;
+                        return (
+                            <TabsTrigger
+                                key={tab.id}
+                                value={tab.id}
+                                className={cn(
+                                    "group flex min-h-[38px] w-full items-center justify-start gap-2.5 rounded-md px-3 py-2 text-left border-b-0 border-transparent transition-colors duration-[130ms] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring data-[state=active]:bg-muted data-[state=active]:font-medium data-[state=active]:text-foreground data-[state=active]:shadow-none text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                                )}
+                            >
+                                <Icon className="size-4 shrink-0 transition-colors text-muted-foreground group-data-[state=active]:text-primary group-hover:text-foreground" />
+                                <span className="nb-ui-label block truncate">{tab.label}</span>
+                            </TabsTrigger>
+                        );
+                    })}
+                </TabsList>
             </aside>
 
             <div className="flex-1 app-scroll app-scroll-y p-6 md:p-8 bg-card">
@@ -968,11 +965,24 @@ type SocialLinkEditorEntry = {
     name: string;
 };
 
-function SortableSocialLinkCard({ entry, unavailable, onEdit, onRemove }: {
+function SortableSocialLinkCard({
+    entry,
+    unavailable,
+    onEdit,
+    onRemove,
+    onMoveUp,
+    onMoveDown,
+    canMoveUp,
+    canMoveDown,
+}: {
     entry: SocialLinkEditorEntry;
     unavailable: boolean;
     onEdit: (key: string, item: SocialLinkItem) => void;
     onRemove: (key: string) => void;
+    onMoveUp?: () => void;
+    onMoveDown?: () => void;
+    canMoveUp?: boolean;
+    canMoveDown?: boolean;
 }) {
     const { id, item, presence, name } = entry;
 
@@ -986,11 +996,21 @@ function SortableSocialLinkCard({ entry, unavailable, onEdit, onRemove }: {
                 {unavailable ? <p className="nb-micro mt-1 text-amber-600 dark:text-amber-400">Needs update — this link was unavailable when opened.</p> : null}
             </div>
             <div className="flex shrink-0 items-center gap-1">
-                <Button type="button" variant="ghost" size="icon" onClick={() => onEdit(id, item)} aria-label={`Edit ${name}`}>
-                    <Pencil className="h-4 w-4" aria-hidden="true" />
+                {canMoveUp && onMoveUp ? (
+                    <Button type="button" variant="ghost" size="icon" onClick={onMoveUp} aria-label={`Move ${name} up`} className="size-8 text-muted-foreground hover:text-foreground">
+                        <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                ) : null}
+                {canMoveDown && onMoveDown ? (
+                    <Button type="button" variant="ghost" size="icon" onClick={onMoveDown} aria-label={`Move ${name} down`} className="size-8 text-muted-foreground hover:text-foreground">
+                        <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                ) : null}
+                <Button type="button" variant="ghost" size="icon" onClick={() => onEdit(id, item)} aria-label={`Edit ${name}`} className="size-8">
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
-                <Button type="button" variant="ghost" size="icon" onClick={() => onRemove(id)} aria-label={`Remove ${name}`} className="text-zinc-500 hover:text-red-600 dark:hover:text-red-400">
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                <Button type="button" variant="ghost" size="icon" onClick={() => onRemove(id)} aria-label={`Remove ${name}`} className="size-8 text-zinc-500 hover:text-red-600 dark:hover:text-red-400">
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
             </div>
         </>
@@ -1056,6 +1076,16 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
         if (editingKey === key) resetDraft();
     };
 
+    const moveItem = (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= items.length) return;
+        const reordered = [...items];
+        const temp = reordered[index]!;
+        reordered[index] = reordered[targetIndex]!;
+        reordered[targetIndex] = temp;
+        onChange(reordered.map((item, idx) => ({ ...item, order: idx })));
+    };
+
     const edit = (key: string, item: SocialLinkItem) => {
         setEditingKey(key);
         setNewUrl(item.url);
@@ -1083,7 +1113,18 @@ function SocialLinksEditor({ links, metadata, onChange }: { links: SocialLinkSto
                     getItemLabel={(entry) => entry.name}
                     onReorder={(next) => onChange(next.map((entry, order) => ({ ...entry.item, order })))}
                 >
-                    {(entry) => <SortableSocialLinkCard entry={entry} unavailable={metadata[entry.id]?.health === 'unavailable'} onEdit={edit} onRemove={remove} />}
+                    {(entry, index) => (
+                        <SortableSocialLinkCard
+                            entry={entry}
+                            unavailable={metadata[entry.id]?.health === 'unavailable'}
+                            onEdit={edit}
+                            onRemove={remove}
+                            onMoveUp={() => moveItem(index, 'up')}
+                            onMoveDown={() => moveItem(index, 'down')}
+                            canMoveUp={index > 0}
+                            canMoveDown={index < entries.length - 1}
+                        />
+                    )}
                 </SortableLinkList>
             ) : (
                 <div className="nb-body rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-4 py-5 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-400">

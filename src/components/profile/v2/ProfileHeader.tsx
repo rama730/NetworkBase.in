@@ -49,7 +49,7 @@ function PresenceChips({ userId, lastActiveAt, isOwner }: { userId: string | nul
                 <span className="inline-flex h-[26px] items-center rounded-full bg-muted px-2.5 text-[13px] text-muted-foreground">{presence.availabilityText}</span>
             ) : null}
             {isOwner ? (
-                <button type="button" onClick={() => openPicker(true)} className="inline-flex h-[26px] items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground">
+                <button type="button" onClick={() => openPicker(true)} className="inline-flex h-[26px] max-md:min-h-11 items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground">
                     <Smile className="size-3.5" aria-hidden="true" />
                     {presence.status ? 'Change status' : 'Update your status'}
                 </button>
@@ -305,11 +305,11 @@ export function ProfileHeader({
                         {isOwner ? (
                             <>
                                 <div className="flex flex-wrap gap-2 max-md:w-full max-md:flex-nowrap">
-                                    <Button onClick={onShare} variant="outline" size="sm" aria-label="Share profile">
+                                    <Button onClick={onShare} variant="outline" size="sm" aria-label="Share profile" className="max-md:min-h-11 max-md:min-w-11">
                                         <Share2 className="size-4" />
                                         <span className="max-md:sr-only">Share</span>
                                     </Button>
-                                    <Button onClick={onEdit} size="sm" className="max-md:flex-1">
+                                    <Button onClick={onEdit} size="sm" className="max-md:flex-1 max-md:min-h-11">
                                         <Pencil className="size-4" />
                                         Edit profile
                                     </Button>
@@ -326,7 +326,7 @@ export function ProfileHeader({
                                         className={cn(
                                             'relative inline-flex h-5 w-9 rounded-full border transition-colors',
                                             isOpenToCollaborate
-                                                ? 'border-[#8F2E12] bg-primary'
+                                                ? 'border-primary bg-primary'
                                                 : 'border-border bg-secondary',
                                         )}
                                         aria-hidden="true"

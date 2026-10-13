@@ -87,7 +87,7 @@ export function ProfileRightRail({
                                     <span title={l.customLabel || l.accountLabel} className="nb-meta min-w-0 truncate whitespace-nowrap text-right">{l.customLabel || l.accountLabel}</span>
                                 </a>
                                 {isOwner && l.id && linkHealth[l.id]?.health === 'unavailable' && onEditSection ? (
-                                    <button type="button" onClick={() => onEditSection('social')} className="nb-ui-label rounded-[3px] border border-amber-300 px-2 py-1.5 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40">Update</button>
+                                    <button type="button" onClick={() => onEditSection('social')} className="nb-touch-target nb-ui-label max-md:min-h-11 flex items-center rounded-[3px] border border-amber-300 px-2 py-1.5 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40">Update</button>
                                 ) : null}
                             </div>
                         ))}
