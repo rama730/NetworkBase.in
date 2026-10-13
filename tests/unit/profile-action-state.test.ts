@@ -88,3 +88,20 @@ test('message-only profiles receive an Actions dropdown', () => {
   assert.equal(state.showMessageAction, true)
   assert.equal(state.showRelationshipAction, true)
 })
+
+test('blocker can manage block from profile UI (SEC-010 UI unblock)', () => {
+  const blocker = resolveProfileActionState({
+    ...base,
+    connectionState: 'none',
+    canSendMessage: false,
+    canSendConnectionRequest: false,
+    blockedByViewer: true,
+    blockedByTarget: false,
+    canManageBlock: true,
+  })
+
+  assert.equal(blocker.isInteractionBlocked, true)
+  assert.equal(blocker.showRelationshipAction, true)
+  assert.equal(blocker.relationshipControlLabel, 'Blocked')
+})
+

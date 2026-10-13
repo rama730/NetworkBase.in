@@ -1,5 +1,6 @@
 import { getRequestId, jsonError, jsonSuccess, logApiRoute, requireAuthenticatedUser } from "@/app/api/v1/_shared";
 import { getProfileInviteProjectOptions } from "@/lib/profile/collaboration";
+import { resolvePrivacyRelationship } from "@/lib/privacy/resolver";
 import { logger } from "@/lib/logger";
 import { isUuid } from "@/lib/validations/uuid";
 
@@ -21,6 +22,14 @@ export async function GET(
   }
 
   try {
+    const relationship = await resolvePrivacyRelationship(auth.user.id, id);
+    if (!relationship) {
+      return jsonError("Profile not found", 404, "NOT_FOUND");
+    }
+    if (!relationship.canViewProfile || relationship.blockedByViewer || relationship.blockedByTarget) {
+      return jsonError("Profile is not eligible for invites", 403, "FORBIDDEN");
+    }
+
     const url = new URL(request.url);
     const page = await getProfileInviteProjectOptions(auth.user.id, id, {
       search: url.searchParams.get("search") ?? undefined,

@@ -258,7 +258,7 @@ export function ProfileHeader({
                                 <button
                                     type="button"
                                     onClick={onConnectionsClick}
-                                    disabled={!onConnectionsClick}
+                                    disabled={!onConnectionsClick || lockedShell}
                                     aria-label={`View ${connectionsCount} ${connectionsCount === 1 ? 'connection' : 'connections'}`}
                                     className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
                                 >
@@ -267,7 +267,7 @@ export function ProfileHeader({
                                 <button
                                     type="button"
                                     onClick={onProjectsClick}
-                                    disabled={!onProjectsClick}
+                                    disabled={!onProjectsClick || lockedShell}
                                     aria-label={`View ${projectsCount} ${projectsCount === 1 ? 'project' : 'projects'}`}
                                     className="rounded-sm underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none max-md:inline-flex max-md:min-h-11 max-md:items-center"
                                 >
