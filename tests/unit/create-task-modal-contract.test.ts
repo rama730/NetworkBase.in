@@ -64,8 +64,9 @@ test("CreateTaskModal removes visual header caption and implements Due Date quic
   assert.match(content, /\{ label: "2 weeks", days: 14 \}/);
   assert.match(content, /\{ label: "4 weeks", days: 28 \}/);
 
-  // Defaults to 1-week prefill
-  assert.match(content, /addDaysToDateString\(getTodayDateString\(\), 7\)/);
+  // No due date unless one is chosen (a +7-day default put dates on every task).
+  assert.match(content, /useState<string>\(""\)/);
+  assert.doesNotMatch(content, /useState<string>\(\(\) =>\s*addDaysToDateString/);
 
   // Prevents word breaking and vertical text wrapping in presets
   assert.match(content, /shrink-0 whitespace-nowrap/);

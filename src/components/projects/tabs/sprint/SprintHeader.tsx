@@ -128,7 +128,8 @@ export function SprintHeader({
                   </button>
                 ) : null}
 
-                {permissions.canWrite && sprint.status !== "archived" ? (
+                {/* Only a Planning sprint can be edited; the server rejects the rest. */}
+                {permissions.canWrite && sprint.status === "planning" ? (
                   <button
                     type="button"
                     onClick={onEdit}

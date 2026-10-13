@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  computeSprintStatus,
   type SprintHealthSummary,
   type SprintListItem,
 } from "@/lib/projects/sprint-detail";
@@ -56,7 +55,7 @@ const completionOptions: Array<{
   {
     value: "next_sprint",
     title: "Move to a Planning Sprint",
-    description: "Carry unfinished work into a scheduled or active Sprint.",
+    description: "Carry unfinished work into a sprint that has not started yet.",
   },
 ];
 
@@ -76,10 +75,9 @@ export function SprintLifecycleModals({
   const [nextSprintId, setNextSprintId] = useState("");
   const carryOverSprints = useMemo(
     () =>
+      // The server accepts only Planning sprints as a destination.
       sprints.filter(
-        (sprint) =>
-          sprint.id !== selectedSprint?.id &&
-          ["planning", "active"].includes(computeSprintStatus(sprint)),
+        (sprint) => sprint.id !== selectedSprint?.id && sprint.status === "planning",
       ),
     [selectedSprint?.id, sprints],
   );
@@ -103,7 +101,7 @@ export function SprintLifecycleModals({
       ? `Choose what happens to unfinished work in ${selectedSprint.name}.`
       : openModal === "archive"
         ? `Archive ${selectedSprint.name}. Its history stays available to the team.`
-        : `Cancel ${selectedSprint.name}. Unfinished work remains visible in the backlog.`;
+        : `Cancel ${selectedSprint.name}. All of its tasks, finished or not, move back to the backlog.`;
   const remainingTasks = Math.max(
     (summary?.totalTasks ?? 0) - (summary?.completedTasks ?? 0),
     0,

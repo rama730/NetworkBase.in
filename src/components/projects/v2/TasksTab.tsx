@@ -87,6 +87,8 @@ interface TasksTabProps {
   currentUserAvatarUrl?: string | null;
   isOwner?: boolean;
   canEditTasks: boolean;
+  /** Comments, files and source messages on tasks are members-only. */
+  isProjectMember?: boolean;
   canManageFiles?: boolean;
   canManageWorkflow: boolean;
   initialTasks?: any[];
@@ -108,6 +110,7 @@ export default function TasksTab({
   currentUserAvatarUrl = null,
   isOwner = false,
   canEditTasks,
+  isProjectMember = true,
   canManageFiles = false,
   canManageWorkflow,
   initialTasks = [],
@@ -181,13 +184,13 @@ export default function TasksTab({
   const [editingInitialTab, setEditingInitialTab] =
     useState<TaskPanelTab | null>(null);
   useDocumentTitlePrefix(editingTask?.title);
-  const [createTaskError, setCreateTaskError] = useState<string | null>(null);
   const [initialTaskLoadError, setInitialTaskLoadError] = useState<
     string | null
   >(null);
   const handledInitialOpenTaskRef = useRef<string | null>(null);
   const loadingInitialOpenTaskRef = useRef<string | null>(null);
   const isTaskPanelClosingRef = useRef(false);
+  const openingTaskIdRef = useRef<string | null>(null);
   const workflowRefreshQueuedRef = useRef(false);
 
   useEffect(() => {
@@ -205,10 +208,19 @@ export default function TasksTab({
   }, [scope]);
 
   useEffect(() => {
+    if (openingTaskIdRef.current && openingTaskIdRef.current === initialOpenTaskId) {
+      openingTaskIdRef.current = null;
+      handledInitialOpenTaskRef.current = initialOpenTaskId;
+    }
     if (!initialOpenTaskId) {
       isTaskPanelClosingRef.current = false;
       handledInitialOpenTaskRef.current = null;
       loadingInitialOpenTaskRef.current = null;
+      // Back (or any navigation) removed the task from the URL: the drawer follows.
+      if (!openingTaskIdRef.current) {
+        setEditingTask(null);
+        setEditingInitialTab(null);
+      }
     }
   }, [initialOpenTaskId]);
   const queryScope: ProjectTaskScope = useMemo(() => {
@@ -221,6 +233,9 @@ export default function TasksTab({
   const {
     data: infiniteData,
     isLoading,
+    isError: tasksLoadFailed,
+    isFetchNextPageError,
+    refetch: refetchTasks,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -404,28 +419,21 @@ export default function TasksTab({
       setEditingInitialTab(panelTab);
 
       if (typeof window !== "undefined") {
+        // The open task is in the URL, so the address bar is a working link and Back closes it.
         const nextParams = new URLSearchParams(window.location.search);
-        let changed = false;
-        for (const key of ["drawerType", "drawerId", "panelTab"]) {
-          if (nextParams.has(key)) {
-            nextParams.delete(key);
-            changed = true;
-          }
-        }
+        nextParams.set("drawerType", "task");
+        nextParams.set("drawerId", normalized.id);
+        nextParams.delete("taskId");
+        if (panelTab) nextParams.set("panelTab", panelTab);
+        else nextParams.delete("panelTab");
         if (!preserveNestedTarget) {
-          for (const key of ["commentId", "fileId"]) {
-            if (nextParams.has(key)) {
-              nextParams.delete(key);
-              changed = true;
-            }
-          }
+          nextParams.delete("commentId");
+          nextParams.delete("fileId");
         }
-        if (changed) {
-          const nextQuery = nextParams.toString();
-          const nextUrl = nextQuery
-            ? `${window.location.pathname}?${nextQuery}`
-            : window.location.pathname;
-          router.replace(nextUrl, { scroll: false });
+        const nextUrl = `${window.location.pathname}?${nextParams.toString()}`;
+        if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
+          openingTaskIdRef.current = normalized.id;
+          router.push(nextUrl, { scroll: false });
         }
       }
     },
@@ -584,18 +592,9 @@ export default function TasksTab({
     }
   };
 
-  // Optimized In-Memory Search & Scope Filters (sub-10ms, 1M-user scalable)
-  const filteredTasks = useMemo(() => {
-    const q = searchInput.trim().toLowerCase();
-    if (!q) return sprintAwareTasks;
-    return sprintAwareTasks.filter((task) => {
-      if (task.title?.toLowerCase().includes(q)) return true;
-      if (task.description?.toLowerCase().includes(q)) return true;
-      if (task.taskNumber && String(task.taskNumber).includes(q)) return true;
-      if (task.assignee?.fullName?.toLowerCase().includes(q)) return true;
-      return false;
-    });
-  }, [sprintAwareTasks, searchInput]);
+  // Search runs on the server (title, description, task key); re-filtering its results here
+  // would drop a "KEY-12" match whose title does not contain the text.
+  const filteredTasks = sprintAwareTasks;
 
   useEffect(() => {
     if (isTaskPanelClosingRef.current) return;
@@ -693,13 +692,11 @@ export default function TasksTab({
 
   const handleCreateTask = useCallback(
     async (data: any): Promise<{ success: boolean; error?: string }> => {
-      setCreateTaskError(null);
       try {
         const result = await createTaskAction(data);
 
         if (!result.success || !result.task) {
           const error = result.error || "Failed to create task";
-          setCreateTaskError(error);
           return { success: false, error };
         }
 
@@ -716,7 +713,6 @@ export default function TasksTab({
       } catch (err) {
         console.error("Exception creating task", err);
         const error = "An error occurred while creating the task";
-        setCreateTaskError(error);
         return { success: false, error };
       }
     },
@@ -739,7 +735,8 @@ export default function TasksTab({
               Task board
             </h2>
             <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[11px] font-semibold text-muted-foreground">
-              {filteredTasks.length}
+              {/* Loaded so far; "+" while more pages exist (there is no total count). */}
+              {`${filteredTasks.length}${hasNextPage ? "+" : ""}`}
             </span>
             {taskSearchQuery ? (
               <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">
@@ -788,7 +785,9 @@ export default function TasksTab({
               <button
                 type="button"
                 onClick={handleAddColumn}
-                className="nb-touch-target hidden h-[34px] items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:inline-flex"
+                disabled={workflow.length >= 6}
+                title={workflow.length >= 6 ? "A task board supports up to six sections" : undefined}
+                className="nb-touch-target hidden h-[34px] disabled:opacity-50 disabled:cursor-not-allowed items-center gap-1.5 rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:inline-flex"
               >
                 <Plus className="size-3.5" />
                 <span className="hidden sm:inline">New section</span>
@@ -816,9 +815,9 @@ export default function TasksTab({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
                 {canManageWorkflow ? (
-                  <DropdownMenuItem onSelect={handleAddColumn}>
+                  <DropdownMenuItem onSelect={handleAddColumn} disabled={workflow.length >= 6}>
                     <Plus className="size-4" aria-hidden="true" />
-                    New section
+                    {workflow.length >= 6 ? "Six sections (maximum)" : "New section"}
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuItem onSelect={() => setIdeSheetOpen(true)}>
@@ -832,9 +831,32 @@ export default function TasksTab({
         </div>
       </div>
 
-      {createTaskError ? (
-        <div className="rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 font-mono text-xs text-destructive">
-          {createTaskError}
+      {tasksLoadFailed || isFetchNextPageError ? (
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-[5px] border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <span>{isFetchNextPageError ? "More tasks could not be loaded." : "Tasks could not be loaded."}</span>
+          <button
+            type="button"
+            onClick={() => void (isFetchNextPageError ? fetchNextPage() : refetchTasks())}
+            className="nb-touch-target rounded-[5px] border border-destructive/30 px-2.5 py-1 font-medium hover:bg-destructive/10"
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      {!tasksLoadFailed && taskSearchQuery && filteredTasks.length === 0 && !isLoading ? (
+        <div className="flex items-center justify-between gap-3 rounded-[5px] border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+          <span>{`No tasks match “${taskSearchQuery}”.`}</span>
+          <button
+            type="button"
+            onClick={() => {
+              handleSearchChange("");
+              setScope("all");
+            }}
+            className="nb-touch-target rounded-[5px] border border-border px-2.5 py-1 font-medium text-foreground hover:bg-muted"
+          >
+            Clear filters
+          </button>
         </div>
       ) : null}
 
@@ -878,6 +900,7 @@ export default function TasksTab({
       {showCreateModal ? (
         <CreateTaskModal
           isOpen={showCreateModal}
+          canAssignSprint={isOwner}
           onClose={() => setShowCreateModal(false)}
           onCreate={async (value) => {
             const payload = buildTaskSubmitPayload({
@@ -1015,6 +1038,7 @@ export default function TasksTab({
           projectId={projectId}
           projectSlug={projectSlug}
           canEdit={canEditTasks}
+          isMember={isProjectMember}
           canManageFiles={canManageFiles}
           isOwner={isOwner}
           members={members}

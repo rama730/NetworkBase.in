@@ -356,6 +356,10 @@ export function compareTaskSurfaceRecords(
   left: TaskSurfaceRecord,
   right: TaskSurfaceRecord,
 ) {
+  // The server's board order: position DESC (missing = 0), then newest, then id.
+  const leftPosition = left.position ?? 0;
+  const rightPosition = right.position ?? 0;
+  if (leftPosition !== rightPosition) return rightPosition - leftPosition;
   const leftCreatedAt = Date.parse(left.createdAt ?? "") || 0;
   const rightCreatedAt = Date.parse(right.createdAt ?? "") || 0;
   if (leftCreatedAt !== rightCreatedAt) return rightCreatedAt - leftCreatedAt;
@@ -379,3 +383,44 @@ export function getTaskPriorityLabel(priority: string | null | undefined) {
   return getTaskPriorityPresentation(priority).label;
 }
 
+
+/** The one task link: opens the Tasks tab with this task's drawer (and optional tab or comment). */
+export function projectTaskHref(
+  projectSlugOrId: string,
+  taskId: string,
+  extra: { panelTab?: string; commentId?: string; fileId?: string } = {},
+) {
+  const params = new URLSearchParams({ tab: "tasks", drawerType: "task", drawerId: taskId });
+  if (extra.panelTab) params.set("panelTab", extra.panelTab);
+  if (extra.commentId) params.set("commentId", extra.commentId);
+  if (extra.fileId) params.set("fileId", extra.fileId);
+  return `/projects/${encodeURIComponent(projectSlugOrId)}?${params.toString()}`;
+}
+
+/**
+ * Due dates are calendar dates stored at UTC midnight. They are read and compared as calendar
+ * days so a due date never shows a day early west of UTC, and a task is not overdue on its due day.
+ */
+export function taskDueDateKey(dueDate: string | null | undefined) {
+  if (!dueDate || !Number.isFinite(Date.parse(dueDate))) return null;
+  return new Date(dueDate).toISOString().slice(0, 10);
+}
+
+export function formatTaskDueDate(dueDate: string | null | undefined, now = new Date()) {
+  const key = taskDueDateKey(dueDate);
+  if (!key) return null;
+  const date = new Date(`${key}T00:00:00Z`);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+    ...(date.getUTCFullYear() !== now.getFullYear() ? { year: "numeric" as const } : {}),
+  }).format(date);
+}
+
+export function isTaskOverdue(task: { dueDate?: string | null; status: string }, now = new Date()) {
+  const key = taskDueDateKey(task.dueDate);
+  if (!key || task.status === "done") return false;
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  return today > key;
+}

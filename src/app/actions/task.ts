@@ -28,6 +28,7 @@ import {
   markTaskFileVersionApproved,
 } from "@/lib/projects/task-file-intelligence";
 import { logger } from "@/lib/logger";
+import { projectTaskHref } from "@/lib/projects/task-presentation";
 import {
   isProjectMemberEligibleFor,
   requireProjectCapability,
@@ -35,22 +36,8 @@ import {
 import {
   taskDescriptionSchema,
   taskTitleSchema,
+  updateTaskFieldSchema,
 } from "@/lib/validations/task";
-
-type MutableTaskField =
-  | "title"
-  | "description"
-  | "priority"
-  | "sprintId"
-  | "dueDate";
-
-const ALLOWED_FIELDS: ReadonlySet<MutableTaskField> = new Set([
-  "title",
-  "description",
-  "priority",
-  "sprintId",
-  "dueDate",
-]);
 
 type Priority = "low" | "medium" | "high" | "urgent";
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
@@ -68,9 +55,6 @@ function taskActorSnapshot(user: {
   };
 }
 
-function taskHref(projectSlugOrId: string, taskId: string) {
-  return `/projects/${encodeURIComponent(projectSlugOrId)}?tab=tasks&drawerType=task&drawerId=${encodeURIComponent(taskId)}`;
-}
 
 function taskContextLabel(
   projectKey?: string | null,
@@ -121,12 +105,13 @@ async function lockTaskForWrite(
     slug: string | null;
     key: string | null;
     deleted_at: Date | string | null;
+    task_deleted_at: Date | string | null;
     member_role: string | null;
   }>(sql`
         SELECT
             t.id, t.project_id, t.assignee_id, t.sprint_id, t.workflow_column_id,
             t.timeline_origin_sprint_id, t.creator_id, t.title, t.task_number,
-            t.status, t.review_status, t.updated_at,
+            t.status, t.review_status, t.updated_at, t.deleted_at AS task_deleted_at,
             p.owner_id, p.slug, p.key, p.deleted_at,
             m.role as member_role
         FROM tasks t
@@ -142,6 +127,10 @@ async function lockTaskForWrite(
       throw new Error("Task not found");
     }
     throw new Error("Forbidden");
+  }
+  // COR-026: a deleted task is read-only; only its explicit restore may touch it.
+  if (row.task_deleted_at) {
+    throw new Error("This task was deleted");
   }
   if (row.deleted_at) {
     throw new Error("Forbidden");
@@ -173,13 +162,6 @@ async function lockTaskForWrite(
     projectKey: row.key ?? null,
   };
 }
-
-const updateTaskFieldSchema = z.object({
-  taskId: z.string().uuid(),
-  field: z.enum(["title", "description", "priority", "sprintId", "dueDate"]),
-  value: z.union([z.string(), z.null()]).optional(),
-  projectId: z.string().uuid(),
-});
 
 /**
  * Update task field
@@ -221,9 +203,6 @@ export async function updateTaskFieldAction(
     );
     if (!taskRlOk) return { success: false, error: "Rate limit exceeded" };
 
-    if (!ALLOWED_FIELDS.has(parsed.data.field)) {
-      return { success: false, error: "Invalid field" };
-    }
     const requestedSprintId =
       parsed.data.field === "sprintId" &&
       typeof parsed.data.value === "string" &&
@@ -237,8 +216,9 @@ export async function updateTaskFieldAction(
         throw new Error("Task does not belong to this project");
       }
 
+      const updatedAt = new Date();
       const updates: Partial<typeof tasks.$inferInsert> = {
-        updatedAt: new Date(),
+        updatedAt,
       };
 
       if (field === "title") {
@@ -388,7 +368,7 @@ export async function updateTaskFieldAction(
             : []),
         ]);
       }
-      return locked;
+      return { ...locked, updatedAt };
     });
 
     await queueCounterRefreshBestEffort([result.previousAssigneeId]);
@@ -415,7 +395,7 @@ export async function updateTaskFieldAction(
             body: nextSprintId
               ? `${result.title} was added to a sprint.`
               : `${result.title} was moved back to the backlog.`,
-            href: taskHref(result.projectSlug || result.projectId, taskId),
+            href: projectTaskHref(result.projectSlug || result.projectId, taskId),
             entityRefs: {
               projectId: result.projectId,
               projectSlug: result.projectSlug ?? null,
@@ -449,11 +429,170 @@ export async function updateTaskFieldAction(
       }
     }
     revalidatePath(`/projects/${result.projectId}`);
-    return { success: true };
+    // The client patches this server version in, so the next drag's version check matches.
+    return { success: true, updatedAt: result.updatedAt.toISOString() };
   } catch (error: any) {
     console.error("Unexpected error:", error);
     return { success: false, error: error?.message || "Failed to update task" };
   }
+}
+
+type TaskLock = Awaited<ReturnType<typeof lockTaskForWrite>>;
+type TaskTransitionResult = {
+  updatedAt: Date;
+  status: TaskStatus;
+  reviewStatus: "none" | "pending" | "rejected";
+  activityEventId: string | null;
+};
+
+/**
+ * COR-027: the one status/column/review transition, used by the drawer's status control and by
+ * a Kanban drag alike. The destination is a column (given, or the status's default column).
+ */
+async function transitionTaskTx(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  locked: TaskLock,
+  input: { taskId: string; userId: string; status?: TaskStatus; columnId?: string; position?: number },
+): Promise<TaskTransitionResult> {
+  const column = await tx.query.projectWorkflowColumns.findFirst({
+    where: input.columnId
+      ? and(eq(projectWorkflowColumns.id, input.columnId), eq(projectWorkflowColumns.projectId, locked.projectId))
+      : and(
+          eq(projectWorkflowColumns.projectId, locked.projectId),
+          eq(projectWorkflowColumns.status, input.status!),
+          eq(projectWorkflowColumns.isDefault, true),
+        ),
+    columns: { id: true, status: true, title: true },
+  });
+  if (!column) throw new Error(input.columnId ? "Section not found" : "Default workflow section is unavailable");
+  const status = column.status as TaskStatus;
+
+  // Review lifecycle: entering done asks for review; leaving a pending review rejects it (leads only).
+  let reviewStatus = locked.reviewStatus;
+  if (status === "done" && locked.currentStatus !== "done") {
+    reviewStatus = "pending";
+  } else if (locked.reviewStatus === "pending" && status !== "done") {
+    if (!locked.isOwner) throw new Error("Only project leads can move a task out of pending review.");
+    reviewStatus = "rejected";
+  }
+
+  const updatedAt = new Date();
+  await tx
+    .update(tasks)
+    .set({
+      workflowColumnId: column.id,
+      status,
+      reviewStatus,
+      ...(input.position !== undefined && { position: input.position }),
+      updatedAt,
+    })
+    .where(eq(tasks.id, input.taskId));
+
+  const statusChanged = locked.currentStatus !== status;
+  const columnChanged = locked.currentWorkflowColumnId !== column.id;
+  let activityEventId: string | null = null;
+  if (statusChanged || columnChanged) {
+    const [event] = await tx.insert(taskActivityEvents).values({
+      taskId: input.taskId,
+      projectId: locked.projectId,
+      sprintId: locked.previousSprintId,
+      actorId: input.userId,
+      eventType: statusChanged ? "status_changed" : "workflow_column_changed",
+      payload: statusChanged
+        ? { version: 1, taskTitle: locked.title, taskNumber: locked.taskNumber, taskStatus: status, from: locked.currentStatus, to: status }
+        : { version: 1, taskTitle: locked.title, taskNumber: locked.taskNumber, fromColumnId: locked.currentWorkflowColumnId, toColumnId: column.id, toColumnTitle: column.title },
+    }).returning({ id: taskActivityEvents.id });
+    activityEventId = event?.id ?? null;
+  }
+  return { updatedAt, status, reviewStatus, activityEventId };
+}
+
+/** Post-commit effects of a transition, identical for every caller: counters, attention, file warnings. */
+async function afterTaskTransition(
+  user: Parameters<typeof taskActorSnapshot>[0] & { id: string },
+  locked: TaskLock,
+  taskId: string,
+  result: TaskTransitionResult,
+) {
+  const warnings =
+    result.status === "done"
+      ? await db
+          .select({
+            id: projectNodes.id,
+            name: projectNodes.name,
+            type: projectNodes.type,
+            path: projectNodes.path,
+            annotation: taskNodeLinks.annotation,
+            tags: taskNodeLinks.tags,
+            canonicalNodeId: projectNodes.canonicalNodeId,
+          })
+          .from(taskNodeLinks)
+          .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
+          .where(and(eq(taskNodeLinks.taskId, taskId), eq(projectNodes.projectId, locked.projectId), isNull(projectNodes.deletedAt)))
+          .then((rows) => getTaskFileWarnings({ status: result.status, attachments: rows }))
+      : [];
+
+  await queueCounterRefreshBestEffort([locked.previousAssigneeId]);
+  if ((result.status === "blocked" || result.status === "done") && result.status !== locked.currentStatus && result.activityEventId) {
+    const recipients = new Set<string>();
+    if (locked.creatorId !== user.id) recipients.add(locked.creatorId);
+    if (locked.previousAssigneeId && locked.previousAssigneeId !== user.id) recipients.add(locked.previousAssigneeId);
+    try {
+      const actor = taskActorSnapshot(user);
+      await enqueueProjectNotificationEvent({
+        projectId: locked.projectId,
+        actorUserId: user.id,
+        ...actor,
+        eventKey: "tasks.status_attention",
+        taskParticipantIds: Array.from(recipients),
+        title: `${actor.actorName || "Someone"} marked a task ${result.status === "blocked" ? "as an issue" : "done"}`,
+        body: locked.title,
+        href: projectTaskHref(locked.projectSlug || locked.projectId, taskId),
+        entityRefs: {
+          projectId: locked.projectId,
+          projectSlug: locked.projectSlug ?? null,
+          taskId,
+          status: result.status,
+        },
+        preview: {
+          actorName: actor.actorName,
+          actorAvatarUrl: actor.actorAvatarUrl,
+          contextLabel: taskContextLabel(locked.projectKey, locked.taskNumber),
+          contextKind: "task",
+          secondaryText: result.status === "blocked" ? "issue" : result.status,
+        },
+        // COR-028: one id per transition, so becoming blocked/done again notifies again.
+        sourceEventId: result.activityEventId,
+      });
+    } catch (notificationError) {
+      logger.error("tasks.status_attention_notification_failed", {
+        module: "tasks",
+        projectId: locked.projectId,
+        taskId,
+        actorUserId: user.id,
+        status: result.status,
+        count: recipients.size,
+        error: notificationError instanceof Error ? notificationError.message : String(notificationError),
+      });
+    }
+  }
+  revalidatePath(`/projects/${locked.projectId}`);
+  return warnings;
+}
+
+async function requireTaskWriter() {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return null;
+  const { allowed } = await consumeRateLimit(`task:${user.id}`, 60, 60);
+  if (!allowed) throw new Error("Rate limit exceeded");
+  return user;
+}
+
+function parseExpectedVersion(expectedUpdatedAt?: string | null) {
+  const version = expectedUpdatedAt ? new Date(expectedUpdatedAt) : null;
+  if (version && Number.isNaN(version.getTime())) throw new Error("Invalid task version");
+  return version;
 }
 
 /**
@@ -467,203 +606,29 @@ export async function updateTaskStatusAction(
   expectedUpdatedAt?: string | null,
 ) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: "Unauthorized" };
-    }
-    const { allowed: taskRlOk } = await consumeRateLimit(
-      `task:${user.id}`,
-      60,
-      60,
-    );
-    if (!taskRlOk) return { success: false, error: "Rate limit exceeded" };
-
     if (!["todo", "in_progress", "done", "blocked"].includes(status)) {
       return { success: false, error: "Invalid status" };
     }
-    const expectedVersion = expectedUpdatedAt
-      ? new Date(expectedUpdatedAt)
-      : null;
-    if (expectedVersion && Number.isNaN(expectedVersion.getTime())) {
-      return { success: false, error: "Invalid task version" };
-    }
+    if (position !== undefined && !Number.isFinite(position)) return { success: false, error: "Invalid position" };
+    const user = await requireTaskWriter();
+    if (!user) return { success: false, error: "Unauthorized" };
+    const expectedVersion = parseExpectedVersion(expectedUpdatedAt);
 
-    const result = await db.transaction(async (tx) => {
+    const { locked, result } = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
-      if (locked.projectId !== projectId) {
-        throw new Error("Task does not belong to this project");
+      if (locked.projectId !== projectId) throw new Error("Task does not belong to this project");
+      if (expectedVersion && locked.currentUpdatedAt.getTime() !== expectedVersion.getTime()) {
+        throw new Error("This task changed elsewhere. Reload it and try again.");
       }
-      if (
-        expectedVersion &&
-        locked.currentUpdatedAt.getTime() !== expectedVersion.getTime()
-      ) {
-        throw new Error(
-          "This task changed elsewhere. Reload it and try again.",
-        );
-      }
-
-      let newReviewStatus = locked.reviewStatus;
-
-      // Sub-State Lifecycle Interceptor
-      if (status === "done" && locked.currentStatus !== "done") {
-        newReviewStatus = "pending";
-      } else if (locked.reviewStatus === "pending" && status !== "done") {
-        // Moving it out of pending means rejecting it (back to in_progress or blocked).
-        if (!locked.isOwner)
-          throw new Error(
-            "Only project leads can move a task out of pending review.",
-          );
-        newReviewStatus = "rejected";
-      }
-
-      const updatedAt = new Date();
-      const posVal = position !== undefined ? position : null;
-      const statusChanged = locked.currentStatus !== status;
-
-      // PURE OPTIMIZATION (Item 4): Atomic CTE consolidates default column lookup, task position update, and activity log into 1 DB round-trip.
-      const updatedRows = await tx.execute<{ workflow_column_id: string | null }>(sql`
-        WITH default_col AS (
-          SELECT id FROM project_workflow_columns
-          WHERE project_id = ${locked.projectId}
-            AND status = ${status}
-            AND is_default = true
-          LIMIT 1
-        ),
-        updated_task AS (
-          UPDATE tasks
-          SET status = ${status},
-              review_status = ${newReviewStatus},
-              workflow_column_id = (SELECT id FROM default_col),
-              position = COALESCE(${posVal}, position),
-              updated_at = ${updatedAt}
-          WHERE id = ${taskId}
-            AND (SELECT id FROM default_col) IS NOT NULL
-          RETURNING id, workflow_column_id
-        ),
-        activity_insert AS (
-          INSERT INTO task_activity_events (task_id, project_id, sprint_id, actor_id, event_type, payload)
-          SELECT
-            ${taskId},
-            ${locked.projectId},
-            ${locked.previousSprintId},
-            ${user.id},
-            'status_changed',
-            ${JSON.stringify({
-              version: 1,
-              taskTitle: locked.title,
-              taskNumber: locked.taskNumber,
-              taskStatus: status,
-              from: locked.currentStatus,
-              to: status,
-            })}::jsonb
-          FROM updated_task
-          WHERE ${statusChanged}
-        )
-        SELECT workflow_column_id FROM updated_task
-      `);
-
-      const updatedRow = Array.from(updatedRows)[0];
-      if (!updatedRow || !updatedRow.workflow_column_id) {
-        throw new Error("Default workflow section is unavailable");
-      }
-
-      return { ...locked, updatedAt };
+      return { locked, result: await transitionTaskTx(tx, locked, { taskId, userId: user.id, status, position }) };
     });
 
-    const warnings =
-      status === "done"
-        ? await db
-            .select({
-              id: projectNodes.id,
-              name: projectNodes.name,
-              type: projectNodes.type,
-              path: projectNodes.path,
-              annotation: taskNodeLinks.annotation,
-              tags: taskNodeLinks.tags,
-              canonicalNodeId: projectNodes.canonicalNodeId,
-            })
-            .from(taskNodeLinks)
-            .innerJoin(projectNodes, eq(taskNodeLinks.nodeId, projectNodes.id))
-            .where(
-              and(
-                eq(taskNodeLinks.taskId, taskId),
-                eq(projectNodes.projectId, projectId),
-                isNull(projectNodes.deletedAt),
-              ),
-            )
-            .then((rows) =>
-              getTaskFileWarnings({
-                status,
-                attachments: rows,
-              }),
-            )
-        : [];
-
-    await queueCounterRefreshBestEffort([result.previousAssigneeId]);
-    if (
-      (status === "blocked" || status === "done") &&
-      status !== result.currentStatus
-    ) {
-      const recipients = new Set<string>();
-      if (result.creatorId !== user.id) {
-        recipients.add(result.creatorId);
-      }
-      if (result.previousAssigneeId && result.previousAssigneeId !== user.id) {
-        recipients.add(result.previousAssigneeId);
-      }
-      try {
-        const actor = taskActorSnapshot(user);
-        await enqueueProjectNotificationEvent({
-          projectId: result.projectId,
-          actorUserId: user.id,
-          ...actor,
-          eventKey: "tasks.status_attention",
-          taskParticipantIds: Array.from(recipients),
-          title: `${actor.actorName || "Someone"} marked a task ${status === "blocked" ? "as an issue" : "done"}`,
-          body: result.title,
-          href: taskHref(result.projectSlug || result.projectId, taskId),
-          entityRefs: {
-            projectId: result.projectId,
-            projectSlug: result.projectSlug ?? null,
-            taskId,
-            status,
-          },
-          preview: {
-            actorName: actor.actorName,
-            actorAvatarUrl: actor.actorAvatarUrl,
-            contextLabel: taskContextLabel(
-              result.projectKey,
-              result.taskNumber,
-            ),
-            contextKind: "task",
-            secondaryText: status === "blocked" ? "issue" : status,
-          },
-          sourceEventId: `${taskId}:status:${status}`,
-        });
-      } catch (notificationError) {
-        logger.error("tasks.status_attention_notification_failed", {
-          module: "tasks",
-          projectId: result.projectId,
-          taskId,
-          actorUserId: user.id,
-          status,
-          count: recipients.size,
-          error:
-            notificationError instanceof Error
-              ? notificationError.message
-              : String(notificationError),
-        });
-      }
-    }
-    revalidatePath(`/projects/${result.projectId}`);
+    const warnings = await afterTaskTransition(user, locked, taskId, result);
     return {
       success: true,
       warnings,
       updatedAt: result.updatedAt.toISOString(),
+      reviewStatus: result.reviewStatus,
     };
   } catch (error: any) {
     console.error("Unexpected error:", error);
@@ -690,111 +655,27 @@ export async function moveTaskToWorkflowColumnAction(
     ) {
       return { success: false as const, error: "Invalid task move" };
     }
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user)
-      return { success: false as const, error: "Unauthorized" };
-    const { allowed } = await consumeRateLimit(`task:${user.id}`, 60, 60);
-    if (!allowed)
-      return { success: false as const, error: "Rate limit exceeded" };
-    const expectedVersion = expectedUpdatedAt
-      ? new Date(expectedUpdatedAt)
-      : null;
-    if (expectedVersion && Number.isNaN(expectedVersion.getTime()))
-      return { success: false as const, error: "Invalid task version" };
+    const user = await requireTaskWriter();
+    if (!user) return { success: false as const, error: "Unauthorized" };
+    const expectedVersion = parseExpectedVersion(expectedUpdatedAt);
 
-    const result = await db.transaction(async (tx) => {
+    const { locked, result } = await db.transaction(async (tx) => {
       const locked = await lockTaskForWrite(tx, taskId, user.id);
       if (locked.projectId !== projectId)
         throw new Error("Task does not belong to this project");
       // Members move their own or unassigned tasks; leads move any (the board mirrors this).
       if (!locked.isLeader && locked.previousAssigneeId && locked.previousAssigneeId !== user.id)
         throw new Error("Only the assignee or a project lead can move this task.");
-      if (
-        expectedVersion &&
-        locked.currentUpdatedAt.getTime() !== expectedVersion.getTime()
-      )
+      if (expectedVersion && locked.currentUpdatedAt.getTime() !== expectedVersion.getTime())
         throw new Error("This task changed elsewhere. Reload and try again.");
-      const column = await tx.query.projectWorkflowColumns.findFirst({
-        where: and(
-          eq(projectWorkflowColumns.id, workflowColumnId),
-          eq(projectWorkflowColumns.projectId, projectId),
-        ),
-        columns: { id: true, status: true, title: true },
-      });
-      if (!column) throw new Error("Section not found");
-
-      // Ponytail Review Lifecycle Interceptor
-      let newReviewStatus = locked.reviewStatus;
-      if (column.status === "done" && locked.currentStatus !== "done") {
-        // Moving to done triggers pending review.
-        newReviewStatus = "pending";
-      } else if (
-        locked.reviewStatus === "pending" &&
-        column.status !== "done"
-      ) {
-        // Moving it out of pending means rejecting it (back to in_progress or blocked).
-        if (!locked.isOwner)
-          throw new Error(
-            "Only project leads can move a task out of pending review.",
-          );
-        newReviewStatus = "rejected";
-      }
-
-      const updatedAt = new Date();
-      await tx
-        .update(tasks)
-        .set({
-          workflowColumnId: column.id,
-          status: column.status,
-          reviewStatus: newReviewStatus,
-          ...(position !== undefined && { position }),
-          updatedAt,
-        })
-        .where(eq(tasks.id, taskId));
-      if (locked.currentStatus !== column.status) {
-        await tx.insert(taskActivityEvents).values({
-          taskId,
-          projectId,
-          sprintId: locked.previousSprintId,
-          actorId: user.id,
-          eventType: "status_changed",
-          payload: {
-            version: 1,
-            taskTitle: locked.title,
-            taskNumber: locked.taskNumber,
-            taskStatus: column.status,
-            from: locked.currentStatus,
-            to: column.status,
-          },
-        });
-      } else if (locked.currentWorkflowColumnId !== column.id) {
-        await tx.insert(taskActivityEvents).values({
-          taskId,
-          projectId,
-          sprintId: locked.previousSprintId,
-          actorId: user.id,
-          eventType: "workflow_column_changed",
-          payload: {
-            version: 1,
-            taskTitle: locked.title,
-            taskNumber: locked.taskNumber,
-            fromColumnId: locked.currentWorkflowColumnId,
-            toColumnId: column.id,
-            toColumnTitle: column.title,
-          },
-        });
-      }
-      return { updatedAt, reviewStatus: newReviewStatus };
+      return { locked, result: await transitionTaskTx(tx, locked, { taskId, userId: user.id, columnId: workflowColumnId, position }) };
     });
-    revalidatePath(`/projects/${projectId}`);
+    const warnings = await afterTaskTransition(user, locked, taskId, result);
     return {
       success: true as const,
       updatedAt: result.updatedAt.toISOString(),
       reviewStatus: result.reviewStatus,
+      warnings,
     };
   } catch (error) {
     return {
@@ -907,11 +788,12 @@ export async function assignTaskAction(
         ? (snapshotById.get(assigneeId) ?? null)
         : null;
 
+      const updatedAt = new Date();
       await tx
         .update(tasks)
         .set({
           assigneeId: assigneeId || null,
-          updatedAt: new Date(),
+          updatedAt,
         })
         .where(and(eq(tasks.id, taskId), eq(tasks.projectId, projectId)));
 
@@ -928,7 +810,7 @@ export async function assignTaskAction(
         });
       }
 
-      return { ...locked, assignmentEventId };
+      return { ...locked, assignmentEventId, updatedAt };
     });
 
     await wakeEmailWorker();
@@ -964,7 +846,7 @@ export async function assignTaskAction(
       }
     }
     revalidatePath(`/projects/${result.projectId}`);
-    return { success: true };
+    return { success: true, updatedAt: result.updatedAt.toISOString() };
   } catch (error: any) {
     console.error("Unexpected error:", error);
     return { success: false, error: error?.message || "Failed to assign task" };

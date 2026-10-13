@@ -616,6 +616,8 @@ async function transitionApplicationToPendingInternal(
         .from(roleApplications)
         .where(and(eq(roleApplications.id, applicationId), eq(roleApplications.status, 'rejected')))
         .limit(1);
+    // COR-033: already reopened (or decided otherwise) by a concurrent request: a conflict, not a crash.
+    if (!candidate) return false;
     // PURE OPTIMIZATION (Item 94): Upgrade 32-bit hashtext to 64-bit hashtextextended advisory lock.
     await tx.execute(sql`
         SELECT pg_advisory_xact_lock(hashtextextended('application-pending-cap:' || ${candidate.applicantId}, 0))
@@ -1454,10 +1456,19 @@ export async function editPendingApplicationAction(
         }
 
         const channelId = await db.transaction(async (tx) => {
-            await tx
+            // COR-033: the edit is fenced on applicant, pending state and window in the UPDATE itself,
+            // so a decision that lands after the checks above wins.
+            const edited = await tx
                 .update(roleApplications)
                 .set({ message: normalizedMessage, updatedAt: new Date() })
-                .where(eq(roleApplications.id, application.id));
+                .where(and(
+                    eq(roleApplications.id, application.id),
+                    eq(roleApplications.applicantId, user.id),
+                    eq(roleApplications.status, 'pending'),
+                    sql`${roleApplications.createdAt} > now() - make_interval(secs => ${APPLICATION_EDIT_WINDOW_MS / 1000})`,
+                ))
+                .returning({ id: roleApplications.id });
+            if (edited.length !== 1) return null;
             await tx.insert(applicationEvents).values({
                 applicationId: application.id,
                 actorId: user.id,
@@ -1469,6 +1480,9 @@ export async function editPendingApplicationAction(
             // The application card shows the edited message live.
             return postApplicationUpdate(tx, application.id, user.id, 'edited the application');
         });
+        if (channelId === null) {
+            return toApplicationFailure(traceId, 'INVALID_STATE', 'This application was decided or its edit window closed. Refresh to see it.');
+        }
 
         const slugOrId = application.project?.slug || application.projectId;
         revalidatePath(`/projects/${slugOrId}`);
