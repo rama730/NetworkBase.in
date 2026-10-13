@@ -137,7 +137,7 @@ export function OpenToRolesCard({
                 )}
               >
                 <Briefcase className="h-4 w-4" aria-hidden="true" />
-                Invite to
+                Invite to project
               </button>
             )}
           </div>

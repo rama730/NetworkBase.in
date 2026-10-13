@@ -25,94 +25,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { messageUserInWindow } from '@/components/messages/message-user'
 import { profileHref } from '@/lib/routing/identifiers'
 
-const ProfileHeader = dynamic(
-    () => import('./ProfileHeader').then((module) => module.ProfileHeader),
-    {
-        loading: () => (
-            <div aria-hidden="true" className="rounded-lg border border-border bg-card p-6 shadow-none">
-                <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex gap-4">
-                        <Skeleton className="size-[72px] shrink-0 rounded-[4px]" />
-                        <div className="min-w-0 flex-1 space-y-2.5 pt-0.5">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Skeleton className="h-7 w-48 rounded-[4px]" />
-                                <Skeleton className="h-4 w-24 rounded-[3px]" />
-                            </div>
-                            <Skeleton className="h-4 w-80 max-w-full rounded-[3px]" />
-                            <div className="flex gap-3 pt-1">
-                                <Skeleton className="h-3.5 w-24 rounded-[3px]" />
-                                <Skeleton className="h-3.5 w-28 rounded-[3px]" />
-                            </div>
-                        </div>
-                    </div>
-                    <Skeleton className="h-9 w-24 rounded-md" />
-                </div>
-            </div>
-        ),
-    },
-);
-const ProfileRightRail = dynamic(
-    () => import('./ProfileRightRail').then((module) => module.ProfileRightRail),
-    {
-        loading: () => (
-            <div aria-hidden="true" className="space-y-6">
-                <div className="rounded-lg border border-border bg-card p-5 space-y-4">
-                    <Skeleton className="h-4 w-28 rounded-[3px]" />
-                    <div className="flex flex-wrap gap-1.5">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                            <Skeleton key={i} className="h-6 w-16 rounded-[4px]" />
-                        ))}
-                    </div>
-                </div>
-                <div className="rounded-lg border border-border bg-card p-5 space-y-3">
-                    <Skeleton className="h-4 w-24 rounded-[3px]" />
-                    <Skeleton className="h-10 w-full rounded-md" />
-                </div>
-            </div>
-        ),
-    },
-);
-const OpenToRolesCard = dynamic(
-    () => import('./sections/OpenToRolesCard').then((module) => module.OpenToRolesCard),
-    {
-        loading: () => (
-            <div aria-hidden="true" className="rounded-lg border border-border bg-card p-5 space-y-3">
-                <Skeleton className="h-5 w-32 rounded-[3px]" />
-                <Skeleton className="h-4 w-3/4 rounded-[3px]" />
-                <div className="flex gap-2 pt-1">
-                    <Skeleton className="h-6 w-20 rounded-[4px]" />
-                    <Skeleton className="h-6 w-24 rounded-[4px]" />
-                </div>
-            </div>
-        ),
-    },
-);
-
-const ProjectContributionsCard = dynamic(
-    () => import('./sections/ProjectContributionsCard').then((module) => module.ProjectContributionsCard),
-    {
-        loading: () => (
-            <div aria-hidden="true" className="rounded-lg border border-border bg-card p-5 space-y-3">
-                <Skeleton className="h-5 w-40 rounded-[3px]" />
-                <Skeleton className="h-20 w-full rounded-lg border border-border" />
-            </div>
-        ),
-    },
-);
-const ProjectsGridCard = dynamic(
-    () => import('./sections/ProjectsGridCard').then((module) => module.ProjectsGridCard),
-    {
-        loading: () => (
-            <div aria-hidden="true" className="space-y-4">
-                <Skeleton className="h-6 w-28 rounded-[3px]" />
-                <div className="space-y-4">
-                    <Skeleton className="h-32 w-full rounded-lg border border-border" />
-                    <Skeleton className="h-32 w-full rounded-lg border border-border" />
-                </div>
-            </div>
-        ),
-    },
-);
+import { ProfileHeader } from './ProfileHeader'
+import { ProfileRightRail } from './ProfileRightRail'
+import { OpenToRolesCard } from './sections/OpenToRolesCard'
+import { ProjectContributionsCard } from './sections/ProjectContributionsCard'
+import { ProjectsGridCard } from './sections/ProjectsGridCard'
 
 type EditProfileModalComponent = typeof import('@/components/profile/edit/EditProfileModal')['EditProfileModal'];
 type UserConnectionsModalComponent = typeof import('@/components/profile/v2/UserConnectionsModal')['UserConnectionsModal'];
