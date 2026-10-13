@@ -2,42 +2,44 @@ import { inngest } from '@/inngest/client';
 import { getRedisClient } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 
+/** Per-user "refresh already queued" marker; it expires on its own so a lost dispatch cannot suppress refreshes for good (COR-015). */
+export const COUNTER_REFRESH_MARKER_TTL_SECONDS = 300;
+export const counterRefreshMarkerKey = (userId: string) => `profile_counters:queued:${userId}`;
+
+function dispatchRefresh(userId: string) {
+    return inngest.send({
+        name: "workspace/counters.refresh",
+        data: { userId },
+    });
+}
+
 /**
  * Queues a counter refresh for a specific user.
- * This is the high-scale entry point for all counter updates.
- * Instead of recalculating immediately, it adds the user to a "dirty" set
- * and triggers an Inngest background job to handle batching and debouncing.
+ * Instead of recalculating immediately it sets an expiring marker (one refresh per window is enough)
+ * and triggers an Inngest background job that debounces and batches. If the trigger fails the marker
+ * is removed, and if even that fails it expires, so the next mutation queues work again.
  */
 export async function queueCounterRefresh(userId: string) {
     const redis = getRedisClient();
+    const failed = (err: unknown) => logger.warn('counter-buffer.inngest.trigger.failed', {
+        module: 'workspace',
+        userId,
+        error: err instanceof Error ? err.message : String(err),
+    });
     if (!redis) {
         // Fallback: If Redis is down, dispatch non-blocking refresh trigger
-        void inngest.send({
-            name: "workspace/counters.refresh",
-            data: { userId },
-        }).catch((err) => {
-            logger.warn('counter-buffer.inngest.trigger.failed', {
-                module: 'workspace',
-                userId,
-                error: err instanceof Error ? err.message : String(err),
-            });
-        });
+        void dispatchRefresh(userId).catch(failed);
         return;
     }
 
-    const alreadyQueued = await redis.sadd('profile_counters:dirty_users', userId);
+    const marker = counterRefreshMarkerKey(userId);
+    const acquired = await redis.set(marker, "1", { nx: true, ex: COUNTER_REFRESH_MARKER_TTL_SECONDS });
 
     // Truly non-blocking background trigger: never block user mutation path with network retries
-    if (alreadyQueued > 0) {
-        void inngest.send({
-            name: "workspace/counters.refresh",
-            data: { userId },
-        }).catch((err) => {
-            logger.warn('counter-buffer.inngest.trigger.failed', {
-                module: 'workspace',
-                userId,
-                error: err instanceof Error ? err.message : String(err),
-            });
+    if (acquired) {
+        void dispatchRefresh(userId).catch(async (err) => {
+            failed(err);
+            await redis.del(marker).catch(() => undefined);
         });
     }
 }

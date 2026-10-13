@@ -1,6 +1,7 @@
 import { inngest } from '../client';
 import { db } from '@/lib/db';
 import { getRedisClient } from '@/lib/redis';
+import { counterRefreshMarkerKey } from '@/lib/workspace/counter-buffer';
 import { refreshWorkspaceCountersForUsers } from '@/lib/workspace/profile-counters';
 
 export const workspaceCountersRefresh = inngest.createFunction(
@@ -18,10 +19,10 @@ export const workspaceCountersRefresh = inngest.createFunction(
         
         await step.run('refresh-counters', async () => {
             if (userIds.length === 0) return;
-            // Remove from dirty set first to allow new refreshes to be queued
+            // Clear the queued markers first so mutations during this refresh queue the next one.
             const redis = getRedisClient();
             if (redis) {
-                await redis.srem('profile_counters:dirty_users', ...userIds);
+                await redis.del(...userIds.map(counterRefreshMarkerKey));
             }
 
             // Perform batched refresh
