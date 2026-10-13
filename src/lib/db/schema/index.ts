@@ -2963,6 +2963,14 @@ export const workLeases = pgTable("work_leases", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+/** Redis counter batches already applied to PostgreSQL; the batch id makes a replayed flush a no-op. Server-only. */
+export const counterFlushBatches = pgTable("counter_flush_batches", {
+  batchId: text("batch_id").primaryKey(),
+  kind: text("kind").notNull(),
+  entryCount: integer("entry_count").default(0).notNull(),
+  appliedAt: timestamp("applied_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const storageAssetOperations = pgTable(
   "storage_asset_operations",
   {
