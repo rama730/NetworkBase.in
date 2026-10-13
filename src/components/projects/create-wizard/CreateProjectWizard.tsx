@@ -158,12 +158,18 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
     useEffect(() => {
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         scrollBodyRef.current?.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+        // Shift keyboard focus on phase change so screen readers announce the new step
+        const timer = setTimeout(() => {
+            const phaseHeading = scrollBodyRef.current?.querySelector<HTMLElement>('h2, h3, [data-phase-heading]');
+            if (phaseHeading) {
+                phaseHeading.setAttribute('tabindex', '-1');
+                phaseHeading.focus({ preventScroll: true });
+            } else {
+                headingRef.current?.focus({ preventScroll: true });
+            }
+        }, 50);
+        return () => clearTimeout(timer);
     }, [phase]);
-
-    // Full-page route: move focus to the page heading so screen readers start at the top of the flow.
-    useEffect(() => {
-        headingRef.current?.focus({ preventScroll: true });
-    }, []);
 
     // Refresh or tab close with unsaved work gets the browser's own prompt. The GitHub sign-in
     // hand-off is exempt: it snapshots the form first and restores it on return.

@@ -38,7 +38,7 @@ function ReviewSection({ eyebrow, title, onEdit, children }: ReviewSectionProps)
                     <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">{eyebrow}</p>
                     <h4 className="nb-card-title mt-1 text-foreground">{title}</h4>
                 </div>
-                <Button type="button" onClick={onEdit} variant="link" size="sm" className="shrink-0">
+                <Button type="button" onClick={onEdit} variant="link" size="sm" className="nb-touch-target shrink-0">
                     <Edit3 className="size-3" />
                     Edit
                 </Button>

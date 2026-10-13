@@ -119,7 +119,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-lead-focus">Lead focus</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 tabular-nums text-muted-foreground" aria-live="polite">{leadFocus.length}/80</span>
+                            <span className="nb-meta mb-2 shrink-0 tabular-nums text-muted-foreground">{leadFocus.length}/80</span>
                         </div>
                         <Input
                             id="create-project-lead-focus"
@@ -144,7 +144,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                         description="Openings are optional. Define a role only when you are ready to make it visible to potential contributors."
                     />
                     <div className="flex items-center gap-3">
-                        <span className="nb-meta shrink-0 tabular-nums text-muted-foreground" aria-live="polite">
+                        <span className="nb-meta shrink-0 tabular-nums text-muted-foreground">
                             {openRoles.length} {openRoles.length === 1 ? 'role' : 'roles'} · {openPositionCount} {openPositionCount === 1 ? 'opening' : 'openings'}
                         </span>
                         <Button type="button" variant="outline" onClick={addRole}><Plus className="size-4" aria-hidden="true" />Add role</Button>
@@ -190,7 +190,7 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                                                 {roleComplete ? <span className="rounded-[3px] border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.09em] text-muted-foreground">Required details complete</span> : null}
                                             </div>
                                         </div>
-                                        <Button type="button" onClick={() => removeRole(index)} variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" aria-label={`Remove open role ${index + 1}`}>
+                                        <Button type="button" onClick={() => removeRole(index)} variant="ghost" size="icon-sm" className="nb-touch-target text-muted-foreground hover:text-destructive" aria-label={`Remove open role ${index + 1}`}>
                                             <Trash2 className="size-4" aria-hidden="true" />
                                         </Button>
                                     </div>

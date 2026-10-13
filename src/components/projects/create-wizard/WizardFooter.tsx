@@ -38,18 +38,24 @@ export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSav
   return (
     // Full-width band; the row inside aligns with the 1000px content column. Safe-area padding comes from .nb-wizard-footer.
     <footer className="nb-wizard-footer shrink-0 border-t border-border bg-card">
-      <div className={`${WIZARD_COLUMN} grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-4 pt-3 sm:grid-cols-[minmax(8rem,1fr)_auto_minmax(8rem,1fr)] sm:px-6 sm:pt-4`}>
-        <div className="col-start-1 row-start-2 min-w-0 sm:row-start-1 sm:justify-self-start">
+      <div className={`${WIZARD_COLUMN} flex flex-col gap-2 px-4 pt-3 sm:grid sm:grid-cols-[minmax(8rem,1fr)_auto_minmax(8rem,1fr)] sm:items-center sm:gap-x-3 sm:gap-y-2 sm:px-6 sm:pt-4`}>
+        {/* Back button: left on desktop, bottom on mobile */}
+        <div className="order-3 min-w-0 sm:order-1 sm:justify-self-start">
           {phase > 1 ? (
-            <Button type="button" variant="ghost" onClick={onBack} disabled={isSubmitting || isPhaseTransitioning}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onBack}
+              disabled={isSubmitting || isPhaseTransitioning}
+              className="w-full sm:w-auto"
+            >
               <ChevronLeft aria-hidden="true" /> Back
             </Button>
           ) : null}
         </div>
 
-        {/* Drafts autosave, so saving is a quiet status with an optional "Save now", not a primary button.
-            Phones: status on its own line above the buttons; short landscape screens drop it. */}
-        <div className="nb-meta col-span-2 row-start-1 flex min-w-0 flex-wrap items-center justify-center gap-x-1 text-center text-muted-foreground sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:justify-self-center [@media(max-height:500px)]:sr-only">
+        {/* Drafts autosave status: center on desktop, top on mobile */}
+        <div className="nb-meta order-1 flex min-w-0 flex-wrap items-center justify-center gap-x-1 text-center text-muted-foreground sm:order-2 sm:justify-self-center [@media(max-height:500px)]:sr-only">
           <p id="create-project-next-help" role="status" aria-live="polite">
             <span>{phaseMessage}</span>
             {saveMessage ? <span className={saveStatus === "error" ? "text-[var(--status-danger)]" : undefined}> · {saveMessage}</span> : null}
@@ -68,14 +74,27 @@ export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSav
           </button>
         </div>
 
-        <div className={`row-start-2 flex items-center gap-2 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:justify-self-end ${phase > 1 ? "col-start-2" : "col-span-2 col-start-1"}`}>
+        {/* Continue / Submit button: full-width on mobile, right on desktop */}
+        <div className="order-2 flex items-center justify-end sm:order-3 sm:justify-self-end">
           {isLastPhase ? (
-            <Button type="submit" form="create-project-form" disabled={isSubmitting || isPhaseTransitioning || !isReviewReady} aria-busy={isSubmitting || isPhaseTransitioning} className="max-sm:flex-1">
+            <Button
+              type="submit"
+              form="create-project-form"
+              disabled={isSubmitting || isPhaseTransitioning || !isReviewReady}
+              aria-busy={isSubmitting || isPhaseTransitioning}
+              className="w-full min-w-[140px] sm:w-auto"
+            >
               {isSubmitting ? <Loader2 className="animate-spin" aria-hidden="true" /> : null}
               {isSubmitting ? "Creating…" : isReviewReady ? "Create project" : "Preparing review…"}
             </Button>
           ) : (
-            <Button type="button" onClick={onNext} disabled={Boolean(nextDisabled) || isPhaseTransitioning || isSubmitting} aria-describedby={nextDisabledReason ? "create-project-next-help" : undefined} className="max-sm:flex-1">
+            <Button
+              type="button"
+              onClick={nextDisabled || isPhaseTransitioning || isSubmitting ? (e) => { e.preventDefault(); } : onNext}
+              aria-disabled={Boolean(nextDisabled) || isPhaseTransitioning || isSubmitting}
+              aria-describedby={nextDisabledReason ? "create-project-next-help" : undefined}
+              className={`w-full min-w-[140px] sm:w-auto ${nextDisabled || isPhaseTransitioning || isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
               {nextLabel || "Continue"} <ChevronRight aria-hidden="true" />
             </Button>
           )}
