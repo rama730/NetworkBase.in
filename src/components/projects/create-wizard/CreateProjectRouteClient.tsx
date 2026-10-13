@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { queryKeys } from '@/lib/query-keys'
 import CreateProjectWizard from './CreateProjectWizard'
 import { CreateProjectShellSkeleton } from './CreateProjectShellSkeleton'
@@ -35,13 +36,24 @@ export function CreateProjectRouteClient({
         const params = new URLSearchParams(window.location.search)
         const returnPath = getCreateProjectReturnPath(window.location)
         const resume = readGithubOAuthResume(returnPath)
+
+        if (params.get('githubIdentity') === 'error' || params.has('error')) {
+            toast.error('GitHub authorization was not completed. Your draft was preserved.')
+        }
+
         setHandoff({
             source: parseCreateProjectSource(params.get('createProjectSource'))
                 ?? resume?.values.import_source?.type
                 ?? initialSource,
             resume,
         })
-        if (params.has('createProject') || params.has('createProjectSource')) {
+        if (
+            params.has('createProject')
+            || params.has('createProjectSource')
+            || params.has('githubIdentity')
+            || params.has('error')
+            || params.has('error_description')
+        ) {
             window.history.replaceState(window.history.state, '', returnPath)
         }
     }, [initialSource])

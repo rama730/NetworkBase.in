@@ -173,6 +173,17 @@ export const createProjectSchema = z.object({
         roleTitles.add(title);
     }
 
+    if (val.project_type === 'other') {
+        const custom = (val.custom_project_type || '').trim();
+        if (!custom) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['custom_project_type'],
+                message: 'Custom project type is required when "Other" is selected.',
+            });
+        }
+    }
+
     const src = val.import_source;
     if (!src) return;
 

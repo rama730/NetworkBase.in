@@ -288,8 +288,9 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
 
                 </div>
     );
-    const leaveSetup = () => {
+    const leaveSetup = async () => {
         markLeaving();
+        await deleteDraft();
         onClose();
     };
 
