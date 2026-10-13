@@ -31,6 +31,7 @@ export const queryKeys = {
     bootstrap: (userId: string | null | undefined) => ["chat-v3", "bootstrap", asNullable(userId)] as const,
     channel: (channelId: string) => ["chat-v3", "channel", channelId] as const,
     messages: (channelId: string) => ["chat-v3", "messages", channelId] as const,
+    target: (channelId: string, seq: number | null, userId: string | null) => ["chat-v3", "target", channelId, seq, userId] as const,
     thread: (channelId: string, rootSeq: number) => ["chat-v3", "thread", channelId, rootSeq] as const,
     members: (channelId: string) => ["chat-v3", "members", channelId] as const,
     pins: (channelId: string) => ["chat-v3", "pins", channelId] as const,
@@ -244,7 +245,9 @@ export const queryKeys = {
     sprints: () => ["workspace", "sprints"] as const,
     tasks: (scope: "my" | "team" | "all" = "my", limit = 24) =>
       ["workspace", "tasks", scope, limit] as const,
+    joinRequestsRoot: () => ["workspace", "joinRequests"] as const,
     joinRequests: (limit = 20) => ["workspace", "joinRequests", limit] as const,
+    sentProjectInvitationsRoot: () => ["workspace", "sentProjectInvitations"] as const,
     sentProjectInvitations: (limit = 50) => ["workspace", "sentProjectInvitations", limit] as const,
   },
 } as const;

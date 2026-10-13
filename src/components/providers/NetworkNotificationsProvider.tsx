@@ -106,8 +106,8 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
           void queryClient.invalidateQueries({ queryKey: ["connections", "pending-requests"], refetchType: "active" });
         }
         if (domains.has("requests")) {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.joinRequests(), refetchType: "active" });
-          void queryClient.invalidateQueries({ queryKey: ["network", "project-applications"], refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.joinRequestsRoot(), refetchType: "active" });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.workspace.sentProjectInvitationsRoot(), refetchType: "active" });
         }
       }, 150);
     });
