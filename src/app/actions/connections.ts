@@ -51,7 +51,7 @@ export async function readNetworkPendingCountsAction() {
         const user = await getAuthUser();
         if (!user) return { success: false as const, error: 'Not authenticated', pendingConnections: 0, pendingInvites: 0, totalConnections: 0 };
 
-        const [connectionCount, inviteCount, profileRow] = await Promise.all([
+        const [connectionCount, inviteCount, acceptedCount] = await Promise.all([
             db
                 .select({ count: sql<number>`COUNT(*)::int` })
                 .from(connections)
@@ -63,17 +63,22 @@ export async function readNetworkPendingCountsAction() {
                 )),
             countPendingInvitationsForCandidate(user.id).then((count) => [{ count }]),
             db
-                .select({ count: profiles.connectionsCount })
-                .from(profiles)
-                .where(eq(profiles.id, user.id))
-                .limit(1),
+                .select({ count: sql<number>`COUNT(*)::int` })
+                .from(connections)
+                .where(and(
+                    eq(connections.status, 'accepted'),
+                    or(
+                        eq(connections.requesterId, user.id),
+                        eq(connections.addresseeId, user.id)
+                    )
+                )),
         ]);
 
         return {
             success: true as const,
             pendingConnections: Number(connectionCount[0]?.count ?? 0),
             pendingInvites: Number(inviteCount[0]?.count ?? 0),
-            totalConnections: Number(profileRow[0]?.count ?? 0),
+            totalConnections: Number(acceptedCount[0]?.count ?? 0),
         };
     } catch (error) {
         logger.error('connections.pending_counts_failed', {

@@ -164,7 +164,7 @@ function ConnectionCard({
     const user = connection.otherUser;
     if (!user) return null;
     const displayName = user.fullName || user.username || "NetworkBase member";
-    const skills = (user.skills ?? []).slice(0, 2);
+    const skills = user.skills ?? [];
     const headline = user.headline?.trim();
 
     return (
@@ -185,7 +185,7 @@ function ConnectionCard({
                 <p key="connected" className="nb-meta mt-1 truncate">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>,
             ]}
             headline={headline ? <p className="nb-compact truncate text-muted-foreground" title={headline}>{headline}</p> : null}
-            body={skills.length ? <div className={PERSON_CARD_TAGS}>{skills.map((skillName) => {
+            body={skills.length ? <div className="flex min-w-0 flex-wrap gap-1.5" role="group" aria-label="Skills">{skills.map((skillName) => {
                 const skill = resolveClientSkill(skillName);
                 return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
             })}</div> : null}
