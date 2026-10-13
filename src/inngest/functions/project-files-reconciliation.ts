@@ -116,6 +116,8 @@ export const reconcileProjectFiles = inngest.createFunction(
         let skippedProjects = 0;
         let failedInserts = 0;
 
+        // The checkpoint may only move past projects that were fully examined (COR-020).
+        let checkpointRow: (typeof rows)[number] | undefined;
         for (const [projectId, files] of byProject) {
             const canonicalPrefix = `${projectId}/%`;
             const legacyPrefix = `projects/${projectId}/%`;
@@ -157,6 +159,14 @@ export const reconcileProjectFiles = inngest.createFunction(
                         WHERE objects.bucket_id = 'project-files'
                           AND (objects.name LIKE ${canonicalPrefix} OR objects.name LIKE ${legacyPrefix})
                           AND nodes.id IS NULL
+                          -- Retained revisions and registered assets still own their objects even when no
+                          -- current node points at them (COR-020): only an object nothing references is an orphan.
+                          AND NOT EXISTS (SELECT 1 FROM file_versions fv WHERE fv.s3_key = objects.name)
+                          AND NOT EXISTS (
+                            SELECT 1 FROM storage_assets sa
+                            WHERE sa.bucket = 'project-files' AND sa.storage_key = objects.name
+                              AND sa.state IN ('pending', 'verified', 'delete_pending', 'deleting')
+                          )
                         ORDER BY objects.name ASC
                         LIMIT ${MAX_KEYS_PER_PROJECT}
                     `),
@@ -171,6 +181,8 @@ export const reconcileProjectFiles = inngest.createFunction(
                     error: error instanceof Error ? error.message : String(error),
                 });
                 skippedProjects += 1;
+                // A project that cannot be read right now is skipped, not retried forever; the counter reports it.
+                checkpointRow = rows.findLast((row) => row.projectId === projectId) ?? checkpointRow;
                 continue;
             }
             const storageKeySet = new Set(existingStorageRows.map((row) => row.name));
@@ -306,10 +318,12 @@ export const reconcileProjectFiles = inngest.createFunction(
                 }
             }
 
+            // Reaching the event cap inside this project means it was only partly reported: stay before it.
             if (queuedEvents >= MAX_EVENTS_PER_RUN) break;
+            checkpointRow = rows.findLast((row) => row.projectId === projectId) ?? checkpointRow;
         }
 
-        const lastRow = rows.at(-1);
+        const lastRow = checkpointRow;
         if (lastRow) {
             const now = new Date();
             await db.insert(jobHeartbeats)
