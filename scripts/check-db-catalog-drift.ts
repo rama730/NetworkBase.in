@@ -104,6 +104,8 @@ const ALLOWED_PUBLIC_RLS_NO_POLICY_TABLES = new Set([
   "email_suppressions",
   // 0213: durable leases for long-running server work.
   "work_leases",
+  // 0214: applied Redis counter batches (exactly-once flush identity).
+  "counter_flush_batches",
   "github_contributor_identities",
   "github_sync_connections",
   "github_sync_files",
