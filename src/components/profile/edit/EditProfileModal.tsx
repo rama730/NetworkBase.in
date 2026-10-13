@@ -183,13 +183,21 @@ export function EditProfileModal({
             .then((page) => {
                 if (openGenerationRef.current !== generation) return;
                 setContributionTotal(page.total);
-                if (draftTouchedRef.current) {
-                    setContributionHasMore((baseProfileRef.current.contributionBase?.length ?? 0) < Math.min(page.total, 500));
-                    return;
-                }
-                const complete = withContributionEntries(profile, page.contributions);
-                baseProfileRef.current = complete;
-                setFormState(complete);
+                const incoming = page.contributions.map(contributionToEditorEntry);
+                baseProfileRef.current = {
+                    ...baseProfileRef.current,
+                    experience: incoming,
+                    contributionBase: incoming,
+                };
+                setFormState((prev: any) =>
+                    prev
+                        ? {
+                              ...prev,
+                              experience: incoming,
+                              contributionBase: incoming,
+                          }
+                        : prev,
+                );
                 setContributionHasMore(page.hasMore && page.contributions.length < 500);
             })
             .catch((error) => {
@@ -351,6 +359,10 @@ export function EditProfileModal({
             toast.success("Profile updated successfully");
             if (closeOnSuccess) onOpenChange(false);
         } catch (error) {
+            if (profileSaved) {
+                invalidateProfileReads(profilePayload);
+                void refreshProfile().catch(() => undefined);
+            }
             const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred while saving your profile.";
             const message = profileSaved && mutations.length > 0
                 ? `Profile details were saved, but project contributions were not: ${errorMessage}`
@@ -406,9 +418,16 @@ export function EditProfileModal({
         }
     };
 
+    const handleImageFinalized = (avatarUrl: string, updatedAt?: string) => {
+        if (updatedAt) {
+            lastKnownUpdatedAtRef.current = updatedAt;
+            baseProfileRef.current = { ...baseProfileRef.current, avatarUrl };
+        }
+    };
+
     const handleOpenChange = (openValue: boolean) => {
         if (!openValue) {
-            if (hasChanges && !showDiscardConfirm) {
+            if (hasChanges) {
                 setShowDiscardConfirm(true);
                 return;
             }
@@ -461,7 +480,18 @@ export function EditProfileModal({
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="flex h-[720px] max-h-[90vh] flex-col gap-0 overflow-hidden rounded-lg border-border bg-card p-0 sm:max-w-[960px]">
+            <DialogContent
+                onPointerDownOutside={(e) => {
+                    if (hasChanges) e.preventDefault();
+                }}
+                onEscapeKeyDown={(e) => {
+                    if (hasChanges) {
+                        e.preventDefault();
+                        setShowDiscardConfirm(true);
+                    }
+                }}
+                className="flex h-[720px] max-h-[90vh] flex-col gap-0 overflow-hidden rounded-lg border-border bg-card p-0 sm:max-w-[960px]"
+            >
                 <DialogHeader className="z-10 border-b border-border bg-card px-6 py-4">
                     <DialogTitle className="flex items-center justify-between">
                         <span className="nb-section-title text-foreground">Edit Profile</span>
@@ -477,6 +507,7 @@ export function EditProfileModal({
                             originalUsername={originalUsernameRef.current}
                             section={activeSection}
                             onSectionChange={handleSectionChange}
+                            onImageFinalized={handleImageFinalized}
                             contributionErrors={contributionErrors}
                             contributionsSaving={saveState === "saving"}
                             contributionsLoadingMore={contributionsLoadingMore}
