@@ -15,6 +15,7 @@ interface ProjectsGridCardProps {
     projects: ProfileCollaborationProject[];
     title?: string;
     description?: string;
+    isOwner?: boolean;
     isLoading?: boolean;
     onProjectIntent?: (href: string) => void;
 }
@@ -60,7 +61,7 @@ function toDiscoveryProject(project: ProfileCollaborationProject): Project {
     } as any;
 }
 
-export function ProjectsGridCard({ projects, title = "Projects", description, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
+export function ProjectsGridCard({ projects, title = "Projects", description, isOwner = false, isLoading = false, onProjectIntent }: ProjectsGridCardProps) {
     const { user } = useAuth();
     // The bell shows whether you follow each project (one lookup for the whole grid).
     const followed = useUserFollowedProjects(user?.id, useMemo(() => [projects.map((project) => project.id)], [projects]));
@@ -104,7 +105,11 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                 })}
             </div>
         ) : (
-            <EmptyState icon={FolderKanban} title="No projects yet" description="Projects you create or contribute to will appear here." />
+            <EmptyState
+                icon={FolderKanban}
+                title="No projects yet"
+                description={isOwner ? "Projects you create or contribute to will appear here." : "No public projects have been published yet."}
+            />
         )}
     </section>;
 }

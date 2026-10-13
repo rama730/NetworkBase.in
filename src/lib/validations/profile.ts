@@ -53,7 +53,15 @@ export const profileUpdateSchema = z.object({
     headline: optionalTrimmedString(PROFILE_LIMITS.headlineMax),
     bio: optionalTrimmedString(PROFILE_LIMITS.bioMax),
     location: optionalTrimmedString(PROFILE_LIMITS.locationMax),
-    website: z.string().trim().max(PROFILE_LIMITS.websiteMax).optional(),
+    website: z
+        .string()
+        .trim()
+        .max(PROFILE_LIMITS.websiteMax)
+        .refine(
+            (val) => !val || isSafeHttpUrl(/^https?:\/\//i.test(val) ? val : `https://${val}`),
+            'Invalid website URL',
+        )
+        .optional(),
     // SEC-C5: avatar/banner URLs are rendered in <img src> across the app and
     // MUST be safe http(s) URLs. We accept the empty string (clears the field)
     // and otherwise require the shared safe-URL gate to pass. The explicit

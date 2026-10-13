@@ -19,6 +19,7 @@ import {
 import {
     markProfileCollaborationSummaryStale,
 } from '@/lib/profile/collaboration'
+import { getProfileMutualCount } from '@/lib/data/profile'
 import { positiveIntegerOr } from '@/lib/utils/number'
 import { normalizeAndValidateFileSize, normalizeAndValidateMimeType } from '@/lib/upload/security'
 import { createUploadIntent, finalizeUploadIntent } from '@/lib/upload/upload-intents'
@@ -771,7 +772,11 @@ export async function updateProfileAction(data: UpdateProfileInput): Promise<Upd
             patch.openTo !== undefined ||
             patch.experienceLevel !== undefined ||
             patch.hoursPerWeek !== undefined ||
-            patch.visibility !== undefined
+            patch.visibility !== undefined ||
+            patch.fullName !== undefined ||
+            patch.avatarUrl !== undefined ||
+            patch.username !== undefined ||
+            patch.headline !== undefined
         ) {
             await markProfileCollaborationSummaryStale(user.id).catch((staleError) => {
                 logger.warn('profile.collaboration_summary_stale_failed', {
@@ -859,7 +864,9 @@ export async function getProfileViewerOverlayAction(profileId: string) {
                 connectionState: privacyRelationship.connectionState,
             },
             lockedShell: !privacyRelationship.canViewProfile,
-            mutualCount: 0,
+            mutualCount: (privacyRelationship.canViewProfile && !privacyRelationship.blockedByViewer && !privacyRelationship.blockedByTarget)
+                ? await getProfileMutualCount(user.id, profileId)
+                : 0,
         };
     } catch (error) {
         return {

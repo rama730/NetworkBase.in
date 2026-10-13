@@ -57,6 +57,7 @@ import {
   updateProjectSchema,
   type UpdateProjectInput,
 } from "@/lib/validations/project";
+import { markProfileCollaborationSummaryStale } from "@/lib/profile/collaboration";
 import { z } from "zod";
 import { createHash, randomUUID } from "crypto";
 import { generateSlug } from "@/lib/utils/slug";
@@ -629,6 +630,23 @@ export async function invalidateProjectPublicCaches(projectId: string) {
   revalidateTag(DISCOVER_ANON_CACHE_TAG, { expire: 0 });
   revalidateTag(PUBLIC_PROJECT_DETAIL_SHELL_CACHE_TAG, { expire: 0 });
   revalidateTag(PUBLIC_PROJECT_DETAIL_METADATA_CACHE_TAG, { expire: 0 });
+
+  try {
+    const [members, project] = await Promise.all([
+      db.select({ userId: projectMembers.userId }).from(projectMembers).where(eq(projectMembers.projectId, projectId)),
+      db.select({ ownerId: projects.ownerId }).from(projects).where(eq(projects.id, projectId)).limit(1).then((r) => r[0]),
+    ]);
+    const userIds = Array.from(new Set([
+      ...(project?.ownerId ? [project.ownerId] : []),
+      ...members.map((m) => m.userId),
+    ]));
+    if (userIds.length > 0) {
+      await markProfileCollaborationSummaryStale(userIds);
+    }
+  } catch {
+    // Non-fatal if summary stale mark fails
+  }
+
   return feed;
 }
 

@@ -23,6 +23,7 @@ import { AboutCard } from './sections/AboutCard'
 import { ComponentErrorBoundary } from '@/components/ui/ComponentErrorBoundary'
 import { Skeleton } from '@/components/ui/skeleton'
 import { messageUserInWindow } from '@/components/messages/message-user'
+import { profileHref } from '@/lib/routing/identifiers'
 
 const ProfileHeader = dynamic(
     () => import('./ProfileHeader').then((module) => module.ProfileHeader),
@@ -536,6 +537,7 @@ export function ProfileV2Client({
                                 projects={portfolioProjects}
                                 title="Portfolio"
                                 description={portfolioDescription}
+                                isOwner={isOwner}
                                 isLoading={portfolioQuery.isLoading && portfolioProjects.length === 0}
                                 onProjectIntent={prefetchProjectHref}
                             />
@@ -548,7 +550,7 @@ export function ProfileV2Client({
     }
 
     const renderMainBottom = () => {
-        if (lockedShell || activeTab !== 'overview') return null
+        if (lockedShell || (activeTab !== 'overview' && activeTab !== 'portfolio')) return null
         return (
             <ComponentErrorBoundary fallbackMessage="Failed to load project contributions.">
                 <ProjectContributionsCard
@@ -654,7 +656,8 @@ export function ProfileV2Client({
     }, [loadApplyRoleModal])
 
     const handleShareProfile = useCallback(async () => {
-        const shareUrl = window.location.href
+        const canonicalPath = profileHref(safeProfile)
+        const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${canonicalPath}` : canonicalPath
         const shareData: ShareData = {
             title: safeProfile.fullName || safeProfile.username || 'NetworkBase profile',
             text: safeProfile.headline || undefined,
@@ -671,7 +674,7 @@ export function ProfileV2Client({
             if (error instanceof Error && error.name === 'AbortError') return
             toast.error('Could not share this profile')
         }
-    }, [safeProfile.fullName, safeProfile.headline, safeProfile.username])
+    }, [safeProfile])
 
 
 

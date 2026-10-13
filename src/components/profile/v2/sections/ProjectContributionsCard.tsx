@@ -64,6 +64,10 @@ export function ProjectContributionsCard({
         [contributions, isOwner],
     )
 
+    if (!isOwner && visibleContributions.length === 0) {
+        return null
+    }
+
     return (
         <Card
             title="Project Contributions"
