@@ -30,7 +30,7 @@ type Phase4SettingsProps = {
 // Same order and names as Project settings, so what is chosen here is where it lives later (spec §18).
 // Icons match the Project settings rail for the same sections.
 const SECTIONS: ReadonlyArray<{ id: string; eyebrow: string; label: string; description: string; icon: ComponentType<{ className?: string }> }> = [
-    { id: 'picture', eyebrow: 'Identity', label: 'Project picture', description: 'Image on cards and header', icon: ImageIcon },
+    { id: 'picture', eyebrow: 'Project picture', label: 'Project picture', description: 'Image on cards and header', icon: ImageIcon },
     { id: 'access', eyebrow: 'Access and visibility', label: 'Access and visibility', description: 'Visibility and public tabs', icon: Globe },
     { id: 'links', eyebrow: 'Links', label: 'Links', description: 'External destinations', icon: Link2 },
     { id: 'documentation', eyebrow: 'Documentation', label: 'Documentation', description: 'Starter doc and editing', icon: FileText },

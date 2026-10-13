@@ -6,6 +6,7 @@ import { Save } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 import { TOTAL_PHASES, WIZARD_PHASES } from '@/constants/project-wizard';
+import { toast } from 'sonner';
 
 // Hook
 import { useCreateProjectWizard } from './useCreateProjectWizard';
@@ -75,6 +76,23 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
     }, [methods.formState.isDirty]);
 
     const handleReviewReady = useCallback(() => setIsReviewReady(true), [setIsReviewReady]);
+
+    const handleInvalid = useCallback((errors: Record<string, any>) => {
+        const getFirstError = (errObj: Record<string, any>): string | null => {
+            for (const key of Object.keys(errObj)) {
+                const err = errObj[key];
+                if (!err) continue;
+                if (typeof err.message === 'string' && err.message) return err.message;
+                if (typeof err === 'object') {
+                    const nested = getFirstError(err);
+                    if (nested) return nested;
+                }
+            }
+            return null;
+        };
+        const firstMsg = getFirstError(errors) || 'Please complete all required fields before creating.';
+        toast.error('Please complete required fields before creating', { description: firstMsg });
+    }, []);
     // Subscribe, don't watch(): Phase 1 replaces the whole import_source object, which react-hook-form
     // does not re-render this component for. A stale type kept Continue greyed out after GitHub -> Scratch.
     const [sourceType, sourceRepoUrl, rawSourceMetadata] = useWatch({
@@ -249,7 +267,7 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
                             )}
                             <form
                                 id="create-project-form"
-                                onSubmit={handleSubmit(onSubmit as any)}
+                                onSubmit={handleSubmit(onSubmit as any, handleInvalid)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && e.target instanceof HTMLInputElement && e.target.type !== 'submit') {
                                         e.preventDefault();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ComponentType, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { Bell, BookOpen, Edit3, Folder, GitBranch, Globe, ImageIcon, Link2, Lock, Tag, Users, Workflow } from 'lucide-react';
 import { CreateProjectInput } from '@/lib/validations/project';
@@ -10,6 +10,9 @@ import { PROJECT_TYPE_OPTIONS } from '@/lib/projects/project-create-options';
 import { resolveSocialPresence, socialLinkItemsFromStorage } from '@/lib/profile/normalization';
 import { CREATE_PROJECT_NOTIFICATION_ROWS } from '@/lib/notifications/project-policy';
 import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY, PROJECT_PUBLIC_TAB_LABELS, type ProjectPublicTabId } from '@/lib/projects/settings-policies';
+import ProjectCard from '@/components/projects/ProjectCard';
+import { useAuth } from '@/hooks/useAuth';
+import type { Project } from '@/types/discover';
 
 interface Phase5ReviewProps {
     goToPhase: (phase: 1 | 2 | 3 | 4) => void;
@@ -118,6 +121,67 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
     const memberUpdates = formData.member_updates_enabled !== false;
     const memberUploads = formData.member_file_upload_default !== false;
 
+    const { user } = useAuth();
+    const [previewCoverUrl, setPreviewCoverUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!projectImage) {
+            setPreviewCoverUrl(null);
+            return;
+        }
+        const url = URL.createObjectURL(projectImage);
+        setPreviewCoverUrl(url);
+        return () => {
+            URL.revokeObjectURL(url);
+        };
+    }, [projectImage]);
+
+    const previewProject: Project = useMemo(() => {
+        return {
+            id: 'preview-project',
+            key: 'PRV',
+            title: formData.title || 'Untitled project',
+            description: formData.description || '',
+            shortDescription: formData.short_description || '',
+            slug: 'preview',
+            status: 'draft',
+            syncStatus: 'ready',
+            visibility: formData.visibility === 'private' ? 'private' : 'public',
+            category: formData.project_type === 'other' ? formData.custom_project_type || 'Other' : formData.project_type || 'General',
+            coverImageUrl: previewCoverUrl || undefined,
+            avatarUrl: previewCoverUrl || undefined,
+            skills: [...(formData.tags || []), ...(formData.technologies_used || [])],
+            externalLinks: formData.external_links || {},
+            githubRepoUrl: formData.import_source?.repoUrl || undefined,
+            owner: user ? {
+                id: user.id,
+                fullName: user.user_metadata?.full_name || user.email || 'You',
+                displayName: user.user_metadata?.full_name || 'You',
+                username: user.user_metadata?.user_name || 'you',
+                avatarUrl: user.user_metadata?.avatar_url || null,
+            } : {
+                id: 'you',
+                fullName: 'You',
+                displayName: 'You',
+                username: 'you',
+                avatarUrl: null,
+            },
+            openRoles: (formData.roles || []).map((r, i) => ({
+                id: `role-${i}`,
+                projectId: 'preview-project',
+                role: r.role,
+                count: r.count,
+                filled: 0,
+                skills: r.skills || [],
+                description: r.description,
+            })),
+            collaboratorsCount: 1,
+            followersCount: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        } as unknown as Project;
+    }, [formData, previewCoverUrl, user]);
+
     return (
         <div className="min-w-0 w-full space-y-8 pb-6">
             <header className="max-w-2xl">
@@ -128,11 +192,21 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 </p>
             </header>
 
-            <ReviewSection eyebrow="Phase 1 · start" title="Starting point" onEdit={() => goToPhase(1)}>
-                <ReviewRow label="Source" icon={SourceIcon}>
-                    <p className="nb-ui-label text-foreground">{source.title}</p>
-                    <p className="nb-compact mt-1 text-muted-foreground">{source.detail}</p>
-                </ReviewRow>
+            {/* Mobile / Tablet Card Preview */}
+            <div className="lg:hidden">
+                <p className="nb-meta mb-2 font-mono uppercase tracking-[0.12em] text-muted-foreground">Card preview</p>
+                <div className="pointer-events-none select-none">
+                    <ProjectCard project={previewProject} />
+                </div>
+            </div>
+
+            <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8 lg:items-start">
+                <div className="min-w-0 space-y-8">
+                    <ReviewSection eyebrow="Phase 1 · start" title="Starting point" onEdit={() => goToPhase(1)}>
+                        <ReviewRow label="Source" icon={SourceIcon}>
+                            <p className="nb-ui-label text-foreground">{source.title}</p>
+                            <p className="nb-compact mt-1 text-muted-foreground">{source.detail}</p>
+                        </ReviewRow>
                 {sourceType === 'github' ? (
                     <>
                         <ReviewRow label="Repository" icon={GitBranch}>
@@ -290,10 +364,26 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 </ReviewRow>
             </ReviewSection>
 
-            <aside className="border-l-2 border-primary bg-secondary/35 px-4 py-3.5" aria-label="Creation confirmation">
-                <p className="nb-ui-label text-foreground">Ready to create</p>
-                <p className="nb-compact mt-1 text-muted-foreground">Nothing has been created yet. Create the project only when you select Create project in the footer.</p>
-            </aside>
+                    <aside className="border-l-2 border-primary bg-secondary/35 px-4 py-3.5" aria-label="Creation confirmation">
+                        <p className="nb-ui-label text-foreground">Ready to create</p>
+                        <p className="nb-compact mt-1 text-muted-foreground">Nothing has been created yet. Create the project only when you select Create project in the footer.</p>
+                    </aside>
+                </div>
+
+                {/* Desktop Sticky Card Preview (>= lg) */}
+                <aside aria-label="Project card preview" className="hidden lg:block sticky top-24 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <p className="nb-meta font-mono uppercase tracking-[0.12em] text-muted-foreground">Card preview</p>
+                        <span className="nb-compact font-mono text-[11px] text-muted-foreground">Live preview</span>
+                    </div>
+                    <div className="pointer-events-none select-none">
+                        <ProjectCard project={previewProject} />
+                    </div>
+                    <p className="nb-compact text-muted-foreground">
+                        This is how your project card will appear in Discover and search results.
+                    </p>
+                </aside>
+            </div>
         </div>
     );
 }
