@@ -1,7 +1,7 @@
 import "server-only";
 
 import { reportedContentLength } from "@/lib/http/content-length";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { storageAssets } from "@/lib/db/schema";
@@ -16,6 +16,8 @@ import {
 const BACKUP_BATCH_SIZE = 100;
 const BACKUP_CONCURRENCY = 8;
 const BACKUP_DEADLINE_MS = 30 * 60 * 1000;
+// A failed asset waits this long before it is selected again, so permanent failures cannot fill the page.
+const BACKUP_RETRY_AFTER = "1 hour";
 
 export async function backupPendingStorageAssets() {
   const assets = await db
@@ -31,8 +33,14 @@ export async function backupPendingStorageAssets() {
     .where(and(
       eq(storageAssets.backupState, "pending"),
       inArray(storageAssets.state, ["verified", "delete_pending"]),
+      or(
+        isNull(storageAssets.lastErrorCode),
+        lt(storageAssets.updatedAt, sql`now() - ${BACKUP_RETRY_AFTER}::interval`),
+      ),
     ))
-    .orderBy(asc(storageAssets.verifiedAt), asc(storageAssets.id))
+    // Never-attempted assets first; previously failed ones rotate by their last failure time (COR-018).
+    // ponytail: failures are retried hourly without a cap; add an attempt counter + quarantine if poison assets accumulate.
+    .orderBy(sql`(${storageAssets.lastErrorCode} IS NOT NULL)`, asc(storageAssets.updatedAt), asc(storageAssets.id))
     .limit(BACKUP_BATCH_SIZE);
   if (assets.length === 0) {
     const result = { attempted: 0, verified: 0, failed: 0 };
@@ -118,9 +126,18 @@ export async function backupPendingStorageAssets() {
     const results = await Promise.allSettled(
       assets.slice(offset, offset + BACKUP_CONCURRENCY).map(backupOne),
     );
-    for (const result of results) {
-      if (result.status === "fulfilled") verified += 1;
-      else failed += 1;
+    const batch = assets.slice(offset, offset + BACKUP_CONCURRENCY);
+    for (const [index, result] of results.entries()) {
+      if (result.status === "fulfilled") {
+        verified += 1;
+        continue;
+      }
+      failed += 1;
+      // Stamp the failure so the next page starts with assets that have not failed yet.
+      await db.update(storageAssets)
+        .set({ lastErrorCode: "backup_failed", updatedAt: new Date() })
+        .where(and(eq(storageAssets.id, batch[index]!.id), eq(storageAssets.backupState, "pending")))
+        .catch(() => undefined);
     }
   }
   const result = { attempted: assets.length, verified, failed };
