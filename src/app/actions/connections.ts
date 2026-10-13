@@ -1141,7 +1141,7 @@ async function getConnectionsFeedImpl(
     let searchFallbackNextCursor: string | null = null;
     // Search must cover every eligible profile, not only the viewer's precomputed
     // suggestion rows. The same query is also the cold-start fallback.
-    if (!suggestionCursor && !input.filters?.hasMutuals && (Boolean(searchPattern) || items.length === 0)) {
+    if ((!suggestionCursor || searchPattern) && !input.filters?.hasMutuals && (Boolean(searchPattern) || items.length === 0)) {
         const fallbackConditions = [
             sql`${profiles.id} != ${user.id}`,
             eq(profiles.onboardingStatus, 'completed'),
@@ -2401,6 +2401,7 @@ export async function getAcceptedConnections(
 
     const conditions = [
         eq(connections.status, 'accepted'),
+        isNull(profiles.deletedAt),
         or(
             eq(connections.requesterId, userIdToFetch),
             eq(connections.addresseeId, userIdToFetch)

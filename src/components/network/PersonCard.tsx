@@ -286,9 +286,38 @@ function PersonCard({
             <Clock className="size-4" aria-hidden="true" /> {CONNECTION_COPY.review}
         </Link>
     ) : status === "connected" ? (
-        <span className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-2 px-2 text-sm font-medium text-[var(--status-success)]">
-            <Check className="size-4" aria-hidden="true" /> <span className="max-sm:sr-only">{CONNECTION_COPY.connected}</span>
-        </span>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button
+                    type="button"
+                    className="inline-flex h-[var(--ui-control-height)] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                    aria-label={`Connected: options for ${displayName}`}
+                >
+                    <Check className="size-4 text-[var(--status-success)]" aria-hidden="true" />
+                    <span className="max-sm:sr-only">{CONNECTION_COPY.connected}</span>
+                    <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+                {profile.canSendMessage !== false ? (
+                    <DropdownMenuItem asChild>
+                        <Link
+                            href={`/messages?userId=${profile.id}`}
+                            onClick={(event) => messageUserInWindow(profile.id, event)}
+                            className="flex items-center gap-2 cursor-pointer w-full"
+                        >
+                            <MessageSquare className="size-4" />
+                            Message
+                        </Link>
+                    </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem asChild>
+                    <Link href={profileHref(profile)} className="flex items-center gap-2 cursor-pointer w-full">
+                        View profile
+                    </Link>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
     ) : status === "blocked" ? (
         <span className="nb-meta">{CONNECTION_COPY.blocked}</span>
     ) : null;

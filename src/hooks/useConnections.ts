@@ -965,6 +965,14 @@ export function useConnectionMutations() {
                 incoming: prev.incoming.filter((item) => item.requesterId !== targetUserId),
                 sent: prev.sent.filter((item) => item.addresseeId !== targetUserId),
             }));
+            updateFeedQueries<DiscoverConnectionItem>(queryClient, ['connections', 'feed', 'discover'], (page) => ({
+                ...page,
+                items: page.items.filter((item) => item.id !== targetUserId),
+            }));
+            updateFeedQueries<NetworkConnectionItem>(queryClient, ['connections', 'feed', 'network'], (page) => ({
+                ...page,
+                items: page.items.filter((item) => item.otherUser?.id !== targetUserId),
+            }));
         },
         onError: (_err, vars) => invalidateAll(connectionMutationTargetId(vars)),
         onSettled: (_data, _err, vars) => invalidateAll(connectionMutationTargetId(vars)),
