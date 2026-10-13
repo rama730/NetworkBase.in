@@ -13,6 +13,7 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { PERSON_CARD_TAGS, PersonCardGrid, PersonCardLayout } from "@/components/network/PersonCard";
 import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useConnectionMutations, useConnections, type NetworkConnectionItem } from "@/hooks/useConnections";
 import { profileHref } from "@/lib/routing/identifiers";
 import { resolveClientSkill, useSkillCatalog } from "@/lib/skills/client";
@@ -165,6 +166,8 @@ function ConnectionCard({
     if (!user) return null;
     const displayName = user.fullName || user.username || "NetworkBase member";
     const skills = user.skills ?? [];
+    const visibleSkills = skills.length <= 4 ? skills : skills.slice(0, 3);
+    const hiddenSkills = skills.length <= 4 ? [] : skills.slice(3);
     const headline = user.headline?.trim();
 
     return (
@@ -185,10 +188,58 @@ function ConnectionCard({
                 <p key="connected" className="nb-meta mt-1 truncate">Connected {formatDistanceToNow(new Date(connection.updatedAt), { addSuffix: true })}</p>,
             ]}
             headline={headline ? <p className="nb-compact truncate text-muted-foreground" title={headline}>{headline}</p> : null}
-            body={skills.length ? <div className="flex min-w-0 flex-wrap gap-1.5" role="group" aria-label="Skills">{skills.map((skillName) => {
-                const skill = resolveClientSkill(skillName);
-                return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
-            })}</div> : null}
+            body={skills.length ? (
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5" role="group" aria-label="Skills">
+                    {visibleSkills.map((skillName) => {
+                        const skill = resolveClientSkill(skillName);
+                        return (
+                            <span key={skill.canonicalKey} className="nb-tag border-border bg-card text-secondary-foreground">
+                                <SkillIcon skill={skill} size={14} />
+                                {skill.name}
+                            </span>
+                        );
+                    })}
+                    {hiddenSkills.length > 0 ? (
+                        <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span
+                                        tabIndex={0}
+                                        role="note"
+                                        aria-label={`${hiddenSkills.length} more skills: ${hiddenSkills.join(", ")}`}
+                                        className="nb-tag cursor-default border-border bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-medium text-[11px]"
+                                    >
+                                        +{hiddenSkills.length}
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                    side="top"
+                                    align="start"
+                                    className="max-w-xs p-2.5 rounded-lg border border-border bg-popover text-popover-foreground shadow-md"
+                                >
+                                    <div className="text-[11px] font-semibold text-muted-foreground mb-1.5">
+                                        More skills ({hiddenSkills.length})
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {hiddenSkills.map((skillName) => {
+                                            const skill = resolveClientSkill(skillName);
+                                            return (
+                                                <span
+                                                    key={skill.canonicalKey}
+                                                    className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground"
+                                                >
+                                                    <SkillIcon skill={skill} size={12} />
+                                                    {skill.name}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    ) : null}
+                </div>
+            ) : null}
             aside={
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
