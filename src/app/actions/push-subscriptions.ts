@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { pushSubscriptions } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
+import { isAllowedPushEndpoint } from "@/lib/notifications/push-endpoint";
 import { createClient } from "@/lib/supabase/server";
 
 type SaveSubscriptionInput = {
@@ -16,9 +17,9 @@ type SaveSubscriptionInput = {
 
 function validateInput(input: SaveSubscriptionInput): input is SaveSubscriptionInput {
     return (
-        typeof input.endpoint === "string" && input.endpoint.startsWith("https://") &&
-        typeof input.p256dh === "string" && input.p256dh.length > 0 &&
-        typeof input.auth === "string" && input.auth.length > 0
+        isAllowedPushEndpoint(input?.endpoint) &&
+        typeof input.p256dh === "string" && input.p256dh.length > 0 && input.p256dh.length <= 512 &&
+        typeof input.auth === "string" && input.auth.length > 0 && input.auth.length <= 512
     );
 }
 

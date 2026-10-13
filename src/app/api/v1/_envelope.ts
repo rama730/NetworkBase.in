@@ -55,6 +55,7 @@ export function jsonError(
       errorCode,
       ...(details !== undefined ? { details } : {}),
     },
-    { status },
+    // Error envelopes are per-viewer and transient; no cache may keep one.
+    { status, headers: { "Cache-Control": "private, no-store" } },
   );
 }

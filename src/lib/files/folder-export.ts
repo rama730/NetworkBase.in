@@ -41,10 +41,10 @@ export async function prepareFolderExport(input: {
       : sql`n.parent_id IS NULL`;
     const taskVisibility = input.canReadTaskFiles
       ? sql`true`
-      : sql`n.task_id IS NULL AND n.path NOT LIKE '/.system/%'`;
+      : sql`n.task_id IS NULL AND n.path NOT LIKE '/.system%'`;
     const childTaskVisibility = input.canReadTaskFiles
       ? sql`true`
-      : sql`child.task_id IS NULL AND child.path NOT LIKE '/.system/%'`;
+      : sql`child.task_id IS NULL AND child.path NOT LIKE '/.system%'`;
     const result = await tx.execute<FolderExportRow>(sql`
       WITH RECURSIVE export_tree AS (
         SELECT n.id, n.parent_id, n.type, n.name, n.s3_key, n.asset_id, n.size,
@@ -116,7 +116,7 @@ export async function prepareFolderExport(input: {
     operationId,
     entries,
     totalBytes,
-    requiresTaskAccess: rows.some((row) => !!row.task_id || row.path.startsWith("/.system/")),
+    requiresTaskAccess: rows.some((row) => !!row.task_id || row.path.startsWith("/.system")),
   };
 }
 

@@ -5,6 +5,7 @@ import {
   enforceExactByteLength,
   parseSingleByteRange,
   safeContentDisposition,
+  streamPrivateObject,
 } from "@/lib/storage/private-object-response";
 
 describe("private object response", () => {
@@ -53,5 +54,30 @@ describe("private object response", () => {
       new Response(enforceExactByteLength(body([1]), 2)).arrayBuffer(),
       /incomplete byte range/,
     );
+  });
+
+  it("never serves uploaded HTML inline and sandboxes everything but PDF", async () => {
+    const etag = '"x"';
+    const stream = (mimeType: string) => streamPrivateObject({
+      request: new Request("https://app.test/f", { method: "HEAD" }),
+      signedUrl: "https://storage.test/f",
+      totalSize: 3,
+      mimeType,
+      filename: "evil.pdf",
+      disposition: "inline",
+      etag,
+    });
+    for (const type of ["text/html", "application/xhtml+xml", "text/xml", "image/svg+xml"]) {
+      const res = await stream(type);
+      assert.match(res.headers.get("content-disposition")!, /^attachment;/, type);
+      assert.equal(res.headers.get("content-type"), "application/octet-stream", type);
+      assert.equal(res.headers.get("content-security-policy"), "sandbox; default-src 'none'", type);
+    }
+    const png = await stream("image/png");
+    assert.match(png.headers.get("content-disposition")!, /^inline;/);
+    assert.equal(png.headers.get("content-security-policy"), "sandbox; default-src 'none'");
+    const pdf = await stream("application/pdf");
+    assert.match(pdf.headers.get("content-disposition")!, /^inline;/);
+    assert.equal(pdf.headers.get("content-security-policy"), null);
   });
 });
