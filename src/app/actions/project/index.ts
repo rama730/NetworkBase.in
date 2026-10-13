@@ -52,6 +52,7 @@ import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { DISCOVER_ANON_CACHE_TAG } from "@/constants/discover";
 import { getViewerAuthContext, getViewerIdentityContext } from "@/lib/server/viewer-context";
 import {
+  createProjectSchema,
   CreateProjectInput,
   validateAndSanitizeLifecycleStages,
   updateProjectSchema,
@@ -60,7 +61,7 @@ import {
 import { markProfileCollaborationSummaryStale } from "@/lib/profile/collaboration";
 import { z } from "zod";
 import { createHash, randomUUID } from "crypto";
-import { generateSlug } from "@/lib/utils/slug";
+import { generateSlug, generateSlugBase, isReservedProjectSlug } from "@/lib/utils/slug";
 import { generateProjectKey } from "@/lib/project-key";
 import { resolveProjectDocPermission } from "@/lib/projects/doc";
 import {
@@ -2110,7 +2111,7 @@ async function readProjectDetailShellForActor(input: {
 
 // --- Create Action ---
 export async function createProjectAction(
-  input: CreateProjectInput & { slug?: string; project_id?: string },
+  rawInput: CreateProjectInput & { slug?: string; project_id?: string },
 ): Promise<CreateProjectResult> {
   try {
     const supabase = await createClient();
@@ -2124,6 +2125,36 @@ export async function createProjectAction(
         error: "You must be logged in to create a project",
       };
     }
+
+    // Rate limiting: 10 project creations per user per hour against automated spam
+    const { allowed: rateLimitAllowed } = await consumeRateLimit(
+      `create:project:user:${user.id}`,
+      10,
+      60 * 60,
+    );
+    if (!rateLimitAllowed) {
+      return {
+        success: false,
+        error: "You have created too many projects recently. Please wait a while before creating another.",
+      };
+    }
+
+    // Runtime input validation via Zod schema
+    const parseResult = createProjectSchema
+      .extend({
+        slug: z.string().optional(),
+        project_id: z.string().optional(),
+      })
+      .safeParse(rawInput);
+
+    if (!parseResult.success) {
+      return {
+        success: false,
+        error: parseResult.error.issues[0]?.message || "Invalid project details provided.",
+      };
+    }
+
+    const input = parseResult.data;
 
     const {
       data: { session },
@@ -2237,7 +2268,14 @@ export async function createProjectAction(
     const openRoles = (input.roles || []).filter((role) => role.role.trim().length > 0);
     const lookingForCollaborators = openRoles.length > 0;
 
-    let finalSlug = input.slug || generateSlug(input.title);
+    let requestedSlug = (input.slug || "").trim().toLowerCase();
+    if (requestedSlug && (isReservedProjectSlug(requestedSlug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(requestedSlug))) {
+      requestedSlug = "";
+    }
+    let finalSlug = requestedSlug || generateSlug(input.title);
+    if (isReservedProjectSlug(finalSlug)) {
+      finalSlug = `${generateSlugBase(input.title) || "project"}-${Math.random().toString(36).substring(2, 7)}`;
+    }
     // Initial Key Generation
     let finalKey = generateProjectKey(input.title);
 
@@ -2471,20 +2509,15 @@ export async function createProjectAction(
             String(dbError.detail || "") +
             String(dbError.constraint_name || "");
           if (errorMsg.includes("slug")) {
-            if (input.slug) {
-              throw new Error(
-                "This project URL is already taken. Please choose another.",
-              );
-            }
             attempts++;
             const suffix = Math.random().toString(36).substring(2, 6);
-            finalSlug = `${generateSlug(input.title)}-${suffix}`;
+            finalSlug = `${generateSlugBase(input.title) || "project"}-${suffix}`;
             continue;
           }
           // Project Key Collision (e.g. "NB" already exists)
           if (errorMsg.includes("key")) {
             attempts++;
-            const suffix = Math.floor(Math.random() * 9) + 1;
+            const suffix = Math.random().toString(36).substring(2, 5).toUpperCase();
             finalKey = `${generateProjectKey(input.title)}${suffix}`;
             continue;
           }

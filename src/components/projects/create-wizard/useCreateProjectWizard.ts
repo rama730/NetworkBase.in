@@ -16,6 +16,7 @@ import { getLifecycleStagesForProjectType } from '@/lib/projects/lifecycle-templ
 import { buildProjectDocStarterDraft } from '@/lib/projects/doc-create-intent';
 import { buildProjectImportEventId, buildUploadManifestHash } from '@/lib/import/idempotency';
 import { buildProjectFileKey } from '@/lib/storage/project-file-key';
+import { useAuth } from '@/hooks/use-auth';
 
 export interface WizardContextType {
     openRoles: OpenRoleInput[];
@@ -38,7 +39,13 @@ interface UseCreateProjectWizardProps {
  * Pure Optimization: Unified constants, reactive draft management, and scalable logic.
  */
 export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
+    const { user } = useAuth();
+    const userId = user?.id || null;
     const [phase, setPhase] = useState<WizardPhaseId>(initialPhase);
+    const phaseRef = useRef<WizardPhaseId>(phase);
+    useEffect(() => {
+        phaseRef.current = phase;
+    }, [phase]);
     const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
     // Step 4 project picture: held in memory, uploaded right after the project exists.
     const [projectImage, setProjectImage] = useState<File | null>(null);
@@ -344,7 +351,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
     useEffect(() => {
         const checkDraft = async () => {
             const { draftStore } = await import('@/lib/storage/draft-store');
-            const info = await draftStore.getInfo();
+            const info = await draftStore.getInfo(userId);
             if (info.exists) {
                 setDraftInfo({
                     exists: true,
@@ -354,11 +361,11 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             }
         };
         checkDraft();
-    }, []);
+    }, [userId]);
 
     const restoreDraft = useCallback(async () => {
         const { draftStore } = await import('@/lib/storage/draft-store');
-        const draft = await draftStore.load();
+        const draft = await draftStore.load(userId);
         if (draft) {
             reset(draft);
             if (draft._timestamp) setLastSaved(new Date(draft._timestamp));
@@ -366,7 +373,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             setDraftInfo(null);
             toast.success("Draft restored");
         }
-    }, [reset]);
+    }, [reset, userId]);
 
     const deleteDraft = useCallback(async () => {
         const { draftStore } = await import('@/lib/storage/draft-store');
@@ -382,12 +389,12 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
         }
 
         // 2. Client-side total wipe
-        await draftStore.clear();
+        await draftStore.clear(userId);
         setDraftInfo(null);
         reset();
         setPhase(1);
         toast.success("Draft erased completely");
-    }, [draftId, reset]);
+    }, [draftId, reset, userId]);
 
     const saveDraft = useCallback(async (silent = false) => {
         if (!silent) {
@@ -396,7 +403,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
         }
         try {
             const { draftStore } = await import('@/lib/storage/draft-store');
-            await draftStore.save(getValues(), phase);
+            await draftStore.save(getValues(), phaseRef.current, userId);
             setLastSaved(new Date());
             if (!silent) {
                 setSaveStatus('saved');
@@ -409,13 +416,13 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
         } finally {
             if (!silent) setIsSavingDraft(false);
         }
-    }, [getValues, phase]);
+    }, [getValues, userId]);
 
-    // Auto-Save Optimization (Debounced subscription)
+    // Auto-Save Optimization (Debounced subscription covering both user and programmatic edits)
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     useEffect(() => {
-        const subscription = watch((_, { type }) => {
-            if (!isDirty || type === undefined) return;
+        const subscription = watch(() => {
+            if (!isDirty) return;
 
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
             saveTimeoutRef.current = setTimeout(() => saveDraft(true), 5000);
@@ -841,7 +848,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             if (createdProjectId) await applyLaunchSettingsAfterCreate(createdProjectId);
 
             const { draftStore } = await import('@/lib/storage/draft-store');
-            await draftStore.clear();
+            await draftStore.clear(userId);
             skipDraftOnUnmountRef.current = true;
             // Success navigates to the new project; closing as well would navigate away from it.
             if (createdProjectId && onSuccess) onSuccess(createdProjectId);
