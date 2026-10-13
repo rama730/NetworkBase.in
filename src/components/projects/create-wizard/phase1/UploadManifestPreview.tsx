@@ -1,14 +1,18 @@
 "use client";
 
+import { useMemo } from "react";
 import { AlertTriangle, File, FolderTree } from "lucide-react";
 import type { UploadManifest } from "./upload-manifest";
 import { formatUploadBytes } from "./upload-manifest";
 
+const STATE_ORDER = { blocked: 0, warning: 1, ready: 2 } as const;
+
 export function UploadManifestPreview({ manifest }: { manifest: UploadManifest }) {
-  const stateOrder = { blocked: 0, warning: 1, ready: 2 } as const;
-  const visibleEntries = [...manifest.entries]
-    .sort((a, b) => stateOrder[a.state] - stateOrder[b.state])
-    .slice(0, 12);
+  const visibleEntries = useMemo(() => {
+    return [...manifest.entries]
+      .sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state])
+      .slice(0, 12);
+  }, [manifest.entries]);
   const remainingCount = Math.max(0, manifest.entries.length - visibleEntries.length);
 
   return (

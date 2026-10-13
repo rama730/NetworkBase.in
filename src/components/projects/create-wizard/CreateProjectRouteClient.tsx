@@ -67,6 +67,7 @@ export function CreateProjectRouteClient({
     const handleSuccess = useCallback((projectId: string) => {
         void queryClient.invalidateQueries({ queryKey: queryKeys.discover.projectsSimpleRoot() })
         void queryClient.invalidateQueries({ queryKey: queryKeys.globalSearch.discoverRoot() })
+        void queryClient.invalidateQueries({ queryKey: queryKeys.profile.root() })
         clearCreateProjectReturnPath()
         // Replace so Back from the new project does not reopen the wizard.
         router.replace(`/projects/${projectId}`)

@@ -733,7 +733,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     import('@/app/actions/upload-import'),
                 ]);
 
-                const { getUploadPresignedUrl } = uploadActions;
+                const { getUploadPresignedUrl, getBatchUploadUrls } = uploadActions;
                 const { registerUploadedFolderAction, updateUploadSessionAction } = importActions;
                 const uploadProjectId = createdProjectId;
                 if (!uploadProjectId) {
@@ -777,7 +777,69 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     importEventId,
                 });
 
+                // Batch-cache presigned URLs up to 50 at a time to minimize server roundtrips
+                const presignCache = new Map<string, {
+                    url: string;
+                    uploadToken: string;
+                    storageKey: string;
+                    uploadIntentId: string;
+                }>();
+                let pendingBatchPromise: Promise<void> | null = null;
+                let nextBatchIndex = 0;
+
+                const fetchNextBatch = async () => {
+                    if (nextBatchIndex >= meta.length) return;
+                    const batchItems = meta.slice(nextBatchIndex, nextBatchIndex + 50).map((m) => ({
+                        key: m.key,
+                        contentType: m.mimeType,
+                        sizeBytes: m.size,
+                    }));
+                    nextBatchIndex += 50;
+
+                    try {
+                        const res = await getBatchUploadUrls(batchItems, { sessionId });
+                        if (!('error' in res)) {
+                            for (const item of batchItems) {
+                                const url = res.urls[item.key];
+                                const uploadToken = res.uploadTokens[item.key];
+                                const storageKey = res.storageKeys[item.key];
+                                const uploadIntentId = res.uploadIntentIds[item.key];
+                                if (url && storageKey && uploadIntentId) {
+                                    presignCache.set(item.key, {
+                                        url,
+                                        uploadToken: uploadToken || '',
+                                        storageKey,
+                                        uploadIntentId,
+                                    });
+                                }
+                            }
+                        }
+                    } catch {
+                        // Fall back transparently to single presign on batch failure
+                    }
+                };
+
                 const getPresignedUrl = async (key: string, contentType: string, sizeBytes: number) => {
+                    if (presignCache.has(key)) {
+                        return presignCache.get(key)!;
+                    }
+
+                    while (!presignCache.has(key) && nextBatchIndex < meta.length) {
+                        if (!pendingBatchPromise) {
+                            pendingBatchPromise = fetchNextBatch().finally(() => {
+                                pendingBatchPromise = null;
+                            });
+                        }
+                        await pendingBatchPromise;
+                        if (presignCache.has(key)) {
+                            return presignCache.get(key)!;
+                        }
+                    }
+
+                    if (presignCache.has(key)) {
+                        return presignCache.get(key)!;
+                    }
+
                     const single = await getUploadPresignedUrl(key, contentType, sizeBytes, { sessionId });
                     if ('error' in single) throw new Error(single.error);
                     return {

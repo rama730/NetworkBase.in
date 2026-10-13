@@ -2496,7 +2496,8 @@ export async function createProjectAction(
           return newProject;
         });
 
-        revalidatePath("/discover");
+        await invalidateProjectPublicCaches(result.id);
+        revalidatePath("/projects");
 
         // Add to Import Queue if applicable
         if (
