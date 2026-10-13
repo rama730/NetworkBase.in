@@ -45,6 +45,10 @@ export function useFilePreviewMutations(
     setSelectedNodeIds: state.setSelectedNodeIds,
     loadFolderContent: boot?.loadFolderContent ?? (async () => {}),
     onOpenFile: (node) => navigateTo(node.id),
+    // Trashing the open file leaves for its folder instead of a "location not found" view.
+    onNodeDeleted: (deletedId) => {
+      if (deletedId === nodeId) navigateTo(node?.parentId ?? null);
+    },
     showToast: (message, type = "info") => toast[type](message),
     recordOperation,
   });

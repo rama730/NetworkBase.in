@@ -227,7 +227,7 @@ describe("Files Tab Drag & Drop Upload Integration", () => {
     assert.match(source, /setPendingUploadFiles\(null\);[\s\S]*?uploadFilesDirectly\(filesToUpload, target\)/);
 
     // Deterministic task linking: uses createdNodes directly from uploadFilesDirectly without scanning nodesById
-    assert.match(source, /uploadFilesDirectly\(filesToUpload, target\)\s*\.then\(async \(createdNodes\) => \{[\s\S]*?for \(const node of createdNodes\) \{[\s\S]*?await linkNodeToTask\(result\.taskId, node\.id/);
+    assert.match(source, /uploadFilesDirectly\(filesToUpload, target\)\s*\.then\(async \(createdNodes\) => \{[\s\S]*?for \(const node of nodes\) \{[\s\S]*?await linkNodeToTask\(taskId, node\.id[\s\S]*?await linkAll\(createdNodes\)/);
     assert.doesNotMatch(source, /currentNodes = useFilesWorkspaceStore\.getState\(\)/);
   });
 });

@@ -15,6 +15,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { extOf } from "@/components/projects/v2/utils/fileKind";
 import { toast } from "sonner";
 
 import * as React from "react";
@@ -471,8 +472,8 @@ export function FolderListView({
         const { linkNodeToTask } = await import("@/app/actions/files/links");
         await linkNodeToTask(taskId, attachTaskNode.id, { role });
         toast.success("File attached to task");
-        queryClient.invalidateQueries({ queryKey: ["task-links", projectId, attachTaskNode.id] });
-        queryClient.invalidateQueries({ queryKey: ["task-files", taskId] });
+        // The event refreshes the real linked-task and task-collection queries.
+        window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId, taskId } }));
         setAttachTaskNode(null);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to attach file to task";
@@ -498,11 +499,11 @@ export function FolderListView({
         const file = (event.target as HTMLInputElement).files?.[0];
         if (!file) return;
 
-        const extOf = (fn: string) => fn.slice(fn.lastIndexOf(".")).toLowerCase();
         const expectedExt = extOf(node.name);
         const uploadedExt = extOf(file.name);
         if (expectedExt !== uploadedExt) {
-          toast.error(`Extension mismatch: Expected ${expectedExt} but received ${uploadedExt}`);
+          const label = (ext: string) => (ext ? `.${ext}` : "no extension");
+          toast.error(`Extension mismatch: expected ${label(expectedExt)} but received ${label(uploadedExt)}`);
           return;
         }
 
@@ -688,22 +689,24 @@ export function FolderListView({
       uploadFilesDirectly(filesToUpload, target)
         .then(async (createdNodes) => {
           if (result.taskId && createdNodes.length > 0) {
+            const taskId = result.taskId;
             const { linkNodeToTask } = await import("@/app/actions/files/links");
-            for (const node of createdNodes) {
-              try {
-                await linkNodeToTask(result.taskId, node.id, {
-                  role: result.role,
-                  annotation: result.label,
-                });
-              } catch (linkErr) {
-                console.warn("Failed to link node to task:", linkErr);
+            const linkAll = async (nodes: typeof createdNodes) => {
+              const failed: typeof createdNodes = [];
+              for (const node of nodes) {
+                try {
+                  await linkNodeToTask(taskId, node.id, { role: result.role, annotation: result.label });
+                } catch {
+                  failed.push(node);
+                }
               }
-            }
-            window.dispatchEvent(
-              new CustomEvent("project:task-files-changed", {
-                detail: { projectId, taskId: result.taskId },
-              }),
-            );
+              window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId, taskId } }));
+              if (failed.length === 0) return;
+              toast.error(`${failed.length} of ${nodes.length} uploaded file${nodes.length === 1 ? "" : "s"} could not be linked to the task.`, {
+                action: { label: "Retry", onClick: () => void linkAll(failed) },
+              });
+            };
+            await linkAll(createdNodes);
           }
         })
         .catch((err) => {

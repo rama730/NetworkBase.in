@@ -12,9 +12,10 @@ import {
 } from "@/lib/files/file-lease-client";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 
-export type FileLeaseStatus = "idle" | "acquiring" | "owned" | "renewing" | "conflict" | "lost";
+export type FileLeaseStatus = "idle" | "acquiring" | "owned" | "conflict" | "lost";
 
-export function useFileLease(projectId: string, nodeId: string) {
+/** `keepAliveWhenHidden`: an unsaved draft keeps its lease even while the tab is in the background. */
+export function useFileLease(projectId: string, nodeId: string, keepAliveWhenHidden = false) {
   const [lease, setLease] = React.useState<BrowserFileLease | null>(null);
   const [status, setStatus] = React.useState<FileLeaseStatus>("idle");
   const [conflict, setConflict] = React.useState<FileLeaseView | null>(null);
@@ -62,7 +63,7 @@ export function useFileLease(projectId: string, nodeId: string) {
   const renew = React.useCallback(async () => {
     const current = leaseRef.current;
     if (!current) return null;
-    setStatus("renewing");
+    // Renewal is silent: the editor stays editable while it is in flight.
     try {
       const next = await renewBrowserFileLease(current);
       publishLease(next);
@@ -86,12 +87,17 @@ export function useFileLease(projectId: string, nodeId: string) {
     await releaseBrowserFileLease(current, { keepalive }).catch(() => null);
   }, [publishLease, publishLock]);
 
+  const keepAliveRef = React.useRef(keepAliveWhenHidden);
+  React.useEffect(() => {
+    keepAliveRef.current = keepAliveWhenHidden;
+  }, [keepAliveWhenHidden]);
+
   React.useEffect(() => {
     if (!lease) return;
     const delay = 32_000 + Math.floor(Math.random() * 6_000);
     // ponytail: 32s-38s lease renewal interval skipped when document is hidden. ceiling: 38s renewal interval. upgrade: WebSocket Realtime heartbeat if sub-second lease granularity required.
     const timer = window.setInterval(() => {
-      if (document.hidden) return;
+      if (document.hidden && !keepAliveRef.current) return;
       void renew().catch(() => null);
     }, delay);
     const onFocus = () => void renew().catch(() => null);

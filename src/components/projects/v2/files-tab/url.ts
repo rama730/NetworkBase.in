@@ -192,9 +192,8 @@ export interface PlanUrlSyncInput {
  * Decide how to sync the URL to `encodedPath`.
  *
  * Rules (design.md § URL Contract):
- * - Always `history.replaceState`, never `pushState` — the caller
- *   (`useFilesTabUrlSync`) enforces this by only ever calling
- *   `replaceState` on the result.
+ * - The caller (`useFilesTabUrlSync`) pushes for user navigation and
+ *   replaces only to canonicalise the arrival URL.
  * - Root state (`encodedPath === ""`) removes the `path` key entirely; the
  *   URL must not carry an empty-value `?path=`. This is the distinction the
  *   task calls out: "no `?path=` parameter (not empty-value `?path=`)".
