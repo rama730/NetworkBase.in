@@ -939,7 +939,9 @@ function withLeadFocusMetadata(
   creatorRole: CreateProjectInput["creator_role"],
 ): ImportSourcePayload | null {
   const leadFocus = (creatorRole?.title || "").trim();
-  if (!importSource && !leadFocus) {
+  const roleType = creatorRole?.role_type || "lead";
+  const timeCommitment = typeof creatorRole?.time_commitment === "number" ? creatorRole.time_commitment : null;
+  if (!importSource && !leadFocus && !timeCommitment) {
     return null;
   }
 
@@ -950,6 +952,13 @@ function withLeadFocusMetadata(
     metadata.leadFocus = leadFocus;
   } else {
     delete metadata.leadFocus;
+  }
+
+  if (roleType) {
+    metadata.creatorRoleType = roleType;
+  }
+  if (timeCommitment !== null) {
+    metadata.creatorTimeCommitment = timeCommitment;
   }
 
   return {
@@ -2113,6 +2122,8 @@ async function readProjectDetailShellForActor(input: {
 export async function createProjectAction(
   rawInput: CreateProjectInput & { slug?: string; project_id?: string },
 ): Promise<CreateProjectResult> {
+  let acquiredLock = false;
+  let lockKey = "";
   try {
     const supabase = await createClient();
     const {
@@ -2139,6 +2150,23 @@ export async function createProjectAction(
       };
     }
 
+    // Distributed in-flight lock per user prevents duplicate concurrent project creation
+    lockKey = `lock:create:project:user:${user.id}`;
+    if (redis) {
+      try {
+        const lockRes = await redis.set(lockKey, "1", { nx: true, ex: 15 });
+        if (!lockRes) {
+          return {
+            success: false,
+            error: "A project creation is already in progress. Please wait a moment.",
+          };
+        }
+        acquiredLock = true;
+      } catch {
+        // Redis failure must not fail project creation
+      }
+    }
+
     // Runtime input validation via Zod schema
     const parseResult = createProjectSchema
       .extend({
@@ -2148,6 +2176,7 @@ export async function createProjectAction(
       .safeParse(rawInput);
 
     if (!parseResult.success) {
+      if (acquiredLock && redis) await redis.del(lockKey).catch(() => undefined);
       return {
         success: false,
         error: parseResult.error.issues[0]?.message || "Invalid project details provided.",
@@ -2474,21 +2503,33 @@ export async function createProjectAction(
           normalizedImportSourceWithLeadFocus?.type === "github" &&
           normalizedImportSourceWithLeadFocus.repoUrl
         ) {
-          const queueImportSource = clearSealedGithubTokenFromImportSource(
-            normalizedImportSourceWithLeadFocus,
-          ) as ImportSourcePayload;
-          const queueEventId = buildGithubImportEventId(
-            result.id,
-            queueImportSource.repoUrl!,
-            queueImportSource.branch || null,
-          );
-          await enqueueGithubImportOrRunInline({
-            projectId: result.id,
-            userId: user.id,
-            importSource: queueImportSource,
-            eventId: queueEventId,
-            source: "create",
-          });
+          try {
+            const queueImportSource = clearSealedGithubTokenFromImportSource(
+              normalizedImportSourceWithLeadFocus,
+            ) as ImportSourcePayload;
+            const queueEventId = buildGithubImportEventId(
+              result.id,
+              queueImportSource.repoUrl!,
+              queueImportSource.branch || null,
+            );
+            await enqueueGithubImportOrRunInline({
+              projectId: result.id,
+              userId: user.id,
+              importSource: queueImportSource,
+              eventId: queueEventId,
+              source: "create",
+            });
+          } catch (importErr) {
+            console.error("Failed to enqueue GitHub import after project creation:", importErr);
+            // Project row was already committed. Update syncStatus to failed so Files tab offers retry
+            await db
+              .update(projects)
+              .set({
+                syncStatus: "failed",
+              })
+              .where(eq(projects.id, result.id))
+              .catch(() => undefined);
+          }
         }
 
         return {
@@ -2536,6 +2577,10 @@ export async function createProjectAction(
       error:
         error instanceof Error ? error.message : "An unexpected error occurred",
     };
+  } finally {
+    if (acquiredLock && redis) {
+      await redis.del(lockKey).catch(() => undefined);
+    }
   }
 }
 

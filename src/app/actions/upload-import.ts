@@ -1086,6 +1086,30 @@ export async function markProjectSyncFailedAction(
     .set({ syncStatus: 'failed', importSource: failedSource as any, updatedAt: new Date() })
     .where(eq(projects.id, projectId));
 
+  // Schedule cleanup of dangling unreferenced assets created for this project
+  try {
+    const danglingAssets = await db
+      .select({ id: storageAssets.id })
+      .from(storageAssets)
+      .where(
+        and(
+          eq(storageAssets.projectId, projectId),
+          eq(storageAssets.ownerUserId, user.id),
+          eq(storageAssets.state, 'pending'),
+        ),
+      );
+    if (danglingAssets.length > 0) {
+      await db.delete(storageAssets).where(
+        and(
+          inArray(storageAssets.id, danglingAssets.map((a) => a.id)),
+          eq(storageAssets.state, 'pending'),
+        ),
+      ).catch(() => undefined);
+    }
+  } catch {
+    // Non-blocking cleanup
+  }
+
   revalidatePath(`/projects/${projectId}`);
   if (project.slug) revalidatePath(`/projects/${project.slug}`);
   revalidatePath('/discover');

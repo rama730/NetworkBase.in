@@ -370,16 +370,43 @@ export default function Phase1SourceSelection({
 
     const handleSelectSource = (type: SourceType) => {
         const currentImportSource = getValues('import_source');
-        const currentMetadata = (currentImportSource?.metadata || {}) as ImportSourceMetadata;
-        setValue(
-            'import_source',
-            {
-                ...(currentImportSource || {}),
-                type,
-                metadata: currentMetadata,
-            },
-            { shouldValidate: true, shouldDirty: true }
-        );
+        if (type === 'scratch') {
+            setValue(
+                'import_source',
+                {
+                    type: 'scratch',
+                    repoUrl: undefined,
+                    branch: undefined,
+                    s3Key: undefined,
+                    metadata: {},
+                },
+                { shouldValidate: true, shouldDirty: true }
+            );
+        } else if (type === 'github') {
+            setValue(
+                'import_source',
+                {
+                    type: 'github',
+                    repoUrl: currentImportSource?.type === 'github' ? currentImportSource.repoUrl : '',
+                    branch: currentImportSource?.type === 'github' ? currentImportSource.branch : undefined,
+                    s3Key: undefined,
+                    metadata: currentImportSource?.type === 'github' ? (currentImportSource.metadata || {}) : {},
+                },
+                { shouldValidate: true, shouldDirty: true }
+            );
+        } else if (type === 'upload') {
+            setValue(
+                'import_source',
+                {
+                    type: 'upload',
+                    repoUrl: undefined,
+                    branch: undefined,
+                    s3Key: currentImportSource?.type === 'upload' ? currentImportSource.s3Key : undefined,
+                    metadata: currentImportSource?.type === 'upload' ? (currentImportSource.metadata || {}) : {},
+                },
+                { shouldValidate: true, shouldDirty: true }
+            );
+        }
         setActiveSourceView(type);
         if (type === 'github') {
             setShowManualGithubEntry(true);
