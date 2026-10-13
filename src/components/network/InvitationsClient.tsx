@@ -10,12 +10,16 @@ import {
     getIncomingApplicationsAction,
     getSentProjectInvitationsAction,
     cancelSentProjectInvitationAction,
+    acceptApplicationAction,
+    rejectApplicationAction,
     type SentProjectInvitationItem,
 } from "@/app/actions/applications";
 import { resolveProjectInvitationAction } from "@/app/actions/project/guidance";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/ui/UserAvatar";
+import { IncomingProjectApplicationRow } from "@/components/network/IncomingProjectApplicationRow";
 import { PersonCardLayout } from "@/components/network/PersonCard";
 import { useConnectionMutations, usePendingRequests } from "@/hooks/useConnections";
 import { useNetworkNotifications } from "@/hooks/useNetworkNotifications";
@@ -44,7 +48,9 @@ export default function InvitationsClient({
 }) {
     const isAuthenticated = Boolean(initialUser?.id);
     const [processingProject, setProcessingProject] = useState<{ id: string; action: "accept" | "decline" } | null>(null);
+    const [processingApplication, setProcessingApplication] = useState<{ id: string; action: "accept" | "decline" } | null>(null);
     const [cancellingProjectId, setCancellingProjectId] = useState<string | null>(null);
+    const [isWithdrawAllConfirmOpen, setIsWithdrawAllConfirmOpen] = useState(false);
     const queryClient = useQueryClient();
     const { refresh: refreshPendingCounts } = useNetworkNotifications();
     const connectionQuery = usePendingRequests(50, isAuthenticated, { includeSent: true });
@@ -68,7 +74,7 @@ export default function InvitationsClient({
             return result.invitations;
         },
     });
-    const { acceptRequest, rejectRequest, cancelRequest, withdrawAllSent } = useConnectionMutations();
+    const { acceptRequest, rejectRequest, undoRejectRequest, cancelRequest, withdrawAllSent } = useConnectionMutations();
     const query = searchQuery.trim().toLocaleLowerCase();
 
     const connectionInvitations = useMemo(() => {
@@ -106,6 +112,17 @@ export default function InvitationsClient({
         });
     }, [projectQuery.data?.applications, query]);
 
+    const projectApplications = useMemo(() => {
+        const incoming = (projectQuery.data?.applications ?? [])
+            .filter((invitation) => invitation.status === "pending" && !invitation.isInvitation);
+        if (!query) return incoming;
+        return incoming.filter((invitation) => {
+            const actor = invitation.actor ?? invitation.applicant;
+            return [actor?.fullName, actor?.username, invitation.projectTitle, invitation.roleTitle]
+                .some((value) => value?.toLocaleLowerCase().includes(query));
+        });
+    }, [projectQuery.data?.applications, query]);
+
     const sentProjectInvitations = useMemo(() => {
         const sent = sentProjectQuery.data ?? [];
         if (!query) return sent;
@@ -121,8 +138,8 @@ export default function InvitationsClient({
 
     async function refreshInvitationSurfaces() {
         await Promise.all([
-            queryClient.invalidateQueries({ queryKey: queryKeys.workspace.joinRequests(50) }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.workspace.sentProjectInvitations(50) }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.workspace.joinRequestsRoot() }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.workspace.sentProjectInvitationsRoot() }),
             queryClient.invalidateQueries({ queryKey: ["network", "project-applications"] }),
             queryClient.invalidateQueries({ queryKey: queryKeys.workspace.root() }),
             queryClient.invalidateQueries({ queryKey: queryKeys.notifications.root() }),
@@ -131,19 +148,45 @@ export default function InvitationsClient({
     }
 
     async function acceptConnection(id: string, name: string) {
-        await toast.promise(acceptRequest.mutateAsync(id), {
-            loading: "Accepting invitation...",
-            success: `You’re now connected with ${name}`,
-            error: (error) => error instanceof Error ? error.message : "Failed to accept invitation",
-        }).unwrap().catch(() => undefined);
+        try {
+            await toast.promise(acceptRequest.mutateAsync(id), {
+                loading: "Accepting invitation...",
+                success: `You’re now connected with ${name}`,
+                error: (error) => error instanceof Error ? error.message : "Failed to accept invitation",
+            }).unwrap();
+        } catch {
+            // Error toast handled above
+        } finally {
+            void refreshPendingCounts();
+        }
     }
 
     async function declineConnection(id: string) {
-        await toast.promise(rejectRequest.mutateAsync({ id }), {
-            loading: "Declining invitation...",
-            success: "Invitation declined",
-            error: (error) => error instanceof Error ? error.message : "Failed to decline invitation",
-        }).unwrap().catch(() => undefined);
+        try {
+            await toast.promise(rejectRequest.mutateAsync({ id }), {
+                loading: "Declining invitation...",
+                success: "Invitation declined",
+                error: (error) => error instanceof Error ? error.message : "Failed to decline invitation",
+            }).unwrap();
+
+            toast.info("Invitation declined", {
+                action: {
+                    label: "Undo",
+                    onClick: () => {
+                        void undoRejectRequest.mutateAsync(id).then(() => {
+                            toast.success("Decline undone");
+                            void refreshPendingCounts();
+                        }).catch(() => {
+                            toast.error("Could not undo");
+                        });
+                    },
+                },
+            });
+        } catch {
+            // Error toast handled above
+        } finally {
+            void refreshPendingCounts();
+        }
     }
 
     async function handleCancelConnection(id: string, name?: string) {
@@ -152,10 +195,22 @@ export default function InvitationsClient({
             success: name ? `Cancelled request to ${name}` : "Connection request cancelled",
             error: (error) => error instanceof Error ? error.message : "Failed to cancel request",
         }).unwrap().catch(() => undefined);
+        void refreshPendingCounts();
     }
 
     async function handleWithdrawAllSent() {
-        await withdrawAllSent.mutateAsync();
+        try {
+            await toast.promise(withdrawAllSent.mutateAsync(), {
+                loading: "Cancelling all sent requests...",
+                success: "All sent requests cancelled",
+                error: (error) => error instanceof Error ? error.message : "Failed to cancel sent requests",
+            }).unwrap();
+        } catch {
+            // Handled
+        } finally {
+            setIsWithdrawAllConfirmOpen(false);
+            void refreshPendingCounts();
+        }
     }
 
     async function handleCancelSentProjectInvitation(item: SentProjectInvitationItem) {
@@ -209,11 +264,43 @@ export default function InvitationsClient({
         }
     }
 
+    async function handleResolveApplication(id: string, action: "accept" | "decline") {
+        setProcessingApplication({ id, action });
+        try {
+            const request = (
+                action === "accept"
+                    ? acceptApplicationAction(id)
+                    : rejectApplicationAction(id)
+            ).then((result) => {
+                if (!result.success) throw new Error(result.error || `Failed to ${action} application`);
+                return result;
+            });
+            await toast.promise(request, {
+                loading: action === "accept" ? "Accepting application..." : "Declining application...",
+                success: action === "accept" ? "Application accepted" : "Application declined",
+                error: (error) => error instanceof Error ? error.message : `Failed to ${action} application`,
+            }).unwrap();
+            await refreshInvitationSurfaces();
+        } catch {
+            // Handled
+        } finally {
+            setProcessingApplication(null);
+        }
+    }
+
     const isInitialLoading = (connectionQuery.isLoading && !connectionQuery.data)
         || (projectQuery.isLoading && !projectQuery.data)
         || (sentProjectQuery.isLoading && !sentProjectQuery.data);
+    const hasOtherSections = Boolean(
+        projectInvitations.length
+        || projectApplications.length
+        || sentConnectionRequests.length
+        || sentProjectInvitations.length
+    );
+
     const hasInvitations = connectionInvitations.length > 0
         || projectInvitations.length > 0
+        || projectApplications.length > 0
         || sentConnectionRequests.length > 0
         || sentProjectInvitations.length > 0;
 
@@ -252,9 +339,12 @@ export default function InvitationsClient({
         <div className="grid gap-6">
             {connectionInvitations.length ? (
                 <section aria-labelledby="connection-invitations-heading">
-                    {projectInvitations.length || sentConnectionRequests.length || sentProjectInvitations.length ? (
-                        <h2 id="connection-invitations-heading" className="nb-micro mb-3">Connection invitations</h2>
-                    ) : null}
+                    <h2
+                        id="connection-invitations-heading"
+                        className={hasOtherSections ? "nb-micro mb-3" : "sr-only"}
+                    >
+                        Connection invitations
+                    </h2>
                     <div className={INVITATION_GRID}>
                         {connectionInvitations.map((invitation) => {
                             const profile = { id: invitation.requesterId, username: invitation.requesterUsername, fullName: invitation.requesterFullName, avatarUrl: invitation.requesterAvatarUrl };
@@ -321,6 +411,25 @@ export default function InvitationsClient({
                 </section>
             ) : null}
 
+            {projectApplications.length ? (
+                <section aria-labelledby="project-applications-heading">
+                    <h2 id="project-applications-heading" className="nb-micro mb-3">Project applications</h2>
+                    <div className="grid grid-cols-1 gap-3">
+                        {projectApplications.map((app) => (
+                            <IncomingProjectApplicationRow
+                                key={app.id}
+                                app={app}
+                                busy={processingApplication?.id === app.id}
+                                isAccepting={processingApplication?.id === app.id && processingApplication.action === "accept"}
+                                isRejecting={processingApplication?.id === app.id && processingApplication.action === "decline"}
+                                onAccept={() => void handleResolveApplication(app.id, "accept")}
+                                onReject={() => void handleResolveApplication(app.id, "decline")}
+                            />
+                        ))}
+                    </div>
+                </section>
+            ) : null}
+
             {sentProjectInvitations.length ? (
                 <section aria-labelledby="sent-project-invitations-heading">
                     <h2 id="sent-project-invitations-heading" className="nb-micro mb-3">Sent project invitations</h2>
@@ -358,7 +467,7 @@ export default function InvitationsClient({
                         {sentConnectionRequests.length > 1 ? (
                             <button
                                 type="button"
-                                onClick={() => void handleWithdrawAllSent()}
+                                onClick={() => setIsWithdrawAllConfirmOpen(true)}
                                 disabled={withdrawAllSent.isPending}
                                 className="text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                             >
@@ -400,6 +509,17 @@ export default function InvitationsClient({
                     </div>
                 </section>
             ) : null}
+
+            <ConfirmDialog
+                open={isWithdrawAllConfirmOpen}
+                onOpenChange={setIsWithdrawAllConfirmOpen}
+                title="Cancel all sent requests?"
+                description="This will withdraw all pending connection requests you have sent."
+                confirmLabel="Cancel all requests"
+                variant="destructive"
+                loading={withdrawAllSent.isPending}
+                onConfirm={() => void handleWithdrawAllSent()}
+            />
         </div>
     );
 }
