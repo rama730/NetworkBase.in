@@ -328,7 +328,7 @@ export function computeSprintStatus(sprint: SprintListItem): SprintStatus {
   return sprint.status;
 }
 
-export function isSprintReadyToClose(sprint: SprintListItem, now = new Date()) {
+export function isSprintReadyToClose(sprint: Pick<SprintListItem, "status" | "endDate">, now = new Date()) {
   if (sprint.status !== "active" || !sprint.endDate) return false;
   const endDate = new Date(sprint.endDate);
   if (!Number.isFinite(endDate.getTime())) return false;

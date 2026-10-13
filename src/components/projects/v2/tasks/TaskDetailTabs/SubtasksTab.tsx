@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   Check,
   CheckSquare,
@@ -303,6 +304,19 @@ export default function SubtasksTab({
     );
   };
 
+  const [bulkPending, setBulkPending] = useState(false);
+  // One at a time, so a failure is counted and reported rather than lost among parallel calls.
+  const runBulk = async (targets: typeof subtasks, markDone: boolean) => {
+    setBulkPending(true);
+    let failed = 0;
+    for (const subtask of targets) {
+      const result = await onToggleSubtask(subtask.id, !markDone);
+      if (!result.success) failed += 1;
+    }
+    setBulkPending(false);
+    if (failed > 0) toast.error(`${failed} of ${targets.length} subtasks could not be updated.`);
+  };
+
   return (
     <section
       className="flex min-h-full flex-col p-6 space-y-4 max-md:p-4"
@@ -328,34 +342,17 @@ export default function SubtasksTab({
             ) : null}
           </div>
 
-          {/* Bulk Productivity Action */}
-          {subtasks.length > 0 && canEdit ? (
+          {/* Bulk action: only when the whole list is loaded (it would otherwise miss later pages). */}
+          {subtasks.length > 0 && canEdit && !hasMore ? (
             <div className="flex items-center gap-2">
-              {openSubtasks.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    for (const s of openSubtasks) {
-                      void onToggleSubtask(s.id, false);
-                    }
-                  }}
-                  className="font-mono text-[11px] text-muted-foreground hover:text-foreground transition underline underline-offset-2"
-                >
-                  Mark all done
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    for (const s of completedSubtasks) {
-                      void onToggleSubtask(s.id, true);
-                    }
-                  }}
-                  className="font-mono text-[11px] text-muted-foreground hover:text-foreground transition underline underline-offset-2"
-                >
-                  Reopen all
-                </button>
-              )}
+              <button
+                type="button"
+                disabled={bulkPending}
+                onClick={() => void runBulk(openSubtasks.length > 0 ? openSubtasks : completedSubtasks, openSubtasks.length > 0)}
+                className="font-mono text-[11px] text-muted-foreground hover:text-foreground transition underline underline-offset-2 disabled:opacity-50"
+              >
+                {openSubtasks.length > 0 ? "Mark all done" : "Reopen all"}
+              </button>
             </div>
           ) : null}
         </div>

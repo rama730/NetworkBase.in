@@ -50,10 +50,9 @@ export function useRealtimeTasks(projectId: string, deferredTaskId: string | nul
           table: "tasks",
           filter: `project_id=eq.${projectId}`,
           handler: (payload) => {
-            const eventRow = (payload.eventType === "DELETE" ? payload.old : payload.new) as Record<string, unknown> | null;
-            const eventTaskId = typeof eventRow?.id === "string" ? eventRow.id : null;
-            if (eventTaskId && eventTaskId === deferredTaskRef.current) {
-              // ponytail: reconcile this one task after its optimistic drag settles instead of fighting the pointer mid-drag. ceiling: single active dragging task ref. upgrade: optimistic multi-pointer reconciliation if collaborative drag added.
+            // While a drag or its move is in flight, any refetch would replace the board under the
+            // pointer with pre-move data; hold every reconcile until the move settles.
+            if (deferredTaskRef.current) {
               deferredTaskChangedRef.current = true;
               return;
             }

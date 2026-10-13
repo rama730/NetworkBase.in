@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { SPRINT_STATUS_PRESENTATION } from "@/lib/projects/sprint-detail";
 import {
   CheckSquare,
   ChevronDown,
@@ -55,6 +56,8 @@ interface CreateTaskModalProps {
   sprints?: any[];
   projectId: string;
   projectName?: string;
+  /** Only the owner may put a new task in a sprint (the server enforces the same). */
+  canAssignSprint?: boolean;
 }
 
 function SectionDivider({
@@ -79,12 +82,14 @@ function Field({
   htmlFor,
   required = false,
   error,
+  hint,
   children,
 }: {
   label: string;
   htmlFor: string;
   required?: boolean;
   error?: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -97,6 +102,7 @@ function Field({
         {required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </label>
       {children}
+      {hint ? <p id={`${htmlFor}-hint`} className="text-xs text-muted-foreground">{hint}</p> : null}
       {error ? (
         <p className="text-xs font-mono text-destructive">{error}</p>
       ) : null}
@@ -144,6 +150,7 @@ export default function CreateTaskModal({
   sprints = [],
   projectId,
   projectName,
+  canAssignSprint = false,
 }: CreateTaskModalProps) {
   const availableSprints = React.useMemo(
     () => normalizeSprintOptions(sprints),
@@ -162,9 +169,8 @@ export default function CreateTaskModal({
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [isFilePickerOpen, setIsFilePickerOpen] = React.useState(false);
   const [storyPoints, setStoryPoints] = React.useState<string>("");
-  const [dueDate, setDueDate] = React.useState<string>(() =>
-    addDaysToDateString(getTodayDateString(), 7),
-  );
+  // No due date unless one is chosen.
+  const [dueDate, setDueDate] = React.useState<string>("");
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -176,7 +182,7 @@ export default function CreateTaskModal({
     setIsSubmitting(false);
     setIsFilePickerOpen(false);
     setStoryPoints("");
-    setDueDate(addDaysToDateString(getTodayDateString(), 7));
+    setDueDate("");
   }, [isOpen]);
 
   const handleQuickSetDueDate = React.useCallback((days: number) => {
@@ -259,7 +265,8 @@ export default function CreateTaskModal({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      {/* Ignore dismissal while saving, so a half-submitted task cannot be closed away. */}
+      <Dialog open={isOpen} onOpenChange={(open) => !open && !isSubmitting && onClose()}>
         <DialogContent
           showCloseButton={false}
           overlayClassName="z-[200] bg-black/60 backdrop-blur-none"
@@ -349,6 +356,7 @@ export default function CreateTaskModal({
                     label="Sprint"
                     htmlFor="task-sprint"
                     error={fieldErrors.sprintId}
+                    hint={canAssignSprint ? undefined : "Only the project owner can add tasks to a sprint."}
                   >
                     <div className="relative">
                       <select
@@ -362,7 +370,8 @@ export default function CreateTaskModal({
                       >
                         <option value="">Backlog (no sprint)</option>
                         {availableSprints.map((sprint) => {
-                          const isAssignable = isAssignableSprintOption(sprint);
+                          const isAssignable = canAssignSprint && isAssignableSprintOption(sprint);
+                          const status = SPRINT_STATUS_PRESENTATION[sprint.status as keyof typeof SPRINT_STATUS_PRESENTATION]?.label ?? sprint.status;
                           return (
                             <option
                               key={sprint.id}
@@ -370,7 +379,7 @@ export default function CreateTaskModal({
                               disabled={!isAssignable}
                             >
                               {sprint.name}
-                              {isAssignable ? "" : " (Completed)"}
+                              {isAssignableSprintOption(sprint) ? "" : ` (${status})`}
                             </option>
                           );
                         })}

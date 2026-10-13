@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import Link from "next/link";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import {
@@ -133,10 +134,13 @@ function DiscussionEntry({
   const name = displayName(entry);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const handleCopyLink = () => {
     if (typeof window === "undefined") return;
+    // The open drawer already carries drawerType/drawerId in the URL; point it at this comment.
     const url = new URL(window.location.href);
+    url.searchParams.set("panelTab", "comments");
     url.searchParams.set("commentId", entry.id);
     void navigator.clipboard.writeText(url.toString());
     setCopiedLink(true);
@@ -265,9 +269,10 @@ function DiscussionEntry({
                   )}
                   <span>{copiedText ? "Text copied!" : "Copy text"}</span>
                 </DropdownMenuItem>
-                {canEdit || currentUserId === entry.userId ? (
+                {/* Only the author can delete (the server enforces the same), after a confirm. */}
+                {currentUserId === entry.userId ? (
                   <DropdownMenuItem
-                    onClick={onDelete}
+                    onClick={() => setConfirmingDelete(true)}
                     disabled={pendingDelete}
                     className="flex cursor-pointer items-center gap-2 rounded-[3px] px-2 py-1 text-xs text-destructive hover:bg-destructive/10 focus:bg-destructive/10 focus:text-destructive"
                   >
@@ -283,6 +288,19 @@ function DiscussionEntry({
             </DropdownMenu>
           ) : null}
         </div>
+
+        <ConfirmDialog
+          open={confirmingDelete}
+          onOpenChange={setConfirmingDelete}
+          title="Delete this comment?"
+          description="It is replaced with “This comment was removed.” for everyone."
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={() => {
+            setConfirmingDelete(false);
+            onDelete();
+          }}
+        />
 
         {deleted ? (
           <p className="mt-1 text-sm italic text-muted-foreground">

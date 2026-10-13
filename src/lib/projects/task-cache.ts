@@ -137,29 +137,50 @@ export function removeTaskFromQueryData(
   return existing;
 }
 
+function taskQueries(queryClient: QueryClient, projectId: string) {
+  return queryClient
+    .getQueryCache()
+    .findAll({ queryKey: queryKeys.project.detail.tasksRoot(projectId) })
+    .map((query) => ({
+      queryKey: query.queryKey,
+      scope: (query.queryKey[4] ?? "all") as TaskScope,
+      search: typeof query.queryKey[5] === "string" ? query.queryKey[5] : "",
+    }));
+}
+
+function reconcileProjectTasks(queryClient: QueryClient, projectId: string) {
+  // Every task list, the unsearched board included, refetches if it is on screen.
+  void queryClient.invalidateQueries({
+    queryKey: queryKeys.project.detail.tasksRoot(projectId),
+    refetchType: "active",
+  });
+  void queryClient.invalidateQueries({
+    queryKey: queryKeys.globalSearch.projectRoot(),
+    refetchType: "active",
+  });
+}
+
 export function patchProjectTaskCaches(
   queryClient: QueryClient,
   projectId: string,
   incoming: TaskSurfaceRecord,
   options: { reconcile?: boolean } = {},
 ) {
-  for (const scope of ["all", "backlog", "sprint"] as const) {
-    queryClient.setQueryData(
-      queryKeys.project.detail.tasks(projectId, scope),
-      (existing: unknown) => patchTaskQueryData(existing, incoming, scope),
-    );
-  }
-  if (options.reconcile !== false) {
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.project.detail.tasksRoot(projectId),
-      predicate: (query) => query.queryKey.length > 5,
-      refetchType: "active",
-    });
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.globalSearch.projectRoot(),
-      refetchType: "active",
+  // Every cached list (each scope, and each search) gets the edit. A searched list only updates a
+  // task it already shows: whether the edited task still matches is the server's call on reconcile.
+  for (const { queryKey, scope, search } of taskQueries(queryClient, projectId)) {
+    queryClient.setQueryData(queryKey, (existing: unknown) => {
+      if (search && !containsTask(existing, incoming.id)) return existing;
+      return patchTaskQueryData(existing, incoming, scope);
     });
   }
+  if (options.reconcile !== false) reconcileProjectTasks(queryClient, projectId);
+}
+
+function containsTask(existing: unknown, taskId: string) {
+  if (Array.isArray(existing)) return existing.some((task: TaskSurfaceRecord) => task.id === taskId);
+  if (isInfiniteTaskData(existing)) return existing.pages.some((page) => (page.tasks ?? []).some((task) => task.id === taskId));
+  return false;
 }
 
 export function removeTaskFromProjectTaskCaches(
@@ -168,22 +189,8 @@ export function removeTaskFromProjectTaskCaches(
   taskId: string,
   options: { reconcile?: boolean } = {},
 ) {
-  for (const scope of ["all", "backlog", "sprint"] as const) {
-    queryClient.setQueryData(
-      queryKeys.project.detail.tasks(projectId, scope),
-      (existing: unknown) => removeTaskFromQueryData(existing, taskId),
-    );
+  for (const { queryKey } of taskQueries(queryClient, projectId)) {
+    queryClient.setQueryData(queryKey, (existing: unknown) => removeTaskFromQueryData(existing, taskId));
   }
-  if (options.reconcile !== false) {
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.project.detail.tasksRoot(projectId),
-      predicate: (query) => query.queryKey.length > 5,
-      refetchType: "active",
-    });
-    void queryClient.invalidateQueries({
-      queryKey: queryKeys.globalSearch.projectRoot(),
-      refetchType: "active",
-    });
-  }
+  if (options.reconcile !== false) reconcileProjectTasks(queryClient, projectId);
 }
-

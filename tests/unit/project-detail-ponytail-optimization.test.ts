@@ -37,11 +37,12 @@ test("Domain A: Pruned 13 redundant indexes from schema/index.ts", () => {
   assert.match(schemaContent, /createdAtStatusIdx:\s*index/);
 });
 
-test("Domain B: Task search query uses title GIN index without unindexed description ILIKE fallback", () => {
+test("Domain B: task search matches title, description and key inside one project", () => {
   const actionsContent = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
 
-  assert.doesNotMatch(actionsContent, /ilike\(t\.description,\s*searchPattern\)/);
-  assert.match(actionsContent, /ilike\(t\.title,\s*searchPattern\)/);
+  // Spec: search covers the description too. The scan stays bounded by the project_id predicate.
+  assert.match(actionsContent, /ilike\(t\.title,\s*searchPattern\),\s*ilike\(t\.description,\s*searchPattern\)/);
+  assert.match(actionsContent, /eq\(t\.projectId, projectId\),\s*isNull\(t\.deletedAt\)/);
 });
 
 test("Domain B: fetchProjectTasksForActor skips 4-table count CTE when surface is preview", () => {

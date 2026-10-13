@@ -155,6 +155,8 @@ export default function SprintPlanning({
         await queryClient.invalidateQueries({
           queryKey: queryKeys.project.detail.sprints(projectId),
         });
+        // Task cards carry sprint chips: refresh them too.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
         router.push(buildProjectSprintDetailHref(projectSlug, result.sprint.id, { sprintCode: result.sprint.code }), { scroll: false });
         return { success: true as const };
       } catch (error) {
@@ -191,6 +193,8 @@ export default function SprintPlanning({
         await queryClient.invalidateQueries({
           queryKey: queryKeys.project.detail.sprints(projectId),
         });
+        // Task cards carry sprint chips: refresh them too.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
         return { success: true as const };
       } catch (error) {
         return {
@@ -228,6 +232,8 @@ export default function SprintPlanning({
       await queryClient.invalidateQueries({
         queryKey: queryKeys.project.detail.sprints(projectId),
       });
+      // Task cards carry sprint chips: refresh them too.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
       router.replace(
         nextSelectedSprint
           ? buildProjectSprintDetailHref(projectSlug, nextSelectedSprint.id, { sprintCode: nextSelectedSprint.code })
@@ -262,6 +268,8 @@ export default function SprintPlanning({
         await queryClient.invalidateQueries({
           queryKey: queryKeys.project.detail.sprints(projectId),
         });
+        // Task cards carry sprint chips: refresh them too.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
         return true;
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "The Sprint could not be updated");
