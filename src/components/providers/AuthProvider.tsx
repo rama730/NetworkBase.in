@@ -346,7 +346,7 @@ export function AuthProvider({
 
         const profile = await loadBrowserProfile(currentUser.id);
         if (profile) {
-            setState(prev => ({ ...prev, profile }));
+            setState(prev => ({ ...prev, profile: prev.profile ? { ...prev.profile, ...profile } : profile }));
         }
     }, [state.user]);
 

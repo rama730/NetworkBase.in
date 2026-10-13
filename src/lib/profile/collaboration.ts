@@ -451,7 +451,14 @@ async function queryProfileProjectRows(profileId: string, options: {
     : sql`p.visibility IN ('public', 'unlisted') AND p.status <> 'draft'`;
 
   const rows = await db.execute<ProfileProjectRow>(sql`
-    WITH project_scope AS (
+    WITH user_project_candidates AS (
+      SELECT id FROM ${projects} WHERE owner_id = ${profileId}::uuid AND deleted_at IS NULL
+      UNION
+      SELECT project_id AS id FROM project_members WHERE user_id = ${profileId}::uuid
+      UNION
+      SELECT project_id AS id FROM ${profileProjectContributions} WHERE profile_id = ${profileId}::uuid AND deleted_at IS NULL AND project_id IS NOT NULL
+    ),
+    project_scope AS (
       SELECT
         pc.id AS contribution_id,
         p.id AS project_id,
@@ -488,7 +495,8 @@ async function queryProfileProjectRows(profileId: string, options: {
         pc.summary AS contribution_summary,
         COALESCE(pc_skills.labels, '[]'::jsonb) AS contribution_skills,
         count(*) OVER()::int AS total_count
-      FROM ${projects} p
+      FROM user_project_candidates upc
+      INNER JOIN ${projects} p ON p.id = upc.id
       LEFT JOIN project_members pm_self
         ON pm_self.project_id = p.id
        AND pm_self.user_id = ${profileId}
@@ -513,7 +521,6 @@ async function queryProfileProjectRows(profileId: string, options: {
         LIMIT 1
       ) ra ON true
       WHERE p.deleted_at IS NULL
-        AND (p.owner_id = ${profileId} OR pm_self.id IS NOT NULL OR pc.id IS NOT NULL)
         AND (${visibilitySql})
         AND (${includePrivate ? sql`TRUE` : sql`COALESCE(pc.visibility, 'public') = 'public'`})
       ORDER BY p.view_count DESC NULLS LAST, p.updated_at DESC, p.created_at DESC, p.id DESC

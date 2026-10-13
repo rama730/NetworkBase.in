@@ -210,6 +210,10 @@ export async function getProfileMutualCount(viewerId: string, profileId: string)
         try {
             const viewerKey = `user:${viewerId}:connections`;
             const profileKey = `user:${profileId}:connections`;
+            if (typeof (redis as any).sintercard === 'function') {
+                const count = await (redis as any).sintercard(2, [viewerKey, profileKey]);
+                if (typeof count === 'number') return count;
+            }
             // Redis SINTER natively returns empty array if either key is missing; 1 roundtrip
             const mutualIds = (await redis.sinter(viewerKey, profileKey)) as string[];
             return Array.isArray(mutualIds) ? mutualIds.length : 0;
@@ -347,7 +351,7 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
                 ? Promise.resolve(EMPTY_COLLABORATION_SUMMARY)
                 : getProfileCollaborationSummary(profileData.id, {
                     includePrivate: !!isOwner,
-                    preferCached: !isOwner,
+                    preferCached: true,
                 }),
             shouldResolveViewerState && viewerUser
                 ? getProfileMutualCount(viewerUser.id, profileData.id)

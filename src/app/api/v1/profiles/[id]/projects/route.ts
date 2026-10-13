@@ -31,10 +31,7 @@ export async function GET(
     const supabase = await createClient();
     const { data } = await supabase.auth.getUser();
     const viewerId = data.user?.id ?? null;
-    const [relationship, result] = await Promise.all([
-      resolvePrivacyRelationship(viewerId, id),
-      getProfilePortfolioProjects(id, { includePrivate: viewerId === id, limit, offset }),
-    ]);
+    const relationship = await resolvePrivacyRelationship(viewerId, id);
     if (!relationship) {
       return jsonError("Profile not found", 404, "NOT_FOUND");
     }
@@ -50,6 +47,8 @@ export async function GET(
       });
       return jsonError("Profile is not viewable", 403, "FORBIDDEN");
     }
+
+    const result = await getProfilePortfolioProjects(id, { includePrivate: viewerId === id, limit, offset });
 
     logApiRoute(request, {
       requestId,
