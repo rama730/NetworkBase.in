@@ -21,7 +21,9 @@ export default async function NewProjectPage({
     const resolvedSearchParams = (await searchParams) ?? {}
     const rawSource = typeof resolvedSearchParams.source === 'string'
         ? resolvedSearchParams.source
-        : null
+        : typeof resolvedSearchParams.createProjectSource === 'string'
+            ? resolvedSearchParams.createProjectSource
+            : null
     const initialSource = rawSource && VALID_CREATE_PROJECT_SOURCES.has(rawSource as 'scratch' | 'github' | 'upload')
         ? (rawSource as 'scratch' | 'github' | 'upload')
         : null

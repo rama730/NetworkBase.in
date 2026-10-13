@@ -67,8 +67,15 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
     const roleErrors = Array.isArray(errors.roles) ? errors.roles : [];
     const openPositionCount = openRoles.reduce((total, role) => total + role.count, 0);
     const validationErrors = roleErrors.flatMap((roleError, index) => {
-        const messages = [roleError?.role?.message, roleError?.count?.message].filter((message): message is string => Boolean(message));
-        return messages.map((message) => `Role ${index + 1}: ${message}`);
+        const roleId = openRoleIds[index] || `role-${index}`;
+        const items: Array<{ id: string; message: string }> = [];
+        if (roleError?.role?.message) {
+            items.push({ id: `create-project-role-${roleId}`, message: `Role ${index + 1}: ${roleError.role.message}` });
+        }
+        if (roleError?.count?.message) {
+            items.push({ id: `create-project-role-count-${roleId}`, message: `Role ${index + 1}: ${roleError.count.message}` });
+        }
+        return items;
     });
 
     useEffect(() => {
@@ -98,7 +105,22 @@ export default function Phase3TeamRoles({ wizardContext, showValidationSummary =
                 <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
                     <p className="font-semibold">Complete or remove the unfinished roles</p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
-                        {validationErrors.map((message) => <li key={message}>{message}</li>)}
+                        {validationErrors.map((err) => (
+                            <li key={err.id}>
+                                <a
+                                    href={`#${err.id}`}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        const el = document.getElementById(err.id);
+                                        el?.focus();
+                                        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }}
+                                    className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                >
+                                    {err.message}
+                                </a>
+                            </li>
+                        ))}
                     </ul>
                 </div>
             ) : null}

@@ -41,8 +41,9 @@ export function CreateProjectRouteClient({
             toast.error('GitHub authorization was not completed. Your draft was preserved.')
         }
 
+        const rawParamSource = params.get('source') ?? params.get('createProjectSource')
         setHandoff({
-            source: parseCreateProjectSource(params.get('createProjectSource'))
+            source: parseCreateProjectSource(rawParamSource)
                 ?? resume?.values.import_source?.type
                 ?? initialSource,
             resume,
@@ -75,6 +76,16 @@ export function CreateProjectRouteClient({
         clearGithubOAuthResume(resumeId)
     }, [])
 
+    const handleSourceChange = useCallback((source: CreateProjectSource | null) => {
+        const url = new URL(window.location.href)
+        if (source) {
+            url.searchParams.set('source', source)
+        } else {
+            url.searchParams.delete('source')
+        }
+        window.history.replaceState(window.history.state, '', url.pathname + url.search)
+    }, [])
+
     if (!handoff) return <CreateProjectShellSkeleton />
 
     return (
@@ -82,6 +93,7 @@ export function CreateProjectRouteClient({
             onClose={handleClose}
             onSuccess={handleSuccess}
             initialSource={handoff.source}
+            onSourceChange={handleSourceChange}
             githubOAuthResume={handoff.resume}
             onGithubOAuthResumeRestored={handleResumeRestored}
         />
