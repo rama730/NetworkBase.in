@@ -71,7 +71,6 @@ export function ProjectContributionsCard({
     return (
         <Card
             title="Project Contributions"
-            mobileTitle="Project contributions"
             icon={<Briefcase className="h-5 w-5" />}
             onAdd={onAdd}
             addLabel="Add project contribution"

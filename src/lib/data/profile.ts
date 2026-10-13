@@ -12,7 +12,6 @@ import { logger } from '@/lib/logger'
 import { normalizeUsername, validateUsername } from '@/lib/validations/username'
 import { isUuid } from '@/lib/validations/uuid'
 import { normalizeNotificationPreferences } from '@/lib/notifications/preferences'
-export { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { consumeRateLimit } from '@/lib/security/rate-limit'
 import {

@@ -3,9 +3,9 @@
 import { cn } from '@/lib/utils';
 import type { ProfileTabKey } from './types';
 
-const TABS: Array<{ key: ProfileTabKey; label: string; hint: string }> = [
-    { key: 'overview', label: 'Overview', hint: 'Bio, skills, experience' },
-    { key: 'portfolio', label: 'Portfolio', hint: 'Projects & roles' },
+const TABS: Array<{ key: ProfileTabKey; label: string }> = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'portfolio', label: 'Portfolio' },
 ];
 
 export function ProfileTabs({

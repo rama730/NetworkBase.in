@@ -3,39 +3,16 @@
 import type { Profile } from "@/lib/db/schema";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { ProfileCollaborationContribution } from "@/lib/profile/collaboration";
+import { normalizeProfile } from "@/lib/utils/normalize-profile";
 
 export function normalizeProfileRecord(profile: Record<string, any> | null): Profile | null {
   if (!profile) return null;
-  const snake = "full_name" in profile || "avatar_url" in profile;
-  if (!snake) return profile as Profile;
-  return {
-    ...profile,
-    avatarUrl: profile.avatar_url,
-    fullName: profile.full_name,
-    bannerUrl: profile.banner_url,
-    socialLinks: profile.social_links || {},
-    messagePrivacy: profile.message_privacy,
-    connectionPrivacy: profile.connection_privacy,
-    openTo: profile.open_to || [],
-    experienceLevel: profile.experience_level,
-    hoursPerWeek: profile.hours_per_week,
-    genderIdentity: profile.gender_identity,
-    connectionsCount: profile.connections_count ?? 0,
-    projectsCount: profile.projects_count ?? 0,
-    followersCount: profile.followers_count ?? 0,
-    workspaceInboxCount: profile.workspace_inbox_count ?? 0,
-    workspaceDueTodayCount: profile.workspace_due_today_count ?? 0,
-    workspaceOverdueCount: profile.workspace_overdue_count ?? 0,
-    workspaceInProgressCount: profile.workspace_in_progress_count ?? 0,
-    createdAt: profile.created_at ? new Date(profile.created_at) : undefined,
-    updatedAt: profile.updated_at ? new Date(profile.updated_at) : undefined,
-    deletedAt: profile.deleted_at ? new Date(profile.deleted_at) : undefined,
-  } as unknown as Profile;
+  return normalizeProfile(profile) as unknown as Profile;
 }
 
 export function profileNeedsHydration(profile: Record<string, any> | null): boolean {
   if (!profile || typeof profile !== "object") return false;
-  return (profile.education ?? profile.education_data) === undefined;
+  return profile.id === undefined || profile.username === undefined;
 }
 
 export async function loadBrowserProfile(userId: string): Promise<Profile | null> {

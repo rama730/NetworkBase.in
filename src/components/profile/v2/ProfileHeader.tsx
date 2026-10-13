@@ -17,19 +17,6 @@ import { usePresenceUi } from '@/components/presence/presence-ui-store'
 import { usePersonPresence } from '@/components/presence/usePresence'
 import { resolveProfileActionState } from './profile-action-state'
 
-function Chip({ children, className }: { children: React.ReactNode; className?: string }) {
-    return (
-        <span
-            className={cn(
-                'nb-status inline-flex items-center px-3 py-1.5 rounded-[3px] border border-border bg-card text-muted-foreground',
-                className
-            )}
-        >
-            {children}
-        </span>
-    )
-}
-
 /** Status controls under the name. Active-now is already shown by the avatar badge. */
 function PresenceChips({ userId, lastActiveAt, isOwner }: { userId: string | null; lastActiveAt?: string | null; isOwner: boolean }) {
     const presence = usePersonPresence(userId, { fallbackLastActiveAt: lastActiveAt ?? null, live: isOwner || undefined })
@@ -409,10 +396,10 @@ export function ProfileHeader({
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 ) : isInteractionBlocked ? (
-                                    <Chip className="border-destructive/30 bg-destructive/10 text-destructive">
+                                    <span className="nb-status inline-flex items-center px-3 py-1.5 rounded-[3px] border border-destructive/30 bg-destructive/10 text-destructive">
                                         <Ban className="mr-1 w-3.5 h-3.5" />
                                         {privacyPresentation.blockedBannerText || 'You cannot interact with this account'}
-                                    </Chip>
+                                    </span>
                                 ) : null}
                             </div>
                         )}
