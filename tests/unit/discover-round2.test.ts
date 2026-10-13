@@ -81,7 +81,11 @@ test("round 2: follow state stays true everywhere", () => {
 
 test("round 2: keyboard focus shows everywhere (a tone, never a ring)", () => {
   const css = read("src/app/globals.css");
-  assert.match(css, /:where\(a, button, summary, \[role="tab"\], \[role="option"\], \[role="menuitem"\], \[role="radio"\], \[role="switch"\]\):focus-visible \{\s*background-color: color-mix/);
+  // The tint lives in @layer base: a component's bg-* utility (a solid Button's fill) must win over it.
+  const baseLayers = css.match(/@layer base \{[\s\S]*?\n\}/g) ?? [];
+  assert.ok(baseLayers.some((block) => /:where\(a, button, summary, \[tabindex\]:not\(\[tabindex="-1"\]\)[^)]*\[role="treeitem"\], \[role="button"\]\):focus-visible \{\s*background-color: color-mix/.test(block)));
+  const unlayered = css.replace(/@layer base \{[\s\S]*?\n\}/g, "");
+  assert.doesNotMatch(unlayered, /:where\(a, button[^{]*\):focus-visible \{\s*background-color/);
   assert.match(css, /\[data-slot="button"\]:focus-visible \{\s*background-image:/);
   assert.match(css, /\.nb-person-connect:focus-visible \{ border-color:var\(--primary-active\)/);
   const picker = read("src/components/skills/SkillPicker.tsx");

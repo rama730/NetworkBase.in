@@ -118,6 +118,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
 
     const initialStages: string[] = project.lifecycleStages ?? ["Concept", "Team Formation", "MVP", "Beta", "Launch"];
     const currentStageIndex: number = project.currentStageIndex ?? 0;
+    const [currentStageName, setCurrentStageName] = useState<string | null>(initialStages[currentStageIndex] ?? null);
 
     // Setup Form
     const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<ProjectFormValues>({
@@ -191,7 +192,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                     deletedRoleIds,
                 });
                 if (lifecycleStages.join("\n") !== initialStages.join("\n")) {
-                    const lifecycle = await updateProjectLifecycleAction(project.id, lifecycleStages, initialStages[currentStageIndex] ?? "");
+                    const lifecycle = await updateProjectLifecycleAction(project.id, lifecycleStages, currentStageName ?? "");
                     if (!lifecycle.success) throw new Error(lifecycle.error);
                 }
                 toast.success("Project updated successfully");
@@ -411,7 +412,10 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                                 <div className="bg-card p-6 rounded-lg border border-border">
                                                     <LifecycleEditor 
                                                         stages={watch('lifecycleStages')}
-                                                        onChange={(stages) => setValue('lifecycleStages', stages)}
+                                                        onChange={(stages, current) => {
+                                                            setValue('lifecycleStages', stages);
+                                                            setCurrentStageName(current);
+                                                        }}
                                                         currentStageIndex={currentStageIndex}
                                                     />
                                                 </div>
