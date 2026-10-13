@@ -876,6 +876,15 @@ export default function Phase1SourceSelection({
                                     <button
                                         type="button"
                                         onClick={() => toggleFolder(entry.path, disabled)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'ArrowRight' && !isExpanded) {
+                                                e.preventDefault();
+                                                toggleFolder(entry.path, disabled);
+                                            } else if (e.key === 'ArrowLeft' && isExpanded) {
+                                                e.preventDefault();
+                                                toggleFolder(entry.path, disabled);
+                                            }
+                                        }}
                                         className="flex w-full min-w-0 items-center gap-2 text-left"
                                         disabled={disabled}
                                         aria-expanded={isExpanded}
@@ -1255,7 +1264,7 @@ export default function Phase1SourceSelection({
                                         <label htmlFor="create-project-github-url" className="nb-meta mt-4 block text-foreground">Repository</label>
                                         <div className="mt-2 relative">
                                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                                <Github className="h-4 w-4 text-zinc-400" />
+                                                <Github className="h-4 w-4 text-muted-foreground" />
                                             </div>
                                             <Input
                                                 id="create-project-github-url"

@@ -168,7 +168,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-title" required>Project title</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground" aria-live="polite">{title.length}/100</span>
+                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{title.length}/100</span>
                         </div>
                         <Input
                             id="create-project-title"
@@ -187,7 +187,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-tagline">Tagline</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground" aria-live="polite">{tagline.length}/200</span>
+                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{tagline.length}/200</span>
                         </div>
                         <Input
                             id="create-project-tagline"
@@ -214,7 +214,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-description" required>Description</FieldLabel>
-                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground" aria-live="polite">{description.length}/5000</span>
+                            <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{description.length}/5000</span>
                         </div>
                         <textarea
                             id="create-project-description"

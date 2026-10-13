@@ -90,6 +90,15 @@ export function Phase1SourceMethodGroup({
                 <span className="nb-card-title block text-foreground">{option.title}</span>
                 <span className="nb-compact mt-1 block text-muted-foreground">{option.description}</span>
               </span>
+              <span
+                className={cn(
+                  "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors",
+                  selected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card group-hover:border-muted-foreground",
+                )}
+                aria-hidden="true"
+              >
+                {selected ? <span className="size-1.5 rounded-full bg-background" /> : null}
+              </span>
               <span className="pointer-events-none absolute inset-0 rounded-lg ring-ring ring-offset-2 ring-offset-background peer-focus-visible:ring-2" />
             </label>
           );
