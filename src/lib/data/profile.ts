@@ -42,6 +42,8 @@ function toBootstrapProfile(
         | 'interests'
         | 'education'
         | 'openTo'
+        | 'openToCustomRoles'
+        | 'preferredCategories'
         | 'socialLinks'
         | 'socialLinkMetadata'
         | 'visibility'
@@ -112,6 +114,8 @@ export const getUserProfile = cache(async (userId: string) => {
                 interests: profiles.interests,
                 education: profiles.education,
                 openTo: profiles.openTo,
+                openToCustomRoles: profiles.openToCustomRoles,
+                preferredCategories: profiles.preferredCategories,
                 socialLinks: profiles.socialLinks,
                 socialLinkMetadata: profiles.socialLinkMetadata,
                 visibility: profiles.visibility,
@@ -199,7 +203,7 @@ function toProfileViewerUser(user: User | null): ProfileViewerUser | null {
     return user?.id ? { id: user.id } : null;
 }
 
-async function getProfileMutualCount(viewerId: string, profileId: string) {
+export async function getProfileMutualCount(viewerId: string, profileId: string) {
     if (!viewerId || !profileId || viewerId === profileId) return 0;
     const redis = getRedisClient();
     if (redis) {

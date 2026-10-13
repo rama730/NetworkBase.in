@@ -389,7 +389,7 @@ export function EditProfileTabs({
                                 <div className="space-y-0.5">
                                     <p className="nb-ui-label text-foreground font-medium">Changing your identity</p>
                                     <p className="nb-compact text-muted-foreground">
-                                        Your public handle updates immediately. Cached mentions may take a little time to refresh.
+                                        Your public handle updates immediately. Note: You can only change your username once every 30 days. Cached mentions may take a little time to refresh.
                                     </p>
                                 </div>
                             </div>

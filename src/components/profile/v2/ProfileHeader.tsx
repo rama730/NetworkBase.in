@@ -360,58 +360,61 @@ export function ProfileHeader({
                         ) : isLoadingConnection ? (
                             <div aria-hidden="true" className="nb-skeleton h-10 w-28 rounded-[3px] border border-border/40" />
                         ) : (
-                            <>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {showMessageAction ? (
+                                    <Button
+                                        variant="outline"
+                                        onClick={onMessage}
+                                        aria-label={`Message ${name}`}
+                                        className="gap-2"
+                                    >
+                                        <MessageSquare className="size-4" />
+                                        Message
+                                    </Button>
+                                ) : null}
                                 {showRelationshipAction ? (
-                                    <>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button
-                                                    variant={relationshipControlVariant}
-                                                    disabled={!isAuthenticated}
-                                                    aria-label={`${relationshipControlLabel} options`}
-                                                >
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant={relationshipControlVariant}
+                                                disabled={!isAuthenticated}
+                                                aria-label={`${relationshipControlLabel} options`}
+                                                className="gap-1.5"
+                                            >
+                                                {connectIcon}
+                                                {relationshipControlLabel}
+                                                <ChevronDown className="size-4 opacity-70" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48">
+                                            {isPrimaryConnectionAction ? (
+                                                <DropdownMenuItem onClick={onConnectPrimary} disabled={isLoadingConnection}>
                                                     {connectIcon}
-                                                    {relationshipControlLabel}
-                                                    <ChevronDown className="size-4 opacity-70" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-48">
-                                                {showMessageAction ? (
-                                                    <DropdownMenuItem onClick={onMessage}>
-                                                        <MessageSquare className="size-4" />
-                                                        Message
-                                                    </DropdownMenuItem>
-                                                ) : null}
-                                                {showMessageAction && hasConnectionMenuAction ? <DropdownMenuSeparator /> : null}
-                                                {isPrimaryConnectionAction ? (
-                                                    <DropdownMenuItem onClick={onConnectPrimary} disabled={isLoadingConnection}>
-                                                        {connectIcon}
-                                                        {connectLabel}
-                                                    </DropdownMenuItem>
-                                                ) : null}
-                                                {secondaryConnectLabel && onConnectSecondary ? (
-                                                    <DropdownMenuItem onClick={onConnectSecondary} disabled={isLoadingConnection}>
-                                                        {secondaryConnectIcon}
-                                                        {secondaryConnectLabel}
-                                                    </DropdownMenuItem>
-                                                ) : null}
-                                                {(showMessageAction || hasConnectionMenuAction) && canManageBlock ? <DropdownMenuSeparator /> : null}
-                                                {canManageBlock ? (
-                                                    <DropdownMenuItem onClick={onToggleBlock} disabled={isBlocking} variant="destructive">
-                                                        <Ban className="size-4" />
-                                                        {blockActionLabel}
-                                                    </DropdownMenuItem>
-                                                ) : null}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </>
+                                                    {connectLabel}
+                                                </DropdownMenuItem>
+                                            ) : null}
+                                            {secondaryConnectLabel && onConnectSecondary ? (
+                                                <DropdownMenuItem onClick={onConnectSecondary} disabled={isLoadingConnection}>
+                                                    {secondaryConnectIcon}
+                                                    {secondaryConnectLabel}
+                                                </DropdownMenuItem>
+                                            ) : null}
+                                            {(isPrimaryConnectionAction || secondaryConnectLabel) && canManageBlock ? <DropdownMenuSeparator /> : null}
+                                            {canManageBlock ? (
+                                                <DropdownMenuItem onClick={onToggleBlock} disabled={isBlocking} variant="destructive">
+                                                    <Ban className="size-4" />
+                                                    {blockActionLabel}
+                                                </DropdownMenuItem>
+                                            ) : null}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 ) : isInteractionBlocked ? (
                                     <Chip className="border-destructive/30 bg-destructive/10 text-destructive">
                                         <Ban className="mr-1 w-3.5 h-3.5" />
                                         {privacyPresentation.blockedBannerText || 'You cannot interact with this account'}
                                     </Chip>
                                 ) : null}
-                            </>
+                            </div>
                         )}
                     </div>
                 </div>
