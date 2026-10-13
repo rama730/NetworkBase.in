@@ -24,11 +24,11 @@ export function buildViewerScopedProfileView(params: {
     headline: exposeIdentity ? profile.headline : null,
     location: exposeIdentity ? profile.location : null,
     visibility: profile.visibility ?? "public",
-    profileStrength: profile.profileStrength,
-    completionMissing: profile.completionMissing,
-    connectionsCount: profile.connectionsCount,
-    projectsCount: profile.projectsCount,
-    followersCount: profile.followersCount,
+    profileStrength: isOwner ? profile.profileStrength : 0,
+    completionMissing: isOwner ? profile.completionMissing : [],
+    connectionsCount: exposeFullProfile ? profile.connectionsCount : 0,
+    projectsCount: exposeFullProfile ? profile.projectsCount : 0,
+    followersCount: exposeFullProfile ? profile.followersCount : 0,
     bio: profile.bio,
     website: profile.website,
     bannerUrl: profile.bannerUrl,
@@ -46,7 +46,8 @@ export function buildViewerScopedProfileView(params: {
     // contributions are served from the normalized, visibility-scoped API.
     experience: isOwner ? profile.experience : [],
     education: profile.education,
-    lastActiveAt: !blocked && (isOwner || params.relationship?.canViewProfile) ? profile.lastActiveAt ?? null : null,
+    // AUTH-011: Presence and activity timestamps are strictly resolved via getPresence action for non-owners
+    lastActiveAt: isOwner ? profile.lastActiveAt ?? null : null,
     messagePrivacy: profile.messagePrivacy ?? null,
     connectionPrivacy: profile.connectionPrivacy ?? null,
     createdAt: profile.createdAt ?? null,
@@ -55,6 +56,11 @@ export function buildViewerScopedProfileView(params: {
 
   return exposeFullProfile ? safe : {
     ...safe,
+    profileStrength: 0,
+    completionMissing: [],
+    connectionsCount: 0,
+    projectsCount: 0,
+    followersCount: 0,
     bio: null,
     website: null,
     bannerUrl: null,

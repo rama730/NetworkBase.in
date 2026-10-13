@@ -100,6 +100,11 @@ export async function scheduleAccountDeletionForUser(input: {
     `);
     await tx.delete(projectFollows).where(eq(projectFollows.userId, input.userId));
     await tx.delete(profileAuditEvents).where(eq(profileAuditEvents.userId, input.userId));
+    await tx.execute(sql`
+      UPDATE profile_audit_events
+      SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{viewerUserId}', '"deleted_user"'::jsonb)
+      WHERE metadata->>'viewerUserId' = ${input.userId}
+    `);
 
     const affectedUserIds = peers
       .map((row) => (row.requesterId === input.userId ? row.addresseeId : row.requesterId))

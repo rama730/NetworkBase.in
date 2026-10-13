@@ -9,6 +9,25 @@ export async function replaceRelationshipWithBlockedState(
   blockedUserId: string,
   now: Date,
 ) {
+  // SEC-010: Check if an existing block row exists between this pair
+  const existingBlock = await tx
+    .select({ id: connections.id, status: connections.status, blockedBy: connections.blockedBy })
+    .from(connections)
+    .where(
+      or(
+        and(eq(connections.requesterId, blockerId), eq(connections.addresseeId, blockedUserId)),
+        and(eq(connections.requesterId, blockedUserId), eq(connections.addresseeId, blockerId)),
+      ),
+    )
+    .limit(1);
+
+  if (existingBlock.length > 0 && existingBlock[0].status === "blocked") {
+    // If target has already blocked this user, preserve target's block row without deletion or overwrite.
+    if (existingBlock[0].blockedBy === blockedUserId || existingBlock[0].blockedBy === blockerId) {
+      return existingBlock[0].id;
+    }
+  }
+
   const deleted = await tx
     .delete(connections)
     .where(

@@ -14,6 +14,7 @@ import { isUuid } from '@/lib/validations/uuid'
 import { normalizeNotificationPreferences } from '@/lib/notifications/preferences'
 export { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
+import { consumeRateLimit } from '@/lib/security/rate-limit'
 import {
     getProfileCollaborationSummary,
     type ProfileCollaborationSummary,
@@ -371,16 +372,19 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
         : null
 
     if (shouldRecordViewEvent && viewerUser?.id && viewerUser.id !== profileData.id) {
-        void recordPrivacyReadEvent({
-            subjectUserId: profileData.id,
-            viewerUserId: viewerUser.id,
-            eventType: 'profile_viewed',
-            route: 'profile.details',
-            metadata: {
-                visibilityReason: privacyRelationship.visibilityReason,
-                canViewProfile: privacyRelationship.canViewProfile,
-            },
-        })
+        const { allowed } = await consumeRateLimit(`audit:profile-view:${viewerUser.id}:${profileData.id}`, 1, 86400)
+        if (allowed && privacyRelationship.canViewProfile) {
+            void recordPrivacyReadEvent({
+                subjectUserId: profileData.id,
+                viewerUserId: viewerUser.id,
+                eventType: 'profile_viewed',
+                route: 'profile.details',
+                metadata: {
+                    visibilityReason: privacyRelationship.visibilityReason,
+                    canViewProfile: privacyRelationship.canViewProfile,
+                },
+            })
+        }
     }
 
     return {
@@ -389,9 +393,9 @@ export async function getProfileDetails(username?: string, options: ProfileDetai
         profile: visibleProfile,
         collaborationSummary: canViewProfile ? collaborationSummary : EMPTY_COLLABORATION_SUMMARY,
         stats: {
-            connectionsCount: profileData.connectionsCount || 0,
-            projectsCount: collaborationSummary.stats.projectsCount || profileData.projectsCount || 0,
-            followersCount: profileData.followersCount || 0,
+            connectionsCount: lockedShell ? 0 : (profileData.connectionsCount || 0),
+            projectsCount: lockedShell ? 0 : (collaborationSummary.stats.projectsCount || profileData.projectsCount || 0),
+            followersCount: lockedShell ? 0 : (profileData.followersCount || 0),
             mutualCount,
         },
         connectionStatus,
