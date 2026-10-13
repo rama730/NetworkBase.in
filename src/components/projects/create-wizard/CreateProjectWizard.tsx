@@ -38,14 +38,13 @@ const Phase5Review = dynamic(() => import('./phases/Phase5Review'), { loading: P
 interface Props {
     onClose: () => void;
     onSuccess?: (projectId: string) => void;
-    draftId?: string;
     initialSource?: 'scratch' | 'github' | 'upload' | null;
     onSourceChange?: (source: 'scratch' | 'github' | 'upload' | null) => void;
     githubOAuthResume?: CreateProjectGithubOAuthResume | null;
     onGithubOAuthResumeRestored?: (resumeId: string) => void;
 }
 
-export default function CreateProjectWizard({ onClose, onSuccess, draftId, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored }: Props) {
+export default function CreateProjectWizard({ onClose, onSuccess, initialSource = null, onSourceChange, githubOAuthResume = null, onGithubOAuthResumeRestored }: Props) {
     const {
         phase, methods, wizardContext, isSubmitting, isSavingDraft, phase2ValidationAttempted, phase3ValidationAttempted, phase4ValidationAttempted,
         phase4LinkComposerPending, setPhase4LinkComposerPending, isPhaseTransitioning, isReviewReady, setIsReviewReady,
@@ -57,7 +56,6 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
     } = useCreateProjectWizard({
         onClose,
         onSuccess,
-        draftId,
         initialValues: githubOAuthResume?.values,
         initialPhase: 1,
     });
@@ -327,9 +325,8 @@ export default function CreateProjectWizard({ onClose, onSuccess, draftId, initi
 
                 </div>
     );
-    const leaveSetup = async () => {
+    const leaveSetup = () => {
         markLeaving();
-        await deleteDraft();
         onClose();
     };
 

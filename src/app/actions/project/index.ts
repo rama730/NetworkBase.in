@@ -3410,12 +3410,6 @@ type ProjectMemberNotificationSettingsResult =
     }
   | { success: false; message: string; errorCode: ProjectSettingsErrorCode };
 
-const projectSettingsPatchSchema = z.object({
-  visibility: z.enum(["public", "private"]).optional(),
-  lookingForCollaborators: z.boolean().optional(),
-  memberUpdatesEnabled: z.boolean().optional(),
-  maxCollaborators: z.string().trim().max(32).nullable().optional(),
-});
 
 function actorNotificationSnapshot(user: {
   user_metadata?: Record<string, unknown> | null;

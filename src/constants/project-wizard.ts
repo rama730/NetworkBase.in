@@ -4,11 +4,11 @@
  */
 
 export const WIZARD_PHASES = [
-    { id: 1, label: 'Start', description: 'Source Selection' },
-    { id: 2, label: 'Info', description: 'Basic Information' },
-    { id: 3, label: 'Team', description: 'Roles & Skills' },
-    { id: 4, label: 'Settings', description: 'Launch settings' },
-    { id: 5, label: 'Review', description: 'Final Preview' },
+    { id: 1, label: 'Start' },
+    { id: 2, label: 'Info' },
+    { id: 3, label: 'Team' },
+    { id: 4, label: 'Settings' },
+    { id: 5, label: 'Review' },
 ] as const;
 
 export type WizardPhaseId = typeof WIZARD_PHASES[number]['id'];

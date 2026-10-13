@@ -5,7 +5,6 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProjectSchema, type CreateProjectInput, type OpenRoleInput } from '@/lib/validations/project';
 import { DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY } from '@/lib/projects/settings-policies';
-import { generateSlug, generateProjectId } from '@/lib/utils/project-ids';
 import { toast } from 'sonner';
 import { TOTAL_PHASES, WizardPhaseId } from '@/constants/project-wizard';
 import { createProjectAction } from '@/app/actions/project';
@@ -29,7 +28,6 @@ export interface WizardContextType {
 interface UseCreateProjectWizardProps {
     onClose: () => void;
     onSuccess?: (projectId: string) => void;
-    draftId?: string;
     initialValues?: CreateProjectInput;
     initialPhase?: WizardPhaseId;
 }
@@ -38,7 +36,7 @@ interface UseCreateProjectWizardProps {
  * useCreateProjectWizard - The master hook for project creation.
  * Pure Optimization: Unified constants, reactive draft management, and scalable logic.
  */
-export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
+export function useCreateProjectWizard({ onClose, onSuccess, initialValues, initialPhase = 1 }: UseCreateProjectWizardProps) {
     const { user } = useAuth();
     const userId = user?.id || null;
     const [phase, setPhase] = useState<WizardPhaseId>(initialPhase);
@@ -90,7 +88,6 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             technologies_used: [],
             lifecycle_stages: [],
             current_stage_index: 0,
-            goals: [],
             creator_role: {
                 role_type: 'lead',
                 title: '',
@@ -401,23 +398,13 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
     const deleteDraft = useCallback(async () => {
         const { draftStore } = await import('@/lib/storage/draft-store');
 
-        // 1. Server-side deep wipe (if draftId exists)
-        if (draftId) {
-            try {
-                const { deleteProjectDraftAction } = await import('@/app/actions/project');
-                await deleteProjectDraftAction(draftId);
-            } catch (err) {
-                console.error("Server draft wipe failed", err);
-            }
-        }
-
-        // 2. Client-side total wipe
+        // Client-side total wipe
         await draftStore.clear(userId);
         setDraftInfo(null);
         reset();
         setPhase(1);
         toast.success("Draft erased completely");
-    }, [draftId, reset, userId]);
+    }, [reset, userId]);
 
     const saveDraft = useCallback(async (silent = false) => {
         if (!silent) {
@@ -582,7 +569,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     toast.error('Finish adding the project link or clear the URL before continuing.');
                     isValid = false;
                 } else {
-                    isValid = await trigger(['visibility', 'external_links', 'lifecycle_stages'], { shouldFocus: true });
+                    isValid = (await trigger(['visibility', 'external_links'], { shouldFocus: true })) && (await trigger(['lifecycle_stages']));
                 }
                 if (isValid) setPhase4ValidationAttempted(false);
             } else if (phase === 5) {

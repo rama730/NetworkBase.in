@@ -221,7 +221,7 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     return (
         <div ref={rootRef} className="min-w-0 w-full lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
             {/* Wide screens: the same section rail as Project settings (card, icon, label, description, active state). */}
-            <aside className="sticky top-0 hidden self-start rounded-lg border border-border bg-card p-2 lg:block">
+            <aside className="sticky top-0 hidden self-start rounded-lg border border-border bg-card p-2 xl:block lg:block">
                 <div className="px-3 pb-3 pt-2">
                     <p className="nb-micro">Launch settings</p>
                     <p className="nb-compact mt-1 text-muted-foreground">Jump to any section. All start at the Settings defaults.</p>
@@ -271,7 +271,13 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                                             e.preventDefault();
                                             const el = document.getElementById(err.id);
                                             el?.focus();
-                                            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            const scroller = getScroller();
+                                            if (scroller && el) {
+                                                scroller.scrollTo({
+                                                    top: scroller.scrollTop + el.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 16,
+                                                    behavior: 'smooth',
+                                                });
+                                            }
                                         }}
                                         className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                     >

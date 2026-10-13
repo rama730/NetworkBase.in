@@ -55,7 +55,7 @@ export default function WizardFooter({ phase, totalPhases, onNext, onBack, onSav
         </div>
 
         {/* Drafts autosave status: center on desktop, top on mobile */}
-        <div className="nb-meta order-1 flex min-w-0 flex-wrap items-center justify-center gap-x-1 text-center text-muted-foreground sm:order-2 sm:justify-self-center [@media(max-height:500px)]:sr-only">
+        <div className="nb-meta order-1 flex min-w-0 flex-wrap items-center justify-center gap-x-1 text-center text-muted-foreground sm:order-2 sm:col-start-2 sm:row-start-1 sm:justify-self-center [@media(max-height:500px)]:sr-only">
           <p id="create-project-next-help" role="status" aria-live="polite">
             <span>{phaseMessage}</span>
             {saveMessage ? <span className={saveStatus === "error" ? "text-[var(--status-danger)]" : undefined}> · {saveMessage}</span> : null}
