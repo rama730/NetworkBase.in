@@ -155,7 +155,6 @@ export default function NetworkClient({
                                 type="button"
                                 role="tab"
                                 aria-selected={selected}
-                                aria-current={selected ? "page" : undefined}
                                 aria-controls={`people-panel-${tab.key}`}
                                 tabIndex={selected ? 0 : -1}
                                 onClick={() => navigateTab(tab.key)}
