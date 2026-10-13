@@ -13,7 +13,7 @@ test("gitBlobSha matches Git's own object ids", () => {
 test("hydration reads the imported commit, verifies each blob, and does not finish partial work as ready", () => {
   const hydrate = readFileSync("src/inngest/functions/project-import-hydrate.ts", "utf8");
   assert.match(hydrate, /const ref = commitSha \?\? branch/);
-  assert.match(hydrate, /gitBlobSha\(file\.content\) !== node\.gitBlobHash/);
+  assert.match(hydrate, /gitBlobSha\(file\.content\) !== node\.gitHash/);
   // COR-008: failures retry the step; only a fully hydrated project becomes ready.
   assert.match(hydrate, /if \(failed > 0\) \{[\s\S]*throw new Error\(`Hydration incomplete/);
   assert.ok(hydrate.indexOf("throw new Error(`Hydration incomplete") < hydrate.lastIndexOf('syncStatus: "ready"'));
