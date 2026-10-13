@@ -276,6 +276,8 @@ type DateConnectionsCursor = {
     sortMode: 'recent' | 'oldest';
     updatedAt: string;
     id: string;
+    /** Relevance bucket of the last row, for discovery text search ordered by (rank, updatedAt, id). */
+    rank?: number;
 };
 
 type NameConnectionsCursor = {
@@ -296,8 +298,9 @@ type MutualConnectionsCursor = {
 
 type ParsedConnectionsCursor = DateConnectionsCursor | NameConnectionsCursor | MutualConnectionsCursor;
 
-function encodeConnectionsCursor(updatedAt: Date, id: string, sortMode: 'recent' | 'oldest') {
-    return `${CONNECTIONS_DATE_CURSOR_PREFIX}${sortMode}${CONNECTIONS_CURSOR_DELIMITER}${updatedAt.toISOString()}${CONNECTIONS_CURSOR_DELIMITER}${id}`;
+function encodeConnectionsCursor(updatedAt: Date, id: string, sortMode: 'recent' | 'oldest', rank?: number) {
+    const base = `${CONNECTIONS_DATE_CURSOR_PREFIX}${sortMode}${CONNECTIONS_CURSOR_DELIMITER}${updatedAt.toISOString()}${CONNECTIONS_CURSOR_DELIMITER}${id}`;
+    return rank === undefined ? base : `${base}${CONNECTIONS_CURSOR_DELIMITER}${rank}`;
 }
 
 function encodeConnectionsNameCursor(fullName: string | null, username: string | null, id: string) {
@@ -382,14 +385,21 @@ function parseConnectionsCursor(cursor?: string): ParsedConnectionsCursor | null
         ? cursor.slice(CONNECTIONS_DATE_CURSOR_PREFIX.length)
         : cursor;
     const parts = rawCursor.split(CONNECTIONS_CURSOR_DELIMITER);
-    const [sortModeRaw, dateRaw, id] = parts.length === 3
+    const [sortModeRaw, dateRaw, id, rankRaw] = parts.length >= 3
         ? parts
         : [null, parts[0], parts[1]];
     if (!dateRaw || !id) return null;
     const parsedDate = new Date(dateRaw);
     if (Number.isNaN(parsedDate.getTime())) return null;
     const sortMode = sortModeRaw === 'recent' || sortModeRaw === 'oldest' ? sortModeRaw : 'recent';
-    return { kind: 'date', sortMode, updatedAt: parsedDate.toISOString(), id };
+    const rank = rankRaw === undefined ? undefined : Number(rankRaw);
+    return {
+        kind: 'date',
+        sortMode,
+        updatedAt: parsedDate.toISOString(),
+        id,
+        ...(rank !== undefined && Number.isFinite(rank) ? { rank } : {}),
+    };
 }
 
 function buildNullableCursorEquals(
@@ -813,13 +823,11 @@ async function getConnectionsFeedImpl(
             }
         });
 
-        const nextCursor = hasMore && visibleItems.length > 0
+        // The cursor holds the raw sort keys; the displayed names may have been redacted by privacy.
+        const lastRawRow = rows[limit - 1];
+        const nextCursor = hasMore && visibleItems.length > 0 && lastRawRow
             ? sortBy === 'name'
-                ? encodeConnectionsNameCursor(
-                    visibleItems[visibleItems.length - 1]!.otherUser.fullName,
-                    visibleItems[visibleItems.length - 1]!.otherUser.username,
-                    visibleItems[visibleItems.length - 1]!.id,
-                )
+                ? encodeConnectionsNameCursor(lastRawRow.fullName, lastRawRow.username, lastRawRow.id)
                 : encodeConnectionsCursor(visibleItems[visibleItems.length - 1]!.updatedAt, visibleItems[visibleItems.length - 1]!.id, sortBy)
             : null;
 
@@ -856,7 +864,8 @@ async function getConnectionsFeedImpl(
                 column: connections.createdAt,
                 isoValue: rawParsedCursor.updatedAt,
                 id: rawParsedCursor.id,
-                direction: 'before',
+                // The cursor continues in the query's own direction (COR-030).
+                direction: input.requestSortBy === 'oldest' ? 'after' : 'before',
             }));
         }
 
@@ -888,7 +897,9 @@ async function getConnectionsFeedImpl(
                 input.requestSortBy === 'oldest' ? asc(connections.id) : desc(connections.id),
             );
 
-        const effectiveLimit = Math.min(limit + 1, MAX_REQUESTS_LIMIT);
+        // Ranking by mutual count needs every pending request in the window, not just the newest page:
+        // the sort happens in memory and the cursor is a position in that full order.
+        const effectiveLimit = isMutualRequestsSort ? MAX_REQUESTS_LIMIT : Math.min(limit + 1, MAX_REQUESTS_LIMIT);
         const rows = await requestsQuery.limit(effectiveLimit);
 
         const rawHasMore = rows.length > limit;
@@ -1167,14 +1178,20 @@ async function getConnectionsFeedImpl(
         if (input.filters?.hasSharedProjects) {
             fallbackConditions.push(sql`EXISTS (SELECT 1 FROM ${projects} WHERE ${projects.ownerId} = ${profiles.id})`);
         }
-        if (searchPattern && rawParsedCursor?.kind === 'date' && rawParsedCursor.sortMode === 'recent') {
-            fallbackConditions.push(buildConnectionDateCursorCondition({
-                column: profiles.updatedAt,
-                idColumn: profiles.id,
-                isoValue: rawParsedCursor.updatedAt,
-                id: rawParsedCursor.id,
-                direction: 'before',
-            }));
+        const searchRank = sql`CASE
+                    WHEN lower(coalesce(${profiles.username}, '')) = ${safeSearch?.toLowerCase() ?? ''} THEN 100
+                    WHEN lower(coalesce(${profiles.fullName}, '')) = ${safeSearch?.toLowerCase() ?? ''} THEN 95
+                    WHEN lower(coalesce(${profiles.username}, '')) LIKE ${(safeSearch?.toLowerCase() ?? '') + '%'} THEN 80
+                    WHEN lower(coalesce(${profiles.fullName}, '')) LIKE ${(safeSearch?.toLowerCase() ?? '') + '%'} THEN 75
+                    ELSE 10
+                END`;
+        // Results are ordered (rank DESC, updatedAt DESC, id DESC), so the cursor carries all three.
+        if (searchPattern && rawParsedCursor?.kind === 'date' && rawParsedCursor.sortMode === 'recent' && rawParsedCursor.rank !== undefined) {
+            fallbackConditions.push(sql`(
+                ${searchRank} < ${rawParsedCursor.rank}
+                OR (${searchRank} = ${rawParsedCursor.rank}
+                    AND (${profiles.updatedAt}, ${profiles.id}) < (${rawParsedCursor.updatedAt}::timestamptz, ${rawParsedCursor.id}::uuid))
+            )`);
         }
 
         const fallbackRows = await db
@@ -1194,17 +1211,12 @@ async function getConnectionsFeedImpl(
                 interests: profiles.interests,
                 openTo: profiles.openTo,
                 updatedAt: profiles.updatedAt,
+                searchRank: sql<number>`${searchRank}`,
             })
             .from(profiles)
             .where(and(...fallbackConditions))
             .orderBy(
-                searchPattern ? sql`CASE
-                    WHEN lower(coalesce(${profiles.username}, '')) = ${safeSearch?.toLowerCase() ?? ''} THEN 100
-                    WHEN lower(coalesce(${profiles.fullName}, '')) = ${safeSearch?.toLowerCase() ?? ''} THEN 95
-                    WHEN lower(coalesce(${profiles.username}, '')) LIKE ${(safeSearch?.toLowerCase() ?? '') + '%'} THEN 80
-                    WHEN lower(coalesce(${profiles.fullName}, '')) LIKE ${(safeSearch?.toLowerCase() ?? '') + '%'} THEN 75
-                    ELSE 10
-                END DESC` : sql`${profiles.lastActiveAt} DESC NULLS LAST`,
+                searchPattern ? sql`${searchRank} DESC` : sql`${profiles.lastActiveAt} DESC NULLS LAST`,
                 searchPattern ? desc(profiles.updatedAt) : desc(profiles.id),
                 desc(profiles.id),
             )
@@ -1215,7 +1227,7 @@ async function getConnectionsFeedImpl(
             searchFallbackHasMore = fallbackRows.length > limit;
             const lastFallbackRow = fallbackPageRows[fallbackPageRows.length - 1];
             searchFallbackNextCursor = searchFallbackHasMore && lastFallbackRow
-                ? encodeConnectionsCursor(lastFallbackRow.updatedAt, lastFallbackRow.id, 'recent')
+                ? encodeConnectionsCursor(lastFallbackRow.updatedAt, lastFallbackRow.id, 'recent', Number(lastFallbackRow.searchRank))
                 : null;
         }
 
