@@ -49,9 +49,9 @@ export interface ConnectionStats {
 export async function readNetworkPendingCountsAction() {
     try {
         const user = await getAuthUser();
-        if (!user) return { success: false as const, error: 'Not authenticated', pendingConnections: 0, pendingInvites: 0 };
+        if (!user) return { success: false as const, error: 'Not authenticated', pendingConnections: 0, pendingInvites: 0, totalConnections: 0 };
 
-        const [connectionCount, inviteCount] = await Promise.all([
+        const [connectionCount, inviteCount, profileRow] = await Promise.all([
             db
                 .select({ count: sql<number>`COUNT(*)::int` })
                 .from(connections)
@@ -62,19 +62,25 @@ export async function readNetworkPendingCountsAction() {
                     isNull(profiles.deletedAt),
                 )),
             countPendingInvitationsForCandidate(user.id).then((count) => [{ count }]),
+            db
+                .select({ count: profiles.connectionsCount })
+                .from(profiles)
+                .where(eq(profiles.id, user.id))
+                .limit(1),
         ]);
 
         return {
             success: true as const,
             pendingConnections: Number(connectionCount[0]?.count ?? 0),
             pendingInvites: Number(inviteCount[0]?.count ?? 0),
+            totalConnections: Number(profileRow[0]?.count ?? 0),
         };
     } catch (error) {
         logger.error('connections.pending_counts_failed', {
             module: 'connections',
             error: error instanceof Error ? error.message : String(error),
         });
-        return { success: false as const, error: 'Failed to load pending requests', pendingConnections: 0, pendingInvites: 0 };
+        return { success: false as const, error: 'Failed to load pending requests', pendingConnections: 0, pendingInvites: 0, totalConnections: 0 };
     }
 }
 

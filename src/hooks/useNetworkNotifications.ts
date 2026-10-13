@@ -4,6 +4,7 @@ interface UseNetworkNotificationsReturn {
   totalPending: number;
   pendingConnections: number;
   pendingInvites: number;
+  totalConnections: number;
   refresh: () => Promise<void>;
 }
 

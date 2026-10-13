@@ -5,7 +5,6 @@ import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { Ban, Check, ChevronDown, MapPin, MessageSquare, UserMinus, Users } from "lucide-react";
 import { toast } from "sonner";
-import { useDebounce } from "use-debounce";
 
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkillIcon } from "@/components/skills";
@@ -21,8 +20,7 @@ import { formatDistanceToNow } from "@/lib/utils/date";
 import { messageUserInWindow } from "@/components/messages/message-user";
 
 export default function ConnectionsClient({ searchQuery }: { searchQuery: string }) {
-    const [debouncedSearch] = useDebounce(searchQuery, 300);
-    const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useConnections(50, debouncedSearch || undefined, "recent");
+    const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useConnections(50, searchQuery || undefined, "recent");
     const { disconnect, blockProfile } = useConnectionMutations();
     const connections = useMemo(
         () => (data?.pages.flatMap((page) => page.items) ?? []).filter((item) => Boolean(item.otherUser)),
@@ -58,9 +56,9 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
         return (
             <EmptyState
                 icon={Users}
-                title={debouncedSearch ? "No connections match your search." : "Your connections live here"}
-                description={debouncedSearch ? "Try a different name, skill, or location." : "People you connect with will appear here."}
-                action={!debouncedSearch ? <Link href="/network?tab=suggested" className="text-sm max-md:text-[13px] font-medium text-primary hover:underline">Find people to connect with</Link> : undefined}
+                title={searchQuery ? "No connections match your search." : "Your connections live here"}
+                description={searchQuery ? "Try a different name, skill, or location." : "People you connect with will appear here."}
+                action={!searchQuery ? <Link href="/network?tab=suggested" className="text-sm max-md:text-[13px] font-medium text-primary hover:underline">Find people to connect with</Link> : undefined}
             />
         );
     }

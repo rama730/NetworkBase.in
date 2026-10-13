@@ -46,6 +46,7 @@ interface NetworkNotificationsContextValue {
   totalPending: number;
   pendingConnections: number;
   pendingInvites: number;
+  totalConnections: number;
   refresh: () => Promise<void>;
 }
 
@@ -53,6 +54,7 @@ const NetworkNotificationsContext = createContext<NetworkNotificationsContextVal
   totalPending: 0,
   pendingConnections: 0,
   pendingInvites: 0,
+  totalConnections: 0,
   refresh: async () => {},
 });
 
@@ -81,6 +83,7 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
   }, [query]);
   const pendingConnections = query.data?.pendingConnections ?? 0;
   const pendingInvites = query.data?.pendingInvites ?? 0;
+  const totalConnections = query.data?.totalConnections ?? 0;
 
   // One app-level listener owns workspace attention invalidation. This avoids
   // opening the drawer creating a second subscription or duplicate refetches.
@@ -121,9 +124,10 @@ export function NetworkNotificationsProvider({ children, enabled = true }: { chi
       totalPending: pendingConnections + pendingInvites,
       pendingConnections,
       pendingInvites,
+      totalConnections,
       refresh,
     }),
-    [pendingConnections, pendingInvites, refresh],
+    [pendingConnections, pendingInvites, totalConnections, refresh],
   );
 
   return <NetworkNotificationsContext.Provider value={value}>{children}</NetworkNotificationsContext.Provider>;
