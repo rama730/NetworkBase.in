@@ -747,7 +747,7 @@ export function ProfileV2Client({
                 )}
             />
 
-            {isOwner && isEditModalOpen && EditProfileModal && (
+            {isOwner && EditProfileModal && (
                 <EditProfileModal
                     open={isEditModalOpen}
                     onOpenChange={setIsEditModalOpen}
@@ -759,7 +759,7 @@ export function ProfileV2Client({
                 />
             )}
 
-            {inviteOpen && ProfileInviteModal && (
+            {ProfileInviteModal && (
                 <ProfileInviteModal
                     isOpen={inviteOpen}
                     onClose={() => setInviteOpen(false)}
@@ -769,7 +769,7 @@ export function ProfileV2Client({
                 />
             )}
 
-            {isApplyModalOpen && openRolesProjects.length > 0 && ApplyRoleModal && (
+            {ApplyRoleModal && openRolesProjects.length > 0 && (
                 <ApplyRoleModal
                     isOpen={isApplyModalOpen}
                     onClose={() => setIsApplyModalOpen(false)}
@@ -777,7 +777,7 @@ export function ProfileV2Client({
                 />
             )}
 
-            {showConnectionsModal && UserConnectionsModal ? (
+            {UserConnectionsModal ? (
                 <UserConnectionsModal
                     isOpen={showConnectionsModal}
                     onClose={() => setShowConnectionsModal(false)}
