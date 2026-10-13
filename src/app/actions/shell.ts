@@ -18,6 +18,9 @@ export type ShellSummary = { [P in ShellPart]: Awaited<ReturnType<(typeof SHELL_
 
 export async function readShellSummaryAction(parts: ShellPart[]): Promise<Partial<ShellSummary>> {
     const unique = Array.from(new Set(parts)).filter((part) => part in SHELL_READERS);
-    const results = await Promise.all(unique.map(async (part) => [part, await SHELL_READERS[part]()] as const));
-    return Object.fromEntries(results) as Partial<ShellSummary>;
+    const settled = await Promise.allSettled(unique.map(async (part) => [part, await SHELL_READERS[part]()] as const));
+    const entries = settled
+        .filter((res): res is PromiseFulfilledResult<readonly [ShellPart, Awaited<ReturnType<(typeof SHELL_READERS)[ShellPart]>>]> => res.status === "fulfilled")
+        .map((res) => res.value);
+    return Object.fromEntries(entries) as Partial<ShellSummary>;
 }

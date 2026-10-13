@@ -5,7 +5,6 @@ import { useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
 import { toast } from "sonner";
-import { useDebounce } from "use-debounce";
 
 import PersonCard, { PersonCardGrid } from "@/components/network/PersonCard";
 import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
@@ -19,8 +18,7 @@ interface PeopleClientProps {
 }
 
 export default function NetworkPeopleTab({ initialUser, searchQuery }: PeopleClientProps) {
-    const [debouncedSearch] = useDebounce(searchQuery, 300);
-    const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useSuggestedPeople(20, debouncedSearch || undefined);
+    const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useSuggestedPeople(20, searchQuery || undefined);
     const { sendRequest } = useConnectionMutations();
     const profiles = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data]);
     const viewerSkills = data?.pages[0]?.viewerSkills;
@@ -53,8 +51,8 @@ export default function NetworkPeopleTab({ initialUser, searchQuery }: PeopleCli
         return (
             <EmptyState
                 icon={Users}
-                title={debouncedSearch ? "No people match your search." : "No suggestions yet."}
-                description={debouncedSearch ? "Try a different name, skill, or location." : "New collaboration suggestions will appear here."}
+                title={searchQuery ? "No people match your search." : "No suggestions yet."}
+                description={searchQuery ? "Try a different name, skill, or location." : "New collaboration suggestions will appear here."}
             />
         );
     }

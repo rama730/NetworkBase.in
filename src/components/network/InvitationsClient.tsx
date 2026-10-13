@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Clock, Loader2, MapPin, UserPlus, X } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useDebounce } from "use-debounce";
 
 import {
     getIncomingApplicationsAction,
@@ -44,7 +43,6 @@ export default function InvitationsClient({
     searchQuery: string;
 }) {
     const isAuthenticated = Boolean(initialUser?.id);
-    const [debouncedSearch] = useDebounce(searchQuery, 300);
     const [processingProject, setProcessingProject] = useState<{ id: string; action: "accept" | "decline" } | null>(null);
     const [cancellingProjectId, setCancellingProjectId] = useState<string | null>(null);
     const queryClient = useQueryClient();
@@ -70,8 +68,8 @@ export default function InvitationsClient({
             return result.invitations;
         },
     });
-    const { acceptRequest, rejectRequest, sendRequest, cancelRequest, withdrawAllSent } = useConnectionMutations();
-    const query = debouncedSearch.trim().toLocaleLowerCase();
+    const { acceptRequest, rejectRequest, cancelRequest, withdrawAllSent } = useConnectionMutations();
+    const query = searchQuery.trim().toLocaleLowerCase();
 
     const connectionInvitations = useMemo(() => {
         const incoming = connectionQuery.data?.incoming ?? [];
