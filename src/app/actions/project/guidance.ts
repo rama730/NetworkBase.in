@@ -160,6 +160,8 @@ export async function resolveProjectInvitationAction(input: {
 }) {
     const user = await getAuthUser();
     if (!user) return { success: false as const, error: "Not authenticated" };
+    const { allowed } = await consumeRateLimit(`project-invitation-resolve:${user.id}`, 60, 60);
+    if (!allowed) return { success: false as const, error: "Too many requests. Please try again later." };
     try {
         const result = await db.transaction((tx) => resolveProjectInvitationInternal(tx, {
             invitationId: input.invitationId,

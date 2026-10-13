@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SearchField } from "@/components/ui/SearchField";
 import { Search, X } from "lucide-react";
@@ -180,23 +181,38 @@ export default function NetworkClient({
                 </div>
 
                 <div id={`people-panel-${activeTab}`} role="tabpanel" aria-labelledby={`people-tab-${activeTab}`} className="pt-5">
-                    {activeTab === "suggested" ? (
-                        <ComponentErrorBoundary fallbackMessage="Failed to load suggested people.">
-                            <NetworkPeopleTab initialUser={initialUser} searchQuery={routeQuery} />
-                        </ComponentErrorBoundary>
-                    ) : null}
+                    {!isAuthed && activeTab !== "suggested" ? (
+                        <div className="max-w-[620px] rounded-lg border border-border bg-card p-8 text-center">
+                            <h2 className="nb-card-title text-foreground">Sign in to view your {activeTab}</h2>
+                            <p className="mt-1 text-sm text-muted-foreground">You need to be signed in to see and manage your network {activeTab}.</p>
+                            <Link
+                                href={`/login?redirect=${encodeURIComponent(`${ROUTES.NETWORK}?tab=${activeTab}`)}`}
+                                className="nb-touch-target mt-4 inline-flex h-[var(--ui-control-height)] items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                            >
+                                Sign in
+                            </Link>
+                        </div>
+                    ) : (
+                        <>
+                            {activeTab === "suggested" ? (
+                                <ComponentErrorBoundary fallbackMessage="Failed to load suggested people.">
+                                    <NetworkPeopleTab initialUser={initialUser} searchQuery={routeQuery} />
+                                </ComponentErrorBoundary>
+                            ) : null}
 
-                    {activeTab === "invitations" ? (
-                        <ComponentErrorBoundary fallbackMessage="Failed to load invitations.">
-                            <InvitationsClient initialUser={initialUser} searchQuery={routeQuery} />
-                        </ComponentErrorBoundary>
-                    ) : null}
+                            {activeTab === "invitations" ? (
+                                <ComponentErrorBoundary fallbackMessage="Failed to load invitations.">
+                                    <InvitationsClient initialUser={initialUser} searchQuery={routeQuery} />
+                                </ComponentErrorBoundary>
+                            ) : null}
 
-                    {activeTab === "connections" ? (
-                        <ComponentErrorBoundary fallbackMessage="Failed to load connections.">
-                            <ConnectionsClient searchQuery={routeQuery} />
-                        </ComponentErrorBoundary>
-                    ) : null}
+                            {activeTab === "connections" ? (
+                                <ComponentErrorBoundary fallbackMessage="Failed to load connections.">
+                                    <ConnectionsClient searchQuery={routeQuery} />
+                                </ComponentErrorBoundary>
+                            ) : null}
+                        </>
+                    )}
                 </div>
             </div>
         </div>

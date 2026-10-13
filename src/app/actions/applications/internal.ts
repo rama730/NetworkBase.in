@@ -3134,18 +3134,23 @@ export async function cancelSentProjectInvitationAction(input: {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false as const, error: 'Unauthorized' };
 
+    const { allowed } = await consumeRateLimit(`project-invitation-cancel:${user.id}`, 60, 60);
+    if (!allowed) return { success: false as const, error: 'Too many requests. Please try again later.' };
+
     try {
         let didCancel = false;
+        let cancelError: string | undefined;
         if (input.invitationId) {
             const res = await resolveProjectInvitationAction({
                 invitationId: input.invitationId,
                 action: 'cancel',
             });
             didCancel = res.success;
+            if (!res.success) cancelError = res.error;
         }
 
         if (!didCancel) {
-            return { success: false as const, error: 'Failed to cancel project invitation' };
+            return { success: false as const, error: cancelError || 'Failed to cancel project invitation' };
         }
 
         return { success: true as const };
