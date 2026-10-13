@@ -152,9 +152,11 @@ function PersonCard({
     const headline = profile.headline?.trim();
     const matchingSkills = matchingSkillLabels(profile.skills ?? [], viewerSkills ?? []);
     const matchingSkillKeys = new Set(matchingSkills.map(canonicalSkillKey));
-    const skills = [...(profile.skills ?? [])]
-        .sort((left, right) => Number(matchingSkillKeys.has(canonicalSkillKey(right))) - Number(matchingSkillKeys.has(canonicalSkillKey(left))))
-        .slice(0, 2);
+    const skills = [...(profile.skills ?? [])].sort(
+        (left, right) =>
+            Number(matchingSkillKeys.has(canonicalSkillKey(right))) -
+            Number(matchingSkillKeys.has(canonicalSkillKey(left)))
+    );
 
     useEffect(() => {
         setLocalStatus(null);
@@ -354,10 +356,23 @@ function PersonCard({
             ) : null}
             aside={<div ref={actionSlot} className="contents">{action}</div>}
             body={!isLocked && skills.length ? (
-                <div className={PERSON_CARD_TAGS} role="group" aria-label="Skills">
+                <div className="flex min-w-0 flex-wrap gap-1.5" role="group" aria-label="Skills">
                     {skills.map((skillName) => {
                         const skill = resolveClientSkill(skillName);
-                        return <span key={skill.canonicalKey} className="nb-tag"><SkillIcon skill={skill} size={14} />{skill.name}</span>;
+                        const isMatched = matchingSkillKeys.has(skill.canonicalKey);
+                        return (
+                            <span
+                                key={skill.canonicalKey}
+                                className={cn(
+                                    "nb-tag transition-colors",
+                                    isMatched && "border-primary/40 bg-primary/10 text-primary font-medium dark:bg-primary/20 dark:text-primary dark:border-primary/50"
+                                )}
+                            >
+                                <SkillIcon skill={skill} size={14} />
+                                {skill.name}
+                                {isMatched ? <span className="sr-only"> (matched skill)</span> : null}
+                            </span>
+                        );
                     })}
                 </div>
             ) : null}
