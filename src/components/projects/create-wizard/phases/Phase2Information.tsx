@@ -23,13 +23,19 @@ function FieldError({ id, message }: { id: string; message?: string }) {
     return <p id={id} role="alert" className="mt-1.5 text-[13px] leading-[1.5] text-destructive">{message}</p>;
 }
 
-function CharacterCount({ name, maxLength }: { name: 'title' | 'short_description' | 'description'; maxLength: number }) {
-    const value = useWatch<CreateProjectInput>({ name }) as string | undefined;
-    return (
-        <span className="nb-meta mb-2 shrink-0 text-muted-foreground">
-            {(value || '').length}/{maxLength}
-        </span>
-    );
+function TitleCount() {
+    const title = useWatch<CreateProjectInput>({ name: 'title' }) || '';
+    return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{title.length}/100</span>;
+}
+
+function TaglineCount() {
+    const tagline = useWatch<CreateProjectInput>({ name: 'short_description' }) || '';
+    return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{tagline.length}/200</span>;
+}
+
+function DescriptionCount() {
+    const description = useWatch<CreateProjectInput>({ name: 'description' }) || '';
+    return <span className="nb-meta mb-2 shrink-0 text-muted-foreground">{description.length}/5000</span>;
 }
 
 function FieldLabel({ htmlFor, children, required = false }: { htmlFor: string; children: ReactNode; required?: boolean }) {
@@ -189,7 +195,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-title" required>Project title</FieldLabel>
-                            <CharacterCount name="title" maxLength={100} />
+                            <TitleCount />
                         </div>
                         <Input
                             id="create-project-title"
@@ -208,7 +214,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-tagline">Tagline</FieldLabel>
-                            <CharacterCount name="short_description" maxLength={200} />
+                            <TaglineCount />
                         </div>
                         <Input
                             id="create-project-tagline"
@@ -235,7 +241,7 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                     <div>
                         <div className="flex items-end justify-between gap-3">
                             <FieldLabel htmlFor="create-project-description" required>Description</FieldLabel>
-                            <CharacterCount name="description" maxLength={5000} />
+                            <DescriptionCount />
                         </div>
                         <textarea
                             id="create-project-description"
