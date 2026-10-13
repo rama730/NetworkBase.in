@@ -129,9 +129,9 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
 
     const externalLinksError = (errors.external_links as { message?: string } | undefined)?.message;
     const validationMessages = [
-        linkComposerPending ? 'Finish adding the project link or clear the URL before continuing.' : null,
-        externalLinksError,
-    ].filter((message): message is string => Boolean(message));
+        linkComposerPending ? { id: sectionAnchor('links'), message: 'Finish adding the project link or clear the URL before continuing.' } : null,
+        externalLinksError ? { id: sectionAnchor('links'), message: externalLinksError } : null,
+    ].filter((item): item is { id: string; message: string } => Boolean(item));
 
     const [isPhone, setIsPhone] = useState(false);
     const [openSections, setOpenSections] = useState<Set<SectionId>>(() => new Set());
@@ -219,9 +219,9 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
     const sectionProps = (id: SectionId) => ({ id, collapsible: isPhone, open: isOpen(id), onToggle: () => toggleSection(id) });
 
     return (
-        <div ref={rootRef} className="min-w-0 w-full xl:grid xl:grid-cols-[248px_minmax(0,1fr)] xl:gap-8">
+        <div ref={rootRef} className="min-w-0 w-full lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
             {/* Wide screens: the same section rail as Project settings (card, icon, label, description, active state). */}
-            <aside className="sticky top-0 hidden self-start rounded-lg border border-border bg-card p-2 xl:block">
+            <aside className="sticky top-0 hidden self-start rounded-lg border border-border bg-card p-2 lg:block">
                 <div className="px-3 pb-3 pt-2">
                     <p className="nb-micro">Launch settings</p>
                     <p className="nb-compact mt-1 text-muted-foreground">Jump to any section. All start at the Settings defaults.</p>
@@ -263,7 +263,22 @@ export default function Phase4Settings({ showValidationSummary = false, linkComp
                     <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
                         <p className="font-semibold">Finish the project links before continuing</p>
                         <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
-                            {validationMessages.map((message) => <li key={message}>{message}</li>)}
+                            {validationMessages.map((err) => (
+                                <li key={err.message}>
+                                    <a
+                                        href={`#${err.id}`}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const el = document.getElementById(err.id);
+                                            el?.focus();
+                                            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        }}
+                                        className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    >
+                                        {err.message}
+                                    </a>
+                                </li>
+                            ))}
                         </ul>
                     </div>
                 ) : null}

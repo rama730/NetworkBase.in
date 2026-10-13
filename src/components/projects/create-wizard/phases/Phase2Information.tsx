@@ -56,11 +56,11 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
     const selectedProjectType = PROJECT_TYPE_OPTIONS.find((type) => type.id === projectType);
 
     const validationErrors = [
-        errors.project_type?.message,
-        errors.custom_project_type?.message,
-        errors.title?.message,
-        errors.description?.message,
-    ].filter((message): message is string => Boolean(message));
+        errors.project_type?.message ? { id: 'create-project-category', message: errors.project_type.message } : null,
+        errors.custom_project_type?.message ? { id: 'create-project-custom-category', message: errors.custom_project_type.message } : null,
+        errors.title?.message ? { id: 'create-project-title', message: errors.title.message } : null,
+        errors.description?.message ? { id: 'create-project-description', message: errors.description.message } : null,
+    ].filter((item): item is { id: string; message: string } => Boolean(item));
 
     const addTag = (rawTag: string) => {
         const tag = rawTag.trim().replace(/\s+/g, ' ');
@@ -98,7 +98,22 @@ export default function Phase2Information({ showValidationSummary = false }: Pha
                 <div role="alert" aria-live="assertive" className="border-l-2 border-destructive bg-[var(--status-danger-soft)] px-4 py-3 text-[13px] leading-[1.5] text-foreground">
                     <p className="font-semibold">Check the required project details</p>
                     <ul className="mt-1 list-disc space-y-0.5 pl-4 text-muted-foreground">
-                        {validationErrors.map((message) => <li key={message}>{message}</li>)}
+                        {validationErrors.map((err) => (
+                            <li key={err.id}>
+                                <a
+                                    href={`#${err.id}`}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        const el = document.getElementById(err.id);
+                                        el?.focus();
+                                        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }}
+                                    className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                >
+                                    {err.message}
+                                </a>
+                            </li>
+                        ))}
                     </ul>
                 </div>
             ) : null}
