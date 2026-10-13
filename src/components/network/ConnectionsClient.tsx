@@ -142,7 +142,7 @@ function ConnectionCard({
     return (
         <PersonCardLayout
             avatar={
-                <Link href={profileHref(user)} className="relative shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Link href={profileHref(user)} tabIndex={-1} aria-hidden="true" className="relative shrink-0 rounded-md focus-visible:outline-none">
                     <UserAvatar identity={user} size={48} fallbackClassName="text-base font-semibold" />
                     <PersonPresenceDot userId={user.id} lastActiveAt={user.lastActiveAt} />
                 </Link>

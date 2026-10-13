@@ -356,7 +356,7 @@ export default function InvitationsClient({
                             return (
                                 <PersonCardLayout
                                     key={invitation.id}
-                                    avatar={<Link href={profileHref(profile)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" /></Link>}
+                                    avatar={<Link href={profileHref(profile)} tabIndex={-1} aria-hidden="true" className="shrink-0 rounded-md focus-visible:outline-none"><UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" /></Link>}
                                     head={<InvitationName href={profileHref(profile)} name={displayName} />}
                                     location={locationLine(invitation.requesterLocation)}
                                     headline={headlineLine(invitation.requesterHeadline)}
@@ -389,7 +389,7 @@ export default function InvitationsClient({
                             return (
                                 <PersonCardLayout
                                     key={invitation.id}
-                                    avatar={<Link href={profileHref(actor)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={actor} size={48} fallbackClassName="text-base font-semibold" /></Link>}
+                                    avatar={<Link href={profileHref(actor)} tabIndex={-1} aria-hidden="true" className="shrink-0 rounded-md focus-visible:outline-none"><UserAvatar identity={actor} size={48} fallbackClassName="text-base font-semibold" /></Link>}
                                     head={<InvitationName href={profileHref(actor)} name={displayName} />}
                                     meta={[<RoleLine key="role" role={invitation.roleTitle} />]}
                                     headline={<p className="nb-body truncate text-muted-foreground">Invited you to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>}
@@ -441,7 +441,7 @@ export default function InvitationsClient({
                             return (
                                 <PersonCardLayout
                                     key={invitation.id}
-                                    avatar={<Link href={profileHref(candidate)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={candidate} size={48} fallbackClassName="text-base font-semibold" /></Link>}
+                                    avatar={<Link href={profileHref(candidate)} tabIndex={-1} aria-hidden="true" className="shrink-0 rounded-md focus-visible:outline-none"><UserAvatar identity={candidate} size={48} fallbackClassName="text-base font-semibold" /></Link>}
                                     head={<InvitationName href={profileHref(candidate)} name={displayName} />}
                                     meta={[<RoleLine key="role" role={invitation.roleTitle} />]}
                                     headline={<p className="nb-body truncate text-muted-foreground">Invited to join <Link href={`/projects/${invitation.projectSlug || invitation.projectId}`} className="font-medium text-foreground hover:text-primary">{invitation.projectTitle}</Link></p>}
@@ -491,7 +491,7 @@ export default function InvitationsClient({
                             return (
                                 <PersonCardLayout
                                     key={request.id}
-                                    avatar={<Link href={profileHref(profile)} className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" /></Link>}
+                                    avatar={<Link href={profileHref(profile)} tabIndex={-1} aria-hidden="true" className="shrink-0 rounded-md focus-visible:outline-none"><UserAvatar identity={profile} size={48} fallbackClassName="text-base font-semibold" /></Link>}
                                     head={<InvitationName href={profileHref(profile)} name={displayName} />}
                                     location={locationLine(request.addresseeLocation)}
                                     headline={headlineLine(request.addresseeHeadline)}
