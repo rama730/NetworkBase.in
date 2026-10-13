@@ -369,7 +369,30 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
         if (draft) {
             reset(draft);
             if (draft._timestamp) setLastSaved(new Date(draft._timestamp));
-            if (draft._phase) setPhase(draft._phase as WizardPhaseId);
+            let targetPhase = (draft._phase || 1) as WizardPhaseId;
+            // Validate step by step up to targetPhase to ensure user doesn't land on a later phase with invalid earlier data
+            if (targetPhase > 1) {
+                const source = draft.import_source?.type;
+                if (!source || (source === 'github' && !draft.import_source?.repoUrl)) {
+                    targetPhase = 1;
+                }
+            }
+            if (targetPhase > 2) {
+                const titleValid = typeof draft.title === 'string' && draft.title.trim().length >= 3;
+                const descValid = typeof draft.description === 'string' && draft.description.trim().length >= 20;
+                const typeValid = typeof draft.project_type === 'string' && draft.project_type.trim().length > 0;
+                const customTypeValid = draft.project_type !== 'other' || (typeof draft.custom_project_type === 'string' && draft.custom_project_type.trim().length > 0);
+                if (!titleValid || !descValid || !typeValid || !customTypeValid) {
+                    targetPhase = 2;
+                }
+            }
+            if (targetPhase > 3) {
+                if (Array.isArray(draft.roles)) {
+                    const hasInvalidRole = draft.roles.some((r: any) => !r.role || !r.role.trim());
+                    if (hasInvalidRole) targetPhase = 3;
+                }
+            }
+            setPhase(targetPhase);
             setDraftInfo(null);
             toast.success("Draft restored");
         }
@@ -559,7 +582,7 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
                     toast.error('Finish adding the project link or clear the URL before continuing.');
                     isValid = false;
                 } else {
-                    isValid = await trigger(['visibility', 'external_links'], { shouldFocus: true });
+                    isValid = await trigger(['visibility', 'external_links', 'lifecycle_stages'], { shouldFocus: true });
                 }
                 if (isValid) setPhase4ValidationAttempted(false);
             } else if (phase === 5) {
@@ -691,8 +714,6 @@ export function useCreateProjectWizard({ onClose, onSuccess, draftId, initialVal
             const result = await createProjectAction({
                 ...data,
                 roles: resolvedRoles,
-                slug: generateSlug(data.title.trim()),
-                project_id: generateProjectId(data.title.trim()),
             });
 
             if (!result.success || !result.project) throw new Error(result.error || 'Creation failed');
