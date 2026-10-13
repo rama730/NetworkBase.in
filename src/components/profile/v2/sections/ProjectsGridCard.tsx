@@ -70,7 +70,6 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
         {isLoading ? (
             <div
                 className="nb-portfolio-grid flex flex-col gap-4 w-full"
-                style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}
                 aria-busy="true"
                 role="status"
             >
@@ -78,10 +77,7 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                 {[1,2,3,4].map(key => <ProjectCardSkeleton key={key} />)}
             </div>
         ) : projects.length ? (
-            <div
-                className="nb-portfolio-grid flex flex-col gap-4 w-full"
-                style={{ display: "flex", flexDirection: "column", gap: "16px", width: "100%" }}
-            >
+            <div className="nb-portfolio-grid flex flex-col gap-4 w-full">
                 {projects.map(project => {
                     const cardProject = toDiscoveryProject(project);
                     const href = project.href || project.url;
@@ -89,7 +85,6 @@ export function ProjectsGridCard({ projects, title = "Projects", description, is
                         <div
                             key={project.id}
                             className="w-full min-w-0"
-                            style={{ width: "100%", minWidth: 0 }}
                             onMouseEnter={() => onProjectIntent?.(href)}
                             onFocusCapture={() => onProjectIntent?.(href)}
                         >

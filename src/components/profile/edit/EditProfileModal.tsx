@@ -85,7 +85,7 @@ function formFieldsChanged(current: Record<string, unknown> | null, base: Record
         if (curVal !== baseVal) return true;
     }
 
-    const arrayKeys = ["skills", "openTo", "openToCustomRoles", "preferredCategories", "education"];
+    const arrayKeys = ["skills", "openTo", "openToCustomRoles", "preferredCategories"];
     for (const key of arrayKeys) {
         const curArr = Array.isArray(current[key]) ? current[key] : [];
         const baseArr = Array.isArray(base[key]) ? base[key] : [];
@@ -120,7 +120,6 @@ export function EditProfileModal({
     const [contributionsLoadingMore, setContributionsLoadingMore] = useState(false);
     const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
     const [activeSection, setActiveSection] = useState<EditProfileSection>(initialSection);
-    const [pendingSection, setPendingSection] = useState<EditProfileSection | null>(null);
     const inFlightRef = useRef(false);
     const wasOpenRef = useRef(false);
     const draftTouchedRef = useRef(false);
@@ -227,7 +226,6 @@ export function EditProfileModal({
             openTo: payload.openTo,
             experienceLevel: payload.experienceLevel,
             hoursPerWeek: payload.hoursPerWeek,
-            education: payload.education,
         });
     };
 
@@ -468,7 +466,6 @@ export function EditProfileModal({
         setContributionErrors({});
         draftTouchedRef.current = false;
         setShowDiscardConfirm(false);
-        setPendingSection(null);
         onOpenChange(false);
     };
 

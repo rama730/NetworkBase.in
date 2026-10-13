@@ -94,8 +94,7 @@ test('public profile actions use the design-system hierarchy and hide unavailabl
   assert.match(header, /<Button\s+variant="outline"\s+onClick=\{onMessage\}/)
   assert.match(header, /\{\(isPrimaryConnectionAction \|\| secondaryConnectLabel\) && canManageBlock \? <DropdownMenuSeparator \/> : null\}/)
   assert.match(header, /\) : isInteractionBlocked \? \(/)
-  assert.match(rail, /canMessage \? \(/)
-  assert.match(rail, /isOwner \|\| canMessage \? 'grid-cols-2' : 'grid-cols-1'/)
+  assert.doesNotMatch(rail, /title="Shortcuts"/)
   assert.match(client, /canMessage=\{Boolean\(/)
 })
 

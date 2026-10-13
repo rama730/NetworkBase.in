@@ -57,8 +57,6 @@ export function OpenToRolesCard({
     <Card
       id="profile-open-to-roles"
       title="Open to Roles"
-      mobileTitle="Open to roles"
-      density="compact"
       icon={<Briefcase className="h-4 w-4" />}
       action={editAction}
     >

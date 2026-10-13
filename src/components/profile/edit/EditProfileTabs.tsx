@@ -64,7 +64,7 @@ const SkillPicker = dynamic(() => import("@/components/skills/SkillPicker").then
     loading: () => <div className="h-24 rounded-lg bg-muted" />,
 });
 
-export type EditProfileSection = "general" | "experience" | "education" | "skills" | "social" | "opportunity";
+export type EditProfileSection = "general" | "experience" | "skills" | "social" | "opportunity";
 
 interface EditProfileTabsProps {
     profile: any;

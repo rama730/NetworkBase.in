@@ -2,13 +2,11 @@
 
 import { useId, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { NB_CARD_HEADER_MOBILE } from '@/components/projects/dashboard/DashboardCard'
 import { cn } from '@/lib/utils'
-import { FolderKanban, Link2, Sparkles, MessageSquare, Pencil } from 'lucide-react'
+import { Link2, Sparkles } from 'lucide-react'
 import { normalizeProfile } from '@/lib/utils/normalize-profile'
 import { normalizeSocialLinks as normalizeSocialLinksShared } from '@/lib/profile/normalization'
 import { SocialPresenceIcon } from '@/components/profile/SocialPresenceIcon'
-import { messageUserInWindow } from '@/components/messages/message-user'
 
 function RailCard({
     title,
@@ -30,7 +28,7 @@ function RailCard({
             id={id}
             className={cn('rounded-lg border border-border bg-card text-card-foreground shadow-none', className)}
         >
-            <div className={cn("px-5 py-4 border-b border-border flex items-center gap-2", NB_CARD_HEADER_MOBILE)}>
+            <div className="px-5 py-4 max-md:px-4 max-md:py-3.5 border-b border-border flex items-center gap-2">
                 {icon ? <span className="text-muted-foreground [&_svg]:size-[18px]">{icon}</span> : null}
                 <h2 id={headingId} className="nb-card-title text-foreground">{title}</h2>
             </div>
@@ -156,48 +154,6 @@ export function ProfileRightRail({
                     </div>
                 </RailCard>
             ) : null}
-
-            {/* Duplicates the header actions and Portfolio tab; desktop-only. */}
-            <RailCard title="Shortcuts" icon={<FolderKanban className="w-4 h-4" />} className="max-md:hidden">
-                <div className={cn('grid gap-2', isOwner || canMessage ? 'grid-cols-2' : 'grid-cols-1')}>
-                    {isOwner ? (
-                        <>
-                            <Link
-                                href="/my-profile"
-                                className="nb-ui-label rounded-[3px] border border-border bg-card px-3 py-2 text-foreground hover:bg-muted transition-colors flex items-center gap-2"
-                            >
-                                <Pencil className="w-4 h-4 text-muted-foreground" />
-                                Edit profile
-                            </Link>
-                            <Link
-                                href="/projects"
-                                className="nb-ui-label rounded-[3px] border border-border bg-card px-3 py-2 text-foreground hover:bg-muted transition-colors"
-                            >
-                                My projects
-                            </Link>
-                        </>
-                    ) : (
-                        <>
-                            {canMessage ? (
-                                <Link
-                                    href={vm?.id ? `/messages?userId=${vm.id}` : '/messages'}
-                                    onClick={(event) => { if (vm?.id) messageUserInWindow(vm.id, event); }}
-                                    className="nb-ui-label rounded-[3px] border border-border bg-card px-3 py-2 text-foreground hover:bg-muted transition-colors flex items-center gap-2"
-                                >
-                                    <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                                    Message
-                                </Link>
-                            ) : null}
-                            <Link
-                                href="/projects"
-                                className="nb-ui-label rounded-[3px] border border-border bg-card px-3 py-2 text-foreground hover:bg-muted transition-colors"
-                            >
-                                Browse projects
-                            </Link>
-                        </>
-                    )}
-                </div>
-            </RailCard>
         </>
     )
 }
