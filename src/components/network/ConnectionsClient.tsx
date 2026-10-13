@@ -1,12 +1,13 @@
 "use client";
 
 import { CONNECTION_COPY } from "@/lib/connections/copy";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { Ban, Check, ChevronDown, MapPin, MessageSquare, UserMinus, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SkillIcon } from "@/components/skills";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import { PERSON_CARD_TAGS, PersonCardGrid, PersonCardLayout } from "@/components/network/PersonCard";
@@ -22,26 +23,42 @@ import { messageUserInWindow } from "@/components/messages/message-user";
 export default function ConnectionsClient({ searchQuery }: { searchQuery: string }) {
     const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useConnections(50, searchQuery || undefined, "recent");
     const { disconnect, blockProfile } = useConnectionMutations();
+    const [pendingDisconnect, setPendingDisconnect] = useState<{ id: string; name: string } | null>(null);
+    const [pendingBlock, setPendingBlock] = useState<{ userId: string; name: string } | null>(null);
     const connections = useMemo(
         () => (data?.pages.flatMap((page) => page.items) ?? []).filter((item) => Boolean(item.otherUser)),
         [data],
     );
 
-    const handleDisconnect = useCallback(async (connectionId: string) => {
-        await toast.promise(disconnect.mutateAsync(connectionId), {
-            loading: "Disconnecting...",
-            success: "Connection removed",
-            error: (error) => error instanceof Error ? error.message : "Failed to remove connection",
-        }).unwrap().catch(() => undefined);
-    }, [disconnect]);
+    const handleDisconnect = useCallback(async () => {
+        if (!pendingDisconnect) return;
+        try {
+            await toast.promise(disconnect.mutateAsync(pendingDisconnect.id), {
+                loading: "Disconnecting...",
+                success: "Connection removed",
+                error: (error) => error instanceof Error ? error.message : "Failed to remove connection",
+            }).unwrap();
+        } catch {
+            // Handled
+        } finally {
+            setPendingDisconnect(null);
+        }
+    }, [disconnect, pendingDisconnect]);
 
-    const handleBlock = useCallback(async (userId: string) => {
-        await toast.promise(blockProfile.mutateAsync(userId), {
-            loading: CONNECTION_COPY.blocking,
-            success: "Blocked",
-            error: (error) => error instanceof Error ? error.message : CONNECTION_COPY.blockFailed,
-        }).unwrap().catch(() => undefined);
-    }, [blockProfile]);
+    const handleBlock = useCallback(async () => {
+        if (!pendingBlock) return;
+        try {
+            await toast.promise(blockProfile.mutateAsync(pendingBlock.userId), {
+                loading: CONNECTION_COPY.blocking,
+                success: `Blocked ${pendingBlock.name}`,
+                error: (error) => error instanceof Error ? error.message : CONNECTION_COPY.blockFailed,
+            }).unwrap();
+        } catch {
+            // Handled
+        } finally {
+            setPendingBlock(null);
+        }
+    }, [blockProfile, pendingBlock]);
 
     if (isLoading && !data) {
         return (
@@ -64,21 +81,45 @@ export default function ConnectionsClient({ searchQuery }: { searchQuery: string
     }
 
     return (
-        <PersonCardGrid
-            items={connections}
-            getKey={(connection) => connection.id}
-            hasNextPage={Boolean(hasNextPage)}
-            isFetchingNextPage={isFetchingNextPage}
-            fetchNextPage={fetchNextPage}
-            loadingLabel="Loading more connections"
-            renderItem={(connection) => (
-                <ConnectionCard
-                    connection={connection}
-                    onDisconnect={handleDisconnect}
-                    onBlock={handleBlock}
-                />
-            )}
-        />
+        <>
+            <PersonCardGrid
+                items={connections}
+                getKey={(connection) => connection.id}
+                hasNextPage={Boolean(hasNextPage)}
+                isFetchingNextPage={isFetchingNextPage}
+                fetchNextPage={fetchNextPage}
+                loadingLabel="Loading more connections"
+                renderItem={(connection) => (
+                    <ConnectionCard
+                        connection={connection}
+                        onDisconnect={(id, name) => setPendingDisconnect({ id, name })}
+                        onBlock={(userId, name) => setPendingBlock({ userId, name })}
+                    />
+                )}
+            />
+
+            <ConfirmDialog
+                open={Boolean(pendingDisconnect)}
+                onOpenChange={(open) => !open && setPendingDisconnect(null)}
+                title={pendingDisconnect ? `Remove connection with ${pendingDisconnect.name}?` : "Remove connection?"}
+                description="They will not be notified, but you will no longer see each other's connection updates."
+                confirmLabel="Disconnect"
+                variant="destructive"
+                loading={disconnect.isPending}
+                onConfirm={() => void handleDisconnect()}
+            />
+
+            <ConfirmDialog
+                open={Boolean(pendingBlock)}
+                onOpenChange={(open) => !open && setPendingBlock(null)}
+                title={pendingBlock ? `Block ${pendingBlock.name}?` : "Block profile?"}
+                description="They will not be able to view your profile, send you messages, or invite you to projects."
+                confirmLabel="Block"
+                variant="destructive"
+                loading={blockProfile.isPending}
+                onConfirm={() => void handleBlock()}
+            />
+        </>
     );
 }
 
@@ -88,8 +129,8 @@ function ConnectionCard({
     onBlock,
 }: {
     connection: NetworkConnectionItem;
-    onDisconnect: (id: string) => Promise<void>;
-    onBlock: (id: string) => Promise<void>;
+    onDisconnect: (id: string, name: string) => void;
+    onBlock: (userId: string, name: string) => void;
 }) {
     useSkillCatalog();
     const user = connection.otherUser;
@@ -138,9 +179,9 @@ function ConnectionCard({
                                 <DropdownMenuSeparator />
                             </>
                         ) : null}
-                        <DropdownMenuItem onClick={() => void onDisconnect(connection.id)} variant="destructive"><UserMinus className="size-4" />Disconnect</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDisconnect(connection.id, displayName)} variant="destructive"><UserMinus className="size-4" />Disconnect</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => void onBlock(user.id)} variant="destructive"><Ban className="size-4" />Block profile</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onBlock(user.id, displayName)} variant="destructive"><Ban className="size-4" />Block profile</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             }
