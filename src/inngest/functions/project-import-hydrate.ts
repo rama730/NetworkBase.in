@@ -51,7 +51,7 @@ export const projectImportHydrate = inngest.createFunction(
             // Get all virtual nodes for this project
             const nodes = await db.query.projectNodes.findMany({
                 where: and(eq(projectNodes.projectId, projectId), eq(projectNodes.type, 'file')),
-                columns: { id: true, path: true, mimeType: true, s3Key: true, gitBlobHash: true }
+                columns: { id: true, path: true, mimeType: true, s3Key: true, gitHash: true }
             });
 
             const project = await db.query.projects.findFirst({
@@ -113,7 +113,7 @@ export const projectImportHydrate = inngest.createFunction(
                     try {
                         const size = file.content.byteLength;
                         // The bytes must be the blob the manifest recorded for this path.
-                        if (node.gitBlobHash && gitBlobSha(file.content) !== node.gitBlobHash) {
+                        if (node.gitHash && gitBlobSha(file.content) !== node.gitHash) {
                             throw new Error(`Content for ${file.path} does not match the imported Git blob`);
                         }
                         if (size > PROJECT_UPLOAD_MAX_FILE_BYTES) {
