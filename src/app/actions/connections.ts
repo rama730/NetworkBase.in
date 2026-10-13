@@ -55,7 +55,12 @@ export async function readNetworkPendingCountsAction() {
             db
                 .select({ count: sql<number>`COUNT(*)::int` })
                 .from(connections)
-                .where(and(eq(connections.addresseeId, user.id), eq(connections.status, 'pending'))),
+                .innerJoin(profiles, eq(profiles.id, connections.requesterId))
+                .where(and(
+                    eq(connections.addresseeId, user.id),
+                    eq(connections.status, 'pending'),
+                    isNull(profiles.deletedAt),
+                )),
             countPendingInvitationsForCandidate(user.id).then((count) => [{ count }]),
         ]);
 

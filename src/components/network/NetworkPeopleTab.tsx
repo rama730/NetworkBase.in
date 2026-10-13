@@ -2,6 +2,7 @@
 
 import { CONNECTION_COPY } from "@/lib/connections/copy";
 import { useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
 import { toast } from "sonner";
 import { useDebounce } from "use-debounce";
@@ -10,6 +11,7 @@ import PersonCard, { PersonCardGrid } from "@/components/network/PersonCard";
 import { PersonCardSkeleton } from "@/components/network/PersonCardSkeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getConnectionRequestSuccessMessage, useConnectionMutations, useSuggestedPeople } from "@/hooks/useConnections";
+import { ROUTES } from "@/constants/routes";
 
 interface PeopleClientProps {
     initialUser: { id?: string | null } | null;
@@ -24,17 +26,19 @@ export default function NetworkPeopleTab({ initialUser, searchQuery }: PeopleCli
     const viewerSkills = data?.pages[0]?.viewerSkills;
     const isInitialLoading = isLoading && profiles.length === 0;
 
+    const router = useRouter();
     const handleConnect = useCallback(async (userId: string) => {
         if (!initialUser?.id) {
             toast.error("Please log in to connect");
-            return;
+            router.push(`/login?redirect=${encodeURIComponent(ROUTES.NETWORK)}`);
+            throw new Error("Please log in to connect");
         }
         await toast.promise(sendRequest.mutateAsync({ userId }), {
             loading: CONNECTION_COPY.sending,
             success: (result) => getConnectionRequestSuccessMessage(result.status),
             error: (error) => error instanceof Error ? error.message : CONNECTION_COPY.sendFailed,
         }).unwrap();
-    }, [initialUser?.id, sendRequest]);
+    }, [initialUser?.id, router, sendRequest]);
 
     if (isInitialLoading) {
         return (
