@@ -58,6 +58,16 @@ async function lockProject(executor: InvitationExecutor, projectId: string) {
     return Array.from(rows)[0] ?? null;
 }
 
+/**
+ * Serializes guidance admission for one person (COR-051). The count below spans every project the
+ * guide serves, but only the current project is locked, so two acceptances on different projects
+ * could both read 11 and insert. Take the guide's capacity lock first. Lock order is always
+ * project row, then guide capacity, so no two admissions can wait on each other.
+ */
+async function lockGuidanceCapacity(executor: InvitationExecutor, guideUserId: string) {
+    await executor.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`guidance-capacity:${guideUserId}`}, 0))`);
+}
+
 async function activeGuidanceCount(executor: InvitationExecutor, guideUserId: string) {
     const [row] = await executor
         .select({ count: sql<number>`count(*)::int` })
@@ -288,6 +298,7 @@ export async function resolveProjectInvitationInternal(
             ))
             .limit(1);
         if (active) throw new Error("This project already has an active guidance appointment");
+        await lockGuidanceCapacity(executor, invitation.candidateId);
         const count = await activeGuidanceCount(executor, invitation.candidateId);
         if (getGuidanceCapacityState(count) === "blocked") throw new Error("This person has reached the active guidance appointment limit");
     }
