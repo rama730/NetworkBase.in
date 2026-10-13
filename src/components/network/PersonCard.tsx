@@ -132,6 +132,7 @@ export interface PersonCardProps {
     onConnect: (userId: string) => Promise<void>;
     priority?: boolean;
     viewerSkills?: string[];
+    className?: string;
 }
 
 function PersonCard({
@@ -139,6 +140,7 @@ function PersonCard({
     onConnect,
     priority = false,
     viewerSkills,
+    className,
 }: PersonCardProps) {
     useSkillCatalog();
     const { cancelRequest, blockProfile } = useConnectionMutations();
@@ -330,6 +332,7 @@ function PersonCard({
 
     return (
         <PersonCardLayout
+            className={className}
             avatar={
                 // The name is the link people tab to; the avatar is the same link for the mouse.
                 <Link href={profileHref(profile)} tabIndex={-1} aria-hidden="true" className="relative inline-flex shrink-0 rounded-md">

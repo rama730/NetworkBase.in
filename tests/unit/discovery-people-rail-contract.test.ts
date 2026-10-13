@@ -14,20 +14,15 @@ test("Discovery people rail is a compact, shared-avatar recommendation surface",
   const css = source("src/app/globals.css");
 
   assert.match(rail, /useSuggestedPeople\(3/);
-  assert.match(rail, /<UserAvatar\b/);
   assert.match(rail, /People you should meet/);
   assert.match(rail, /getConnectionRequestSuccessMessage/);
   assert.doesNotMatch(rail, /Suggested for your network/);
-  assert.match(rail, /nb-discover-person-avatar/);
-  assert.match(rail, /PersonPresenceDot/);
-  // Spec §12 rail variant: stacked card, 48px avatar, a small secondary action (the shared Button).
-  assert.match(rail, /<UserAvatar identity=\{profile\} size=\{48\}/);
-  assert.match(rail, /variant="outline" size="sm"/);
+  assert.match(rail, /PersonCard/);
   assert.match(rail, /\.unwrap\(\)/);
+  assert.match(networkCard, /<UserAvatar identity=\{profile\} size=\{48\}/);
   assert.match(networkCard, /nb-person-connect/);
   assert.match(networkCard, /PersonPresenceDot/);
   assert.match(hub, /<DiscoverPeopleRail initialPage=\{initialPeopleSuggestions\} variant="desktop"/);
-  assert.match(css, /\.nb-discover-person-card/);
   assert.match(css, /\.nb-person-presence-dot/);
   assert.match(css, /\.nb-person-connect/);
   // Compact rail lives only in the mobile People drawer (DiscoverHeader `people` slot).
