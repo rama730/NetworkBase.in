@@ -113,10 +113,11 @@ export function useExplorerMutations({
       if (mutationInFlightKeysRef.current.has(key)) return null;
       mutationInFlightKeysRef.current.add(key);
       try {
-        return await runInMutationQueue(fn);
+        const result = await runInMutationQueue(fn);
+        window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
+        return result;
       } finally {
         mutationInFlightKeysRef.current.delete(key);
-        window.dispatchEvent(new CustomEvent("project:task-files-changed", { detail: { projectId } }));
       }
     },
     [runInMutationQueue, projectId]

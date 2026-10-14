@@ -35,10 +35,27 @@ import {
   useTaskPanelResource,
   type TaskPanelTab,
 } from "@/hooks/useTaskPanelResource";
+import dynamic from "next/dynamic";
 
-import CommentsTab from "./TaskDetailTabs/CommentsTab";
+const CommentsTab = dynamic(() => import("./TaskDetailTabs/CommentsTab"), {
+  loading: () => (
+    <div className="space-y-3 p-4" aria-busy="true">
+      <div className="nb-skeleton h-10 w-full rounded" />
+      <div className="nb-skeleton h-24 w-full rounded" />
+    </div>
+  ),
+  ssr: false,
+});
 import DetailsTab from "./TaskDetailTabs/DetailsTab";
-import FilesTab from "./TaskDetailTabs/FilesTab";
+const FilesTab = dynamic(() => import("./TaskDetailTabs/FilesTab"), {
+  loading: () => (
+    <div className="space-y-3 p-4" aria-busy="true">
+      <div className="nb-skeleton h-10 w-full rounded" />
+      <div className="nb-skeleton h-32 w-full rounded" />
+    </div>
+  ),
+  ssr: false,
+});
 import SubtasksTab from "./TaskDetailTabs/SubtasksTab";
 import TaskPriorityBadge from "./badges/TaskPriorityBadge";
 import TaskStatusBadge from "./badges/TaskStatusBadge";

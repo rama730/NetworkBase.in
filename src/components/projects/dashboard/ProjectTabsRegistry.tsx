@@ -11,7 +11,7 @@ import { SkeletonUpdates } from "@/components/projects/skeletons/SkeletonUpdates
 
 export const DashboardTab = dynamic(
     () => import("@/components/projects/tabs/DashboardTab"),
-    { loading: () => <SkeletonDashboard />, ssr: false }
+    { loading: () => <SkeletonDashboard />, ssr: true }
 );
 
 export const DocTab = dynamic(

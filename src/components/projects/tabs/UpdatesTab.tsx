@@ -181,6 +181,33 @@ export default function UpdatesTab({
       }
 
       if (newId) {
+        if (payload.eventType === "UPDATE" && payload.new) {
+          const newRow = payload.new;
+          queryClient.setQueryData(
+            updatesQueryKey,
+            (existing: InfiniteData<UpdatesPage> | undefined) => {
+              if (!existing) return existing;
+              return {
+                ...existing,
+                pages: existing.pages.map((page) => ({
+                  ...page,
+                  updates: page.updates.map((u) => {
+                    if (u.id !== newId) return u;
+                    return {
+                      ...u,
+                      commentCount: typeof newRow.comment_count === "number" ? newRow.comment_count : u.commentCount,
+                      likeCount: typeof newRow.like_count === "number" ? newRow.like_count : u.likeCount,
+                      content: typeof newRow.content === "string" ? newRow.content : u.content,
+                      isPinned: typeof newRow.is_pinned === "boolean" ? newRow.is_pinned : u.isPinned,
+                    };
+                  }),
+                })),
+              };
+            }
+          );
+          return;
+        }
+
         const result = await readProjectUpdateAction(projectId, newId);
         if (result.success && result.data) {
           queryClient.setQueryData(

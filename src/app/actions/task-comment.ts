@@ -794,11 +794,6 @@ export async function toggleTaskCommentLikeAction(
           SELECT ${commentId}::uuid, ${viewerUserId}::uuid, now()
           WHERE NOT EXISTS (SELECT 1 FROM deleted)
           RETURNING id
-        ),
-        touch_comment AS (
-          UPDATE task_comments
-          SET updated_at = now()
-          WHERE id = ${commentId}::uuid
         )
         SELECT EXISTS(SELECT 1 FROM inserted) AS liked
       `);

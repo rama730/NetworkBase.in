@@ -204,7 +204,7 @@ export function TextViewer({
       try {
         const [text, versions] = await Promise.all([
           getProjectFileContent(projectId, node.id),
-          mode === "edit" ? listFileVersions(projectId, node.id) : Promise.resolve([]),
+          mode === "edit" ? listFileVersions(projectId, node.id, 1) : Promise.resolve([]),
         ]);
         if (cancelled) return;
         setSavedContent(text);

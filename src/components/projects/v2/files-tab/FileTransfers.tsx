@@ -62,10 +62,13 @@ export function FileTransfersProvider({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [active]);
+  const handleOpen = React.useCallback(() => setOpen(true), []);
+  const contextValue = React.useMemo(
+    () => ({ active, start, update, open: handleOpen }),
+    [active, start, update, handleOpen],
+  );
   return (
-    <TransfersContext.Provider
-      value={{ active, start, update, open: () => setOpen(true) }}
-    >
+    <TransfersContext.Provider value={contextValue}>
       {children}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85dvh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">

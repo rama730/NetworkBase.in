@@ -20,8 +20,17 @@ import { cn } from "@/lib/utils";
 const ACTIVE_ITEM = "border-foreground/20 bg-muted text-foreground font-semibold";
 const IDLE_ITEM = "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-muted/40";
 
+export type DocRailState = {
+    docs: ProjectDocListItem[];
+    isLoading: boolean;
+    navigate: (slug: string | null, replace?: boolean) => void;
+    openAdd: () => void;
+    askRemove: (doc: ProjectDocListItem | null) => void;
+    dialogs: React.JSX.Element;
+};
+
 // One state machine for the desktop rail and the mobile bar: select, add, remove.
-function useDocRail(projectId: string, activeSlug: string) {
+export function useDocRail(projectId: string, activeSlug: string): DocRailState {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -88,12 +97,15 @@ export function ProjectDocRail({
     projectId,
     activeSlug,
     canEdit = false,
+    rail: passedRail,
 }: {
     projectId: string;
     activeSlug: string;
     canEdit?: boolean;
+    rail?: DocRailState;
 }) {
-    const rail = useDocRail(projectId, activeSlug);
+    const internalRail = useDocRail(projectId, activeSlug);
+    const rail = passedRail ?? internalRail;
 
     return (
         <aside className="hidden w-full xl:block xl:w-[260px] shrink-0 border-l border-border pl-6" aria-label="Project documents">
@@ -156,7 +168,7 @@ export function ProjectDocRail({
                     )}
                 </nav>
             </div>
-            {canEdit ? rail.dialogs : null}
+            {!passedRail && canEdit ? rail.dialogs : null}
         </aside>
     );
 }
@@ -165,12 +177,15 @@ export function ProjectDocMobileBar({
     projectId,
     activeSlug,
     canEdit = false,
+    rail: passedRail,
 }: {
     projectId: string;
     activeSlug: string;
     canEdit?: boolean;
+    rail?: DocRailState;
 }) {
-    const rail = useDocRail(projectId, activeSlug);
+    const internalRail = useDocRail(projectId, activeSlug);
+    const rail = passedRail ?? internalRail;
 
     if (rail.docs.length <= 1 && !rail.isLoading && !canEdit) return null;
 
@@ -203,10 +218,7 @@ export function ProjectDocMobileBar({
                 })
             )}
             {canEdit ? (
-                <>
-                    <AddDocButton onClick={rail.openAdd} className="nb-touch-target h-[32px] w-[32px] shrink-0" />
-                    {rail.dialogs}
-                </>
+                <AddDocButton onClick={rail.openAdd} className="nb-touch-target h-[32px] w-[32px] shrink-0" />
             ) : null}
         </div>
     );
