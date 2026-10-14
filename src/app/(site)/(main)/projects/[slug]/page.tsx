@@ -5,8 +5,9 @@ import ProjectDashboardClient from '@/components/projects/dashboard/ProjectDashb
 import { readProjectDetailShell, readProjectSprintDetail } from '@/app/actions/project';
 import ProjectDetailLoading from './loading';
 import { getViewerIdentityContext, toClientViewer } from '@/lib/server/viewer-context';
-import { buildRouteMetadata } from '@/lib/metadata/route-metadata';
-import { buildProjectDetailMetadataInput } from '@/lib/projects/project-detail-metadata';
+import { shareMetadata } from '@/lib/sharing/metadata';
+import { readSharePreview } from '@/lib/sharing/read';
+import { genericSharePreview, shareOrigin } from '@/lib/sharing/presentation';
 import { isProjectTabVisibleToViewer } from '@/lib/projects/settings-policies';
 
 const readProjectSprintDetailCached = cache((slugOrId: string, limit?: number, sprintId?: string, taskReference?: string) => readProjectSprintDetail({ slugOrId, limit, sprintId, taskReference }));
@@ -29,39 +30,47 @@ export async function generateMetadata({
     params,
     searchParams,
 }: {
-    params: Promise<{ slug: string }>;
+    params: Promise<{ slug: string }>; 
     searchParams: Promise<RouteSearchParams>;
 }): Promise<Metadata> {
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
-    const { result } = await readProjectRouteShell(slug);
-    if (!result.success) {
-        return buildRouteMetadata({
-            title: "Project unavailable | NetworkBase",
-            description: "This project is private or unavailable.",
-            path: `/projects/${encodeURIComponent(slug)}`,
-        });
+    const url = new URL(`/projects/${encodeURIComponent(slug)}`, shareOrigin()).href;
+    const preview = await readSharePreview(url);
+    const metadata = shareMetadata(preview ?? genericSharePreview({ kind: 'project', identifier: slug, url }, 'unavailable'));
+
+    const tab = firstParam(_searchParams?.tab);
+    if (tab && preview?.state === 'ready') {
+        const tabTitleMap: Record<string, string> = {
+            updates: "Project Feed",
+            sprints: "Sprints",
+            settings: "Settings",
+            privacy: "Settings",
+            readme: "Docs",
+            docs: "Docs",
+            files: "Files",
+            tasks: "Tasks",
+        };
+        const tabTitle = tabTitleMap[tab];
+        if (tabTitle) {
+            const { result } = await readProjectRouteShell(slug);
+            if (result.success) {
+                const { project, capabilities } = result.data;
+                const isOwnerOrMember = capabilities.isOwner || capabilities.isMember;
+                const canManageSettings = capabilities.isOwner;
+                const isVisible = isProjectTabVisibleToViewer({
+                    tabId: tab === 'privacy' ? 'settings' : tab,
+                    isOwnerOrMember,
+                    canManageSettings,
+                    publicTabVisibility: project.publicTabVisibility,
+                });
+                if (isVisible) {
+                    metadata.title = `${tabTitle} | ${project.title} | NetworkBase`;
+                }
+            }
+        }
     }
-    const { project } = result.data;
-    const metadataInput = buildProjectDetailMetadataInput(project.slug || slug, project);
 
-    const tab = firstParam(_searchParams?.tab) || "dashboard";
-    const tabTitleMap: Record<string, string> = {
-        updates: "Project Feed",
-        sprints: "Sprints",
-        settings: "Settings",
-        privacy: "Settings",
-        readme: "Docs",
-        docs: "Docs",
-        files: "Files",
-        tasks: "Tasks",
-    };
-    const tabTitle = tabTitleMap[tab] ?? "";
-
-    if (tabTitle) {
-        metadataInput.title = `${tabTitle} | ${project.title} | NetworkBase`;
-    }
-
-    return buildRouteMetadata(metadataInput);
+    return metadata;
 }
 
 async function ResolvedProjectDashboard({

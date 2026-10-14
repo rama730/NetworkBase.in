@@ -506,17 +506,22 @@ function optionFromContributor(row: {
 
 export async function readProjectDocAction(projectId: string, requestedSlug: string | null = null): Promise<
     | { success: true; data: ProjectDocPublishedPayload }
-    | { success: false; error: string }
+    | { success: false; error: string; code?: "NOT_FOUND" | "FORBIDDEN" }
 > {
     try {
         const actorUserId = await getOptionalUserId();
         const base = await loadDocProjectBase(projectId, actorUserId);
         const docs = visibleDocs(base, actorUserId);
         const requested = requestedSlug ? normalizeProjectDocSlug(requestedSlug) : null;
+        // A link to a doc that is gone (or never visible) says so instead of silently showing another doc.
+        // "readme" is the tab's default, so its absence is the ordinary "no docs yet" state.
+        if (requested && requested !== "readme" && !docs.some((doc) => doc.slug === requested)) {
+            return { success: false, error: "This doc link is invalid, or the doc was removed.", code: "NOT_FOUND" };
+        }
         const docSlug = docs.find((doc) => doc.slug === requested)?.slug ?? docs[0]?.slug ?? "readme";
         const context = docContext(base, actorUserId, docSlug);
         if (!context.permission.canReadPublished && !context.permission.canEdit) {
-            return { success: false, error: context.permission.reason || "Document unavailable" };
+            return { success: false, error: context.permission.reason || "Document unavailable", code: "FORBIDDEN" };
         }
         let versionRow = null;
         let linkedNode = null;
@@ -572,7 +577,13 @@ export async function readProjectDocAction(projectId: string, requestedSlug: str
         if (versionRow) {
             normalizedVersion = toDocVersion(versionRow);
         } else {
-            const version = await readPublishedVersion(context.readme?.publishedVersionId);
+            let version = await readPublishedVersion(context.readme?.publishedVersionId);
+            if (!version && context.permission.canEdit && context.readme?.id) {
+                version = (await db.query.projectDocVersions.findFirst({
+                    where: and(eq(projectDocVersions.docId, context.readme.id), isNull(projectDocVersions.deletedAt)),
+                    orderBy: [desc(projectDocVersions.versionNumber)],
+                })) ?? null;
+            }
             if (!version && !context.permission.canEdit) {
                 return { success: false, error: "Document has not been published yet." };
             }
@@ -980,40 +991,65 @@ export async function applyCreationIntentAction(projectId: string, input: unknow
             return { success: false as const, error: "You cannot initialize documents for this project." };
         }
 
-        const readme = await getOrCreateMarkdown(projectId, userId, "readme", context.settings);
         const starterText = parsed.starterContent || "";
 
         if (starterText.trim().length > 0) {
-            let publishedVersionId: string | null = null;
-            if (parsed.publishOnCreate) {
-                const metadata = getOrBuildProjectDocPublishMetadata(starterText);
-                const [newVersion] = await db
-                    .insert(projectDocVersions)
-                    .values({
-                        projectId,
-                        docId: readme.id,
-                        versionNumber: 1,
-                        content: metadata.content,
-                        excerpt: metadata.excerpt,
-                        headings: metadata.headings,
-                        qualityReport: metadata.qualityReport,
-                        contentHash: metadata.contentHash,
-                        changeSummary: "Initial project document",
-                        coAuthors: [],
-                        createdBy: userId,
-                    })
-                    .returning({ id: projectDocVersions.id });
-                if (newVersion) {
-                    publishedVersionId = newVersion.id;
+            await db.transaction(async (tx) => {
+                let readme = await tx.query.projectDocs.findFirst({
+                    where: and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, "readme")),
+                });
+                if (!readme) {
+                    const [created] = await tx
+                        .insert(projectDocs)
+                        .values({
+                            projectId,
+                            slug: "readme",
+                            filename: "README.md",
+                            settings: context.settings,
+                        })
+                        .onConflictDoNothing()
+                        .returning();
+                    readme = created ?? (await tx.query.projectDocs.findFirst({
+                        where: and(eq(projectDocs.projectId, projectId), eq(projectDocs.slug, "readme")),
+                    }));
                 }
-            }
+                if (!readme) throw new Error("Failed to initialize readme record");
 
-            await db
-                .update(projectDocs)
-                .set({
-                    ...(publishedVersionId ? { publishedVersionId } : {}),
-                })
-                .where(eq(projectDocs.id, readme.id));
+                const metadata = getOrBuildProjectDocPublishMetadata(starterText);
+                let versionId: string | null = null;
+                const existingVersion = await tx.query.projectDocVersions.findFirst({
+                    where: and(eq(projectDocVersions.docId, readme.id), eq(projectDocVersions.versionNumber, 1)),
+                });
+
+                if (existingVersion) {
+                    versionId = existingVersion.id;
+                } else {
+                    const [newVersion] = await tx
+                        .insert(projectDocVersions)
+                        .values({
+                            projectId,
+                            docId: readme.id,
+                            versionNumber: 1,
+                            content: metadata.content,
+                            excerpt: metadata.excerpt,
+                            headings: metadata.headings,
+                            qualityReport: metadata.qualityReport,
+                            contentHash: metadata.contentHash,
+                            changeSummary: "Initial project document",
+                            coAuthors: [],
+                            createdBy: userId,
+                        })
+                        .returning({ id: projectDocVersions.id });
+                    versionId = newVersion?.id ?? null;
+                }
+
+                if (parsed.publishOnCreate && versionId) {
+                    await tx
+                        .update(projectDocs)
+                        .set({ publishedVersionId: versionId })
+                        .where(eq(projectDocs.id, readme.id));
+                }
+            });
         }
 
         revalidateProjectDoc(context.project);

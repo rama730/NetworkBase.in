@@ -4,7 +4,7 @@ import { Suspense, useState, useCallback, useMemo, useEffect, useRef } from 'rea
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Lock } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
 import ProjectLayout from '@/components/projects/dashboard/ProjectLayout';
@@ -141,6 +141,7 @@ interface ProjectDashboardClientProps {
     initialSprintData?: Promise<SprintDetailPayload | null> | null;
 }
 
+const ResourceShareDialog = dynamic(() => import('@/components/sharing/ShareDialog').then(mod => mod.ShareDialog), { ssr: false });
 export default function ProjectDashboardClient({ project, currentUserId, viewerDisplayName = null, viewerAvatarUrl = null, isOwner, isMember, memberRole = null, initialSprintData = null }: ProjectDashboardClientProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -295,7 +296,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const isMountedRef = useRef(true);
     const followRequestRef = useRef(0);
     const followInFlightRef = useRef(false);
-    const shareRequestRef = useRef(0);
+    const [shareOpen, setShareOpen] = useState(false);
     const stageRequestRef = useRef(0);
     const roleApplyRequestRef = useRef<string | null>(null);
 
@@ -626,6 +627,9 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             canManageSettings: canManageProjectSettings,
             publicTabVisibility,
         });
+        if (allowedTab === null) {
+            return;
+        }
         let changed = false;
 
         if (allowedTab === 'dashboard') {
@@ -725,52 +729,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         setIsEditModalOpen(true);
     }, []);
 
-    const handleShare = useCallback(async () => {
-        const requestId = ++shareRequestRef.current;
-        try {
-            const shareUrl = new URL(canonicalProjectHref, window.location.origin).toString();
-            const shareData: ShareData = {
-                title: project.title,
-                text: project.shortDescription || project.description || undefined,
-                url: shareUrl,
-            };
-            if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-                await navigator.share(shareData);
-                if (!isMountedRef.current || requestId !== shareRequestRef.current) return;
-                toast.success('Share sheet opened');
-                logger.metric('project.detail.share.result', {
-                    projectId: project.id,
-                    mode: 'native-share',
-                    success: true,
-                    kind: 'url',
-                });
-                return;
-            }
-            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                await navigator.clipboard.writeText(shareUrl);
-                if (!isMountedRef.current || requestId !== shareRequestRef.current) return;
-                toast.success('Link copied to clipboard');
-                logger.metric('project.detail.share.result', {
-                    projectId: project.id,
-                    mode: 'clipboard',
-                    success: true,
-                });
-                return;
-            }
-            throw new Error('Sharing is unavailable in this browser');
-        } catch (error) {
-            if (!isMountedRef.current || requestId !== shareRequestRef.current) return;
-            const isAbort = error instanceof Error && error.name === 'AbortError';
-            if (isAbort) return;
-            const message = error instanceof Error ? error.message : 'Failed to share project link';
-            toast.error(message);
-            logger.metric('project.detail.share.result', {
-                projectId: project.id,
-                success: false,
-                message,
-            });
-        }
-    }, [canonicalProjectHref, project.description, project.id, project.shortDescription, project.title]);
+    const handleShare = useCallback(() => setShareOpen(true), []);
 
     const handleFollow = useCallback(async () => {
         if (followLoading || followInFlightRef.current) return;
@@ -1075,7 +1034,21 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     }
 
     return (
-        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => setIsInviteModalOpen(true)} canInvite={canManageProjectSettings} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
+        <>
+        {shareOpen ? <ResourceShareDialog kind="project" path={canonicalProjectHref} onClose={() => setShareOpen(false)} /> : null}
+        <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => setIsInviteModalOpen(true)} canInvite={canManageProjectSettings} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
+            {!activeTab && (
+                <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">
+                    <div className="nb-empty-state max-w-md text-center py-12" role="status">
+                        <Lock className="nb-empty-state-icon mx-auto text-muted-foreground" aria-hidden="true" />
+                        <p className="nb-card-title mt-4 text-foreground">Tab unavailable</p>
+                        <p className="nb-compact mt-2 text-muted-foreground">
+                            This tab is not visible to public visitors or has been restricted by the project leaders.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'dashboard' && (
                 <div className="w-full h-full min-h-0">
                     <TabErrorBoundary tabName="Dashboard">
@@ -1185,5 +1158,6 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
                 />
             )}
         </ProjectLayout>
+        </>
     );
 }

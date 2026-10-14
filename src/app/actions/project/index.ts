@@ -4875,6 +4875,10 @@ export async function updateProjectFileUploadDefaultsAction(
     );
 
     const updated = await db.transaction(async (tx) => {
+      await tx
+        .update(projects)
+        .set({ memberFileUploadDefault: enabled, updatedAt: new Date() })
+        .where(eq(projects.id, projectId));
       const rows = await tx
         .update(projectMembers)
         .set({ fileUploadEnabled: enabled })
@@ -10121,14 +10125,15 @@ export async function getProfileProjectsWithOpenRolesAction(
 export async function readProjectSettingsBootstrapAction(
   projectId: string,
   collaborators: ProjectCollaboratorSettingsOptions,
+  isOwner = false,
 ) {
   const [collaboratorSettings, fileWorkspace, notifications, docSettings, accessImpact, dangerPreflight] = await Promise.all([
     getProjectCollaboratorSettingsAction(projectId, collaborators),
     getProjectFileWorkspaceSettingsAction(projectId),
     readProjectNotificationSettingsAction(projectId),
     readProjectDocSettingsAction(projectId),
-    getProjectAccessImpactAction(projectId),
-    getProjectDangerZonePreflightAction(projectId),
+    isOwner ? getProjectAccessImpactAction(projectId) : Promise.resolve({ success: false as const, errorCode: "FORBIDDEN" as const, message: "Only the project owner can access settings." }),
+    isOwner ? getProjectDangerZonePreflightAction(projectId) : Promise.resolve({ success: false as const, errorCode: "FORBIDDEN" as const, message: "Only the project owner can access settings." }),
   ]);
   return { collaboratorSettings, fileWorkspace, notifications, docSettings, accessImpact, dangerPreflight };
 }

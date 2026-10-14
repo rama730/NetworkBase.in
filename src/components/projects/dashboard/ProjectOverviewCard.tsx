@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 interface ProjectOverviewCardProps {
     project: any;
+    isCreator?: boolean;
+    onEdit?: () => void;
 }
 
 const StatementBox = memo(function StatementBox({
@@ -59,6 +61,8 @@ function normalizeProjectSkills(project: any) {
 
 const ProjectOverviewCard = memo(function ProjectOverviewCard({
     project,
+    isCreator,
+    onEdit,
 }: ProjectOverviewCardProps) {
     const [statement, setStatement] = useState<StatementSelection>(null);
     const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -82,6 +86,26 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
             setStatement({ title: "The Solution", content: solutionStatement, tone: "solution" });
         }
     }, [solutionStatement]);
+
+    const isEmpty = !project?.description && !problemStatement && !solutionStatement && (!project?.tags || project.tags.length === 0) && projectSkills.length === 0 && !categoryLabel && openRoleTitles.length === 0;
+
+    if (isEmpty) {
+        return (
+            <div className="flex flex-col items-center justify-center rounded-[8px] border border-border bg-card p-8 text-center">
+                <p className="nb-card-title text-foreground">No project details yet</p>
+                <p className="nb-compact mt-1 text-muted-foreground">This project has not added an overview, description, or statement yet.</p>
+                {isCreator && onEdit ? (
+                    <button
+                        type="button"
+                        onClick={onEdit}
+                        className="nb-touch-target mt-4 inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-[13px] font-medium text-foreground hover:bg-muted"
+                    >
+                        Edit project details
+                    </button>
+                ) : null}
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-fit flex-col overflow-hidden rounded-[8px] border border-border bg-card shadow-none">

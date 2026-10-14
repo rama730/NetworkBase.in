@@ -132,7 +132,7 @@ export default function UpdatesTab({
   );
   const hideUpdate = useCallback((updateId: string) => {
     setHiddenUpdateIds((current) => new Set(current).add(updateId));
-    toast.success("Update hidden");
+    toast.success("Hidden until you reload");
   }, []);
   const openDetail = useCallback((updateId: string) => {
     setDetailUpdateId(updateId);
@@ -247,16 +247,25 @@ export default function UpdatesTab({
     };
   }, [currentUserId, projectId, queryClient, updatesQueryKey]);
 
+  // A deep-linked update opens once per link. Depending on the live feed would reopen it (and
+  // scroll the page) on every like, comment or realtime refetch.
+  const handledInitialUpdateRef = useRef<string | null>(null);
+  const updatesRef = useRef(updates);
   useEffect(() => {
-    if (!initialUpdateId) return;
+    updatesRef.current = updates;
+  }, [updates]);
+  useEffect(() => {
+    if (!initialUpdateId || handledInitialUpdateRef.current === initialUpdateId) return;
+    handledInitialUpdateRef.current = initialUpdateId;
     setDetailUpdateId(initialUpdateId);
-    const hasUpdate = updates.some((update) => update.id === initialUpdateId);
-    if (hasUpdate) {
+    const scrollToUpdate = () =>
       requestAnimationFrame(() => {
         document
           .getElementById(`project-update-${initialUpdateId}`)
           ?.scrollIntoView({ block: "center", behavior: "smooth" });
       });
+    if (updatesRef.current.some((update) => update.id === initialUpdateId)) {
+      scrollToUpdate();
       return;
     }
     let cancelled = false;
@@ -267,16 +276,23 @@ export default function UpdatesTab({
         (existing: InfiniteData<UpdatesPage> | undefined) =>
           prependUpdate(existing, result.data!),
       );
-      requestAnimationFrame(() => {
-        document
-          .getElementById(`project-update-${initialUpdateId}`)
-          ?.scrollIntoView({ block: "center", behavior: "smooth" });
-      });
+      scrollToUpdate();
     });
     return () => {
       cancelled = true;
     };
-  }, [initialUpdateId, projectId, queryClient, updates, updatesQueryKey]);
+  }, [initialUpdateId, projectId, queryClient, updatesQueryKey]);
+
+  // Closing the detail also drops the deep link, so a reload does not reopen it.
+  const closeDetail = useCallback(() => {
+    setDetailUpdateId(null);
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("updateId") && !params.has("commentId")) return;
+    params.delete("updateId");
+    params.delete("commentId");
+    const query = params.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: async (
@@ -365,6 +381,18 @@ export default function UpdatesTab({
           </div>
         </div>
       ))}
+    </div>
+  ) : updatesQuery.isError && visibleUpdates.length === 0 ? (
+    <div className="nb-empty-state py-16" role="alert">
+      <h3 className="nb-empty-state-title">Updates could not be loaded</h3>
+      <p className="nb-empty-state-desc">Check your connection and try again.</p>
+      <button
+        type="button"
+        onClick={() => void updatesQuery.refetch()}
+        className="nb-touch-target mt-3 rounded-[5px] border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+      >
+        Retry
+      </button>
     </div>
   ) : visibleUpdates.length === 0 ? (
     <div className="nb-empty-state nb-grid-ground py-16" role="status">
@@ -461,7 +489,7 @@ export default function UpdatesTab({
               projectSlug={projectSlug}
               update={detailUpdate}
               updatesQueryKey={updatesQueryKey}
-              onClose={() => setDetailUpdateId(null)}
+              onClose={closeDetail}
               currentUserId={currentUserId}
               currentUserName={currentUserName}
               currentUserAvatarUrl={currentUserAvatarUrl}
@@ -475,7 +503,7 @@ export default function UpdatesTab({
 
         {isPhone ? (
           <>
-            <Dialog open={Boolean(detailUpdate)} onOpenChange={(open) => { if (!open) setDetailUpdateId(null); }}>
+            <Dialog open={Boolean(detailUpdate)} onOpenChange={(open) => { if (!open) closeDetail(); }}>
               <DialogContent presentation="right-drawer" className="gap-0 overflow-y-auto p-4">
                 <DialogTitle className="sr-only">Update</DialogTitle>
                 {detailUpdate ? (
@@ -484,7 +512,7 @@ export default function UpdatesTab({
                     projectSlug={projectSlug}
                     update={detailUpdate}
                     updatesQueryKey={updatesQueryKey}
-                    onClose={() => setDetailUpdateId(null)}
+                    onClose={closeDetail}
                     currentUserId={currentUserId}
                     currentUserName={currentUserName}
                     currentUserAvatarUrl={currentUserAvatarUrl}
@@ -538,7 +566,7 @@ export default function UpdatesTab({
               projectSlug={projectSlug}
               update={detailUpdate}
               updatesQueryKey={updatesQueryKey}
-              onClose={() => setDetailUpdateId(null)}
+              onClose={closeDetail}
               currentUserId={currentUserId}
               currentUserName={currentUserName}
               currentUserAvatarUrl={currentUserAvatarUrl}

@@ -48,7 +48,7 @@ export function PublicTabVisibilityEditor({
                             </span>
                             <SettingsSwitch
                                 checked={isEnabled}
-                                disabled={disabled || isSaving}
+                                disabled={disabled || Boolean(savingTabId)}
                                 aria-label={`Toggle public ${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility`}
                                 onCheckedChange={(checked) => onChange(tabId, checked)}
                             />

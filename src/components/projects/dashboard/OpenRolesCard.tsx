@@ -46,7 +46,24 @@ export const OpenRolesCard = memo(function OpenRolesCard({
     const isProposed = applicationStatus.status === "proposed";
     const isGuidanceInvitation = isProposed && applicationStatus.invitationKind === "guidance_appointment";
 
-    if (openRoles.length === 0 && !isGuidanceInvitation) return null;
+    if (!isCreator && openRoles.length === 0 && !isGuidanceInvitation) return null;
+
+    if (openRoles.length === 0 && !isGuidanceInvitation) {
+        return (
+            <DashboardCard title="Open roles" icon={Briefcase} compact id="open-roles" className="scroll-mt-28">
+                <div className="space-y-3 py-1">
+                    <p className="text-xs text-muted-foreground">No open roles defined yet.</p>
+                    <button
+                        type="button"
+                        onClick={onManageRoles}
+                        className="nb-touch-target inline-flex h-[34px] w-full items-center justify-center rounded-[5px] border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-[background-color,border-color,color] duration-[130ms] hover:bg-muted"
+                    >
+                        Add role
+                    </button>
+                </div>
+            </DashboardCard>
+        );
+    }
 
     const isPending = applicationStatus.status === "pending";
     const isRejected = applicationStatus.status === "rejected";
@@ -165,7 +182,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                         >
                                             <div className="min-w-0 flex-1">
                                                 <h4 className="text-[14px] font-semibold leading-snug text-foreground max-md:text-[17px]">
-                                                    {role.role}
+                                                    {role.title ?? role.role}
                                                 </h4>
                                                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                                     <span className="nb-status shrink-0" data-status="draft">
@@ -245,7 +262,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                         <div className="min-w-0 flex-1">
                                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                                 <span className="text-[13.5px] font-semibold text-foreground transition-colors group-hover:text-primary max-md:text-[17px]">
-                                                    {role.role}
+                                                    {role.title ?? role.role}
                                                 </span>
                                                 {isThisAppliedRole ? (
                                                     <span className="nb-status shrink-0" data-status="draft">
@@ -323,7 +340,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                         disabled={isApplyDisabled}
                                         aria-disabled={isApplyDisabled}
                                         aria-describedby={isApplyDisabled ? "open-roles-apply-disabled-reason" : undefined}
-                                        title={isApplyDisabled ? (blockedReason || "Application is currently unavailable") : `Apply for ${role.role}`}
+                                        title={isApplyDisabled ? (blockedReason || "Application is currently unavailable") : `Apply for ${role.title ?? role.role}`}
                                         className={className}
                                     >
                                         {content}
@@ -344,7 +361,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                         onClick={() => setShowAllMobile(true)}
                         className="nb-touch-target nb-ui-label inline-flex w-full items-center justify-center text-primary md:hidden"
                     >
-                        Show all {openRoles.length} roles
+                        Show all {Math.min(openRoles.length, 10)} roles
                     </button>
                 ) : null}
 
@@ -355,7 +372,7 @@ export const OpenRolesCard = memo(function OpenRolesCard({
                                 + {showMoreCount} more {showMoreCount === 1 ? "role" : "roles"}
                             </button>
                         ) : (
-                            <span className="px-2.5 py-1 text-[11px] font-semibold text-primary">
+                            <span className="px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
                                 + {showMoreCount} more {showMoreCount === 1 ? "role" : "roles"}
                             </span>
                         )}

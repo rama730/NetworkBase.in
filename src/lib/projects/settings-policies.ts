@@ -355,17 +355,16 @@ export function resolveAllowedProjectTab(input: {
   isOwnerOrMember: boolean;
   canManageSettings?: boolean;
   publicTabVisibility?: unknown;
-}) {
+}): string | null {
   const requestedTab = input.requestedTab?.trim() || "dashboard";
   if (requestedTab === "privacy") {
-    return input.canManageSettings ? "settings" : "dashboard";
+    return input.canManageSettings ? "settings" : (isProjectTabVisibleToViewer({ ...input, tabId: "dashboard" }) ? "dashboard" : null);
   }
-  if (isProjectTabVisibleToViewer({ ...input, tabId: requestedTab }))
-    return requestedTab;
-  if (isProjectTabVisibleToViewer({ ...input, tabId: "dashboard" }))
-    return "dashboard";
-  if (isProjectTabVisibleToViewer({ ...input, tabId: "files" })) return "files";
-  return "dashboard";
+  const isKnownTab = requestedTab === "settings" || requestedTab in DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY;
+  if (isKnownTab) {
+    return isProjectTabVisibleToViewer({ ...input, tabId: requestedTab }) ? requestedTab : null;
+  }
+  return isProjectTabVisibleToViewer({ ...input, tabId: "dashboard" }) ? "dashboard" : null;
 }
 
 export function isAssignableProjectMember(role: unknown) {

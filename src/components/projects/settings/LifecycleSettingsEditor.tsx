@@ -14,11 +14,13 @@ export function LifecycleSettingsEditor({
     initialStages,
     currentStageIndex,
     isSaving,
+    isOwner = true,
     onSave,
 }: {
     initialStages: string[];
     currentStageIndex: number;
     isSaving: boolean;
+    isOwner?: boolean;
     onSave: (stages: string[], currentStageIdentity: string) => Promise<void>;
 }) {
     const [stages, setStages] = useState(initialStages);
@@ -36,9 +38,10 @@ export function LifecycleSettingsEditor({
     }, [initialStagesKey, currentStageIndex]);
 
     const isDirty = useMemo(() => {
+        if (!isOwner) return false;
         if (stages.length !== initialStages.length) return true;
         return stages.some((stage, idx) => stage !== initialStages[idx]);
-    }, [stages, initialStages]);
+    }, [stages, initialStages, isOwner]);
 
     const handleCancel = useCallback(() => {
         setStages(initialStages);
@@ -47,13 +50,14 @@ export function LifecycleSettingsEditor({
     }, [initialStages, currentStageIndex]);
 
     const handleSave = useCallback(async () => {
+        if (!isOwner) return;
         const cleaned = stages.map((stage) => stage.trim().replace(/\s+/g, " ")).filter(Boolean);
         if (cleaned.length === 0) {
             toast.error("You must have at least one stage");
             return;
         }
         await onSave(cleaned, currentStageIdentity);
-    }, [currentStageIdentity, onSave, stages]);
+    }, [currentStageIdentity, isOwner, onSave, stages]);
 
     const currentStageName = initialStages[currentStageIndex] || stages[currentStageIndex] || stages[0] || "";
 
@@ -62,45 +66,51 @@ export function LifecycleSettingsEditor({
             title="Project lifecycle"
             description="Define the journey stages used by the project dashboard, roadmap, and milestone tracking."
             footer={
-                <>
-                    <p className="nb-compact text-muted-foreground">
-                        {isDirty ? (
-                            <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                                <span className="size-1.5 rounded-full bg-amber-500" />
-                                You have unsaved changes in lifecycle stages.
-                            </span>
-                        ) : (
-                            <span>
-                                {stages.length} lifecycle stage{stages.length === 1 ? "" : "s"} configured
-                                {currentStageName ? (
-                                    <>
-                                        {" "}· Current stage: <strong className="font-semibold text-foreground">{currentStageName}</strong>
-                                    </>
-                                ) : null}
-                            </span>
-                        )}
+                !isOwner ? (
+                    <p className="nb-compact text-xs text-muted-foreground italic">
+                        Only the owner can change this.
                     </p>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleCancel}
-                            disabled={!isDirty || isSaving}
-                            className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={() => void handleSave()}
-                            disabled={!isDirty || isSaving || stages.length === 0}
-                            className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
-                        >
-                            {isSaving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-                            Save changes
-                        </Button>
-                    </div>
-                </>
+                ) : (
+                    <>
+                        <p className="nb-compact text-muted-foreground">
+                            {isDirty ? (
+                                <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                                    <span className="size-1.5 rounded-full bg-amber-500" />
+                                    You have unsaved changes in lifecycle stages.
+                                </span>
+                            ) : (
+                                <span>
+                                    {stages.length} lifecycle stage{stages.length === 1 ? "" : "s"} configured
+                                    {currentStageName ? (
+                                        <>
+                                            {" "}· Current stage: <strong className="font-semibold text-foreground">{currentStageName}</strong>
+                                        </>
+                                    ) : null}
+                                </span>
+                            )}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleCancel}
+                                disabled={!isDirty || isSaving}
+                                className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={() => void handleSave()}
+                                disabled={!isDirty || isSaving || stages.length === 0}
+                                className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                            >
+                                {isSaving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                                Save changes
+                            </Button>
+                        </div>
+                    </>
+                )
             }
         >
             <div className="space-y-6">
@@ -117,7 +127,9 @@ export function LifecycleSettingsEditor({
                 <BaseLifecycleEditor
                     key={editorKey}
                     stages={stages}
+                    disabled={!isOwner}
                     onChange={(next, current) => {
+                        if (!isOwner) return;
                         setStages(next);
                         setCurrentStageIdentity(current ?? "");
                     }}
