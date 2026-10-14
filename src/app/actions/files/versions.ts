@@ -367,11 +367,6 @@ export async function applyUploadedFileRevision(input: {
   return { node: result.node, version: result.version };
 }
 
-export async function replaceNodeWithNewVersion(
-  input: Omit<Parameters<typeof applyUploadedFileRevision>[0], "mode">,
-): Promise<ReplaceNodeResult> {
-  return applyUploadedFileRevision({ ...input, mode: "new_revision" });
-}
 
 /**
  * Restore an earlier version by copying its metadata forward as a new

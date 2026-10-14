@@ -136,9 +136,6 @@ async function ResolvedProjectDashboard({
             isMember={capabilities.isMember}
             memberRole={capabilities.memberRole}
             initialSprintData={initialSprintData}
-            data-hardening-data="v1"
-            data-hardening-files="v1"
-            data-hardening-people="v1"
         />
     );
 }

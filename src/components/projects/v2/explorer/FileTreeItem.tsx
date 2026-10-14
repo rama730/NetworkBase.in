@@ -59,7 +59,6 @@ export interface FileTreeItemContext {
     moveNode: (node: ProjectNode) => void;
     deleteNode: (node: ProjectNode) => void;
     toggleFavorite: (nodeId: string) => void;
-    restoreNode: (nodeId: string) => void; // For Trash context
     onTaskLinksClick: (node: ProjectNode) => void;
     onContextMenu: (node: ProjectNode, e: React.MouseEvent) => void;
     isTrashMode: boolean;

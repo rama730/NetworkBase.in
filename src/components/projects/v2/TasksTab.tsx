@@ -234,11 +234,7 @@ export default function TasksTab({
       }
     }
   }, [initialOpenTaskId]);
-  const queryScope: ProjectTaskScope = useMemo(() => {
-    if (scope === "backlog") return "backlog";
-    if (scope === "sprint") return "sprint";
-    return "all";
-  }, [scope]);
+  const queryScope: ProjectTaskScope = scope;
 
   // Hook Integration: Smart Fetching (Infinite Loading)
   const {
@@ -385,23 +381,6 @@ export default function TasksTab({
 
   useRealtimeTasks(projectId, realtimeDeferredTaskId);
 
-  const sprintAwareTasks = useMemo(() => {
-    return fetchedTasks.map((task) => {
-      const normalizedTask = normalizeTaskSurfaceRecord(task);
-      if (normalizedTask.sprint || !normalizedTask.sprintId) return task;
-      const sprint = sprintById.get(normalizedTask.sprintId);
-      if (!sprint) return task;
-      return {
-        ...task,
-        sprint: {
-          id: sprint.id,
-          name: sprint.name,
-          status: sprint.status,
-        },
-        sprintName: sprint.name,
-      };
-    });
-  }, [fetchedTasks, sprintById]);
   const withSprintContext = useCallback(
     (task: TaskSurfaceRecord) => {
       const normalizedTask = normalizeTaskSurfaceRecord(task);
@@ -420,6 +399,10 @@ export default function TasksTab({
     },
     [sprintById],
   );
+
+  const sprintAwareTasks = useMemo(() => {
+    return fetchedTasks.map(withSprintContext);
+  }, [fetchedTasks, withSprintContext]);
 
   const openTask = useCallback(
     (

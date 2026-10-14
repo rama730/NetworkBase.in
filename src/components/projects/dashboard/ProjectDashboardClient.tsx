@@ -248,14 +248,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const publicTabVisibility = useMemo(() => normalizeProjectPublicTabVisibility(project.publicTabVisibility ?? project.public_tab_visibility), [project]);
     const isOwnerOrMember = isOwner || isMember;
     const resolvedActiveTab = resolveAllowedProjectTab({
-        requestedTab: (() => {
-            const searchTab = searchParams?.get('tab');
-            const requested = normalizeProjectDetailTabParam(searchTab);
-            if (requested === 'readme' && !isOwnerOrMember && !project.hasPublishedReadme) {
-                // Ponytail: Allow docs tab to be visible natively.
-            }
-            return requested;
-        })(),
+        requestedTab: normalizeProjectDetailTabParam(searchParams?.get('tab')),
         isOwnerOrMember,
         canManageSettings: isOwner,
         publicTabVisibility,
@@ -337,18 +330,6 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
             window.history.replaceState({}, '', url);
         }
     }, [searchParams, isMember, isOwner]);
-
-    // Ponytail: Keep browser URL canonical (clean slug instead of numeric UUID)
-    useEffect(() => {
-        if (!project.slug || typeof window === 'undefined') return;
-        const currentPath = window.location.pathname;
-        const expectedPath = `/projects/${project.slug}`;
-        if (currentPath !== expectedPath && currentPath.startsWith('/projects/')) {
-            const url = new URL(window.location.href);
-            url.pathname = expectedPath;
-            window.history.replaceState(window.history.state, '', url);
-        }
-    }, [project.slug]);
 
     // Application status for non-owner/non-member users
     const [applicationStatus, setApplicationStatus] = useState<ApplicationStatusResult>({ status: 'none' });
@@ -1026,14 +1007,6 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         ),
         [project.id, project.slug, project.title, currentUserId, isOwner, isOwnerOrMember, canManageFiles, canUploadFiles, canReadTaskFiles, activeTab, filesSyncStatus, initialOpenFileId, initialOpenPath],
     );
-
-    if (!project) {
-        return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-            </div>
-        );
-    }
 
     return (
         <>

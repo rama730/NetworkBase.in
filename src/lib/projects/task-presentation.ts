@@ -1,8 +1,6 @@
 import {
   SPRINT_STATUS_PRESENTATION,
-  computeSprintStatus,
   type SprintStatus,
-  type SprintListItem,
 } from "@/lib/projects/sprint-detail";
 import {
   getTaskPriorityPresentation,
@@ -161,15 +159,10 @@ export function normalizeAssignableMembers(
 export function normalizeSprintOption(value: any): SprintOption {
   const dbStatus = asSprintStatus(value?.status);
 
-  const tempItem = {
-    ...value,
-    status: dbStatus,
-  } as SprintListItem;
-
   return {
     id: String(value?.id ?? ""),
     name: asTrimmedString(value?.name) ?? "Untitled sprint",
-    status: computeSprintStatus(tempItem),
+    status: dbStatus,
     startDate: asIsoString(value?.startDate),
     endDate: asIsoString(value?.endDate),
   };
