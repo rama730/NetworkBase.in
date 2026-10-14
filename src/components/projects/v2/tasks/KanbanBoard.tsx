@@ -75,9 +75,6 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   canEditTasks,
   currentUserId,
   isDragLocked,
-  workflowColumns,
-  currentColumnId,
-  onMoveToColumn,
 }: {
   task: Task;
   onClick?: (task: Task) => void;
@@ -86,9 +83,6 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   canEditTasks?: boolean;
   currentUserId?: string;
   isDragLocked?: boolean;
-  workflowColumns?: { id: string; name: string }[];
-  currentColumnId?: string;
-  onMoveToColumn?: (columnId: string) => void;
 }) {
   // Mirrors the server rule in moveTaskToWorkflowColumnAction.
   const canDrag =
@@ -151,9 +145,6 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
         dragHandleRef={setActivatorNodeRef}
         dragAttributes={canDrag ? attributes : undefined}
         dragListeners={canDrag ? listeners : undefined}
-        workflowColumns={workflowColumns}
-        currentColumnId={currentColumnId}
-        onMoveToColumn={onMoveToColumn}
       />
     </div>
   );
@@ -178,8 +169,6 @@ const KanbanColumn = React.memo(
     canEditTasks,
     currentUserId,
     isTaskDragLocked,
-    workflowColumns,
-    onMoveToColumn,
   }: any) {
     const canReorderColumns = isLeader;
 
@@ -412,9 +401,6 @@ const KanbanColumn = React.memo(
                     canEditTasks={canEditTasks}
                     currentUserId={currentUserId}
                     isDragLocked={isTaskDragLocked}
-                    workflowColumns={workflowColumns}
-                    currentColumnId={col.id}
-                    onMoveToColumn={onMoveToColumn}
                   />
                 ))}
                 {hasMoreInColumn && (
@@ -526,57 +512,7 @@ export default function KanbanBoard({
     {},
   );
 
-  const workflowColumns = useMemo(
-    () => workflow.map((w) => ({ id: w.id, name: w.title })),
-    [workflow],
-  );
 
-  const moveTaskToColumn = React.useCallback(
-    async (taskId: string, targetColumnId: string) => {
-      const task = tasks.find((t) => t.id === taskId);
-      if (!task || taskMovePendingRef.current) return;
-      const targetColumn = workflow.find((c) => c.id === targetColumnId);
-      if (!targetColumn) return;
-
-      taskMovePendingRef.current = true;
-      setIsTaskMovePending(true);
-      const previousTasks = [...tasks];
-      setTasks((current) =>
-        current.map((t) =>
-          t.id === taskId
-            ? {
-                ...t,
-                workflowColumnId: targetColumnId,
-                updatedAt: new Date().toISOString(),
-              }
-            : t,
-        ),
-      );
-
-      try {
-        const result = await moveTaskToWorkflowColumnAction(
-          taskId,
-          targetColumnId,
-          projectId,
-          undefined,
-          task.updatedAt,
-        );
-        if (!result.success) {
-          throw new Error(result.error || "Failed to move task");
-        }
-        await queryClient.invalidateQueries({
-          queryKey: queryKeys.project.detail.tasksRoot(projectId),
-        });
-      } catch (err) {
-        setTasks(previousTasks);
-        toast.error(err instanceof Error ? err.message : "Failed to move task");
-      } finally {
-        taskMovePendingRef.current = false;
-        setIsTaskMovePending(false);
-      }
-    },
-    [projectId, queryClient, tasks, workflow],
-  );
 
   const columns = useMemo(
     () => buildTaskPreviewColumns(tasks, workflow, previewMove),
@@ -1068,8 +1004,6 @@ export default function KanbanBoard({
                   canEditTasks={canEditTasks}
                   currentUserId={currentUserId}
                   isTaskDragLocked={hasNextPage || isTaskMovePending}
-                  workflowColumns={workflowColumns}
-                  onMoveToColumn={moveTaskToColumn}
                 />
               );
             })}

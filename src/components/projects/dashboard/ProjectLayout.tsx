@@ -270,11 +270,6 @@ export default function ProjectLayout({
                                 </div>
                             );
 
-                            const stageChip = stageLabel ? (
-                                <span className="nb-status" data-status="active">
-                                    {stageLabel}{stageCount > 1 ? ` · ${stageIndex + 1} of ${stageCount}` : ""}
-                                </span>
-                            ) : null;
                             // ponytail: length heuristic decides whether the 3-line clamp needs a toggle; measure overflow if it misfires.
                             const summaryToggle = project.shortDescription && project.shortDescription.length > 120 ? (
                                 <button
@@ -287,53 +282,20 @@ export default function ProjectLayout({
                                 </button>
                             ) : null;
 
-                            const hasCustomAvatar = Boolean(getProjectAvatarUrl(project));
-
-                            return (
+                            return getProjectAvatarUrl(project) ? (
                                 <div className="flex min-w-0 flex-1 flex-col items-start gap-2 max-md:basis-full">
-                                    <nav aria-label="Breadcrumb" className="text-xs text-muted-foreground">
-                                        <Link href="/projects" className="hover:text-foreground transition-colors">
-                                            Projects
-                                        </Link>
-                                        <span className="mx-1.5 text-muted-foreground/60" aria-hidden="true">/</span>
-                                        <span className="text-foreground font-medium truncate max-w-[200px] inline-block align-bottom">
-                                            {project?.title}
-                                        </span>
-                                    </nav>
                                     <div className="flex min-w-0 items-start gap-4 sm:gap-5 max-md:gap-3">
-                                        <div className="relative shrink-0">
-                                            <ProjectAvatar
-                                                project={project}
-                                                size="detail"
-                                                isOwner={isOwner}
-                                                slugOrId={project.slug || project.id}
-                                                className="max-md:size-12 max-md:rounded-[8px]"
-                                            />
-                                            <ProjectPresenceDot
-                                                lastActiveAt={project.updatedAt}
-                                                projectId={project.id || project.slug}
-                                                className="absolute -bottom-0.5 -right-0.5"
-                                            />
-                                        </div>
+                                        <ProjectAvatar
+                                            project={project}
+                                            size="detail"
+                                            isOwner={isOwner}
+                                            slugOrId={project.slug || project.id}
+                                            className="max-md:size-12 max-md:rounded-[8px]"
+                                        />
                                         <div className="min-w-0 pt-0.5 sm:pt-1 max-md:space-y-1.5">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <h1 className="nb-page-title min-w-0 break-words text-foreground">
-                                                    {project?.title}
-                                                </h1>
-                                                {stageChip}
-                                                {/* General (images) is owner-only; admins would land on a section they cannot open. */}
-                                                {!hasCustomAvatar && isOwner && (project?.slug || project?.id) && (
-                                                    <Link
-                                                        href={`/projects/${project.slug || project.id}?tab=settings#project-settings-general`}
-                                                        className="nb-touch-target group/add-avatar inline-flex items-center justify-center gap-1.5 rounded-full border border-dashed border-border/80 px-2.5 py-0.5 text-xs text-muted-foreground transition-[color,border-color,background-color] duration-150 hover:border-foreground/40 hover:bg-muted/40 hover:text-foreground"
-                                                        title="Add project avatar"
-                                                        aria-label="Add project avatar"
-                                                    >
-                                                        <Camera className="size-3 text-muted-foreground group-hover/add-avatar:text-foreground" aria-hidden="true" />
-                                                        <span className="hidden sm:inline">Add avatar</span>
-                                                    </Link>
-                                                )}
-                                            </div>
+                                            <h1 className="nb-page-title min-w-0 break-words text-foreground">
+                                                {project?.title}
+                                            </h1>
                                             {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
                                             {project.shortDescription && (
                                                 <p className={cn("nb-body mt-1 max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>
@@ -343,6 +305,35 @@ export default function ProjectLayout({
                                             {summaryToggle}
                                         </div>
                                     </div>
+                                    {projectIdentityMetadata}
+                                </div>
+                            ) : (
+                                <div className="flex min-w-0 flex-1 flex-col items-start gap-3 max-md:basis-full">
+                                    <div className="flex min-w-0 flex-wrap items-center gap-3">
+                                        <h1 className="nb-page-title min-w-0 break-words text-foreground">
+                                            {project?.title}
+                                        </h1>
+                                        <ProjectPresenceDot
+                                            lastActiveAt={project.updatedAt}
+                                            standalone
+                                            projectId={project.id || project.slug}
+                                        />
+                                        {/* General (images) is owner-only; admins would land on a section they cannot open. */}
+                                        {isOwner && (project?.slug || project?.id) && (
+                                            <Link
+                                                href={`/projects/${project.slug || project.id}?tab=settings#project-settings-general`}
+                                                className="nb-touch-target group/add-avatar inline-flex items-center justify-center gap-1.5 rounded-full border border-dashed border-border/80 px-2.5 py-0.5 text-xs text-muted-foreground transition-[color,border-color,background-color] duration-150 hover:border-foreground/40 hover:bg-muted/40 hover:text-foreground"
+                                                title="Add project avatar"
+                                                aria-label="Add project avatar"
+                                            >
+                                                <Camera className="size-3 text-muted-foreground group-hover/add-avatar:text-foreground" aria-hidden="true" />
+                                                <span className="hidden sm:inline">Add avatar</span>
+                                            </Link>
+                                        )}
+                                    </div>
+                                    {project?.id ? <ProjectStatusControl projectId={project.id} canManage={Boolean(canManageSettings ?? isOwner)} /> : null}
+                                    {project.shortDescription && <p className={cn("nb-body max-w-[64ch] text-muted-foreground", !summaryExpanded && "max-md:line-clamp-3")}>{project.shortDescription}</p>}
+                                    {summaryToggle}
                                     {projectIdentityMetadata}
                                 </div>
                             );

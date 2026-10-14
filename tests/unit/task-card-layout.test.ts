@@ -65,7 +65,7 @@ test("task cards wrap titles and badges without hiding workflow information", ()
   assert.match(html, /overflow-hidden/);
   assert.match(html, /grid-rows-\[auto_auto_auto\] gap-3 p-3/);
   assert.match(html, /h-6/);
-  assert.match(html, /line-clamp-3 text-left text-sm font-semibold leading-5/);
+  assert.match(html, /line-clamp-3 text-left (?:text-sm font-semibold leading-5|text-\[13px\] font-medium leading-\[18px\])/);
   assert.doesNotMatch(html, /overflow-x-auto/);
   assert.match(html, /To Do/);
   assert.match(html, /In Review/);

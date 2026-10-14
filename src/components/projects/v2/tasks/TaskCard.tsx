@@ -22,15 +22,7 @@ import {
 import TaskPriorityBadge from "./badges/TaskPriorityBadge";
 import TaskStatusBadge from "./badges/TaskStatusBadge";
 import { formatTaskId } from "@/lib/project-key";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+
 
 interface TaskCardProps {
   task: TaskSurfaceRecord | any;
@@ -40,9 +32,6 @@ interface TaskCardProps {
   dragHandleRef?: (element: HTMLElement | null) => void;
   dragAttributes?: React.HTMLAttributes<HTMLButtonElement>;
   dragListeners?: Record<string, any>;
-  workflowColumns?: { id: string; name: string }[];
-  currentColumnId?: string;
-  onMoveToColumn?: (columnId: string) => void;
 }
 
 export type Task = TaskSurfaceRecord;
@@ -142,11 +131,7 @@ export const TaskCard = memo(function TaskCard({
   dragHandleRef,
   dragAttributes,
   dragListeners,
-  workflowColumns,
-  currentColumnId,
-  onMoveToColumn,
 }: TaskCardProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const taskRecord = normalizeTaskSurfaceRecord(task);
   const titlePresentation = getTaskTitlePresentation(taskRecord);
   const assigneeRemoved = Boolean(
@@ -170,23 +155,6 @@ export const TaskCard = memo(function TaskCard({
       type="button"
       data-testid="task-card"
       onClick={() => onClick?.(taskRecord)}
-      onContextMenu={(e) => {
-        if (workflowColumns && workflowColumns.length > 1 && onMoveToColumn) {
-          e.preventDefault();
-          setMenuOpen(true);
-        }
-      }}
-      onKeyDown={(e) => {
-        if (
-          (e.key === "m" || e.key === "M") &&
-          workflowColumns &&
-          workflowColumns.length > 1 &&
-          onMoveToColumn
-        ) {
-          e.preventDefault();
-          setMenuOpen(true);
-        }
-      }}
       className={cn(
         "group relative min-h-[128px] w-full min-w-0 cursor-pointer overflow-hidden rounded-[8px] bg-card transition-colors duration-[180ms]",
         "border border-border shadow-2xs hover:border-border/80",
@@ -321,31 +289,6 @@ export const TaskCard = memo(function TaskCard({
       </div>
     </button>
   );
-
-  if (workflowColumns && workflowColumns.length > 1 && onMoveToColumn) {
-    return (
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          {cardButton}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          <DropdownMenuLabel className="text-xs text-muted-foreground font-mono">
-            Move to section
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {workflowColumns.map((col) => (
-            <DropdownMenuItem
-              key={col.id}
-              disabled={currentColumnId === col.id}
-              onSelect={() => onMoveToColumn(col.id)}
-            >
-              {col.name}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
 
   return cardButton;
 });
