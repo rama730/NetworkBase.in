@@ -105,7 +105,6 @@ export default function ProjectLayout({
     stageCount = 0,
     openRolesCount = 0,
 }: ProjectLayoutProps) {
-    const [isScrolled, setIsScrolled] = useState(false);
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const [projectTabsHeight, setProjectTabsHeight] = useState(0);
     const [projectIdentityHeight, setProjectIdentityHeight] = useState(320);
@@ -120,33 +119,6 @@ export default function ProjectLayout({
     const isTasksTab = activeTab === "tasks";
     // Tool tabs compact the project context below md so the work surface gets the height (spec §08/§19).
     const isToolTab = isFilesTab || isTasksTab || activeTab === "sprints";
-
-    // Normal project tabs, including Files, use the route scroll root so the
-    // identity header moves naturally and the project tabs remain sticky.
-    useEffect(() => {
-        const routeRoot = document.querySelector<HTMLElement>('[data-scroll-root="route"]');
-        const scrollTarget: HTMLElement | Window = routeRoot ?? window;
-        let rafId = 0;
-
-        const scheduleScrollState = () => {
-            if (rafId) return;
-
-            rafId = requestAnimationFrame(() => {
-                const scrollY = routeRoot ? routeRoot.scrollTop : window.scrollY;
-                const shouldBeScrolled = scrollY > 10;
-                setIsScrolled((prev) => (prev === shouldBeScrolled ? prev : shouldBeScrolled));
-                rafId = 0;
-            });
-        };
-
-        scrollTarget.addEventListener("scroll", scheduleScrollState as EventListener, { passive: true });
-        scheduleScrollState();
-
-        return () => {
-            scrollTarget.removeEventListener("scroll", scheduleScrollState as EventListener);
-            if (rafId) cancelAnimationFrame(rafId);
-        };
-    }, []);
 
     useEffect(() => {
         const identity = projectIdentityRef.current;
@@ -484,8 +456,7 @@ export default function ProjectLayout({
             {/* Bottom Row: Navigation Tabs (sticky) */}
             <div ref={tabsRef} className={cn(
                 "z-30 shrink-0 border-b border-border bg-card transition-shadow duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)]",
-                "sticky",
-                isScrolled && "shadow-none"
+                "sticky"
             )}
                 data-project-sticky-tabs="true"
                 style={{ top: 0 }}

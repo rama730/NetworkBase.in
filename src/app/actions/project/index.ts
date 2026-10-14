@@ -10127,13 +10127,27 @@ export async function readProjectSettingsBootstrapAction(
   collaborators: ProjectCollaboratorSettingsOptions,
   isOwner = false,
 ) {
-  const [collaboratorSettings, fileWorkspace, notifications, docSettings, accessImpact, dangerPreflight] = await Promise.all([
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      collaboratorSettings: { success: false as const, errorCode: "UNAUTHORIZED" as const, message: "You must be signed in." },
+      fileWorkspace: { success: false as const, errorCode: "UNAUTHORIZED" as const, message: "You must be signed in." },
+      notifications: { success: false as const, errorCode: "UNAUTHORIZED" as const, message: "You must be signed in." },
+      docSettings: { success: false as const, error: "You must be signed in.", errorCode: "UNAUTHORIZED" as const, message: "You must be signed in." },
+      dangerPreflight: { success: false as const, errorCode: "UNAUTHORIZED" as const, message: "You must be signed in." },
+    };
+  }
+
+  const [collaboratorSettings, fileWorkspace, notifications, docSettings, dangerPreflight] = await Promise.all([
     getProjectCollaboratorSettingsAction(projectId, collaborators),
     getProjectFileWorkspaceSettingsAction(projectId),
     readProjectNotificationSettingsAction(projectId),
     readProjectDocSettingsAction(projectId),
-    isOwner ? getProjectAccessImpactAction(projectId) : Promise.resolve({ success: false as const, errorCode: "FORBIDDEN" as const, message: "Only the project owner can access settings." }),
     isOwner ? getProjectDangerZonePreflightAction(projectId) : Promise.resolve({ success: false as const, errorCode: "FORBIDDEN" as const, message: "Only the project owner can access settings." }),
   ]);
-  return { collaboratorSettings, fileWorkspace, notifications, docSettings, accessImpact, dangerPreflight };
+  return { collaboratorSettings, fileWorkspace, notifications, docSettings, dangerPreflight };
 }

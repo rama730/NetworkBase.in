@@ -595,27 +595,28 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       if (document.visibilityState === "visible") reconcileVisibleFolder();
     };
     const onFilesChanged = (event: Event) => {
-      if (
-        (event as CustomEvent<{ projectId?: string }>).detail?.projectId !==
-        projectId
-      )
-        return;
-      for (const collection of [
-        "files-task-collections",
-        "files-trash",
-        "files-saved-collection",
-        "files-directory",
-        "files-picker",
-        "files-picker-recent",
-        "files-quick-open",
-        "files-quick-open-recent",
-      ])
+      const detail = (event as CustomEvent<{ projectId?: string; taskId?: string; collection?: string }>).detail;
+      if (detail?.projectId !== projectId) return;
+      if (detail?.collection) {
         void queryClient.invalidateQueries({
-          queryKey: [collection, projectId],
+          queryKey: [detail.collection, projectId],
         });
+      } else {
+        void queryClient.invalidateQueries({
+          queryKey: ["files-directory", projectId],
+        });
+        if (detail?.taskId) {
+          void queryClient.invalidateQueries({
+            queryKey: ["files-task-collections", projectId, detail.taskId],
+          });
+        } else {
+          void queryClient.invalidateQueries({
+            queryKey: ["files-task-collections", projectId],
+          });
+        }
+      }
       reconcileVisibleFolder();
     };
-    window.addEventListener("focus", reconcileVisibleFolder);
     window.addEventListener("project:task-files-changed", onFilesChanged);
     window.addEventListener("online", reconcileVisibleFolder);
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -639,7 +640,6 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
       disposed = true;
       if (reconcileTimer) window.clearTimeout(reconcileTimer);
       window.clearInterval(expirySweep);
-      window.removeEventListener("focus", reconcileVisibleFolder);
       window.removeEventListener("project:task-files-changed", onFilesChanged);
       window.removeEventListener("online", reconcileVisibleFolder);
       document.removeEventListener("visibilitychange", onVisibilityChange);

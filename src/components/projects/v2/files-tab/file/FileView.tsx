@@ -74,7 +74,6 @@ import { normalizeProjectDocSlug } from "@/lib/projects/doc";
 import { cn } from "@/lib/utils";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 import { useFileVersions } from "@/hooks/useFileVersions";
-import { useProjectMembers } from "@/hooks/projects/useProjectMembers";
 
 import { fileKind, type FileKind } from "../../utils/fileKind";
 import AssetPreview from "../../preview/AssetPreview";
@@ -150,20 +149,7 @@ export function FileView({
   const roleContext = React.useContext(FilesTabRoleContext);
   useDocumentTitlePrefix(node.name);
   const { mutations, dialogs } = useFilePreviewMutations(projectId, node.id, canEdit, roleContext?.canManageFiles ?? false);
-  // ── Fetch project members for uploader profiles ────────────────────
-  const { data: membersData } = useProjectMembers(projectId);
-  const uploaderNames = React.useMemo(() => {
-    const map: Record<string, string> = {};
-    if (!membersData) return map;
-    membersData.pages.forEach((page: any) => {
-      page.members?.forEach((m: any) => {
-        if (m?.id) {
-          map[m.id] = m.fullName || m.username || m.id;
-        }
-      });
-    });
-    return map;
-  }, [membersData]);
+  // Attribution is provided directly on version rows (item 159)
 
   // ── Task link count from store (Req 7.1, 7.4) ──────────────────────
   const taskLinkCount = useFilesWorkspaceStore(
@@ -362,7 +348,7 @@ export function FileView({
           );
 
           // Fetch the current version's content hash for comparison
-          const versions = await listFileVersions(projectId, node.id);
+          const versions = await listFileVersions(projectId, node.id, 1);
           const currentVersionRow = versions[0]; // sorted desc by version
 
           if (
@@ -653,7 +639,7 @@ export function FileView({
         isLinkedTasksPanelOpen={isLinkedTasksPanelOpen}
         onToggleVersionHistory={onToggleVersionHistory}
         isVersionHistoryPanelOpen={isVersionHistoryPanelOpen}
-        uploaderNames={uploaderNames}
+        uploaderNames={undefined}
         linkedDoc={linkedDoc}
         onNavigateToDoc={handleNavigateToDoc}
         actionsTriggerRef={actionsTriggerRef}
@@ -736,7 +722,7 @@ export function FileView({
                 actionsLockedReason={mode === "edit" ? "Leave edit mode to restore or delete versions." : null}
                 currentVersion={node.currentVersion ?? 1}
                 isDeleted={node.deletedAt != null}
-                uploaderNames={uploaderNames}
+                uploaderNames={undefined}
                 isTextKind={textLike}
                 onCompareClick={textLike ? (version, target) => {
                   if (!confirmFileNavigation(projectId)) return;

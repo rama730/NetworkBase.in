@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import type { Metadata } from 'next';
 import { cache, Suspense } from 'react';
 import ProjectDashboardClient from '@/components/projects/dashboard/ProjectDashboardClient';
@@ -7,7 +8,7 @@ import ProjectDetailLoading from './loading';
 import { getViewerIdentityContext, toClientViewer } from '@/lib/server/viewer-context';
 import { shareMetadata } from '@/lib/sharing/metadata';
 import { readSharePreview } from '@/lib/sharing/read';
-import { genericSharePreview, shareOrigin } from '@/lib/sharing/presentation';
+import { genericSharePreview, isShareCrawler, shareOrigin } from '@/lib/sharing/presentation';
 import { isProjectTabVisibleToViewer } from '@/lib/projects/settings-policies';
 
 const readProjectSprintDetailCached = cache((slugOrId: string, limit?: number, sprintId?: string, taskReference?: string) => readProjectSprintDetail({ slugOrId, limit, sprintId, taskReference }));
@@ -21,8 +22,10 @@ function firstParam(value: string | string[] | undefined) {
 
 // Metadata and the rendered route share one auth-qualified shell read.
 const readProjectRouteShell = cache(async (slugOrId: string) => {
-    const viewerIdentity = await getViewerIdentityContext();
-    const result = await readProjectDetailShell({ slugOrId });
+    const [viewerIdentity, result] = await Promise.all([
+        getViewerIdentityContext(),
+        readProjectDetailShell({ slugOrId }),
+    ]);
     return { viewerIdentity, result };
 });
 
@@ -39,7 +42,7 @@ export async function generateMetadata({
     const metadata = shareMetadata(preview ?? genericSharePreview({ kind: 'project', identifier: slug, url }, 'unavailable'));
 
     const tab = firstParam(_searchParams?.tab);
-    if (tab && preview?.state === 'ready') {
+    if (tab && preview?.state === 'ready' && !isShareCrawler((await headers()).get('user-agent'))) {
         const tabTitleMap: Record<string, string> = {
             updates: "Project Feed",
             sprints: "Sprints",
@@ -81,15 +84,18 @@ async function ResolvedProjectDashboard({
     searchParams: Promise<RouteSearchParams>;
 }) {
     const [{ slug }, _searchParams] = await Promise.all([params, searchParams]);
+    if (isShareCrawler((await headers()).get('user-agent'))) {
+        const preview = await readSharePreview(new URL(`/projects/${encodeURIComponent(slug)}`, shareOrigin()).href);
+        return <article className="p-6"><h1>{preview?.title ?? 'Project on NetworkBase'}</h1><p>{preview?.description ?? 'Open this project on NetworkBase.'}</p><a href={preview?.url ?? '/discover'}>Open NetworkBase</a></article>;
+    }
     const selectedTab = firstParam(_searchParams?.tab) || "dashboard";
     const sprintId = firstParam(_searchParams?.sprint) ?? firstParam(_searchParams?.sprintId);
-    const viewerIdentity = await getViewerIdentityContext();
-    const { user } = viewerIdentity;
     const sprintPromise = selectedTab === "sprints"
         ? readProjectSprintDetailCached(slug, 24, sprintId, firstParam(_searchParams?.task) ?? firstParam(_searchParams?.taskId))
         : null;
     sprintPromise?.catch(() => null);
-    const { result } = await readProjectRouteShell(slug);
+    const { viewerIdentity, result } = await readProjectRouteShell(slug);
+    const { user } = viewerIdentity;
     const clientViewer = toClientViewer(viewerIdentity);
 
     if (!result.success) {

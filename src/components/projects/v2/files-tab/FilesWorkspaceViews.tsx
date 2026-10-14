@@ -7,6 +7,7 @@ import React, {
   useState,
   useRef,
   useCallback,
+  useMemo,
 } from "react";
 import {
   Folder,
@@ -44,6 +45,9 @@ export const fileCollectionViews = [
   { id: "starred", label: "Starred", Icon: Star },
   { id: "trash", label: "Trash", Icon: Trash2 },
 ] as const;
+
+export type FileRoleFilter = "all" | "deliverable" | "reference" | "working";
+
 const WorkspaceContext = createContext<{
   scrollOffsets: React.RefObject<Map<string, number>>;
   view: FilesWorkspaceView;
@@ -242,36 +246,65 @@ export function FilesWorkspaceViews({
     else url.searchParams.delete("filesQuery");
     window.history.replaceState(window.history.state, "", url);
   }
+  const handleSetFileRole = useCallback((role: FileRoleFilter) => {
+    setFileRole(role);
+    const url = new URL(window.location.href);
+    if (role === "all") url.searchParams.delete("filesRole");
+    else url.searchParams.set("filesRole", role);
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
+
+  const handleShowTree = useCallback(() => setNavigation("tree"), []);
+  const handleShowCollections = useCallback(() => setNavigation("collections"), []);
+  const handleReturnToCollection = useCallback(() => change(view, taskId, true), [change, view, taskId]);
+
+  const contextValue = useMemo(
+    () => ({
+      scrollOffsets,
+      view,
+      inspector,
+      setInspector,
+      taskId,
+      taskTitle,
+      setTaskTitle,
+      fileRole,
+      setFileRole: handleSetFileRole,
+      query,
+      setQuery: updateQuery,
+      sidebarMode,
+      showTree: handleShowTree,
+      showCollections: handleShowCollections,
+      canReadTasks,
+      canOpenGitHub,
+      selectView,
+      selectTask,
+      returnToCollection: handleReturnToCollection,
+    }),
+    [
+      scrollOffsets,
+      view,
+      inspector,
+      setInspector,
+      taskId,
+      taskTitle,
+      setTaskTitle,
+      fileRole,
+      handleSetFileRole,
+      query,
+      updateQuery,
+      sidebarMode,
+      handleShowTree,
+      handleShowCollections,
+      canReadTasks,
+      canOpenGitHub,
+      selectView,
+      selectTask,
+      handleReturnToCollection,
+    ]
+  );
+
   return (
-    <WorkspaceContext.Provider
-      value={{
-        scrollOffsets,
-        view,
-        inspector,
-        setInspector,
-        taskId,
-        taskTitle,
-        setTaskTitle,
-        fileRole,
-        setFileRole: (role) => {
-          setFileRole(role);
-          const url = new URL(window.location.href);
-          if (role === "all") url.searchParams.delete("filesRole");
-          else url.searchParams.set("filesRole", role);
-          window.history.replaceState(window.history.state, "", url);
-        },
-        query,
-        setQuery: updateQuery,
-        sidebarMode,
-        showTree: () => setNavigation("tree"),
-        showCollections: () => setNavigation("collections"),
-        canReadTasks,
-        canOpenGitHub,
-        selectView,
-        selectTask,
-        returnToCollection: () => change(view, taskId, true),
-      }}
-    >
+    <WorkspaceContext.Provider value={contextValue}>
       <div className="h-full min-h-0 min-w-0">{children}</div>
       <ConfirmDialog
         open={!!pendingChange}

@@ -134,22 +134,33 @@ export default function TasksTab({
     setSearchInput(taskSearchQuery);
   }, [taskSearchQuery]);
 
+  const searchDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
-    const nextParams = new URLSearchParams(window.location.search);
-    const trimmed = value.trim();
-    if (!trimmed) {
-      nextParams.delete("search");
-    } else {
-      nextParams.set("search", trimmed);
-    }
-    const nextQuery = nextParams.toString();
-    const nextUrl = nextQuery
-      ? `${window.location.pathname}?${nextQuery}`
-      : window.location.pathname;
-    if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
-      window.history.replaceState(window.history.state, "", nextUrl);
-    }
+    if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+    searchDebounceTimerRef.current = setTimeout(() => {
+      const nextParams = new URLSearchParams(window.location.search);
+      const trimmed = value.trim();
+      if (!trimmed) {
+        nextParams.delete("search");
+      } else {
+        nextParams.set("search", trimmed);
+      }
+      const nextQuery = nextParams.toString();
+      const nextUrl = nextQuery
+        ? `${window.location.pathname}?${nextQuery}`
+        : window.location.pathname;
+      if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
+        window.history.replaceState(window.history.state, "", nextUrl);
+      }
+    }, 250);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (searchDebounceTimerRef.current) clearTimeout(searchDebounceTimerRef.current);
+    };
   }, []);
 
   const activeAssignableMemberIds = useMemo(
@@ -329,11 +340,14 @@ export default function TasksTab({
     [workflowMutation],
   );
 
+  const isWorkflowPendingRef = useRef(workflowMutation.isPending);
+  isWorkflowPendingRef.current = workflowMutation.isPending;
+
   useEffect(() => {
     const supabase = createClient();
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleWorkflowRefresh = () => {
-      if (workflowMutation.isPending) {
+      if (isWorkflowPendingRef.current) {
         workflowRefreshQueuedRef.current = true;
         return;
       }
@@ -361,7 +375,7 @@ export default function TasksTab({
       if (refreshTimer) clearTimeout(refreshTimer);
       void supabase.removeChannel(channel);
     };
-  }, [projectId, queryClient, workflowMutation.isPending, workflowQueryKey]);
+  }, [projectId, queryClient, workflowQueryKey]);
 
   useEffect(() => {
     if (workflowMutation.isPending || !workflowRefreshQueuedRef.current) return;

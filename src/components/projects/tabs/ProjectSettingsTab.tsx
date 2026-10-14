@@ -774,9 +774,8 @@ export default function ProjectSettingsTab({
         void loadFileWorkspaceSettings(false, bootstrap.then((data) => data.fileWorkspace));
         void loadProjectNotificationSettings(false, bootstrap.then((data) => data.notifications));
         void loadReadmeSettings(false, bootstrap.then((data) => data.docSettings));
-        void loadAccessImpact(false, bootstrap.then((data) => data.accessImpact));
         void loadDangerPreflight(false, bootstrap.then((data) => data.dangerPreflight));
-    }, [collaboratorFilter, collaboratorSearch, loadAccessImpact, loadCollaborators, loadDangerPreflight, loadFileWorkspaceSettings, loadProjectNotificationSettings, loadReadmeSettings, projectId]);
+    }, [collaboratorFilter, collaboratorSearch, loadCollaborators, loadDangerPreflight, loadFileWorkspaceSettings, loadProjectNotificationSettings, loadReadmeSettings, projectId]);
 
     const initialCollaboratorFilterRef = useRef(false);
     useEffect(() => {
@@ -824,7 +823,6 @@ export default function ProjectSettingsTab({
                 setPublicTabVisibility(nextSaved);
                 setSavedPublicTabVisibility(nextSaved);
                 onProjectUpdated();
-                router.refresh();
                 return;
             }
             const preflightResult = await getProjectAccessTransitionPreflightAction(projectId, visibility);
@@ -892,7 +890,6 @@ export default function ProjectSettingsTab({
                     setDeletedRoleIds([]);
                     toast.success("Project roles updated.");
                     onProjectUpdated();
-                    router.refresh();
                 } catch (error) {
                     console.error("Failed to save project roles", error);
                     toast.error(error instanceof Error ? error.message : "Failed to update project roles.");
@@ -929,7 +926,6 @@ export default function ProjectSettingsTab({
             }
             toast.success(`${PROJECT_PUBLIC_TAB_LABELS[tabId]} visibility updated.`);
             onProjectUpdated();
-            router.refresh();
         } catch (error) {
             setPublicTabVisibility(previous);
             setSavedPublicTabVisibility(previous);
@@ -1252,7 +1248,6 @@ export default function ProjectSettingsTab({
             }
             toast.success("Updates settings updated.");
             onProjectUpdated();
-            router.refresh();
         } catch (error) {
             console.error("Failed to save updates settings", error);
             toast.error(error instanceof Error ? error.message : "Failed to save updates settings.");
@@ -1278,7 +1273,6 @@ export default function ProjectSettingsTab({
             }
             toast.success("Member publishing permissions updated.");
             onProjectUpdated();
-            router.refresh();
         } catch (error) {
             setMemberUpdatesEnabled(previous);
             console.error("Failed to save updates settings", error);
@@ -1342,7 +1336,6 @@ export default function ProjectSettingsTab({
                 void loadAccessImpact();
                 void loadCollaborators("refresh");
                 onProjectUpdated();
-                router.refresh();
             }
             setConfirmAction(null);
             setRemovalPreflightDialog(null);
@@ -2346,7 +2339,6 @@ export default function ProjectSettingsTab({
                                         if (result.success) {
                                             toast.success("Lifecycle updated.");
                                             onProjectUpdated();
-                                            router.refresh();
                                         } else {
                                             toast.error(result.error || "Failed to update lifecycle.");
                                         }

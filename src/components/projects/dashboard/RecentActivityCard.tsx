@@ -20,9 +20,7 @@ export function RecentActivityCard({ projectId }: { projectId: string }) {
   const activity = useQuery({
     queryKey: queryKeys.project.detail.recentActivity(projectId),
     queryFn: () => readProjectRecentActivityAction(projectId),
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
   });
 
   if (!activity.isPending && !activity.isError && activity.data?.length === 0) return null;
