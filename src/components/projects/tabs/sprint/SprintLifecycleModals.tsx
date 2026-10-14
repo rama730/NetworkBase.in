@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 
 import {
   Dialog,
@@ -115,11 +114,6 @@ export function SprintLifecycleModals({
   };
 
   const submit = async () => {
-    if (openModal === "complete" && requiresTargetSprint && !nextSprintId) {
-      toast.error("Choose a Sprint for the unfinished work.");
-      return;
-    }
-
     const succeeded =
       openModal === "complete"
         ? await onConfirmComplete(

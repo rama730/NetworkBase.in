@@ -9,7 +9,6 @@ import {
   buildProjectSprintDetailHref,
   formatSprintDateRange,
   SPRINT_STATUS_PRESENTATION,
-  computeSprintStatus,
   type SprintListItem,
 } from "@/lib/projects/sprint-detail";
 import { cn } from "@/lib/utils";
@@ -68,7 +67,7 @@ export function SprintLeftRail({
     const grouped = new Map<string, SprintListItem[]>();
     for (const group of SPRINT_GROUPS) grouped.set(group.status, []);
     for (const sprint of filteredSprints) {
-      const computedStatus = computeSprintStatus(sprint);
+      const computedStatus = sprint.status;
       if (grouped.has(computedStatus)) {
         grouped.get(computedStatus)!.push(sprint);
       }
@@ -276,7 +275,7 @@ export function SprintLeftRail({
                   <div id={groupContentId} className="space-y-1 pt-0.5">
                     {groupedSprints.map((sprint) => {
                       const isSelected = selectedSprintId === sprint.id;
-                      const computedStatus = computeSprintStatus(sprint);
+                      const computedStatus = sprint.status;
                       const dateRange = formatSprintDateRange(sprint.startDate, sprint.endDate);
 
                       return (

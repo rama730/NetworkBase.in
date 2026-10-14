@@ -269,8 +269,8 @@ test("task file move dialog is roomy and layered above the detail panel", () => 
     "src/components/projects/v2/explorer/ExplorerDialogsHost.tsx",
   );
 
-  assert.match(panel, /sm:w-\[520px\]/);
-  assert.match(panel, /sm:max-w-\[520px\]/);
+  assert.match(panel, /sm:w-\[580px\]/);
+  assert.match(panel, /sm:max-w-\[580px\]/);
   assert.match(panel, /grid-cols-4/);
   assert.match(panel, /overflow-visible/);
   // Only phones may scroll the tab strip sideways.
@@ -289,7 +289,7 @@ test("task detail panel dimensions match the workspace drawer specification exac
 
   assert.match(workspaceDrawer, /sm:w-\[520px\]/);
   assert.match(workspaceDrawer, /sm:max-w-\[520px\]/);
-  assert.match(panel, /sm:w-\[520px\]/);
-  assert.match(panel, /sm:max-w-\[520px\]/);
+  assert.match(panel, /sm:w-\[580px\]/);
+  assert.match(panel, /sm:max-w-\[580px\]/);
 });
 

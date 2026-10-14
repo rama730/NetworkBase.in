@@ -134,7 +134,7 @@ export function FilesTabMain({
               projectId={projectId}
               projectSlug={projectSlug}
               projectName={projectName}
-              canManage={isOwner ?? !!canOpenGitHub}
+              canManage={Boolean(isOwner)}
               access={githubAccess ?? null}
             />
           ) : workspaceView.view === "tasks" ||

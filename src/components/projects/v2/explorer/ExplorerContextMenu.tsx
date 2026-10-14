@@ -3,11 +3,6 @@
 import { useCallback, useMemo } from "react";
 import type { ProjectNode } from "@/lib/db/schema";
 import type { FileTreeItemContext } from "./FileTreeItem";
-import {
-  bulkRestoreNodes,
-  bulkTrashNodes,
-  getTrashNodes,
-} from "@/app/actions/files/mutations";
 import type { ExplorerOperation } from "./explorerTypes";
 
 /**
@@ -124,45 +119,6 @@ export function useTreeContext(options: {
     [expandedFolderIds, handleSelect, handleToggleFolder]
   );
 
-  const restoreNode = useCallback(
-    async (id: string) => {
-      // Keep the original parent before refreshing Trash. A restored item is
-      // intentionally removed from the Trash result, so looking it up after
-      // that refresh loses the folder that needs to be invalidated.
-      const restoredParentId = nodesById[id]?.parentId ?? null;
-      const mutationKey = `restore:${projectId}:${id}`;
-      const result = await runUniqueMutation(mutationKey, async () => {
-        await bulkRestoreNodes([id], projectId);
-        const nodes = (await getTrashNodes(projectId)) as ProjectNode[];
-        setTrashNodesState(nodes);
-        await loadFolderContent(restoredParentId, "refresh");
-        return true;
-      });
-      if (result === null) return;
-      showToast("Restored", "success");
-      recordOperation({
-        label: "Restored item",
-        status: "success",
-        undo: {
-          label: "Undo",
-          run: async () => {
-            await bulkTrashNodes([id], projectId);
-            const nodes = (await getTrashNodes(projectId)) as ProjectNode[];
-            setTrashNodesState(nodes);
-          },
-        },
-      });
-    },
-    [
-      projectId,
-      nodesById,
-      runUniqueMutation,
-      loadFolderContent,
-      showToast,
-      recordOperation,
-      setTrashNodesState,
-    ]
-  );
 
   return useMemo(
     (): FileTreeItemContext => ({
@@ -214,7 +170,6 @@ export function useTreeContext(options: {
       deleteNode: (node: ProjectNode) => handleDeleteFromMenu(node),
       toggleFavorite: (nodeId: string) => toggleFavorite(projectId, nodeId),
       onTaskLinksClick: (node: ProjectNode) => handleTaskLinksClick(node),
-      restoreNode,
     }),
     [
       nodesById,
@@ -254,7 +209,6 @@ export function useTreeContext(options: {
       handleDeleteFromMenu,
       handleTaskLinksClick,
       toggleFavorite,
-      restoreNode,
     ]
   );
 }

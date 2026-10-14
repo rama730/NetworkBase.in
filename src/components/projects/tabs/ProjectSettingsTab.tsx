@@ -40,7 +40,7 @@ import {
 } from "@/components/projects/settings/ProjectDangerModals";
 import { Button } from "@/components/ui/button";
 import { transferProjectOwnership } from "@/app/actions/account";
-import { archiveProjectAction, deleteProject, getProjectAccessImpactAction, getProjectAccessTransitionPreflightAction, getProjectCollaboratorSettingsAction, getProjectDangerZonePreflightAction, getProjectFileWorkspaceSettingsAction, getProjectMemberRemovalPreflightAction, readProjectMemberNotificationSettingsAction, readProjectNotificationSettingsAction, readProjectSettingsBootstrapAction, removeProjectMemberAction, resetProjectMemberNotificationSettingsAction, resetProjectNotificationSettingsAction, updateProject, updateProjectLifecycleAction, updateProjectFileUploadDefaultsAction, updateProjectMemberFileUploadAction, updateProjectMemberNotificationSettingsAction, updateProjectMemberRoleAction, updateProjectNotificationSettingsAction, updateProjectPublicTabVisibilityAction, updateProjectVisibilityAction } from "@/app/actions/project";
+import { archiveProjectAction, deleteProject, getProjectAccessTransitionPreflightAction, getProjectCollaboratorSettingsAction, getProjectDangerZonePreflightAction, getProjectFileWorkspaceSettingsAction, getProjectMemberRemovalPreflightAction, readProjectMemberNotificationSettingsAction, readProjectNotificationSettingsAction, readProjectSettingsBootstrapAction, removeProjectMemberAction, resetProjectMemberNotificationSettingsAction, resetProjectNotificationSettingsAction, updateProject, updateProjectLifecycleAction, updateProjectFileUploadDefaultsAction, updateProjectMemberFileUploadAction, updateProjectMemberNotificationSettingsAction, updateProjectMemberRoleAction, updateProjectNotificationSettingsAction, updateProjectPublicTabVisibilityAction, updateProjectVisibilityAction } from "@/app/actions/project";
 import { readProjectDocSettingsAction, updateProjectDocSettingsAction } from "@/app/actions/project/doc";
 import { cn } from "@/lib/utils";
 import {
@@ -56,8 +56,6 @@ import {
     type ProjectNotificationPreset,
 } from "@/lib/notifications/project-policy";
 import {
-    buildProjectAccessImpact,
-    buildProjectAccessPolicy,
     buildProjectFilePolicy,
     buildProjectMemberMutationPolicy,
     buildProjectMemberRemovalPreflight,
@@ -92,7 +90,7 @@ import {
     type ProjectRolesFormValues,
 } from "@/lib/projects/project-roles-form";
 import { SettingsCard } from '@/components/projects/settings/SettingsFormFields';
-import type { AccessImpact, AccessTransitionPreflightData, RemovalPreflightData } from '@/components/projects/settings/SettingsPolicyDetails';
+import type { AccessTransitionPreflightData, RemovalPreflightData } from '@/components/projects/settings/SettingsPolicyDetails';
 import { ProjectNotificationCategoryCard } from '@/components/projects/settings/ProjectNotificationSettings';
 import { CollaboratorSearchField } from '@/components/projects/settings/CollaboratorSearchField';
 import type { MemberNotificationSettingsData } from '@/components/projects/settings/MemberNotificationSettingsEditor';
@@ -345,15 +343,12 @@ export default function ProjectSettingsTab({
             window.clearTimeout(localNavigationReleaseTimerRef.current);
         }
     }, []);
-    const [advancedOpen, setAdvancedOpen] = useState<Partial<Record<ProjectSettingsSectionId, boolean>>>({});
     const [savingSettings, setSavingSettings] = useState(false);
     const [savingLifecycle, setSavingLifecycle] = useState(false);
     const [confirmLoading, setConfirmLoading] = useState(false);
     const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
     const [dangerPreflight, setDangerPreflight] = useState<DangerPreflight | null>(null);
     const [dangerPreflightLoading, setDangerPreflightLoading] = useState(false);
-    const [accessImpact, setAccessImpact] = useState<AccessImpact | null>(null);
-    const [accessImpactLoading, setAccessImpactLoading] = useState(false);
     const [transferOwnerId, setTransferOwnerId] = useState("");
     const [archiveModalOpen, setArchiveModalOpen] = useState(false);
     const [transferModalOpen, setTransferModalOpen] = useState(false);
@@ -376,7 +371,6 @@ export default function ProjectSettingsTab({
     const [readmeSettings, setReadmeSettings] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
     const [readmeSettingsDraft, setReadmeSettingsDraft] = useState<ProjectDocSettings>(() => DEFAULT_PROJECT_DOC_SETTINGS);
     const [readmeSettingsLoading, setReadmeSettingsLoading] = useState(false);
-    const [readmeSettingsSaving, setReadmeSettingsSaving] = useState(false);
     const [savingReadmeKey, setSavingReadmeKey] = useState<keyof ProjectDocSettings | null>(null);
     const [savingMemberUpdates, setSavingMemberUpdates] = useState(false);
     const [memberNotificationData, setMemberNotificationData] = useState<MemberNotificationSettingsData | null>(null);
@@ -555,15 +549,6 @@ export default function ProjectSettingsTab({
     }, [activeSection, sections]);
 
     const ownerId = projectOwnerId(project);
-    const accessPolicy = buildProjectAccessPolicy({ visibility });
-    const accessImpactPolicy = buildProjectAccessImpact({
-            visibility,
-            membersCount: accessImpact?.membersCount ?? members.length,
-            followersCount: accessImpact?.followersCount ?? project?.followersCount ?? project?.followers_count ?? 0,
-            openRolesCount: accessImpact?.openRolesCount ?? project?.openRoles?.length ?? project?.open_roles?.length ?? 0,
-            pendingApplicationsCount: accessImpact?.pendingApplicationsCount ?? 0,
-            activeTasksCount: accessImpact?.activeTasksCount ?? 0,
-        });
     const collaboratorMembers = collaboratorData?.members ?? members;
     const rolePolicy = buildProjectRolePolicy({ isOwner: isProjectOwner, actorRole: actorProjectRole, ownerId, members: collaboratorMembers });
     const filteredCollaborators = rolePolicy.members.filter((member) => projectMemberRole(member, ownerId) !== "owner");
@@ -590,7 +575,6 @@ export default function ProjectSettingsTab({
 
     const visibilityDirty = visibility !== savedVisibility;
     const publicTabVisibilityDirty = !areProjectPublicTabVisibilitiesEqual(publicTabVisibility, savedPublicTabVisibility);
-    const accessDirty = visibilityDirty || publicTabVisibilityDirty;
     const rolesDirty = rolesFormDirty || deletedRoleIds.length > 0;
     const notificationDirty = JSON.stringify(projectNotificationDraft) !== JSON.stringify(projectNotificationData?.policy ?? buildDefaultProjectNotificationPolicy());
     const dangerPreflightLoadedRef = useRef(false);
@@ -613,29 +597,6 @@ export default function ProjectSettingsTab({
             toast.error("Failed to load danger-zone checks.");
         } finally {
             setDangerPreflightLoading(false);
-        }
-    }, [isProjectOwner, projectId]);
-
-    const accessImpactLoadedRef = useRef(false);
-    const loadAccessImpact = useCallback(async (force = false, pending?: ReturnType<typeof getProjectAccessImpactAction>) => {
-        if (!isProjectOwner) return;
-        if (accessImpactLoadedRef.current && !force) return;
-        setAccessImpactLoading(true);
-        try {
-            const result = await (pending ?? getProjectAccessImpactAction(projectId));
-            if (!result.success) {
-                setAccessImpact(null);
-                toast.error(result.message);
-                return;
-            }
-            accessImpactLoadedRef.current = true;
-            setAccessImpact(result.data);
-        } catch (error) {
-            console.error("Failed to load access impact", error);
-            setAccessImpact(null);
-            toast.error("Failed to load access impact.");
-        } finally {
-            setAccessImpactLoading(false);
         }
     }, [isProjectOwner, projectId]);
 
@@ -806,48 +767,6 @@ export default function ProjectSettingsTab({
         setSavedPublicTabVisibility(publicTabVisibility);
         return { success: true, message: messages.join(" ") || "Access settings updated.", refresh: true };
     }, [projectId, publicTabVisibility, publicTabVisibilityDirty, visibility, visibilityDirty]);
-
-    const handleSaveAccess = async () => {
-        if (!accessDirty) return;
-
-        setSavingSettings(true);
-        try {
-            if (!visibilityDirty) {
-                const result = await updateProjectPublicTabVisibilityAction(projectId, publicTabVisibility);
-                if (!result.success) {
-                    toast.error(result.message);
-                    return;
-                }
-                toast.success(result.message);
-                const nextSaved = result.data ? normalizeProjectPublicTabVisibility(result.data) : publicTabVisibility;
-                setPublicTabVisibility(nextSaved);
-                setSavedPublicTabVisibility(nextSaved);
-                onProjectUpdated();
-                return;
-            }
-            const preflightResult = await getProjectAccessTransitionPreflightAction(projectId, visibility);
-            if (!preflightResult.success) {
-                toast.error(preflightResult.message);
-                return;
-            }
-            const preflight: AccessTransitionPreflightData = preflightResult.data;
-            const isPrivateTransition = preflight.nextVisibility === "private";
-            setConfirmAction({
-                title: isPrivateTransition ? "Make project private" : "Make project public",
-                description: preflight.policy.confirmationSummary.join(" "),
-                confirmLabel: isPrivateTransition ? "Make private" : "Make public",
-                variant: isPrivateTransition ? "destructive" : "default",
-                content: <AccessTransitionDetails preflight={preflight} />,
-                action: () => saveAccessSettings(preflight.confirmationToken),
-            });
-            return;
-        } catch (error) {
-            console.error("Failed to prepare access transition", error);
-            toast.error("Failed to prepare access transition.");
-        } finally {
-            setSavingSettings(false);
-        }
-    };
 
     const handleAddSettingsRole = useCallback(() => {
         if (!isProjectOwner) return;
@@ -1094,27 +1013,6 @@ export default function ProjectSettingsTab({
         }
     };
 
-    const handleSaveReadmeSettings = async () => {
-        setReadmeSettingsSaving(true);
-        try {
-            const result = await updateProjectDocSettingsAction(projectId, readmeSettingsDraft);
-            if (!result.success) {
-                toast.error(result.error);
-                return;
-            }
-            const normalized = normalizeProjectDocSettings(result.settings);
-            setReadmeSettings(normalized);
-            setReadmeSettingsDraft(normalized);
-            toast.success("Document settings updated.");
-            onProjectUpdated();
-        } catch (error) {
-            console.error("Failed to save document settings", error);
-            toast.error("Failed to save document settings.");
-        } finally {
-            setReadmeSettingsSaving(false);
-        }
-    };
-
     const handleToggleReadmeSetting = async (key: keyof ProjectDocSettings, enabled: boolean) => {
         const previous = readmeSettingsDraft;
         const next: ProjectDocSettings = {
@@ -1236,26 +1134,6 @@ export default function ProjectSettingsTab({
         }
     }, [memberNotificationData, projectId]);
 
-    const handleSaveUpdatesSettings = async () => {
-        setSavingSettings(true);
-        try {
-            const result = await updateProject(projectId, {
-                memberUpdatesEnabled,
-            });
-            if (!result?.success) {
-                toast.error("Failed to update updates settings.");
-                return;
-            }
-            toast.success("Updates settings updated.");
-            onProjectUpdated();
-        } catch (error) {
-            console.error("Failed to save updates settings", error);
-            toast.error(error instanceof Error ? error.message : "Failed to save updates settings.");
-        } finally {
-            setSavingSettings(false);
-        }
-    };
-
     const handleToggleMemberUpdates = async (enabled: boolean) => {
         if (!isProjectOwner) return;
         const previous = memberUpdatesEnabled;
@@ -1304,20 +1182,6 @@ export default function ProjectSettingsTab({
             setSavingMemberFileUploadDefault(false);
         }
     };
-
-    const handleCancelAccess = () => {
-        setVisibility(savedVisibility);
-        setPublicTabVisibility(savedPublicTabVisibility);
-    };
-
-    const handleCancelReadmeSettings = () => {
-        setReadmeSettingsDraft(readmeSettings);
-    };
-
-    const handleCancelUpdatesSettings = () => {
-        setMemberUpdatesEnabled(initialSettings.memberUpdatesEnabled);
-    };
-
     const handleCancelNotifications = useCallback(() => {
         setProjectNotificationDraft(projectNotificationData?.policy ?? buildDefaultProjectNotificationPolicy());
     }, [projectNotificationData?.policy]);
@@ -1333,7 +1197,6 @@ export default function ProjectSettingsTab({
             }
             toast.success(result.message);
             if (result.refresh) {
-                void loadAccessImpact();
                 void loadCollaborators("refresh");
                 onProjectUpdated();
             }
@@ -1350,7 +1213,7 @@ export default function ProjectSettingsTab({
         } finally {
             setConfirmLoading(false);
         }
-    }, [confirmAction, loadAccessImpact, loadCollaborators, onProjectUpdated, router]);
+    }, [confirmAction, loadCollaborators, onProjectUpdated, router]);
 
     const handleExecuteArchive = useCallback(async () => {
         setConfirmLoading(true);
@@ -1484,64 +1347,6 @@ export default function ProjectSettingsTab({
                 description: `${policyPreview.summary} Choose how active task assignments should be handled before removing access.`,
                 confirmLabel: "Remove member",
                 variant: "destructive",
-                content: (
-                    <div className="space-y-4 text-sm">
-                        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-900 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-100">
-                            <p className="font-semibold">Access removal impact</p>
-                            <ul className="mt-2 space-y-1 text-xs leading-5">
-                                {policyPreview.affectedAreas.map((area) => (
-                                    <li key={area}>{area}</li>
-                                ))}
-                            </ul>
-                        </div>
-
-                        <RemovalImpactDetails preflight={preflight} />
-
-                        <fieldset className="space-y-2">
-                            <legend className="nb-micro text-muted-foreground">Removal mode</legend>
-                            {([
-                                ["preserve_history", "Preserve history", "Keep active assignments in place and label them Removed from project · Needs reassignment."],
-                                ["unassign_active_tasks", "Unassign active tasks", "Clear this member from active task assignee fields while preserving creator/comment/file history."],
-                                ["reassign_active_tasks", "Reassign active tasks", "Move active assigned tasks to another eligible active collaborator."],
-                            ] as const).map(([mode, label, detail]) => (
-                                <label key={mode} className="flex cursor-pointer gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:border-foreground/20">
-                                    <input
-                                        type="radio"
-                                        name="project-member-removal-mode"
-                                        value={mode}
-                                        checked={removalMode === mode}
-                                        onChange={() => setRemovalMode(mode)}
-                                        className="mt-1"
-                                    />
-                                    <span>
-                                        <span className="nb-ui-label block font-semibold text-foreground">{label}</span>
-                                        <span className="nb-compact mt-0.5 block text-xs leading-5 text-muted-foreground">{detail}</span>
-                                    </span>
-                                </label>
-                            ))}
-                        </fieldset>
-
-                        {removalMode === "reassign_active_tasks" ? (
-                            <label className="block">
-                                <span className="nb-micro text-muted-foreground">Replacement assignee</span>
-                                <select
-                                    value={removalReassignToUserId}
-                                    onChange={(event) => setRemovalReassignToUserId(event.target.value)}
-                                    className="nb-touch-target mt-2 h-[34px] w-full rounded-[5px] border border-border bg-card px-3 text-[13px] text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                                >
-                                    {(preflight.reassignmentCandidates ?? []).map((candidate) => (
-                                        <option key={candidate.id} value={candidate.id}>
-                                            {getProjectMemberDisplayName(candidate)} · {getProjectMemberRoleLabel(candidate.membershipRole)}
-                                        </option>
-                                    ))}
-                                </select>
-                                {(preflight.reassignmentCandidates ?? []).length === 0 ? (
-                                    <span className="mt-2 block nb-compact text-xs text-destructive">No eligible replacement assignee is available.</span>
-                                ) : null}
-                            </label>
-                        ) : null}
-                    </div>
-                ),
                 action: async () => {
                     const nextMode = removalModeRef.current;
                     const reassignToUserId = removalReassignToUserIdRef.current || null;
@@ -1594,13 +1399,6 @@ export default function ProjectSettingsTab({
         }
         setDeleteModalOpen(true);
     }, [dangerPreflight]);
-
-    const toggleAdvanced = (sectionId: ProjectSettingsSectionId) => {
-        setAdvancedOpen((current) => ({
-            ...current,
-            [sectionId]: !current[sectionId],
-        }));
-    };
 
     if (!canManageSettings) {
         return (
@@ -1805,8 +1603,6 @@ export default function ProjectSettingsTab({
                     </div>
                 </details>
 
-                {/* Legacy section header suppression line for contract tests */}
-                {activeSection !== "general" && activeSection !== "links" && activeSection !== "access" && activeSection !== "collaborators" && activeSection !== "roles-applications" && activeSection !== "tasks-workflow" && activeSection !== "files-workspace" && activeSection !== "readme" && activeSection !== "updates" && activeSection !== "notifications" ? null : null}
 
                 {/* activeSection === "general" && ( */}
                 {sections.some((s) => s.id === "general") && (

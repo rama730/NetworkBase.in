@@ -19,7 +19,6 @@ import {
   formatSprintDateRange,
   formatSprintTimelineStamp,
   SPRINT_STATUS_PRESENTATION,
-  computeSprintStatus,
   isSprintReadyToClose,
   type SprintListItem,
   type SprintPermissionSet,
@@ -47,7 +46,7 @@ export function SprintHeader({
 }: SprintHeaderProps) {
   const goal = sprint.goal?.trim();
   const description = sprint.description?.trim();
-  const computedStatus = computeSprintStatus(sprint);
+  const computedStatus = sprint.status;
   const status = SPRINT_STATUS_PRESENTATION[computedStatus];
   const readyToClose = isSprintReadyToClose(sprint);
   const completedAt = sprint.completedAt ?? sprint.updatedAt ?? null;

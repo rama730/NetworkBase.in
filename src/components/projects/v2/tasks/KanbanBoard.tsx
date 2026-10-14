@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { TaskCard, Task } from "./TaskCard";
 import { cn } from "@/lib/utils";
+import { queryKeys } from "@/lib/query-keys";
 import {
   DndContext,
   DragOverlay,
@@ -564,7 +565,7 @@ export default function KanbanBoard({
           throw new Error(result.error || "Failed to move task");
         }
         await queryClient.invalidateQueries({
-          queryKey: ["project", projectId, "detail", "tasks"],
+          queryKey: queryKeys.project.detail.tasksRoot(projectId),
         });
       } catch (err) {
         setTasks(previousTasks);
@@ -661,7 +662,7 @@ export default function KanbanBoard({
   function restoreDraggedTask() {
     if (dragTasksRef.current) setTasks(dragTasksRef.current);
     queryClient.invalidateQueries({
-      queryKey: ["project", projectId, "detail", "tasks"],
+      queryKey: queryKeys.project.detail.tasksRoot(projectId),
     });
     clearDragSnapshot();
   }
@@ -821,7 +822,7 @@ export default function KanbanBoard({
           reconcile: false,
         });
         void queryClient.invalidateQueries({
-          queryKey: ["project", projectId, "detail", "tasks"],
+          queryKey: queryKeys.project.detail.tasksRoot(projectId),
         });
         toast.error("Failed to move task: " + result.error);
         return;
@@ -851,7 +852,7 @@ export default function KanbanBoard({
         reconcile: false,
       });
       void queryClient.invalidateQueries({
-        queryKey: ["project", projectId, "detail", "tasks"],
+        queryKey: queryKeys.project.detail.tasksRoot(projectId),
       });
       toast.error(
         error instanceof Error ? error.message : "Failed to move task",
