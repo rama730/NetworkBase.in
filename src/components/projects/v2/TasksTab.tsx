@@ -731,10 +731,10 @@ export default function TasksTab({
       <div className="w-full shrink-0">
         <div className="flex w-full flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
           <div className="flex items-center gap-2.5">
-            <h2 className="text-sm font-semibold text-foreground">
+            <h2 className="text-[20px] font-semibold tracking-tight text-foreground">
               Task board
             </h2>
-            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[11px] font-semibold text-muted-foreground">
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-[3px] border border-border bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
               {/* Loaded so far; "+" while more pages exist (there is no total count). */}
               {`${filteredTasks.length}${hasNextPage ? "+" : ""}`}
             </span>

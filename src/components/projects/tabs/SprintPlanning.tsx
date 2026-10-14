@@ -73,6 +73,7 @@ export default function SprintPlanning({
 
   const [editorState, setEditorState] = useState<SprintEditorState>(null);
   const [isMutatingLifecycle, setIsMutatingLifecycle] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<"complete" | "archive" | "cancel" | null>(null);
 
   const routeSprintId = useMemo(() => {
@@ -262,6 +263,7 @@ export default function SprintPlanning({
         }
 
         toast.success(successMessage);
+        setLifecycleError(null);
         await queryClient.invalidateQueries({
           queryKey: queryKeys.project.detail.sprintDetailRoot(projectId),
         });
@@ -272,7 +274,9 @@ export default function SprintPlanning({
         void queryClient.invalidateQueries({ queryKey: queryKeys.project.detail.tasksRoot(projectId) });
         return true;
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "The Sprint could not be updated");
+        const message = error instanceof Error ? error.message : "The Sprint could not be updated";
+        setLifecycleError(message);
+        toast.error(message);
         return false;
       } finally {
         setIsMutatingLifecycle(false);
@@ -315,12 +319,21 @@ export default function SprintPlanning({
   }
 
   if (isError && !detail) {
+    const isForbidden = error instanceof Error && /permission|unauthorized|forbidden/i.test(error.message);
     return (
       <div className="flex h-[500px] flex-col items-center justify-center rounded-[8px] border border-border bg-card px-6 text-center">
         <div className="max-w-md space-y-3">
-          <h2 className="text-base font-semibold text-foreground">Sprint activity could not be loaded</h2>
-          <p className="text-sm leading-6 text-muted-foreground">{error instanceof Error ? error.message : "Please try again."}</p>
-          <button type="button" onClick={() => void refetch()} className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-foreground transition-[background-color,border-color,transform] duration-150 hover:border-input hover:bg-muted active:translate-y-px">Try again</button>
+          <h2 className="text-base font-semibold text-foreground">
+            {isForbidden ? "Access restricted" : "Sprint activity could not be loaded"}
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {isForbidden
+              ? "You do not have permission to view sprints for this project."
+              : (error instanceof Error ? error.message : "Please try again.")}
+          </p>
+          {!isForbidden ? (
+            <button type="button" onClick={() => void refetch()} className="nb-touch-target nb-ui-label inline-flex h-[34px] items-center justify-center rounded-[5px] border border-border bg-card px-4 text-foreground transition-[background-color,border-color,transform] duration-150 hover:border-input hover:bg-muted active:translate-y-px">Try again</button>
+          ) : null}
         </div>
       </div>
     );
@@ -334,8 +347,9 @@ export default function SprintPlanning({
           No sprints yet
         </h3>
         <p className="nb-empty-state-desc">
-          Create the first sprint and this space will turn into a clean
-          execution timeline for the work inside it.
+          {permissions.canCreate
+            ? "Create the first sprint and this space will turn into a clean execution timeline for the work inside it."
+            : "No sprints have been planned yet. Sprints created by project leads will appear here."}
         </p>
         {permissions.canCreate ? (
           <>
@@ -365,16 +379,54 @@ export default function SprintPlanning({
 
   return (
     <>
+      <div className="lg:hidden mb-4 flex items-center justify-between gap-3">
+        <label htmlFor="mobile-sprint-select" className="sr-only">Select Sprint</label>
+        <select
+          id="mobile-sprint-select"
+          value={selectedSprint?.id ?? ""}
+          onChange={(e) => {
+            if (e.target.value) {
+              router.push(buildProjectSprintDetailHref(projectSlug, e.target.value), { scroll: false });
+            }
+          }}
+          className="nb-touch-target h-9 flex-1 rounded-[5px] border border-border bg-card px-3 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+        >
+          {detail.sprints.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name} ({s.status})
+            </option>
+          ))}
+        </select>
+        {permissions.canCreate ? (
+          <button
+            type="button"
+            onClick={() => setEditorState({ mode: "create", sprint: null })}
+            className="nb-touch-target inline-flex h-9 items-center gap-1.5 rounded-[5px] bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-[var(--primary-hover)]"
+          >
+            <Plus className="size-3.5" />
+            <span>New</span>
+          </button>
+        ) : null}
+      </div>
+
       <div className="grid min-h-0 gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start">
-        <SprintLeftRail
-          projectSlug={projectSlug}
-          sprints={detail.sprints}
-          selectedSprintId={selectedSprint?.id ?? null}
-          canCreate={permissions.canCreate}
-          onCreate={() => setEditorState({ mode: "create", sprint: null })}
-        />
+        <div className="max-lg:hidden">
+          <SprintLeftRail
+            projectSlug={projectSlug}
+            sprints={detail.sprints}
+            selectedSprintId={selectedSprint?.id ?? null}
+            canCreate={permissions.canCreate}
+            onCreate={() => setEditorState({ mode: "create", sprint: null })}
+          />
+        </div>
 
         <section className="min-w-0 pb-12">
+          {lifecycleError ? (
+            <div role="alert" className="mb-4 flex items-center justify-between rounded-[5px] border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-xs text-destructive">
+              <span>{lifecycleError}</span>
+              <button type="button" onClick={() => setLifecycleError(null)} className="ml-2 font-mono text-[11px] hover:underline">Dismiss</button>
+            </div>
+          ) : null}
           <div className="flex-1 min-w-0">
             {selectedSprint ? (
               <SprintHeader

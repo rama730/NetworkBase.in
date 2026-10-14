@@ -1919,7 +1919,7 @@ export default function ProjectSettingsTab({
                                             savingTabId={savingPublicTabId}
                                         />
                                         <div className="mt-4 rounded-[5px] border border-border bg-muted/20 p-3.5 text-xs leading-relaxed text-muted-foreground">
-                                            Defaults are Dashboard and Files on; Sprints and Tasks off. If the project is Private, these settings are saved but only apply after the project becomes Public again.
+                                            Defaults are Dashboard, Docs, Updates, and Files on; Sprints and Tasks off. If the project is Private, these settings are saved but only apply after the project becomes Public again.
                                         </div>
                                     </div>
                                 </div>
@@ -1986,17 +1986,6 @@ export default function ProjectSettingsTab({
                                             </button>
                                         ))}
                                     </div>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => void loadCollaborators("refresh")}
-                                        disabled={collaboratorRefreshing}
-                                        className="nb-touch-target h-[34px] gap-1.5 rounded-[5px] border-border px-3 text-[13px] font-medium leading-[1.2] text-foreground shrink-0 hover:bg-muted"
-                                    >
-                                        <RefreshCw className={cn("h-3.5 w-3.5 text-muted-foreground", collaboratorRefreshing && "animate-spin")} />
-                                        Refresh
-                                    </Button>
                                 </div>
                             </div>
 
@@ -2007,7 +1996,7 @@ export default function ProjectSettingsTab({
                                         <div className="flex items-center gap-2">
                                             <Shield className="h-4 w-4 text-primary" />
                                             <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                Project Leadership
+                                                Project leadership
                                             </span>
                                         </div>
                                         <span className="nb-meta text-xs text-muted-foreground">
@@ -2071,7 +2060,7 @@ export default function ProjectSettingsTab({
                                         <div className="flex items-center gap-2">
                                             <Users className="h-4 w-4 text-muted-foreground" />
                                             <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                Team Directory
+                                                Team directory
                                             </span>
                                         </div>
                                         <span className="nb-meta text-xs text-muted-foreground">
@@ -2220,11 +2209,11 @@ export default function ProjectSettingsTab({
                                             <div className="flex items-center gap-2">
                                                 <SlidersHorizontal className="size-4 text-muted-foreground" />
                                                 <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                    Content Delivery &amp; Notification Rules
+                                                    Content delivery &amp; notification rules
                                                 </span>
                                             </div>
                                             <span className="nb-meta text-xs text-muted-foreground">
-                                                Security &amp; Alerts
+                                                Security &amp; alerts
                                             </span>
                                         </div>
 
@@ -2282,7 +2271,7 @@ export default function ProjectSettingsTab({
                                             <div className="flex items-center gap-2">
                                                 <SlidersHorizontal className="size-4 text-muted-foreground" />
                                                 <span className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                    Publishing Permissions
+                                                    Publishing permissions
                                                 </span>
                                             </div>
                                             <span className="nb-meta text-xs text-muted-foreground">
@@ -2486,7 +2475,7 @@ export default function ProjectSettingsTab({
                                             <div className="flex items-center gap-2">
                                                 <Bell className="size-4 text-foreground" />
                                                 <h3 className="nb-ui-label text-xs font-semibold uppercase tracking-wider text-foreground">
-                                                    Workflow Event Triggers
+                                                    Workflow event triggers
                                                 </h3>
                                             </div>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground leading-relaxed">

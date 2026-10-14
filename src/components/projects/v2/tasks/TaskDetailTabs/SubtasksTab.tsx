@@ -472,7 +472,9 @@ export default function SubtasksTab({
             No subtasks added yet
           </p>
           <p className="nb-empty-state-desc max-w-[280px]">
-            Break down this task into clear, verifiable sub-items using the input below.
+            {canEdit
+              ? "Break down this task into clear, verifiable sub-items using the input below."
+              : "No subtasks have been created for this task."}
           </p>
         </div>
       ) : (

@@ -196,7 +196,7 @@ export const DEFAULT_PROJECT_PUBLIC_TAB_VISIBILITY: ProjectPublicTabVisibility =
 
 export const PROJECT_PUBLIC_TAB_LABELS: Record<ProjectPublicTabId, string> = {
   dashboard: "Dashboard",
-  readme: "Doc",
+  readme: "Docs",
   updates: "Updates",
   files: "Files",
   sprints: "Sprints",
@@ -595,13 +595,13 @@ export function buildProjectAccessPolicy(
         "Project cards, Discover, search, and public profile references can show the project",
         "Shared links can show the project title, description, and project image preview",
         "Followers may receive public project updates when an update creates attention",
-        "Doc, Updates, Files, and Applications inherit their own public/member-safe access checks",
+        "Docs, Updates, Files, and Applications inherit their own public/member-safe access checks",
       ],
       private: [
         "Only the owner and approved project members can open project detail surfaces",
         "Discover, public search, public profile cards, and anonymous metadata hide the project",
         "Shared links resolve only for members; outsiders get a safe unavailable response",
-        "Files, tasks, Doc, Updates, applications, and notifications use member-only access",
+        "Files, tasks, Docs, Updates, applications, and notifications use member-only access",
       ],
     };
 
