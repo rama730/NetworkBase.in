@@ -89,6 +89,8 @@ interface FileTreeRowProps {
     onRenameConfirm?: () => void;
     onRenameCancel?: () => void;
     
+    isFirstNode?: boolean;
+
     // Slots
     badge?: React.ReactNode;
 
@@ -111,6 +113,7 @@ function arePropsEqual(prev: FileTreeRowProps, next: FileTreeRowProps) {
         prev.ariaPosInSet !== next.ariaPosInSet ||
         prev.ariaSetSize !== next.ariaSetSize ||
         prev.isSelected !== next.isSelected ||
+        prev.isFirstNode !== next.isFirstNode ||
         prev.isExpanded !== next.isExpanded ||
         prev.isInSelectionMode !== next.isInSelectionMode ||
         prev.isSelectedInMode !== next.isSelectedInMode ||
@@ -156,6 +159,7 @@ export const FileTreeRow = React.memo(function FileTreeRow({
     onRenameCancel,
     badge,
     onDesktopDrop,
+    isFirstNode,
     onToggle,
     onSelect,
     onContextMenu,
@@ -164,6 +168,8 @@ export const FileTreeRow = React.memo(function FileTreeRow({
     onDrop
 }: FileTreeRowProps) {
     const isFolder = node.type === "folder";
+    const hasAnySelection = isSelected || isInSelectionMode;
+    const effectiveTabIndex = isSelected ? 0 : (!hasAnySelection && isFirstNode) ? 0 : -1;
 
     const [dropHighlight, setDropHighlight] = React.useState(false);
 
@@ -194,7 +200,7 @@ export const FileTreeRow = React.memo(function FileTreeRow({
             aria-setsize={ariaSetSize}
             aria-selected={isSelected ? "true" : "false"}
             aria-expanded={isFolder ? (isExpanded ? "true" : "false") : undefined}
-            tabIndex={isSelected ? 0 : -1}
+            tabIndex={effectiveTabIndex}
             className={cn(
                 "group relative flex items-center h-8 [@media(pointer:coarse)]:h-11 min-w-0 cursor-pointer select-none transition-colors pr-2 text-sm",
                 isSelected
@@ -207,6 +213,44 @@ export const FileTreeRow = React.memo(function FileTreeRow({
                 if (isRenaming) return;
                 e.stopPropagation();
                 onSelect(node, e);
+            }}
+            onKeyDown={(e) => {
+                if (isRenaming) return;
+                const tree = e.currentTarget.closest('[role="tree"]');
+                const items = Array.from(
+                    tree?.querySelectorAll<HTMLElement>('[data-workspace-file-item="true"]') ?? []
+                );
+                const index = items.indexOf(e.currentTarget as HTMLElement);
+                if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    items[index + 1]?.focus();
+                } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    items[index - 1]?.focus();
+                } else if (e.key === "Home") {
+                    e.preventDefault();
+                    items[0]?.focus();
+                } else if (e.key === "End") {
+                    e.preventDefault();
+                    items[items.length - 1]?.focus();
+                } else if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelect(node);
+                } else if (e.key === "ArrowRight") {
+                    if (isFolder) {
+                        e.preventDefault();
+                        if (!isExpanded) {
+                            onToggle(node);
+                        } else {
+                            items[index + 1]?.focus();
+                        }
+                    }
+                } else if (e.key === "ArrowLeft") {
+                    if (isFolder && isExpanded) {
+                        e.preventDefault();
+                        onToggle(node);
+                    }
+                }
             }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
@@ -260,26 +304,28 @@ export const FileTreeRow = React.memo(function FileTreeRow({
         >
             {guides}
             
-            <div 
-                className={cn(
-                    "w-5 h-full flex items-center justify-center shrink-0",
-                    isFolder ? "hover:text-foreground" : ""
-                )}
-                onClick={(e) => {
-                    if (isFolder) {
+            {isFolder ? (
+                <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-label={isExpanded ? "Collapse folder" : "Expand folder"}
+                    className={cn(
+                        "w-5 h-full flex items-center justify-center shrink-0 text-[#4C5A61] dark:text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={(e) => {
                         e.stopPropagation();
                         onToggle(node);
-                    }
-                }}
-            >
-                {isFolder ? (
-                    isExpanded ? (
-                        <ChevronDown className="w-3.5 h-3.5 text-[#4C5A61] dark:text-muted-foreground" strokeWidth={1.75} />
+                    }}
+                >
+                    {isExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.75} />
                     ) : (
-                        <ChevronRight className="w-3.5 h-3.5 text-[#4C5A61] dark:text-muted-foreground" strokeWidth={1.75} />
-                    )
-                ) : null}
-            </div>
+                        <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    )}
+                </button>
+            ) : (
+                <div className="w-5 h-full shrink-0" aria-hidden="true" />
+            )}
  
             {isInSelectionMode && (
                 <div className="mr-2 shrink-0">

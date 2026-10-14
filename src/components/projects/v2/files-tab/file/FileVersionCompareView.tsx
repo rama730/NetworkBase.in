@@ -252,7 +252,7 @@ export function FileVersionCompareView({
       </div>
 
       {/* Aligned Columns Grid */}
-      <div className="flex flex-1 min-h-0 divide-x divide-border overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 divide-y md:divide-y-0 md:divide-x divide-border overflow-hidden">
         {/* Left Column (Base Content - vBase) */}
         <div
           ref={leftScrollRef}
@@ -264,17 +264,24 @@ export function FileVersionCompareView({
               <div
                 key={`left-${idx}`}
                 className={cn(
-                  "flex items-start select-none",
+                  "flex items-start",
                   line.type === "removed" && "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400 font-semibold",
                   line.type === "empty" && "bg-muted/30 opacity-30 select-none pointer-events-none"
                 )}
               >
                 {/* Line number */}
-                <div className="w-10 shrink-0 text-right pr-3 text-muted-foreground/60 border-r border-border mr-3">
+                <div className="w-10 shrink-0 text-right pr-2 text-muted-foreground/60 select-none">
                   {line.lineNumber ?? " "}
                 </div>
+                {/* Glyph indicator */}
+                <div className="w-4 shrink-0 text-center select-none font-bold text-xs mr-2 border-r border-border pr-1 text-red-600 dark:text-red-400" aria-hidden="true">
+                  {line.type === "removed" ? "−" : " "}
+                </div>
                 {/* Content */}
-                <div className="whitespace-pre">{line.type === "empty" ? "\n" : line.content}</div>
+                <div className="whitespace-pre select-text">
+                  {line.type === "removed" ? <span className="sr-only">Removed: </span> : null}
+                  {line.type === "empty" ? "\n" : line.content}
+                </div>
               </div>
             ))}
           </div>
@@ -291,17 +298,24 @@ export function FileVersionCompareView({
               <div
                 key={`right-${idx}`}
                 className={cn(
-                  "flex items-start select-none",
+                  "flex items-start",
                   line.type === "added" && "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 font-semibold",
                   line.type === "empty" && "bg-muted/30 opacity-30 select-none pointer-events-none"
                 )}
               >
                 {/* Line number */}
-                <div className="w-10 shrink-0 text-right pr-3 text-muted-foreground/60 border-r border-border mr-3">
+                <div className="w-10 shrink-0 text-right pr-2 text-muted-foreground/60 select-none">
                   {line.lineNumber ?? " "}
                 </div>
+                {/* Glyph indicator */}
+                <div className="w-4 shrink-0 text-center select-none font-bold text-xs mr-2 border-r border-border pr-1 text-emerald-600 dark:text-emerald-400" aria-hidden="true">
+                  {line.type === "added" ? "+" : " "}
+                </div>
                 {/* Content */}
-                <div className="whitespace-pre">{line.type === "empty" ? "\n" : line.content}</div>
+                <div className="whitespace-pre select-text">
+                  {line.type === "added" ? <span className="sr-only">Added: </span> : null}
+                  {line.type === "empty" ? "\n" : line.content}
+                </div>
               </div>
             ))}
           </div>

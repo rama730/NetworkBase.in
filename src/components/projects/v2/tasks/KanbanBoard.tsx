@@ -74,14 +74,20 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
   canEditTasks,
   currentUserId,
   isDragLocked,
+  workflowColumns,
+  currentColumnId,
+  onMoveToColumn,
 }: {
   task: Task;
-  onClick: (task: Task) => void;
+  onClick?: (task: Task) => void;
   activeAssignableMemberIds?: Set<string>;
   isLeader?: boolean;
   canEditTasks?: boolean;
   currentUserId?: string;
   isDragLocked?: boolean;
+  workflowColumns?: { id: string; name: string }[];
+  currentColumnId?: string;
+  onMoveToColumn?: (columnId: string) => void;
 }) {
   // Mirrors the server rule in moveTaskToWorkflowColumnAction.
   const canDrag =
@@ -93,6 +99,7 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -134,14 +141,18 @@ const SortableTaskCard = React.memo(function SortableTaskCard({
       data-task-id={task.id}
       style={style}
       className="will-change-transform"
-      {...(canDrag ? attributes : {})}
-      {...(canDrag ? listeners : {})}
     >
       <TaskCard
         task={task}
         onClick={onClick}
         activeAssignableMemberIds={activeAssignableMemberIds}
         showStatus={false}
+        dragHandleRef={setActivatorNodeRef}
+        dragAttributes={canDrag ? attributes : undefined}
+        dragListeners={canDrag ? listeners : undefined}
+        workflowColumns={workflowColumns}
+        currentColumnId={currentColumnId}
+        onMoveToColumn={onMoveToColumn}
       />
     </div>
   );
@@ -166,6 +177,8 @@ const KanbanColumn = React.memo(
     canEditTasks,
     currentUserId,
     isTaskDragLocked,
+    workflowColumns,
+    onMoveToColumn,
   }: any) {
     const canReorderColumns = isLeader;
 
@@ -238,10 +251,18 @@ const KanbanColumn = React.memo(
             {isEditing ? (
               <input
                 autoFocus
+                aria-label="Section title"
+                maxLength={120}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 onBlur={handleBlur}
-                onKeyDown={(e) => e.key === "Enter" && handleBlur()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleBlur();
+                  if (e.key === "Escape") {
+                    setTitle(col.title);
+                    setIsEditing(false);
+                  }
+                }}
                 className="text-xs font-semibold text-foreground bg-transparent border-none outline-none w-full"
               />
             ) : (
@@ -307,12 +328,13 @@ const KanbanColumn = React.memo(
                                     type="button"
                                     key={c}
                                     aria-label={`Use ${c} for ${col.title}`}
+                                    aria-pressed={isSelected}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleColorClick(c);
                                     }}
                                     className={cn(
-                                      "size-5 rounded-[3px] border border-border/60 cursor-pointer flex items-center justify-center transition-all hover:scale-105",
+                                      "size-6 min-h-6 min-w-6 rounded-[3px] border border-border/60 cursor-pointer flex items-center justify-center transition-all hover:scale-105",
                                       cMap.dot,
                                       isSelected &&
                                         "ring-2 ring-primary ring-offset-1 ring-offset-background scale-105",
@@ -389,6 +411,9 @@ const KanbanColumn = React.memo(
                     canEditTasks={canEditTasks}
                     currentUserId={currentUserId}
                     isDragLocked={isTaskDragLocked}
+                    workflowColumns={workflowColumns}
+                    currentColumnId={col.id}
+                    onMoveToColumn={onMoveToColumn}
                   />
                 ))}
                 {hasMoreInColumn && (
@@ -498,6 +523,58 @@ export default function KanbanBoard({
   const STEP = 20;
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>(
     {},
+  );
+
+  const workflowColumns = useMemo(
+    () => workflow.map((w) => ({ id: w.id, name: w.title })),
+    [workflow],
+  );
+
+  const moveTaskToColumn = React.useCallback(
+    async (taskId: string, targetColumnId: string) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task || taskMovePendingRef.current) return;
+      const targetColumn = workflow.find((c) => c.id === targetColumnId);
+      if (!targetColumn) return;
+
+      taskMovePendingRef.current = true;
+      setIsTaskMovePending(true);
+      const previousTasks = [...tasks];
+      setTasks((current) =>
+        current.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                workflowColumnId: targetColumnId,
+                updatedAt: new Date().toISOString(),
+              }
+            : t,
+        ),
+      );
+
+      try {
+        const result = await moveTaskToWorkflowColumnAction(
+          taskId,
+          targetColumnId,
+          projectId,
+          undefined,
+          task.updatedAt,
+        );
+        if (!result.success) {
+          throw new Error(result.error || "Failed to move task");
+        }
+        await queryClient.invalidateQueries({
+          queryKey: ["project", projectId, "detail", "tasks"],
+        });
+      } catch (err) {
+        setTasks(previousTasks);
+        toast.error(err instanceof Error ? err.message : "Failed to move task");
+      } finally {
+        taskMovePendingRef.current = false;
+        setIsTaskMovePending(false);
+      }
+    },
+    [projectId, queryClient, tasks, workflow],
   );
 
   const columns = useMemo(
@@ -912,6 +989,43 @@ export default function KanbanBoard({
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        accessibility={{
+          announcements: {
+            onDragStart({ active }) {
+              const activeId = String(active.id);
+              const isCol = workflow.some((w) => w.id === activeId);
+              if (isCol) {
+                const col = workflow.find((w) => w.id === activeId);
+                return `Picked up column ${col?.title ?? activeId}.`;
+              }
+              const task = tasks.find((t) => t.id === activeId);
+              return `Picked up task ${task?.title ?? activeId}.`;
+            },
+            onDragOver({ active, over }) {
+              if (!over) return;
+              const overId = String(over.id);
+              const col = workflow.find((w) => w.id === overId);
+              const colName = col?.title ?? overId;
+              const task = tasks.find((t) => t.id === String(active.id));
+              return `Moved task ${task?.title ?? "item"} over column ${colName}.`;
+            },
+            onDragEnd({ active, over }) {
+              if (!over) return "Dropped item.";
+              const activeId = String(active.id);
+              const isCol = workflow.some((w) => w.id === activeId);
+              if (isCol) {
+                const col = workflow.find((w) => w.id === activeId);
+                return `Dropped column ${col?.title ?? activeId}.`;
+              }
+              const task = tasks.find((t) => t.id === activeId);
+              const overCol = workflow.find((w) => w.id === String(over.id));
+              return `Dropped task ${task?.title ?? activeId} into ${overCol?.title ?? "column"}.`;
+            },
+            onDragCancel() {
+              return "Dragging was cancelled.";
+            },
+          },
+        }}
         autoScroll={{
           acceleration: 12,
           interval: 5,
@@ -953,6 +1067,8 @@ export default function KanbanBoard({
                   canEditTasks={canEditTasks}
                   currentUserId={currentUserId}
                   isTaskDragLocked={hasNextPage || isTaskMovePending}
+                  workflowColumns={workflowColumns}
+                  onMoveToColumn={moveTaskToColumn}
                 />
               );
             })}
@@ -985,21 +1101,20 @@ export default function KanbanBoard({
             </div>
           ) : null}
           {activeColumn ? (
-            <div className="cursor-grabbing rounded-[8px] shadow-lg border border-border/80 opacity-95 max-h-[80vh] overflow-hidden">
-              <KanbanColumn
-                col={activeColumn}
-                colTasks={columns[activeColumn.id] || []}
-                visibleLimit={visibleCounts[activeColumn.id] || DEFAULT_VISIBLE}
-                onTaskClick={() => {}}
-                activeAssignableMemberIds={activeAssignableMemberIds}
-                setVisibleCounts={() => {}}
-                STEP={STEP}
-                onRenameColumn={() => {}}
-                onChangeColor={() => {}}
-                onRemoveColumn={() => {}}
-                isLeader={isLeader}
-                currentUserId={currentUserId}
-              />
+            <div className="w-[min(276px,calc(100vw-2rem))] cursor-grabbing rounded-[8px] border border-border/80 bg-card p-3 shadow-lg opacity-95">
+              <div className="flex items-center gap-2">
+                <span
+                  className="size-2 rounded-[3px] shrink-0"
+                  style={{ backgroundColor: activeColumn.color ?? "#94A3B8" }}
+                  aria-hidden="true"
+                />
+                <span className="font-semibold text-xs text-foreground truncate">
+                  {activeColumn.title}
+                </span>
+                <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+                  {(columns[activeColumn.id] || []).length}
+                </span>
+              </div>
             </div>
           ) : null}
         </DragOverlay>

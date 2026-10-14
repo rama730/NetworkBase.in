@@ -130,9 +130,9 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                     ) : null}
                     {project?.description ? (
                         <section>
-                            <h3 className="nb-section-title mb-3 text-foreground">
+                            <h2 className="nb-section-title mb-3 text-foreground">
                                 Vision & Description
-                            </h3>
+                            </h2>
                             <p className={cn("whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/85", !descriptionExpanded && "max-md:line-clamp-6")}>
                                 {project.description}
                             </p>
@@ -185,7 +185,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
                     <div className="flex flex-wrap items-start gap-12 border-t border-border pt-5 max-md:flex-col max-md:gap-4">
                         {project?.tags?.length > 0 ? (
                             <div className="space-y-3">
-                                <h3 className="nb-micro">Tags</h3>
+                                <h2 className="nb-micro">Tags</h2>
                                 <div className="flex flex-wrap gap-1.5 max-md:[&>span:nth-child(n+7)]:hidden">
                                     {project.tags.map((tag: string) => (
                                         <span
@@ -204,7 +204,7 @@ const ProjectOverviewCard = memo(function ProjectOverviewCard({
 
                         {projectSkills.length > 0 ? (
                             <div className="space-y-3">
-                                <h3 className="nb-micro">{"Skills & Tech"}</h3>
+                                <h2 className="nb-micro">{"Skills & Tech"}</h2>
                                 <SkillList skills={projectSkills} maxVisible={12} size="sm" className="max-md:hidden" />
                                 <SkillList skills={projectSkills} maxVisible={6} size="sm" className="md:hidden" />
                             </div>

@@ -1862,7 +1862,7 @@ export default function ProjectSettingsTab({
                                 <div className="divide-y divide-border">
                                     <div className="pb-6">
                                         <div className="mb-4">
-                                            <h5 className="nb-ui-label text-sm font-semibold text-foreground">Project visibility</h5>
+                                            <h3 className="nb-ui-label text-sm font-semibold text-foreground">Project visibility</h3>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
                                                 Control whether this project is discoverable across the platform or restricted to workspace collaborators.
                                             </p>
@@ -1907,7 +1907,7 @@ export default function ProjectSettingsTab({
 
                                     <div className="pt-6">
                                         <div className="mb-4">
-                                            <h5 className="nb-ui-label text-sm font-semibold text-foreground">Public surface visibility</h5>
+                                            <h3 className="nb-ui-label text-sm font-semibold text-foreground">Public surface visibility</h3>
                                             <p className="nb-compact mt-0.5 text-xs text-muted-foreground">
                                                 Choose which project tabs public visitors can see. Members, leaders, and Co-leaders keep access to their workspace tabs.
                                             </p>
@@ -1963,7 +1963,6 @@ export default function ProjectSettingsTab({
                                     <div
                                         className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar [scrollbar-width:none]"
                                         aria-label="Filter collaborators by role"
-                                        role="tablist"
                                     >
                                         {([
                                             ["all", "All"],
@@ -1974,8 +1973,7 @@ export default function ProjectSettingsTab({
                                             <button
                                                 key={id}
                                                 type="button"
-                                                role="tab"
-                                                aria-selected={collaboratorFilter === id}
+                                                aria-pressed={collaboratorFilter === id}
                                                 onClick={() => setCollaboratorFilter(id)}
                                                 className={cn(
                                                     "nb-touch-target h-[28px] shrink-0 whitespace-nowrap rounded-[5px] px-3 text-xs font-medium transition-colors inline-flex items-center",

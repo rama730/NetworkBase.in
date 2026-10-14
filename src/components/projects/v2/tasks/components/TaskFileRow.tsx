@@ -190,124 +190,119 @@ export function TaskFileRow({
       )}
     >
       {/* Name and icon */}
-      <div
-        onClick={handleRowActivate}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            handleRowActivate();
-          }
-        }}
-        role="button"
-        tabIndex={0}
-        aria-label={`${isFolder ? "Open folder" : "Open file"} ${node.name}`}
-        className="flex min-w-0 flex-1 items-center gap-3 text-left cursor-pointer"
-      >
-        {isFolder && (
-          <span className="flex h-5 w-4 flex-shrink-0 items-center justify-center text-muted-foreground">
-            {isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5" />
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <button
+          type="button"
+          onClick={handleRowActivate}
+          aria-label={`${isFolder ? (isExpanded ? "Collapse folder" : "Expand folder") : "Open file"} ${node.name}`}
+          aria-expanded={isFolder ? isExpanded : undefined}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-[3px]"
+        >
+          {isFolder && (
+            <span className="flex h-5 w-4 flex-shrink-0 items-center justify-center text-muted-foreground">
+              {isExpanded ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )}
+            </span>
+          )}
+          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[3px] text-muted-foreground">
+            {isFolder ? (
+              <FolderIcon className="h-5 w-5 text-muted-foreground" fill="currentColor" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
+              <FileIcon name={node.name} mimeType={node.mimeType} isFolder={false} className="h-5 w-5" />
             )}
           </span>
-        )}
-        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[3px] text-muted-foreground">
-          {isFolder ? (
-            <FolderIcon className="h-5 w-5 text-muted-foreground" fill="currentColor" />
-          ) : (
-            <FileIcon name={node.name} mimeType={node.mimeType} isFolder={false} className="h-5 w-5" />
-          )}
-        </span>
 
-        <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-          {/* First row: File name, role badge, version badge, custom label */}
-          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            <span className="text-[13px] font-medium text-foreground break-all sm:break-normal truncate max-w-[280px] sm:max-w-none">
-              {node.name}
-            </span>
-            <span
-              className={cn(
-                "inline-flex h-5 items-center rounded-[3px] border px-1.5 font-mono text-[11px] font-semibold tracking-[0.09em] uppercase shrink-0",
-                fileRole === "reference" &&
-                  "border-[#DBD5C8] bg-[#F3F0EA] text-[#374349] dark:border-border dark:bg-muted dark:text-muted-foreground",
-                fileRole === "working" &&
-                  "border-[#DBD5C8] bg-white text-[#141A1E] dark:border-border dark:bg-card dark:text-foreground",
-                fileRole === "deliverable" &&
-                  "border-[#D8E8DF] bg-[#EDF5F0] text-[#245A41] dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
-              )}
-            >
-              {rolePresentation[fileRole]}
-            </span>
-            {version > 1 && (
-              <span className="inline-flex shrink-0 items-center rounded-[3px] border border-[#D14E24]/30 bg-[#FCF0EA] px-1.5 py-0.5 font-mono text-[11px] font-semibold text-[#D14E24] dark:border-[#D14E24]/50 dark:bg-[#D14E24]/20 dark:text-[#FCF0EA]">
-                v{version}
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
+            {/* First row: File name, role badge, version badge */}
+            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+              <span className="text-[13px] font-medium text-foreground break-all sm:break-normal truncate max-w-[280px] sm:max-w-none">
+                {node.name}
               </span>
-            )}
-            {!isDeliverable &&
-              (isEditingLabel ? (
-                <span
-                  className="inline-flex items-center gap-1 rounded-[4px] border border-primary/30 bg-primary/10 pl-1.5 pr-1 py-0.5 shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <input
-                    ref={inputRef}
-                    data-testid="task-file-row-label-editor"
-                    type="text"
-                    value={editLabelValue}
-                    onChange={(e) => setEditLabelValue(e.target.value)}
-                    onBlur={commitLabelEdit}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Label..."
-                    className="w-24 bg-transparent text-[11px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
-                  />
-                  <button
-                    type="button"
-                    aria-label={`Clear label for ${node.name}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditLabelValue("");
-                      setIsEditingLabel(false);
-                      onLabelChange?.(node, null);
-                    }}
-                    className="rounded-[2px] p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
+              <span
+                className={cn(
+                  "inline-flex h-5 items-center rounded-[3px] border px-1.5 font-mono text-[11px] font-semibold tracking-[0.09em] uppercase shrink-0",
+                  fileRole === "reference" &&
+                    "border-[#DBD5C8] bg-[#F3F0EA] text-[#374349] dark:border-border dark:bg-muted dark:text-muted-foreground",
+                  fileRole === "working" &&
+                    "border-[#DBD5C8] bg-white text-[#141A1E] dark:border-border dark:bg-card dark:text-foreground",
+                  fileRole === "deliverable" &&
+                    "border-[#D8E8DF] bg-[#EDF5F0] text-[#245A41] dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
+                )}
+              >
+                {rolePresentation[fileRole]}
+              </span>
+              {version > 1 && (
+                <span className="inline-flex shrink-0 items-center rounded-[3px] border border-[#D14E24]/30 bg-[#FCF0EA] px-1.5 py-0.5 font-mono text-[11px] font-semibold text-[#D14E24] dark:border-[#D14E24]/50 dark:bg-[#D14E24]/20 dark:text-[#FCF0EA]">
+                  v{version}
                 </span>
-              ) : currentLabel ? (
-                <button
-                  type="button"
-                  aria-label={`Edit label for ${node.name}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (canEdit) setIsEditingLabel(true);
-                  }}
-                  className={cn(
-                    "inline-flex shrink-0 items-center rounded-[3px] border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground",
-                    canEdit &&
-                      "cursor-text hover:bg-muted hover:text-foreground transition-colors",
-                  )}
-                >
-                  {currentLabel}
-                </button>
-              ) : null)}
-          </div>
-
-          {/* Second row: Secondary metadata (size, attribution, timestamp) */}
-          <div className="flex items-center gap-1.5 min-w-0 text-xs text-muted-foreground">
-            <span
-              title={formatFileTimestamp(
-                node.versionUpdatedAt || node.updatedAt,
               )}
-              className="truncate font-mono text-[11px] text-muted-foreground"
-            >
-              {isFolder
-                ? "Folder"
-                : `${formatBytes(node.size) || "Size not recorded"} · Updated by ${getTaskFileAttributionLabel(node)} · ${formatRelative(node.versionUpdatedAt || node.updatedAt)}`}
-            </span>
+            </div>
+
+            {/* Second row: Secondary metadata (size, attribution, timestamp) */}
+            <div className="flex items-center gap-1.5 min-w-0 text-xs text-muted-foreground">
+              <span
+                title={formatFileTimestamp(
+                  node.versionUpdatedAt || node.updatedAt,
+                )}
+                className="truncate font-mono text-[11px] text-muted-foreground"
+              >
+                {isFolder
+                  ? "Folder"
+                  : `${formatBytes(node.size) || "Size not recorded"} · Updated by ${getTaskFileAttributionLabel(node)} · ${formatRelative(node.versionUpdatedAt || node.updatedAt)}`}
+              </span>
+            </div>
           </div>
-        </div>
+        </button>
+
+        {/* Custom label editor outside activation button */}
+        {!isDeliverable &&
+          (isEditingLabel ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-[4px] border border-primary/30 bg-primary/10 pl-1.5 pr-1 py-0.5 shrink-0"
+            >
+              <input
+                ref={inputRef}
+                data-testid="task-file-row-label-editor"
+                type="text"
+                value={editLabelValue}
+                onChange={(e) => setEditLabelValue(e.target.value)}
+                onBlur={commitLabelEdit}
+                onKeyDown={handleKeyDown}
+                placeholder="Label..."
+                className="w-24 bg-transparent text-[11px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                type="button"
+                aria-label={`Clear label for ${node.name}`}
+                onClick={() => {
+                  setEditLabelValue("");
+                  setIsEditingLabel(false);
+                  onLabelChange?.(node, null);
+                }}
+                className="rounded-[2px] p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ) : currentLabel ? (
+            <button
+              type="button"
+              aria-label={`Edit label for ${node.name}`}
+              onClick={() => {
+                if (canEdit) setIsEditingLabel(true);
+              }}
+              className={cn(
+                "inline-flex shrink-0 items-center rounded-[3px] border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] max-md:text-[11px] font-semibold text-muted-foreground",
+                canEdit &&
+                  "cursor-text hover:bg-muted hover:text-foreground transition-colors",
+              )}
+            >
+              {currentLabel}
+            </button>
+          ) : null)}
       </div>
 
       {/* Hover actions */}

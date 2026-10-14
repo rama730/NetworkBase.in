@@ -40,7 +40,7 @@ export function DashboardCardHeader({ title, icon: Icon, badge, action, compact 
                         <Icon className="nb-section-icon" aria-hidden="true" />
                     </span>
                 ) : null}
-                <h3 className="nb-card-title min-w-0 text-foreground">{title}</h3>
+                <h2 className="nb-card-title min-w-0 text-foreground">{title}</h2>
                 {badge}
             </div>
             {action}

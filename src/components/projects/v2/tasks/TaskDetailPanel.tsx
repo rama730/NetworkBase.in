@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   CheckSquare,
   Copy,
+  FolderPlus,
   Laptop,
   MessageCircle,
   MoreHorizontal,
@@ -46,7 +47,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -69,6 +74,7 @@ interface TaskDetailPanelProps {
   initialTab?: TaskPanelTab | null;
   initialCommentId?: string | null;
   initialFileId?: string | null;
+  workflowColumns?: { id: string; name: string }[];
 }
 
 export default function TaskDetailPanel({
@@ -89,8 +95,13 @@ export default function TaskDetailPanel({
   initialTab = "details",
   initialCommentId = null,
   initialFileId = null,
+  workflowColumns = [],
 }: TaskDetailPanelProps) {
   const queryClient = useQueryClient();
+  const openerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    openerRef.current = document.activeElement as HTMLElement | null;
+  }, []);
   const [activeTab, setActiveTab] = useState<TaskPanelTab>(
     initialTab ?? "details",
   );
@@ -264,6 +275,12 @@ export default function TaskDetailPanel({
           data-testid="task-detail-panel"
           showCloseButton={false}
           overlayClassName="z-[200] bg-black/60 backdrop-blur-none"
+          onCloseAutoFocus={(event) => {
+            if (openerRef.current) {
+              event.preventDefault();
+              openerRef.current.focus();
+            }
+          }}
           className="bottom-0 left-auto right-0 top-0 z-[201] flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 border-l border-border bg-card p-0 shadow-2xl sm:w-[520px] sm:max-w-[520px]"
         >
           <DialogTitle className="sr-only">{resource.task.title}</DialogTitle>
@@ -363,8 +380,8 @@ export default function TaskDetailPanel({
                 </button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button type="button" aria-label="Task actions" className="inline-flex size-11 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted md:hidden">
-                      <MoreHorizontal className="size-5" />
+                    <button type="button" aria-label="Task actions" className="nb-touch-target inline-flex size-8 items-center justify-center rounded-[5px] text-muted-foreground hover:bg-muted">
+                      <MoreHorizontal className="size-4" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="z-[210] w-52">
@@ -380,6 +397,27 @@ export default function TaskDetailPanel({
                       <Laptop className="size-4" />
                       Connect desktop IDE
                     </DropdownMenuItem>
+                    {workflowColumns && workflowColumns.length > 1 && canEditTask ? (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                          <FolderPlus className="size-4 mr-2" />
+                          Move to section
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuPortal>
+                          <DropdownMenuSubContent className="w-48 z-[220]">
+                            {workflowColumns.map((col) => (
+                              <DropdownMenuItem
+                                key={col.id}
+                                disabled={resource.task.workflowColumnId === col.id}
+                                onSelect={() => void resource.taskMutations.moveToColumn(col.id)}
+                              >
+                                {col.name}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuPortal>
+                      </DropdownMenuSub>
+                    ) : null}
                     {isOwner ? (
                       <>
                         <DropdownMenuSeparator />
@@ -417,6 +455,28 @@ export default function TaskDetailPanel({
                   tabIndex={activeTab === tab.id ? 0 : -1}
                   onClick={() => setActiveTab(tab.id)}
                   onKeyDown={(event) => {
+                    if (event.key === "Home") {
+                      event.preventDefault();
+                      const first = tabs[0];
+                      if (first) {
+                        setActiveTab(first.id);
+                        requestAnimationFrame(() =>
+                          document.getElementById(`task-tab-${first.id}`)?.focus(),
+                        );
+                      }
+                      return;
+                    }
+                    if (event.key === "End") {
+                      event.preventDefault();
+                      const last = tabs[tabs.length - 1];
+                      if (last) {
+                        setActiveTab(last.id);
+                        requestAnimationFrame(() =>
+                          document.getElementById(`task-tab-${last.id}`)?.focus(),
+                        );
+                      }
+                      return;
+                    }
                     const currentIndex = tabs.findIndex(
                       (candidate) => candidate.id === tab.id,
                     );
@@ -500,6 +560,8 @@ export default function TaskDetailPanel({
                     })
                   }
                   onOpenTab={setActiveTab}
+                  workflowColumns={workflowColumns}
+                  onMoveToColumn={resource.taskMutations.moveToColumn}
                 />
               </div>
             ) : null}

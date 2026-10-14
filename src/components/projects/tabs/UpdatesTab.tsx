@@ -449,7 +449,7 @@ export default function UpdatesTab({
         "mx-auto grid w-full max-w-[1240px] gap-8 xl:grid-cols-[minmax(0,1fr)_440px]"
       )}
     >
-      <main className="min-w-0">
+      <div className="min-w-0">
         <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-2">
           <div>
             <h2 className="nb-section-title text-foreground">
@@ -554,7 +554,7 @@ export default function UpdatesTab({
             </Button>
           </div>
         ) : null}
-      </main>
+      </div>
 
       <aside className="hidden w-full min-w-0 xl:block xl:w-[440px] shrink-0 border-l border-border pl-6">
         <div

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -82,8 +82,10 @@ export function SprintLifecycleModals({
     [selectedSprint?.id, sprints],
   );
 
+  const openerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (!openModal) return;
+    openerRef.current = document.activeElement as HTMLElement | null;
     setUnfinishedChoice("keep");
     setNextSprintId("");
   }, [openModal, selectedSprint?.id]);
@@ -135,6 +137,12 @@ export function SprintLifecycleModals({
       <DialogContent
         className="max-w-lg"
         showCloseButton={!isMutating}
+        onCloseAutoFocus={(event) => {
+          if (openerRef.current) {
+            event.preventDefault();
+            openerRef.current.focus();
+          }
+        }}
         onEscapeKeyDown={(event) => {
           if (isMutating) event.preventDefault();
         }}

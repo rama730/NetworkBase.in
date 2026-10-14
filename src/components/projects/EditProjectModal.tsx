@@ -13,12 +13,18 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { updateProject, updateProjectLifecycleAction } from "@/app/actions/project";
 import { SkillPicker } from "@/components/skills/SkillPicker";
 import { ProjectLinkEditorFields, type ProjectLinkEditorHandle } from "@/components/projects/dashboard/ProjectSocialLinksCard";
 import { socialLinkItemsFromStorage } from "@/lib/profile/normalization";
 import { externalLinksSchema } from "@/lib/validations/project";
+import {
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 // --- Types & Schema ---
 
@@ -113,7 +119,7 @@ function StatusSelector({ value, onChange }: { value: string; onChange: (val: st
 export default function EditProjectModal({ project, isOpen, onClose, onSaved }: EditProjectModalProps) {
     const [activeTab, setActiveTab] = useState("essentials");
     const [isPending, startTransition] = useTransition();
-    const router = useRouter();
+    const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
     const projectLinksRef = useRef<ProjectLinkEditorHandle>(null);
 
     const initialStages: string[] = project.lifecycleStages ?? ["Concept", "Team Formation", "MVP", "Beta", "Launch"];
@@ -121,7 +127,7 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
     const [currentStageName, setCurrentStageName] = useState<string | null>(initialStages[currentStageIndex] ?? null);
 
     // Setup Form
-    const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<ProjectFormValues>({
+    const { register, control, handleSubmit, watch, setValue, formState: { errors, isDirty } } = useForm<ProjectFormValues>({
         resolver: zodResolver(projectSchema),
         defaultValues: {
             status: project.status || "draft",
@@ -212,67 +218,117 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
         removeRole(index);
     };
 
+    const handleAttemptClose = () => {
+        if (isDirty) {
+            setShowDiscardConfirm(true);
+        } else {
+            onClose();
+        }
+    };
+
+    const handleInvalidCapture = (e: React.FormEvent<HTMLFormElement>) => {
+        const target = e.target as HTMLElement;
+        const name = target.getAttribute("name") || "";
+        if (name.startsWith("roles")) {
+            setActiveTab("roles");
+        } else if (name === "skills" || name === "tags" || name.startsWith("externalLinks")) {
+            setActiveTab("stack");
+        } else if (name === "status" || name === "lifecycleStages") {
+            setActiveTab("journey");
+        } else if (name === "problemStatement" || name === "solutionStatement" || name === "description") {
+            setActiveTab("details");
+        } else {
+            setActiveTab("essentials");
+        }
+    };
+
     return (
         <>
-            {isOpen && (
-                <div
-                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-none animate-in fade-in"
+            <Dialog open={isOpen} onOpenChange={(open) => {
+                if (!open) handleAttemptClose();
+            }}>
+                <DialogContent
+                    showCloseButton={false}
+                    className="w-full max-w-5xl h-[85vh] p-0 rounded-lg border border-border bg-card shadow-2xl flex flex-col overflow-hidden"
                 >
-                    {/* Backdrop Click */}
-                    <div className="absolute inset-0" onClick={onClose} />
-
-                    <div
-                        className="animate-in fade-in zoom-in-95 relative z-10 w-full max-w-5xl h-[85vh] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl flex flex-col overflow-hidden"
-                    >
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg app-accent-gradient flex items-center justify-center ring-2 ring-primary/20">
-                                    <Sparkles className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Edit Project</h2>
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Make your project stand out</p>
-                                </div>
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg app-accent-gradient flex items-center justify-center ring-2 ring-primary/20">
+                                <Sparkles className="w-5 h-5 text-white" />
                             </div>
-                            <button 
-                                onClick={onClose}
-                                className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+                            <div>
+                                <DialogTitle className="text-xl font-semibold text-foreground">Edit Project</DialogTitle>
+                                <DialogDescription className="text-xs text-muted-foreground font-medium">Make your project stand out</DialogDescription>
+                            </div>
+                        </div>
+                        <button 
+                            type="button"
+                            onClick={handleAttemptClose}
+                            aria-label="Close edit project modal"
+                            className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Mobile Tab Strip (visible on small screens) */}
+                    <div className="flex md:hidden overflow-x-auto gap-1 border-b border-border bg-muted/30 p-2 shrink-0 scrollbar-none" role="tablist" aria-label="Edit project sections">
+                        {TABS.map((tab) => {
+                            const Icon = tab.icon;
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={isActive}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={cn(
+                                        "nb-touch-target flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors",
+                                        isActive
+                                            ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    )}
+                                >
+                                    <Icon className="w-3.5 h-3.5" />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex flex-1 min-h-0">
+                        {/* Sidebar (md+) */}
+                        <div className="w-64 border-r border-border bg-muted/20 hidden md:flex flex-col p-4 gap-1 overflow-y-auto shrink-0" role="tablist" aria-label="Edit project sections">
+                            {TABS.map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={activeTab === tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={cn(
+                                        "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform] text-left",
+                                        activeTab === tab.id
+                                            ? "bg-card text-primary shadow-xs ring-1 ring-border font-semibold"
+                                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    )}
+                                >
+                                    <tab.icon className="w-4 h-4" />
+                                    {tab.label}
+                                </button>
+                            ))}
                         </div>
 
-                        {/* Body */}
-                        <div className="flex flex-1 min-h-0">
-                            {/* Sidebar (md+) */}
-                            <div className="w-64 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 hidden md:flex flex-col p-4 gap-1 overflow-y-auto shrink-0">
-                                {TABS.map((tab) => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={cn(
-                                            "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-[color,background-color,border-color,box-shadow,opacity,transform]",
-                                            activeTab === tab.id
-                                                ? "bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700"
-                                                : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
-                                        )}
-                                    >
-                                        <tab.icon className="w-4 h-4" />
-                                        {tab.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Mobile Tab Strip (visible on small screens) */}
-                            {/* Skipping complex mobile tabs for brevity, can just stack or rely on standard responsiveness if needed, but flex-col implies simple vertical list. */}
-
-                            {/* Content Form */}
-                            <form 
-                                id="edit-project-form" 
-                                onSubmit={handleSubmit(onSubmit)}
-                                className="flex-1 overflow-y-auto p-6 md:p-8 pb-24"
-                            >
+                        {/* Content Form */}
+                        <form 
+                            id="edit-project-form" 
+                            onSubmit={handleSubmit(onSubmit)}
+                            onInvalidCapture={handleInvalidCapture}
+                            className="flex-1 overflow-y-auto p-6 md:p-8 pb-24"
+                        >
                                 <div className="max-w-3xl mx-auto space-y-8">
                                     {/* ESSENTIALS */}
                                     {activeTab === "essentials" && (
@@ -292,19 +348,21 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
 
                                             <div className="space-y-4">
                                                 <div>
-                                                    <label className="block text-sm font-medium mb-1.5 ">Project Title</label>
+                                                    <label htmlFor="edit-project-title" className="block text-sm font-medium mb-1.5 text-foreground">Project Title</label>
                                                     <input
+                                                        id="edit-project-title"
                                                         {...register("title")}
-                                                        className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+                                                        className="w-full px-4 py-3 rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] text-foreground"
                                                         placeholder="e.g. NextGen CRM"
                                                     />
                                                     {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>}
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium mb-1.5">Tagline</label>
+                                                    <label htmlFor="edit-project-tagline" className="block text-sm font-medium mb-1.5 text-foreground">Tagline</label>
                                                     <input
+                                                        id="edit-project-tagline"
                                                         {...register("shortDescription")}
-                                                        className="w-full px-4 py-3 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform]"
+                                                        className="w-full px-4 py-3 rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] text-foreground"
                                                         placeholder="A brief pitch for your project..."
                                                     />
                                                     {errors.shortDescription && <p className="text-red-500 text-sm mt-1">{errors.shortDescription.message}</p>}
@@ -317,30 +375,33 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                     {activeTab === "details" && (
                                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-[260ms]">
                                             <div>
-                                                <label className="block text-sm font-medium mb-2">Full Description</label>
+                                                <label htmlFor="edit-project-description" className="block text-sm font-medium mb-2 text-foreground">Full Description</label>
                                                 <textarea
+                                                    id="edit-project-description"
                                                     {...register("description")}
                                                     onInput={(e: any) => adjustHeight(e)}
-                                                    className="w-full px-4 py-3 min-h-[150px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none"
+                                                    className="w-full px-4 py-3 min-h-[150px] rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none text-foreground"
                                                     placeholder="Tell the full story of your project..."
                                                 />
                                             </div>
                                             <div className="grid gap-6">
                                                 <div>
-                                                    <label className="block text-sm font-medium mb-2">Problem Statement</label>
+                                                    <label htmlFor="edit-project-problem" className="block text-sm font-medium mb-2 text-foreground">Problem Statement</label>
                                                     <textarea
+                                                        id="edit-project-problem"
                                                         {...register("problemStatement")}
                                                         onInput={(e: any) => adjustHeight(e)}
-                                                        className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none"
+                                                        className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none text-foreground"
                                                         placeholder="What problem are you solving?"
                                                     />
                                                 </div>
                                                 <div>
-                                                    <label className="block text-sm font-medium mb-2">Solution Overview</label>
+                                                    <label htmlFor="edit-project-solution" className="block text-sm font-medium mb-2 text-foreground">Solution Overview</label>
                                                     <textarea
+                                                        id="edit-project-solution"
                                                         {...register("solutionStatement")}
                                                         onInput={(e: any) => adjustHeight(e)}
-                                                        className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-zinc-200 dark:border-zinc-700 bg-transparent   outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none"
+                                                        className="w-full px-4 py-3 min-h-[100px] rounded-lg border border-border bg-transparent outline-none transition-[color,background-color,border-color,box-shadow,opacity,transform] resize-none text-foreground"
                                                         placeholder="How does your project solve it?"
                                                     />
                                                 </div>
@@ -452,16 +513,16 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                         </div>
 
                         {/* Sticky Footer */}
-                        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-card dark:bg-card backdrop-blur-none flex items-center gap-3 shrink-0 z-20">
+                        <div className="p-4 border-t border-border bg-card backdrop-blur-none flex items-center gap-3 shrink-0 z-20">
                             <div className="mr-auto hidden sm:block">
-                                <p className="text-xs text-zinc-400">
+                                <p className="text-xs text-muted-foreground">
                                     {isPending ? "Saving changes..." : "Unsaved changes will be lost if you cancel."}
                                 </p>
                             </div>
                             <button
                                 type="button"
-                                onClick={onClose}
-                                className="px-5 py-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 font-medium text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                                onClick={handleAttemptClose}
+                                className="px-5 py-2.5 rounded-lg border border-border font-medium text-sm hover:bg-muted transition-colors text-foreground"
                             >
                                 Cancel
                             </button>
@@ -469,15 +530,28 @@ export default function EditProjectModal({ project, isOpen, onClose, onSaved }: 
                                 type="submit"
                                 form="edit-project-form"
                                 disabled={isPending}
-                                className="px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="px-6 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
-                                {isPending && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                {isPending && <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />}
                                 {isPending ? "Saving..." : "Save Changes"}
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
+                </DialogContent>
+            </Dialog>
+
+            <ConfirmDialog
+                open={showDiscardConfirm}
+                onOpenChange={setShowDiscardConfirm}
+                title="Discard unsaved changes?"
+                description="You have unsaved changes. Are you sure you want to discard them and close the editor?"
+                confirmLabel="Discard changes"
+                cancelLabel="Keep editing"
+                variant="destructive"
+                onConfirm={() => {
+                    setShowDiscardConfirm(false);
+                    onClose();
+                }}
+            />
         </>
     );
 }

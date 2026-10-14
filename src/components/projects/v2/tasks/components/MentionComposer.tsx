@@ -785,7 +785,15 @@ export const MentionComposer = React.forwardRef<MentionComposerHandle, MentionCo
         <div className={cn("relative", className)} data-testid="mention-composer">
             <div
                 ref={editorRef}
-                role="textbox"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={Boolean(menuState && candidates.length > 0)}
+                aria-controls={menuState && candidates.length > 0 ? "mention-autocomplete-listbox" : undefined}
+                aria-activedescendant={
+                    menuState && candidates[activeIndex]
+                        ? `mention-option-${candidates[activeIndex].id}`
+                        : undefined
+                }
                 aria-multiline="true"
                 aria-label={rest["aria-label"] ?? placeholder}
                 aria-disabled={disabled}
@@ -825,7 +833,7 @@ export const MentionComposer = React.forwardRef<MentionComposerHandle, MentionCo
                 .mention-composer:empty::before,
                 .mention-composer[data-empty="true"]::before {
                     content: attr(data-placeholder);
-                    color: hsl(var(--muted-foreground));
+                    color: var(--muted-foreground);
                     pointer-events: none;
                 }
             `}</style>

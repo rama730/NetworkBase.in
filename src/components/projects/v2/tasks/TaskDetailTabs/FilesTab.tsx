@@ -24,6 +24,7 @@ import {
 } from "@/lib/files/folder-drop";
 import { validateUploadSelection } from "@/lib/files/upload-validator";
 import { DropZoneOverlay } from "@/components/ui/drop-zone-overlay";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface FilesTabProps {
   projectId: string;
@@ -83,7 +84,38 @@ export default function FilesTab({
     null,
   );
   const [pendingUploadFolders, setPendingUploadFolders] = useState<DroppedFolder[] | null>(null);
+  const [unreadableSkipDialog, setUnreadableSkipDialog] = useState<{
+    count: number;
+    shown: string[];
+    moreCount: number;
+    folders: DroppedFolder[];
+    looseFiles: File[];
+  } | null>(null);
   const dragCounterRef = useRef(0);
+
+  const proceedWithExtracted = useCallback(
+    (extracted: { folders: DroppedFolder[]; looseFiles: File[] }) => {
+      if (
+        extracted.folders.length === 0 &&
+        extracted.looseFiles.length === 0
+      ) {
+        return;
+      }
+      if (extracted.folders.length > 0 && onUploadFolders) {
+        setPendingUploadFolders(extracted.folders);
+      }
+      if (extracted.looseFiles.length > 0) {
+        setPendingUploadFiles(extracted.looseFiles);
+      }
+      if (extracted.folders.length > 0 && !onUploadFolders) {
+        const flat = extracted.folders.flatMap((folder) =>
+          folder.files.map((entry) => entry.file),
+        );
+        if (flat.length > 0) setPendingUploadFiles(flat);
+      }
+    },
+    [onUploadFolders],
+  );
 
   // URL state routing for Universal Task File Preview (Ponytail Phase 4)
   const handleOpenFile = useCallback(
@@ -225,10 +257,14 @@ export default function FilesTab({
           const extracted = await extractFoldersFromDataTransfer(dataTransfer);
           if (extracted.unreadable.length > 0) {
             // A partial selection is only uploaded when the person agrees to leave those out.
-            const shown = extracted.unreadable.slice(0, 5).join("\n");
-            const more = extracted.unreadable.length > 5 ? `\n…and ${extracted.unreadable.length - 5} more` : "";
-            const proceed = window.confirm(`${extracted.unreadable.length} item(s) could not be read and will be skipped:\n${shown}${more}\n\nUpload the rest?`);
-            if (!proceed) return;
+            setUnreadableSkipDialog({
+              count: extracted.unreadable.length,
+              shown: extracted.unreadable.slice(0, 5),
+              moreCount: Math.max(0, extracted.unreadable.length - 5),
+              folders: extracted.folders,
+              looseFiles: extracted.looseFiles,
+            });
+            return;
           }
           if (
             extracted.folders.length === 0 &&
@@ -238,16 +274,7 @@ export default function FilesTab({
             if (files.length > 0) setPendingUploadFiles(files);
             return;
           }
-          if (extracted.folders.length > 0 && onUploadFolders) setPendingUploadFolders(extracted.folders);
-          if (extracted.looseFiles.length > 0) {
-            setPendingUploadFiles(extracted.looseFiles);
-          }
-          if (extracted.folders.length > 0 && !onUploadFolders) {
-            const flat = extracted.folders.flatMap((folder) =>
-              folder.files.map((entry) => entry.file),
-            );
-            if (flat.length > 0) setPendingUploadFiles(flat);
-          }
+          proceedWithExtracted(extracted);
         } catch (error) {
           toast.error(
             error instanceof Error ? error.message : "Could not read the dropped files",
@@ -447,6 +474,34 @@ export default function FilesTab({
           onCancel={() => { setPendingUploadFiles(null); setPendingUploadFolders(null); }}
         />
       )}
+
+      <ConfirmDialog
+        open={Boolean(unreadableSkipDialog)}
+        onOpenChange={(open) => {
+          if (!open) setUnreadableSkipDialog(null);
+        }}
+        title="Skip unreadable files?"
+        description={`${unreadableSkipDialog?.count ?? 0} item(s) could not be read and will be skipped. Upload the rest?`}
+        confirmLabel="Upload remainder"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          if (unreadableSkipDialog) {
+            proceedWithExtracted(unreadableSkipDialog);
+            setUnreadableSkipDialog(null);
+          }
+        }}
+      >
+        {unreadableSkipDialog && unreadableSkipDialog.shown.length > 0 && (
+          <div className="mt-2 rounded bg-muted/50 p-2 font-mono text-xs text-muted-foreground">
+            {unreadableSkipDialog.shown.map((item, idx) => (
+              <div key={idx} className="truncate">{item}</div>
+            ))}
+            {unreadableSkipDialog.moreCount > 0 && (
+              <div className="mt-1 text-[11px] italic">…and {unreadableSkipDialog.moreCount} more</div>
+            )}
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

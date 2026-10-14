@@ -63,6 +63,7 @@ export interface FileTreeItemContext {
     onTaskLinksClick: (node: ProjectNode) => void;
     onContextMenu: (node: ProjectNode, e: React.MouseEvent) => void;
     isTrashMode: boolean;
+    firstNodeId?: string;
 }
 
 export function FileTreeItem({
@@ -172,6 +173,7 @@ export function FileTreeItem({
             
             // Inline rename
             isRenaming={isRenaming}
+            isFirstNode={context.firstNodeId === node.id}
             renameValue={isRenaming ? context.renameValue : undefined}
             onRenameChange={isRenaming ? context.onRenameChange : undefined}
             onRenameConfirm={isRenaming ? context.onRenameConfirm : undefined}
