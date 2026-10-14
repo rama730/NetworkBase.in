@@ -642,6 +642,14 @@ export function RenameDialog({
         <DialogContent
           className="sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
           overlayClassName="z-[300] bg-transparent backdrop-blur-none"
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            const nextTarget =
+              document.querySelector<HTMLElement>('[data-workspace-file-item="true"][tabindex="0"]') ??
+              document.querySelector<HTMLElement>('[data-workspace-file-item="true"]') ??
+              document.querySelector<HTMLElement>('[role="tree"]');
+            nextTarget?.focus();
+          }}
         >
           <DialogHeader>
             <DialogTitle>Rename</DialogTitle>
@@ -711,6 +719,14 @@ export function DeleteDialog({
       <DialogContent
         className="sm:max-w-[460px] rounded-[12px] p-6 shadow-2xl"
         overlayClassName="z-[300] bg-transparent backdrop-blur-none"
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          const nextTarget =
+            document.querySelector<HTMLElement>('[data-workspace-file-item="true"][tabindex="0"]') ??
+            document.querySelector<HTMLElement>('[data-workspace-file-item="true"]') ??
+            document.querySelector<HTMLElement>('[role="tree"]');
+          nextTarget?.focus();
+        }}
       >
         <DialogHeader>
           <DialogTitle>Move to Trash</DialogTitle>

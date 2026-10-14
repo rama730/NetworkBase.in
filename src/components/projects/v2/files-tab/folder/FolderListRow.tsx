@@ -335,7 +335,7 @@ export const FolderListRow = React.memo(function FolderListRow({
       className={cn(
         "group grid cursor-pointer items-center gap-x-3 border-b border-[#E8E3D9] px-4 text-sm outline-none transition-colors",
         "hover:bg-[#F3F0EA]/70 focus-visible:bg-[#F3F0EA]/70",
-        "dark:border-white/10 dark:hover:bg-white/5 dark:focus-visible:bg-white/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#D14E24]",
+        "dark:border-white/10 dark:hover:bg-white/5 dark:focus-visible:bg-white/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#D14E24] focus-visible:border-l-[3px] focus-visible:border-l-[#D14E24] focus-visible:pl-[13px]",
         dropHighlight &&
           "bg-[#FCF0EA]/75 ring-1 ring-inset ring-[#D14E24] dark:bg-[#D14E24]/20",
         className,

@@ -47,7 +47,7 @@ interface ProjectLayoutProps {
     isFollowing?: boolean;
     onFollow?: () => void;
     followLoading?: boolean;
-    onShare?: () => void;
+    onShare?: (trigger?: HTMLElement) => void;
     onInvite?: () => void;
     canInvite?: boolean;
     onTabHover?: (tabId: string) => void;
@@ -110,6 +110,7 @@ export default function ProjectLayout({
     const [projectTabsHeight, setProjectTabsHeight] = useState(0);
     const [projectIdentityHeight, setProjectIdentityHeight] = useState(320);
     const tabsRef = useRef<HTMLDivElement>(null);
+    const actionsTrigger = useRef<HTMLButtonElement>(null);
     const tabListRef = useRef<HTMLDivElement>(null);
     const projectIdentityRef = useRef<HTMLDivElement>(null);
 
@@ -240,10 +241,7 @@ export default function ProjectLayout({
         event.preventDefault();
         const nextTab = visibleTabs[nextIndex];
         if (!nextTab) return;
-        onTabChange(nextTab.id);
-        requestAnimationFrame(() => {
-            tabsRef.current?.querySelector<HTMLButtonElement>(`[data-testid="project-tab-${nextTab.id}"]`)?.focus();
-        });
+        tabsRef.current?.querySelector<HTMLButtonElement>(`[data-testid="project-tab-${nextTab.id}"]`)?.focus();
     };
     const projectUpdatedLabel = formatProjectUpdatedLabel(project.updatedAt);
     const layoutStyle = useMemo(() => ({
@@ -429,7 +427,7 @@ export default function ProjectLayout({
                             {/* Share */}
                             <button
                                 type="button"
-                                onClick={onShare}
+                                onClick={event => onShare?.(event.currentTarget)}
                                 className="nb-icon-button h-[var(--ui-control-height)] w-[var(--ui-control-height)] rounded-[5px] border border-border bg-card text-muted-foreground transition-colors duration-[180ms] ease-[cubic-bezier(.2,.8,.3,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 title="Share project"
                                 aria-label="Share project"
@@ -454,7 +452,7 @@ export default function ProjectLayout({
                             {stageLabel ? <span className="nb-status shrink-0" data-status="active">{stageLabel}</span> : null}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button type="button" aria-label="Project actions" className="nb-icon-button nb-touch-target shrink-0">
+                                    <button ref={actionsTrigger} type="button" aria-label="Project actions" className="nb-icon-button nb-touch-target shrink-0">
                                         <MoreHorizontal className="size-4" aria-hidden="true" />
                                     </button>
                                 </DropdownMenuTrigger>
@@ -469,7 +467,7 @@ export default function ProjectLayout({
                                             Invite a member
                                         </DropdownMenuItem>
                                     ) : null}
-                                    <DropdownMenuItem onSelect={() => onShare?.()}>
+                                    <DropdownMenuItem onSelect={() => onShare?.(actionsTrigger.current ?? undefined)}>
                                         <Share2 className="size-4" aria-hidden="true" />
                                         Share project
                                     </DropdownMenuItem>
@@ -548,7 +546,6 @@ export default function ProjectLayout({
                 id="project-active-tab-panel"
                 role="tabpanel"
                 aria-labelledby={`project-tab-${activeTab}`}
-                aria-label="Project detail content"
                 className={cn(
                     isFilesTab
                             ? "flex h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height))] min-h-[28rem] w-full flex-col overflow-hidden max-md:h-[calc(100dvh-var(--ui-topnav-height)-var(--project-tabs-height)-3rem)] max-md:min-h-0"

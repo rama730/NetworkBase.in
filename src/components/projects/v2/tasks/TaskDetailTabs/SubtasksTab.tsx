@@ -364,12 +364,13 @@ export default function SubtasksTab({
         {/* Filter Segmented Control */}
         {subtasks.length > 0 ? (
           <div className="flex items-center justify-between pt-0.5">
-            <div className="inline-flex h-[28px] items-center rounded-[5px] border border-border bg-muted/30 p-0.5 gap-0.5">
+            <div className="inline-flex h-[32px] items-center rounded-[5px] border border-border bg-muted/30 p-0.5 gap-0.5">
               <button
                 type="button"
+                aria-pressed={filter === "all"}
                 onClick={() => setFilter("all")}
                 className={cn(
-                  "h-5 rounded-[3px] px-2 text-xs font-medium transition-colors",
+                  "nb-touch-target h-6 min-h-6 rounded-[3px] px-2 text-xs font-medium transition-colors",
                   filter === "all"
                     ? "bg-card text-foreground shadow-2xs font-semibold"
                     : "text-muted-foreground hover:text-foreground",
@@ -379,9 +380,10 @@ export default function SubtasksTab({
               </button>
               <button
                 type="button"
+                aria-pressed={filter === "open"}
                 onClick={() => setFilter("open")}
                 className={cn(
-                  "h-5 rounded-[3px] px-2 text-xs font-medium transition-colors",
+                  "nb-touch-target h-6 min-h-6 rounded-[3px] px-2 text-xs font-medium transition-colors",
                   filter === "open"
                     ? "bg-card text-foreground shadow-2xs font-semibold"
                     : "text-muted-foreground hover:text-foreground",
@@ -391,9 +393,10 @@ export default function SubtasksTab({
               </button>
               <button
                 type="button"
+                aria-pressed={filter === "completed"}
                 onClick={() => setFilter("completed")}
                 className={cn(
-                  "h-5 rounded-[3px] px-2 text-xs font-medium transition-colors",
+                  "nb-touch-target h-6 min-h-6 rounded-[3px] px-2 text-xs font-medium transition-colors",
                   filter === "completed"
                     ? "bg-card text-foreground shadow-2xs font-semibold"
                     : "text-muted-foreground hover:text-foreground",

@@ -148,7 +148,9 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                             aria-label="Project journey stages"
                         >
                             <div
-                                className="relative grid min-w-full gap-0"
+                                role="list"
+                                className="relative grid min-w-full gap-0 list-none p-0 m-0"
+                                aria-label="Project journey stages"
                                 style={{
                                     gridTemplateColumns: `repeat(${Math.max(1, stages.length)}, minmax(7rem, 1fr))`,
                                     width: timelineWidth,
@@ -161,7 +163,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                 const hasPrevious = index > 0;
                                 const hasNext = index < lastIndex;
                                 const stageItem = (
-                                    <div key={`${stage}-${index}`} data-stage-index={index} className="relative z-[1] flex min-w-0 flex-col items-center gap-2 py-0.5 text-center max-md:snap-center">
+                                    <div role="listitem" key={`${stage}-${index}`} data-stage-index={index} aria-current={isCurrent ? "step" : undefined} className="relative z-[1] flex min-w-0 flex-col items-center gap-2 py-0.5 text-center max-md:snap-center">
                                         {hasPrevious ? (
                                             <span
                                                 aria-hidden="true"
@@ -205,10 +207,15 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                             {stage}
                                         </p>
                                         {isCurrent ? <span className="nb-micro uppercase tracking-[0.09em] text-primary">Current</span> : null}
-                                        {isCompleted && formatJourneyCompletionDate(stageCompletionDates[String(index)]) ? (
-                                            <span className="font-mono text-[11px] text-muted-foreground md:hidden">
-                                                {formatJourneyCompletionDate(stageCompletionDates[String(index)])}
-                                            </span>
+                                        {isCompleted && stageCompletionDates[String(index)] ? (
+                                            <>
+                                                <span className="font-mono text-[11px] text-muted-foreground md:hidden">
+                                                    {formatJourneyCompletionDate(stageCompletionDates[String(index)])}
+                                                </span>
+                                                <span className="sr-only">
+                                                    {getStageCompletionTooltip(stageCompletionDates[String(index)])}
+                                                </span>
+                                            </>
                                         ) : null}
                                     </div>
                                 );
@@ -269,8 +276,9 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                 </div>
 
                 <div ref={scrollContainerRef} className="app-scroll app-scroll-x app-scroll-hidden relative pb-2 select-none">
-                    <div
-                        className="relative grid min-w-full gap-0"
+                    <ol
+                        className="relative grid min-w-full gap-0 list-none p-0 m-0"
+                        aria-label="Project journey stages"
                         style={{
                             gridTemplateColumns: `repeat(${Math.max(1, stages.length)}, minmax(7rem, 1fr))`,
                             width: timelineWidth,
@@ -283,7 +291,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                             const hasPrevious = index > 0;
                             const hasNext = index < lastIndex;
                             const stageItem = (
-                                <div key={index} data-stage-index={index} className="relative z-[1] flex min-w-0 flex-col items-center gap-2 py-0.5 text-center">
+                                <li key={index} data-stage-index={index} aria-current={isCurrent ? "step" : undefined} className="relative z-[1] flex min-w-0 flex-col items-center gap-2 py-0.5 text-center">
                                     {hasPrevious ? (
                                         <span
                                             aria-hidden="true"
@@ -339,7 +347,12 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                         {stage}
                                     </p>
                                     {isCurrent ? <span className="nb-micro uppercase tracking-[0.09em] text-primary">Current</span> : null}
-                                </div>
+                                    {isCompleted && stageCompletionDates[String(index)] ? (
+                                        <span className="sr-only">
+                                            {getStageCompletionTooltip(stageCompletionDates[String(index)])}
+                                        </span>
+                                    ) : null}
+                                </li>
                             );
 
                             return isCompleted ? (
@@ -353,7 +366,7 @@ export const JourneyTimeline = memo(function JourneyTimeline({
                                 stageItem
                             );
                         })}
-                    </div>
+                    </ol>
                 </div>
             </TooltipPrimitive.Provider>
         </section>

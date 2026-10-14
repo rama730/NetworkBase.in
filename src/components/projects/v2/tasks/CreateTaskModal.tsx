@@ -92,6 +92,12 @@ function Field({
   hint?: string;
   children: React.ReactNode;
 }) {
+  const describedBy = error
+    ? `${htmlFor}-error`
+    : hint
+      ? `${htmlFor}-hint`
+      : undefined;
+
   return (
     <div className="space-y-1.5">
       <label
@@ -101,10 +107,15 @@ function Field({
         {label}
         {required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </label>
-      {children}
+      {React.isValidElement(children)
+        ? React.cloneElement(children as React.ReactElement<any>, {
+            "aria-invalid": Boolean(error),
+            "aria-describedby": describedBy,
+          })
+        : children}
       {hint ? <p id={`${htmlFor}-hint`} className="text-xs text-muted-foreground">{hint}</p> : null}
       {error ? (
-        <p className="text-xs font-mono text-destructive">{error}</p>
+        <p id={`${htmlFor}-error`} role="alert" className="text-xs font-mono text-destructive">{error}</p>
       ) : null}
     </div>
   );
@@ -172,8 +183,10 @@ export default function CreateTaskModal({
   // No due date unless one is chosen.
   const [dueDate, setDueDate] = React.useState<string>("");
 
+  const openerRef = React.useRef<HTMLElement | null>(null);
   React.useEffect(() => {
     if (!isOpen) return;
+    openerRef.current = document.activeElement as HTMLElement | null;
     setSubtasks([]);
     setNewSubtaskTitle("");
     setAttachments([]);
@@ -270,6 +283,12 @@ export default function CreateTaskModal({
         <DialogContent
           showCloseButton={false}
           overlayClassName="z-[200] bg-black/60 backdrop-blur-none"
+          onCloseAutoFocus={(event) => {
+            if (openerRef.current) {
+              event.preventDefault();
+              openerRef.current.focus();
+            }
+          }}
           className="z-[201] flex max-h-[88vh] w-full sm:max-w-[640px] flex-col gap-0 overflow-hidden rounded-[12px] border border-[#DBD5C8] bg-card p-0 shadow-2xl dark:border-white/10"
         >
           <form
@@ -633,6 +652,7 @@ export default function CreateTaskModal({
 
                   <div className="flex items-center gap-2">
                     <input
+                      aria-label="New subtask title"
                       value={newSubtaskTitle}
                       onChange={(e) => setNewSubtaskTitle(e.target.value)}
                       onKeyDown={(event) => {

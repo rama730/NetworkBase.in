@@ -489,6 +489,19 @@ export function ExplorerTree({
     [contextValue.nodesById, rowsToRender],
   );
 
+  const firstNodeId = useMemo(() => {
+    const first = safeRowsToRender.find((r) => r.kind === "node");
+    return first && first.kind === "node" ? first.nodeId : undefined;
+  }, [safeRowsToRender]);
+
+  const treeContextValue = useMemo(
+    () => ({
+      ...contextValue,
+      firstNodeId,
+    }),
+    [contextValue, firstNodeId],
+  );
+
   // Reset drill-down if we swap views entirely
   useEffect(() => {
     setCurrentAssetFolderId(null);
@@ -740,20 +753,22 @@ export function ExplorerTree({
   }
 
   return (
-    <Virtuoso
-      data={safeRowsToRender}
-      context={contextValue}
-      computeItemKey={(_, row) =>
-        row.kind === "node"
-          ? `${row.kind}:${row.nodeId}`
-          : `${row.kind}:${"parentId" in row ? row.parentId : "root"}`
-      }
-      itemContent={(_, row, context) => (
-        <div className="h-8 min-h-[32px] [@media(pointer:coarse)]:h-11 px-2" role="none">
-          <FileTreeItem row={row} context={context} />
-        </div>
-      )}
-      style={{ height: "100%" }}
-    />
+    <div role="tree" aria-label="Files tree" className="h-full">
+      <Virtuoso
+        data={safeRowsToRender}
+        context={treeContextValue}
+        computeItemKey={(_, row) =>
+          row.kind === "node"
+            ? `${row.kind}:${row.nodeId}`
+            : `${row.kind}:${"parentId" in row ? row.parentId : "root"}`
+        }
+        itemContent={(_, row, context) => (
+          <div className="h-8 min-h-[32px] [@media(pointer:coarse)]:h-11 px-2" role="none">
+            <FileTreeItem row={row} context={context} />
+          </div>
+        )}
+        style={{ height: "100%" }}
+      />
+    </div>
   );
 }

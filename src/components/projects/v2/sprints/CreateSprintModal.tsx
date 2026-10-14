@@ -17,6 +17,12 @@ import {
 } from "@/lib/projects/sprints";
 import { recordSprintMetric } from "@/lib/projects/sprint-observability";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 type SprintEditorSubmitResult = {
   success: boolean;
@@ -150,14 +156,8 @@ export default function SprintEditorModal({
     if (!isOpen) return;
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = window.requestAnimationFrame(() => firstFieldRef.current?.focus({ preventScroll: true }));
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !pendingActionRef.current) onCloseRef.current();
-    };
-    document.addEventListener("keydown", handleKeyDown);
     return () => {
       window.cancelAnimationFrame(frame);
-      document.removeEventListener("keydown", handleKeyDown);
-      previousFocusRef.current?.focus();
     };
   }, [isOpen]);
 
@@ -242,29 +242,33 @@ export default function SprintEditorModal({
   const isDeleting = pendingAction === "delete";
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div
-        className="fixed inset-0 bg-black/60 animate-in fade-in duration-150"
-        onClick={pendingAction ? undefined : onClose}
-      />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sprint-editor-title"
-        className="animate-in fade-in zoom-in-[0.98] slide-in-from-bottom-1 duration-150 relative z-10 flex max-h-[88vh] w-full sm:max-w-[640px] flex-col overflow-hidden rounded-[8px] border border-border bg-card shadow-2xl dark:border-white/10"
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && !pendingAction) onClose();
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        className="flex max-h-[88vh] w-full sm:max-w-[640px] flex-col overflow-hidden p-0 rounded-[8px] border border-border bg-card shadow-2xl dark:border-white/10"
+        onCloseAutoFocus={(e) => {
+          if (previousFocusRef.current) {
+            e.preventDefault();
+            previousFocusRef.current.focus();
+          }
+        }}
       >
         {/* Modal Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <div className="space-y-0.5">
-            <h3 id="sprint-editor-title" className="text-base font-semibold text-foreground">
+            <DialogTitle className="text-base font-semibold text-foreground">
               {mode === "create" ? "Create Sprint" : "Edit Sprint"}
-            </h3>
-            <p className="text-xs text-muted-foreground">
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
               {mode === "create"
                 ? "Define the sprint goal and schedule without extra noise."
                 : "Adjust the sprint details and manage it from one place."}
-            </p>
+            </DialogDescription>
           </div>
           <button
             type="button"
@@ -493,7 +497,7 @@ export default function SprintEditorModal({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

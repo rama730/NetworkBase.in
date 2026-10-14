@@ -240,7 +240,7 @@ function DiscussionEntry({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="flex size-6 shrink-0 items-center justify-center rounded-[3px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground opacity-60 hover:opacity-100 focus-visible:opacity-100"
+                  className="nb-touch-target flex size-7 shrink-0 items-center justify-center rounded-[3px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   aria-label="Comment options"
                 >
                   <MoreHorizontal className="size-3.5" />

@@ -297,6 +297,8 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
     const followRequestRef = useRef(0);
     const followInFlightRef = useRef(false);
     const [shareOpen, setShareOpen] = useState(false);
+    const shareTrigger = useRef<HTMLElement | null>(null);
+    useEffect(() => { setShareOpen(false); }, [project.id]);
     const stageRequestRef = useRef(0);
     const roleApplyRequestRef = useRef<string | null>(null);
 
@@ -729,7 +731,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
         setIsEditModalOpen(true);
     }, []);
 
-    const handleShare = useCallback(() => setShareOpen(true), []);
+    const handleShare = useCallback((trigger?: HTMLElement) => { shareTrigger.current = trigger ?? null; setShareOpen(true); }, []);
 
     const handleFollow = useCallback(async () => {
         if (followLoading || followInFlightRef.current) return;
@@ -1035,7 +1037,7 @@ export default function ProjectDashboardClient({ project, currentUserId, viewerD
 
     return (
         <>
-        {shareOpen ? <ResourceShareDialog kind="project" path={canonicalProjectHref} onClose={() => setShareOpen(false)} /> : null}
+        {shareOpen ? <ResourceShareDialog kind="project" path={canonicalProjectHref} returnFocusElement={shareTrigger.current} onClose={() => setShareOpen(false)} /> : null}
         <ProjectLayout project={projectWithLiveStats} isOwner={isOwner} canManageSettings={canManageProjectSettings} isOwnerOrMember={isOwnerOrMember} publicTabVisibility={publicTabVisibility} activeTab={activeTab ?? ''} onTabChange={handleTabChange} followersCount={followersCount} viewCount={viewCount} filesSyncBadge={filesSyncBadge} isFollowing={isFollowing} onFollow={handleFollow} followLoading={followLoading} onShare={handleShare} onInvite={() => setIsInviteModalOpen(true)} canInvite={canManageProjectSettings} onTabHover={handleTabHover} members={allMembers} loadingMembers={loadingMembers} stageLabel={lifecycleStageNames[optimisticStageIndex] ?? null} stageIndex={optimisticStageIndex} stageCount={lifecycleStageNames.length} openRolesCount={rolesWithFilled.filter((role: any) => (role?.count || 0) - (role?.filled || 0) > 0).length}>
             {!activeTab && (
                 <div className="w-full h-full min-h-[40vh] flex items-center justify-center p-8">

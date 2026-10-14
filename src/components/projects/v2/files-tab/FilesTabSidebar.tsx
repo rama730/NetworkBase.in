@@ -675,7 +675,7 @@ export function FilesTabSidebar({
                         toggleSidebar(projectId);
                     }}
                     className={cn(
-                      "flex min-h-8 w-full items-center gap-2.5 rounded-[5px] px-2.5 text-left text-xs transition-colors",
+                      "flex min-h-8 [@media(pointer:coarse)]:min-h-11 w-full items-center gap-2.5 rounded-[5px] px-2.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D14E24]",
                       isActive
                         ? "bg-[#F3F0EA] font-semibold text-[#141A1E] dark:bg-white/10 dark:text-foreground"
                         : "text-[#374349] font-medium hover:bg-[#F3F0EA]/70 hover:text-[#141A1E] dark:text-muted-foreground dark:hover:bg-white/5 dark:hover:text-foreground",

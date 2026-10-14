@@ -933,11 +933,11 @@ export default function TasksTab({
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="space-y-1.5">
-                  <label htmlFor="name" className="font-mono text-xs font-medium uppercase tracking-[0.09em] text-muted-foreground">
+                  <label htmlFor="add-section-name" className="font-mono text-xs font-medium uppercase tracking-[0.09em] text-muted-foreground">
                     Name
                   </label>
                   <input
-                    id="name"
+                    id="add-section-name"
                     autoFocus
                     value={sectionTitle}
                     onChange={(e) => setSectionTitle(e.target.value)}
@@ -1048,6 +1048,7 @@ export default function TasksTab({
           currentUserAvatarUrl={currentUserAvatarUrl}
           initialCommentId={initialCommentId}
           initialFileId={initialFileId}
+          workflowColumns={workflow.map((w) => ({ id: w.id, name: w.title }))}
         />
       )}
 
