@@ -759,11 +759,6 @@ export default function CommentsTab({
                   </span>
                 ) : null}
               </div>
-              <div className="flex items-center gap-1.5 font-mono text-[10px] max-md:text-[11px] text-muted-foreground">
-                <span className="inline-flex items-center rounded-[3px] border border-border/80 bg-background px-1.5 py-0.5 uppercase tracking-[0.09em]">
-                  Markdown
-                </span>
-              </div>
             </div>
 
             {/* Multiline MentionComposer */}
@@ -882,7 +877,9 @@ export default function CommentsTab({
           </div>
           <h4 className="nb-empty-state-title">No discussion yet</h4>
           <p className="nb-empty-state-desc">
-            Start the conversation for this task.
+            {canEdit
+              ? "Start the conversation for this task."
+              : "No comments have been posted yet."}
           </p>
         </div>
       ) : (

@@ -737,14 +737,15 @@ export function FileView({
                 currentVersion={node.currentVersion ?? 1}
                 isDeleted={node.deletedAt != null}
                 uploaderNames={uploaderNames}
-                onCompareClick={(version, target) => {
+                isTextKind={textLike}
+                onCompareClick={textLike ? (version, target) => {
                   if (!confirmFileNavigation(projectId)) return;
                   leaveEditMode("view");
                   setCompareTarget({
                     base: version,
                     target: typeof target === "number" ? target : (node.currentVersion ?? 1),
                   });
-                }}
+                } : undefined}
                 onVersionChangeStart={() => setRestoringActive(true)}
                 onVersionChanged={() => {
                   setRestoringActive(false);
@@ -851,7 +852,7 @@ function renderPreviewRegion(p: PreviewRegionProps): React.JSX.Element {
     }
     return (
       <div className="flex-1 min-h-0 overflow-auto">
-        <MarkdownPreview content={p.mdContent} />
+        <MarkdownPreview content={p.mdContent} projectId={p.projectId} />
       </div>
     );
   }
@@ -904,10 +905,16 @@ function renderPreviewRegion(p: PreviewRegionProps): React.JSX.Element {
 function PreviewLoading(): React.JSX.Element {
   return (
     <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading preview"
       data-testid="files-tab-file-view-loading"
-      className="flex flex-1 items-center justify-center p-8 text-xs text-muted-foreground"
+      className="flex flex-1 flex-col gap-3 p-6"
     >
-      Loading preview…
+      <div className="h-4 w-32 rounded-[3px] bg-muted/70 animate-pulse" />
+      <div className="h-4 w-5/6 rounded-[3px] bg-muted/50 animate-pulse" />
+      <div className="h-4 w-4/6 rounded-[3px] bg-muted/40 animate-pulse" />
+      <div className="h-4 w-2/3 rounded-[3px] bg-muted/30 animate-pulse" />
     </div>
   );
 }

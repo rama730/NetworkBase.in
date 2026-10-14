@@ -197,7 +197,7 @@ export const TaskCard = memo(function TaskCard({
         <div className="flex min-w-0 items-center gap-1.5">
           <h4
             className={cn(
-              "min-w-0 line-clamp-3 text-left text-sm font-semibold leading-5 tracking-tight text-foreground",
+              "min-w-0 line-clamp-3 text-left text-[13px] font-medium leading-[18px] tracking-tight text-foreground",
               titlePresentation.className,
             )}
             title={taskRecord.title}

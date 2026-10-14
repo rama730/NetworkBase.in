@@ -92,6 +92,7 @@ export interface FileVersionHistoryPanelProps {
   isDeleted?: boolean;
   /** Optional uploader display names keyed by user id. */
   uploaderNames?: Record<string, string>;
+  isTextKind?: boolean;
   onCompareClick?: (versionNumber: number, targetVersionNumber?: number) => void;
   onVersionChangeStart?: () => void;
   onVersionChanged?: (versionNumber: number | null) => void;
@@ -110,6 +111,7 @@ export function FileVersionHistoryPanel({
   currentVersion,
   isDeleted = false,
   uploaderNames,
+  isTextKind = true,
   onCompareClick,
   onVersionChangeStart,
   onVersionChanged,
@@ -509,7 +511,7 @@ export function FileVersionHistoryPanel({
                         </button>
 
                         {/* Compare button */}
-                        {onCompareClick && !isCurrent && (
+                        {onCompareClick && !isCurrent && isTextKind && (
                           <button
                             type="button"
                             onClick={() => onCompareClick(version.version)}

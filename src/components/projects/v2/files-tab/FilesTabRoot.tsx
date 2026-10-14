@@ -403,21 +403,20 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     });
   }, [initialSearch]);
 
+  const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
+
   // ── 6. Deep-link resolver (gated on stage === "main") ─────────────
   useDeepLinkResolver(projectId, {
     stage: initialOpenFileId ? "diagnostics" : stage,
     window: deepLinkWindow,
     onError: (failure) => {
-      // The hook already logs the failure to `console.log`. Surface a
-      // non-blocking toast here so the user sees feedback. The inline
-      // main-area error indicator specified by design.md is a follow-up
-      // task (`FilesTabMain` does not yet accept an error prop).
       const reason =
         failure.kind === "overlength"
           ? "The deep link is too long."
           : failure.kind === "empty"
             ? "The deep link is empty."
             : "Deep link target not found.";
+      setDeepLinkError(reason);
       toast.error(reason);
     },
   });
@@ -876,6 +875,8 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
                 canOpenGitHub={canOpenGitHub}
                 githubAccess={githubAccess}
                 isOwner={isOwner}
+                deepLinkError={deepLinkError}
+                onDismissDeepLinkError={() => setDeepLinkError(null)}
               />
               <QuickOpenDialog
                 projectId={projectId}

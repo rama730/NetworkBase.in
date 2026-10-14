@@ -281,7 +281,7 @@ export default function TaskDetailPanel({
               openerRef.current.focus();
             }
           }}
-          className="bottom-0 left-auto right-0 top-0 z-[201] flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 border-l border-border bg-card p-0 shadow-2xl sm:w-[520px] sm:max-w-[520px]"
+          className="bottom-0 left-auto right-0 top-0 z-[201] flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 border-l border-border bg-card p-0 shadow-2xl sm:w-[580px] sm:max-w-[580px]"
         >
           <DialogTitle className="sr-only">{resource.task.title}</DialogTitle>
           <div className="flex-shrink-0 border-b border-border">

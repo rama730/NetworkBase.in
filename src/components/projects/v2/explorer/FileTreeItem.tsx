@@ -154,8 +154,6 @@ export function FileTreeItem({
     const linkCount = context.taskLinkCounts[node.id] ?? 0;
     const lock = context.locksByNodeId[node.id];
     const isRenaming = context.renameNodeId === node.id;
-    const isFolder = node.type === "folder";
-    const folderSize = isFolder ? context.folderSizes[node.id] : undefined;
     const treeItemMeta = context.treeItemMetaByNodeId[node.id];
 
     // Removed inline Context Menu memory hog - now delegates globally to O(1) Portal
@@ -199,17 +197,9 @@ export function FileTreeItem({
             onDragEnd={context.onDragEnd}
             onDrop={context.onDrop}
 
-            // Badge: Link Count + Folder Size
+            // Badge: Link Count + Lock
             badge={
                 <div className="flex items-center gap-1">
-                  {isFolder && folderSize !== undefined && folderSize > 0 ? (
-                    <span
-                      className="text-[11px] px-1 rounded-[3px] bg-[#F3F0EA] border border-[#DBD5C8] text-[#4C5A61] dark:bg-muted dark:text-muted-foreground dark:border-border flex-shrink-0 font-mono tabular-nums"
-                      title={`${folderSize.toLocaleString()} bytes total`}
-                    >
-                      {folderSize < 1024 ? `${folderSize} B` : folderSize < 1048576 ? `${(folderSize / 1024).toFixed(0)}K` : `${(folderSize / 1048576).toFixed(1)}M`}
-                    </span>
-                  ) : null}
                   {lock ? (
                     <span
                       className="text-[11px] px-1 rounded-[3px] border border-[#F6E7C2] bg-[#FBF4E2] text-[#9A6B00] dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60 flex-shrink-0 font-mono"
