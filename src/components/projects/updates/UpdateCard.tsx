@@ -60,6 +60,8 @@ function UpdateCard({
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const href = `/projects/${encodeURIComponent(projectSlug || projectId)}?tab=updates&updateId=${encodeURIComponent(update.id)}`;
   const isDeleted = Boolean(update.deletedAt);
+  // An optimistic post the server has not confirmed yet: it reads as pending and cannot be acted on.
+  const isPending = update.id.startsWith("temp-");
   const canSaveEdit = Boolean(
     draft.trim() || updateContextItems(update).length > 0 || update.media.length > 0,
   );
@@ -260,7 +262,7 @@ function UpdateCard({
                   </span>
                 ) : null}
                 <span className="font-mono text-[11px] text-muted-foreground">
-                  · {updateRelativeTime(update.createdAt)}
+                  · {isPending ? "Posting…" : updateRelativeTime(update.createdAt)}
                 </span>
                 {!isDeleted && update.editedAt ? (
                   <span className="font-mono text-[10px] max-md:text-[11px] uppercase tracking-wider text-muted-foreground">Edited</span>
@@ -365,7 +367,7 @@ function UpdateCard({
             <UpdateContextAndMedia update={update} />
           ) : null}
 
-          {!isDeleted ? (
+          {!isDeleted && !isPending ? (
             <div className="mt-2.5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
               <button
                 type="button"

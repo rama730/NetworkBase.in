@@ -389,6 +389,7 @@ export default function ProjectSettingsTab({
     const removalModeRef = useRef<RemovalMode>("preserve_history");
     const removalReassignToUserIdRef = useRef("");
     const collaboratorDataRef = useRef<CollaboratorSettingsData | null>(null);
+    const collaboratorRequestSeqRef = useRef(0);
 
     const initialSettings = useMemo(() => resetSettingsFromProject(project), [project]);
     const initialIdentity = useMemo(() => resetIdentityFromProject(project), [project]);
@@ -443,19 +444,26 @@ export default function ProjectSettingsTab({
         keyName: "fieldKey",
     });
 
-    useEffect(() => {
-        setVisibility(initialSettings.visibility);
-        setPublicTabVisibility(initialSettings.publicTabVisibility);
-        setSavedVisibility(initialSettings.visibility);
-        setSavedPublicTabVisibility(initialSettings.publicTabVisibility);
-        setMemberUpdatesEnabled(initialSettings.memberUpdatesEnabled);
-        setMemberFileUploadDefault(initialSettings.memberFileUploadDefault);
-    }, [initialSettings]);
+    const initialVisibility = initialSettings.visibility;
+    const initialPublicTabVisibilityKey = JSON.stringify(initialSettings.publicTabVisibility);
+    const initialMemberUpdates = initialSettings.memberUpdatesEnabled;
+    const initialFileUploadDefault = initialSettings.memberFileUploadDefault;
 
     useEffect(() => {
+        setVisibility(initialVisibility);
+        setPublicTabVisibility(initialSettings.publicTabVisibility);
+        setSavedVisibility(initialVisibility);
+        setSavedPublicTabVisibility(initialSettings.publicTabVisibility);
+        setMemberUpdatesEnabled(initialMemberUpdates);
+        setMemberFileUploadDefault(initialFileUploadDefault);
+    }, [initialVisibility, initialPublicTabVisibilityKey, initialMemberUpdates, initialFileUploadDefault]);
+
+    const initialRolesKey = JSON.stringify(initialRoles);
+    useEffect(() => {
+        if (rolesFormDirty || deletedRoleIds.length > 0) return;
         resetRolesForm(initialRoles);
         setDeletedRoleIds([]);
-    }, [initialRoles, resetRolesForm]);
+    }, [initialRolesKey, resetRolesForm]);
 
     useEffect(() => {
         collaboratorDataRef.current = collaboratorData;
@@ -469,9 +477,10 @@ export default function ProjectSettingsTab({
         removalReassignToUserIdRef.current = removalReassignToUserId;
     }, [removalReassignToUserId]);
 
+    const initialTitle = initialIdentity.title;
     useEffect(() => {
-        setProjectTitle(initialIdentity.title);
-    }, [initialIdentity]);
+        setProjectTitle(initialTitle);
+    }, [initialTitle]);
 
     useEffect(() => {
         const querySection = searchParams.get("settings") || searchParams.get("section");
@@ -586,6 +595,7 @@ export default function ProjectSettingsTab({
     const notificationDirty = JSON.stringify(projectNotificationDraft) !== JSON.stringify(projectNotificationData?.policy ?? buildDefaultProjectNotificationPolicy());
     const dangerPreflightLoadedRef = useRef(false);
     const loadDangerPreflight = useCallback(async (force = false, pending?: ReturnType<typeof getProjectDangerZonePreflightAction>) => {
+        if (!isProjectOwner) return;
         if (dangerPreflightLoadedRef.current && !force) return;
         setDangerPreflightLoading(true);
         try {
@@ -604,10 +614,11 @@ export default function ProjectSettingsTab({
         } finally {
             setDangerPreflightLoading(false);
         }
-    }, [projectId]);
+    }, [isProjectOwner, projectId]);
 
     const accessImpactLoadedRef = useRef(false);
     const loadAccessImpact = useCallback(async (force = false, pending?: ReturnType<typeof getProjectAccessImpactAction>) => {
+        if (!isProjectOwner) return;
         if (accessImpactLoadedRef.current && !force) return;
         setAccessImpactLoading(true);
         try {
@@ -626,9 +637,10 @@ export default function ProjectSettingsTab({
         } finally {
             setAccessImpactLoading(false);
         }
-    }, [projectId]);
+    }, [isProjectOwner, projectId]);
 
     const loadCollaborators = useCallback(async (mode: "initial" | "refresh" | "more" = "initial", pending?: ReturnType<typeof getProjectCollaboratorSettingsAction>) => {
+        const seq = ++collaboratorRequestSeqRef.current;
         const cursor = mode === "more" ? collaboratorDataRef.current?.nextCursor ?? undefined : undefined;
         if (mode === "refresh") {
             setCollaboratorRefreshing(true);
@@ -650,6 +662,7 @@ export default function ProjectSettingsTab({
                 query: collaboratorSearch,
                 roleFilter: collaboratorFilter,
             }));
+            if (seq !== collaboratorRequestSeqRef.current) return;
             if (!result.success) {
                 setCollaboratorData(null);
                 toast.error(result.message);
@@ -668,13 +681,16 @@ export default function ProjectSettingsTab({
                 };
             });
         } catch (error) {
+            if (seq !== collaboratorRequestSeqRef.current) return;
             console.error("Failed to load collaborators", error);
             setCollaboratorData(null);
             toast.error("Failed to load collaborators.");
         } finally {
-            setCollaboratorLoading(false);
-            setCollaboratorRefreshing(false);
-            setCollaboratorLoadingMore(false);
+            if (seq === collaboratorRequestSeqRef.current) {
+                setCollaboratorLoading(false);
+                setCollaboratorRefreshing(false);
+                setCollaboratorLoadingMore(false);
+            }
         }
     }, [collaboratorFilter, collaboratorSearch, projectId]);
 
@@ -836,22 +852,26 @@ export default function ProjectSettingsTab({
     };
 
     const handleAddSettingsRole = useCallback(() => {
+        if (!isProjectOwner) return;
         appendRole({ role: "New Role", count: 1, description: "", skills: [] });
-    }, [appendRole]);
+    }, [appendRole, isProjectOwner]);
 
     const handleRemoveSettingsRole = useCallback((index: number, roleId?: string) => {
+        if (!isProjectOwner) return;
         if (roleId) {
             setDeletedRoleIds((current) => current.includes(roleId) ? current : [...current, roleId]);
         }
         removeRole(index);
-    }, [removeRole]);
+    }, [isProjectOwner, removeRole]);
 
     const handleCancelRoles = useCallback(() => {
+        if (!isProjectOwner) return;
         resetRolesForm(initialRoles);
         setDeletedRoleIds([]);
-    }, [initialRoles, resetRolesForm]);
+    }, [initialRoles, isProjectOwner, resetRolesForm]);
 
     const handleSaveRoles = useCallback(() => {
+        if (!isProjectOwner) return;
         void handleRolesSubmit(
             async (values) => {
                 setSavingSettings(true);
@@ -884,9 +904,10 @@ export default function ProjectSettingsTab({
                 toast.error("Fix role fields before saving.");
             },
         )();
-    }, [deletedRoleIds, handleRolesSubmit, onProjectUpdated, projectId, resetRolesForm, router]);
+    }, [deletedRoleIds, handleRolesSubmit, isProjectOwner, onProjectUpdated, projectId, resetRolesForm, router]);
 
     const handleTogglePublicTab = useCallback(async (tabId: ProjectPublicTabId, enabled: boolean) => {
+        if (savingPublicTabId) return;
         const previous = publicTabVisibility;
         const next: ProjectPublicTabVisibility = {
             ...previous,
@@ -1241,6 +1262,7 @@ export default function ProjectSettingsTab({
     };
 
     const handleToggleMemberUpdates = async (enabled: boolean) => {
+        if (!isProjectOwner) return;
         const previous = memberUpdatesEnabled;
         setMemberUpdatesEnabled(enabled);
         setSavingMemberUpdates(true);
@@ -1268,6 +1290,7 @@ export default function ProjectSettingsTab({
 
     // Starting upload permission for members who join later (set at creation in step 4).
     const handleToggleMemberFileUploadDefault = async (enabled: boolean) => {
+        if (!isProjectOwner) return;
         const previous = memberFileUploadDefault;
         setMemberFileUploadDefault(enabled);
         setSavingMemberFileUploadDefault(true);
@@ -1344,7 +1367,7 @@ export default function ProjectSettingsTab({
                 toast.error(result.message);
                 return;
             }
-            await loadDangerPreflight();
+            await loadDangerPreflight(true);
             onProjectUpdated?.();
             setArchiveModalOpen(false);
             toast.success(result.message);
@@ -1365,7 +1388,7 @@ export default function ProjectSettingsTab({
                 return;
             }
             await loadCollaborators("refresh");
-            await loadDangerPreflight();
+            await loadDangerPreflight(true);
             onProjectUpdated?.();
             setTransferModalOpen(false);
             setSelectedTransferCandidate(null);
@@ -2132,35 +2155,41 @@ export default function ProjectSettingsTab({
                                 title="Project roles"
                                 description="Define open positions for collaborators, set target headcounts, and customize skill profiles for application intake."
                                 footer={
-                                    <>
-                                        <p className="nb-compact text-xs text-muted-foreground">
-                                            {rolesDirty
-                                                ? "You have unsaved changes in project roles."
-                                                : "All project roles are saved."}
+                                    !isProjectOwner ? (
+                                        <p className="nb-compact text-xs text-muted-foreground italic">
+                                            Only the owner can change this.
                                         </p>
-                                        <div className="flex items-center gap-3">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleCancelRoles}
-                                                disabled={!rolesDirty || savingSettings}
-                                                className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
-                                            >
-                                                Cancel
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                onClick={handleSaveRoles}
-                                                disabled={!rolesDirty || savingSettings}
-                                                className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
-                                            >
-                                                {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-                                                Save changes
-                                            </Button>
-                                        </div>
-                                    </>
+                                    ) : (
+                                        <>
+                                            <p className="nb-compact text-xs text-muted-foreground">
+                                                {rolesDirty
+                                                    ? "You have unsaved changes in project roles."
+                                                    : "All project roles are saved."}
+                                            </p>
+                                            <div className="flex items-center gap-3">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleCancelRoles}
+                                                    disabled={!rolesDirty || savingSettings}
+                                                    className="nb-touch-target h-[34px] rounded-[5px] border-border px-3.5 text-[13px] font-medium leading-[1.2] text-foreground hover:bg-muted"
+                                                >
+                                                    Cancel
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    onClick={handleSaveRoles}
+                                                    disabled={!rolesDirty || savingSettings}
+                                                    className="nb-touch-target h-[34px] rounded-[5px] px-3.5 text-[13px] font-medium leading-[1.2]"
+                                                >
+                                                    {savingSettings ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                                                    Save changes
+                                                </Button>
+                                            </div>
+                                        </>
+                                    )
                                 }
                             >
                                 <ProjectRolesEditor
@@ -2168,7 +2197,7 @@ export default function ProjectSettingsTab({
                                     register={registerRoles}
                                     control={rolesControl}
                                     errors={roleErrors}
-                                    disabled={savingSettings}
+                                    disabled={savingSettings || !isProjectOwner}
                                     onAddRole={handleAddSettingsRole}
                                     onRemoveRole={handleRemoveSettingsRole}
                                     members={collaboratorMembers}
@@ -2283,6 +2312,11 @@ export default function ProjectSettingsTab({
                                                 <p className="nb-compact mt-1 text-xs text-muted-foreground leading-relaxed">
                                                     When enabled, all verified project members can author and publish progress updates. When disabled, update authoring is restricted exclusively to the Project Owner and Co-leaders.
                                                 </p>
+                                                {!isProjectOwner ? (
+                                                    <p className="nb-compact mt-1 text-xs text-muted-foreground italic">
+                                                        Only the owner can change this.
+                                                    </p>
+                                                ) : null}
                                             </div>
                                             <div className="flex shrink-0 items-center gap-3">
                                                 <span className="nb-meta text-muted-foreground select-none w-6 text-right flex items-center justify-end">
@@ -2296,7 +2330,7 @@ export default function ProjectSettingsTab({
                                                 </span>
                                                 <SettingsSwitch
                                                     checked={memberUpdatesEnabled}
-                                                    disabled={savingMemberUpdates}
+                                                    disabled={savingMemberUpdates || !isProjectOwner}
                                                     aria-label="Allow members to post updates"
                                                     onCheckedChange={(checked) => void handleToggleMemberUpdates(checked)}
                                                 />
@@ -2317,6 +2351,7 @@ export default function ProjectSettingsTab({
                                 initialStages={project?.lifecycle_stages || project?.lifecycleStages || ["Concept", "MVP", "Launch"]}
                                 currentStageIndex={project?.current_stage_index ?? project?.currentStageIndex ?? 0}
                                 isSaving={savingLifecycle}
+                                isOwner={isProjectOwner}
                                 onSave={async (stages: string[], currentActiveStage: string) => {
                                     setSavingLifecycle(true);
                                     try {
@@ -2376,10 +2411,15 @@ export default function ProjectSettingsTab({
                                 <div className="min-w-0">
                                     <p className="nb-ui-label text-foreground">New members can upload files</p>
                                     <p className="nb-compact mt-1 text-muted-foreground">The starting upload permission for people who join. Existing members keep their own setting below.</p>
+                                    {!isProjectOwner ? (
+                                        <p className="nb-compact mt-1 text-xs text-muted-foreground italic">
+                                            Only the owner can change this.
+                                        </p>
+                                    ) : null}
                                 </div>
                                 <SettingsSwitch
                                     checked={memberFileUploadDefault}
-                                    disabled={savingMemberFileUploadDefault}
+                                    disabled={savingMemberFileUploadDefault || !isProjectOwner}
                                     aria-label="New members can upload files"
                                     onCheckedChange={(checked) => void handleToggleMemberFileUploadDefault(checked)}
                                 />
