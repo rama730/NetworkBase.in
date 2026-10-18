@@ -2,10 +2,9 @@ import "server-only";
 
 import type { User } from "@supabase/supabase-js";
 import { eq } from "drizzle-orm";
-import { cookies } from "next/headers";
 import { db } from "@/lib/db";
 import { profiles } from "@/lib/db/schema";
-import { hasOnboardingClaims, isCompletedOnboardingStatus, onboardingCompleteCookieName } from "@/lib/onboarding/state";
+import { hasOnboardingClaims, isCompletedOnboardingStatus } from "@/lib/onboarding/state";
 
 const COMPLETED_USERS_MAX = 10_000;
 const completedUsers = new Set<string>();
@@ -17,7 +16,6 @@ function rememberCompleted(userId: string) {
 
 export async function hasCompletedOnboarding(user: User) {
   if (completedUsers.has(user.id) || hasOnboardingClaims(user)) return true;
-  if ((await cookies()).get(onboardingCompleteCookieName(user.id))?.value === "true") return true;
 
   const [profile] = await db
     .select({ onboardingStatus: profiles.onboardingStatus, username: profiles.username })

@@ -42,6 +42,17 @@ type CachedJwksEntry = {
 
 const JWKS_MAX_BYTES = 256 * 1024
 const jwksCache = new Map<string, CachedJwksEntry>()
+const jwksInflight = new Map<string, Promise<JwksResponse>>()
+/** An unknown kid refreshes the key set at most this often, so forged kids cannot drive fetches. */
+const JWKS_UNKNOWN_KID_REFRESH_MIN_MS = 10_000
+
+/** The issuer's keys could not be read: unlike a bad signature, this says nothing about the token. */
+export class JwksUnavailableError extends Error {
+    constructor(message: string) {
+        super(message)
+        this.name = 'JwksUnavailableError'
+    }
+}
 
 function readTimeoutMsFromEnv(name: string, fallback: number) {
     const raw = process.env[name]
@@ -204,16 +215,27 @@ function getJwkImportAlgorithm(alg: string): any {
     }
 }
 
-async function fetchSupabaseJwks(): Promise<JwksResponse> {
-    const env = resolveSupabasePublicEnv('auth.snapshot')
-    const cacheKey = env.url.replace(/\/$/, '')
-    const cached = jwksCache.get(cacheKey)
-    const now = Date.now()
+function jwksCacheKey() {
+    return resolveSupabasePublicEnv('auth.snapshot').url.replace(/\/$/, '')
+}
 
-    if (cached && now - cached.fetchedAt < JWKS_CACHE_TTL_MS) {
+/** One fetch per cache key at a time; concurrent callers share it. */
+async function fetchSupabaseJwks(options: { refresh?: boolean } = {}): Promise<JwksResponse> {
+    const cacheKey = jwksCacheKey()
+    const cached = jwksCache.get(cacheKey)
+
+    if (!options.refresh && cached && Date.now() - cached.fetchedAt < JWKS_CACHE_TTL_MS) {
         return cached.value
     }
 
+    const inflight = jwksInflight.get(cacheKey)
+    if (inflight) return inflight
+    const request = loadSupabaseJwks(cacheKey).finally(() => jwksInflight.delete(cacheKey))
+    jwksInflight.set(cacheKey, request)
+    return request
+}
+
+async function loadSupabaseJwks(cacheKey: string): Promise<JwksResponse> {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), AUTH_SNAPSHOT_NETWORK_TIMEOUT_MS)
     let value: JwksResponse
@@ -223,28 +245,29 @@ async function fetchSupabaseJwks(): Promise<JwksResponse> {
             headers: {
                 'Accept': 'application/json',
             },
-            cache: 'force-cache',
+            // The TTL above is the only cache: a framework-level cache would pin a rotated-out key set.
+            cache: 'no-store',
             signal: controller.signal,
         })
         if (!response.ok) {
-            throw new Error(`Unable to fetch Supabase JWKS (${response.status})`)
+            throw new JwksUnavailableError(`Unable to fetch Supabase JWKS (${response.status})`)
         }
         // One deadline covers the headers and the body; the body is size-bounded.
         value = JSON.parse(new TextDecoder().decode((await readBoundedBody(response, JWKS_MAX_BYTES)).bytes)) as JwksResponse
     } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
-            throw new Error('Auth snapshot JWKS lookup timed out')
+            throw new JwksUnavailableError('Auth snapshot JWKS lookup timed out')
         }
-        throw error
+        throw error instanceof JwksUnavailableError ? error : new JwksUnavailableError(error instanceof Error ? error.message : 'JWKS lookup failed')
     } finally {
         clearTimeout(timeoutId)
     }
     if (!Array.isArray(value.keys) || value.keys.length === 0) {
-        throw new Error('Supabase JWKS response is empty')
+        throw new JwksUnavailableError('Supabase JWKS response is empty')
     }
 
     jwksCache.set(cacheKey, {
-        fetchedAt: now,
+        fetchedAt: Date.now(),
         value,
     })
 
@@ -259,8 +282,13 @@ async function verifyAsymmetricJwt(token: DecodedJwt) {
         throw new Error('JWT is missing signing metadata')
     }
 
-    const jwks = await fetchSupabaseJwks()
-    const jwk = jwks.keys.find((candidate) => (candidate as JsonWebKey & { kid?: string }).kid === kid)
+    const findKey = (set: JwksResponse) => set.keys.find((candidate) => (candidate as JsonWebKey & { kid?: string }).kid === kid)
+    let jwk = findKey(await fetchSupabaseJwks())
+    // AUTH-008: a key the cache has not seen is usually a rotation, so look once more, not more than
+    // once per cooldown.
+    if (!jwk && Date.now() - (jwksCache.get(jwksCacheKey())?.fetchedAt ?? 0) >= JWKS_UNKNOWN_KID_REFRESH_MIN_MS) {
+        jwk = findKey(await fetchSupabaseJwks({ refresh: true }))
+    }
     if (!jwk) {
         throw new Error(`Unable to find JWKS key for kid ${kid}`)
     }

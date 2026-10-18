@@ -10,10 +10,28 @@ import { logger } from "@/lib/logger";
 const ACCEPTANCE_RETENTION_YEARS = 3;
 const LEGAL_ACCEPTANCE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const LEGAL_ACCEPTANCE_CACHE_MAX_ENTRIES = 5000;
+// How long past its TTL a verified acceptance may keep a user in during a database outage.
+const LEGAL_ACCEPTANCE_OUTAGE_GRACE_MS = 15 * 60 * 1000;
 
 interface CachedAcceptance {
   accepted: boolean;
   expiresAt: number;
+  /** The document versions this entry was verified against. */
+  versions: string;
+}
+
+const CURRENT_VERSIONS_KEY = `${CURRENT_LEGAL_ACCEPTANCE.termsVersion}|${CURRENT_LEGAL_ACCEPTANCE.eulaVersion}|${CURRENT_LEGAL_ACCEPTANCE.privacyNoticeVersion}`;
+
+/** AUTH-014: a database outage may extend only a recent, current-version, verified acceptance. */
+export function acceptanceProvenDuringOutage(entry: CachedAcceptance | undefined, now = Date.now()) {
+  return Boolean(entry?.accepted && entry.versions === CURRENT_VERSIONS_KEY && now < entry.expiresAt + LEGAL_ACCEPTANCE_OUTAGE_GRACE_MS);
+}
+
+export class LegalAcceptanceUnavailableError extends Error {
+  constructor() {
+    super("Your legal acceptance could not be checked right now. Please try again.");
+    this.name = "LegalAcceptanceUnavailableError";
+  }
 }
 
 const legalAcceptanceCache = new Map<string, CachedAcceptance>();
@@ -39,6 +57,7 @@ export function setCachedLegalAcceptance(userId: string, accepted: boolean) {
   legalAcceptanceCache.set(userId, {
     accepted,
     expiresAt: Date.now() + LEGAL_ACCEPTANCE_CACHE_TTL_MS,
+    versions: CURRENT_VERSIONS_KEY,
   });
 }
 
@@ -137,9 +156,8 @@ export async function getLegalAcceptanceState(userId: string) {
       error: error instanceof Error ? error.message : String(error),
     });
 
-    const cached = legalAcceptanceCache.get(userId);
     return {
-      current: Boolean(cached?.accepted),
+      current: acceptanceProvenDuringOutage(legalAcceptanceCache.get(userId)),
       latest: null,
       versions: CURRENT_LEGAL_ACCEPTANCE,
     };
@@ -151,7 +169,7 @@ export async function hasCurrentLegalAcceptance(userId: string): Promise<boolean
 
   const now = Date.now();
   const cached = legalAcceptanceCache.get(userId);
-  if (cached && cached.expiresAt > now) {
+  if (cached && cached.expiresAt > now && cached.versions === CURRENT_VERSIONS_KEY) {
     return cached.accepted;
   }
 
@@ -186,16 +204,10 @@ export async function hasCurrentLegalAcceptance(userId: string): Promise<boolean
       error: error instanceof Error ? error.message : String(error),
     });
 
-    // Graceful fallback for transient DB blips / pooler disconnects:
-    // If user was previously verified (even within grace period), preserve access.
-    if (cached?.accepted) {
-      return true;
-    }
-
-    // On transient DB failure during cold start, do not crash the root layout
-    if (isTransientDbError(error)) {
-      return true;
-    }
+    // A transient blip keeps out nobody who was recently verified, and lets in nobody unknown:
+    // a cold user gets a retryable error instead of a pass.
+    if (acceptanceProvenDuringOutage(cached, now)) return true;
+    if (isTransientDbError(error)) throw new LegalAcceptanceUnavailableError();
 
     return false;
   }
