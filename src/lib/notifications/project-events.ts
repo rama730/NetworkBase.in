@@ -357,6 +357,7 @@ function buildProjectNotificationWrites(params: {
                 preview: previewFor(input, project),
                 dedupeKey: dedupeKeyFor(input, recipientUserId),
                 aggregateCount: input.aggregateCount ?? 1,
+                sourceEventId: input.sourceEventId ?? null,
             },
         });
     }
