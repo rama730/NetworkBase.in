@@ -13,7 +13,7 @@ import {
 } from '@/lib/routing/route-class'
 import { resolveSupabaseServerCookieOptions } from '@/lib/supabase/cookie-options'
 import { authBoundedFetch, resolveSupabasePublicEnv } from '@/lib/supabase/env'
-import { hasOnboardingClaims, onboardingCompleteCookieName } from '@/lib/onboarding/state'
+import { hasOnboardingClaims } from '@/lib/onboarding/state'
 
 const AUTH_DEGRADED_MODE_ENABLED = readBooleanFromEnv('AUTH_DEGRADED_MODE_ENABLED', true)
 const AUTH_COOKIE_MARKERS = ['auth-token', 'sb-access-token', 'sb-refresh-token']
@@ -237,7 +237,7 @@ export async function updateSession(request: NextRequest, options: UpdateSession
     }
 
     const url = request.nextUrl.clone()
-    if (user && (hasOnboardingClaims(user) || request.cookies.get(onboardingCompleteCookieName(user.id))?.value === 'true')) {
+    if (user && hasOnboardingClaims(user)) {
         onboardingComplete = true
     }
 
