@@ -84,18 +84,43 @@ function emitMetric(metric: string, payload: Record<string, unknown>) {
     console.info("[logger]", { level: 'info', msg: metric, ts: Date.now(), ...safeContext })
 }
 
+// Stacks and raw messages can carry secrets (SEC-011): stacks are opt-in outside production,
+// and the token, credential and query-string formats we know of are scrubbed from messages.
+function isStackLoggingEnabled() {
+    return process.env.NODE_ENV !== 'production' || process.env.LOG_ERROR_STACKS === '1'
+}
+
+const MESSAGE_SCRUBBERS: Array<[RegExp, string]> = [
+    [/eyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]*/g, '[JWT]'],
+    [/\bBearer\s+[\w.~+/=-]{8,}/gi, 'Bearer [REDACTED]'],
+    [/(\b[a-z][a-z\d+.-]*:\/\/)[^\s/@]+@/gi, '$1[REDACTED]@'],
+    [/(\bhttps?:\/\/[^\s?#]*)\?[^\s#]*/gi, '$1?[REDACTED]'],
+    [/\b((?:\w*(?:password|token|secret|apikey|api_key|authorization)\w*)\s*[=:]\s*)[^\s,;&"']+/gi, '$1[REDACTED]'],
+]
+
+export function scrubMessage(message: string) {
+    return MESSAGE_SCRUBBERS.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), message)
+}
+
 function sanitizeValue(key: string, value: unknown): unknown {
     if (REDACT_KEY_PATTERN.test(key)) return '[REDACTED]'
     if (typeof value === 'string') {
         const isMessageKey = key === 'error' || key === 'message' || key === 'msg' || key === 'reason' || key === 'failureReason';
         if (!isMessageKey && REDACT_KEY_PATTERN.test(value)) return '[REDACTED]'
-        return value.length > 500 ? `${value.slice(0, 497)}...` : value
+        const text = isMessageKey ? scrubMessage(value) : value
+        return text.length > 500 ? `${text.slice(0, 497)}...` : text
     }
     if (Array.isArray(value)) {
         return value.slice(0, 20).map((item) => sanitizeValue(key, item))
     }
     if (value instanceof Error) {
-        return { message: value.message, stack: value.stack, name: value.name }
+        const code = (value as { code?: unknown }).code
+        return {
+            name: value.name,
+            ...(typeof code === 'string' || typeof code === 'number' ? { code } : {}),
+            message: scrubMessage(value.message),
+            ...(isStackLoggingEnabled() ? { stack: scrubMessage(value.stack ?? '') } : {}),
+        }
     }
     if (value && typeof value === 'object') {
         const entries = Object.entries(value as Record<string, unknown>)
