@@ -94,10 +94,25 @@ function buildCsrfError(message: string) {
   );
 }
 
+const AUTH_COOKIE_MARKERS = ["auth-token", "sb-access-token", "sb-refresh-token"];
+
+/** True when the request carries a browser session cookie, i.e. credentials the browser attaches by itself. */
+function carriesAuthCookie(request: Request) {
+  for (const name of parseCookies(request.headers.get("cookie")).keys()) {
+    const lower = name.toLowerCase();
+    if (lower.includes("sb") && AUTH_COOKIE_MARKERS.some((marker) => lower.includes(marker))) return true;
+  }
+  return false;
+}
+
+/**
+ * Cookie-authenticated commands always pass origin and token checks. The only exemption is an extension
+ * device token on a request with no session cookie: nothing ambient exists to forge (SEC-001). A Bearer
+ * header alongside cookies, or any other bearer value, gets no exemption.
+ */
 export function validateCsrf(request: Request): NextResponse | null {
-  // SEC-C3: Bypass CSRF check for API clients using Bearer tokens
   const authHeader = request.headers.get("authorization")?.trim();
-  if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
+  if (authHeader && /^bearer nb_dev_/i.test(authHeader) && !carriesAuthCookie(request)) {
     return null;
   }
 
