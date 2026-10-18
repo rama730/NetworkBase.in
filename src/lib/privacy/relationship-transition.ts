@@ -3,30 +3,36 @@ import { connections, profiles } from "@/lib/db/schema";
 
 type Tx = any;
 
+// Same key as sendConnectionRequest, so connection changes and blocks on a pair serialize together.
+function lockPair(tx: Tx, a: string, b: string) {
+  return tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`connection-pair:${[a, b].sort().join(":")}`}, 0))`);
+}
+
 export async function replaceRelationshipWithBlockedState(
   tx: Tx,
   blockerId: string,
   blockedUserId: string,
   now: Date,
 ) {
-  // SEC-010: Check if an existing block row exists between this pair
-  const existingBlock = await tx
-    .select({ id: connections.id, status: connections.status, blockedBy: connections.blockedBy })
+  // SEC-010: one row per pair means one owner. A pair lock keeps two simultaneous blocks from
+  // both passing the check below. Whoever blocked first keeps the row; the second blocker gets
+  // the same success answer (a rejection would tell them they are blocked) and cannot remove it.
+  // ponytail: a reciprocal block is not stored; directional edges (DB-RESTRUCTURE-027) when needed.
+  await lockPair(tx, blockerId, blockedUserId);
+  const [existingBlock] = await tx
+    .select({ id: connections.id })
     .from(connections)
     .where(
-      or(
-        and(eq(connections.requesterId, blockerId), eq(connections.addresseeId, blockedUserId)),
-        and(eq(connections.requesterId, blockedUserId), eq(connections.addresseeId, blockerId)),
+      and(
+        eq(connections.status, "blocked"),
+        or(
+          and(eq(connections.requesterId, blockerId), eq(connections.addresseeId, blockedUserId)),
+          and(eq(connections.requesterId, blockedUserId), eq(connections.addresseeId, blockerId)),
+        ),
       ),
     )
     .limit(1);
-
-  if (existingBlock.length > 0 && existingBlock[0].status === "blocked") {
-    // If target has already blocked this user, preserve target's block row without deletion or overwrite.
-    if (existingBlock[0].blockedBy === blockedUserId || existingBlock[0].blockedBy === blockerId) {
-      return existingBlock[0].id;
-    }
-  }
+  if (existingBlock) return existingBlock.id;
 
   const deleted = await tx
     .delete(connections)
@@ -68,6 +74,7 @@ export async function clearBlockedRelationshipState(
   blockerId: string,
   blockedUserId: string,
 ) {
+  await lockPair(tx, blockerId, blockedUserId);
   await tx
     .delete(connections)
     .where(
