@@ -7,8 +7,7 @@ import { createCsrfFetch } from "@/lib/security/csrf-client";
 const SecurityRuntimeContext = createContext<{ nonce: string | null }>({ nonce: null });
 const FETCH_PATCH_SYMBOL = Symbol.for("networkbase.security.fetch.patch");
 
-function isSameOriginRequest(input: RequestInfo | URL) {
-  const currentOrigin = window.location.origin;
+export function isSameOriginRequest(input: RequestInfo | URL, currentOrigin = window.location.origin) {
   const rawUrl = typeof input === "string"
     ? input
     : input instanceof URL
@@ -16,8 +15,6 @@ function isSameOriginRequest(input: RequestInfo | URL) {
       : input instanceof Request
         ? input.url
         : String(input);
-
-  if (rawUrl.startsWith("/")) return true;
 
   try {
     return new URL(rawUrl, currentOrigin).origin === currentOrigin;
@@ -42,7 +39,7 @@ export function SecurityRuntimeProvider({
     }
     const originalFetch = target[FETCH_PATCH_SYMBOL]!;
 
-    window.fetch = createCsrfFetch(originalFetch, isSameOriginRequest);
+    window.fetch = createCsrfFetch(originalFetch, (input) => isSameOriginRequest(input));
 
     return () => {
       window.fetch = originalFetch;
