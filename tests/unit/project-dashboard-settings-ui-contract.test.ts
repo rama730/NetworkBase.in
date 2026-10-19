@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { getJourneyCenteredScrollLeft, getJourneyStageWindow, getStageCompletionTooltip, JOURNEY_VISIBLE_STAGE_COUNT } from "../../src/components/projects/dashboard/JourneyTimeline";
+import { projectActionsSource } from "./_project-actions-source";
 
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -119,7 +120,7 @@ test("completed journey stages always have an honest hover label", () => {
 });
 
 test("journey stage transitions record all crossed stages and lifecycle edits remap dates", () => {
-  const actions = source("src/app/actions/project/index.ts");
+  const actions = projectActionsSource();
 
   assert.match(actions, /currentStageIndex: projects\.currentStageIndex/);
   assert.match(actions, /stageCompletionDates: projects\.stageCompletionDates/);

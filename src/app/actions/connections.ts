@@ -25,6 +25,7 @@ import {
 import { queueCounterRefreshBestEffort } from '@/lib/workspace/counter-buffer';
 import { recordPrivacyReadEvents } from '@/lib/privacy/audit';
 import { buildViewerScopedProfileView } from '@/lib/privacy/profile-views';
+import { visibleLastActiveAt } from '@/lib/presence/sql';
 import {
     resolvePrivacyRelationship,
     resolvePrivacyRelationships,
@@ -734,7 +735,7 @@ async function getConnectionsFeedImpl(
                 bio: sql<string | null>`null`,
                 messagePrivacy: profiles.messagePrivacy,
                 openTo: profiles.openTo,
-                lastActiveAt: profiles.lastActiveAt,
+                lastActiveAt: visibleLastActiveAt(user.id),
             })
             .from(connections)
             .innerJoin(
@@ -903,7 +904,7 @@ async function getConnectionsFeedImpl(
                 interests: profiles.interests,
                 openTo: profiles.openTo,
                 messagePrivacy: profiles.messagePrivacy,
-                lastActiveAt: profiles.lastActiveAt,
+                lastActiveAt: visibleLastActiveAt(user.id),
             })
             .from(connections)
             .innerJoin(profiles, profileJoinCondition)
@@ -1104,7 +1105,7 @@ async function getConnectionsFeedImpl(
             messagePrivacy: profiles.messagePrivacy,
             connectionPrivacy: profiles.connectionPrivacy,
             experienceLevel: profiles.experienceLevel,
-            lastActiveAt: profiles.lastActiveAt,
+            lastActiveAt: visibleLastActiveAt(user.id),
             skills: profiles.skills,
             interests: profiles.interests,
             openTo: profiles.openTo,
@@ -1222,7 +1223,7 @@ async function getConnectionsFeedImpl(
                 messagePrivacy: profiles.messagePrivacy,
                 connectionPrivacy: profiles.connectionPrivacy,
                 experienceLevel: profiles.experienceLevel,
-                lastActiveAt: profiles.lastActiveAt,
+                lastActiveAt: visibleLastActiveAt(user.id),
                 skills: profiles.skills,
                 interests: profiles.interests,
                 openTo: profiles.openTo,

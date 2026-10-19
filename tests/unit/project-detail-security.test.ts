@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import { updateProjectSchema } from "@/lib/validations/project";
+import { projectActionsSource } from "./_project-actions-source";
 
 describe("updateProject input", () => {
   it("accepts the modal and settings payloads", () => {
@@ -36,7 +37,7 @@ describe("project detail security wiring", () => {
   });
 
   it("private projects expire their public shell and metadata at once", () => {
-    const actions = read("src/app/actions/project/index.ts");
+    const actions = projectActionsSource();
     assert.doesNotMatch(actions, /PUBLIC_PROJECT_DETAIL_(SHELL|METADATA)_CACHE_TAG, "max"/);
   });
 

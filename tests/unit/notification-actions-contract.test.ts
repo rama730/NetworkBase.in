@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import { projectActionsSource } from "./_project-actions-source";
 
 function readProjectFile(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
@@ -81,6 +82,13 @@ test('every user-visible project notification preference has a concrete source t
     const policy = readProjectFile('src/lib/notifications/project-policy.ts');
     const sourceFiles = [
         'src/app/actions/project/index.ts',
+        'src/lib/projects/server/common.ts',
+        'src/lib/projects/server/detail.ts',
+        'src/lib/projects/server/lifecycle.ts',
+        'src/lib/projects/server/access.ts',
+        'src/lib/projects/server/settings.ts',
+        'src/lib/projects/server/tasks.ts',
+        'src/lib/projects/server/sprints.ts',
         'src/app/actions/task.ts',
         'src/app/actions/task-comment.ts',
         'src/app/actions/project/doc.ts',
@@ -106,7 +114,7 @@ test('every user-visible project notification preference has a concrete source t
 test('normal and collaborator-removal assignments use the canonical activity and notification flow', () => {
     const actions = readProjectFile('src/app/actions/task.ts');
     const lifecycle = readProjectFile('src/lib/projects/collaborator-lifecycle.ts');
-    const projectActions = readProjectFile('src/app/actions/project/index.ts');
+    const projectActions = projectActionsSource();
     const assignment = readProjectFile('src/lib/projects/task-assignment.ts');
     for (const source of [actions, lifecycle]) {
         assert.match(source, /await recordTaskAssignment\(/);

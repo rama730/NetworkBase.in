@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
 const links = read("src/app/actions/files/links.ts");
 const mutations = read("src/hooks/useTaskFileMutations.ts");
-const projectActions = read("src/app/actions/project/index.ts");
+const projectActions = projectActionsSource();
 
 test("task links default to references and unlink never deletes the project node", () => {
   const unlink = links.slice(links.indexOf("export async function unlinkNodeFromTask"), links.indexOf("export async function getTaskAttachments"));

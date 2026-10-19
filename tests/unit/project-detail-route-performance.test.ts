@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 const source = (relativePath: string) =>
   readFileSync(path.join(process.cwd(), relativePath), "utf8");
@@ -26,7 +27,7 @@ test("project cards use one native route-prefetch path", () => {
 
 test("project detail defers and deduplicates optional work", () => {
   const dashboard = source("src/components/projects/dashboard/ProjectDashboardClient.tsx");
-  const actions = source("src/app/actions/project/index.ts");
+  const actions = projectActionsSource();
 
   assert.match(dashboard, /const guidance = \(project as \{ guidance\?: unknown \}\)\.guidance \?\? null/);
   assert.match(actions, /const \[ownerRows, followersResult, membersResult, rolesResult, readmeRows, guidanceRows\] =/);
@@ -36,7 +37,7 @@ test("project detail defers and deduplicates optional work", () => {
 });
 
 test("project shell overlaps independent enrichment reads and records its latency", () => {
-  const actions = source("src/app/actions/project/index.ts");
+  const actions = projectActionsSource();
 
   assert.match(actions, /const \[acceptedRoleRows, ownerRelationship\] = await Promise\.all\(/);
   assert.match(actions, /logger\.metric\("project\.detail\.shell\.data"/);

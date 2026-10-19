@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { projectActionsSource } from "./_project-actions-source";
 
 const ROOT = process.cwd();
 
@@ -38,7 +39,7 @@ test("Domain A: Pruned 13 redundant indexes from schema/index.ts", () => {
 });
 
 test("Domain B: task search matches title, description and key inside one project", () => {
-  const actionsContent = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
+  const actionsContent = projectActionsSource();
 
   // Spec: search covers the description too. The scan stays bounded by the project_id predicate.
   assert.match(actionsContent, /ilike\(t\.title,\s*searchPattern\),\s*ilike\(t\.description,\s*searchPattern\)/);
@@ -46,13 +47,13 @@ test("Domain B: task search matches title, description and key inside one projec
 });
 
 test("Domain B: fetchProjectTasksForActor skips 4-table count CTE when surface is preview", () => {
-  const actionsContent = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
+  const actionsContent = projectActionsSource();
 
   assert.match(actionsContent, /const countRows = taskIds\.length === 0 \|\| surface === "preview"/);
 });
 
 test("Domain B: resolveProjectDetailTarget joins owner profile to eliminate shell waterfall", () => {
-  const actionsContent = readFileSync(resolve(ROOT, "src/app/actions/project/index.ts"), "utf-8");
+  const actionsContent = projectActionsSource();
 
   assert.match(actionsContent, /alias\(profiles,\s*"project_detail_owner_profiles"\)/);
   assert.match(actionsContent, /prefetchedOwner\?:/);

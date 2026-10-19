@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { createProjectSchema } from '../../src/lib/validations/project';
+import { projectActionsSource } from "./_project-actions-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
@@ -57,7 +58,7 @@ test('Phase 4 blocks unfinished link work and carries launch settings into revie
 });
 
 test('creation derives recruiting and open-role counts from valid submitted roles', () => {
-    const action = source('src/app/actions/project/index.ts');
+    const action = projectActionsSource();
 
     assert.match(action, /const openRoles = \(input\.roles \|\| \[\]\)\.filter/);
     assert.match(action, /const lookingForCollaborators = openRoles\.length > 0/);

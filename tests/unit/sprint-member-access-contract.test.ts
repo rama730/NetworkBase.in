@@ -2,15 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
-const projectActionsSource = fs.readFileSync(
-  path.join(process.cwd(), "src/app/actions/project/index.ts"),
-  "utf8",
-);
-const projectActionsBarrelSource = fs.readFileSync(
-  path.join(process.cwd(), "src/app/actions/project/index.ts"),
-  "utf8",
-);
+const projectActionsText = projectActionsSource();
+const projectActionsBarrelSource = projectActionsSource();
 const sprintDataHookSource = fs.readFileSync(
   path.join(process.cwd(), "src/hooks/projects/useProjectTasksData.ts"),
   "utf8",
@@ -19,7 +14,7 @@ const sprintDataHookSource = fs.readFileSync(
 describe("sprint member access contract", () => {
   it("resolves server-rendered sprint detail with the current actor", () => {
     assert.match(
-      projectActionsSource,
+      projectActionsText,
       /resolveProjectDetailTarget\(\s*input\.slugOrId,\s*input\.actorUserId\s*\?\?\s*null,?\s*\)/,
       "readProjectSprintDetail must pass actorUserId so project membership is included in the project lookup",
     );
@@ -27,7 +22,7 @@ describe("sprint member access contract", () => {
 
   it("exports the authenticated sprint detail action for client refetches", () => {
     assert.match(
-      projectActionsSource,
+      projectActionsText,
       /export async function fetchProjectSprintDetailAction\(input:\s*\{\s*projectId:\s*string;/s,
       "the authenticated project-id action should exist for client sprint detail queries",
     );
