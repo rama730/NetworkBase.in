@@ -9,6 +9,7 @@ import {
     buildDefaultProjectNotificationPolicy,
 } from '../../src/lib/notifications/project-policy';
 import { createProjectSchema } from '../../src/lib/validations/project';
+import { projectActionsSource } from "./_project-actions-source";
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
@@ -40,7 +41,7 @@ test('launch settings parse with Project settings defaults when untouched', () =
 });
 
 test('create saves every step 4 setting; new members inherit the upload default', () => {
-    const action = read('src/app/actions/project/index.ts');
+    const action = projectActionsSource();
     assert.match(action, /publicTabVisibility: normalizeProjectPublicTabVisibility\(input\.public_tab_visibility\)/);
     assert.match(action, /memberUpdatesEnabled: input\.member_updates_enabled !== false/);
     assert.match(action, /memberFileUploadDefault: input\.member_file_upload_default !== false/);

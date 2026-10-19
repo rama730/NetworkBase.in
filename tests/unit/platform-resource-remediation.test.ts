@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import { isPrivateRealtimeAuthorizationEnabled } from "../../src/lib/realtime/authorization";
+import { projectActionsSource } from "./_project-actions-source";
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
@@ -95,7 +96,7 @@ test("project-file reconciliation quarantines path-correlated objects pending pr
 });
 
 test("compatibility and typing behavior have one exact owner", () => {
-  const projects = read("src/app/actions/project/index.ts");
+  const projects = projectActionsSource();
   const avatars = read("src/lib/services/avatar-service.ts");
 
   // The follow catch returns the failure; the pre-counter fallback is gone (followers_count is NOT NULL in every migrated database).

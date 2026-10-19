@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { projectActionsSource } from "./_project-actions-source";
 
 function source(relativePath: string) {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
 const schema = source("src/lib/db/schema/index.ts");
-const projectActions = source("src/app/actions/project/index.ts");
+const projectActions = projectActionsSource();
 const taskActions = source("src/app/actions/task.ts");
 const migration = source("drizzle/0149_sprint_lifecycle_memberships.sql");
 

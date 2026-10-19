@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, it } from 'node:test'
+import { projectActionsSource } from "./_project-actions-source";
 
 function source(relativePath: string) {
     return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8')
@@ -48,7 +49,7 @@ describe('skills ecosystem contract', () => {
         const service = source('src/lib/skills/service.ts')
         const profile = source('src/app/actions/profile.ts')
         const onboarding = source('src/app/actions/onboarding.ts')
-        const project = source('src/app/actions/project/index.ts')
+        const project = projectActionsSource()
         const collaboration = source('src/lib/profile/collaboration.ts')
 
         for (const functionName of ['syncProfileSkills', 'syncProjectSkills', 'syncRoleSkills', 'syncContributionSkills']) {

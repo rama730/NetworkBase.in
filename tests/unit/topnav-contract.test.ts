@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { settingsTabHref } from "@/constants/routes";
+import { projectActionsSource } from "./_project-actions-source";
 import {
   buildGlobalSearchClearHref,
   buildGlobalSearchHref,
@@ -193,7 +194,7 @@ test("top-nav keeps one accessible, route-aligned implementation", () => {
   const people = source("src/components/network/NetworkClient.tsx");
   const discoverPeople = source("src/components/network/NetworkPeopleTab.tsx");
   const networkPeople = source("src/components/network/ConnectionsClient.tsx");
-  const taskAction = source("src/app/actions/project/index.ts");
+  const taskAction = projectActionsSource();
   const commandPalette = source("src/components/layout/header/CommandPalette.tsx");
   const globalSearch = source("src/components/layout/header/GlobalSearch.tsx");
   const globalSearchContract = source("src/components/layout/header/global-search.ts");
