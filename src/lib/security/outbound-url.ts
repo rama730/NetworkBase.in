@@ -1,5 +1,8 @@
 import { lookup as dnsLookup } from "node:dns/promises";
+import http from "node:http";
+import https from "node:https";
 import net from "node:net";
+import { Readable } from "node:stream";
 
 export { readBoundedBody } from "@/lib/security/bounded-body";
 // @ts-expect-error Next bundles ipaddr.js without public type declarations.
@@ -118,7 +121,8 @@ async function defaultResolveAddresses(hostname: string) {
   return records.map((record) => record.address);
 }
 
-export async function assertPublicNetworkUrl(
+/** Validates a URL and returns the public addresses its host resolved to. */
+export async function resolvePublicTarget(
   rawUrl: string | URL,
   options: {
     resolveAddresses?: ResolveAddresses;
@@ -147,7 +151,56 @@ export async function assertPublicNetworkUrl(
     throw new UnsafeOutboundUrlError("Local or private network addresses are not allowed");
   }
 
-  return url;
+  return { url, addresses };
+}
+
+export async function assertPublicNetworkUrl(rawUrl: string | URL, options: Parameters<typeof resolvePublicTarget>[1] = {}) {
+  return (await resolvePublicTarget(rawUrl, options)).url;
+}
+
+/**
+ * SEC-006: the one egress transport. It connects only to the addresses that were validated, so a
+ * second DNS answer (rebinding) cannot redirect the connection. TLS and the Host header still use the
+ * URL's hostname. Bodies are strings or bytes; redirects are returned, never followed.
+ */
+export function fetchPinnedToAddresses(url: URL, init: RequestInit, addresses: readonly string[]): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const body = init.body;
+    if (body != null && typeof body !== "string" && !(body instanceof Uint8Array)) {
+      reject(new UnsafeOutboundUrlError("Unsupported request body"));
+      return;
+    }
+    const headers = new Headers(init.headers);
+    if (!headers.has("accept-encoding")) headers.set("accept-encoding", "identity"); // no transparent decompression here
+    const targets = addresses.map((address) => ({ address, family: net.isIP(address) }));
+    const lookup: net.LookupFunction = (_hostname, options, callback) => {
+      if (options.all) (callback as unknown as (error: null, all: typeof targets) => void)(null, targets);
+      else callback(null, targets[0]!.address, targets[0]!.family);
+    };
+    const method = init.method ?? "GET";
+    const request = (url.protocol === "https:" ? https : http).request(url, {
+      method,
+      headers: Object.fromEntries(headers),
+      signal: init.signal ?? undefined,
+      lookup,
+    }, (res) => {
+      const responseHeaders = new Headers();
+      for (const [name, value] of Object.entries(res.headers)) {
+        if (Array.isArray(value)) value.forEach((entry) => responseHeaders.append(name, entry));
+        else if (value !== undefined) responseHeaders.set(name, value);
+      }
+      const status = res.statusCode ?? 502;
+      const empty = method === "HEAD" || status === 204 || status === 205 || status === 304;
+      if (empty) res.resume();
+      resolve(new Response(empty ? null : (Readable.toWeb(res) as unknown as ReadableStream), {
+        status,
+        statusText: res.statusMessage,
+        headers: responseHeaders,
+      }));
+    });
+    request.on("error", reject);
+    request.end(body ?? undefined);
+  });
 }
 
 /**
@@ -167,7 +220,6 @@ export async function fetchPublicUrlWithRedirectValidation(
     resolveAddresses?: ResolveAddresses;
   },
 ) {
-  const fetchImpl = input.fetchImpl ?? fetch;
   const timeoutMs = Math.max(250, input.timeoutMs ?? 5_000);
   const maxRedirects = Math.max(0, Math.min(input.maxRedirects ?? 3, 5));
 
@@ -194,20 +246,20 @@ export async function fetchPublicUrlWithRedirectValidation(
 
   try {
     const assertHop = async (target: string | URL) => {
-      const checked = await assertPublicNetworkUrl(target, { resolveAddresses: input.resolveAddresses });
-      if (input.allowedHosts && !input.allowedHosts.includes(checked.hostname.toLowerCase())) {
+      const checked = await resolvePublicTarget(target, { resolveAddresses: input.resolveAddresses });
+      if (input.allowedHosts && !input.allowedHosts.includes(checked.url.hostname.toLowerCase())) {
         throw new UnsafeOutboundUrlError("Host is not allowed for this provider");
       }
       return checked;
     };
-    let currentUrl = await assertHop(input.url);
+    let hop = await assertHop(input.url);
+    let currentUrl = hop.url;
 
     for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
-      const response = await fetchImpl(currentUrl, {
-        ...input.init,
-        redirect: "manual",
-        signal: requestSignal,
-      });
+      const init = { ...input.init, redirect: "manual" as const, signal: requestSignal };
+      const response = input.fetchImpl
+        ? await input.fetchImpl(currentUrl, init)
+        : await fetchPinnedToAddresses(currentUrl, init, hop.addresses);
 
       const location = response.headers.get("location");
       const isRedirect = response.status >= 300 && response.status < 400 && Boolean(location);
@@ -219,7 +271,8 @@ export async function fetchPublicUrlWithRedirectValidation(
         throw new UnsafeOutboundUrlError("Too many redirects");
       }
 
-      currentUrl = await assertHop(new URL(location!, currentUrl));
+      hop = await assertHop(new URL(location!, currentUrl));
+      currentUrl = hop.url;
     }
 
     throw new UnsafeOutboundUrlError("Too many redirects");
