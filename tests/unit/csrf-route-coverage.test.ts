@@ -6,6 +6,7 @@ import test from "node:test";
 const API_V1_ROOT = path.resolve(process.cwd(), "src/app/api/v1");
 const EXEMPT_MUTATING_ROUTES = new Set([
   path.resolve(API_V1_ROOT, "webhooks/github/route.ts"),
+  path.resolve(API_V1_ROOT, "webhooks/resend/route.ts"),
   path.resolve(API_V1_ROOT, "extension/auth-code/route.ts"),
 ]);
 
@@ -33,6 +34,13 @@ test("mutating API v1 routes require CSRF validation unless explicitly exempted"
       if (filePath.endsWith("extension/auth-code/route.ts")) {
         assert.match(source, /csrfProtection = "one-time-code-and-state"/);
         assert.match(source, /timingSafeEqual/);
+      }
+      if (filePath.endsWith("webhooks/resend/route.ts")) {
+        // Provider callbacks have no browser session/CSRF token. Their raw
+        // payload must pass signature verification before any persistence.
+        assert.match(source, /verifyResendEvent\(Buffer\.concat\(chunks\)/);
+        assert.ok(source.indexOf("verified = verifyResendEvent") < source.indexOf("await recordResendEvent"));
+        assert.match(fs.readFileSync(path.resolve("src/lib/email/contracts.ts"), "utf8"), /new Webhook\(secret\)\.verify\(raw, headers\)/);
       }
       continue;
     }

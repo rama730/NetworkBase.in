@@ -64,6 +64,7 @@ test("getRegisteredInngestFunctions returns the expected worker function entries
   const functionIds = inngestFunctionIds(functions);
 
   assert.equal(functions.length, functionIds.length);
+  assert.ok(functionIds.some((id) => id.endsWith("email-outbox-delivery")), "mail recovery must register on the existing worker");
   assert.deepEqual(functionIds, inngestFunctionIds(getRegisteredInngestFunctions("worker")));
 });
 

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny-ps" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>NetworkBase</title>
+  <rect width="1024" height="1024" rx="225.28" fill="#FAF8F4"/>
+  <rect x="348.16" y="348.16" width="327.68" height="327.68" rx="15.4" fill="#D14E24"/>
+</svg>

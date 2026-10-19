@@ -209,11 +209,23 @@ test.describe('Onboarding smoke', () => {
         await page.getByText('React', { exact: true }).click()
         await page.getByRole('button', { name: 'Continue' }).click()
         await page.getByText('Everyone', { exact: true }).click()
-        await page.getByRole('button', { name: 'Complete setup' }).click()
+        await page.getByRole('button', { name: 'Finish profile' }).click()
 
         await expect
             .poll(() => new URL(page.url()).pathname, { timeout: 45000 })
             .toBe('/discover')
+
+        const saved = await adminClient().from('profiles')
+            .select('username, full_name, onboarding_status, avatar_url').eq('email', email).single()
+        expect(saved.error).toBeNull()
+        expect(saved.data?.username).toBe(username)
+        expect(saved.data?.full_name).toBe('Onboarding Happy User')
+        expect(saved.data?.onboarding_status).toBe('completed')
+        const avatar = page.getByRole('button', { name: 'User menu' }).locator('[data-slot="user-avatar"]')
+        await expect(avatar).toBeVisible()
+        await expect(avatar).toHaveAttribute('title', 'Onboarding Happy User')
+        // An uploaded/provider image or the existing initials fallback must survive navigation.
+        await expect(avatar.locator('img, [data-avatar-tone]')).toBeVisible()
 
         await monitor.assertNoViolations()
         monitor.detach()
@@ -380,7 +392,7 @@ test.describe('Onboarding smoke', () => {
         await page.getByText('React', { exact: true }).click()
         await page.getByRole('button', { name: 'Continue' }).click()
 
-        const submitButton = page.getByRole('button', { name: 'Complete setup' })
+        const submitButton = page.getByRole('button', { name: 'Finish profile' })
         await submitButton.dblclick()
 
         await expect

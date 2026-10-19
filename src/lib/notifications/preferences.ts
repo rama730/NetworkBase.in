@@ -16,6 +16,7 @@ const DEFAULT_QUIET_HOURS: NotificationQuietHours = {
 const DEFAULT_DELIVERY: NotificationDeliveryPreferences = {
     browser: false,
     push: false,
+    email: true,
 };
 
 function normalizeDelivery(value: unknown): NotificationDeliveryPreferences {
@@ -24,6 +25,7 @@ function normalizeDelivery(value: unknown): NotificationDeliveryPreferences {
     return {
         browser: typeof candidate.browser === "boolean" ? candidate.browser : DEFAULT_DELIVERY.browser,
         push: typeof candidate.push === "boolean" ? candidate.push : DEFAULT_DELIVERY.push,
+        email: typeof candidate.email === "boolean" ? candidate.email : DEFAULT_DELIVERY.email,
     };
 }
 

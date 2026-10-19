@@ -12,6 +12,7 @@ import { MobileProgressBar } from '@/components/onboarding/MobileProgressBar'
 import { StepHeader } from '@/components/onboarding/StepHeader'
 import { StepFooter } from '@/components/onboarding/StepFooter'
 import { StepTransition, prefersReducedMotion } from '@/components/onboarding/StepTransition'
+import { BrandMark } from '@/components/brand/BrandMark'
 import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 
@@ -320,6 +321,7 @@ export default function OnboardingPage() {
     const [isInitializing, setIsInitializing] = useState(false)
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
     const [isDetectingLocation, setIsDetectingLocation] = useState(false)
+    const [isWelcomeTransitioning, setIsWelcomeTransitioning] = useState(false)
     const [avatarStatus, setAvatarStatus] = useState<string | null>(null)
     const [locationError, setLocationError] = useState<string | null>(null)
     const bootstrapHydratedRef = useRef(false)
@@ -877,8 +879,9 @@ export default function OnboardingPage() {
                     totalOnboardingMs: Date.now() - onboardingStartedAtRef.current,
                 },
             })
+            setIsWelcomeTransitioning(true)
             if (!prefersReducedMotion()) {
-                await new Promise((resolve) => window.setTimeout(resolve, 160))
+                await new Promise((resolve) => window.setTimeout(resolve, 1400))
             }
             window.location.replace(getOnboardingReturnPath())
 
@@ -956,6 +959,109 @@ export default function OnboardingPage() {
                 <div className="flex min-h-[50vh] items-center justify-center" aria-busy="true">
                     <span className="sr-only">Loading your saved onboarding draft.</span>
                     <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+                </div>
+            </OnboardingLayout>
+        )
+    }
+
+    if (isWelcomeTransitioning) {
+        return (
+            <OnboardingLayout
+                sidebar={
+                    <OnboardingSidebar
+                        currentStep={TOTAL_STEPS}
+                        totalSteps={TOTAL_STEPS}
+                        stepLabels={sidebarStepLabels}
+                        completedSteps={new Set([1, 2, 3, 4])}
+                        justCompletedStep={TOTAL_STEPS}
+                    />
+                }
+                mobileProgress={
+                    <MobileProgressBar
+                        currentStep={TOTAL_STEPS}
+                        totalSteps={TOTAL_STEPS}
+                        stepLabels={mobileStepLabels}
+                        completedThrough={TOTAL_STEPS}
+                        justCompletedStep={TOTAL_STEPS}
+                    />
+                }
+            >
+                <div className="flex flex-col items-center text-center animate-in fade-in-50 duration-500 py-6 sm:py-10">
+                    {/* Brand header */}
+                    <div className="mb-6 flex items-center justify-center">
+                        <BrandMark size={17} trademark />
+                    </div>
+
+                    {/* Member Profile Squircle Lockup */}
+                    <div className="mb-6 flex flex-col items-center">
+                        <div className="size-16 rounded-md overflow-hidden bg-muted flex items-center justify-center shadow-sm border border-border/60">
+                            {data.avatarUrl ? (
+                                <img
+                                    src={data.avatarUrl}
+                                    alt={data.fullName}
+                                    className="size-full object-cover rounded-md"
+                                />
+                            ) : (
+                                <div className="size-full flex items-center justify-center bg-amber-100 text-amber-900 font-bold text-lg rounded-md">
+                                    {(data.fullName || data.username || 'U').slice(0, 2).toUpperCase()}
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Member Profile
+                        </div>
+                        <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                            Welcome to NetworkBase, {data.fullName}!
+                        </h1>
+                        <p className="mt-1 text-sm font-medium text-muted-foreground">
+                            @{data.username}
+                        </p>
+                        {data.headline ? (
+                            <p className="mt-1 max-w-md text-xs text-muted-foreground/80">
+                                {data.headline}
+                            </p>
+                        ) : null}
+                    </div>
+
+                    {/* Welcome Text — Aligned verbatim with email */}
+                    <div className="max-w-md rounded-lg border border-border/60 bg-card p-4 sm:p-5 text-left mb-6 shadow-sm">
+                        <p className="text-sm leading-relaxed text-foreground/90">
+                            Your profile is live. Connect with developers, collaborate on projects, and manage tasks seamlessly across your workspace.
+                        </p>
+                        {data.skills.length > 0 ? (
+                            <div className="mt-3 flex flex-wrap gap-1.5 pt-3 border-t border-border/40">
+                                {data.skills.slice(0, 5).map((skill) => (
+                                    <span
+                                        key={skill}
+                                        className="rounded-[4px] bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground/80"
+                                    >
+                                        {skill}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : null}
+                    </div>
+
+                    {/* Transition state indicator + Direct jump affordance */}
+                    <div className="flex flex-col items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => window.location.replace(getOnboardingReturnPath())}
+                            className="inline-flex items-center justify-center rounded-md bg-[#C24720] px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#b03f1b] transition-colors"
+                        >
+                            Explore Projects &rarr;
+                        </button>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="size-3.5 animate-spin text-[#C24720]" />
+                            <span>Transitioning to Discovery feed...</span>
+                        </div>
+                        <p className="mt-4 text-xs text-muted-foreground/80">
+                            A welcome briefing has been delivered to your inbox from <code className="font-mono text-foreground">welcome@networkbase.in</code>
+                        </p>
+                        <p className="mt-1.5 text-[11px] text-muted-foreground/60">
+                            © {new Date().getFullYear()} NetworkBase™ · All rights reserved.
+                        </p>
+                    </div>
                 </div>
             </OnboardingLayout>
         )

@@ -8,6 +8,7 @@ export const LEGAL_VERSIONS = {
   copyright: "2026-09-04",
   grievances: "2026-09-04",
   security: "2026-09-04",
+  support: "2026-09-04",
   dpa: "2026-09-04",
   openSource: "2026-09-04",
 } as const;

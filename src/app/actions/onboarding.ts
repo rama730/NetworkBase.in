@@ -41,6 +41,7 @@ import { syncProfileSkills } from '@/lib/skills/service'
 import { getRolePreferences } from '@/lib/profile/role-preferences'
 import { ensureProfileShell } from '@/lib/services/profile-service'
 import { enqueueSupersededProfileImages } from '@/lib/profile/image-cleanup'
+import { queueEmail, wakeEmailWorker } from '@/lib/email/outbox'
 
 const ONBOARDING_COMPLETE_LIMIT = 10
 const ONBOARDING_COMPLETE_WINDOW_SECONDS = 60
@@ -631,6 +632,7 @@ export async function completeOnboarding(
                 columns: {
                     username: true,
                     avatarUrl: true,
+                    onboardingStatus: true,
                 },
             })
             previousAvatarUrl = existingProfile?.avatarUrl ?? null
@@ -713,6 +715,10 @@ export async function completeOnboarding(
                 .delete(onboardingDrafts)
                 .where(eq(onboardingDrafts.userId, user.id))
 
+            if (existingProfile?.onboardingStatus !== 'completed') {
+                await queueEmail(tx, { kind: 'welcome', eventId: user.id, userId: user.id })
+            }
+
             if (telemetry.length > 0) {
                 await tx.insert(onboardingEvents).values(telemetry.map((event) => ({
                     userId: user.id,
@@ -722,6 +728,8 @@ export async function completeOnboarding(
                 })))
             }
         })
+
+        await wakeEmailWorker()
 
         if (previousAvatarUrl && previousAvatarUrl !== avatarUrl) {
             await enqueueSupersededProfileImages(user.id, [previousAvatarUrl])

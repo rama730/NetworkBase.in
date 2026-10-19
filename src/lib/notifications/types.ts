@@ -70,6 +70,7 @@ export type NotificationQuietHours = {
 export type NotificationDeliveryPreferences = {
     browser: boolean;
     push: boolean;
+    email: boolean;
 };
 
 /** Messages push choices (Settings › Notifications › Messages). */

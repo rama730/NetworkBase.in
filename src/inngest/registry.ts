@@ -23,6 +23,7 @@ function getWorkerOnlyFunctions() {
   const { notificationsRetentionWatchdog } = loadModule("./functions/notifications-retention-watchdog");
   const { notificationFanout } = loadModule("./functions/notification-fanout");
   const { notificationPushDelivery } = loadModule("./functions/notification-push-delivery");
+  const { emailDelivery } = loadModule("./functions/email-delivery");
   const { extensionRecoveryRetention } = loadModule("./functions/extension-recovery-retention");
   const { chatMentionsRetention, chatIntegrityAudit, chatDue } = loadModule("./functions/chat-maintenance");
   const { reconcileSprintSchedule } = loadModule("./functions/sprint-schedule");
@@ -56,6 +57,7 @@ function getWorkerOnlyFunctions() {
     notificationsRetentionWatchdog,
     notificationFanout,
     notificationPushDelivery,
+    emailDelivery,
     extensionRecoveryRetention,
     chatMentionsRetention,
     chatDue,

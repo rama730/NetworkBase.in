@@ -393,6 +393,14 @@ export const PAGE_PERFORMANCE_CONTRACTS: Record<string, PagePerformanceContract>
     bootstrapReadModel: "static",
     maxInitialPayloadKb: 200,
   }),
+  "/support": buildPublicContract("/support", "src/app/(legal)/support/page.tsx", {
+    renderingMode: "static",
+    cacheTtlSeconds: 86400,
+    invalidationOwner: "none",
+    hydrationBoundary: "minimal",
+    bootstrapReadModel: "static",
+    maxInitialPayloadKb: 200,
+  }),
   "/terms": buildPublicContract("/terms", "src/app/(legal)/terms/page.tsx", {
     renderingMode: "static",
     cacheTtlSeconds: 86400,

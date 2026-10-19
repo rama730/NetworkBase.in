@@ -9,6 +9,7 @@ type BrandMarkProps = {
   variant?: BrandVariant;
   tone?: BrandTone;
   size?: number;
+  trademark?: boolean;
   /**
    * A wordmark over photography or other mixed imagery is always rendered on
    * the fixed Ink slab. This makes the safe treatment the easy treatment.
@@ -27,6 +28,7 @@ export function BrandMark({
   variant = "lockup",
   tone = "bare",
   size = 17,
+  trademark = false,
   ground = "surface",
   className,
   label,
@@ -63,7 +65,10 @@ export function BrandMark({
   return (
     <span className={cn("nb-brand-mark", `nb-brand-mark--${variant}`, `nb-brand-mark--${resolvedTone}`, className)} style={style} data-brand-ground={ground} {...accessible}>
       <span className="nb-brand-dot" aria-hidden="true" />
-      <span className="nb-brand-name" aria-hidden="true">NetworkBase</span>
+      <span className="nb-brand-name" aria-hidden="true">
+        NetworkBase
+        {trademark ? <sup className="ml-0.5 text-[0.6em] font-normal leading-none opacity-80 align-super" aria-label="Trade Mark">™</sup> : null}
+      </span>
     </span>
   );
 }

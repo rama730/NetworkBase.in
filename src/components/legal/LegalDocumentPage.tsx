@@ -1,6 +1,5 @@
 import Logo from "@/components/layout/header/Logo";
 import type { ReactNode } from "react";
-import { ExternalLink } from "lucide-react";
 import { LegalLinks } from "@/components/legal/LegalLinks";
 import { LEGAL_EFFECTIVE_DATE } from "@/lib/legal/versions";
 
@@ -60,9 +59,9 @@ export function LegalDocumentPage({
           </div>
 
           <footer className="mt-6 border-t border-zinc-200 pt-8 dark:border-zinc-800">
-            <LegalLinks className="justify-start" />
+            <LegalLinks align="start" />
             <p className="mt-5 text-xs leading-5 text-muted-foreground">
-              Need help understanding these documents? Contact the addresses listed in the relevant policy. External providers have their own terms and privacy notices. <ExternalLink className="ml-1 inline h-3 w-3" aria-hidden="true" />
+              Need help understanding these documents? Contact the addresses listed in the relevant policy. External providers have their own terms and privacy notices.
             </p>
           </footer>
         </article>

@@ -18,6 +18,7 @@ import DiscoverHeader from '@/components/discover/DiscoverHeader';
 import { DiscoverFiltersPanel } from '@/components/discover/DiscoverFiltersPanel';
 import { DiscoverPeopleRail } from '@/components/discover/DiscoverPeopleRail';
 import { ProfileChecklist } from '@/components/discover/ProfileChecklist';
+import { LegalLinks } from '@/components/legal/LegalLinks';
 import { AppScrollArea } from '@/components/ui/AppScrollArea';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -305,6 +306,13 @@ export default function DiscoverClient({ returnUserData, initialProjectsPage, in
                         <aside className="nb-discover-rail space-y-4">
                             <ProfileChecklist userId={viewerId} />
                             <DiscoverPeopleRail initialPage={initialPeopleSuggestions} variant="desktop" />
+                            <div className="pt-2">
+                                <LegalLinks
+                                    align="start"
+                                    showCopyright
+                                    className="text-[11px]"
+                                />
+                            </div>
                         </aside>
                     ) : null}
                 </div>

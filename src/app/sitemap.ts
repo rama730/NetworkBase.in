@@ -14,6 +14,7 @@ const PUBLIC_LEGAL_PATHS = [
   "/copyright",
   "/grievances",
   "/security-reporting",
+  "/support",
   "/dpa",
   "/open-source",
 ] as const;

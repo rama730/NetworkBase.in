@@ -181,6 +181,11 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     { id: "editor-sessions", title: "Editor extension sessions", section: "Integrations", description: "Review or disconnect VS Code and other editor sessions.", href: settingsTabHref("integrations"), keywords: "vscode cursor kiro ide extension disconnect revoke active" },
     { id: "manual-token", title: "Manual editor token", section: "Integrations", description: "Generate a fallback token for an editor extension.", href: settingsTabHref("integrations"), keywords: "device authentication login extension" },
     { id: "privacy-policies", title: "Privacy and Policies", section: "Privacy and Policies", description: "Review legal terms, policies, and account data rights.", href: settingsTabHref("privacy-policies"), keywords: "legal rights terms eula policy data export delete" },
+    { id: "terms-of-service", title: "Terms of Service", section: "Privacy and Policies", description: "Review the NetworkBase™ Terms of Service.", href: "/terms", keywords: "legal terms conditions agreement contract rules" },
+    { id: "privacy-policy", title: "Privacy Policy", section: "Privacy and Policies", description: "Review NetworkBase™ data protection and privacy policies.", href: "/privacy", keywords: "legal privacy notice data rights protection gdpr" },
+    { id: "security-reporting", title: "Security reporting", section: "Privacy and Policies", description: "Official security disclosure and vulnerability reporting.", href: "/security-reporting", keywords: "security bug vulnerability report incident disclose" },
+    { id: "grievances", title: "Grievances & Redressal", section: "Privacy and Policies", description: "Statutory grievance officer and dispute redressal.", href: "/grievances", keywords: "grievance officer complaint dispute nodal officer redressal" },
+    { id: "trademark-ip", title: "Trademark & Copyright", section: "Privacy and Policies", description: "NetworkBase™ trademark, copyright, and intellectual property notices.", href: "/copyright", keywords: "trademark brand copyright intellectual property ownership" },
 ] as const;
 
 export function normalizeGlobalSearchQuery(query: string) {

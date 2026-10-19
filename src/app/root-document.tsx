@@ -14,18 +14,54 @@ const APP_METADATA_BASE = new URL(
   resolveAuthBaseUrl({ requireConfiguredBaseInProduction: false }),
 );
 
+const ORGANIZATION_SCHEMA = JSON.stringify({
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://networkbase.in/#organization",
+      name: "NetworkBase",
+      alternateName: "NetworkBase™",
+      url: "https://networkbase.in",
+      logo: "https://networkbase.in/icon-paper-512.png",
+      email: "support@networkbase.in",
+      contactPoint: [
+        {
+          "@type": "ContactPoint",
+          contactType: "customer support",
+          email: "support@networkbase.in",
+          availableLanguage: "English",
+        },
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://networkbase.in/#website",
+      url: "https://networkbase.in",
+      name: "NetworkBase",
+      publisher: {
+        "@id": "https://networkbase.in/#organization",
+      },
+    },
+  ],
+});
+
 export const rootMetadata: Metadata = {
   metadataBase: APP_METADATA_BASE,
   applicationName: "NetworkBase",
   manifest: "/manifest.webmanifest",
+  openGraph: {
+    siteName: "NetworkBase™",
+  },
   icons: {
+    // Transparent margin avoids Safari's contrast outline around the cream tile.
     icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon-ink-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-paper-tab.ico", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
+      { url: "/icon-paper-tab-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-paper-tab.svg", sizes: "any", type: "image/svg+xml" },
     ],
-    apple: [{ url: "/icon-ink-180.png", sizes: "180x180", type: "image/png" }],
-    other: [{ rel: "mask-icon", url: "/icon-mono.svg", color: "#D14E24" }],
+    apple: [{ url: "/icon-paper-180.png", sizes: "180x180", type: "image/png" }],
+    other: [{ rel: "mask-icon", url: "/icon-paper-mono.svg", color: "#D14E24" }],
   },
   appleWebApp: {
     capable: true,
@@ -75,6 +111,12 @@ export function RootDocument({
           nonce={nonce}
           dangerouslySetInnerHTML={{ __html: THEME_PREHYDRATE_SCRIPT }}
           suppressHydrationWarning
+        />
+        <script
+          id="schema-organization"
+          type="application/ld+json"
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: ORGANIZATION_SCHEMA }}
         />
       </head>
       <body className={`${instrumentSans.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} font-sans antialiased`}>

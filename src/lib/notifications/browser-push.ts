@@ -44,7 +44,7 @@ export function showBrowserNotification(options: ShowBrowserNotificationOptions)
     try {
         const href = buildNotificationHref(item);
         const body = item.body ?? item.preview?.secondaryText ?? "";
-        const icon = item.preview?.actorAvatarUrl ?? "/icon-ink-192.png";
+        const icon = item.preview?.actorAvatarUrl ?? "/icon-paper-192.png";
         const notification = new Notification(item.title, {
             body: body.slice(0, 240),
             icon,

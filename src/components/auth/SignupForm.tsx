@@ -1014,7 +1014,7 @@ export function SignupForm({ redirect, invite, ref, project }: { redirect: strin
                                 Sign in
                             </Link>
                         </p>
-                        <LegalLinks className="text-[11px] text-muted-foreground/80" />
+                        <LegalLinks className="text-[11px] text-muted-foreground/80" showCopyright />
                     </div>
                 </div>
             </div>

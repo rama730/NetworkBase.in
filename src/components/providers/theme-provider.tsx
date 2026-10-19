@@ -49,9 +49,26 @@ interface AppearanceContextValue {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 const AppearanceContext = createContext<AppearanceContextValue | undefined>(undefined)
 
+function safeStorageGet(key: string): string | null {
+    try {
+        if (typeof window !== 'undefined' && 'localStorage' in window && window.localStorage) {
+            return window.localStorage.getItem(key)
+        }
+    } catch {}
+    return null
+}
+
+function safeStorageSet(key: string, value: string): void {
+    try {
+        if (typeof window !== 'undefined' && 'localStorage' in window && window.localStorage) {
+            window.localStorage.setItem(key, value)
+        }
+    } catch {}
+}
+
 function persistLocalSnapshot(snapshot: AppearanceSnapshot) {
     try {
-        writeAppearanceSnapshot(snapshot, (key, value) => localStorage.setItem(key, value))
+        writeAppearanceSnapshot(snapshot, safeStorageSet)
     } catch {}
 }
 
@@ -60,28 +77,25 @@ function syncedMarker(userId: string, snapshot: AppearanceSnapshot) {
 }
 
 function readSyncedMarker() {
-    try {
-        return localStorage.getItem(APPEARANCE_STORAGE_KEYS.synced)
-    } catch {
-        return null
-    }
+    return safeStorageGet(APPEARANCE_STORAGE_KEYS.synced)
 }
 
 function writeSyncedMarker(value: string) {
-    try {
-        localStorage.setItem(APPEARANCE_STORAGE_KEYS.synced, value)
-    } catch {}
+    safeStorageSet(APPEARANCE_STORAGE_KEYS.synced, value)
 }
 
 function ensureThemeColorMeta(content: string) {
-    let meta = document.querySelector('meta[data-app-theme-color="true"]') as HTMLMetaElement | null
-    if (!meta) {
-        meta = document.createElement('meta')
-        meta.name = 'theme-color'
-        meta.setAttribute('data-app-theme-color', 'true')
-        document.head.appendChild(meta)
-    }
-    if (meta.content !== content) meta.content = content
+    try {
+        if (typeof document === 'undefined' || !document.head) return
+        let meta = document.querySelector('meta[data-app-theme-color="true"]') as HTMLMetaElement | null
+        if (!meta) {
+            meta = document.createElement('meta')
+            meta.name = 'theme-color'
+            meta.setAttribute('data-app-theme-color', 'true')
+            document.head.appendChild(meta)
+        }
+        if (meta.content !== content) meta.content = content
+    } catch {}
 }
 
 function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
@@ -210,16 +224,29 @@ function ThemeRuntimeProvider({ children }: { children: ReactNode }) {
     }, [accentColor, density, effectiveReduceMotion, resolvedTheme, theme])
 
     useEffect(() => {
+        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined
         const media = window.matchMedia('(prefers-reduced-motion: reduce)')
         const update = () => setSystemReduceMotion(prefersReducedMotionFromSystem(window.matchMedia?.bind(window)))
         update()
-        media.addEventListener('change', update)
-        return () => media.removeEventListener('change', update)
+        if (typeof media?.addEventListener === 'function') {
+            media.addEventListener('change', update)
+            return () => {
+                media.removeEventListener('change', update)
+            }
+        }
+        if (typeof (media as unknown as { addListener?: (fn: () => void) => void })?.addListener === 'function') {
+            const legacyMedia = media as unknown as { addListener: (fn: () => void) => void; removeListener: (fn: () => void) => void }
+            legacyMedia.addListener(update)
+            return () => {
+                legacyMedia.removeListener(update)
+            }
+        }
+        return undefined
     }, [])
 
     useEffect(() => {
         let cancelled = false
-        const localSnapshot = readLocalAppearanceSnapshot((key) => localStorage.getItem(key))
+        const localSnapshot = readLocalAppearanceSnapshot(safeStorageGet)
         applySnapshot(localSnapshot)
 
         const bootstrapRemote = () => {

@@ -138,6 +138,7 @@ export async function createAdminClient() {
         env.url,
         env.serviceRoleKey,
         {
+            global: { fetch: authBoundedFetch },
             cookieOptions: resolveSupabaseServerCookieOptions(),
             cookies: {
                 getAll() { return [] },
