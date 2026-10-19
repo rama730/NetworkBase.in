@@ -1562,6 +1562,20 @@
       "when": 1792342027016,
       "tag": "0225_deleted_projects_own_no_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 223,
+      "version": "7",
+      "when": 1792342028016,
+      "tag": "0226_application_thread_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 224,
+      "version": "7",
+      "when": 1792342029016,
+      "tag": "0227_application_lifecycle_constraints",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { projects, tasks, projectMembers, roleApplications } from "@/lib/db/schema";
 import { countPendingInvitationsForCandidate } from "@/lib/projects/project-invitations";
 import { eq, and, isNull, sql, exists, ne, or, count } from "drizzle-orm";
+import { canReviewProjectSql } from "@/lib/applications/reviewers";
 import { normalizeTaskSurfaceRecord } from "@/lib/projects/task-presentation";
 
 function normalizeWorkspaceLimit(rawLimit: unknown, fallback = 24) {
@@ -39,8 +40,8 @@ export async function getWorkspaceSummaryAction() {
                 ))),
             )),
             db.select({ value: count() }).from(roleApplications).where(and(
-                eq(roleApplications.creatorId, user.id),
                 eq(roleApplications.status, "pending"),
+                canReviewProjectSql(user.id, sql`${roleApplications.projectId}`),
             )),
             countPendingInvitationsForCandidate(user.id).then((value) => [{ value }]),
         ]);

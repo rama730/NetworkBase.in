@@ -33,6 +33,7 @@ import {
     resolveLifecycleStatus,
 } from '@/lib/applications/utils';
 import type { ApplicationCoreStatus } from '@/lib/applications/status';
+import { canReviewProjectSql } from '@/lib/applications/reviewers';
 import { isApplicationReviewerRole } from '@/lib/applications/authorization';
 import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
 import type {
@@ -195,6 +196,22 @@ function applicationActorSnapshot(user: { user_metadata?: Record<string, unknown
     };
 }
 
+/**
+ * One id per transition (each writes an application event first), so a reapply or a second
+ * rejection after a reopen notifies again instead of being swallowed by the dedupe key.
+ * ponytail: reads the newest event at notify time. ceiling: two transitions racing inside the same
+ * few milliseconds share an id and notify once. upgrade: return the event id from each writer.
+ */
+async function latestApplicationEventId(applicationId: string) {
+    const [event] = await db
+        .select({ id: applicationEvents.id })
+        .from(applicationEvents)
+        .where(eq(applicationEvents.applicationId, applicationId))
+        .orderBy(desc(applicationEvents.createdAt))
+        .limit(1);
+    return event?.id ?? applicationId;
+}
+
 async function enqueueApplicationReceivedBestEffort(params: {
     applicationId: string;
     channelId?: string | null;
@@ -232,7 +249,7 @@ async function enqueueApplicationReceivedBestEffort(params: {
                 contextKind: "application",
                 secondaryText: params.roleTitle ?? "Application received",
             },
-            sourceEventId: params.applicationId,
+            sourceEventId: await latestApplicationEventId(params.applicationId),
         });
     } catch (notificationError) {
         console.error('[applications] Failed to enqueue application received notification', {
@@ -290,7 +307,7 @@ async function enqueueApplicationDecisionBestEffort(params: {
                 contextKind: "application",
                 secondaryText: params.status,
             },
-            sourceEventId: `${params.applicationId}:${params.status}`,
+            sourceEventId: await latestApplicationEventId(params.applicationId),
         });
     } catch (notificationError) {
         console.error('[applications] Failed to enqueue application decision notification', {
@@ -339,7 +356,7 @@ async function enqueueApplicationWithdrawnBestEffort(params: {
                 contextKind: "application",
                 secondaryText: "Withdrawn",
             },
-            sourceEventId: `${params.applicationId}:withdrawn`,
+            sourceEventId: await latestApplicationEventId(params.applicationId),
         });
     } catch (notificationError) {
         console.error('[applications] Failed to enqueue application withdrawn notification', {
@@ -1851,7 +1868,7 @@ export async function getIncomingApplicationsAction(
 
         const appWhere = cursorDate && cursorId
             ? and(
-                eq(roleApplications.creatorId, user.id),
+                canReviewProjectSql(user.id, sql`${roleApplications.projectId}`),
                 eq(roleApplications.status, 'pending'),
                 or(
                     lt(roleApplications.createdAt, cursorDate),
@@ -1859,7 +1876,7 @@ export async function getIncomingApplicationsAction(
                 )
             )
             : and(
-                eq(roleApplications.creatorId, user.id),
+                canReviewProjectSql(user.id, sql`${roleApplications.projectId}`),
                 eq(roleApplications.status, 'pending')
             );
 

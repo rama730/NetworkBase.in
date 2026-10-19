@@ -1525,6 +1525,8 @@ export const roleApplications = pgTable(
     }),
     decisionReasonCode: text("decision_reason_code"),
     decisionReasonText: text("decision_reason_text"),
+    // Structured apply-form fields (portfolioUrl, availability).
+    details: jsonb("details").notNull().default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -1568,6 +1570,10 @@ export const roleApplications = pgTable(
       t.projectId,
       t.applicantId,
     ),
+    // A reviewer's queue: pending applications of their projects.
+    pendingProjectIdx: index("role_applications_pending_project_idx")
+      .on(t.projectId)
+      .where(sql`${t.status} = 'pending'`),
     roleIdIdx: index("role_applications_role_id_idx").on(t.roleId),
     decisionByIdx: index("role_applications_decision_by_idx").on(t.decisionBy),
     proposedRoleIdx: index("role_applications_proposed_role_idx").on(

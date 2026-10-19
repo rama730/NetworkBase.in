@@ -216,7 +216,7 @@ test('project projections filter identity before overflow, preserve read-only me
     await sql`UPDATE profiles SET visibility='private',full_name='Hidden collaborator' WHERE id=${people[0]!}`;
     const roleIds:string[]=[];
     for(let i=0;i<5;i++)roleIds.push((await sql`INSERT INTO project_open_roles(project_id,role,title,count,filled) VALUES (${id},${'role'+i},${'Available role '+i},2,0) RETURNING id`)[0]!.id);
-    await sql`INSERT INTO role_applications(project_id,role_id,applicant_id,creator_id,status) VALUES (${id},${roleIds[0]!},${people[1]!},${owner},'accepted')`;
+    await sql`INSERT INTO role_applications(project_id,role_id,applicant_id,creator_id,status,decision_at) VALUES (${id},${roleIds[0]!},${people[1]!},${owner},'accepted',now())`;
     const skillRows=await sql`SELECT id FROM skills WHERE status NOT IN ('hidden','merged') ORDER BY name LIMIT 7`;
     for(const [order,skill]of skillRows.entries())await sql`INSERT INTO project_skills(project_id,skill_id,display_order) VALUES (${id},${skill.id},${order})`;
     await sql`UPDATE projects SET view_count=12345,followers_count=0,cover_image=NULL,import_source='{"metadata":{"leadFocus":"Engineering"}}'::jsonb WHERE id=${id}`;
@@ -289,7 +289,7 @@ test('project preview roles match lead focus, accepted member roles and consente
     const role=(await sql`INSERT INTO project_open_roles(project_id,role,title,count,filled) VALUES (${id},'designer','Design',1,1) RETURNING id`)[0]!.id;
     await sql`INSERT INTO role_applications(project_id,role_id,applicant_id,creator_id,status) VALUES (${id},${role},${peer},${owner},'pending')`;
     const preview=await read(path);assert.equal(preview?.project?.team?.find(p=>p.id===owner)?.role,'Lead');assert.equal(preview?.project?.team?.find(p=>p.id===peer)?.role,'Co-leader');
-    await sql`UPDATE role_applications SET status='accepted' WHERE project_id=${id} AND applicant_id=${peer}`;
+    await sql`UPDATE role_applications SET status='accepted',decision_at=now() WHERE project_id=${id} AND applicant_id=${peer}`;
     assert.equal((await read(path))?.project?.team?.find(p=>p.id===peer)?.role,'Design · Co-leader');
     invitation=(await sql`INSERT INTO project_invitations(project_id,inviter_id,candidate_id,kind,guidance_label,project_title,status,expires_at) VALUES (${id},${owner},${peer},'guidance_appointment','Mentor','Project','accepted',now()+interval '1 day') RETURNING id`)[0]!.id;
     await sql`INSERT INTO project_guidance_appointments(project_id,guide_user_id,invitation_id,label,public_attribution_consent) VALUES (${id},${peer},${invitation},'Mentor',false)`;

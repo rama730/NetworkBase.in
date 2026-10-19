@@ -18,6 +18,7 @@ import { resolveSecurityStepUp } from '@/lib/security/step-up';
 import { enqueueProjectNotificationEvent } from '@/lib/notifications/project-events';
 import { z } from 'zod';
 import { cancelAccountDeletionForUser } from '@/lib/account/deletion';
+import { syncProjectChat } from '@/lib/messaging/integrations';
 
 // ============================================================================
 // ACCOUNT DELETION
@@ -199,6 +200,10 @@ export async function transferProjectOwnership(
                         eq(projectMembers.userId, user.id),
                     )
                 );
+
+            // Application threads follow the new reviewers (both are still reviewers, but their chat role changed).
+            await syncProjectChat(tx, projectId, newOwnerId, 'role');
+            await syncProjectChat(tx, projectId, user.id, 'role');
 
             // SEC-C4: write an audit trail row for BOTH parties so either
             // user can see the transfer in their audit log. `user_id` here

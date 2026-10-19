@@ -11,6 +11,7 @@ import { publicPersonSkillsSql } from "@/lib/network/person-filter-sql";
 import { readPersonCardDetails } from "@/lib/network/person-card-read";
 import type { PersonCardIdentity } from "@/lib/network/person-card";
 import { logger } from "@/lib/logger";
+import { canReviewProjectSql } from "@/lib/applications/reviewers";
 
 export type NetworkInvitation = {
   id: string;
@@ -119,8 +120,7 @@ export async function readNetworkInvitationsAction(
                 UNION ALL
                 SELECT a.id,'application','received',a.created_at,a.message,a.project_id,p.title,p.slug,coalesce(r.title,r.role,'Collaborator'),a.applicant_id
                 FROM role_applications a JOIN projects p ON p.id=a.project_id LEFT JOIN project_open_roles r ON r.id=a.role_id
-                WHERE a.status='pending' AND a.creator_id=${user.id}::uuid AND p.deleted_at IS NULL
-                    AND (p.owner_id=${user.id}::uuid OR EXISTS(SELECT 1 FROM project_members pm WHERE pm.project_id=p.id AND pm.user_id=${user.id}::uuid AND pm.role IN ('owner','admin')))
+                WHERE a.status='pending' AND ${canReviewProjectSql(user.id, sql`a.project_id`)}
             ), matching AS (
                 SELECT entries.*,profiles.username,profiles.full_name,profiles.avatar_url,profiles.headline,profiles.location
                 FROM entries JOIN profiles ON profiles.id=entries.actor_id
