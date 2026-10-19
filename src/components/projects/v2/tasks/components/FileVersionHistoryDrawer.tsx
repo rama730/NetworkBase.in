@@ -1,6 +1,8 @@
 "use client";
 
 import { toast } from "sonner";
+import { History } from "lucide-react";
+import { usePlainContentHeadings } from "@/components/projects/PlainContentHeadings";
 /**
  * Version-history side drawer for a single file node.
  *
@@ -21,13 +23,7 @@ import { toast } from "sonner";
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Download,
-  History,
-  Loader2,
-  RotateCcw,
-  X,
-} from "lucide-react";
+import { Download, Loader2, RotateCcw, X } from "lucide-react";
 
 import {
   Dialog,
@@ -42,16 +38,7 @@ import {
   listFileVersionsPage,
   restoreFileVersion,
 } from "@/app/actions/files/versions";
-
-function formatBytes(bytes?: number | null) {
-  const b = bytes ?? 0;
-  if (b < 1024) return `${b} B`;
-  const kb = b / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  const mb = kb / 1024;
-  if (mb < 1024) return `${mb.toFixed(1)} MB`;
-  return `${(mb / 1024).toFixed(2)} GB`;
-}
+import { formatBytes } from "@/components/projects/v2/files-tab/folder/format";
 
 function formatDate(date: Date | string | null | undefined): string {
   if (!date) return "—";
@@ -94,6 +81,7 @@ export function FileVersionHistoryDrawer({
   uploaderNames,
   onRestored,
 }: FileVersionHistoryDrawerProps) {
+  const plainContentHeadings = usePlainContentHeadings();
   const [state, setState] = useState<State>({ kind: "idle" });
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
@@ -223,8 +211,8 @@ export function FileVersionHistoryDrawer({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <DialogTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-              <History className="h-4 w-4 text-muted-foreground" />
+            <DialogTitle className={plainContentHeadings ? "text-base font-semibold text-foreground" : "flex items-center gap-2 text-base font-semibold text-foreground"}>
+              {!plainContentHeadings && <History className="h-4 w-4 text-muted-foreground" />}
               Version history
             </DialogTitle>
             <DialogDescription className="mt-1 truncate text-xs text-muted-foreground">

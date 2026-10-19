@@ -10,10 +10,12 @@ import {
   FolderDown,
   FolderUp,
   Loader2,
+  Pencil,
   RefreshCcw,
   Search,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   Dialog,
@@ -27,6 +29,8 @@ import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
+import { formatBytes } from "../folder/format";
+import { DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES } from "@/lib/files/upload-validator";
 
 const FolderPicker = dynamic(() => import("@/components/projects/v2/explorer/ExplorerDialogsHost").then((mod) => mod.FolderPicker), { ssr: false });
 
@@ -71,29 +75,33 @@ interface SearchableTask {
   assigneeName: string | null;
 }
 
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-}
+function renameFileObject(originalFile: File, nextName: string): File {
+  const trimmed = nextName.trim();
+  if (!trimmed) return originalFile;
 
-function computeInitialIntent(
-  files: File[],
-  hasMatch: boolean,
-  activeTaskId: string | null,
-): FilesUploadIntent {
-  if (hasMatch && files.length === 1) return "version";
-  if (activeTaskId) return "deliverable";
-  const lowerNames = files.map((f) => f.name.toLowerCase()).join(" ");
-  if (/\b(spec|brief|reference|req|asset|guide|input)\b/i.test(lowerNames)) {
-    return "reference";
+  const dotIndex = originalFile.name.lastIndexOf(".");
+  const originalExt = dotIndex > 0 ? originalFile.name.slice(dotIndex) : "";
+  const finalName = originalExt && !trimmed.includes(".") ? `${trimmed}${originalExt}` : trimmed;
+
+  try {
+    const renamed = new File([originalFile], finalName, {
+      type: originalFile.type,
+      lastModified: originalFile.lastModified || Date.now(),
+    });
+    if (originalFile.webkitRelativePath) {
+      const parts = originalFile.webkitRelativePath.split("/");
+      parts[parts.length - 1] = finalName;
+      try {
+        Object.defineProperty(renamed, "webkitRelativePath", {
+          value: parts.join("/"),
+          configurable: true,
+        });
+      } catch {}
+    }
+    return renamed;
+  } catch {
+    return originalFile;
   }
-  if (/\b(draft|wip|temp|working)\b/i.test(lowerNames)) {
-    return "working";
-  }
-  return "project";
 }
 
 export function FilesTabUploadModal({
@@ -110,10 +118,25 @@ export function FilesTabUploadModal({
   onCancel,
 }: FilesTabUploadModalProps) {
   const [fileList, setFileList] = useState<File[]>(files);
+  const [isRenamingSingle, setIsRenamingSingle] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [editingMultiIndex, setEditingMultiIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setFileList(files);
   }, [files]);
+
+  useEffect(() => {
+    if (!isOpen || typeof document === "undefined") return;
+    const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouchAction;
+    };
+  }, [isOpen]);
 
   const fileCount = fileList.length;
   const singleFile = fileCount === 1 ? fileList[0] : null;
@@ -144,10 +167,13 @@ export function FilesTabUploadModal({
     [fileList],
   );
 
-  // Intent defaults: heuristic-driven smart category selection
-  const [intent, setIntent] = useState<FilesUploadIntent>(() =>
-    computeInitialIntent(files, Boolean(matchingExistingFile), activeTaskId),
+  const oversizedFiles = useMemo(
+    () => fileList.filter((f) => (f.size || 0) > DEFAULT_PROJECT_UPLOAD_MAX_FILE_BYTES),
+    [fileList],
   );
+
+  // Categorization always requires an explicit choice for each upload.
+  const [intent, setIntent] = useState<FilesUploadIntent | null>(null);
 
   const [expandedCard, setExpandedCard] = useState<"project" | "deliverable" | null>(null);
 
@@ -165,18 +191,20 @@ export function FilesTabUploadModal({
   const [taskResults, setTaskResults] = useState<SearchableTask[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
 
-  // Synchronize when matchingExistingFile changes or modal toggles
+  useEffect(() => {
+    setIntent(null);
+    setExpandedCard(null);
+    setIsRenamingSingle(false);
+    setEditingMultiIndex(null);
+    setRenameValue("");
+  }, [isOpen, files, projectId, currentFolderId, activeTaskId]);
+
+  // Synchronize destination context without selecting a category.
   useEffect(() => {
     if (!isOpen) {
       setExpandedCard(null);
       return;
     }
-    const nextIntent = computeInitialIntent(
-      fileList,
-      Boolean(matchingExistingFile),
-      activeTaskId,
-    );
-    setIntent(nextIntent);
     if (matchingExistingFile) {
       setVersionNodeId(matchingExistingFile.id);
     } else if (versionCandidates[0]) {
@@ -237,20 +265,89 @@ export function FilesTabUploadModal({
   const displayName =
     fileCount === 1 && singleFile ? singleFile.name : `${fileCount} files`;
 
+  const singleFileNameParts = useMemo(() => {
+    if (fileCount !== 1 || !singleFile) return null;
+    const name = singleFile.name;
+    const dot = name.lastIndexOf(".");
+    if (dot > 0 && dot < name.length - 1) {
+      return { stem: name.slice(0, dot), ext: name.slice(dot) };
+    }
+    return { stem: name, ext: "" };
+  }, [fileCount, singleFile]);
+
+  const isTaskCategory =
+    intent === "reference" || intent === "working" || intent === "deliverable";
+  const isConfirmDisabled =
+    isProcessing ||
+    intent === null ||
+    fileList.length === 0 ||
+    oversizedFiles.length > 0 ||
+    (intent === "version" && !versionNodeId) ||
+    (isTaskCategory && !activeTaskId && !selectedTaskId);
+
+  const applyRename = (index: number) => {
+    const target = fileList[index];
+    if (!target) return;
+    const trimmed = renameValue.trim();
+    if (!trimmed) return;
+    if (trimmed === "." || trimmed === "..") {
+      toast.error("Invalid file name");
+      return;
+    }
+    if (trimmed.length > 255) {
+      toast.error("File name is too long (maximum 255 characters)");
+      return;
+    }
+    if (trimmed.includes("/") || trimmed.includes("\\")) {
+      toast.error("File name cannot contain slashes");
+      return;
+    }
+    const renamed = renameFileObject(target, trimmed);
+    const next = [...fileList];
+    next[index] = renamed;
+    setFileList(next);
+    setIsRenamingSingle(false);
+    setEditingMultiIndex(null);
+    toast.success(`Renamed to "${renamed.name}"`);
+  };
+
+  const applySingleRename = () => applyRename(0);
+  const applyMultiRename = (index: number) => applyRename(index);
+
   const handleConfirm = () => {
-    if (fileList.length === 0) return;
+    if (isConfirmDisabled || intent === null) return;
+
+    let currentFiles = fileList;
+    const activeIndex = singleFile && isRenamingSingle ? 0 : editingMultiIndex;
+    if (activeIndex !== null && fileList[activeIndex] && renameValue.trim()) {
+      const trimmed = renameValue.trim();
+      if (
+        !trimmed.includes("/") &&
+        !trimmed.includes("\\") &&
+        trimmed !== "." &&
+        trimmed !== ".." &&
+        trimmed.length <= 255 &&
+        trimmed !== fileList[activeIndex].name
+      ) {
+        const renamed = renameFileObject(fileList[activeIndex], trimmed);
+        currentFiles = [...fileList];
+        currentFiles[activeIndex] = renamed;
+        setFileList(currentFiles);
+      }
+    }
+
     if (intent === "version") {
       onConfirm({
         intent,
         targetFolderId: destinationFolderId,
         versionNodeId: versionNodeId || matchingExistingFile?.id || undefined,
-        files: fileList,
+        files: currentFiles,
       });
     } else if (intent === "project") {
       onConfirm({
         intent,
         targetFolderId: destinationFolderId,
-        files: fileList,
+        files: currentFiles,
       });
     } else {
       // Task categories (reference, working, deliverable)
@@ -260,13 +357,10 @@ export function FilesTabUploadModal({
         taskId: activeTaskId || selectedTaskId || undefined,
         label: label.trim() || undefined,
         role: intent as TaskFileRole,
-        files: fileList,
+        files: currentFiles,
       });
     }
   };
-
-  const isTaskCategory =
-    intent === "reference" || intent === "working" || intent === "deliverable";
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && !isProcessing && onCancel()}>
@@ -287,20 +381,108 @@ export function FilesTabUploadModal({
           }
         }}
       >
-        <DialogHeader>
-          <div className="flex flex-col gap-1 pr-4">
-            <DialogTitle className="truncate text-base font-semibold">
-              Upload {displayName}{" "}
-              <span className="text-xs font-normal text-muted-foreground">
+        <DialogHeader className="pr-10">
+          <div className="flex flex-col gap-1">
+            <DialogTitle className="flex items-baseline gap-1.5 min-w-0 text-base font-semibold">
+              <span className="shrink-0">Upload</span>
+              {singleFileNameParts ? (
+                <span
+                  className="inline-flex items-baseline min-w-0 font-mono text-sm"
+                  title={singleFile?.name}
+                >
+                  <span className="truncate font-semibold">{singleFileNameParts.stem}</span>
+                  {singleFileNameParts.ext && (
+                    <span className="shrink-0 font-semibold">{singleFileNameParts.ext}</span>
+                  )}
+                </span>
+              ) : (
+                <span className="truncate text-base font-semibold">{displayName}</span>
+              )}
+              <span className="shrink-0 text-xs font-normal text-muted-foreground ml-0.5">
                 ({formatBytes(totalBytes)})
               </span>
             </DialogTitle>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span>Destination:</span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-muted text-foreground font-mono">
-                {destinationFolderName}
-              </span>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span>Destination:</span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-muted text-foreground font-mono truncate max-w-[200px]">
+                  {destinationFolderName}
+                </span>
+              </div>
+              {singleFile && !isRenamingSingle && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRenameValue(singleFile.name);
+                    setIsRenamingSingle(true);
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline cursor-pointer"
+                  aria-label="Rename file before upload"
+                >
+                  <Pencil className="size-3" />
+                  <span>Rename</span>
+                </button>
+              )}
             </div>
+
+            {/* Single-file Inline Rename Field */}
+            {singleFile && isRenamingSingle && (
+              <div className="mt-2 rounded-[8px] border border-border bg-muted/30 p-2 text-xs">
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="single-file-rename-input" className="text-[11px] font-medium text-foreground">
+                    Rename file
+                  </label>
+                  <span className="text-[10px] text-muted-foreground">
+                    Press Enter to save • Esc to cancel
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    id="single-file-rename-input"
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onFocus={(e) => {
+                      const dot = e.currentTarget.value.lastIndexOf(".");
+                      if (dot > 0) {
+                        e.currentTarget.setSelectionRange(0, dot);
+                      } else {
+                        e.currentTarget.select();
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        applySingleRename();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsRenamingSingle(false);
+                      }
+                    }}
+                    placeholder="Enter file name…"
+                    aria-label="File name"
+                    className="h-8 flex-1 rounded-[5px] border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground font-mono outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={applySingleRename}
+                    disabled={!renameValue.trim() || renameValue.trim() === singleFile.name}
+                    className="h-8 rounded-[5px] bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsRenamingSingle(false)}
+                    className="h-8 rounded-[5px] border border-border bg-background hover:bg-muted px-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           <DialogDescription>
             {expandedCard === "project"
@@ -311,33 +493,110 @@ export function FilesTabUploadModal({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Oversized file error banner */}
+        {oversizedFiles.length > 0 && (
+          <div className="rounded-[6px] border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+            <p className="font-semibold">
+              {oversizedFiles.length === 1
+                ? `"${oversizedFiles[0]?.name}" exceeds the maximum upload size limit of 10MB.`
+                : `${oversizedFiles.length} files exceed the maximum upload size limit of 10MB.`}
+            </p>
+            <p className="mt-0.5 text-muted-foreground">
+              Files above 10MB cannot be uploaded. Please remove {oversizedFiles.length === 1 ? "it" : "them"} to continue.
+            </p>
+          </div>
+        )}
+
         {/* Multi-file Removable Chip List */}
         {fileList.length > 1 && expandedCard === null && (
-          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 rounded-lg border border-border bg-muted/40 dark:border-border dark:bg-card/40">
-            {fileList.map((file, idx) => (
-              <span
-                key={`${file.name}-${file.size}-${idx}`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-xs text-foreground shadow-2xs dark:border-border dark:bg-card dark:text-foreground"
-              >
-                <span className="max-w-[130px] truncate font-medium">{file.name}</span>
-                <span className="text-[11px] text-muted-foreground">({formatBytes(file.size)})</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const next = fileList.filter((_, i) => i !== idx);
-                    setFileList(next);
-                    if (next.length === 0) {
-                      onCancel();
+          <div className="flex flex-col gap-1.5 p-1.5 rounded-lg border border-border bg-muted/40 dark:border-border dark:bg-card/40">
+            <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+              {fileList.map((file, idx) => (
+                <span
+                  key={`${file.name}-${file.size}-${idx}`}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 text-xs text-foreground shadow-2xs dark:border-border dark:bg-card dark:text-foreground"
+                >
+                  <span className="max-w-[130px] truncate font-medium">{file.name}</span>
+                  <span className="text-[11px] text-muted-foreground">({formatBytes(file.size)})</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingMultiIndex(idx);
+                      setRenameValue(file.name);
+                    }}
+                    className="text-muted-foreground hover:text-foreground cursor-pointer"
+                    title={`Rename ${file.name}`}
+                    aria-label={`Rename ${file.name}`}
+                  >
+                    <Pencil className="size-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (editingMultiIndex === idx) setEditingMultiIndex(null);
+                      const next = fileList.filter((_, i) => i !== idx);
+                      setFileList(next);
+                      if (next.length === 0) {
+                        onCancel();
+                      }
+                    }}
+                    className="text-muted-foreground hover:text-foreground cursor-pointer"
+                    aria-label={`Remove ${file.name}`}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            {editingMultiIndex !== null && fileList[editingMultiIndex] && (
+              <div className="flex items-center gap-1.5 pt-1 border-t border-border/60">
+                <input
+                  type="text"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onFocus={(e) => {
+                    const dot = e.currentTarget.value.lastIndexOf(".");
+                    if (dot > 0) {
+                      e.currentTarget.setSelectionRange(0, dot);
+                    } else {
+                      e.currentTarget.select();
                     }
                   }}
-                  className="text-muted-foreground hover:text-foreground cursor-pointer"
-                  aria-label={`Remove ${file.name}`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      applyMultiRename(editingMultiIndex);
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingMultiIndex(null);
+                    }
+                  }}
+                  placeholder="New file name…"
+                  aria-label="New file name"
+                  className="h-7 flex-1 rounded-[4px] border border-border bg-background px-2 text-xs font-mono text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => applyMultiRename(editingMultiIndex)}
+                  disabled={!renameValue.trim() || renameValue.trim() === fileList[editingMultiIndex]?.name}
+                  className="h-7 rounded-[4px] bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-[var(--primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  <X className="size-3" />
+                  Save
                 </button>
-              </span>
-            ))}
+                <button
+                  type="button"
+                  onClick={() => setEditingMultiIndex(null)}
+                  className="h-7 rounded-[4px] border border-border px-2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -783,12 +1042,7 @@ export function FilesTabUploadModal({
           </button>
           <button
             type="button"
-            disabled={
-              isProcessing ||
-              fileList.length === 0 ||
-              (intent === "version" && !versionNodeId) ||
-              (isTaskCategory && !activeTaskId && !selectedTaskId)
-            }
+            disabled={isConfirmDisabled}
             onClick={handleConfirm}
             className="nb-touch-target flex h-[34px] items-center justify-center gap-1.5 rounded-[5px] bg-primary px-4 text-[13px] font-semibold text-primary-foreground shadow-xs transition-[background-color,color] duration-150 ease-in-out hover:bg-[var(--primary-hover)] active:bg-[var(--primary-active)] disabled:cursor-not-allowed disabled:opacity-50"
           >

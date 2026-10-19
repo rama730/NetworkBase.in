@@ -4,6 +4,7 @@ import ProjectOverviewCard from "@/components/projects/dashboard/ProjectOverview
 import OpenRolesCard from "@/components/projects/dashboard/OpenRolesCard";
 import JourneyTimeline from "@/components/projects/dashboard/JourneyTimeline";
 import { RecentActivityCard } from "@/components/projects/dashboard/RecentActivityCard";
+import { useBottomStickyRail } from "@/hooks/useBottomStickyRail";
 
 import { type ApplicationStatusResult } from "@/app/actions/applications";
 
@@ -40,6 +41,7 @@ export function DashboardTab({
     onDeclineInvitation,
     invitationLoading,
 }: DashboardTabProps) {
+    const stickyRail = useBottomStickyRail({ topInset: "calc(var(--project-tabs-height, 0px) + 24px)" });
     const stages = lifecycleStages.map((stage: any) => stage?.name ?? stage).filter(Boolean);
 
     return (
@@ -48,7 +50,7 @@ export function DashboardTab({
                 <ProjectOverviewCard project={project} isCreator={isCreator} onEdit={onEdit} />
             </div>
 
-            <div className="min-w-0 space-y-4 lg:col-span-4">
+            <aside {...stickyRail} aria-label="Project details" className="min-w-0 space-y-6 lg:col-span-4 lg:sticky lg:self-start">
                 {stages.length > 0 ? (
                     <JourneyTimeline
                         stages={stages}
@@ -72,7 +74,7 @@ export function DashboardTab({
                     onDeclineInvitation={onDeclineInvitation}
                     invitationLoading={invitationLoading}
                 />
-            </div>
+            </aside>
         </div>
     );
 }

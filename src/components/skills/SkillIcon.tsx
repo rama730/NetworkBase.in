@@ -2,12 +2,8 @@ import { memo, type CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 import { GENERATED_SKILL_ICON_THEME_ASSET_VARIANTS } from '@/lib/skills/generated-icon-theme-variants'
 import { resolveSkillIconThemeVariant, SKILL_ICON_THEME_VARIANTS } from '@/lib/skills/icon-theme-policy'
-import { skillMonogram } from '@/lib/skills/normalization'
+import { hasSkillIcon } from '@/lib/skills/icon-policy'
 import type { SkillSummary } from '@/lib/skills/types'
-
-const IDENTITY_FALLBACK_KINDS = new Set<SkillSummary['kind']>([
-    'language', 'framework', 'library', 'tool', 'platform', 'database',
-])
 
 function iconUrl(iconKey: string): string {
     return `/skill-icons/v1/${/\.(?:svg|png|jpe?g|webp)$/i.test(iconKey) ? iconKey : `${iconKey}.svg`}`
@@ -33,27 +29,7 @@ export const SkillIcon = memo(function SkillIcon({
 }) {
     const labelProps = decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': skill.name }
 
-    if (skill.iconSource === 'monogram' || (skill.iconSource === 'lucide' && IDENTITY_FALLBACK_KINDS.has(skill.kind)) || (!skill.iconKey && skill.iconSource !== 'lucide')) {
-        return (
-            <span
-                {...labelProps}
-                className={cn('inline-flex shrink-0 items-center justify-center rounded-[4px] bg-zinc-200 font-semibold leading-none text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100', className)}
-                style={{ width: size, height: size, fontSize: Math.max(7, Math.round(size * 0.43)) }}
-            >
-                {skillMonogram(skill.name)}
-            </span>
-        )
-    }
-
-    if (skill.iconSource === 'lucide') {
-        return (
-            <span
-                {...labelProps}
-                className={cn('inline-block shrink-0', className)}
-                style={maskStyle(iconUrl(`lucide-${skill.iconKey ?? 'badge'}`), size, 'currentColor')}
-            />
-        )
-    }
+    if (!hasSkillIcon(skill)) return null
 
     const iconKey = skill.iconKey!
     const assetVariant = colorMode === 'brand'

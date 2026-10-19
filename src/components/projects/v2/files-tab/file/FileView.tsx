@@ -48,7 +48,6 @@ import { extOf } from "@/components/projects/v2/utils/fileKind";
 import { toast } from "sonner";
 
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   FileQuestion,
@@ -63,14 +62,15 @@ import { useRouter, usePathname } from "next/navigation";
 import { useProjectDocList } from "@/hooks/projects/useProjectDocData";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ComponentErrorBoundary } from "@/components/ui/ComponentErrorBoundary";
-import { getProjectFileSignedUrl } from "@/app/actions/files/content";
+import { getFilePreviewUrl } from "@/app/actions/files/content";
 import { getProjectFileContent } from "@/app/actions/files/content";
 import { listFileVersions } from "@/app/actions/files/versions";
 import type { ProjectNode } from "@/lib/db/schema";
 import { computeContentHash } from "@/lib/files/content-hash";
-import { normalizeProjectDocSlug } from "@/lib/projects/doc";
+import { normalizeProjectDocSlug } from "@/lib/projects/doc-slug";
 import { cn } from "@/lib/utils";
 import { useFilesWorkspaceStore } from "@/stores/filesWorkspaceStore";
 import { useFileVersions } from "@/hooks/useFileVersions";
@@ -439,37 +439,18 @@ export function FileView({
   const [mdError, setMdError] = React.useState<string | null>(null);
   const [previewAttempt, setPreviewAttempt] = React.useState(0);
 
-  // ── Signed URL fetch ────────────────────────────────────────────────
-  // Text-only files never need a signed URL (content is streamed through
-  // `getProjectFileContent`). Asset / binary / markdown preview flows all
-  // need one so the `<img>` / `<video>` / `<object>` elements can load
-  // the blob directly.
-  // PDF previews fetch through the same-origin preview route in
-  // `AssetPreview`, so they do not need a browser-exposed storage URL.
-  const needsSignedUrl = !node.s3Key
-    ? false
-    : !(kind === "text" && !isMd) && kind !== "pdf";
+  // ── Deterministic Preview URL (0ms waterfall) ─────────────────────────
+  // Non-text assets (images, videos, audio, etc.) use the same-origin
+  // streaming preview route computed synchronously on the client.
+  // This completely eliminates the 150-250ms waterfall roundtrip to fetch
+  // a signed URL before the browser can even begin requesting image/video bytes.
+  const deterministicPreviewUrl = React.useMemo(() => {
+    if (!node.s3Key) return null;
+    return `/api/v1/projects/${encodeURIComponent(projectId)}/files/${encodeURIComponent(node.id)}/preview?v=${encodeURIComponent(String(node.currentVersion))}`;
+  }, [projectId, node.id, node.s3Key, node.currentVersion]);
 
-  const signedUrlQuery = useQuery({
-    queryKey: ["project-file-signed-url", projectId, node.id, node.currentVersion, node.updatedAt],
-    enabled: needsSignedUrl,
-    queryFn: async () => {
-      const result = await getProjectFileSignedUrl(projectId, node.id, 1_800);
-      if (!result?.url) throw new Error("Signed URL was empty");
-      return result;
-    },
-    staleTime: 25 * 60_000,
-    gcTime: 30 * 60_000,
-    retry: 1,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
-  const signedUrl = signedUrlQuery.data?.url ?? null;
-  const signedUrlError = signedUrlQuery.error instanceof Error
-    ? signedUrlQuery.error.message
-    : signedUrlQuery.error
-      ? "Failed to prepare preview"
-      : null;
+  const signedUrl = deterministicPreviewUrl;
+  const signedUrlError = null;
 
   // ── Markdown content fetch ──────────────────────────────────────────
   // Only needed for the rendered view (`mode === "view"` + markdown
@@ -524,7 +505,10 @@ export function FileView({
     (async () => {
       try {
         let url = signedUrl;
-        if (!url) url = (await signedUrlQuery.refetch()).data?.url ?? null;
+        if (!url) {
+          const res = await getFilePreviewUrl(projectId, node.id);
+          url = res?.url ?? null;
+        }
         if (!url) {
           toast.error("Could not prepare raw file");
           return;
@@ -536,7 +520,7 @@ export function FileView({
         toast.error(message);
       }
     })();
-  }, [textLike, signedUrl, signedUrlQuery, mode, editorDirty, leaveEditMode]);
+  }, [textLike, signedUrl, projectId, node.id, mode, editorDirty, leaveEditMode]);
 
   const onEdit = React.useCallback(() => {
     if (!canEdit) return;
@@ -677,7 +661,7 @@ export function FileView({
                   signedUrlError,
                   mdContent,
                   mdError,
-                  onRetry: () => { setPreviewAttempt(value => value + 1); if (needsSignedUrl) void signedUrlQuery.refetch(); },
+                  onRetry: () => { setPreviewAttempt(value => value + 1); },
                   projectId,
                   lease: fileLease.lease,
                   leaseStatus: fileLease.status,
@@ -709,7 +693,7 @@ export function FileView({
             </FileInspectorContainer>
           )}
 
-          {activeInspectorPanel === "details" && <FileInspectorContainer title="File details" onClose={closeInspectorPanel}><FileInspectorPanelHeader title="Details" closeLabel="Close file details" onClose={closeInspectorPanel} /><dl className="space-y-3 break-words p-4 text-sm">{[["Name", node.name], ["Location", node.path.startsWith("/.system/") ? "Task files" : node.path], ["Type", node.mimeType || "Not recorded"], ["Size", formatBytes(node.size, node.type) || "Not recorded"], ["Version", String(node.currentVersion)], ["Updated by", formatFileActor(node as MetadataStripNode)], ["Modified", formatFileTimestamp((node as MetadataStripNode).versionUpdatedAt ?? node.updatedAt)]].map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-foreground">{value}</dd></div>)}</dl></FileInspectorContainer>}
+          {activeInspectorPanel === "details" && <FileInspectorContainer title="File details" onClose={closeInspectorPanel}><FileInspectorPanelHeader title="Details" closeLabel="Close file details" onClose={closeInspectorPanel} /><dl className="flex-1 min-h-0 overflow-y-auto space-y-3 break-words p-4 text-sm">{[["Name", node.name], ["Location", node.path.startsWith("/.system/") ? "Task files" : node.path], ["Type", node.mimeType || "Not recorded"], ["Size", formatBytes(node.size, node.type) || "Not recorded"], ["Version", String(node.currentVersion)], ["Updated by", formatFileActor(node as MetadataStripNode)], ["Modified", formatFileTimestamp((node as MetadataStripNode).versionUpdatedAt ?? node.updatedAt)]].map(([label, value]) => <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-foreground">{value}</dd></div>)}</dl></FileInspectorContainer>}
           {/* FileVersionHistoryPanel — collapsible right-side drawer (Req 10.1, 10.2, 10.3) */}
           {isVersionHistoryPanelOpen && (
             <FileInspectorContainer title="Version history" onClose={closeInspectorPanel} testId="files-tab-version-history-drawer">
@@ -861,7 +845,7 @@ function renderPreviewRegion(p: PreviewRegionProps): React.JSX.Element {
   if (p.kind === "pdf") {
     return (
       <div className="flex-1 min-h-0">
-        <AssetPreview node={p.node} signedUrl={null} />
+        <AssetPreview node={p.node} signedUrl={null} projectId={p.projectId} />
       </div>
     );
   }
@@ -875,7 +859,7 @@ function renderPreviewRegion(p: PreviewRegionProps): React.JSX.Element {
     }
     return (
       <div className="flex-1 min-h-0">
-        <AssetPreview node={p.node} signedUrl={p.signedUrl} />
+        <AssetPreview node={p.node} signedUrl={p.signedUrl} projectId={p.projectId} />
       </div>
     );
   }
@@ -897,10 +881,10 @@ function PreviewLoading(): React.JSX.Element {
       data-testid="files-tab-file-view-loading"
       className="flex flex-1 flex-col gap-3 p-6"
     >
-      <div className="h-4 w-32 rounded-[3px] bg-muted/70 animate-pulse" />
-      <div className="h-4 w-5/6 rounded-[3px] bg-muted/50 animate-pulse" />
-      <div className="h-4 w-4/6 rounded-[3px] bg-muted/40 animate-pulse" />
-      <div className="h-4 w-2/3 rounded-[3px] bg-muted/30 animate-pulse" />
+      <Skeleton className="h-4 w-32 rounded-[3px]" />
+      <Skeleton className="h-4 w-5/6 rounded-[3px]" />
+      <Skeleton className="h-4 w-4/6 rounded-[3px]" />
+      <Skeleton className="h-4 w-2/3 rounded-[3px]" />
     </div>
   );
 }

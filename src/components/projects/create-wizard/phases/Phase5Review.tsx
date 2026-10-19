@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { Bell, BookOpen, Edit3, Folder, GitBranch, Globe, ImageIcon, Link2, Lock, Tag, Users, Workflow } from 'lucide-react';
+import { Edit3, Folder, GitBranch, Globe, Lock } from 'lucide-react';
 import { CreateProjectInput } from '@/lib/validations/project';
 import { SkillList } from '@/components/skills/SkillList';
 import { Button } from '@/components/ui/button';
@@ -56,7 +56,7 @@ interface ReviewRowProps {
 
 function ReviewRow({ label, icon: Icon, children }: ReviewRowProps) {
     return (
-        <div className="flex gap-3 border-b border-border py-3.5 last:border-b-0">
+        <div className={`border-b border-border py-3.5 last:border-b-0${Icon ? " flex gap-3" : ""}`}>
             {Icon ? <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
             <div className="min-w-0 flex-1">
                 <p className="nb-meta text-muted-foreground">{label}</p>
@@ -232,7 +232,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                 <ReviewRow label="Project title">
                     <p className="nb-body font-medium text-foreground">{formData.title || 'Untitled project'}</p>
                 </ReviewRow>
-                <ReviewRow label="Category" icon={Tag}>
+                <ReviewRow label="Category">
                     <p className="nb-body text-foreground">{projectTypeLabel}</p>
                     {projectType?.description ? <p className="nb-compact mt-1 text-muted-foreground">{projectType.description}</p> : null}
                 </ReviewRow>
@@ -260,7 +260,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                         ) : null}
                     </div>
                 ) : null}
-                <ReviewRow label="Tags and technologies" icon={Tag}>
+                <ReviewRow label="Tags and technologies">
                     {formData.tags?.length || formData.technologies_used?.length ? (
                         <div className="flex flex-wrap gap-2">
                             {formData.tags?.map((tag) => <DetailLabel key={tag}>{tag}</DetailLabel>)}
@@ -271,11 +271,11 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
             </ReviewSection>
 
             <ReviewSection eyebrow="Phase 3 · team" title="Team and roles" onEdit={() => goToPhase(3)}>
-                <ReviewRow label="Project lead" icon={Users}>
+                <ReviewRow label="Project lead">
                     <p className="nb-ui-label text-foreground">Lead{formData.creator_role?.title ? ` · ${formData.creator_role.title}` : ''}</p>
                     {formData.creator_role?.time_commitment ? <p className="nb-compact mt-1 text-muted-foreground">{formData.creator_role.time_commitment} hours per week</p> : null}
                 </ReviewRow>
-                <ReviewRow label="Open roles" icon={Users}>
+                <ReviewRow label="Open roles">
                     {openRoles.length ? (
                         <div className="space-y-4">
                             <p className="nb-compact text-muted-foreground">{openPositionCount} open {openPositionCount === 1 ? 'position' : 'positions'} across {openRoles.length} {openRoles.length === 1 ? 'role' : 'roles'}.</p>
@@ -297,7 +297,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
             </ReviewSection>
 
             <ReviewSection eyebrow="Phase 4 · settings" title="Launch settings" onEdit={() => goToPhase(4)}>
-                <ReviewRow label="Project picture" icon={ImageIcon}>
+                <ReviewRow label="Project picture">
                     <p className="nb-compact text-foreground">{projectImage ? `${projectImage.name} · uploads after creation` : 'Initials until a picture is added.'}</p>
                 </ReviewRow>
                 <ReviewRow label="Visibility" icon={VisibilityIcon}>
@@ -308,7 +308,7 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                             : `Public tabs: ${publicTabLabels.join(' · ') || 'none'}.`}
                     </p>
                 </ReviewRow>
-                <ReviewRow label="Project links" icon={Link2}>
+                <ReviewRow label="Project links">
                     {projectLinks.length ? (
                         <ul className="space-y-3">
                             {projectLinks.map((link) => {
@@ -331,14 +331,14 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                         </ul>
                     ) : <p className="nb-compact text-muted-foreground">No project links added.</p>}
                 </ReviewRow>
-                <ReviewRow label="Documentation" icon={BookOpen}>
+                <ReviewRow label="Documentation">
                     <p className="nb-compact text-foreground">
                         {docSkipped
                             ? 'No doc yet.'
                             : `Starter template, ${formData.readme?.publishOnCreate ? 'published at launch' : 'kept as a draft'}. ${formData.doc_edit_policy === 'members' ? 'Members can edit.' : 'Leaders edit.'}`}
                     </p>
                 </ReviewRow>
-                <ReviewRow label="Project journey" icon={Workflow}>
+                <ReviewRow label="Project journey">
                     {lifecycleStages.length ? (
                         <ol className="space-y-2">
                             {lifecycleStages.map((stage, index) => (
@@ -350,13 +350,13 @@ export default function Phase5Review({ goToPhase, onReady, projectImage = null }
                         </ol>
                     ) : <p className="nb-compact text-muted-foreground">No journey stages added.</p>}
                 </ReviewRow>
-                <ReviewRow label="Team permissions" icon={Users}>
+                <ReviewRow label="Team permissions">
                     <p className="nb-compact text-foreground">Updates: {memberUpdates ? 'members can post' : 'leaders only'} · New-member uploads: {memberUploads ? 'on' : 'off'}</p>
                 </ReviewRow>
-                <ReviewRow label="Files and storage" icon={Folder}>
+                <ReviewRow label="Files and storage">
                     <p className="nb-compact text-foreground">{source.detail}</p>
                 </ReviewRow>
-                <ReviewRow label="Notifications" icon={Bell}>
+                <ReviewRow label="Notifications">
                     <p className="nb-compact text-foreground">
                         {CREATE_PROJECT_NOTIFICATION_ROWS.map((row) => `${row.label}: ${notificationRows[row.id] ? 'on' : 'off'}`).join(' · ')}
                     </p>

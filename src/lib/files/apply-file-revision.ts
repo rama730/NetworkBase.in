@@ -4,7 +4,7 @@ import { and, eq, max, sql } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { scheduleAssetDeletionIfUnreferenced } from "@/lib/storage/asset-deletion";
-import { fileVersions, projectNodes, storageAssets, type FileVersion } from "@/lib/db/schema";
+import { fileVersions, projectNodes, projectNodeEvents, storageAssets, type FileVersion } from "@/lib/db/schema";
 import {
   assertProjectUploadAccessTx,
   assertProjectWriteAccessTx,
@@ -78,12 +78,7 @@ export async function applyFileRevision(
         AND project_id = ${input.projectId}
       FOR UPDATE
     `);
-    await assertOwnedFileLease(tx, {
-      projectId: input.projectId,
-      nodeId: input.nodeId,
-      userId: input.actorUserId,
-      credentials: input.lease,
-    });
+
 
     const current = await tx.query.projectNodes.findFirst({
       where: and(
@@ -93,6 +88,24 @@ export async function applyFileRevision(
     });
     if (!current || current.deletedAt) throw new Error("File not found");
     if (current.type !== "file") throw new Error("Only file nodes support revisions");
+    const operationId = typeof input.eventMetadata?.operationId === "string" ? input.eventMetadata.operationId : null;
+    if(operationId) {
+      const committed = await tx.query.projectNodeEvents.findFirst({where:and(eq(projectNodeEvents.projectId,input.projectId),eq(projectNodeEvents.actorId,input.actorUserId),sql`${projectNodeEvents.metadata}->>'operationId' = ${operationId}`)});
+      if(committed) {
+        const metadata=committed.metadata || {};
+        if((metadata.nodeId||committed.nodeId)!==input.nodeId)throw new Error("The operation was already committed to a different or removed file. Do not recreate it.");
+        if(metadata.hash!==input.contentHash) throw new Error("Operation ID was already used for different contents");
+        const version=await tx.query.fileVersions.findFirst({where:and(eq(fileVersions.nodeId,input.nodeId),eq(fileVersions.version,Number(metadata.version)))});
+        if(!version) throw new Error("The committed operation's version is no longer available. Do not publish it again.");
+        return {node:{...current,size:Number(metadata.size),currentVersion:Number(metadata.version),updatedAt:committed.createdAt},version:{...version,contentHash:String(metadata.hash),size:Number(metadata.size)},mode:metadata.revisionMode as FileRevisionMode,versionIncremented:Boolean(metadata.versionIncremented),replacedStorageKey:null,sequenceNumber:committed.sequenceNumber};
+      }
+    }
+    await assertOwnedFileLease(tx, {
+      projectId: input.projectId,
+      nodeId: input.nodeId,
+      userId: input.actorUserId,
+      credentials: input.lease,
+    });
     // The asset must be this project's verified object for exactly this key;
     // its server-computed digest is authoritative (COR-004).
     let contentHash = input.contentHash;
@@ -257,6 +270,7 @@ export async function applyFileRevision(
         fencingToken: input.lease.fencingToken,
         comment,
         ...input.eventMetadata,
+        nodeId:input.nodeId,path:current.path,taskId:current.taskId,
       },
       tx,
     );

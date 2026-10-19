@@ -1,6 +1,7 @@
 "use client";
 
 import InviteCollaboratorModal, { type ParticipationProject, type ParticipationRole } from "@/components/projects/dashboard/InviteCollaboratorModal";
+import { PlainContentHeadings } from "@/components/projects/PlainContentHeadings";
 
 type ProjectRef = { id: string; title: string; slug?: string | null };
 
@@ -17,5 +18,5 @@ interface ApplyRoleModalProps {
 /** Compatibility entry point: applications now use the Invite Collaborator recruitment surface. */
 export default function ApplyRoleModal({ isOpen, onClose, onSuccess, project, roles, preselectedRoleId, candidateProjects }: ApplyRoleModalProps) {
     const projects: ParticipationProject[] | undefined = candidateProjects?.map((item) => ({ ...item, openRoles: item.openRoles }));
-    return <InviteCollaboratorModal isOpen={isOpen} onClose={onClose} onSuccess={onSuccess} mode="apply" projectId={project?.id} projectTitle={project?.title} roles={roles} projects={projects} preselectedRoleId={preselectedRoleId} />;
+    return <PlainContentHeadings><InviteCollaboratorModal isOpen={isOpen} onClose={onClose} onSuccess={onSuccess} mode="apply" projectId={project?.id} projectTitle={project?.title} roles={roles} projects={projects} preselectedRoleId={preselectedRoleId} /></PlainContentHeadings>;
 }

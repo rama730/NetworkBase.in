@@ -2,7 +2,7 @@
 
 import React, { useMemo, useEffect, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
-import { FolderPlus, Loader2 } from "lucide-react";
+import { FolderPlus } from "lucide-react";
 import { FileTreeItem, type FileTreeItemContext } from "./FileTreeItem";
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
@@ -223,9 +223,26 @@ export function ExplorerTree({
 
   if (isBooting || (effectiveMode === "trash" && isTrashLoading)) {
     return (
-      <div className="p-6 text-sm text-zinc-500 flex items-center gap-2">
-        <Loader2 className="w-4 h-4 animate-spin" />
-        Loading…
+      <div
+        role="status"
+        aria-busy="true"
+        aria-label="Loading files tree"
+        className="flex flex-col gap-1 p-2 animate-pulse"
+      >
+        <span className="sr-only">Loading files…</span>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-8 flex items-center gap-2 px-2 rounded"
+            style={{ paddingLeft: `${8 + (i % 3) * 16}px` }}
+          >
+            <div className="size-4 rounded bg-muted/60 shrink-0" />
+            <div
+              className="h-3.5 rounded bg-muted/50"
+              style={{ width: `${70 + ((i * 43) % 90)}px` }}
+            />
+          </div>
+        ))}
       </div>
     );
   }

@@ -56,24 +56,27 @@ export function useFilePreviewMutations(
     node,
     mutations,
     dialogs: (
-      <ExplorerDialogsHost
-        {...mutations}
-        canEdit={canEdit && !!node && !!boot}
-        canManageFiles={canManageFiles}
-        projectId={projectId}
-        confirmCreate={async () => {
-          await mutations.confirmCreate();
-        }}
-        confirmRename={async () => {
-          await mutations.confirmRename();
-        }}
-        confirmDelete={async () => {
-          await mutations.confirmDelete();
-        }}
-        confirmMove={async () => {
-          await mutations.confirmMove();
-        }}
-      />
+      <>
+        {mutations.uploadCollisionDialog}
+        <ExplorerDialogsHost
+          {...mutations}
+          canEdit={canEdit && !!node && !!boot}
+          canManageFiles={canManageFiles}
+          projectId={projectId}
+          confirmCreate={async () => {
+            await mutations.confirmCreate();
+          }}
+          confirmRename={async () => {
+            await mutations.confirmRename();
+          }}
+          confirmDelete={async () => {
+            await mutations.confirmDelete();
+          }}
+          confirmMove={async () => {
+            await mutations.confirmMove();
+          }}
+        />
+      </>
     ),
   };
 }

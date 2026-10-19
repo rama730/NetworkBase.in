@@ -190,6 +190,9 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
     filteredNodes.length > 0 &&
     filteredNodes.every((n) => selectedIds.has(n.id));
 
+  const isPartiallySelected =
+    !allSelected && filteredNodes.some((n) => selectedIds.has(n.id));
+
   const toggleSelectAll = useCallback(() => {
     if (allSelected) {
       setSelectedIds(new Set());
@@ -472,6 +475,7 @@ export function TrashFilesCollection({ projectId }: { projectId: string }) {
           byLabel="Deleted by"
           hasCheckbox={true}
           allSelected={allSelected}
+          indeterminate={isPartiallySelected}
           onToggleSelectAll={toggleSelectAll}
         />
 

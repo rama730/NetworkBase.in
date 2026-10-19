@@ -23,6 +23,7 @@ import { formatTaskId } from "@/lib/project-key";
 import { getTaskTitlePresentation } from "@/lib/projects/task-presentation";
 import { cn } from "@/lib/utils";
 import type { TaskFileRole } from "@/lib/projects/task-file-intelligence";
+import { searchProjectTasks } from "@/app/actions/files/links";
 
 // ─── Constants ───────────────────────────────────────────────────────
 
@@ -87,18 +88,17 @@ export function TaskSearchPicker({
     setIsLoading(true);
     setError(false);
 
-    import("@/app/actions/files/links")
-      .then(({ searchProjectTasks }) =>
-        searchProjectTasks(projectId, debouncedQuery, MAX_RESULTS),
-      )
+    searchProjectTasks(projectId, debouncedQuery, MAX_RESULTS)
       .then((tasks) => {
         if (!cancelled) {
+          itemRefs.current = [];
           setResults(tasks);
           setActiveIndex(0);
         }
       })
       .catch(() => {
         if (!cancelled) {
+          itemRefs.current = [];
           setResults([]);
           setError(true);
         }
@@ -118,6 +118,7 @@ export function TaskSearchPicker({
   useEffect(() => {
     let timer: number | undefined;
     if (isOpen) {
+      itemRefs.current = [];
       setQuery("");
       setDebouncedQuery("");
       setResults([]);
@@ -317,6 +318,7 @@ export function TaskSearchPicker({
                     id={`task-search-picker-item-${task.id}`}
                     role="option"
                     aria-selected={isActive}
+                    tabIndex={-1}
                     type="button"
                     ref={(el) => { itemRefs.current[idx] = el; }}
                     className={

@@ -15,14 +15,6 @@ import { createWorkspaceSlice } from "./workspaceSlice";
 import { createEditorSlice } from "./editorSlice";
 import { createGitSlice } from "./gitSlice";
 
-let _storageWorker: Worker | null = null;
-function getStorageWorker() {
-  if (typeof window === "undefined") return null;
-  if (!_storageWorker) {
-    _storageWorker = new Worker(new URL("./dbWorker.ts", import.meta.url));
-  }
-  return _storageWorker;
-}
 
 export const useFilesWorkspaceStore = create<FilesWorkspaceState>()(
   persist(
@@ -119,19 +111,27 @@ export const useFilesWorkspaceStore = create<FilesWorkspaceState>()(
         };
       },
       storage: {
-        getItem: async (name) => {
+        getItem: (name) => {
           if (typeof window === "undefined") return null;
-          const { get } = await import("idb-keyval");
-          return await get(name);
+          try {
+            const raw = window.localStorage.getItem(name);
+            return raw ? JSON.parse(raw) : null;
+          } catch {
+            return null;
+          }
         },
         setItem: (name, value) => {
           if (typeof window !== "undefined") {
-            getStorageWorker()?.postMessage({ type: "set", key: name, value });
+            try {
+              window.localStorage.setItem(name, JSON.stringify(value));
+            } catch {}
           }
         },
         removeItem: (name) => {
           if (typeof window !== "undefined") {
-            getStorageWorker()?.postMessage({ type: "del", key: name });
+            try {
+              window.localStorage.removeItem(name);
+            } catch {}
           }
         },
       },

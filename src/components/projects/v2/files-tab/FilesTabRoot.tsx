@@ -178,7 +178,7 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     };
   }, [currentUserId, isActive, isOwner, isOwnerOrMember]);
   const canOpenGitHub = Boolean(
-    githubAccess?.linked && (isOwner || isOwnerOrMember),
+    githubAccess?.linked === true && (isOwner || isOwnerOrMember),
   );
   const pendingNavigation = useFilesWorkspaceStore(
     (state) => state.byProjectId[projectId]?.pendingNavigation ?? null,
@@ -334,23 +334,14 @@ export function FilesTabRoot(props: FilesTabRootProps): React.JSX.Element {
     return live;
   });
 
-  // Pseudo-`Window` handed to `useDeepLinkResolver`. Proxies every other
-  // access to the real `window`; only `location.search` is overridden.
+  // Snapshot `Window` handed to `useDeepLinkResolver` carrying the initial search snapshot.
   const deepLinkWindow = useMemo<Window | undefined>(() => {
     if (typeof window === "undefined") return undefined;
-    const realWin = window;
-    const snapshotLocation: Location = new Proxy(realWin.location, {
-      get(target, prop, receiver) {
-        if (prop === "search") return initialSearch;
-        return Reflect.get(target, prop, receiver);
+    return {
+      location: {
+        search: initialSearch,
       },
-    });
-    return new Proxy(realWin, {
-      get(target, prop, receiver) {
-        if (prop === "location") return snapshotLocation;
-        return Reflect.get(target, prop, receiver);
-      },
-    });
+    } as unknown as Window;
   }, [initialSearch]);
 
   const [deepLinkError, setDeepLinkError] = useState<string | null>(null);

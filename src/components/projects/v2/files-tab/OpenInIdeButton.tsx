@@ -404,6 +404,56 @@ export function OpenInIdeButton({
         )}
       </div>
 
+      {/* Connect Another Editor Dialog when already connected */}
+      <Dialog open={connectMenuOpen && hasConnected} onOpenChange={setConnectMenuOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">
+              Connect Another Desktop Editor
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Choose an editor to install the NetworkBase WorkSpace extension and link your workspace.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1 max-h-[340px] overflow-y-auto py-2">
+            {(Object.keys(SUPPORTED_IDES) as SupportedIde[]).map((id) => {
+              const ide = SUPPORTED_IDES[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setConnectMenuOpen(false);
+                    setTimeout(() => initiateLaunch(id, "marketplace"), 50);
+                  }}
+                  className="flex w-full items-center justify-between gap-2.5 rounded-[6px] p-2 hover:bg-muted text-left transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Image
+                      src={ide.icon}
+                      alt=""
+                      width={20}
+                      height={20}
+                      unoptimized
+                      className="size-5 shrink-0 object-contain"
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-medium text-foreground truncate">
+                        {ide.name}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        {ide.description}
+                      </span>
+                    </div>
+                  </div>
+                  <ShoppingBag className="size-3.5 text-muted-foreground shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Fallback Setup Modal */}
       <Dialog open={fallbackOpen} onOpenChange={setFallbackOpen}>
         <DialogContent className="sm:max-w-md bg-card border-border">

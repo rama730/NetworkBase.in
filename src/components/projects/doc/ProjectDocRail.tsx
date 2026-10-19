@@ -111,8 +111,7 @@ export function ProjectDocRail({
         <aside className="hidden w-full xl:block xl:w-[260px] shrink-0 border-l border-border pl-6" aria-label="Project documents">
             <div className="sticky top-[calc(var(--project-tabs-height,42px)+1rem)] space-y-2">
                 <div className="flex items-center justify-between gap-2 pb-2">
-                    <span className="nb-ui-label flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
-                        <FileText className="size-3.5 text-muted-foreground" />
+                    <span className="nb-ui-label text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
                         Documents
                     </span>
                     <span className="flex items-center gap-1.5">

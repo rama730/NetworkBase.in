@@ -26,14 +26,14 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { extOf } from "@/components/projects/v2/explorer/FileIcons";
 
 export type FileTypeMark = "DOC" | "XLS" | "IMG" | "PDF" | "SRC" | "URL" | "TXT" | "BIN" | "MEDIA" | "LIC";
 
 export function resolveFileTypeMark(name: string, mimeType?: string | null): FileTypeMark {
   const cleanName = (name || "").trim().toLowerCase();
   const mime = (mimeType || "").trim().toLowerCase();
-  const parts = cleanName.split(".");
-  const ext = parts.length > 1 ? (parts.pop() || "") : "";
+  const ext = extOf(cleanName);
 
   // 1. License & Legal agreements
   if (

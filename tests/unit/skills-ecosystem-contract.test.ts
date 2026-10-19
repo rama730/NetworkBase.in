@@ -79,7 +79,7 @@ describe('skills ecosystem contract', () => {
         assert.doesNotMatch(icon, /lowLuminanceBrand|dark:\[--skill-icon-render-color/)
         assert.doesNotMatch(icon, /drop-shadow|dark:bg-white|dark:ring-white|bg-white\/80/)
         assert.doesNotMatch(icon, /https?:\/\/|skill-sprites/)
-        assert.match(icon, /IDENTITY_FALLBACK_KINDS/)
+        assert.match(icon, /hasSkillIcon/)
         assert.match(source('src/components/skills/SkillChip.tsx'), /SkillIcon/)
         assert.match(source('src/components/skills/SkillChip.tsx'), /resolveClientSkill/)
         assert.match(source('src/components/projects/ProjectCard.tsx'), /MAX_PROJECT_CARD_SKILL_ICONS = 6/)
@@ -125,7 +125,8 @@ describe('skills ecosystem contract', () => {
     })
 
     it('keeps discovery and project ranking on canonical matching helpers', () => {
-        assert.match(source('src/components/network/PersonCard.tsx'), /matchingSkillLabels/)
+        assert.match(source('src/components/network/PersonCard.tsx'), /<PersonCardContent/)
+        assert.match(source('src/components/network/PersonCardContent.tsx'), /matchingSkillLabels/)
         assert.match(source('src/inngest/functions/social-graph-suggestions.ts'), /matchingSkillLabels/)
         assert.match(source('src/lib/data/discover.ts'), /countCanonicalSkillMatches/)
     })

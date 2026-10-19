@@ -45,6 +45,7 @@ import * as React from "react";
 import dynamic from "next/dynamic";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "@/components/providers/theme-provider";
 import type { ProjectNode } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
@@ -63,21 +64,154 @@ const RevisionControlModal = dynamic(() => import("@/components/ui/RevisionContr
 // fires when the user opens View or Edit mode, preserving the
 // Req 16.1–16.3 performance budget. `ssr: false` is required because the
 // editor touches `window` and `document` during construction.
+function parseLineRangeFromHash(hash: string): { fromLine: number; toLine: number } | null {
+  if (!hash) return null;
+  const match = hash.match(/^#L(\d+)(?:-L(\d+))?$/i);
+  if (!match) return null;
+  const rawStart = match[1];
+  if (!rawStart) return null;
+  const start = parseInt(rawStart, 10);
+  const rawEnd = match[2];
+  const end = rawEnd ? parseInt(rawEnd, 10) : start;
+  if (isNaN(start) || start < 1) return null;
+  return {
+    fromLine: Math.min(start, end),
+    toLine: Math.max(start, end),
+  };
+}
+
+// Dynamic import keeps `@uiw/react-codemirror` (and its `@codemirror/*`
+// transitive tree) out of the Files-tab initial chunk. The import only
+// fires when the user opens View or Edit mode, preserving the
+// Req 16.1–16.3 performance budget. `ssr: false` is required because the
+// editor touches `window` and `document` during construction.
 const CodeMirrorEditor = dynamic(
   async () => {
-    const [{ default: CodeMirror }, { Decoration, EditorView }] = await Promise.all([
+    const [
+      { default: CodeMirror },
+      { Decoration, EditorView, lineNumbers },
+      { StateEffect, StateField },
+    ] = await Promise.all([
       import("@uiw/react-codemirror"),
       import("@codemirror/view"),
+      import("@codemirror/state"),
     ]);
+
     const selectedText = Decoration.mark({ class: "nb-selected-text" });
-    const selectionForeground = EditorView.decorations.compute(["doc", "selection"], state =>
-      Decoration.set(state.selection.ranges
-        .filter(range => !range.empty)
-        .map(range => selectedText.range(range.from, range.to)), true),
+    const selectionForeground = EditorView.decorations.compute(["doc", "selection"], (state) =>
+      Decoration.set(
+        state.selection.ranges
+          .filter((range) => !range.empty)
+          .map((range) => selectedText.range(range.from, range.to)),
+        true,
+      ),
     );
-    return function SelectionStyledEditor({ extensions, ...props }: React.ComponentProps<typeof CodeMirror>) {
-      const editorExtensions = React.useMemo(() => [selectionForeground, ...(extensions ?? [])], [extensions]);
-      return <CodeMirror {...props} extensions={editorExtensions} />;
+
+    const setLineRangeEffect = StateEffect.define<{ fromLine: number; toLine: number } | null>();
+    const lineRangeField = StateField.define({
+      create() {
+        return Decoration.none;
+      },
+      update(decorations, tr) {
+        for (const effect of tr.effects) {
+          if (effect.is(setLineRangeEffect)) {
+            if (!effect.value) return Decoration.none;
+            const { fromLine, toLine } = effect.value;
+            const start = Math.min(fromLine, toLine);
+            const end = Math.max(fromLine, toLine);
+            const decos = [];
+            for (let l = start; l <= end; l++) {
+              if (l >= 1 && l <= tr.newDoc.lines) {
+                const line = tr.newDoc.line(l);
+                decos.push(Decoration.line({ class: "cm-highlighted-line-range" }).range(line.from));
+              }
+            }
+            return Decoration.set(decos, true);
+          }
+        }
+        return decorations.map(tr.changes);
+      },
+      provide: (f) => EditorView.decorations.from(f),
+    });
+
+    return function SelectionStyledEditor({
+      extensions,
+      selectedLineRange,
+      scrollTargetLine,
+      onLineGutterClick,
+      editorViewRef,
+      ...props
+    }: React.ComponentProps<typeof CodeMirror> & {
+      selectedLineRange?: { fromLine: number; toLine: number } | null;
+      scrollTargetLine?: number | null;
+      onLineGutterClick?: (lineNo: number, shiftKey: boolean) => void;
+      editorViewRef?: React.MutableRefObject<any>;
+    }) {
+      const lineGutterHandlerRef = React.useRef(onLineGutterClick);
+      lineGutterHandlerRef.current = onLineGutterClick;
+
+      const customLineNumbers = React.useMemo(
+        () =>
+          lineNumbers({
+            domEventHandlers: {
+              mousedown: (view, line, event) => {
+                const mouseEvent = event as MouseEvent;
+                if (mouseEvent.button !== 0) return false;
+                const lineNo = view.state.doc.lineAt(line.from).number;
+                lineGutterHandlerRef.current?.(lineNo, mouseEvent.shiftKey);
+                return true;
+              },
+            },
+          }),
+        [],
+      );
+
+      const editorExtensions = React.useMemo(
+        () => [
+          selectionForeground,
+          lineRangeField,
+          customLineNumbers,
+          ...(extensions ?? []),
+        ],
+        [extensions, customLineNumbers],
+      );
+
+      const { onCreateEditor } = props;
+      const handleCreateEditor = React.useCallback(
+        (view: any, state: any) => {
+          if (editorViewRef) editorViewRef.current = view;
+          onCreateEditor?.(view, state);
+          if (selectedLineRange && selectedLineRange.fromLine <= view.state.doc.lines) {
+            const line = view.state.doc.line(selectedLineRange.fromLine);
+            view.dispatch({
+              effects: [
+                setLineRangeEffect.of(selectedLineRange),
+                EditorView.scrollIntoView(line.from, { y: "center" }),
+              ],
+            });
+          }
+        },
+        [editorViewRef, onCreateEditor, selectedLineRange],
+      );
+
+      React.useEffect(() => {
+        if (!editorViewRef?.current) return;
+        const view = editorViewRef.current;
+        const effects: any[] = [setLineRangeEffect.of(selectedLineRange ?? null)];
+        if (scrollTargetLine && scrollTargetLine <= view.state.doc.lines) {
+          const line = view.state.doc.line(scrollTargetLine);
+          effects.push(EditorView.scrollIntoView(line.from, { y: "center" }));
+        }
+        view.dispatch({ effects });
+      }, [selectedLineRange, scrollTargetLine, editorViewRef]);
+
+      return (
+        <CodeMirror
+          {...props}
+          onCreateEditor={handleCreateEditor}
+          extensions={editorExtensions}
+        />
+      );
     };
   },
   {
@@ -163,6 +297,86 @@ export function TextViewer({
   const [isSaving, setIsSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+
+  // ── GitHub Line Range Selection & Deep Link Sync (#L10 / #L10-L25) ──
+  const [selectedRange, setSelectedRange] = React.useState<{ fromLine: number; toLine: number } | null>(() => {
+    if (typeof window !== "undefined") {
+      return parseLineRangeFromHash(window.location.hash);
+    }
+    return null;
+  });
+  const [scrollTargetLine, setScrollTargetLine] = React.useState<number | null>(() => {
+    if (typeof window !== "undefined") {
+      return parseLineRangeFromHash(window.location.hash)?.fromLine ?? null;
+    }
+    return null;
+  });
+  const anchorLineRef = React.useRef<number | null>(selectedRange?.fromLine ?? null);
+  const editorViewRef = React.useRef<any>(null);
+
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      const range = parseLineRangeFromHash(window.location.hash);
+      setSelectedRange(range);
+      anchorLineRef.current = range?.fromLine ?? null;
+      if (range) {
+        setScrollTargetLine(range.fromLine);
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    window.addEventListener("popstate", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+      window.removeEventListener("popstate", handleHashChange);
+    };
+  }, []);
+
+  const handleLineGutterClick = React.useCallback(
+    (lineNo: number, shiftKey: boolean) => {
+      // Manual gutter click selects lines without forcing a jumpy scrollIntoView
+      setScrollTargetLine(null);
+      if (shiftKey && anchorLineRef.current !== null) {
+        const from = Math.min(anchorLineRef.current, lineNo);
+        const to = Math.max(anchorLineRef.current, lineNo);
+        const nextRange = { fromLine: from, toLine: to };
+        setSelectedRange(nextRange);
+        const hash = from === to ? `#L${from}` : `#L${from}-L${to}`;
+        const url = new URL(window.location.href);
+        url.hash = hash;
+        window.history.replaceState(window.history.state, "", url.toString());
+      } else {
+        if (selectedRange && selectedRange.fromLine === lineNo && selectedRange.toLine === lineNo) {
+          setSelectedRange(null);
+          anchorLineRef.current = null;
+          const url = new URL(window.location.href);
+          url.hash = "";
+          window.history.replaceState(window.history.state, "", url.pathname + url.search);
+        } else {
+          anchorLineRef.current = lineNo;
+          const nextRange = { fromLine: lineNo, toLine: lineNo };
+          setSelectedRange(nextRange);
+          const url = new URL(window.location.href);
+          url.hash = `#L${lineNo}`;
+          window.history.replaceState(window.history.state, "", url.toString());
+        }
+      }
+    },
+    [selectedRange],
+  );
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectedRange) {
+        setSelectedRange(null);
+        anchorLineRef.current = null;
+        const url = new URL(window.location.href);
+        url.hash = "";
+        window.history.replaceState(window.history.state, "", url.pathname + url.search);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedRange]);
 
   // ── Dark theme extension (lazy-loaded) ─────────────────────────────
   // Loaded asynchronously to keep the initial chunk lean. The resolved
@@ -335,10 +549,10 @@ export function TextViewer({
         data-testid="files-tab-text-viewer-loading"
         className="flex h-full min-h-0 w-full flex-col gap-2 p-6"
       >
-        <div className="h-4 w-48 rounded-[3px] bg-muted/60 animate-pulse" />
-        <div className="h-4 w-3/4 rounded-[3px] bg-muted/40 animate-pulse" />
-        <div className="h-4 w-5/6 rounded-[3px] bg-muted/50 animate-pulse" />
-        <div className="h-4 w-2/3 rounded-[3px] bg-muted/30 animate-pulse" />
+        <Skeleton className="h-4 w-48 rounded-[3px]" />
+        <Skeleton className="h-4 w-3/4 rounded-[3px]" />
+        <Skeleton className="h-4 w-5/6 rounded-[3px]" />
+        <Skeleton className="h-4 w-2/3 rounded-[3px]" />
       </div>
     );
   }
@@ -396,7 +610,7 @@ export function TextViewer({
             width="100%"
             className="h-full font-mono text-[13px] leading-[1.55] pointer-coarse:text-[14px]"
             basicSetup={{
-              lineNumbers: true,
+              lineNumbers: false,
               foldGutter: false,
               highlightActiveLine: false,
               highlightActiveLineGutter: false,
@@ -410,6 +624,10 @@ export function TextViewer({
               completionKeymap: false,
               closeBracketsKeymap: false,
             }}
+            selectedLineRange={selectedRange}
+            scrollTargetLine={scrollTargetLine}
+            onLineGutterClick={handleLineGutterClick}
+            editorViewRef={editorViewRef}
           />
         </div>
       </div>
@@ -519,7 +737,7 @@ export function TextViewer({
           // no lint keymap, no completion — the Edit surface is a plain
           // text editor, not an IDE.
           basicSetup={{
-            lineNumbers: true,
+            lineNumbers: false,
             foldGutter: false,
             highlightActiveLine: true,
             highlightActiveLineGutter: true,
@@ -533,6 +751,10 @@ export function TextViewer({
             completionKeymap: false,
             closeBracketsKeymap: false,
           }}
+          selectedLineRange={selectedRange}
+          scrollTargetLine={scrollTargetLine}
+          onLineGutterClick={handleLineGutterClick}
+          editorViewRef={editorViewRef}
         />
       </div>
 

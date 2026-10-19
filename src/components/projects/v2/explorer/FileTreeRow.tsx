@@ -8,6 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 import { FileIcon } from "./FileIcons";
 import { ProjectNode } from "@/lib/db/schema";
+import { extractFoldersFromDataTransfer } from "@/lib/files/folder-drop";
 import { VersionPill } from "../files-tab/VersionPill";
 
 const NODE_DRAG_MIME = "application/x-nb-node";
@@ -289,9 +290,31 @@ export const FileTreeRow = React.memo(function FileTreeRow({
                 setDropHighlight(false);
  
                 // Desktop file drop → upload into this folder
-                if (isFolder && e.dataTransfer.files.length > 0 && onDesktopDrop) {
-                    const files = Array.from(e.dataTransfer.files);
-                    onDesktopDrop(files, node.id);
+                if (isFolder && onDesktopDrop && (e.dataTransfer.files.length > 0 || (e.dataTransfer.items && e.dataTransfer.items.length > 0))) {
+                    void extractFoldersFromDataTransfer(e.dataTransfer).then((extracted) => {
+                        const allFiles: File[] = [
+                            ...extracted.looseFiles,
+                            ...extracted.folders.flatMap((folder) =>
+                              folder.files.map((item) => {
+                                const fullRelativePath = item.relativePath
+                                  ? `${folder.name}/${item.relativePath}`
+                                  : `${folder.name}/${item.file.name}`;
+                                try {
+                                  Object.defineProperty(item.file, "webkitRelativePath", {
+                                    value: fullRelativePath,
+                                    configurable: true,
+                                  });
+                                } catch {}
+                                return item.file;
+                              }),
+                            ),
+                        ];
+                        const files = allFiles.length > 0 ? allFiles : Array.from(e.dataTransfer.files || []);
+                        if (files.length > 0) onDesktopDrop(files, node.id);
+                    }).catch(() => {
+                        const files = Array.from(e.dataTransfer.files || []);
+                        if (files.length > 0) onDesktopDrop(files, node.id);
+                    });
                     return;
                 }
  

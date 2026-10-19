@@ -653,6 +653,9 @@ export function RenameDialog({
         >
           <DialogHeader>
             <DialogTitle>Rename</DialogTitle>
+            <DialogDescription className="sr-only">
+              Enter a new name for the item.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-2">
             <Input
@@ -730,17 +733,17 @@ export function DeleteDialog({
       >
         <DialogHeader>
           <DialogTitle>Move to Trash</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            This will move{" "}
+            <span className="font-mono font-semibold text-foreground">
+              {deleteDialog.nodes.length > 1
+                ? `${deleteDialog.nodes.length} items`
+                : deleteDialog.nodes[0]?.name}
+            </span>{" "}
+            to Trash.
+          </DialogDescription>
         </DialogHeader>
-        <div className="text-sm text-zinc-600 dark:text-zinc-300">
-          This will move{" "}
-          <span className="font-mono font-semibold">
-            {deleteDialog.nodes.length > 1
-              ? `${deleteDialog.nodes.length} items`
-              : deleteDialog.nodes[0]?.name}
-          </span>{" "}
-          to Trash.
-        </div>
-        <DialogFooter className="bg-[#F3F0EA] dark:bg-white/5 border-t border-[#DBD5C8] dark:border-white/10 -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex items-center justify-end gap-2">
+        <DialogFooter className="bg-muted/50 border-t border-border -mx-6 -mb-6 px-6 py-3 rounded-b-[12px] flex items-center justify-end gap-2">
           <Button
             variant="outline"
             onClick={() => setDeleteDialog({ open: false, nodes: [] })}
