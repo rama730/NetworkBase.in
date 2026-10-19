@@ -224,7 +224,8 @@
     "drizzle/0220_extension_operation_receipts_index.sql",
     "drizzle/0221_project_members_user_role_idx.sql",
     "drizzle/0222_email_verified_claim.sql",
-    "drizzle/0223_revoke_connection_acceptance_trigger_exec.sql"
+    "drizzle/0223_revoke_connection_acceptance_trigger_exec.sql",
+    "drizzle/0224_presence_activity_authority.sql"
   ],
   "legacyDatabaseTags": [
     "0073_notification_snooze",

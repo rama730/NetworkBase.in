@@ -1548,6 +1548,13 @@
       "when": 1792342025016,
       "tag": "0223_revoke_connection_acceptance_trigger_exec",
       "breakpoints": true
+    },
+    {
+      "idx": 221,
+      "version": "7",
+      "when": 1792342026016,
+      "tag": "0224_presence_activity_authority",
+      "breakpoints": true
     }
   ]
 }
