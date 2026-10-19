@@ -13,6 +13,7 @@ import {
 } from "@/lib/github/account-health";
 import { buildGithubAccountConnectionState } from "@/lib/github/connection-state";
 import { clearGithubImportAccessCookie } from "@/lib/github/import-access-cookie";
+import { loadGithubLinkedUser } from "@/lib/github/linked-user";
 import { logger } from "@/lib/logger";
 import { recordSecurityEvent } from "@/lib/security/audit";
 import { resolveSecurityStepUp } from "@/lib/security/step-up";
@@ -34,8 +35,10 @@ export async function POST(request: Request) {
 
   const auth = await requireAuthenticatedUser();
   if (auth.response) return auth.response;
-  const user = auth.user;
-  if (!user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  if (!auth.user) return jsonError("Not authenticated", 401, "UNAUTHORIZED");
+  // AUTH-007: the request user is a JWT snapshot with no identities; read the linked ones from Auth.
+  const user = await loadGithubLinkedUser(auth.user).catch(() => null);
+  if (!user) return jsonError("Could not check your linked sign-in methods. Please retry.", 503, "UNAVAILABLE");
   if (auth.extensionSessionId) {
     return jsonError(
       "Replace GitHub from a signed-in browser session",

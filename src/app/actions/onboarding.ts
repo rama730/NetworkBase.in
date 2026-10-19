@@ -35,6 +35,7 @@ import {
     ONBOARDING_LOCAL_DRAFT_TTL_MS,
     ONBOARDING_SCHEMA_VERSION,
     clampCompletedThrough,
+    isCompletedOnboardingStatus,
     normalizeOnboardingSection,
 } from '@/lib/onboarding/state'
 import type { OnboardingStep2SectionId } from '@/lib/onboarding/config'
@@ -707,7 +708,7 @@ export async function repairOnboardingClaims(): Promise<{ success: boolean; erro
 
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('username, full_name, avatar_url')
+            .select('username, full_name, avatar_url, onboarding_status')
             .eq('id', user.id)
             .maybeSingle()
 
@@ -715,8 +716,13 @@ export async function repairOnboardingClaims(): Promise<{ success: boolean; erro
             console.error('Error fetching profile for claim repair:', profileError)
             return { success: false, error: 'Unable to read profile for metadata sync' }
         }
-        if (!profile?.username) {
-            return { success: false, error: 'Profile username not found' }
+        // AUTH-010: a username can be set before onboarding finishes, so only the recorded
+        // completion state and a confirmed email may mint the server-owned completion claim.
+        if (!profile?.username || !isCompletedOnboardingStatus(profile.onboarding_status, profile.username)) {
+            return { success: false, error: 'Onboarding is not complete' }
+        }
+        if (!isEmailVerified(user as unknown as Record<string, unknown>)) {
+            return { success: false, error: 'Email is not verified' }
         }
 
         const synced = await syncOnboardingClaims({
@@ -726,7 +732,7 @@ export async function repairOnboardingClaims(): Promise<{ success: boolean; erro
             username: profile.username,
             fullName: profile.full_name || user.user_metadata?.full_name || user.email || 'User',
             avatarUrl: profile.avatar_url || undefined,
-            emailVerified: isEmailVerified(user as unknown as Record<string, unknown>),
+            emailVerified: true,
         })
 
         return synced
